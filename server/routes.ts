@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertStudentSchema, signupSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
@@ -64,6 +65,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for image uploads
+  registerObjectStorageRoutes(app);
   
   // Health check
   app.get("/api/health", (req, res) => {
