@@ -5,21 +5,26 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Check, ArrowLeft } from "lucide-react";
 import { useLocation, Link } from "wouter";
+import { generateAgreement } from "@/lib/api";
 
 export default function Agreement() {
   const sigPad = useRef<any>(null);
   const [signed, setSigned] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [studentData, setStudentData] = useState<any>(null);
   const [roomData, setRoomData] = useState<any>(null);
+  const [bookingData, setBookingData] = useState<any>(null);
 
   useEffect(() => {
-    // Load data from mock storage
     const sData = localStorage.getItem("hsquare_student");
     const rData = localStorage.getItem("selected_room");
+    const bData = localStorage.getItem("hsquare_booking");
+    
     if (sData) setStudentData(JSON.parse(sData));
     if (rData) setRoomData(JSON.parse(rData));
+    if (bData) setBookingData(JSON.parse(bData));
   }, []);
 
   const clearSig = () => {
@@ -27,23 +32,51 @@ export default function Agreement() {
     setSigned(false);
   };
 
-  const handleSign = () => {
+  const handleSign = async () => {
     if (sigPad.current?.isEmpty()) {
       toast({ title: "Error", description: "Please sign the document first", variant: "destructive" });
       return;
     }
-    setSigned(true);
-    toast({ title: "Agreement Signed", description: "A copy has been emailed to you." });
-    // In real app: Generate PDF with signature here
+
+    try {
+      setProcessing(true);
+
+      // Get signature data
+      const signatureData = sigPad.current?.toDataURL();
+
+      // Generate agreement
+      await generateAgreement(bookingData.id, signatureData);
+
+      setSigned(true);
+      toast({ 
+        title: "Agreement Signed", 
+        description: "Your agreement has been generated. A copy has been emailed to you." 
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate agreement",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  if (!studentData || !roomData) return <div className="p-8 text-center">Loading Agreement Data...</div>;
+  if (!studentData || !roomData || !bookingData) {
+    return (
+      <div className="p-8 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-4 text-muted-foreground">Loading Agreement Data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
       <div className="flex justify-between items-center mb-8 print:hidden">
         <h1 className="text-3xl font-heading font-bold text-primary">Lease Agreement</h1>
-        <Button variant="outline" onClick={() => window.print()}>
+        <Button variant="outline" onClick={() => window.print()} data-testid="button-download">
           <Download className="w-4 h-4 mr-2" /> Download PDF
         </Button>
       </div>
@@ -75,7 +108,7 @@ export default function Agreement() {
             <h3 className="font-bold uppercase text-xs text-muted-foreground mb-2">Property Details</h3>
             <p><span className="font-semibold">Property:</span> {roomData.propName}</p>
             <p><span className="font-semibold">Room Type:</span> {roomData.roomName}</p>
-            <p><span className="font-semibold">Total Fee:</span> ₹{roomData.price.toLocaleString()}</p>
+            <p><span className="font-semibold">Total Fee:</span> ₹{bookingData.totalFee.toLocaleString()}</p>
           </div>
 
           <div>
@@ -118,8 +151,18 @@ export default function Agreement() {
                 </div>
                 {!signed && (
                   <div className="flex gap-2 mt-2">
-                    <Button size="sm" onClick={handleSign} className="flex-1">Confirm Signature</Button>
-                    <Button size="sm" variant="ghost" onClick={clearSig}>Clear</Button>
+                    <Button 
+                      size="sm" 
+                      onClick={handleSign} 
+                      className="flex-1"
+                      disabled={processing}
+                      data-testid="button-sign"
+                    >
+                      {processing ? "Signing..." : "Confirm Signature"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={clearSig} data-testid="button-clear">
+                      Clear
+                    </Button>
                   </div>
                 )}
               </div>

@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createBooking } from "@/lib/api";
 
 interface SelectedRoom {
   propId: string;
@@ -19,6 +20,7 @@ interface SelectedRoom {
 export default function PaymentPlans() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>(PAYMENT_PLANS[0].id);
   const [roomData, setRoomData] = useState<SelectedRoom | null>(null);
+  const [processing, setProcessing] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -33,11 +35,50 @@ export default function PaymentPlans() {
 
   if (!roomData) return null;
 
-  const handleProceed = () => {
-    const plan = PAYMENT_PLANS.find(p => p.id === selectedPlanId);
-    localStorage.setItem("selected_plan", JSON.stringify(plan));
-    // Simulate navigation to Mock Gateway or Success
-    setLocation("/payment-gateway");
+  const handleProceed = async () => {
+    try {
+      setProcessing(true);
+
+      // Get student data
+      const studentData = localStorage.getItem("hsquare_student");
+      if (!studentData) {
+        toast({
+          title: "Error",
+          description: "Student registration not found. Please register first.",
+          variant: "destructive",
+        });
+        setLocation("/register");
+        return;
+      }
+
+      const student = JSON.parse(studentData);
+      const plan = PAYMENT_PLANS.find(p => p.id === selectedPlanId);
+
+      // Create booking
+      const result = await createBooking({
+        studentId: student.id,
+        propertyId: roomData.propId,
+        roomTypeId: roomData.roomId,
+        baseFee: roomData.price,
+        paymentPlanId: selectedPlanId,
+        discount: plan?.discount || 0,
+      });
+
+      // Store booking info
+      localStorage.setItem("hsquare_booking", JSON.stringify(result.booking));
+      localStorage.setItem("hsquare_installments", JSON.stringify(result.installments));
+
+      // Navigate to payment gateway
+      setLocation("/payment-gateway");
+    } catch (error: any) {
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to create booking. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const calculateInstallments = (plan: typeof PAYMENT_PLANS[0]) => {
@@ -47,10 +88,7 @@ export default function PaymentPlans() {
     return plan.installments.map(inst => {
       let amount = inst.fixed;
       if (inst.percentage > 0) {
-        amount = (total - 100000) * (inst.percentage / 100); // Assuming 1L is always booking amount deducted from percentage calc base? 
-        // Logic from prompt: 
-        // Option 2: 1L booking, 50% of remaining at move-in. 
-        // So remaining = Total - 1L.
+        amount = (total - 100000) * (inst.percentage / 100);
       }
       return { ...inst, amount: Math.round(amount) };
     });
@@ -84,7 +122,6 @@ export default function PaymentPlans() {
                   <p className="text-sm text-muted-foreground">Base Fee</p>
                   <p className="font-medium">₹{roomData.price.toLocaleString()}</p>
                 </div>
-                {/* Dynamic Plan Preview */}
                 <div className="flex justify-between items-center text-lg font-bold text-primary mt-4 pt-4 border-t border-primary/10">
                   <p>Total Payable</p>
                   <p>
@@ -101,8 +138,13 @@ export default function PaymentPlans() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={handleProceed}>
-                Proceed to Pay ₹1,00,000
+              <Button 
+                className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
+                onClick={handleProceed}
+                disabled={processing}
+                data-testid="button-proceed-payment"
+              >
+                {processing ? "Creating Booking..." : "Proceed to Pay ₹1,00,000"}
               </Button>
             </CardFooter>
           </Card>
@@ -121,6 +163,7 @@ export default function PaymentPlans() {
                   <Label 
                     htmlFor={plan.id}
                     className={`flex flex-col p-6 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${isSelected ? "border-primary bg-primary/5 shadow-lg" : "border-muted bg-card hover:border-primary/50"}`}
+                    data-testid={`plan-card-${plan.id}`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
