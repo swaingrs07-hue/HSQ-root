@@ -1,0 +1,93 @@
+Please implement a User Assignment & Sales Executive Panel with the following complete requirements:
+
+1. USER ROLES & PERMISSIONS
+- Roles:
+  - Admin (full access)
+  - Sales Executive (restricted access)
+- Sales Executive permissions:
+  - View only assigned leads
+  - Cannot edit property settings, pricing, amenities, or users
+  - Can create, update, and close leads
+
+2. ADMIN – USER ASSIGNMENT PANEL
+- Create an “Assign User” panel in Admin dashboard.
+- Admin can:
+  - Create Sales Executive users
+  - Assign one or multiple properties to each Sales Executive
+  - Assign leads manually or via auto-assignment rules
+- Show assignment table:
+  - Sales Executive Name
+  - Assigned Properties
+  - Active Leads Count
+  - Conversion %
+- Allow reassign leads between executives.
+
+3. SALES EXECUTIVE DASHBOARD
+- Dedicated dashboard with tabs:
+  - My Leads
+  - Add Lead
+  - Follow-ups
+  - Closed Deals
+- Show KPIs:
+  - Total Leads
+  - Hot / Warm / Cold count
+  - Deals Closed
+  - Revenue generated
+
+4. ADD / GENERATE LEADS (ON-SPOT ENTRY)
+- Sales Executive can add leads manually with:
+  - Client Name
+  - Phone Number
+  - Email (optional)
+  - Property Interested In
+  - Budget Range
+  - Source (Walk-in / Call / WhatsApp / Website)
+  - Notes
+- Auto-tag lead as “Manual / On-Spot Entry”.
+
+5. LEAD STATUS & SCORING
+- Allow Sales Executive to mark lead status:
+  - Cold ❄️
+  - Warm 🟡
+  - Hot 🔥
+  - Visit Scheduled
+  - Negotiation
+  - Deal Closed ✅
+  - Lost ❌
+- Add reason dropdown when marking “Lost”.
+- Auto update lead score based on status change.
+
+6. REMARKS & ACTIVITY LOG
+- Add remarks/comments section per lead.
+- Every action should be logged:
+  - Status change
+  - Remark added
+  - Deal closed
+- Show full activity timeline per lead (immutable).
+
+7. DEAL CLOSURE FLOW
+- When marking “Deal Closed”:
+  - Capture final price
+  - Move-in date
+  - Room/Bed selected
+  - Payment mode
+- Lock lead from further editing after closure.
+- Notify Admin on deal closure.
+
+8. FOLLOW-UP SYSTEM
+- Sales Executive can set follow-up date & time.
+- Show reminders in dashboard.
+- Highlight overdue follow-ups.
+
+9. DATA & SECURITY
+- Leads are strictly scoped to assigned Sales Executive.
+- Admin can see all leads and override status.
+- Full audit trail for compliance.
+
+10. UI / UX
+- Mobile-first design for Sales Executives.
+- Fast lead entry (under 30 seconds).
+- Status change via one-click buttons.
+- Color-coded lead cards (Cold/Warm/Hot).
+
+Please implement clean architecture, scalable DB schema, and production-ready UI.

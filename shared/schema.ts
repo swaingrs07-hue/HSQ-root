@@ -4,7 +4,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "manager", "staff"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "manager", "staff", "sales_executive"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["pending_payment", "active", "completed", "cancelled"]);
 export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared", "Standard", "Deluxe", "Suite", "Double", "Triple", "Dorm", "Custom"]);
@@ -249,7 +249,34 @@ export const leadStatusEnum = pgEnum("lead_status", [
   "site_visit",
   "negotiation",
   "converted",
-  "lost"
+  "lost",
+  "cold",
+  "warm",
+  "hot",
+  "visit_scheduled",
+  "deal_closed"
+]);
+
+// Lead source enum for manual entry
+export const leadEntrySourceEnum = pgEnum("lead_entry_source", [
+  "walk_in",
+  "call",
+  "whatsapp",
+  "website",
+  "referral",
+  "social_media",
+  "other"
+]);
+
+// Lost reason enum
+export const lostReasonEnum = pgEnum("lost_reason", [
+  "price_too_high",
+  "found_alternative",
+  "location_not_suitable",
+  "timing_not_right",
+  "no_response",
+  "budget_constraints",
+  "other"
 ]);
 
 // Lead priority enum for auto-scoring classification
@@ -273,8 +300,34 @@ export const leads = pgTable("leads", {
   
   // Source and status tracking
   source: leadSourceEnum("source").default("website").notNull(),
+  entrySource: leadEntrySourceEnum("entry_source"), // for manual leads
   status: leadStatusEnum("status").default("new").notNull(),
   notes: text("notes"),
+  
+  // Sales Executive assignment
+  assignedToId: varchar("assigned_to_id").references(() => users.id),
+  assignedAt: timestamp("assigned_at"),
+  isManualEntry: boolean("is_manual_entry").default(false).notNull(),
+  
+  // Budget tracking
+  budgetMin: integer("budget_min"),
+  budgetMax: integer("budget_max"),
+  
+  // Lost lead tracking
+  lostReason: lostReasonEnum("lost_reason"),
+  lostNotes: text("lost_notes"),
+  
+  // Deal closure fields
+  dealClosedAt: timestamp("deal_closed_at"),
+  finalPrice: integer("final_price"),
+  moveInDate: text("move_in_date"),
+  selectedRoomTypeId: varchar("selected_room_type_id").references(() => roomTypes.id),
+  paymentMode: text("payment_mode"), // UPI, Card, Cash, Bank Transfer
+  isLocked: boolean("is_locked").default(false).notNull(), // Lock after deal closure
+  
+  // Follow-up tracking
+  followUpAt: timestamp("follow_up_at"),
+  followUpNotes: text("follow_up_notes"),
   
   // Login tracking
   firstLoginAt: timestamp("first_login_at").defaultNow().notNull(),
@@ -305,12 +358,94 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Sales Executive Property Assignments
+export const salesExecProperties = pgTable("sales_exec_properties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+});
+
+// Lead Activities (immutable activity log)
+export const leadActivities = pgTable("lead_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  actorId: varchar("actor_id").references(() => users.id).notNull(),
+  actionType: text("action_type").notNull(), // status_change, remark_added, deal_closed, follow_up_set, lead_assigned, lead_created
+  previousValue: text("previous_value"), // JSON string
+  newValue: text("new_value"), // JSON string
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Lead Remarks (comments on leads)
+export const leadRemarks = pgTable("lead_remarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  remark: text("remark").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   student: one(students, {
     fields: [users.id],
     references: [students.userId],
   }),
+  assignedProperties: many(salesExecProperties),
+  assignedLeads: many(leads),
+}));
+
+export const salesExecPropertiesRelations = relations(salesExecProperties, ({ one }) => ({
+  user: one(users, {
+    fields: [salesExecProperties.userId],
+    references: [users.id],
+  }),
+  property: one(properties, {
+    fields: [salesExecProperties.propertyId],
+    references: [properties.id],
+  }),
+}));
+
+export const leadActivitiesRelations = relations(leadActivities, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadActivities.leadId],
+    references: [leads.id],
+  }),
+  actor: one(users, {
+    fields: [leadActivities.actorId],
+    references: [users.id],
+  }),
+}));
+
+export const leadRemarksRelations = relations(leadRemarks, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadRemarks.leadId],
+    references: [leads.id],
+  }),
+  user: one(users, {
+    fields: [leadRemarks.userId],
+    references: [users.id],
+  }),
+}));
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+  property: one(properties, {
+    fields: [leads.propertyId],
+    references: [properties.id],
+  }),
+  assignedTo: one(users, {
+    fields: [leads.assignedToId],
+    references: [users.id],
+  }),
+  selectedRoomType: one(roomTypes, {
+    fields: [leads.selectedRoomTypeId],
+    references: [roomTypes.id],
+  }),
+  activities: many(leadActivities),
+  remarks: many(leadRemarks),
 }));
 
 export const studentsRelations = relations(students, ({ one, many }) => ({
@@ -404,6 +539,31 @@ export const insertNearbyLocationSchema = createInsertSchema(nearbyLocations).om
 export const insertPropertyTariffSchema = createInsertSchema(propertyTariffs).omit({ id: true, createdAt: true });
 export const insertPropertyImageSchema = createInsertSchema(propertyImages).omit({ id: true, createdAt: true });
 
+// Sales Executive schemas
+export const insertSalesExecPropertySchema = createInsertSchema(salesExecProperties).omit({ id: true, assignedAt: true });
+export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({ id: true, createdAt: true });
+export const insertLeadRemarkSchema = createInsertSchema(leadRemarks).omit({ id: true, createdAt: true });
+
+// Manual lead entry schema
+export const manualLeadSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  email: z.string().email().optional().or(z.literal("")),
+  propertyId: z.string().min(1, "Property is required"),
+  budgetMin: z.number().optional(),
+  budgetMax: z.number().optional(),
+  entrySource: z.enum(["walk_in", "call", "whatsapp", "website", "referral", "social_media", "other"]),
+  notes: z.string().optional(),
+});
+
+// Deal closure schema
+export const dealClosureSchema = z.object({
+  finalPrice: z.number().min(1, "Final price is required"),
+  moveInDate: z.string().min(1, "Move-in date is required"),
+  selectedRoomTypeId: z.string().min(1, "Room selection is required"),
+  paymentMode: z.enum(["upi", "card", "cash", "bank_transfer", "cheque"]),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -446,3 +606,15 @@ export type InsertPropertyTariff = z.infer<typeof insertPropertyTariffSchema>;
 
 export type PropertyImage = typeof propertyImages.$inferSelect;
 export type InsertPropertyImage = z.infer<typeof insertPropertyImageSchema>;
+
+export type SalesExecProperty = typeof salesExecProperties.$inferSelect;
+export type InsertSalesExecProperty = z.infer<typeof insertSalesExecPropertySchema>;
+
+export type LeadActivity = typeof leadActivities.$inferSelect;
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+
+export type LeadRemark = typeof leadRemarks.$inferSelect;
+export type InsertLeadRemark = z.infer<typeof insertLeadRemarkSchema>;
+
+export type ManualLead = z.infer<typeof manualLeadSchema>;
+export type DealClosure = z.infer<typeof dealClosureSchema>;
