@@ -152,6 +152,31 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Leads table (visitor/prospect tracking)
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  phoneVerified: boolean("phone_verified").default(false).notNull(),
+  
+  // Login tracking
+  firstLoginAt: timestamp("first_login_at").defaultNow().notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+  loginCount: integer("login_count").default(1).notNull(),
+  
+  // Device/IP info
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceType: text("device_type"), // mobile, desktop, tablet
+  
+  // Conversion tracking
+  convertedToStudent: boolean("converted_to_student").default(false).notNull(),
+  studentId: varchar("student_id").references(() => students.id),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   student: one(students, {
@@ -225,6 +250,7 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true,
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true, paid: true, paidAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, firstLoginAt: true, lastActivityAt: true, loginCount: true, phoneVerified: true, convertedToStudent: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -250,3 +276,6 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;

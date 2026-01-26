@@ -7,6 +7,7 @@ import {
   installments,
   payments,
   auditLogs,
+  leads,
   type User,
   type InsertUser,
   type Student,
@@ -23,6 +24,8 @@ import {
   type InsertPayment,
   type AuditLog,
   type InsertAuditLog,
+  type Lead,
+  type InsertLead,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -74,6 +77,15 @@ export interface IStorage {
   // Audit Logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  
+  // Leads
+  getLead(id: string): Promise<Lead | undefined>;
+  getLeadByPhone(phone: string): Promise<Lead | undefined>;
+  getLeadByEmail(email: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined>;
+  getAllLeads(): Promise<Lead[]>;
+  updateLeadActivity(id: string): Promise<Lead | undefined>;
   
   // Analytics
   getStats(): Promise<{
@@ -272,6 +284,52 @@ export class DatabaseStorage implements IStorage {
       .from(auditLogs)
       .orderBy(desc(auditLogs.createdAt))
       .limit(limit);
+  }
+
+  // Leads
+  async getLead(id: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+    return lead || undefined;
+  }
+
+  async getLeadByPhone(phone: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.phone, phone));
+    return lead || undefined;
+  }
+
+  async getLeadByEmail(email: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.email, email));
+    return lead || undefined;
+  }
+
+  async createLead(insertLead: InsertLead): Promise<Lead> {
+    const [lead] = await db.insert(leads).values(insertLead).returning();
+    return lead;
+  }
+
+  async updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined> {
+    const [lead] = await db
+      .update(leads)
+      .set(data)
+      .where(eq(leads.id, id))
+      .returning();
+    return lead || undefined;
+  }
+
+  async getAllLeads(): Promise<Lead[]> {
+    return await db.select().from(leads).orderBy(desc(leads.lastActivityAt));
+  }
+
+  async updateLeadActivity(id: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .update(leads)
+      .set({ 
+        lastActivityAt: new Date(),
+        loginCount: sql`${leads.loginCount} + 1`
+      })
+      .where(eq(leads.id, id))
+      .returning();
+    return lead || undefined;
   }
 
   // Analytics
