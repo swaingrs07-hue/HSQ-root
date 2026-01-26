@@ -1,0 +1,88 @@
+Please integrate PROPERTY DATA from the provided Google Sheet into the Hsquareliving app and redesign the PROPERTY PANEL UI with a premium, scalable layout.
+
+GOOGLE SHEET INTEGRATION
+- Connect to the provided Google Sheet (read-only).
+- Fetch property data dynamically (name, location, images, room types, pricing, amenities, availability, status).
+- Create a data sync layer so updates in the sheet reflect in the app.
+- Normalize data before saving to database (avoid duplicates).
+
+DATABASE MAPPING
+- Properties Table:
+  - propertyId
+  - propertyName
+  - city
+  - area
+  - address
+  - images[]
+  - amenities[]
+  - description
+  - status (Active / Inactive)
+- Rooms / Beds Table:
+  - propertyId
+  - roomType (Single / Double / Triple / Dorm)
+  - occupancy
+  - price
+  - availability
+- Allow future extension without schema changes.
+
+PROPERTY PANEL UI (BEST DESIGN)
+- Create a modern card-based layout:
+  - Large property image
+  - Property name (bold)
+  - Location pill with icon
+  - Amenities as rounded chips (WiFi, AC, Meals, Gym, Laundry, etc.)
+  - Starting price badge
+  - Availability indicator (Green = Available, Red = Full)
+- Add hover animation & soft shadow (premium feel).
+
+FILTER & SEARCH (VERY IMPORTANT)
+- Search by property name or location.
+- Filters:
+  - City
+  - Price range
+  - Room type
+  - Amenities
+  - Availability
+- Sort by:
+  - Price (Low → High)
+  - Newest
+  - Popular
+
+PROPERTY DETAIL PAGE
+- On card click:
+  - Image gallery slider
+  - Full amenities list
+  - Room & bed selection table
+  - Pricing breakdown
+  - CTA buttons:
+    - “View Rooms”
+    - “Book Now”
+    - “Request Callback”
+
+ROLE BEHAVIOR
+- Admin:
+  - Edit property
+  - Sync data from sheet
+  - Enable / Disable property
+- User:
+  - View properties
+  - Book / enquire
+
+PERFORMANCE & UX
+- Lazy load images
+- Skeleton loaders while fetching data
+- Empty state if no property found
+- Mobile-first responsive design
+
+SECURITY
+- Protect admin routes
+- Prevent client-side price manipulation
+
+TESTING
+- Validate Google Sheet sync
+- Property card rendering
+- Filter & search accuracy
+- Admin edit flow
+- Mobile responsiveness
+
+Confirm once Google Sheet data is fully visible and functional inside the Property Panel with the new UI.

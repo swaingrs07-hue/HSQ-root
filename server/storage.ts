@@ -46,13 +46,16 @@ export interface IStorage {
   // Properties
   getProperty(id: string): Promise<Property | undefined>;
   getAllProperties(): Promise<Property[]>;
+  getAllPropertiesIncludingInactive(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: string, data: Partial<Property>): Promise<Property | undefined>;
   
   // Room Types
   getRoomType(id: string): Promise<RoomType | undefined>;
   getRoomTypesByProperty(propertyId: string): Promise<RoomType[]>;
   createRoomType(roomType: InsertRoomType): Promise<RoomType>;
   updateRoomTypeAvailability(id: string, change: number): Promise<RoomType | undefined>;
+  updateRoomType(id: string, data: Partial<RoomType>): Promise<RoomType | undefined>;
   
   // Bookings
   getBooking(id: string): Promise<Booking | undefined>;
@@ -164,9 +167,22 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(properties).where(eq(properties.active, true));
   }
 
+  async getAllPropertiesIncludingInactive(): Promise<Property[]> {
+    return await db.select().from(properties);
+  }
+
   async createProperty(insertProperty: InsertProperty): Promise<Property> {
     const [property] = await db.insert(properties).values(insertProperty).returning();
     return property;
+  }
+
+  async updateProperty(id: string, data: Partial<Property>): Promise<Property | undefined> {
+    const [property] = await db
+      .update(properties)
+      .set(data)
+      .where(eq(properties.id, id))
+      .returning();
+    return property || undefined;
   }
 
   // Room Types
@@ -191,6 +207,15 @@ export class DatabaseStorage implements IStorage {
     const [roomType] = await db
       .update(roomTypes)
       .set({ availableBeds: sql`${roomTypes.availableBeds} + ${change}` })
+      .where(eq(roomTypes.id, id))
+      .returning();
+    return roomType || undefined;
+  }
+
+  async updateRoomType(id: string, data: Partial<RoomType>): Promise<RoomType | undefined> {
+    const [roomType] = await db
+      .update(roomTypes)
+      .set(data)
       .where(eq(roomTypes.id, id))
       .returning();
     return roomType || undefined;

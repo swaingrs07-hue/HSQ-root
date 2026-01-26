@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3 } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
@@ -34,6 +34,8 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("overview");
+  const [properties, setProperties] = useState<any[]>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -43,7 +45,55 @@ export default function AdminDashboard() {
     if (activeTab === "leads") {
       loadLeads();
     }
+    if (activeTab === "properties") {
+      loadProperties();
+    }
   }, [activeTab]);
+
+  const loadProperties = async () => {
+    try {
+      setPropertiesLoading(true);
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch("/api/admin/properties", {
+        headers: { 
+          "Authorization": `Bearer ${token}`
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch properties");
+      const data = await response.json();
+      setProperties(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load properties",
+        variant: "destructive",
+      });
+    } finally {
+      setPropertiesLoading(false);
+    }
+  };
+
+  const togglePropertyStatus = async (propertyId: string) => {
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch(`/api/admin/properties/${propertyId}/toggle-status`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+      });
+      if (!response.ok) throw new Error("Failed to toggle status");
+      toast({ title: "Success", description: "Property status updated" });
+      loadProperties();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update property status",
+        variant: "destructive",
+      });
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -150,6 +200,14 @@ export default function AdminDashboard() {
           </Button>
           <Button 
             variant="ghost" 
+            className={`w-full justify-start font-medium ${activeTab === "properties" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            onClick={() => setActiveTab("properties")}
+            data-testid="nav-properties"
+          >
+            <Building2 className="mr-2 h-4 w-4" /> Properties
+          </Button>
+          <Button 
+            variant="ghost" 
             className={`w-full justify-start font-medium ${activeTab === "leads" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
             onClick={() => setActiveTab("leads")}
           >
@@ -172,7 +230,7 @@ export default function AdminDashboard() {
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-heading font-bold">
-            {activeTab === "overview" ? "Dashboard Overview" : "Leads Management"}
+            {activeTab === "overview" ? "Dashboard Overview" : activeTab === "properties" ? "Property Management" : "Leads Management"}
           </h1>
           {activeTab === "overview" && (
             <div className="flex gap-2">
@@ -441,6 +499,121 @@ export default function AdminDashboard() {
                             ))}
                           </TableBody>
                         </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeTab === "properties" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5" />
+                        All Properties ({properties.length})
+                      </CardTitle>
+                      <Button variant="outline" onClick={loadProperties} data-testid="button-refresh-properties">
+                        Refresh
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {propertiesLoading ? (
+                      <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : properties.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        No properties found.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {properties.map((property) => (
+                          <div 
+                            key={property.id} 
+                            className="border rounded-xl p-6 hover:shadow-md transition-shadow"
+                            data-testid={`property-admin-card-${property.id}`}
+                          >
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-xl font-bold">{property.name}</h3>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    property.active 
+                                      ? "bg-green-100 text-green-700" 
+                                      : "bg-red-100 text-red-700"
+                                  }`}>
+                                    {property.active ? "Active" : "Inactive"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground mb-3">
+                                  <MapPin className="h-4 w-4" />
+                                  <span>{property.location}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                  {property.amenities?.slice(0, 5).map((am: string) => (
+                                    <span key={am} className="px-2 py-1 bg-muted rounded-full text-xs">
+                                      {am}
+                                    </span>
+                                  ))}
+                                  {property.amenities?.length > 5 && (
+                                    <span className="px-2 py-1 bg-muted rounded-full text-xs">
+                                      +{property.amenities.length - 5} more
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-4 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Bed className="h-4 w-4 text-muted-foreground" />
+                                    <span>{property.roomTypes?.length || 0} room types</span>
+                                  </div>
+                                  {property.phone && (
+                                    <div className="flex items-center gap-2">
+                                      <Phone className="h-4 w-4 text-muted-foreground" />
+                                      <span>{property.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <Button 
+                                  variant={property.active ? "destructive" : "default"}
+                                  size="sm"
+                                  onClick={() => togglePropertyStatus(property.id)}
+                                  className="gap-2"
+                                  data-testid={`button-toggle-property-${property.id}`}
+                                >
+                                  <Power className="h-4 w-4" />
+                                  {property.active ? "Disable" : "Enable"}
+                                </Button>
+                              </div>
+                            </div>
+                            {property.roomTypes && property.roomTypes.length > 0 && (
+                              <div className="mt-4 pt-4 border-t">
+                                <h4 className="font-medium mb-3">Room Types</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  {property.roomTypes.map((room: any) => (
+                                    <div key={room.id} className="bg-muted/50 rounded-lg p-3">
+                                      <div className="flex justify-between items-start mb-1">
+                                        <span className="font-medium">{room.name}</span>
+                                        <span className="text-primary font-bold">₹{room.basePrice.toLocaleString()}</span>
+                                      </div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {room.availableBeds}/{room.totalBeds} beds available
+                                      </div>
+                                      {room.size && (
+                                        <div className="text-xs text-muted-foreground mt-1">{room.size}</div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </CardContent>

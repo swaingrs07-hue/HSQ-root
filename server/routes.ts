@@ -461,6 +461,98 @@ export async function registerRoutes(
     }
   });
 
+  // Get all properties for admin (including inactive)
+  app.get("/api/admin/properties", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const allProperties = await storage.getAllPropertiesIncludingInactive();
+      const propertiesWithRooms = await Promise.all(
+        allProperties.map(async (property) => {
+          const roomTypes = await storage.getRoomTypesByProperty(property.id);
+          return { ...property, roomTypes };
+        })
+      );
+      res.json(propertiesWithRooms);
+    } catch (error) {
+      console.error("Error fetching all admin properties:", error);
+      res.status(500).json({ error: "Failed to fetch properties" });
+    }
+  });
+
+  // Update property (Admin only)
+  app.patch("/api/admin/properties/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const updates = req.body;
+      
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const updatedProperty = await storage.updateProperty(id, updates);
+      
+      // Log the action
+      await storage.createAuditLog({
+        adminId: (req as AuthRequest).user!.userId,
+        action: "UPDATE_PROPERTY",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, changes: updates }),
+      });
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error updating property:", error);
+      res.status(500).json({ error: "Failed to update property" });
+    }
+  });
+
+  // Toggle property active status (Admin only)
+  app.post("/api/admin/properties/:id/toggle-status", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const updatedProperty = await storage.updateProperty(id, { active: !property.active });
+      
+      // Log the action
+      await storage.createAuditLog({
+        adminId: (req as AuthRequest).user!.userId,
+        action: property.active ? "DISABLE_PROPERTY" : "ENABLE_PROPERTY",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, newStatus: !property.active }),
+      });
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error toggling property status:", error);
+      res.status(500).json({ error: "Failed to toggle property status" });
+    }
+  });
+
+  // Update room type (Admin only)
+  app.patch("/api/admin/room-types/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const updates = req.body;
+      
+      const updatedRoomType = await storage.updateRoomType(id, updates);
+      if (!updatedRoomType) {
+        return res.status(404).json({ error: "Room type not found" });
+      }
+
+      res.json(updatedRoomType);
+    } catch (error) {
+      console.error("Error updating room type:", error);
+      res.status(500).json({ error: "Failed to update room type" });
+    }
+  });
+
   // ============ STUDENTS ============
   
   // Register student
