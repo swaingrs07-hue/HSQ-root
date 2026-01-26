@@ -5,6 +5,30 @@ import { insertStudentSchema, signupSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 
+// Server-side OTP storage for signup flow (in production, use Redis or database with TTL)
+interface SignupOtpEntry {
+  otp: string;
+  phone: string;
+  expiresAt: number;
+  verified: boolean;
+}
+const signupOtpStore = new Map<string, SignupOtpEntry>();
+
+function generateOtp(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+function cleanupExpiredSignupOtps() {
+  const now = Date.now();
+  const keysToDelete: string[] = [];
+  signupOtpStore.forEach((entry, key) => {
+    if (entry.expiresAt < now) {
+      keysToDelete.push(key);
+    }
+  });
+  keysToDelete.forEach(key => signupOtpStore.delete(key));
+}
+
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
   {
@@ -72,6 +96,83 @@ export async function registerRoutes(
 
   // ============ AUTH ============
   
+  // Send OTP for phone verification (signup flow)
+  app.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { phone } = req.body;
+      
+      if (!phone || phone.length < 10 || !/^[0-9]+$/.test(phone)) {
+        return res.status(400).json({ error: "Invalid phone number" });
+      }
+
+      cleanupExpiredSignupOtps();
+      
+      const otp = generateOtp();
+      const sessionId = `otp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      signupOtpStore.set(sessionId, {
+        otp,
+        phone,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+        verified: false,
+      });
+
+      // In production, send OTP via SMS (Twilio, MSG91, etc.)
+      // For demo, we'll log it and return it in response
+      console.log(`OTP for ${phone}: ${otp}`);
+
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "OTP sent successfully",
+        // Only include OTP in development for testing
+        ...(process.env.NODE_ENV !== "production" && { otp })
+      });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  // Verify OTP (signup flow)
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { sessionId, otp } = req.body;
+      
+      if (!sessionId || !otp) {
+        return res.status(400).json({ error: "Session ID and OTP are required" });
+      }
+
+      const entry = signupOtpStore.get(sessionId);
+      
+      if (!entry) {
+        return res.status(400).json({ error: "Invalid or expired session" });
+      }
+
+      if (entry.expiresAt < Date.now()) {
+        signupOtpStore.delete(sessionId);
+        return res.status(400).json({ error: "OTP has expired" });
+      }
+
+      if (entry.otp !== otp) {
+        return res.status(400).json({ error: "Invalid OTP" });
+      }
+
+      // Mark as verified
+      entry.verified = true;
+      signupOtpStore.set(sessionId, entry);
+
+      res.json({ 
+        success: true, 
+        phone: entry.phone,
+        message: "Phone verified successfully" 
+      });
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ error: "Failed to verify OTP" });
+    }
+  });
+
   // Sign up - Create new user account
   app.post("/api/auth/signup", async (req, res) => {
     try {
@@ -82,7 +183,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: errors[0], details: errors });
       }
 
-      const { name, email, password } = validationResult.data;
+      const { name, email, phone, password } = validationResult.data;
+      const { otpSessionId } = req.body;
+
+      // Verify phone via OTP session (server-side verification)
+      let phoneVerified = false;
+      if (otpSessionId) {
+        const otpEntry = signupOtpStore.get(otpSessionId);
+        if (otpEntry && otpEntry.verified && otpEntry.phone === phone && otpEntry.expiresAt > Date.now()) {
+          phoneVerified = true;
+          signupOtpStore.delete(otpSessionId); // Clean up used session
+        }
+      }
 
       // Check if email already exists (case-insensitive)
       const existingUser = await storage.getUserByEmail(email.toLowerCase());
@@ -97,6 +209,8 @@ export async function registerRoutes(
       const user = await storage.createUser({
         name,
         email: email.toLowerCase(),
+        phone,
+        phoneVerified,
         password: hashedPassword,
         role: "user",
       });

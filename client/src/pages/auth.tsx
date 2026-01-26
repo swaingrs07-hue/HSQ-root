@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Phone, CheckCircle } from "lucide-react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,10 +16,17 @@ export default function AuthPage() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSessionId, setOtpSessionId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; otp?: string; password?: string }>({});
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
@@ -30,6 +37,15 @@ export default function AuthPage() {
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Please enter a valid email";
+    }
+
+    if (!isLogin) {
+      if (!phone || phone.length < 10 || !/^[0-9]+$/.test(phone)) {
+        newErrors.phone = "Please enter a valid 10-digit mobile number";
+      }
+      if (!phoneVerified) {
+        newErrors.otp = "Please verify your mobile number";
+      }
     }
 
     if (!password) {
@@ -51,6 +67,7 @@ export default function AuthPage() {
   const isFormValid = (): boolean => {
     if (!email || !password) return false;
     if (!isLogin && name.length < 3) return false;
+    if (!isLogin && (!phone || phone.length < 10 || !phoneVerified)) return false;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
     if (!isLogin) {
       if (password.length < 8) return false;
@@ -58,6 +75,70 @@ export default function AuthPage() {
       if (!/[0-9]/.test(password)) return false;
     }
     return true;
+  };
+
+  const sendOtp = async () => {
+    if (phone.length < 10 || !/^[0-9]+$/.test(phone)) {
+      setErrors({ ...errors, phone: "Please enter a valid 10-digit mobile number" });
+      return;
+    }
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setOtpSent(true);
+        setOtpSessionId(data.sessionId);
+        toast({ 
+          title: "OTP Sent", 
+          description: data.otp 
+            ? `A verification code has been sent to your mobile. (Demo: ${data.otp})` 
+            : "A verification code has been sent to your mobile."
+        });
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to send OTP. Please try again.", variant: "destructive" });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!otpSessionId || otp.length < 4) {
+      setErrors({ ...errors, otp: "Please enter the OTP" });
+      return;
+    }
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: otpSessionId, otp }),
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setPhoneVerified(true);
+        setErrors({ ...errors, otp: undefined });
+        toast({ 
+          title: "Verified", 
+          description: "Your mobile number has been verified successfully." 
+        });
+      } else {
+        setErrors({ ...errors, otp: data.error || "Invalid OTP. Please try again." });
+      }
+    } catch (error) {
+      setErrors({ ...errors, otp: "Failed to verify OTP. Please try again." });
+    } finally {
+      setVerifyingOtp(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +151,7 @@ export default function AuthPage() {
     try {
       const result = isLogin 
         ? await login(email, password)
-        : await signup(name, email, password);
+        : await signup(name, email, phone, otpSessionId, password);
 
       if (result.success) {
         toast({
@@ -101,6 +182,10 @@ export default function AuthPage() {
   const toggleMode = () => {
     setIsLogin(!isLogin);
     setErrors({});
+    setOtpSent(false);
+    setPhoneVerified(false);
+    setOtpSessionId("");
+    setOtp("");
   };
 
   return (
@@ -175,6 +260,88 @@ export default function AuthPage() {
                   <p className="text-xs text-destructive">{errors.email}</p>
                 )}
               </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Mobile Number</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="9876543210"
+                        className={`pl-10 ${errors.phone ? "border-destructive" : ""} ${phoneVerified ? "border-green-500 bg-green-50" : ""}`}
+                        value={phone}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setPhone(value);
+                          if (errors.phone) setErrors({ ...errors, phone: undefined });
+                          if (phoneVerified) {
+                            setPhoneVerified(false);
+                            setOtpSent(false);
+                            setOtp("");
+                          }
+                        }}
+                        disabled={phoneVerified}
+                        data-testid="input-phone"
+                      />
+                      {phoneVerified && (
+                        <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                      )}
+                    </div>
+                    {!phoneVerified && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={sendOtp}
+                        disabled={sendingOtp || phone.length < 10}
+                        className="whitespace-nowrap"
+                        data-testid="button-send-otp"
+                      >
+                        {sendingOtp ? "Sending..." : otpSent ? "Resend OTP" : "Send OTP"}
+                      </Button>
+                    )}
+                  </div>
+                  {errors.phone && (
+                    <p className="text-xs text-destructive">{errors.phone}</p>
+                  )}
+                  {phoneVerified && (
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Mobile verified
+                    </p>
+                  )}
+
+                  {otpSent && !phoneVerified && (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="otp"
+                        placeholder="Enter 4-digit OTP"
+                        className={`flex-1 ${errors.otp ? "border-destructive" : ""}`}
+                        value={otp}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                          setOtp(value);
+                          if (errors.otp) setErrors({ ...errors, otp: undefined });
+                        }}
+                        maxLength={4}
+                        data-testid="input-otp"
+                      />
+                      <Button
+                        type="button"
+                        onClick={verifyOtp}
+                        disabled={otp.length < 4 || verifyingOtp}
+                        data-testid="button-verify-otp"
+                      >
+                        {verifyingOtp ? "Verifying..." : "Verify"}
+                      </Button>
+                    </div>
+                  )}
+                  {errors.otp && !phoneVerified && (
+                    <p className="text-xs text-destructive">{errors.otp}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

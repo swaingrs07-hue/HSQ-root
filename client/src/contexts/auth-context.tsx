@@ -7,6 +7,8 @@ interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  phoneVerified?: boolean;
   role: UserRole;
   isActive: boolean;
 }
@@ -18,7 +20,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
-  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
+  signup: (name: string, email: string, phone: string, otpSessionId: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
   logout: () => void;
   getRedirectPath: () => string;
 }
@@ -126,12 +128,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signup(name: string, email: string, password: string): Promise<{ success: boolean; error?: string; redirectPath?: string }> {
+  async function signup(name: string, email: string, phone: string, otpSessionId: string, password: string): Promise<{ success: boolean; error?: string; redirectPath?: string }> {
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, phone, otpSessionId, password }),
       });
 
       const data = await response.json();

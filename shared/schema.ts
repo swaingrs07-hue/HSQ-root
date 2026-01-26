@@ -14,6 +14,8 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone"),
+  phoneVerified: boolean("phone_verified").default(false).notNull(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default("user"),
   isActive: boolean("is_active").default(true).notNull(),
@@ -288,6 +290,7 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true, creat
 export const signupSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   email: z.string().email("Invalid email format").transform(val => val.toLowerCase().trim()),
+  phone: z.string().min(10, "Phone number must be at least 10 digits").regex(/^[0-9]+$/, "Phone number must contain only digits"),
   password: z.string()
     .min(8, "Password must be at least 8 characters")
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
