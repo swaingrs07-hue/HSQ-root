@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStudentSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema } from "@shared/schema";
 import { z } from "zod";
+import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
@@ -71,36 +72,141 @@ export async function registerRoutes(
 
   // ============ AUTH ============
   
-  // Admin login
+  // Sign up - Create new user account
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const validationResult = signupSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors.map(e => e.message);
+        return res.status(400).json({ error: errors[0], details: errors });
+      }
+
+      const { name, email, password } = validationResult.data;
+
+      // Check if email already exists (case-insensitive)
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+
+      // Create user with default role "user"
+      const user = await storage.createUser({
+        name,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        role: "user",
+      });
+
+      // Generate JWT token
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role as any,
+      });
+
+      const redirectPath = getRoleRedirectPath(user.role as any);
+      const { password: _, ...userWithoutPassword } = user;
+
+      res.status(201).json({ 
+        user: userWithoutPassword, 
+        token,
+        redirectPath,
+      });
+    } catch (error) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ error: "Signup failed. Please try again." });
+    }
+  });
+
+  // Login - Authenticate existing user
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const validationResult = loginSchema.safeParse(req.body);
       
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password required" });
+      if (!validationResult.success) {
+        return res.status(400).json({ error: "Invalid email or password format" });
       }
 
-      const user = await storage.getUserByEmail(email);
+      const { email, password } = validationResult.data;
+
+      // Find user by email (case-insensitive)
+      const user = await storage.getUserByEmail(email.toLowerCase());
       
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "User not found" });
       }
 
-      // Simple password check (in production, use bcrypt)
-      if (user.password !== password) {
-        return res.status(401).json({ error: "Invalid credentials" });
+      // Check if account is active
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Account disabled. Please contact support." });
       }
 
-      if (user.role !== "admin") {
-        return res.status(403).json({ error: "Access denied. Admin only." });
+      // Compare password
+      const isPasswordValid = await comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Incorrect password" });
       }
 
-      // Return user without password
+      // Generate JWT token
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role as any,
+      });
+
+      const redirectPath = getRoleRedirectPath(user.role as any);
       const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+
+      res.json({ 
+        user: userWithoutPassword, 
+        token,
+        redirectPath,
+      });
     } catch (error) {
       console.error("Error during login:", error);
-      res.status(500).json({ error: "Login failed" });
+      res.status(500).json({ error: "Login failed. Please try again." });
+    }
+  });
+
+  // Verify token and get current user
+  app.get("/api/auth/me", async (req: AuthRequest, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+
+      if (!payload) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      const user = await storage.getUser(payload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Account disabled" });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ 
+        user: userWithoutPassword,
+        redirectPath: getRoleRedirectPath(user.role as any),
+      });
+    } catch (error) {
+      console.error("Error verifying token:", error);
+      res.status(500).json({ error: "Authentication check failed" });
     }
   });
 
@@ -334,11 +440,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Email already registered" });
       }
 
-      // Create user account
+      // Create user account (hash the password properly)
+      const hashedPwd = await hashPassword("temp123");
       const user = await storage.createUser({
+        name: studentData.fullName,
         email: req.body.email,
-        password: "temp123",
-        role: "student",
+        password: hashedPwd,
+        role: "user",
       });
 
       // Create student profile

@@ -4,18 +4,21 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["student", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "manager", "staff"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["pending_payment", "active", "completed", "cancelled"]);
 export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared"]);
 
-// Users table (for authentication - students and admins)
+// Users table (for authentication)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: userRoleEnum("role").notNull().default("student"),
+  role: userRoleEnum("role").notNull().default("user"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Students table (detailed student information)
@@ -242,7 +245,23 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 }));
 
 // Insert/Select Schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, isActive: true });
+
+// Signup validation schema with strict rules
+export const signupSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters"),
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase().trim()),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+});
+
+// Login validation schema
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase().trim()),
+  password: z.string().min(1, "Password is required"),
+});
 export const insertStudentSchema = createInsertSchema(students).omit({ id: true, createdAt: true, phoneVerified: true });
 export const insertPropertySchema = createInsertSchema(properties).omit({ id: true, createdAt: true, active: true });
 export const insertRoomTypeSchema = createInsertSchema(roomTypes).omit({ id: true, createdAt: true, active: true });
