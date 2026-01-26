@@ -15,7 +15,7 @@ function getJWTSecret(): string {
 const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN = "7d";
 
-export type UserRole = "user" | "admin" | "manager" | "staff";
+export type UserRole = "user" | "admin" | "manager" | "staff" | "sales_executive";
 
 export interface JWTPayload {
   userId: string;

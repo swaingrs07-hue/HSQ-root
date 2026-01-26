@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStudentSchema, signupSchema, loginSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -445,7 +445,7 @@ export async function registerRoutes(
   // Get lead by ID
   app.get("/api/leads/:id", async (req, res) => {
     try {
-      const lead = await storage.getLead(req.params.id);
+      const lead = await storage.getLead(req.params.id as string);
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
       }
@@ -466,7 +466,7 @@ export async function registerRoutes(
       if (notes !== undefined) updateData.notes = notes;
       if (source) updateData.source = source;
       
-      const lead = await storage.updateLead(req.params.id, updateData);
+      const lead = await storage.updateLead(req.params.id as string, updateData);
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
       }
@@ -1427,7 +1427,7 @@ export async function registerRoutes(
     try {
       const { signatureData } = req.body;
       
-      const booking = await storage.updateBooking(req.params.id, {
+      const booking = await storage.updateBooking(req.params.id as string, {
         agreementGenerated: true,
         agreementGeneratedAt: new Date(),
         signatureData: signatureData || null,
@@ -1519,13 +1519,13 @@ export async function registerRoutes(
       const { locked, adminId } = req.body;
       const change = locked ? -1 : 1;
       
-      const roomType = await storage.updateRoomTypeAvailability(req.params.id, change);
+      const roomType = await storage.updateRoomTypeAvailability(req.params.id as string, change);
       
       await storage.createAuditLog({
         adminId,
         action: locked ? "room_locked" : "room_unlocked",
         entityType: "room_type",
-        entityId: req.params.id,
+        entityId: req.params.id as string,
         details: JSON.stringify({ action: locked ? "locked" : "unlocked" }),
       });
 
@@ -1533,6 +1533,446 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error locking/unlocking room:", error);
       res.status(500).json({ error: "Failed to update room" });
+    }
+  });
+
+  // ============ SALES EXECUTIVE MANAGEMENT ============
+
+  // Get all sales executives (admin only)
+  app.get("/api/admin/sales-executives", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const salesExecs = await storage.getSalesExecutives();
+      
+      // Get stats for each sales exec
+      const execsWithStats = await Promise.all(salesExecs.map(async (exec) => {
+        const stats = await storage.getSalesExecStats(exec.id);
+        const assignments = await storage.getPropertyAssignments(exec.id);
+        return { ...exec, stats, propertyCount: assignments.length };
+      }));
+      
+      res.json(execsWithStats);
+    } catch (error) {
+      console.error("Error fetching sales executives:", error);
+      res.status(500).json({ error: "Failed to fetch sales executives" });
+    }
+  });
+
+  // Create sales executive (admin only)
+  app.post("/api/admin/sales-executives", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { name, email, phone, password } = req.body;
+      
+      // Check if email exists
+      const existing = await storage.getUserByEmail(email.toLowerCase());
+      if (existing) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+      
+      const hashedPassword = await hashPassword(password);
+      const salesExec = await storage.createSalesExecutive({
+        name,
+        email: email.toLowerCase(),
+        phone,
+        password: hashedPassword,
+        role: "sales_executive",
+      });
+      
+      res.status(201).json({ ...salesExec, password: undefined });
+    } catch (error) {
+      console.error("Error creating sales executive:", error);
+      res.status(500).json({ error: "Failed to create sales executive" });
+    }
+  });
+
+  // Get all property assignments (admin only)
+  app.get("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const assignments = await storage.getAllPropertyAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching property assignments:", error);
+      res.status(500).json({ error: "Failed to fetch property assignments" });
+    }
+  });
+
+  // Assign property to sales executive (admin only)
+  app.post("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { userId, propertyId } = req.body;
+      const authReq = req as AuthRequest;
+      
+      const assignment = await storage.assignPropertyToUser({
+        userId,
+        propertyId,
+        assignedBy: authReq.user!.userId,
+      });
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "property_assigned",
+        entityType: "sales_exec_property",
+        entityId: assignment.id,
+        details: JSON.stringify({ userId, propertyId }),
+      });
+      
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning property:", error);
+      res.status(500).json({ error: "Failed to assign property" });
+    }
+  });
+
+  // Remove property assignment (admin only)
+  app.delete("/api/admin/property-assignments/:userId/:propertyId", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const userId = req.params.userId as string;
+      const propertyId = req.params.propertyId as string;
+      const authReq = req as AuthRequest;
+      
+      await storage.removePropertyAssignment(userId, propertyId);
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "property_unassigned",
+        entityType: "sales_exec_property",
+        entityId: `${userId}-${propertyId}`,
+        details: JSON.stringify({ userId, propertyId }),
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing property assignment:", error);
+      res.status(500).json({ error: "Failed to remove property assignment" });
+    }
+  });
+
+  // Assign lead to sales executive (admin only)
+  app.post("/api/admin/leads/:id/assign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const authReq = req as AuthRequest;
+      const leadId = req.params.id as string;
+      
+      const lead = await storage.assignLeadToUser(leadId, userId, authReq.user!.userId);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      res.json(lead);
+    } catch (error) {
+      console.error("Error assigning lead:", error);
+      res.status(500).json({ error: "Failed to assign lead" });
+    }
+  });
+
+  // Reassign lead (admin only)
+  app.post("/api/admin/leads/:id/reassign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const authReq = req as AuthRequest;
+      
+      const lead = await storage.reassignLead(req.params.id as string, userId, authReq.user!.userId);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      res.json(lead);
+    } catch (error) {
+      console.error("Error reassigning lead:", error);
+      res.status(500).json({ error: "Failed to reassign lead" });
+    }
+  });
+
+  // ============ SALES EXECUTIVE DASHBOARD ============
+
+  // Get assigned properties for current sales exec
+  app.get("/api/sales/my-properties", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const properties = await storage.getAssignedPropertiesForUser(authReq.user!.userId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching assigned properties:", error);
+      res.status(500).json({ error: "Failed to fetch assigned properties" });
+    }
+  });
+
+  // Get leads for current sales exec
+  app.get("/api/sales/my-leads", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const leads = await storage.getLeadsForSalesExec(authReq.user!.userId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  // Get sales exec stats
+  app.get("/api/sales/my-stats", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const stats = await storage.getSalesExecStats(authReq.user!.userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Create manual lead (on-spot entry)
+  app.post("/api/sales/leads", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const validation = manualLeadSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+      
+      const authReq = req as AuthRequest;
+      const data = validation.data;
+      
+      // Get property name
+      const property = await storage.getProperty(data.propertyId);
+      
+      const lead = await storage.createLead({
+        name: data.name,
+        phone: data.phone,
+        email: data.email || undefined,
+        propertyId: data.propertyId,
+        propertyName: property?.name,
+        budgetMin: data.budgetMin,
+        budgetMax: data.budgetMax,
+        entrySource: data.entrySource,
+        notes: data.notes,
+        source: "walk_in",
+        isManualEntry: true,
+        assignedToId: authReq.user!.userId,
+        assignedAt: new Date(),
+        score: 5,
+        priority: "cold",
+      });
+      
+      // Log activity
+      await storage.createLeadActivity({
+        leadId: lead.id,
+        actorId: authReq.user!.userId,
+        actionType: "lead_created",
+        newValue: JSON.stringify({ source: data.entrySource }),
+        description: `Manual lead created via ${data.entrySource}`,
+      });
+      
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  // Update lead status (sales exec can update their own leads)
+  app.patch("/api/sales/leads/:id/status", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const { status, lostReason, lostNotes } = req.body;
+      const authReq = req as AuthRequest;
+      
+      const lead = await storage.getLead(req.params.id as string);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Check ownership (sales exec can only update their leads, admin can update any)
+      if (authReq.user!.role === "sales_executive" && lead.assignedToId !== authReq.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to update this lead" });
+      }
+      
+      // Check if lead is locked
+      if (lead.isLocked) {
+        return res.status(403).json({ error: "Lead is locked and cannot be modified" });
+      }
+      
+      const previousStatus = lead.status;
+      
+      // Calculate new score based on status
+      let newScore = lead.score;
+      let newPriority = lead.priority;
+      
+      if (status === "cold") { newScore = Math.max(0, newScore); newPriority = "cold"; }
+      else if (status === "warm") { newScore = Math.min(60, Math.max(31, newScore + 10)); newPriority = "warm"; }
+      else if (status === "hot") { newScore = Math.min(100, Math.max(61, newScore + 20)); newPriority = "hot"; }
+      else if (status === "visit_scheduled") { newScore = Math.min(100, newScore + 25); newPriority = newScore > 60 ? "hot" : "warm"; }
+      else if (status === "negotiation") { newScore = Math.min(100, newScore + 30); newPriority = "hot"; }
+      else if (status === "lost") { newScore = 0; newPriority = "cold"; }
+      
+      const updateData: any = {
+        status,
+        score: newScore,
+        priority: newPriority,
+        lastActivityAt: new Date(),
+      };
+      
+      if (status === "lost") {
+        updateData.lostReason = lostReason;
+        updateData.lostNotes = lostNotes;
+      }
+      
+      const updated = await storage.updateLead(req.params.id as string, updateData);
+      
+      // Log activity
+      await storage.createLeadActivity({
+        leadId: req.params.id as string,
+        actorId: authReq.user!.userId,
+        actionType: "status_change",
+        previousValue: JSON.stringify({ status: previousStatus }),
+        newValue: JSON.stringify({ status, lostReason }),
+        description: `Status changed from ${previousStatus} to ${status}`,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      res.status(500).json({ error: "Failed to update lead status" });
+    }
+  });
+
+  // Close deal
+  app.post("/api/sales/leads/:id/close-deal", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const validation = dealClosureSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+      
+      const authReq = req as AuthRequest;
+      const lead = await storage.getLead(req.params.id as string);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Check ownership
+      if (authReq.user!.role === "sales_executive" && lead.assignedToId !== authReq.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to close this deal" });
+      }
+      
+      const closedLead = await storage.closeDeal(req.params.id as string, validation.data, authReq.user!.userId);
+      
+      res.json(closedLead);
+    } catch (error) {
+      console.error("Error closing deal:", error);
+      res.status(500).json({ error: "Failed to close deal" });
+    }
+  });
+
+  // Add remark to lead
+  app.post("/api/sales/leads/:id/remarks", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const { remark } = req.body;
+      const authReq = req as AuthRequest;
+      
+      const lead = await storage.getLead(req.params.id as string);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Check ownership
+      if (authReq.user!.role === "sales_executive" && lead.assignedToId !== authReq.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to add remarks to this lead" });
+      }
+      
+      const createdRemark = await storage.createLeadRemark({
+        leadId: req.params.id as string,
+        userId: authReq.user!.userId,
+        remark,
+      });
+      
+      res.status(201).json(createdRemark);
+    } catch (error) {
+      console.error("Error adding remark:", error);
+      res.status(500).json({ error: "Failed to add remark" });
+    }
+  });
+
+  // Get lead details with activities and remarks
+  app.get("/api/sales/leads/:id/details", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const lead = await storage.getLead(req.params.id as string);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Check ownership
+      if (authReq.user!.role === "sales_executive" && lead.assignedToId !== authReq.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to view this lead" });
+      }
+      
+      const activities = await storage.getLeadActivities(req.params.id as string);
+      const remarks = await storage.getLeadRemarks(req.params.id as string);
+      const property = lead.propertyId ? await storage.getProperty(lead.propertyId) : null;
+      const roomTypes = lead.propertyId ? await storage.getRoomTypesByProperty(lead.propertyId) : [];
+      
+      res.json({ lead, activities, remarks, property, roomTypes });
+    } catch (error) {
+      console.error("Error fetching lead details:", error);
+      res.status(500).json({ error: "Failed to fetch lead details" });
+    }
+  });
+
+  // Set follow-up
+  app.post("/api/sales/leads/:id/follow-up", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
+    try {
+      const { followUpAt, notes } = req.body;
+      const authReq = req as AuthRequest;
+      
+      const lead = await storage.getLead(req.params.id as string);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Check ownership
+      if (authReq.user!.role === "sales_executive" && lead.assignedToId !== authReq.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to set follow-up for this lead" });
+      }
+      
+      const updated = await storage.setFollowUp(req.params.id as string, new Date(followUpAt), notes);
+      
+      await storage.createLeadActivity({
+        leadId: req.params.id as string,
+        actorId: authReq.user!.userId,
+        actionType: "follow_up_set",
+        newValue: JSON.stringify({ followUpAt, notes }),
+        description: `Follow-up scheduled for ${new Date(followUpAt).toLocaleDateString()}`,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error setting follow-up:", error);
+      res.status(500).json({ error: "Failed to set follow-up" });
+    }
+  });
+
+  // Get upcoming follow-ups
+  app.get("/api/sales/follow-ups/upcoming", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const leads = await storage.getUpcomingFollowUps(authReq.user!.userId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching upcoming follow-ups:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming follow-ups" });
+    }
+  });
+
+  // Get overdue follow-ups
+  app.get("/api/sales/follow-ups/overdue", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const leads = await storage.getOverdueFollowUps(authReq.user!.userId);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching overdue follow-ups:", error);
+      res.status(500).json({ error: "Failed to fetch overdue follow-ups" });
     }
   });
 
