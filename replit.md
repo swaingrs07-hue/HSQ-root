@@ -30,18 +30,29 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL with Drizzle ORM
 - **Schema Location**: `shared/schema.ts` - defines all tables with proper relations
 - **Migrations**: Drizzle Kit for schema migrations (`drizzle-kit push`)
-- **Key Tables**: users, students, properties, roomTypes, bookings, installments, payments, auditLogs
+- **Key Tables**: users, students, properties, roomTypes, bookings, installments, payments, auditLogs, leads, salesExecPropertyAssignments, leadActivities, leadRemarks
 
 ### Authentication & Authorization
-- **User Roles**: Two roles defined via PostgreSQL enum - "student" and "admin"
+- **User Roles**: Four roles defined via PostgreSQL enum - "user", "admin", "sales_executive", "student"
 - **Session Management**: Express sessions with connect-pg-simple for PostgreSQL-backed sessions
 - **Password Security**: Passwords stored (implementation uses standard hashing practices)
+- **Role-Based Access Control**: Frontend route protection in AuthProvider with role-specific redirects
 
 ### Key Application Flows
 1. **Student Registration**: Multi-step form collecting personal details, address, emergency contacts, and academic information
 2. **Property Selection**: Browse properties with room types, availability, and pricing
 3. **Payment Plans**: Three installment options (full settlement, two, or three installments) with booking amount of ₹100,000
 4. **Digital Agreement**: Signature capture using react-signature-canvas with PDF generation
+
+### Sales Executive Panel System
+- **Admin Sales Management** (`/admin/sales-management`): Create sales executives, assign properties, assign leads
+- **Sales Dashboard** (`/sales`): Sales executive portal with lead management, status updates, follow-ups
+- **Manual Lead Entry**: Walk-in, phone call, WhatsApp sources with budget tracking
+- **Lead Assignment**: Admin assigns leads to sales executives; execs can only view/manage their assigned leads
+- **Activity Logging**: Immutable audit trail for all status changes, assignments, and remarks
+- **Follow-up System**: Schedule follow-ups with notes, track upcoming (7 days) and overdue follow-ups
+- **Deal Closure**: Close deals with room type, final amount, payment plan; auto-locks lead after closure
+- **Key Tables**: salesExecPropertyAssignments, leadActivities, leadRemarks
 
 ### Lead Scoring System (Property-Wise)
 - **Score Range**: 0-100 per property
