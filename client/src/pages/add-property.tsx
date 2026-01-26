@@ -61,16 +61,17 @@ const propertyFormSchema = z.object({
   nearbyLocations: z.array(z.object({
     placeName: z.string().min(1, "Place name is required"),
     distance: z.string().min(1, "Distance is required"),
-    category: z.enum(["college", "hospital", "restaurant", "transport", "shopping", "other"]),
+    category: z.enum(["metro", "college", "office", "hospital", "mall", "restaurant", "other"]),
   })).optional(),
   roomTypes: z.array(z.object({
-    name: z.string().min(1, "Room name is required"),
+    name: z.enum(["Single", "Shared", "Standard", "Deluxe", "Suite", "Double", "Triple", "Dorm", "Custom"]),
+    customName: z.string().optional(),
     occupancy: z.number().min(1, "Occupancy required"),
     totalRooms: z.number().min(1, "Total rooms required"),
-    availableRooms: z.number().min(0, "Available rooms required"),
-    monthlyPrice: z.number().min(0, "Price required"),
-    deposit: z.number().min(0, "Deposit required"),
-    amenities: z.string().optional(),
+    totalBeds: z.number().min(1, "Total beds required"),
+    availableBeds: z.number().min(0, "Available beds required"),
+    basePrice: z.number().min(0, "Price required"),
+    size: z.string().optional(),
   })).min(1, "At least one room type is required"),
   tariffs: z.array(z.object({
     academicYear: z.string().min(1, "Academic year required"),
@@ -90,21 +91,35 @@ const propertyFormSchema = z.object({
 type PropertyFormData = z.infer<typeof propertyFormSchema>;
 
 const defaultRoomType = {
-  name: "",
+  name: "Single" as const,
+  customName: "",
   occupancy: 1,
   totalRooms: 1,
-  availableRooms: 1,
-  monthlyPrice: 0,
-  deposit: 0,
-  amenities: "",
+  totalBeds: 1,
+  availableBeds: 1,
+  basePrice: 0,
+  size: "",
 };
+
+const roomTypeOptions = [
+  { value: "Single", label: "Single" },
+  { value: "Shared", label: "Shared" },
+  { value: "Standard", label: "Standard" },
+  { value: "Deluxe", label: "Deluxe" },
+  { value: "Suite", label: "Suite" },
+  { value: "Double", label: "Double" },
+  { value: "Triple", label: "Triple" },
+  { value: "Dorm", label: "Dorm" },
+  { value: "Custom", label: "Custom" },
+];
 
 const nearbyCategories = [
   { value: "college", label: "College/University" },
   { value: "hospital", label: "Hospital" },
   { value: "restaurant", label: "Restaurant" },
-  { value: "transport", label: "Transport Hub" },
-  { value: "shopping", label: "Shopping" },
+  { value: "metro", label: "Metro/Transport" },
+  { value: "mall", label: "Mall/Shopping" },
+  { value: "office", label: "Office/Corporate" },
   { value: "other", label: "Other" },
 ];
 
@@ -141,7 +156,16 @@ export default function AddProperty() {
       amenities: [],
       rules: [],
       nearbyLocations: [],
-      roomTypes: [{ ...defaultRoomType }],
+      roomTypes: [{ 
+        name: "Single" as const,
+        customName: "",
+        occupancy: 1,
+        totalRooms: 1,
+        totalBeds: 1,
+        availableBeds: 1,
+        basePrice: 0,
+        size: "",
+      }],
       tariffs: [],
       images: [],
     },
@@ -196,28 +220,27 @@ export default function AddProperty() {
   const createProperty = useMutation({
     mutationFn: async (data: PropertyFormData & { status: "draft" | "published" }) => {
       const payload = {
-        property: {
-          name: data.name,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          pincode: data.pincode,
-          description: data.description || "",
-          category: data.category,
-          googleMapsUrl: data.googleMapsUrl || "",
-          status: data.status,
-        },
+        name: data.name,
+        displayName: data.name,
+        category: data.category,
+        location: `${data.city}, ${data.state}`,
+        address: `${data.address}, ${data.city}, ${data.state} - ${data.pincode}`,
+        city: data.city,
+        mapsUrl: data.googleMapsUrl || null,
+        amenities: data.amenities?.map(a => a.name) || [],
+        status: data.status,
         amenityIds: data.amenities?.map(a => a.amenityId) || [],
         rules: data.rules?.map(r => r.rule) || [],
         nearbyLocations: data.nearbyLocations || [],
         roomTypes: data.roomTypes.map(rt => ({
           name: rt.name,
+          customName: rt.customName || null,
           occupancy: rt.occupancy,
           totalRooms: rt.totalRooms,
-          availableRooms: rt.availableRooms,
-          monthlyPrice: rt.monthlyPrice,
-          deposit: rt.deposit,
-          amenities: rt.amenities ? rt.amenities.split(",").map(s => s.trim()).filter(Boolean) : [],
+          totalBeds: rt.totalBeds,
+          availableBeds: rt.availableBeds,
+          basePrice: rt.basePrice,
+          size: rt.size || null,
         })),
         tariffs: data.tariffs || [],
         images: data.images || [],
@@ -670,14 +693,35 @@ export default function AddProperty() {
                           <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                                <Label>Room Name *</Label>
+                                <Label>Room Type *</Label>
+                                <Select
+                                  value={form.watch(`roomTypes.${index}.name`)}
+                                  onValueChange={(value) => form.setValue(`roomTypes.${index}.name`, value as any)}
+                                >
+                                  <SelectTrigger className="mt-1" data-testid={`select-room-type-${index}`}>
+                                    <SelectValue placeholder="Select room type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {roomTypeOptions.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>Custom Name (optional)</Label>
                                 <Input
-                                  {...form.register(`roomTypes.${index}.name`)}
-                                  placeholder="e.g., Deluxe Single, Premium Twin"
+                                  {...form.register(`roomTypes.${index}.customName`)}
+                                  placeholder="e.g., Premium Deluxe"
                                   className="mt-1"
-                                  data-testid={`input-room-name-${index}`}
+                                  data-testid={`input-room-custom-name-${index}`}
                                 />
                               </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div>
                                 <Label>Occupancy (persons) *</Label>
                                 <Input
@@ -688,9 +732,6 @@ export default function AddProperty() {
                                   data-testid={`input-room-occupancy-${index}`}
                                 />
                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <Label>Total Rooms *</Label>
                                 <Input
@@ -702,47 +743,47 @@ export default function AddProperty() {
                                 />
                               </div>
                               <div>
-                                <Label>Available Rooms *</Label>
+                                <Label>Room Size (e.g., 120 sqft)</Label>
                                 <Input
-                                  type="number"
-                                  {...form.register(`roomTypes.${index}.availableRooms`, { valueAsNumber: true })}
-                                  min={0}
+                                  {...form.register(`roomTypes.${index}.size`)}
+                                  placeholder="e.g., 120 sqft"
                                   className="mt-1"
-                                  data-testid={`input-room-available-${index}`}
+                                  data-testid={`input-room-size-${index}`}
                                 />
                               </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                                <Label>Monthly Price (₹) *</Label>
+                                <Label>Total Beds *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.monthlyPrice`, { valueAsNumber: true })}
-                                  min={0}
+                                  {...form.register(`roomTypes.${index}.totalBeds`, { valueAsNumber: true })}
+                                  min={1}
                                   className="mt-1"
-                                  data-testid={`input-room-price-${index}`}
+                                  data-testid={`input-room-total-beds-${index}`}
                                 />
                               </div>
                               <div>
-                                <Label>Security Deposit (₹) *</Label>
+                                <Label>Available Beds *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.deposit`, { valueAsNumber: true })}
+                                  {...form.register(`roomTypes.${index}.availableBeds`, { valueAsNumber: true })}
                                   min={0}
                                   className="mt-1"
-                                  data-testid={`input-room-deposit-${index}`}
+                                  data-testid={`input-room-available-beds-${index}`}
                                 />
                               </div>
                             </div>
 
                             <div>
-                              <Label>Room Amenities (comma separated)</Label>
+                              <Label>Base Price (₹/month) *</Label>
                               <Input
-                                {...form.register(`roomTypes.${index}.amenities`)}
-                                placeholder="e.g., AC, WiFi, Attached Bathroom, Study Table"
+                                type="number"
+                                {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
+                                min={0}
                                 className="mt-1"
-                                data-testid={`input-room-amenities-${index}`}
+                                data-testid={`input-room-price-${index}`}
                               />
                             </div>
                           </CardContent>
@@ -1001,23 +1042,23 @@ export default function AddProperty() {
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="border-b">
-                                  <th className="text-left py-2">Name</th>
+                                  <th className="text-left py-2">Type</th>
+                                  <th className="text-left py-2">Custom Name</th>
                                   <th className="text-center py-2">Occupancy</th>
-                                  <th className="text-center py-2">Rooms</th>
+                                  <th className="text-center py-2">Beds</th>
                                   <th className="text-right py-2">Price/Month</th>
-                                  <th className="text-right py-2">Deposit</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {roomTypeFields.map((_, index) => (
                                   <tr key={index} className="border-b last:border-0">
                                     <td className="py-2">{form.watch(`roomTypes.${index}.name`) || "-"}</td>
+                                    <td className="py-2">{form.watch(`roomTypes.${index}.customName`) || "-"}</td>
                                     <td className="text-center py-2">{form.watch(`roomTypes.${index}.occupancy`)}</td>
                                     <td className="text-center py-2">
-                                      {form.watch(`roomTypes.${index}.availableRooms`)} / {form.watch(`roomTypes.${index}.totalRooms`)}
+                                      {form.watch(`roomTypes.${index}.availableBeds`)} / {form.watch(`roomTypes.${index}.totalBeds`)}
                                     </td>
-                                    <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.monthlyPrice`)?.toLocaleString()}</td>
-                                    <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.deposit`)?.toLocaleString()}</td>
+                                    <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.basePrice`)?.toLocaleString()}</td>
                                   </tr>
                                 ))}
                               </tbody>
