@@ -155,6 +155,30 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Lead source enum for tracking where leads come from
+export const leadSourceEnum = pgEnum("lead_source", [
+  "website",
+  "referral", 
+  "social_media",
+  "google_ads",
+  "walk_in",
+  "phone_inquiry",
+  "email_campaign",
+  "event",
+  "other"
+]);
+
+// Lead status enum for tracking lead progress
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "interested",
+  "site_visit",
+  "negotiation",
+  "converted",
+  "lost"
+]);
+
 // Leads table (visitor/prospect tracking)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -162,6 +186,11 @@ export const leads = pgTable("leads", {
   email: text("email"),
   phone: text("phone"),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
+  
+  // Source and status tracking
+  source: leadSourceEnum("source").default("website").notNull(),
+  status: leadStatusEnum("status").default("new").notNull(),
+  notes: text("notes"),
   
   // Login tracking
   firstLoginAt: timestamp("first_login_at").defaultNow().notNull(),
@@ -175,6 +204,7 @@ export const leads = pgTable("leads", {
   
   // Conversion tracking
   convertedToStudent: boolean("converted_to_student").default(false).notNull(),
+  convertedAt: timestamp("converted_at"),
   studentId: varchar("student_id").references(() => students.id),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3 } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
 import type { Lead } from "@shared/schema";
@@ -154,6 +155,11 @@ export default function AdminDashboard() {
           >
             <Users className="mr-2 h-4 w-4" /> Leads
           </Button>
+          <Link href="/admin/leads">
+            <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground" data-testid="nav-lead-analytics">
+              <BarChart3 className="mr-2 h-4 w-4" /> Lead Analytics
+            </Button>
+          </Link>
           <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground">
             <DollarSign className="mr-2 h-4 w-4" /> Payments
           </Button>

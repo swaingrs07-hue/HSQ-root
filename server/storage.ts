@@ -94,6 +94,18 @@ export interface IStorage {
     totalRevenue: number;
     pendingPayments: number;
   }>;
+  
+  // Lead Analytics
+  getLeadAnalytics(): Promise<{
+    totalLeads: number;
+    leadsBySource: { source: string; count: number }[];
+    leadsByStatus: { status: string; count: number }[];
+    conversionRate: number;
+    leadsByMonth: { month: string; count: number }[];
+    conversionsByMonth: { month: string; conversions: number; total: number; rate: number }[];
+    leadsByDevice: { device: string; count: number }[];
+    recentLeads: Lead[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -362,6 +374,127 @@ export class DatabaseStorage implements IStorage {
       totalBookings: bookingsCount?.count || 0,
       totalRevenue: revenueData?.total || 0,
       pendingPayments: pendingData?.total || 0,
+    };
+  }
+
+  // Lead Analytics
+  async getLeadAnalytics(): Promise<{
+    totalLeads: number;
+    leadsBySource: { source: string; count: number }[];
+    leadsByStatus: { status: string; count: number }[];
+    conversionRate: number;
+    leadsByMonth: { month: string; count: number }[];
+    conversionsByMonth: { month: string; conversions: number; total: number; rate: number }[];
+    leadsByDevice: { device: string; count: number }[];
+    recentLeads: Lead[];
+  }> {
+    // Total leads
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leads);
+    const totalLeads = totalResult?.count || 0;
+
+    // Leads by source
+    const sourceData = await db
+      .select({
+        source: leads.source,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(leads)
+      .groupBy(leads.source);
+
+    const leadsBySource = sourceData.map((row) => ({
+      source: row.source || "unknown",
+      count: row.count,
+    }));
+
+    // Leads by status
+    const statusData = await db
+      .select({
+        status: leads.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(leads)
+      .groupBy(leads.status);
+
+    const leadsByStatus = statusData.map((row) => ({
+      status: row.status || "unknown",
+      count: row.count,
+    }));
+
+    // Conversion rate
+    const [convertedResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leads)
+      .where(eq(leads.convertedToStudent, true));
+    const conversions = convertedResult?.count || 0;
+    const conversionRate = totalLeads > 0 ? (conversions / totalLeads) * 100 : 0;
+
+    // Leads by month (last 6 months)
+    const monthData = await db
+      .select({
+        month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(leads)
+      .where(sql`created_at >= NOW() - INTERVAL '6 months'`)
+      .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`);
+
+    const leadsByMonth = monthData.map((row) => ({
+      month: row.month,
+      count: row.count,
+    }));
+
+    // Conversions by month (last 6 months)
+    const conversionMonthData = await db
+      .select({
+        month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
+        total: sql<number>`count(*)::int`,
+        conversions: sql<number>`SUM(CASE WHEN converted_to_student THEN 1 ELSE 0 END)::int`,
+      })
+      .from(leads)
+      .where(sql`created_at >= NOW() - INTERVAL '6 months'`)
+      .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`);
+
+    const conversionsByMonth = conversionMonthData.map((row) => ({
+      month: row.month,
+      total: row.total,
+      conversions: row.conversions || 0,
+      rate: row.total > 0 ? ((row.conversions || 0) / row.total) * 100 : 0,
+    }));
+
+    // Leads by device type
+    const deviceData = await db
+      .select({
+        device: sql<string>`COALESCE(device_type, 'unknown')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(leads)
+      .groupBy(sql`COALESCE(device_type, 'unknown')`);
+
+    const leadsByDevice = deviceData.map((row) => ({
+      device: row.device,
+      count: row.count,
+    }));
+
+    // Recent leads (last 10)
+    const recentLeads = await db
+      .select()
+      .from(leads)
+      .orderBy(desc(leads.createdAt))
+      .limit(10);
+
+    return {
+      totalLeads,
+      leadsBySource,
+      leadsByStatus,
+      conversionRate,
+      leadsByMonth,
+      conversionsByMonth,
+      leadsByDevice,
+      recentLeads,
     };
   }
 }

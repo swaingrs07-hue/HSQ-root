@@ -393,6 +393,38 @@ export async function registerRoutes(
     }
   });
 
+  // Update lead (update status, notes, source)
+  app.patch("/api/leads/:id", async (req, res) => {
+    try {
+      const { status, notes, source } = req.body;
+      const updateData: any = {};
+      
+      if (status) updateData.status = status;
+      if (notes !== undefined) updateData.notes = notes;
+      if (source) updateData.source = source;
+      
+      const lead = await storage.updateLead(req.params.id, updateData);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
+  // Get lead analytics
+  app.get("/api/leads/analytics/summary", async (req, res) => {
+    try {
+      const analytics = await storage.getLeadAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching lead analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // ============ PROPERTIES ============
   
   // Get all properties with room types
