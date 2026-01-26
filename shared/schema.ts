@@ -7,7 +7,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["user", "admin", "manager", "staff"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["pending_payment", "active", "completed", "cancelled"]);
-export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared"]);
+export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared", "Standard", "Deluxe", "Suite"]);
 
 // Users table (for authentication)
 export const users = pgTable("users", {
@@ -56,7 +56,13 @@ export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   location: text("location").notNull(),
-  amenities: text("amenities").array().notNull(), // Array of amenities
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  amenities: text("amenities").array().notNull(),
+  rules: text("rules"),
+  nearbyLocations: text("nearby_locations"),
+  mapsUrl: text("maps_url"),
   imageUrl: text("image_url"),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -67,7 +73,8 @@ export const roomTypes = pgTable("room_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   propertyId: varchar("property_id").references(() => properties.id).notNull(),
   name: roomTypeEnum("name").notNull(),
-  basePrice: integer("base_price").notNull(), // Total annual fee
+  basePrice: integer("base_price").notNull(),
+  size: text("size"),
   totalBeds: integer("total_beds").notNull(),
   availableBeds: integer("available_beds").notNull(),
   imageUrl: text("image_url"),
