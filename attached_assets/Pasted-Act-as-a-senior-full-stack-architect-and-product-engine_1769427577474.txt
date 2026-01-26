@@ -1,0 +1,183 @@
+Act as a senior full-stack architect and product engineer.
+Develop a production-ready Hostel / Student Living Management App for 
+“Hsquareliving Pvt Ltd” with scalable architecture, clean UI, and strict financial logic.
+
+============================
+CORE REQUIREMENTS
+============================
+
+APP TYPE:
+- Cross-platform app (Web + Mobile)
+- Optimized for Indian payments and compliance
+
+TECH STACK:
+- Frontend: React (Web) + React Native (Mobile)
+- Backend: Node.js with Express OR FastAPI (Python)
+- Database: PostgreSQL (use proper relations & constraints)
+- Auth: JWT + Role-based access (Student / Admin)
+- Payments: Razorpay (UPI, Card, Net Banking)
+- PDF Engine: Puppeteer or PDFKit
+- File Storage: Cloud-based (agreements & receipts)
+
+============================
+MODULE 1: STUDENT ONBOARDING
+============================
+
+Create a Student Registration Flow with:
+- Full Name
+- Mobile Number (OTP verification)
+- Email
+- Permanent Address
+- Emergency Contact
+- College / University Name
+- Academic Year (dropdown)
+- ID Proof Upload
+
+Store all data securely in PostgreSQL.
+
+============================
+MODULE 2: PROPERTY & ROOM SELECTION
+============================
+
+Admin-managed inventory system:
+- Multiple Properties
+- Room Types: Single / Shared
+- Amenities mapping
+- Real-time bed availability
+
+Student flow:
+- Select Property
+- Select Room Type
+- View Base Fee (auto calculated)
+
+============================
+MODULE 3: PAYMENT PLAN ENGINE
+============================
+
+Base Rule:
+- Booking Amount: ₹1,00,000 (mandatory)
+
+Provide 3 payment options:
+
+OPTION 1 (Discounted – Full Settlement):
+- ₹1,00,000 booking
+- Remaining balance paid before move-in
+- No future installments
+
+OPTION 2:
+- ₹1,00,000 booking
+- 50% of remaining at move-in
+- 50% in October
+
+OPTION 3:
+- ₹1,00,000 booking
+- 33.3% at move-in
+- 33.3% in October
+- 33.3% in December
+
+Ensure:
+- Accurate rounding
+- Date-based installment schedules
+- No over-collection allowed
+
+============================
+MODULE 4: ADMIN DISCOUNT OVERRIDE
+============================
+
+Admin Dashboard must allow:
+- Spot Discount (Flat ₹ or %)
+- Custom Discount with reason field
+- Real-time recalculation of:
+  - Net Fee
+  - Installments
+- Audit log for every override
+
+Discounts must reflect everywhere:
+- Payment screen
+- Agreement PDF
+- Admin reports
+
+============================
+MODULE 5: PAYMENT GATEWAY
+============================
+
+Integrate Razorpay:
+- UPI / Card / Net Banking
+- Webhooks for payment confirmation
+- Payment states:
+  - Success
+  - Pending
+  - Failed
+
+Logic:
+IF payment != success → block agreement & inventory lock
+
+============================
+MODULE 6: AUTOMATED AGREEMENT GENERATION
+============================
+
+Trigger ONLY after ₹1,00,000 success.
+
+Generate a legally structured PDF including:
+- Student Details
+- Property & Room Info
+- Payment Schedule (dates + amounts)
+- Applied Discounts with reason
+- Standard Terms & Conditions
+- Digital Signature section
+
+Actions:
+- Save PDF
+- Email agreement to student
+- Notify admin
+- Allow download from dashboard
+
+============================
+MODULE 7: SYSTEM LOGIC FLOW
+============================
+
+Flow:
+Start →
+Student Input →
+Room Selection →
+Base Fee Calculation →
+Admin Discount →
+Plan Selection →
+Payment →
+Payment Validation →
+Inventory Update →
+Agreement Generation →
+Email & Admin Notification →
+Dashboard Sync
+
+============================
+ADMIN DASHBOARD
+============================
+
+Admin can:
+- Manage properties & rooms
+- Approve / modify discounts
+- View payments & installment status
+- Download reports (Excel + PDF)
+- Track agreement status
+- Lock / unlock rooms manually
+
+============================
+NON-FUNCTIONAL REQUIREMENTS
+============================
+
+- Clean professional UI (Hsquare brand-ready)
+- Error handling everywhere
+- Secure financial calculations
+- Scalable architecture
+- Well-commented code
+- Environment-based configs
+- Ready for production deployment
+
+Generate:
+- Database schema
+- API routes
+- Business logic
+- Frontend screens
+- Admin panel
+- Agreement PDF template
