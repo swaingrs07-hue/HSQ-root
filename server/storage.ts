@@ -125,6 +125,24 @@ export interface IStorage {
     recentLeads: Lead[];
   }>;
   
+  // Property-wise Lead Analytics
+  getLeadsByProperty(propertyId: string): Promise<Lead[]>;
+  getLeadByEmailAndProperty(email: string, propertyId: string): Promise<Lead | undefined>;
+  getPropertyLeadFunnel(propertyId: string): Promise<{
+    propertyId: string;
+    propertyName: string;
+    totalLeads: number;
+    stages: { status: string; count: number; percentage: number }[];
+    conversionRate: number;
+  }>;
+  getAllPropertiesLeadFunnels(): Promise<{
+    propertyId: string;
+    propertyName: string;
+    totalLeads: number;
+    stages: { status: string; count: number; percentage: number }[];
+    conversionRate: number;
+  }[]>;
+  
   // Global Amenities
   getAllGlobalAmenities(): Promise<GlobalAmenity[]>;
   createGlobalAmenity(amenity: InsertGlobalAmenity): Promise<GlobalAmenity>;
@@ -563,6 +581,93 @@ export class DatabaseStorage implements IStorage {
       leadsByDevice,
       recentLeads,
     };
+  }
+
+  // Property-wise Lead Analytics
+  async getLeadsByProperty(propertyId: string): Promise<Lead[]> {
+    return await db.select().from(leads).where(eq(leads.propertyId, propertyId)).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadByEmailAndProperty(email: string, propertyId: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(leads)
+      .where(and(eq(leads.email, email), eq(leads.propertyId, propertyId)));
+    return lead || undefined;
+  }
+
+  async getPropertyLeadFunnel(propertyId: string): Promise<{
+    propertyId: string;
+    propertyName: string;
+    totalLeads: number;
+    stages: { status: string; count: number; percentage: number }[];
+    conversionRate: number;
+  }> {
+    // Get property name
+    const [property] = await db.select().from(properties).where(eq(properties.id, propertyId));
+    const propertyName = property?.name || "Unknown";
+
+    // Get total leads for this property
+    const [totalResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leads)
+      .where(eq(leads.propertyId, propertyId));
+    const totalLeads = totalResult?.count || 0;
+
+    // Get leads by status for this property
+    const statusData = await db
+      .select({
+        status: leads.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(leads)
+      .where(eq(leads.propertyId, propertyId))
+      .groupBy(leads.status);
+
+    const stages = statusData.map((row) => ({
+      status: row.status || "unknown",
+      count: row.count,
+      percentage: totalLeads > 0 ? (row.count / totalLeads) * 100 : 0,
+    }));
+
+    // Calculate conversion rate
+    const [convertedResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leads)
+      .where(and(eq(leads.propertyId, propertyId), eq(leads.status, "converted")));
+    const conversions = convertedResult?.count || 0;
+    const conversionRate = totalLeads > 0 ? (conversions / totalLeads) * 100 : 0;
+
+    return {
+      propertyId,
+      propertyName,
+      totalLeads,
+      stages,
+      conversionRate,
+    };
+  }
+
+  async getAllPropertiesLeadFunnels(): Promise<{
+    propertyId: string;
+    propertyName: string;
+    totalLeads: number;
+    stages: { status: string; count: number; percentage: number }[];
+    conversionRate: number;
+  }[]> {
+    // Get all properties that have leads
+    const propertiesWithLeads = await db
+      .selectDistinct({ propertyId: leads.propertyId, propertyName: leads.propertyName })
+      .from(leads)
+      .where(sql`${leads.propertyId} IS NOT NULL`);
+
+    const funnels = await Promise.all(
+      propertiesWithLeads.map(async (p) => {
+        if (!p.propertyId) return null;
+        return this.getPropertyLeadFunnel(p.propertyId);
+      })
+    );
+
+    return funnels.filter((f): f is NonNullable<typeof f> => f !== null);
   }
 
   // Global Amenities

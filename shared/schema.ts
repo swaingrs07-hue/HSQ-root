@@ -260,6 +260,10 @@ export const leads = pgTable("leads", {
   phone: text("phone"),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   
+  // Property tracking
+  propertyId: varchar("property_id").references(() => properties.id),
+  propertyName: text("property_name"),
+  
   // Source and status tracking
   source: leadSourceEnum("source").default("website").notNull(),
   status: leadStatusEnum("status").default("new").notNull(),

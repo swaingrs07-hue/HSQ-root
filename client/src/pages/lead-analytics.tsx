@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, TrendingUp, Target, UserCheck, ArrowUp, ArrowDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, TrendingUp, Target, UserCheck, ArrowUp, ArrowDown, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   BarChart,
@@ -33,6 +35,24 @@ interface LeadAnalytics {
   leadsByDevice: { device: string; count: number }[];
   recentLeads: any[];
 }
+
+interface PropertyFunnel {
+  propertyId: string;
+  propertyName: string;
+  totalLeads: number;
+  stages: { status: string; count: number; percentage: number }[];
+  conversionRate: number;
+}
+
+const STAGE_ORDER = ["new", "interested", "site_visit", "negotiation", "converted", "lost"];
+const STAGE_COLORS: Record<string, string> = {
+  new: "#9CA3AF",
+  interested: "#3B82F6",
+  site_visit: "#F97316",
+  negotiation: "#8B5CF6",
+  converted: "#22C55E",
+  lost: "#EF4444",
+};
 
 const COLORS = [
   "hsl(345, 72%, 41%)",
@@ -86,6 +106,9 @@ function formatMonth(monthStr: string) {
 
 export default function LeadAnalyticsPage() {
   const { token } = useAuth();
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareProperties, setCompareProperties] = useState<string[]>([]);
   
   const { data: analytics, isLoading, error } = useQuery<LeadAnalytics>({
     queryKey: ["/api/leads/analytics/summary"],
@@ -102,6 +125,42 @@ export default function LeadAnalyticsPage() {
     refetchOnWindowFocus: true,
     enabled: !!token,
   });
+
+  // Fetch all property funnels
+  const { data: propertyFunnels } = useQuery<PropertyFunnel[]>({
+    queryKey: ["/api/leads/funnel/all-properties"],
+    queryFn: async () => {
+      const res = await fetch("/api/leads/funnel/all-properties", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch property funnels");
+      return res.json();
+    },
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    enabled: !!token,
+  });
+
+  // Get selected funnel data
+  const selectedFunnel = selectedPropertyId === "all" 
+    ? null 
+    : propertyFunnels?.find(f => f.propertyId === selectedPropertyId);
+
+  // Prepare funnel chart data
+  const getFunnelData = (funnel: PropertyFunnel | null | undefined) => {
+    if (!funnel) return [];
+    return STAGE_ORDER.map(status => {
+      const stage = funnel.stages.find(s => s.status === status);
+      return {
+        status: STATUS_LABELS[status] || status,
+        count: stage?.count || 0,
+        percentage: stage?.percentage || 0,
+        fill: STAGE_COLORS[status] || "#9CA3AF",
+      };
+    }).filter(s => s.count > 0 || s.status === "Converted");
+  };
 
   if (isLoading) {
     return (
@@ -239,6 +298,164 @@ export default function LeadAnalyticsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Property Lead Funnel Section */}
+        <Card data-testid="property-funnel-section">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Property Lead Funnel
+                </CardTitle>
+                <CardDescription>Track lead progression for each property</CardDescription>
+              </div>
+              <div className="flex items-center gap-3">
+                <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+                  <SelectTrigger className="w-[250px]" data-testid="property-selector">
+                    <SelectValue placeholder="Select Property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties Overview</SelectItem>
+                    {propertyFunnels?.map((funnel) => (
+                      <SelectItem key={funnel.propertyId} value={funnel.propertyId}>
+                        {funnel.propertyName} ({funnel.totalLeads} leads)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {selectedPropertyId === "all" ? (
+              // All Properties Comparison View
+              <div className="space-y-4">
+                {propertyFunnels && propertyFunnels.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {propertyFunnels.map((funnel) => (
+                      <Card key={funnel.propertyId} className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setSelectedPropertyId(funnel.propertyId)}>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-sm truncate">{funnel.propertyName}</h3>
+                            <Badge variant="outline" className="bg-green-50 text-green-700">
+                              {funnel.conversionRate.toFixed(1)}% Conv.
+                            </Badge>
+                          </div>
+                          <div className="space-y-2">
+                            {STAGE_ORDER.map(status => {
+                              const stage = funnel.stages.find(s => s.status === status);
+                              if (!stage || stage.count === 0) return null;
+                              return (
+                                <div key={status} className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: STAGE_COLORS[status] }}
+                                  />
+                                  <span className="text-xs text-gray-600 flex-1">{STATUS_LABELS[status]}</span>
+                                  <span className="text-xs font-medium">{stage.count}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 pt-3 border-t">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500">Total Leads</span>
+                              <span className="font-bold">{funnel.totalLeads}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-gray-500">
+                    No property leads data available. Leads are created when users view properties.
+                  </div>
+                )}
+              </div>
+            ) : selectedFunnel ? (
+              // Single Property Funnel View
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">{selectedFunnel.propertyName}</h3>
+                  <div className="space-y-3">
+                    {STAGE_ORDER.map((status, index) => {
+                      const stage = selectedFunnel.stages.find(s => s.status === status);
+                      const count = stage?.count || 0;
+                      const percentage = stage?.percentage || 0;
+                      const maxCount = Math.max(...selectedFunnel.stages.map(s => s.count), 1);
+                      
+                      return (
+                        <div key={status} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium" style={{ color: STAGE_COLORS[status] }}>
+                              {STATUS_LABELS[status]}
+                            </span>
+                            <span className="text-gray-600">
+                              {count} ({percentage.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="h-8 bg-gray-100 rounded-lg overflow-hidden">
+                            <div 
+                              className="h-full rounded-lg transition-all duration-500 flex items-center justify-end pr-2"
+                              style={{ 
+                                width: `${Math.max((count / maxCount) * 100, count > 0 ? 10 : 0)}%`,
+                                backgroundColor: STAGE_COLORS[status] 
+                              }}
+                            >
+                              {count > 0 && (
+                                <span className="text-white text-xs font-bold">{count}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="pt-4">
+                        <p className="text-sm text-gray-500">Total Leads</p>
+                        <p className="text-2xl font-bold">{selectedFunnel.totalLeads}</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <p className="text-sm text-gray-500">Conversion Rate</p>
+                        <p className="text-2xl font-bold text-green-600">{selectedFunnel.conversionRate.toFixed(1)}%</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-gray-500 mb-2">Funnel Breakdown</p>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={getFunnelData(selectedFunnel)} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" />
+                          <YAxis dataKey="status" type="category" width={100} />
+                          <Tooltip />
+                          <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                            {getFunnelData(selectedFunnel).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-gray-500">
+                Select a property to view its lead funnel
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card data-testid="chart-lead-sources">

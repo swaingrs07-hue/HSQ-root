@@ -104,6 +104,7 @@ export default function PropertySelection() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: user.email,
+            name: user.name,
             propertyId: property.id,
             propertyName: property.name,
           }),

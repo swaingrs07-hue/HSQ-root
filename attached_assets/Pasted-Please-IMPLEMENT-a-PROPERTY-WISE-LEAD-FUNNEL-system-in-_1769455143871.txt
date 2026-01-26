@@ -1,0 +1,86 @@
+Please IMPLEMENT a PROPERTY-WISE LEAD FUNNEL system in the Hsquareliving ADMIN panel with accurate tracking, analytics, and visual funnel charts.
+
+1. LEAD → PROPERTY MAPPING (CORE FIX)
+- Ensure every lead is linked to:
+  - propertyId
+  - propertyName
+- Create/update lead when user:
+  - Views a property
+  - Enquires about a property
+  - Schedules site visit
+  - Books a room
+- Prevent duplicate leads per user per property.
+
+2. FUNNEL STAGES (STANDARDIZED)
+For EACH PROPERTY, track leads through stages:
+- New
+- Interested
+- Site Visit
+- Negotiation
+- Converted
+- Lost
+
+3. FUNNEL LOGIC (AUTO UPDATE)
+- Property page visited → Interested
+- Enquiry submitted → Interested
+- Site visit scheduled → Site Visit
+- Booking confirmed → Converted
+- User drops / admin marks → Lost
+- All stage transitions must update analytics instantly.
+
+4. PROPERTY-WISE FUNNEL DASHBOARD (ADMIN)
+- Add “Property Lead Funnel” section under Lead Analytics.
+- Admin can:
+  - Select Property from dropdown
+  - View funnel breakdown for selected property
+- Display:
+  - Total leads for property
+  - Conversion % per stage
+  - Drop-off rate
+
+5. VISUALIZATION
+- Funnel chart (top → bottom)
+- Stage-wise horizontal bar chart
+- Color coding:
+  - New (Grey)
+  - Interested (Blue)
+  - Site Visit (Orange)
+  - Negotiation (Purple)
+  - Converted (Green)
+  - Lost (Red)
+
+6. PROPERTY COMPARISON VIEW
+- Add comparison mode:
+  - Compare 2–3 properties side-by-side
+  - Show which property converts best
+- Highlight top performing property.
+
+7. DATABASE REQUIREMENTS
+- Leads table must include:
+  - leadId
+  - userId
+  - propertyId
+  - status
+  - source
+  - timestamps
+- Create indexed queries for fast aggregation.
+
+8. PERFORMANCE & REAL-TIME UPDATE
+- Recalculate funnel stats on:
+  - New lead
+  - Status change
+  - Booking confirmation
+- No page refresh required.
+
+9. ROLE & SECURITY
+- Funnel analytics visible ONLY to ADMIN.
+- Block direct API access for non-admin users.
+
+10. TESTING
+- View leads for a single property
+- Switch property → funnel updates correctly
+- New enquiry → funnel updates instantly
+- Booking → conversion reflected
+- Lost lead → drop-off updated
+
+Confirm once PROPERTY-WISE LEAD FUNNEL analytics are working accurately for every property.

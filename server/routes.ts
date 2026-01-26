@@ -476,25 +476,42 @@ export async function registerRoutes(
   // Track property view and update lead status to "interested"
   app.post("/api/leads/track-property-view", async (req, res) => {
     try {
-      const { email, propertyId, propertyName } = req.body;
+      const { email, name, propertyId, propertyName } = req.body;
       
-      if (!email) {
-        return res.status(400).json({ error: "Email required" });
+      if (!email || !propertyId) {
+        return res.status(400).json({ error: "Email and propertyId required" });
       }
 
-      const lead = await storage.getLeadByEmail(email.toLowerCase());
-      if (lead && lead.status === "new") {
-        // Update status to interested when viewing a property
-        await storage.updateLead(lead.id, { 
+      const userAgent = req.headers["user-agent"] || "";
+      const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "";
+      const deviceType = /mobile/i.test(userAgent) ? "mobile" : /tablet/i.test(userAgent) ? "tablet" : "desktop";
+
+      // Check if lead already exists for this email AND property (prevent duplicates per property)
+      let lead = await storage.getLeadByEmailAndProperty(email.toLowerCase(), propertyId);
+      
+      if (lead) {
+        // Update existing lead's activity and status if still "new"
+        const updates: any = { lastActivityAt: new Date() };
+        if (lead.status === "new") {
+          updates.status = "interested";
+        }
+        await storage.updateLead(lead.id, updates);
+      } else {
+        // Create new property-specific lead with status "interested" (since they viewed a property)
+        lead = await storage.createLead({
+          name: name || "Unknown",
+          email: email.toLowerCase(),
+          propertyId,
+          propertyName: propertyName || null,
+          source: "website",
           status: "interested",
-          notes: lead.notes 
-            ? `${lead.notes}\nViewed property: ${propertyName || propertyId}` 
-            : `Viewed property: ${propertyName || propertyId}`,
-          lastActivityAt: new Date(),
+          ipAddress,
+          userAgent,
+          deviceType,
         });
       }
       
-      res.json({ success: true });
+      res.json({ success: true, leadId: lead?.id });
     } catch (error) {
       console.error("Error tracking property view:", error);
       res.status(500).json({ error: "Failed to track property view" });
@@ -520,6 +537,72 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching lead analytics:", error);
       res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get property-wise lead funnel (admin only)
+  app.get("/api/leads/funnel/property/:propertyId", async (req: AuthRequest, res) => {
+    try {
+      // Verify admin role
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const funnel = await storage.getPropertyLeadFunnel(req.params.propertyId as string);
+      res.json(funnel);
+    } catch (error) {
+      console.error("Error fetching property lead funnel:", error);
+      res.status(500).json({ error: "Failed to fetch property lead funnel" });
+    }
+  });
+
+  // Get all properties lead funnels (admin only)
+  app.get("/api/leads/funnel/all-properties", async (req: AuthRequest, res) => {
+    try {
+      // Verify admin role
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const funnels = await storage.getAllPropertiesLeadFunnels();
+      res.json(funnels);
+    } catch (error) {
+      console.error("Error fetching all property lead funnels:", error);
+      res.status(500).json({ error: "Failed to fetch property lead funnels" });
+    }
+  });
+
+  // Get leads for a specific property (admin only)
+  app.get("/api/leads/property/:propertyId", async (req: AuthRequest, res) => {
+    try {
+      // Verify admin role
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const leads = await storage.getLeadsByProperty(req.params.propertyId as string);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching property leads:", error);
+      res.status(500).json({ error: "Failed to fetch property leads" });
     }
   });
 
