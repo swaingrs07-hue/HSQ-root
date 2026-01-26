@@ -16,6 +16,7 @@ import AuthPage from "@/pages/auth";
 import AdminDashboard from "@/pages/admin-dashboard";
 import UserDashboard from "@/pages/user-dashboard";
 import LeadAnalytics from "@/pages/lead-analytics";
+import AddProperty from "@/pages/add-property";
 
 function AppContent() {
   const [location] = useLocation();
@@ -39,6 +40,7 @@ function AppContent() {
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
               <Route path="/admin" component={AdminDashboard} />
+              <Route path="/admin/add-property" component={AddProperty} />
               <Route path="/admin/leads" component={LeadAnalytics} />
               <Route path="/operations" component={AdminDashboard} />
               <Route component={NotFound} />

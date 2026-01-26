@@ -7,14 +7,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed } from "lucide-react";
-import { Link } from "wouter";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
 import type { Lead } from "@shared/schema";
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -515,9 +516,19 @@ export default function AdminDashboard() {
                         <Building2 className="h-5 w-5" />
                         All Properties ({properties.length})
                       </CardTitle>
-                      <Button variant="outline" onClick={loadProperties} data-testid="button-refresh-properties">
-                        Refresh
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={loadProperties} data-testid="button-refresh-properties">
+                          Refresh
+                        </Button>
+                        <Button 
+                          onClick={() => setLocation("/admin/add-property")}
+                          className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]"
+                          data-testid="button-add-property"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Property
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
