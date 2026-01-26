@@ -23,31 +23,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/">
-            <a className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-heading font-bold text-xl group-hover:bg-accent transition-colors">
-                H²
-              </div>
-              <span className="font-heading font-bold text-xl tracking-tight text-foreground">
-                Hsquare<span className="text-primary">living</span>
-              </span>
-            </a>
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-heading font-bold text-xl group-hover:bg-accent transition-colors">
+              H²
+            </div>
+            <span className="font-heading font-bold text-xl tracking-tight text-foreground">
+              Hsquare<span className="text-primary">living</span>
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
             {navItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <a
-                  className={cn(
-                    "text-sm font-medium transition-colors hover:text-primary flex items-center gap-2",
-                    location === item.href
-                      ? "text-primary font-bold"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  <item.icon className="w-4 h-4" />
-                  {item.name}
-                </a>
+              <Link 
+                key={item.href} 
+                href={item.href}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary flex items-center gap-2",
+                  location === item.href
+                    ? "text-primary font-bold"
+                    : "text-muted-foreground"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.name}
               </Link>
             ))}
             <div className="flex items-center gap-3 pl-4 border-l">
@@ -90,19 +88,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </div>
             {navItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <a
-                  className={cn(
-                    "text-base font-medium transition-colors hover:text-primary flex items-center gap-3 p-2 rounded-md hover:bg-muted",
-                    location === item.href
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground"
-                  )}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </a>
+              <Link 
+                key={item.href} 
+                href={item.href}
+                className={cn(
+                  "text-base font-medium transition-colors hover:text-primary flex items-center gap-3 p-2 rounded-md hover:bg-muted",
+                  location === item.href
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground"
+                )}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.name}
               </Link>
             ))}
           </div>

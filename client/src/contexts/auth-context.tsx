@@ -19,6 +19,9 @@ interface AuthContextType {
   admin: Admin | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isLoading: boolean;
+  loginVisitor: (visitor: Visitor) => void;
+  loginAdmin: (admin: Admin) => void;
   logout: () => void;
   updateActivity: () => void;
 }
@@ -38,6 +41,7 @@ const PUBLIC_ROUTES = ["/login", "/admin/login"];
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [visitor, setVisitor] = useState<Visitor | null>(null);
   const [admin, setAdmin] = useState<Admin | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
@@ -59,9 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("hsquare_admin");
       }
     }
+    
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     const isPublicRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
     const isAdminRoute = location.startsWith("/admin") && location !== "/admin/login";
     
@@ -76,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [location, visitor, admin, setLocation]);
+  }, [location, visitor, admin, isLoading, setLocation]);
 
   useEffect(() => {
     if (visitor) {
@@ -86,6 +94,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return () => clearInterval(interval);
     }
   }, [visitor]);
+
+  const loginVisitor = (visitorData: Visitor) => {
+    localStorage.setItem("hsquare_visitor", JSON.stringify(visitorData));
+    setVisitor(visitorData);
+    setLocation("/");
+  };
+
+  const loginAdmin = (adminData: Admin) => {
+    localStorage.setItem("hsquare_admin", JSON.stringify(adminData));
+    setAdmin(adminData);
+    setLocation("/admin");
+  };
 
   const updateActivity = async () => {
     if (visitor) {
@@ -112,8 +132,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!(visitor || admin);
   const isAdmin = !!admin;
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ visitor, admin, isAuthenticated, isAdmin, logout, updateActivity }}>
+    <AuthContext.Provider value={{ 
+      visitor, 
+      admin, 
+      isAuthenticated, 
+      isAdmin, 
+      isLoading, 
+      loginVisitor,
+      loginAdmin,
+      logout, 
+      updateActivity 
+    }}>
       {children}
     </AuthContext.Provider>
   );

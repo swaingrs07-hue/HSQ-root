@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { Phone, Mail, Lock, User, ArrowRight } from "lucide-react";
 
 export default function VisitorLogin() {
-  const [, setLocation] = useLocation();
+  const { loginVisitor } = useAuth();
   const { toast } = useToast();
   
   const [name, setName] = useState("");
@@ -95,14 +95,12 @@ export default function VisitorLogin() {
         throw new Error(data.error || "Verification failed");
       }
 
-      localStorage.setItem("hsquare_visitor", JSON.stringify(data.lead));
-      
       toast({
         title: "Welcome!",
         description: `Hello ${data.lead.name}, let's find your perfect room`,
       });
 
-      setLocation("/");
+      loginVisitor(data.lead);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -140,14 +138,12 @@ export default function VisitorLogin() {
         throw new Error(data.error || "Login failed");
       }
 
-      localStorage.setItem("hsquare_visitor", JSON.stringify(data.lead));
-      
       toast({
         title: "Welcome!",
         description: `Hello ${data.lead.name}, let's find your perfect room`,
       });
 
-      setLocation("/");
+      loginVisitor(data.lead);
     } catch (error: any) {
       toast({
         title: "Error",

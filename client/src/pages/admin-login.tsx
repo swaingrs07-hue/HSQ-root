@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { Lock, Mail } from "lucide-react";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [, setLocation] = useLocation();
+  const { loginAdmin } = useAuth();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -41,15 +41,12 @@ export default function AdminLogin() {
         throw new Error(data.error || "Login failed");
       }
 
-      // Store admin user
-      localStorage.setItem("hsquare_admin", JSON.stringify(data.user));
-
       toast({
         title: "Login Successful",
         description: `Welcome back, ${data.user.email}`,
       });
 
-      setLocation("/admin");
+      loginAdmin(data.user);
     } catch (error: any) {
       toast({
         title: "Login Failed",
