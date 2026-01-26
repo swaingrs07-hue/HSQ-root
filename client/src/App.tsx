@@ -11,6 +11,7 @@ import PropertySelection from "@/pages/property-selection";
 import PaymentPlans from "@/pages/payment-plans";
 import PaymentGateway from "@/pages/payment-gateway";
 import Agreement from "@/pages/agreement";
+import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin-dashboard";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/payment-plans" component={PaymentPlans} />
       <Route path="/payment-gateway" component={PaymentGateway} />
       <Route path="/agreement" component={Agreement} />
+      <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

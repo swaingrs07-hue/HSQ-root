@@ -6,6 +6,9 @@ export async function seedDatabase() {
     const existingProperties = await storage.getAllProperties();
     if (existingProperties.length > 0) {
       console.log("Database already seeded, skipping...");
+      
+      // Still check if admin users exist and create them if not
+      await ensureAdminUsers();
       return;
     }
 
@@ -64,15 +67,35 @@ export async function seedDatabase() {
       imageUrl: "/assets/room-shared.png",
     });
 
-    // Create admin user
-    await storage.createUser({
-      email: "admin@hsquareliving.com",
-      password: "admin123", // In production, this should be hashed
-      role: "admin",
-    });
+    // Create admin users
+    await ensureAdminUsers();
 
     console.log("Database seeded successfully!");
   } catch (error) {
     console.error("Error seeding database:", error);
+  }
+}
+
+async function ensureAdminUsers() {
+  // Admin user 1: Gyan
+  const gyan = await storage.getUserByEmail("gyan@hsquareliving.com");
+  if (!gyan) {
+    await storage.createUser({
+      email: "gyan@hsquareliving.com",
+      password: "hsquare123",
+      role: "admin",
+    });
+    console.log("Created admin user: gyan@hsquareliving.com");
+  }
+
+  // Admin user 2: Arjun
+  const arjun = await storage.getUserByEmail("arjun@hsquareliving.com");
+  if (!arjun) {
+    await storage.createUser({
+      email: "arjun@hsquareliving.com",
+      password: "hsquare123",
+      role: "admin",
+    });
+    console.log("Created admin user: arjun@hsquareliving.com");
   }
 }

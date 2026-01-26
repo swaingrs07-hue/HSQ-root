@@ -12,7 +12,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Home", href: "/", icon: Home },
     { name: "Properties", href: "/properties", icon: Building2 },
     { name: "Student Portal", href: "/student/register", icon: User },
-    { name: "Admin", href: "/admin", icon: ShieldCheck },
+    { name: "Admin", href: "/admin/login", icon: ShieldCheck },
   ];
 
   return (

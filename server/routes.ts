@@ -69,6 +69,41 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
+  // ============ AUTH ============
+  
+  // Admin login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Simple password check (in production, use bcrypt)
+      if (user.password !== password) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      if (user.role !== "admin") {
+        return res.status(403).json({ error: "Access denied. Admin only." });
+      }
+
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   // ============ PROPERTIES ============
   
   // Get all properties with room types
