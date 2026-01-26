@@ -1,0 +1,68 @@
+Please FIX ROLE-BASED NAVIGATION and LEAD TRACKING issues in the Hsquareliving app as described below.
+
+1. STUDENT PORTAL VISIBILITY FIX
+- REMOVE “Student Portal” from the ADMIN panel and ADMIN navigation menu.
+- Ensure “Student Portal” is visible ONLY for USER role.
+- Implement strict role-based navigation rendering:
+  - ADMIN → Home, Dashboard, Properties, Leads, Admin Tools
+  - USER → Home, Properties, Student Portal, Profile
+- Block ADMIN users from accessing /student-portal route via direct URL.
+
+2. LEAD CREATION & UPDATE BUG FIX
+- Fix the issue where new user login or signup is NOT updating Lead Analytics.
+- Ensure a LEAD is created when:
+  - A new user signs up
+  - A user logs in for the first time
+  - A user visits a property detail page
+- Capture and store:
+  - Lead ID
+  - User ID
+  - Name
+  - Phone / Email
+  - Lead Source (Website, Walk-in, Referral, Event, Ads)
+  - Property Interested (if any)
+  - Lead Status (New, Interested, Site Visit, Negotiation, Converted, Lost)
+  - Timestamp
+
+3. LEAD PIPELINE LOGIC
+- Default new leads to status = "New"
+- Move lead status automatically:
+  - Property viewed → Interested
+  - Site visit scheduled → Site Visit
+  - Booking confirmed → Converted
+- Ensure pipeline counts update in real-time.
+
+4. LEAD ANALYTICS FIX
+- Fix total lead count mismatch.
+- Fix conversion rate calculation.
+- Ensure charts update dynamically on:
+  - New user login
+  - New signup
+  - Status change
+- Prevent duplicate leads per user.
+
+5. BACKEND & DATABASE
+- Verify Leads table exists and is linked with userId.
+- Add missing triggers/hooks if lead creation is skipped.
+- Ensure transactions are atomic (no partial writes).
+
+6. UI / UX FIXES
+- Refresh Lead Analytics automatically (no manual reload).
+- Show empty state if no leads exist.
+- Display accurate lead counts across:
+  - Total Leads
+  - Converted
+  - Active Pipeline
+
+7. SECURITY
+- Restrict lead analytics to ADMIN only.
+- Validate role before accessing lead APIs.
+
+8. TESTING
+- Login as ADMIN → Student Portal not visible.
+- Login as USER → Student Portal visible.
+- New user signup → Lead appears instantly.
+- Existing user login → Lead updates correctly.
+- Analytics charts reflect live data.
+
+Confirm once role-based navigation is correct and Lead Analytics updates automatically for every new user activity.

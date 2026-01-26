@@ -114,6 +114,33 @@ export async function registerRoutes(
       const redirectPath = getRoleRedirectPath(user.role as any);
       const { password: _, ...userWithoutPassword } = user;
 
+      // Create lead for new user signup (only for non-admin users)
+      if (user.role === "user") {
+        const userAgent = req.headers["user-agent"] || "";
+        const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "";
+        const deviceType = /mobile/i.test(userAgent) ? "mobile" : /tablet/i.test(userAgent) ? "tablet" : "desktop";
+        
+        try {
+          // Check if lead already exists
+          const existingLead = await storage.getLeadByEmail(email.toLowerCase());
+          if (!existingLead) {
+            await storage.createLead({
+              name,
+              email: email.toLowerCase(),
+              phone,
+              source: "website",
+              status: "new",
+              ipAddress,
+              userAgent,
+              deviceType,
+            });
+          }
+        } catch (leadError) {
+          console.error("Error creating lead during signup:", leadError);
+          // Don't fail signup if lead creation fails
+        }
+      }
+
       res.status(201).json({ 
         user: userWithoutPassword, 
         token,
@@ -164,6 +191,36 @@ export async function registerRoutes(
 
       const redirectPath = getRoleRedirectPath(user.role as any);
       const { password: _, ...userWithoutPassword } = user;
+
+      // Track lead activity on login (only for non-admin users)
+      if (user.role === "user") {
+        const userAgent = req.headers["user-agent"] || "";
+        const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "";
+        const deviceType = /mobile/i.test(userAgent) ? "mobile" : /tablet/i.test(userAgent) ? "tablet" : "desktop";
+        
+        try {
+          const existingLead = await storage.getLeadByEmail(email.toLowerCase());
+          if (existingLead) {
+            // Update existing lead's activity
+            await storage.updateLeadActivity(existingLead.id);
+          } else {
+            // Create new lead if user doesn't have one (legacy users)
+            await storage.createLead({
+              name: user.name,
+              email: email.toLowerCase(),
+              phone: user.phone || null,
+              source: "website",
+              status: "new",
+              ipAddress,
+              userAgent,
+              deviceType,
+            });
+          }
+        } catch (leadError) {
+          console.error("Error tracking lead during login:", leadError);
+          // Don't fail login if lead tracking fails
+        }
+      }
 
       res.json({ 
         user: userWithoutPassword, 
@@ -416,9 +473,48 @@ export async function registerRoutes(
     }
   });
 
-  // Get lead analytics
-  app.get("/api/leads/analytics/summary", async (req, res) => {
+  // Track property view and update lead status to "interested"
+  app.post("/api/leads/track-property-view", async (req, res) => {
     try {
+      const { email, propertyId, propertyName } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
+
+      const lead = await storage.getLeadByEmail(email.toLowerCase());
+      if (lead && lead.status === "new") {
+        // Update status to interested when viewing a property
+        await storage.updateLead(lead.id, { 
+          status: "interested",
+          notes: lead.notes 
+            ? `${lead.notes}\nViewed property: ${propertyName || propertyId}` 
+            : `Viewed property: ${propertyName || propertyId}`,
+          lastActivityAt: new Date(),
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking property view:", error);
+      res.status(500).json({ error: "Failed to track property view" });
+    }
+  });
+
+  // Get lead analytics (admin only)
+  app.get("/api/leads/analytics/summary", async (req: AuthRequest, res) => {
+    try {
+      // Verify admin role
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
       const analytics = await storage.getLeadAnalytics();
       res.json(analytics);
     } catch (error) {

@@ -42,7 +42,19 @@ export default function StudentRegistration() {
   const [submitting, setSubmitting] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // Block admin users from accessing student portal
+  useEffect(() => {
+    if (isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Admin users cannot access the Student Portal",
+        variant: "destructive",
+      });
+      setLocation("/admin");
+    }
+  }, [isAdmin, setLocation, toast]);
 
   const form = useForm<z.infer<typeof registrationSchema>>({
     resolver: zodResolver(registrationSchema),

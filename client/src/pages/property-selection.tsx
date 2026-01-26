@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getProperties } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import propertyExterior from "@/assets/property-exterior.png";
 
 const amenityIcons: Record<string, any> = {
@@ -88,10 +89,37 @@ export default function PropertySelection() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     loadProperties();
   }, []);
+
+  // Track property view for lead analytics
+  const trackPropertyView = async (property: any) => {
+    if (user?.email) {
+      try {
+        await fetch("/api/leads/track-property-view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            propertyId: property.id,
+            propertyName: property.name,
+          }),
+        });
+      } catch (error) {
+        // Silent fail - don't interrupt user experience
+        console.error("Failed to track property view:", error);
+      }
+    }
+  };
+
+  // Handle property selection with tracking
+  const handlePropertySelect = (property: any) => {
+    setSelectedProperty(property);
+    trackPropertyView(property);
+  };
 
   const loadProperties = async () => {
     try {
@@ -349,7 +377,7 @@ export default function PropertySelection() {
                   >
                     <Card 
                       className="overflow-hidden border-none shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full flex flex-col"
-                      onClick={() => setSelectedProperty(prop)}
+                      onClick={() => handlePropertySelect(prop)}
                       data-testid={`property-card-${prop.id}`}
                     >
                       <div className="relative h-56 overflow-hidden">

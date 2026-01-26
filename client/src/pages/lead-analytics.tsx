@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, TrendingUp, Target, UserCheck, ArrowUp, ArrowDown } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import {
   BarChart,
   Bar,
@@ -84,8 +85,22 @@ function formatMonth(monthStr: string) {
 }
 
 export default function LeadAnalyticsPage() {
+  const { token } = useAuth();
+  
   const { data: analytics, isLoading, error } = useQuery<LeadAnalytics>({
     queryKey: ["/api/leads/analytics/summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/leads/analytics/summary", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch analytics");
+      return res.json();
+    },
+    refetchInterval: 10000, // Refresh every 10 seconds for real-time updates
+    refetchOnWindowFocus: true,
+    enabled: !!token,
   });
 
   if (isLoading) {

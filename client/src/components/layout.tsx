@@ -10,13 +10,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
-  const navItems = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Dashboard", href: user ? (isAdmin ? "/admin" : "/dashboard") : "/dashboard", icon: LayoutDashboard },
-    { name: "Properties", href: "/properties", icon: Building2 },
-    { name: "Student Portal", href: "/student/register", icon: User },
-    ...(isAdmin ? [{ name: "Admin", href: "/admin", icon: ShieldCheck }] : []),
-  ];
+  const navItems = isAdmin 
+    ? [
+        { name: "Home", href: "/", icon: Home },
+        { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+        { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Admin", href: "/admin", icon: ShieldCheck },
+      ]
+    : [
+        { name: "Home", href: "/", icon: Home },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Student Portal", href: "/student/register", icon: User },
+      ];
 
   const userName = user?.name || "Guest";
 
