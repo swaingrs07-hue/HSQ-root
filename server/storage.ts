@@ -143,6 +143,18 @@ export interface IStorage {
     conversionRate: number;
   }[]>;
   
+  // Lead Scoring
+  updateLeadScore(leadId: string, action: string): Promise<Lead | undefined>;
+  recalculateLeadScore(leadId: string): Promise<Lead | undefined>;
+  getLeadScoreAnalytics(propertyId?: string): Promise<{
+    totalLeads: number;
+    averageScore: number;
+    hotLeads: number;
+    warmLeads: number;
+    coldLeads: number;
+    topProperty?: { propertyId: string; propertyName: string; avgScore: number };
+  }>;
+  
   // Global Amenities
   getAllGlobalAmenities(): Promise<GlobalAmenity[]>;
   createGlobalAmenity(amenity: InsertGlobalAmenity): Promise<GlobalAmenity>;
@@ -668,6 +680,178 @@ export class DatabaseStorage implements IStorage {
     );
 
     return funnels.filter((f): f is NonNullable<typeof f> => f !== null);
+  }
+
+  // Lead Scoring - Scoring rules configuration
+  private scoringRules: Record<string, number> = {
+    signup: 5,
+    property_view: 10,
+    multiple_views: 15,
+    enquiry: 20,
+    site_visit: 25,
+    booking_initiated: 30,
+    booking_confirmed: 40,
+    discount_request: 10,
+    inactivity_penalty: -10,
+    lost: 0,
+  };
+
+  private calculatePriority(score: number): "cold" | "warm" | "hot" {
+    if (score >= 61) return "hot";
+    if (score >= 31) return "warm";
+    return "cold";
+  }
+
+  async updateLeadScore(leadId: string, action: string): Promise<Lead | undefined> {
+    const lead = await this.getLead(leadId);
+    if (!lead) return undefined;
+
+    let newScore = lead.score || 0;
+    let updates: Partial<Lead> = { lastActivityAt: new Date() };
+    const currentViewCount = lead.viewCount ?? 0;
+
+    switch (action) {
+      case "signup":
+        if (!lead.signedUp) {
+          newScore += this.scoringRules.signup;
+          updates.signedUp = true;
+        }
+        break;
+      case "property_view":
+        const newViewCount = currentViewCount + 1;
+        updates.viewCount = newViewCount;
+        newScore += this.scoringRules.property_view;
+        // Add bonus only when hitting exactly 3 views (crossing threshold)
+        if (newViewCount === 3) {
+          newScore += this.scoringRules.multiple_views;
+        }
+        break;
+      case "enquiry":
+        if (!lead.enquirySubmitted) {
+          newScore += this.scoringRules.enquiry;
+          updates.enquirySubmitted = true;
+        }
+        break;
+      case "site_visit":
+        if (!lead.siteVisitScheduled) {
+          newScore += this.scoringRules.site_visit;
+          updates.siteVisitScheduled = true;
+        }
+        break;
+      case "booking_initiated":
+        if (!lead.bookingInitiated) {
+          newScore += this.scoringRules.booking_initiated;
+          updates.bookingInitiated = true;
+        }
+        break;
+      case "booking_confirmed":
+        if (!lead.bookingConfirmed) {
+          newScore += this.scoringRules.booking_confirmed;
+          updates.bookingConfirmed = true;
+        }
+        break;
+      case "discount_request":
+        if (!lead.discountRequested) {
+          newScore += this.scoringRules.discount_request;
+          updates.discountRequested = true;
+        }
+        break;
+      case "lost":
+        newScore = this.scoringRules.lost;
+        updates.status = "lost";
+        break;
+      case "inactivity":
+        newScore = Math.max(0, newScore + this.scoringRules.inactivity_penalty);
+        break;
+    }
+
+    newScore = Math.min(100, Math.max(0, newScore));
+    const newPriority = this.calculatePriority(newScore);
+
+    const [updated] = await db
+      .update(leads)
+      .set({ ...updates, score: newScore, priority: newPriority })
+      .where(eq(leads.id, leadId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async recalculateLeadScore(leadId: string): Promise<Lead | undefined> {
+    const lead = await this.getLead(leadId);
+    if (!lead) return undefined;
+
+    let score = 0;
+    const viewCount = lead.viewCount ?? 0;
+    
+    // Add signup points only if explicitly signed up
+    if (lead.signedUp) {
+      score += this.scoringRules.signup;
+    }
+    // Add property view points
+    if (viewCount >= 1) {
+      score += viewCount * this.scoringRules.property_view;
+    }
+    if (viewCount >= 3) score += this.scoringRules.multiple_views;
+    if (lead.enquirySubmitted) score += this.scoringRules.enquiry;
+    if (lead.siteVisitScheduled) score += this.scoringRules.site_visit;
+    if (lead.bookingInitiated) score += this.scoringRules.booking_initiated;
+    if (lead.bookingConfirmed) score += this.scoringRules.booking_confirmed;
+    if (lead.discountRequested) score += this.scoringRules.discount_request;
+    if (lead.status === "lost") score = 0;
+
+    score = Math.min(100, Math.max(0, score));
+    const priority = this.calculatePriority(score);
+
+    const [updated] = await db
+      .update(leads)
+      .set({ score, priority })
+      .where(eq(leads.id, leadId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getLeadScoreAnalytics(propertyId?: string): Promise<{
+    totalLeads: number;
+    averageScore: number;
+    hotLeads: number;
+    warmLeads: number;
+    coldLeads: number;
+    topProperty?: { propertyId: string; propertyName: string; avgScore: number };
+  }> {
+    const whereClause = propertyId ? eq(leads.propertyId, propertyId) : sql`1=1`;
+    
+    const allLeads = await db.select().from(leads).where(whereClause);
+    const totalLeads = allLeads.length;
+    const averageScore = totalLeads > 0 ? allLeads.reduce((sum, l) => sum + (l.score || 0), 0) / totalLeads : 0;
+    const hotLeads = allLeads.filter(l => l.priority === "hot").length;
+    const warmLeads = allLeads.filter(l => l.priority === "warm").length;
+    const coldLeads = allLeads.filter(l => l.priority === "cold").length;
+
+    let topProperty: { propertyId: string; propertyName: string; avgScore: number } | undefined;
+    
+    if (!propertyId) {
+      const propertyScores = await db
+        .select({
+          propertyId: leads.propertyId,
+          propertyName: leads.propertyName,
+          avgScore: sql<number>`AVG(${leads.score})::float`,
+        })
+        .from(leads)
+        .where(sql`${leads.propertyId} IS NOT NULL`)
+        .groupBy(leads.propertyId, leads.propertyName)
+        .orderBy(sql`AVG(${leads.score}) DESC`)
+        .limit(1);
+
+      if (propertyScores.length > 0 && propertyScores[0].propertyId) {
+        topProperty = {
+          propertyId: propertyScores[0].propertyId,
+          propertyName: propertyScores[0].propertyName || "Unknown",
+          avgScore: propertyScores[0].avgScore || 0,
+        };
+      }
+    }
+
+    return { totalLeads, averageScore, hotLeads, warmLeads, coldLeads, topProperty };
   }
 
   // Global Amenities

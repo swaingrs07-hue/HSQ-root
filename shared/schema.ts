@@ -252,6 +252,13 @@ export const leadStatusEnum = pgEnum("lead_status", [
   "lost"
 ]);
 
+// Lead priority enum for auto-scoring classification
+export const leadPriorityEnum = pgEnum("lead_priority", [
+  "cold",
+  "warm",
+  "hot"
+]);
+
 // Leads table (visitor/prospect tracking)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -283,6 +290,17 @@ export const leads = pgTable("leads", {
   convertedToStudent: boolean("converted_to_student").default(false).notNull(),
   convertedAt: timestamp("converted_at"),
   studentId: varchar("student_id").references(() => students.id),
+  
+  // Lead Scoring (auto-calculated)
+  score: integer("score").default(0).notNull(),
+  priority: leadPriorityEnum("priority").default("cold").notNull(),
+  signedUp: boolean("signed_up").default(false).notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  enquirySubmitted: boolean("enquiry_submitted").default(false).notNull(),
+  siteVisitScheduled: boolean("site_visit_scheduled").default(false).notNull(),
+  bookingInitiated: boolean("booking_initiated").default(false).notNull(),
+  bookingConfirmed: boolean("booking_confirmed").default(false).notNull(),
+  discountRequested: boolean("discount_requested").default(false).notNull(),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -43,6 +43,21 @@ Preferred communication style: Simple, everyday language.
 3. **Payment Plans**: Three installment options (full settlement, two, or three installments) with booking amount of ₹100,000
 4. **Digital Agreement**: Signature capture using react-signature-canvas with PDF generation
 
+### Lead Scoring System (Property-Wise)
+- **Score Range**: 0-100 per property
+- **Priority Classification**: Cold (0-30), Warm (31-60), Hot (61-100)
+- **Scoring Rules**:
+  - Signup/Lead Creation: +5 points
+  - Property View: +10 points per view
+  - Multiple Views (3+): +15 bonus
+  - Enquiry Submitted: +20 points
+  - Site Visit Scheduled: +25 points
+  - Booking Initiated: +30 points
+  - Booking Confirmed: +40 points
+  - Discount Request: +10 points
+  - Lost Status: Score reset to 0
+- **Admin Dashboard**: Lead Scoring Dashboard with priority distribution, averages, and top property analysis
+
 ### Code Organization
 ```
 client/src/

@@ -44,7 +44,28 @@ interface PropertyFunnel {
   conversionRate: number;
 }
 
+interface LeadScoreAnalytics {
+  totalLeads: number;
+  averageScore: number;
+  hotLeads: number;
+  warmLeads: number;
+  coldLeads: number;
+  topProperty?: { propertyId: string; propertyName: string; avgScore: number };
+}
+
 const STAGE_ORDER = ["new", "interested", "site_visit", "negotiation", "converted", "lost"];
+
+const PRIORITY_COLORS: Record<string, string> = {
+  hot: "#EF4444",
+  warm: "#F59E0B",
+  cold: "#60A5FA",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  hot: "🔥 Hot",
+  warm: "🟡 Warm",
+  cold: "❄️ Cold",
+};
 const STAGE_COLORS: Record<string, string> = {
   new: "#9CA3AF",
   interested: "#3B82F6",
@@ -136,6 +157,26 @@ export default function LeadAnalyticsPage() {
         },
       });
       if (!res.ok) throw new Error("Failed to fetch property funnels");
+      return res.json();
+    },
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    enabled: !!token,
+  });
+
+  // Fetch lead score analytics
+  const { data: scoreAnalytics } = useQuery<LeadScoreAnalytics>({
+    queryKey: ["/api/leads/scores/analytics", selectedPropertyId],
+    queryFn: async () => {
+      const url = selectedPropertyId === "all" 
+        ? "/api/leads/scores/analytics"
+        : `/api/leads/scores/analytics?propertyId=${selectedPropertyId}`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch score analytics");
       return res.json();
     },
     refetchInterval: 10000,
@@ -454,6 +495,113 @@ export default function LeadAnalyticsPage() {
                 Select a property to view its lead funnel
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Lead Scoring Dashboard */}
+        <Card data-testid="lead-scoring-dashboard">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Lead Scoring Dashboard
+            </CardTitle>
+            <CardDescription>Auto-scored leads by property engagement - Priority: 🔥 Hot (61-100), 🟡 Warm (31-60), ❄️ Cold (0-30)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
+                <CardContent className="pt-4">
+                  <p className="text-sm text-gray-500">Total Leads</p>
+                  <p className="text-2xl font-bold">{scoreAnalytics?.totalLeads || 0}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+                <CardContent className="pt-4">
+                  <p className="text-sm text-gray-500">Avg Score</p>
+                  <p className="text-2xl font-bold text-purple-700">{(scoreAnalytics?.averageScore || 0).toFixed(1)}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-600">🔥 Hot Leads</p>
+                      <p className="text-2xl font-bold text-red-700">{scoreAnalytics?.hotLeads || 0}</p>
+                    </div>
+                    <span className="text-2xl">🔥</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-amber-600">🟡 Warm Leads</p>
+                      <p className="text-2xl font-bold text-amber-700">{scoreAnalytics?.warmLeads || 0}</p>
+                    </div>
+                    <span className="text-2xl">🟡</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600">❄️ Cold Leads</p>
+                      <p className="text-2xl font-bold text-blue-700">{scoreAnalytics?.coldLeads || 0}</p>
+                    </div>
+                    <span className="text-2xl">❄️</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Priority Distribution Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-medium mb-4">Lead Priority Distribution</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Hot", value: scoreAnalytics?.hotLeads || 0, fill: PRIORITY_COLORS.hot },
+                        { name: "Warm", value: scoreAnalytics?.warmLeads || 0, fill: PRIORITY_COLORS.warm },
+                        { name: "Cold", value: scoreAnalytics?.coldLeads || 0, fill: PRIORITY_COLORS.cold },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {scoreAnalytics?.topProperty && selectedPropertyId === "all" && (
+                <div>
+                  <h3 className="text-sm font-medium mb-4">Top Performing Property</h3>
+                  <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                          <TrendingUp className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-green-800">{scoreAnalytics.topProperty.propertyName}</p>
+                          <p className="text-sm text-green-600">
+                            Average Score: <span className="font-bold">{scoreAnalytics.topProperty.avgScore.toFixed(1)}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 

@@ -1,0 +1,86 @@
+Please IMPLEMENT an AUTO LEAD SCORING SYSTEM (PROPERTY-WISE) in the Hsquareliving app with real-time scoring, admin visibility, and configurable rules.
+
+1. CORE CONCEPT
+- Each lead must have an independent score PER PROPERTY.
+- Score range: 0–100.
+- Score updates automatically based on user actions.
+- No manual scoring by admin.
+
+2. SCORING RULES (DEFAULT)
+Assign points per property interaction:
+
+- User signup → +5
+- Property page view → +10
+- Same property viewed 3+ times → +15
+- Enquiry submitted → +20
+- Site visit scheduled → +25
+- Booking initiated → +30
+- Booking confirmed → +40
+- Discount request → +10
+- No activity for 7 days → −10
+- Lead marked Lost → score = 0
+
+3. PROPERTY-WISE TRACKING
+- Track actions separately for each propertyId.
+- Prevent score mixing across properties.
+- One user can have multiple lead scores (one per property).
+
+4. LEAD PRIORITY CLASSIFICATION
+Automatically classify leads per property:
+- 0–30 → Cold ❄️
+- 31–60 → Warm 🟡
+- 61–100 → Hot 🔥
+
+Store:
+- leadScore
+- leadPriority (Cold/Warm/Hot)
+
+5. DATABASE UPDATES
+- Create / update LeadScore table:
+  - leadId
+  - userId
+  - propertyId
+  - score
+  - priority
+  - lastActivityAt
+- Ensure indexed queries for fast updates.
+
+6. ADMIN UI – LEAD SCORING VIEW
+- Add “Lead Scoring” column in Lead Management table.
+- Show:
+  - Score (numeric)
+  - Priority badge (🔥 🟡 ❄️)
+- Allow sorting by:
+  - Score (High → Low)
+  - Priority
+  - Property
+
+7. PROPERTY-WISE ANALYTICS
+- In Property Lead Funnel:
+  - Show average lead score per property
+  - Show % of Hot / Warm / Cold leads
+- Highlight top-performing property by score.
+
+8. REAL-TIME UPDATE
+- Update lead score instantly when:
+  - Property viewed
+  - Enquiry submitted
+  - Status changed
+- No page refresh required.
+
+9. ADMIN CONFIGURATION (FUTURE-READY)
+- Allow admin to modify scoring points per action.
+- Enable/disable specific scoring rules per property.
+
+10. SECURITY & ACCESS
+- Lead scoring visible ONLY to ADMIN.
+- Protect APIs with role checks.
+
+11. TESTING
+- New user → score created
+- Multiple property views → scores differ per property
+- Booking → score increases correctly
+- Inactivity → score decreases
+- Admin dashboard reflects live scoring
+
+Confirm once PROPERTY-WISE AUTO LEAD SCORING is live and visible across Lead Analytics and Property Funnel.

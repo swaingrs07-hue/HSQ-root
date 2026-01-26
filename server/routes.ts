@@ -473,7 +473,7 @@ export async function registerRoutes(
     }
   });
 
-  // Track property view and update lead status to "interested"
+  // Track property view and update lead status to "interested" with auto-scoring
   app.post("/api/leads/track-property-view", async (req, res) => {
     try {
       const { email, name, propertyId, propertyName } = req.body;
@@ -490,14 +490,18 @@ export async function registerRoutes(
       let lead = await storage.getLeadByEmailAndProperty(email.toLowerCase(), propertyId);
       
       if (lead) {
-        // Update existing lead's activity and status if still "new"
+        // Update existing lead's activity, status if still "new", and score
         const updates: any = { lastActivityAt: new Date() };
         if (lead.status === "new") {
           updates.status = "interested";
         }
         await storage.updateLead(lead.id, updates);
+        // Update lead score for property view
+        lead = await storage.updateLeadScore(lead.id, "property_view");
       } else {
-        // Create new property-specific lead with status "interested" (since they viewed a property)
+        // Create new property-specific lead with status "interested" and initial score
+        // Score: signup(5) + property_view(10) = 15, Priority: cold (0-30)
+        const initialScore = 15;
         lead = await storage.createLead({
           name: name || "Unknown",
           email: email.toLowerCase(),
@@ -508,13 +512,70 @@ export async function registerRoutes(
           ipAddress,
           userAgent,
           deviceType,
+          score: initialScore,
+          priority: initialScore >= 61 ? "hot" : initialScore >= 31 ? "warm" : "cold",
+          signedUp: true, // Lead created from property view = signed up
+          viewCount: 1,
         });
       }
       
-      res.json({ success: true, leadId: lead?.id });
+      res.json({ success: true, leadId: lead?.id, score: lead?.score, priority: lead?.priority });
     } catch (error) {
       console.error("Error tracking property view:", error);
       res.status(500).json({ error: "Failed to track property view" });
+    }
+  });
+
+  // Update lead score for specific action (admin or internal use)
+  app.post("/api/leads/:id/score", async (req: AuthRequest, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { action } = req.body as { action?: string };
+      if (!action || typeof action !== 'string') {
+        return res.status(400).json({ error: "Action required" });
+      }
+
+      const leadId = req.params.id as string;
+      const lead = await storage.updateLeadScore(leadId, action);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error updating lead score:", error);
+      res.status(500).json({ error: "Failed to update lead score" });
+    }
+  });
+
+  // Get lead score analytics (admin only)
+  app.get("/api/leads/scores/analytics", async (req: AuthRequest, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const propertyIdParam = req.query.propertyId;
+      const propertyId = typeof propertyIdParam === 'string' ? propertyIdParam : undefined;
+      const analytics = await storage.getLeadScoreAnalytics(propertyId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching lead score analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
     }
   });
 
