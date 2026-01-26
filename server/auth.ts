@@ -2,7 +2,17 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
-const JWT_SECRET = process.env.JWT_SECRET || "hsquareliving-secret-key-2024";
+function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+  
+  if (process.env.NODE_ENV === "production" && !secret) {
+    throw new Error("FATAL: JWT_SECRET or SESSION_SECRET must be set in production environment");
+  }
+  
+  return secret || "hsquareliving-dev-secret-key-for-development-only";
+}
+
+const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN = "7d";
 
 export type UserRole = "user" | "admin" | "manager" | "staff";

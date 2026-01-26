@@ -1,29 +1,26 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 
-interface Visitor {
+export type UserRole = "user" | "admin" | "manager" | "staff";
+
+interface User {
   id: string;
   name: string;
-  phone?: string;
-  email?: string;
-}
-
-interface Admin {
-  id: string;
   email: string;
-  role: string;
+  role: UserRole;
+  isActive: boolean;
 }
 
 interface AuthContextType {
-  visitor: Visitor | null;
-  admin: Admin | null;
+  user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLoading: boolean;
-  loginVisitor: (visitor: Visitor) => void;
-  loginAdmin: (admin: Admin) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
+  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
   logout: () => void;
-  updateActivity: () => void;
+  getRedirectPath: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,101 +33,147 @@ export function useAuth() {
   return context;
 }
 
-const PUBLIC_ROUTES = ["/login", "/admin/login"];
+const PUBLIC_ROUTES = ["/login", "/auth", "/admin/login"];
+const STORAGE_KEY = "hsquare_auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [visitor, setVisitor] = useState<Visitor | null>(null);
-  const [admin, setAdmin] = useState<Admin | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    const storedVisitor = localStorage.getItem("hsquare_visitor");
-    const storedAdmin = localStorage.getItem("hsquare_admin");
-    
-    if (storedVisitor) {
-      try {
-        setVisitor(JSON.parse(storedVisitor));
-      } catch {
-        localStorage.removeItem("hsquare_visitor");
-      }
-    }
-    
-    if (storedAdmin) {
-      try {
-        setAdmin(JSON.parse(storedAdmin));
-      } catch {
-        localStorage.removeItem("hsquare_admin");
-      }
-    }
-    
-    setIsLoading(false);
+    initializeAuth();
   }, []);
 
   useEffect(() => {
     if (isLoading) return;
     
     const isPublicRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
-    const isAdminRoute = location.startsWith("/admin") && location !== "/admin/login";
+    const isAdminRoute = location.startsWith("/admin");
+    const isOperationsRoute = location.startsWith("/operations");
     
-    if (!isPublicRoute) {
-      if (isAdminRoute) {
-        if (!admin) {
-          setLocation("/admin/login");
-        }
+    if (!isPublicRoute && !user) {
+      setLocation("/auth");
+      return;
+    }
+
+    if (user && isAdminRoute && user.role !== "admin") {
+      setLocation(getRedirectPath());
+      return;
+    }
+
+    if (user && isOperationsRoute && !["admin", "manager", "staff"].includes(user.role)) {
+      setLocation(getRedirectPath());
+    }
+  }, [location, user, isLoading, setLocation]);
+
+  async function initializeAuth() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { token: storedToken } = JSON.parse(stored);
+      if (!storedToken) {
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${storedToken}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        setToken(storedToken);
       } else {
-        if (!visitor && !admin) {
-          setLocation("/login");
-        }
+        localStorage.removeItem(STORAGE_KEY);
       }
+    } catch (error) {
+      console.error("Auth initialization error:", error);
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setIsLoading(false);
     }
-  }, [location, visitor, admin, isLoading, setLocation]);
+  }
 
-  useEffect(() => {
-    if (visitor) {
-      const interval = setInterval(() => {
-        updateActivity();
-      }, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [visitor]);
+  async function login(email: string, password: string): Promise<{ success: boolean; error?: string; redirectPath?: string }> {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-  const loginVisitor = (visitorData: Visitor) => {
-    localStorage.setItem("hsquare_visitor", JSON.stringify(visitorData));
-    setVisitor(visitorData);
-    setLocation("/");
-  };
+      const data = await response.json();
 
-  const loginAdmin = (adminData: Admin) => {
-    localStorage.setItem("hsquare_admin", JSON.stringify(adminData));
-    setAdmin(adminData);
-    setLocation("/admin");
-  };
-
-  const updateActivity = async () => {
-    if (visitor) {
-      try {
-        await fetch("/api/auth/visitor/activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadId: visitor.id }),
-        });
-      } catch (error) {
-        console.error("Failed to update activity:", error);
+      if (!response.ok) {
+        return { success: false, error: data.error || "Login failed" };
       }
+
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: data.token }));
+
+      return { success: true, redirectPath: data.redirectPath };
+    } catch (error) {
+      console.error("Login error:", error);
+      return { success: false, error: "Network error. Please try again." };
     }
-  };
+  }
 
-  const logout = () => {
-    setVisitor(null);
-    setAdmin(null);
-    localStorage.removeItem("hsquare_visitor");
-    localStorage.removeItem("hsquare_admin");
-    setLocation("/login");
-  };
+  async function signup(name: string, email: string, password: string): Promise<{ success: boolean; error?: string; redirectPath?: string }> {
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-  const isAuthenticated = !!(visitor || admin);
-  const isAdmin = !!admin;
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.error || "Signup failed" };
+      }
+
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: data.token }));
+
+      return { success: true, redirectPath: data.redirectPath };
+    } catch (error) {
+      console.error("Signup error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  }
+
+  function logout() {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem(STORAGE_KEY);
+    setLocation("/auth");
+  }
+
+  function getRedirectPath(): string {
+    if (!user) return "/auth";
+    switch (user.role) {
+      case "admin":
+        return "/admin";
+      case "manager":
+      case "staff":
+        return "/operations";
+      case "user":
+      default:
+        return "/dashboard";
+    }
+  }
+
+  const isAuthenticated = !!user;
+  const isAdmin = user?.role === "admin";
 
   if (isLoading) {
     return (
@@ -142,15 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ 
-      visitor, 
-      admin, 
+      user,
+      token,
       isAuthenticated, 
       isAdmin, 
       isLoading, 
-      loginVisitor,
-      loginAdmin,
-      logout, 
-      updateActivity 
+      login,
+      signup,
+      logout,
+      getRedirectPath,
     }}>
       {children}
     </AuthContext.Provider>

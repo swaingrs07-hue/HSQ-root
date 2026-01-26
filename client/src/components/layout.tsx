@@ -1,23 +1,24 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X, LogOut } from "lucide-react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { visitor, admin, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const navItems = [
     { name: "Home", href: "/", icon: Home },
+    { name: "Dashboard", href: user ? (isAdmin ? "/admin" : "/dashboard") : "/dashboard", icon: LayoutDashboard },
     { name: "Properties", href: "/properties", icon: Building2 },
     { name: "Student Portal", href: "/student/register", icon: User },
-    ...(isAdmin ? [{ name: "Admin Dashboard", href: "/admin", icon: ShieldCheck }] : []),
+    ...(isAdmin ? [{ name: "Admin", href: "/admin", icon: ShieldCheck }] : []),
   ];
 
-  const userName = admin?.email?.split("@")[0] || visitor?.name || "Guest";
+  const userName = user?.name || "Guest";
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -51,6 +52,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-3 pl-4 border-l">
               <span className="text-sm text-muted-foreground">
                 Hi, <span className="font-semibold text-foreground">{userName}</span>
+                {user?.role && (
+                  <span className="ml-1 text-xs text-primary capitalize">({user.role})</span>
+                )}
               </span>
               <Button 
                 size="sm" 
@@ -77,6 +81,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between pb-4 border-b">
               <span className="text-sm text-muted-foreground">
                 Hi, <span className="font-semibold text-foreground">{userName}</span>
+                {user?.role && (
+                  <span className="ml-1 text-xs text-primary capitalize">({user.role})</span>
+                )}
               </span>
               <Button 
                 size="sm" 

@@ -12,30 +12,33 @@ import PropertySelection from "@/pages/property-selection";
 import PaymentPlans from "@/pages/payment-plans";
 import PaymentGateway from "@/pages/payment-gateway";
 import Agreement from "@/pages/agreement";
-import VisitorLogin from "@/pages/visitor-login";
-import AdminLogin from "@/pages/admin-login";
+import AuthPage from "@/pages/auth";
 import AdminDashboard from "@/pages/admin-dashboard";
+import UserDashboard from "@/pages/user-dashboard";
 
 function AppContent() {
   const [location] = useLocation();
   
-  const isLoginPage = location === "/login" || location === "/admin/login";
+  const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login";
 
   return (
     <Switch>
-      <Route path="/login" component={VisitorLogin} />
-      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/login" component={AuthPage} />
+      <Route path="/admin/login" component={AuthPage} />
       <Route>
-        {isLoginPage ? null : (
+        {isAuthPage ? null : (
           <Layout>
             <Switch>
               <Route path="/" component={Home} />
+              <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />
               <Route path="/payment-plans" component={PaymentPlans} />
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
               <Route path="/admin" component={AdminDashboard} />
+              <Route path="/operations" component={AdminDashboard} />
               <Route component={NotFound} />
             </Switch>
           </Layout>
