@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 
-export type UserRole = "user" | "admin" | "manager" | "staff";
+export type UserRole = "user" | "admin" | "manager" | "staff" | "sales_executive";
 
 interface User {
   id: string;
@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPublicRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
     const isAdminRoute = location.startsWith("/admin");
     const isOperationsRoute = location.startsWith("/operations");
+    const isSalesRoute = location.startsWith("/sales");
     
     if (!isPublicRoute && !user) {
       setLocation("/auth");
@@ -66,6 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (user && isOperationsRoute && !["admin", "manager", "staff"].includes(user.role)) {
+      setLocation(getRedirectPath());
+      return;
+    }
+
+    if (user && isSalesRoute && !["admin", "sales_executive"].includes(user.role)) {
       setLocation(getRedirectPath());
     }
   }, [location, user, isLoading, setLocation]);
@@ -168,6 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case "manager":
       case "staff":
         return "/operations";
+      case "sales_executive":
+        return "/sales";
       case "user":
       default:
         return "/dashboard";

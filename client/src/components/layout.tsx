@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -10,12 +10,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
+  const isSalesExec = user?.role === "sales_executive";
+
   const navItems = isAdmin 
     ? [
         { name: "Home", href: "/", icon: Home },
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Sales Team", href: "/admin/sales-management", icon: Users },
         { name: "Admin", href: "/admin", icon: ShieldCheck },
+      ]
+    : isSalesExec
+    ? [
+        { name: "Home", href: "/", icon: Home },
+        { name: "Dashboard", href: "/sales", icon: Target },
+        { name: "Properties", href: "/properties", icon: Building2 },
       ]
     : [
         { name: "Home", href: "/", icon: Home },
@@ -77,6 +86,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button
             className="md:hidden p-2 text-foreground"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            data-testid="button-mobile-menu"
           >
             {mobileMenuOpen ? <X /> : <Menu />}
           </button>
@@ -96,6 +106,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost" 
                 onClick={() => { logout(); setMobileMenuOpen(false); }}
                 className="text-muted-foreground hover:text-destructive"
+                data-testid="button-logout-mobile"
               >
                 <LogOut className="w-4 h-4 mr-2" /> Logout
               </Button>
