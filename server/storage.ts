@@ -13,6 +13,9 @@ import {
   nearbyLocations,
   propertyTariffs,
   propertyImages,
+  salesExecProperties,
+  leadActivities,
+  leadRemarks,
   type User,
   type InsertUser,
   type Student,
@@ -41,9 +44,15 @@ import {
   type InsertPropertyTariff,
   type PropertyImage,
   type InsertPropertyImage,
+  type SalesExecProperty,
+  type InsertSalesExecProperty,
+  type LeadActivity,
+  type InsertLeadActivity,
+  type LeadRemark,
+  type InsertLeadRemark,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, isNull, lt, gte, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -181,6 +190,48 @@ export interface IStorage {
   createPropertyImage(image: InsertPropertyImage): Promise<PropertyImage>;
   updatePropertyImage(id: string, data: Partial<PropertyImage>): Promise<PropertyImage | undefined>;
   deletePropertyImage(id: string): Promise<void>;
+  
+  // Sales Executive Management
+  getSalesExecutives(): Promise<User[]>;
+  createSalesExecutive(user: InsertUser): Promise<User>;
+  
+  // Property Assignments
+  getPropertyAssignments(userId: string): Promise<SalesExecProperty[]>;
+  getAllPropertyAssignments(): Promise<(SalesExecProperty & { user?: User; property?: Property })[]>;
+  assignPropertyToUser(assignment: InsertSalesExecProperty): Promise<SalesExecProperty>;
+  removePropertyAssignment(userId: string, propertyId: string): Promise<void>;
+  getAssignedPropertiesForUser(userId: string): Promise<Property[]>;
+  
+  // Lead Assignment & Scoping
+  getLeadsForSalesExec(userId: string): Promise<Lead[]>;
+  assignLeadToUser(leadId: string, userId: string, assignedBy: string): Promise<Lead | undefined>;
+  reassignLead(leadId: string, newUserId: string, reassignedBy: string): Promise<Lead | undefined>;
+  
+  // Lead Activities (immutable log)
+  createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity>;
+  getLeadActivities(leadId: string): Promise<(LeadActivity & { actor?: User })[]>;
+  
+  // Lead Remarks
+  createLeadRemark(remark: InsertLeadRemark): Promise<LeadRemark>;
+  getLeadRemarks(leadId: string): Promise<(LeadRemark & { user?: User })[]>;
+  
+  // Deal Closure
+  closeDeal(leadId: string, data: { finalPrice: number; moveInDate: string; selectedRoomTypeId: string; paymentMode: string }, closedBy: string): Promise<Lead | undefined>;
+  
+  // Follow-ups
+  setFollowUp(leadId: string, followUpAt: Date, notes?: string): Promise<Lead | undefined>;
+  getUpcomingFollowUps(userId: string): Promise<Lead[]>;
+  getOverdueFollowUps(userId: string): Promise<Lead[]>;
+  
+  // Sales Exec Stats
+  getSalesExecStats(userId: string): Promise<{
+    totalLeads: number;
+    hotLeads: number;
+    warmLeads: number;
+    coldLeads: number;
+    closedDeals: number;
+    revenue: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -932,6 +983,225 @@ export class DatabaseStorage implements IStorage {
 
   async deletePropertyImage(id: string): Promise<void> {
     await db.delete(propertyImages).where(eq(propertyImages.id, id));
+  }
+
+  // Sales Executive Management
+  async getSalesExecutives(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, "sales_executive"));
+  }
+
+  async createSalesExecutive(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values({ ...user, role: "sales_executive" }).returning();
+    return created;
+  }
+
+  // Property Assignments
+  async getPropertyAssignments(userId: string): Promise<SalesExecProperty[]> {
+    return await db.select().from(salesExecProperties).where(eq(salesExecProperties.userId, userId));
+  }
+
+  async getAllPropertyAssignments(): Promise<(SalesExecProperty & { user?: User; property?: Property })[]> {
+    const assignments = await db.select().from(salesExecProperties);
+    const result = [];
+    for (const assignment of assignments) {
+      const [user] = await db.select().from(users).where(eq(users.id, assignment.userId));
+      const [property] = await db.select().from(properties).where(eq(properties.id, assignment.propertyId));
+      result.push({ ...assignment, user, property });
+    }
+    return result;
+  }
+
+  async assignPropertyToUser(assignment: InsertSalesExecProperty): Promise<SalesExecProperty> {
+    const [created] = await db.insert(salesExecProperties).values(assignment).returning();
+    return created;
+  }
+
+  async removePropertyAssignment(userId: string, propertyId: string): Promise<void> {
+    await db.delete(salesExecProperties).where(
+      and(eq(salesExecProperties.userId, userId), eq(salesExecProperties.propertyId, propertyId))
+    );
+  }
+
+  async getAssignedPropertiesForUser(userId: string): Promise<Property[]> {
+    const assignments = await db.select().from(salesExecProperties).where(eq(salesExecProperties.userId, userId));
+    if (assignments.length === 0) return [];
+    const propertyIds = assignments.map(a => a.propertyId);
+    return await db.select().from(properties).where(inArray(properties.id, propertyIds));
+  }
+
+  // Lead Assignment & Scoping
+  async getLeadsForSalesExec(userId: string): Promise<Lead[]> {
+    return await db.select().from(leads).where(eq(leads.assignedToId, userId)).orderBy(desc(leads.createdAt));
+  }
+
+  async assignLeadToUser(leadId: string, userId: string, assignedBy: string): Promise<Lead | undefined> {
+    const [updated] = await db.update(leads).set({
+      assignedToId: userId,
+      assignedAt: new Date(),
+    }).where(eq(leads.id, leadId)).returning();
+    
+    if (updated) {
+      await this.createLeadActivity({
+        leadId,
+        actorId: assignedBy,
+        actionType: "lead_assigned",
+        newValue: JSON.stringify({ assignedToId: userId }),
+        description: "Lead assigned to sales executive",
+      });
+    }
+    return updated || undefined;
+  }
+
+  async reassignLead(leadId: string, newUserId: string, reassignedBy: string): Promise<Lead | undefined> {
+    const [existingLead] = await db.select().from(leads).where(eq(leads.id, leadId));
+    const previousUserId = existingLead?.assignedToId;
+    
+    const [updated] = await db.update(leads).set({
+      assignedToId: newUserId,
+      assignedAt: new Date(),
+    }).where(eq(leads.id, leadId)).returning();
+    
+    if (updated) {
+      await this.createLeadActivity({
+        leadId,
+        actorId: reassignedBy,
+        actionType: "lead_reassigned",
+        previousValue: JSON.stringify({ assignedToId: previousUserId }),
+        newValue: JSON.stringify({ assignedToId: newUserId }),
+        description: "Lead reassigned to different sales executive",
+      });
+    }
+    return updated || undefined;
+  }
+
+  // Lead Activities
+  async createLeadActivity(activity: InsertLeadActivity): Promise<LeadActivity> {
+    const [created] = await db.insert(leadActivities).values(activity).returning();
+    return created;
+  }
+
+  async getLeadActivities(leadId: string): Promise<(LeadActivity & { actor?: User })[]> {
+    const activities = await db.select().from(leadActivities)
+      .where(eq(leadActivities.leadId, leadId))
+      .orderBy(desc(leadActivities.createdAt));
+    
+    const result = [];
+    for (const activity of activities) {
+      const [actor] = await db.select().from(users).where(eq(users.id, activity.actorId));
+      result.push({ ...activity, actor });
+    }
+    return result;
+  }
+
+  // Lead Remarks
+  async createLeadRemark(remark: InsertLeadRemark): Promise<LeadRemark> {
+    const [created] = await db.insert(leadRemarks).values(remark).returning();
+    
+    await this.createLeadActivity({
+      leadId: remark.leadId,
+      actorId: remark.userId,
+      actionType: "remark_added",
+      newValue: JSON.stringify({ remark: remark.remark }),
+      description: "Remark added to lead",
+    });
+    
+    return created;
+  }
+
+  async getLeadRemarks(leadId: string): Promise<(LeadRemark & { user?: User })[]> {
+    const remarks = await db.select().from(leadRemarks)
+      .where(eq(leadRemarks.leadId, leadId))
+      .orderBy(desc(leadRemarks.createdAt));
+    
+    const result = [];
+    for (const remark of remarks) {
+      const [user] = await db.select().from(users).where(eq(users.id, remark.userId));
+      result.push({ ...remark, user });
+    }
+    return result;
+  }
+
+  // Deal Closure
+  async closeDeal(leadId: string, data: { finalPrice: number; moveInDate: string; selectedRoomTypeId: string; paymentMode: string }, closedBy: string): Promise<Lead | undefined> {
+    const [updated] = await db.update(leads).set({
+      status: "deal_closed",
+      dealClosedAt: new Date(),
+      finalPrice: data.finalPrice,
+      moveInDate: data.moveInDate,
+      selectedRoomTypeId: data.selectedRoomTypeId,
+      paymentMode: data.paymentMode,
+      isLocked: true,
+      score: 100,
+      priority: "hot",
+    }).where(eq(leads.id, leadId)).returning();
+    
+    if (updated) {
+      await this.createLeadActivity({
+        leadId,
+        actorId: closedBy,
+        actionType: "deal_closed",
+        newValue: JSON.stringify(data),
+        description: `Deal closed for ₹${data.finalPrice.toLocaleString()}`,
+      });
+    }
+    return updated || undefined;
+  }
+
+  // Follow-ups
+  async setFollowUp(leadId: string, followUpAt: Date, notes?: string): Promise<Lead | undefined> {
+    const [updated] = await db.update(leads).set({
+      followUpAt,
+      followUpNotes: notes,
+    }).where(eq(leads.id, leadId)).returning();
+    return updated || undefined;
+  }
+
+  async getUpcomingFollowUps(userId: string): Promise<Lead[]> {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 7);
+    
+    return await db.select().from(leads)
+      .where(and(
+        eq(leads.assignedToId, userId),
+        gte(leads.followUpAt, now),
+        lt(leads.followUpAt, tomorrow)
+      ))
+      .orderBy(leads.followUpAt);
+  }
+
+  async getOverdueFollowUps(userId: string): Promise<Lead[]> {
+    const now = new Date();
+    return await db.select().from(leads)
+      .where(and(
+        eq(leads.assignedToId, userId),
+        lt(leads.followUpAt, now),
+        sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`
+      ))
+      .orderBy(leads.followUpAt);
+  }
+
+  // Sales Exec Stats
+  async getSalesExecStats(userId: string): Promise<{
+    totalLeads: number;
+    hotLeads: number;
+    warmLeads: number;
+    coldLeads: number;
+    closedDeals: number;
+    revenue: number;
+  }> {
+    const userLeads = await db.select().from(leads).where(eq(leads.assignedToId, userId));
+    
+    const totalLeads = userLeads.length;
+    const hotLeads = userLeads.filter(l => l.priority === "hot").length;
+    const warmLeads = userLeads.filter(l => l.priority === "warm").length;
+    const coldLeads = userLeads.filter(l => l.priority === "cold").length;
+    const closedDeals = userLeads.filter(l => l.status === "deal_closed").length;
+    const revenue = userLeads
+      .filter(l => l.status === "deal_closed" && l.finalPrice)
+      .reduce((sum, l) => sum + (l.finalPrice || 0), 0);
+    
+    return { totalLeads, hotLeads, warmLeads, coldLeads, closedDeals, revenue };
   }
 }
 
