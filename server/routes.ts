@@ -553,6 +553,402 @@ export async function registerRoutes(
     }
   });
 
+  // Create room type (Admin only)
+  app.post("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId;
+      const roomData = { ...req.body, propertyId };
+      const roomType = await storage.createRoomType(roomData);
+      res.status(201).json(roomType);
+    } catch (error) {
+      console.error("Error creating room type:", error);
+      res.status(500).json({ error: "Failed to create room type" });
+    }
+  });
+
+  // ============ GLOBAL AMENITIES ============
+
+  // Get all global amenities
+  app.get("/api/amenities", async (req, res) => {
+    try {
+      const amenities = await storage.getAllGlobalAmenities();
+      res.json(amenities);
+    } catch (error) {
+      console.error("Error fetching amenities:", error);
+      res.status(500).json({ error: "Failed to fetch amenities" });
+    }
+  });
+
+  // Create global amenity (Admin only)
+  app.post("/api/admin/amenities", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { name, icon, category } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Amenity name is required" });
+      }
+      const amenity = await storage.createGlobalAmenity({ name, icon, category });
+      res.status(201).json(amenity);
+    } catch (error: any) {
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "Amenity already exists" });
+      }
+      console.error("Error creating amenity:", error);
+      res.status(500).json({ error: "Failed to create amenity" });
+    }
+  });
+
+  // Delete global amenity (Admin only)
+  app.delete("/api/admin/amenities/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.deleteGlobalAmenity(req.params.id as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting amenity:", error);
+      res.status(500).json({ error: "Failed to delete amenity" });
+    }
+  });
+
+  // ============ PROPERTY RULES ============
+
+  // Get rules for a property
+  app.get("/api/properties/:propertyId/rules", async (req, res) => {
+    try {
+      const rules = await storage.getRulesByProperty(req.params.propertyId as string);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching rules:", error);
+      res.status(500).json({ error: "Failed to fetch rules" });
+    }
+  });
+
+  // Create property rule (Admin only)
+  app.post("/api/admin/properties/:propertyId/rules", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId as string;
+      const { rule, sortOrder } = req.body;
+      const created = await storage.createPropertyRule({ propertyId, rule, sortOrder: sortOrder || 0 });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating rule:", error);
+      res.status(500).json({ error: "Failed to create rule" });
+    }
+  });
+
+  // Update property rule (Admin only)
+  app.patch("/api/admin/rules/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const updated = await storage.updatePropertyRule(req.params.id as string, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating rule:", error);
+      res.status(500).json({ error: "Failed to update rule" });
+    }
+  });
+
+  // Delete property rule (Admin only)
+  app.delete("/api/admin/rules/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.deletePropertyRule(req.params.id as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting rule:", error);
+      res.status(500).json({ error: "Failed to delete rule" });
+    }
+  });
+
+  // ============ NEARBY LOCATIONS ============
+
+  // Get nearby locations for a property
+  app.get("/api/properties/:propertyId/nearby", async (req, res) => {
+    try {
+      const locations = await storage.getNearbyLocationsByProperty(req.params.propertyId as string);
+      res.json(locations);
+    } catch (error) {
+      console.error("Error fetching nearby locations:", error);
+      res.status(500).json({ error: "Failed to fetch nearby locations" });
+    }
+  });
+
+  // Create nearby location (Admin only)
+  app.post("/api/admin/properties/:propertyId/nearby", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId as string;
+      const { placeName, distance, category } = req.body;
+      const created = await storage.createNearbyLocation({ propertyId, placeName, distance, category });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating nearby location:", error);
+      res.status(500).json({ error: "Failed to create nearby location" });
+    }
+  });
+
+  // Delete nearby location (Admin only)
+  app.delete("/api/admin/nearby/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.deleteNearbyLocation(req.params.id as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting nearby location:", error);
+      res.status(500).json({ error: "Failed to delete nearby location" });
+    }
+  });
+
+  // ============ PROPERTY TARIFFS ============
+
+  // Get tariffs for a property
+  app.get("/api/properties/:propertyId/tariffs", async (req, res) => {
+    try {
+      const tariffs = await storage.getTariffsByProperty(req.params.propertyId as string);
+      res.json(tariffs);
+    } catch (error) {
+      console.error("Error fetching tariffs:", error);
+      res.status(500).json({ error: "Failed to fetch tariffs" });
+    }
+  });
+
+  // Create property tariff (Admin only)
+  app.post("/api/admin/properties/:propertyId/tariffs", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId as string;
+      const { academicYear, monthlyPrice, deposit, discount, discountLabel } = req.body;
+      const created = await storage.createPropertyTariff({ 
+        propertyId, 
+        academicYear, 
+        monthlyPrice, 
+        deposit, 
+        discount, 
+        discountLabel 
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating tariff:", error);
+      res.status(500).json({ error: "Failed to create tariff" });
+    }
+  });
+
+  // Delete property tariff (Admin only)
+  app.delete("/api/admin/tariffs/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.deletePropertyTariff(req.params.id as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting tariff:", error);
+      res.status(500).json({ error: "Failed to delete tariff" });
+    }
+  });
+
+  // ============ PROPERTY IMAGES ============
+
+  // Get images for a property
+  app.get("/api/properties/:propertyId/images", async (req, res) => {
+    try {
+      const images = await storage.getImagesByProperty(req.params.propertyId as string);
+      res.json(images);
+    } catch (error) {
+      console.error("Error fetching images:", error);
+      res.status(500).json({ error: "Failed to fetch images" });
+    }
+  });
+
+  // Create property image (Admin only)
+  app.post("/api/admin/properties/:propertyId/images", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId as string;
+      const { imageUrl, caption, isPrimary, sortOrder, roomTypeId } = req.body;
+      const created = await storage.createPropertyImage({ 
+        propertyId, 
+        imageUrl, 
+        caption, 
+        isPrimary: isPrimary || false, 
+        sortOrder: sortOrder || 0, 
+        roomTypeId 
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating image:", error);
+      res.status(500).json({ error: "Failed to create image" });
+    }
+  });
+
+  // Update property image (Admin only)
+  app.patch("/api/admin/images/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const updated = await storage.updatePropertyImage(req.params.id as string, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating image:", error);
+      res.status(500).json({ error: "Failed to update image" });
+    }
+  });
+
+  // Delete property image (Admin only)
+  app.delete("/api/admin/images/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.deletePropertyImage(req.params.id as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({ error: "Failed to delete image" });
+    }
+  });
+
+  // ============ CREATE PROPERTY (Full) ============
+
+  // Create a new property with all related data (Admin only)
+  app.post("/api/admin/properties", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { 
+        name, 
+        displayName, 
+        category, 
+        location, 
+        city, 
+        address, 
+        phone, 
+        email, 
+        mapsUrl, 
+        amenities, 
+        status,
+        customFields,
+        rules,
+        nearbyLocations: nearby,
+        tariffs,
+        roomTypes: rooms,
+      } = req.body;
+
+      // Create the property
+      const property = await storage.createProperty({
+        name,
+        displayName,
+        category,
+        location,
+        city,
+        address,
+        phone,
+        email,
+        mapsUrl,
+        amenities: amenities || [],
+        rules: null,
+        nearbyLocations: null,
+        customFields: customFields ? JSON.stringify(customFields) : null,
+        status: status || "draft",
+      });
+
+      // Create property rules
+      if (rules && Array.isArray(rules)) {
+        for (let i = 0; i < rules.length; i++) {
+          await storage.createPropertyRule({
+            propertyId: property.id,
+            rule: rules[i],
+            sortOrder: i,
+          });
+        }
+      }
+
+      // Create nearby locations
+      if (nearby && Array.isArray(nearby)) {
+        for (const loc of nearby) {
+          await storage.createNearbyLocation({
+            propertyId: property.id,
+            placeName: loc.placeName,
+            distance: loc.distance,
+            category: loc.category,
+          });
+        }
+      }
+
+      // Create tariffs
+      if (tariffs && Array.isArray(tariffs)) {
+        for (const tariff of tariffs) {
+          await storage.createPropertyTariff({
+            propertyId: property.id,
+            academicYear: tariff.academicYear,
+            monthlyPrice: tariff.monthlyPrice,
+            deposit: tariff.deposit,
+            discount: tariff.discount,
+            discountLabel: tariff.discountLabel,
+          });
+        }
+      }
+
+      // Create room types
+      if (rooms && Array.isArray(rooms)) {
+        for (const room of rooms) {
+          await storage.createRoomType({
+            propertyId: property.id,
+            name: room.name,
+            customName: room.customName,
+            basePrice: room.basePrice,
+            size: room.size,
+            occupancy: room.occupancy,
+            totalRooms: room.totalRooms,
+            totalBeds: room.totalBeds,
+            availableBeds: room.availableBeds || room.totalBeds,
+          });
+        }
+      }
+
+      // Log the action
+      await storage.createAuditLog({
+        adminId: (req as AuthRequest).user!.userId,
+        action: "CREATE_PROPERTY",
+        entityType: "property",
+        entityId: property.id,
+        details: JSON.stringify({ name: property.name, status: property.status }),
+      });
+
+      // Return property with all related data
+      const propertyRules = await storage.getRulesByProperty(property.id);
+      const propertyNearby = await storage.getNearbyLocationsByProperty(property.id);
+      const propertyTariffs = await storage.getTariffsByProperty(property.id);
+      const propertyRoomTypes = await storage.getRoomTypesByProperty(property.id);
+
+      res.status(201).json({
+        ...property,
+        rules: propertyRules,
+        nearbyLocations: propertyNearby,
+        tariffs: propertyTariffs,
+        roomTypes: propertyRoomTypes,
+      });
+    } catch (error) {
+      console.error("Error creating property:", error);
+      res.status(500).json({ error: "Failed to create property" });
+    }
+  });
+
+  // Publish/Unpublish property (Admin only)
+  app.post("/api/admin/properties/:id/publish", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const newStatus = property.status === "published" ? "draft" : "published";
+      const updated = await storage.updateProperty(id, { status: newStatus });
+
+      await storage.createAuditLog({
+        adminId: (req as AuthRequest).user!.userId,
+        action: newStatus === "published" ? "PUBLISH_PROPERTY" : "UNPUBLISH_PROPERTY",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, status: newStatus }),
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error publishing property:", error);
+      res.status(500).json({ error: "Failed to publish property" });
+    }
+  });
+
   // ============ STUDENTS ============
   
   // Register student
