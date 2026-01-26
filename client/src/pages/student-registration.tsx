@@ -1,0 +1,329 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { Check, ChevronRight, User, MapPin, Phone, Upload } from "lucide-react";
+import { motion } from "framer-motion";
+
+const registrationSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  otp: z.string().optional(),
+  
+  address: z.string().min(10, "Address is too short"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  pincode: z.string().min(6, "Invalid Pincode"),
+  
+  emergencyName: z.string().min(2, "Emergency contact name required"),
+  emergencyRelation: z.string().min(2, "Relation required"),
+  emergencyPhone: z.string().min(10, "Emergency phone required"),
+  
+  collegeName: z.string().min(2, "College name required"),
+  course: z.string().min(2, "Course name required"),
+  year: z.string().min(1, "Academic year required"),
+});
+
+export default function StudentRegistration() {
+  const [step, setStep] = useState(1);
+  const [otpSent, setOtpSent] = useState(false);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof registrationSchema>>({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      emergencyName: "",
+      emergencyRelation: "",
+      emergencyPhone: "",
+      collegeName: "",
+      course: "",
+      year: "",
+    },
+  });
+
+  const sendOtp = () => {
+    const phone = form.getValues("phone");
+    if (phone.length < 10) {
+      toast({ title: "Error", description: "Please enter a valid phone number first", variant: "destructive" });
+      return;
+    }
+    setOtpSent(true);
+    toast({ title: "OTP Sent", description: "Your OTP is 1234 (Mocked)" });
+  };
+
+  const verifyOtp = () => {
+    // Mock verification
+    if (form.getValues("otp") === "1234") {
+      toast({ title: "Verified", description: "Phone number verified successfully" });
+      return true;
+    }
+    toast({ title: "Error", description: "Invalid OTP", variant: "destructive" });
+    return false;
+  };
+
+  const onSubmit = (data: z.infer<typeof registrationSchema>) => {
+    console.log(data);
+    toast({ title: "Registration Successful", description: "Welcome to Hsquareliving!" });
+    // Save to local storage mock or context
+    localStorage.setItem("hsquare_student", JSON.stringify(data));
+    setLocation("/properties");
+  };
+
+  const nextStep = async () => {
+    const fields = step === 1 
+      ? ["fullName", "email", "phone"] 
+      : step === 2 
+      ? ["address", "city", "state", "pincode"]
+      : ["collegeName", "course", "year", "emergencyName", "emergencyPhone"];
+      
+    const isValid = await form.trigger(fields as any);
+    if (isValid) setStep(step + 1);
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <div className="mb-8 text-center space-y-2">
+        <h1 className="text-3xl font-heading font-bold text-primary">Student Registration</h1>
+        <p className="text-muted-foreground">Join the community. It takes less than 5 minutes.</p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="flex justify-between mb-8 relative">
+        <div className="absolute top-1/2 left-0 w-full h-1 bg-muted -z-10 -translate-y-1/2 rounded-full"></div>
+        <div className="absolute top-1/2 left-0 h-1 bg-primary -z-10 -translate-y-1/2 rounded-full transition-all duration-500" style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
+        
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-4 transition-colors ${step >= i ? "bg-primary text-white border-primary" : "bg-white text-muted-foreground border-muted"}`}>
+            {step > i ? <Check className="w-5 h-5" /> : i}
+          </div>
+        ))}
+      </div>
+
+      <Card className="shadow-xl border-none">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {step === 1 && <><User className="w-5 h-5" /> Personal Details</>}
+                {step === 2 && <><MapPin className="w-5 h-5" /> Permanent Address</>}
+                {step === 3 && <><Phone className="w-5 h-5" /> Academic & Emergency</>}
+                {step === 4 && <><Upload className="w-5 h-5" /> Upload ID Proof</>}
+              </CardTitle>
+              <CardDescription>
+                {step === 1 && "We need your basic details to get started."}
+                {step === 2 && "Where can we send important documents?"}
+                {step === 3 && "In case of emergency, who should we call?"}
+                {step === 4 && "Please upload a valid Government ID (Aadhar/Passport)."}
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {step === 1 && (
+                  <div className="space-y-4">
+                    <FormField control={form.control} name="fullName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl><Input placeholder="john@example.com" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="flex gap-4 items-end">
+                      <FormField control={form.control} name="phone" render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Mobile Number</FormLabel>
+                          <FormControl><Input placeholder="9876543210" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <Button type="button" onClick={sendOtp} variant="outline" disabled={otpSent}>
+                        {otpSent ? "Resend OTP" : "Send OTP"}
+                      </Button>
+                    </div>
+                    {otpSent && (
+                      <FormField control={form.control} name="otp" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Enter OTP</FormLabel>
+                          <FormControl><Input placeholder="1234" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    )}
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-4">
+                    <FormField control={form.control} name="address" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Street Address</FormLabel>
+                        <FormControl><Input placeholder="123, Main St" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="city" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl><Input placeholder="Bangalore" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="state" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl><Input placeholder="Karnataka" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <FormField control={form.control} name="pincode" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl><Input placeholder="560034" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-4">
+                     <h3 className="font-semibold text-primary">Academic Details</h3>
+                     <FormField control={form.control} name="collegeName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>College / University</FormLabel>
+                        <FormControl><Input placeholder="Christ University" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="course" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Course</FormLabel>
+                          <FormControl><Input placeholder="B.Tech CS" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                       <FormField control={form.control} name="year" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Year</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Year" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="1">1st Year</SelectItem>
+                              <SelectItem value="2">2nd Year</SelectItem>
+                              <SelectItem value="3">3rd Year</SelectItem>
+                              <SelectItem value="4">4th Year</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <Separator className="my-4" />
+                    <h3 className="font-semibold text-primary">Emergency Contact</h3>
+                    <FormField control={form.control} name="emergencyName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Name</FormLabel>
+                        <FormControl><Input placeholder="Parent Name" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                     <FormField control={form.control} name="emergencyRelation" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Relation</FormLabel>
+                         <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Relation" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Father">Father</SelectItem>
+                              <SelectItem value="Mother">Mother</SelectItem>
+                              <SelectItem value="Guardian">Guardian</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="emergencyPhone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Emergency Phone</FormLabel>
+                        <FormControl><Input placeholder="9876543210" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
+
+                {step === 4 && (
+                  <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer">
+                    <Upload className="w-12 h-12 text-muted-foreground mb-4" />
+                    <p className="font-medium text-lg">Click to upload ID Proof</p>
+                    <p className="text-sm text-muted-foreground">PDF, JPG or PNG (Max 5MB)</p>
+                    {/* Mock Input */}
+                    <input type="file" className="hidden" />
+                  </div>
+                )}
+              </motion.div>
+            </CardContent>
+
+            <CardFooter className="flex justify-between">
+              {step > 1 && (
+                <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
+                  Back
+                </Button>
+              )}
+              {step < 4 ? (
+                <Button type="button" className="ml-auto" onClick={nextStep}>
+                  Next Step <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button type="submit" className="ml-auto bg-green-600 hover:bg-green-700">
+                  Complete Registration
+                </Button>
+              )}
+            </CardFooter>
+          </form>
+        </Form>
+      </Card>
+    </div>
+  );
+}
