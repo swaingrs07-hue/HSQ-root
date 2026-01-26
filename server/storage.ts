@@ -8,6 +8,11 @@ import {
   payments,
   auditLogs,
   leads,
+  globalAmenities,
+  propertyRules,
+  nearbyLocations,
+  propertyTariffs,
+  propertyImages,
   type User,
   type InsertUser,
   type Student,
@@ -26,6 +31,16 @@ import {
   type InsertAuditLog,
   type Lead,
   type InsertLead,
+  type GlobalAmenity,
+  type InsertGlobalAmenity,
+  type PropertyRule,
+  type InsertPropertyRule,
+  type NearbyLocation,
+  type InsertNearbyLocation,
+  type PropertyTariff,
+  type InsertPropertyTariff,
+  type PropertyImage,
+  type InsertPropertyImage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -109,6 +124,33 @@ export interface IStorage {
     leadsByDevice: { device: string; count: number }[];
     recentLeads: Lead[];
   }>;
+  
+  // Global Amenities
+  getAllGlobalAmenities(): Promise<GlobalAmenity[]>;
+  createGlobalAmenity(amenity: InsertGlobalAmenity): Promise<GlobalAmenity>;
+  deleteGlobalAmenity(id: string): Promise<void>;
+  
+  // Property Rules
+  getRulesByProperty(propertyId: string): Promise<PropertyRule[]>;
+  createPropertyRule(rule: InsertPropertyRule): Promise<PropertyRule>;
+  updatePropertyRule(id: string, data: Partial<PropertyRule>): Promise<PropertyRule | undefined>;
+  deletePropertyRule(id: string): Promise<void>;
+  
+  // Nearby Locations
+  getNearbyLocationsByProperty(propertyId: string): Promise<NearbyLocation[]>;
+  createNearbyLocation(location: InsertNearbyLocation): Promise<NearbyLocation>;
+  deleteNearbyLocation(id: string): Promise<void>;
+  
+  // Property Tariffs
+  getTariffsByProperty(propertyId: string): Promise<PropertyTariff[]>;
+  createPropertyTariff(tariff: InsertPropertyTariff): Promise<PropertyTariff>;
+  deletePropertyTariff(id: string): Promise<void>;
+  
+  // Property Images
+  getImagesByProperty(propertyId: string): Promise<PropertyImage[]>;
+  createPropertyImage(image: InsertPropertyImage): Promise<PropertyImage>;
+  updatePropertyImage(id: string, data: Partial<PropertyImage>): Promise<PropertyImage | undefined>;
+  deletePropertyImage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -521,6 +563,86 @@ export class DatabaseStorage implements IStorage {
       leadsByDevice,
       recentLeads,
     };
+  }
+
+  // Global Amenities
+  async getAllGlobalAmenities(): Promise<GlobalAmenity[]> {
+    return await db.select().from(globalAmenities).orderBy(globalAmenities.name);
+  }
+
+  async createGlobalAmenity(amenity: InsertGlobalAmenity): Promise<GlobalAmenity> {
+    const [created] = await db.insert(globalAmenities).values(amenity).returning();
+    return created;
+  }
+
+  async deleteGlobalAmenity(id: string): Promise<void> {
+    await db.delete(globalAmenities).where(eq(globalAmenities.id, id));
+  }
+
+  // Property Rules
+  async getRulesByProperty(propertyId: string): Promise<PropertyRule[]> {
+    return await db.select().from(propertyRules).where(eq(propertyRules.propertyId, propertyId)).orderBy(propertyRules.sortOrder);
+  }
+
+  async createPropertyRule(rule: InsertPropertyRule): Promise<PropertyRule> {
+    const [created] = await db.insert(propertyRules).values(rule).returning();
+    return created;
+  }
+
+  async updatePropertyRule(id: string, data: Partial<PropertyRule>): Promise<PropertyRule | undefined> {
+    const [updated] = await db.update(propertyRules).set(data).where(eq(propertyRules.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deletePropertyRule(id: string): Promise<void> {
+    await db.delete(propertyRules).where(eq(propertyRules.id, id));
+  }
+
+  // Nearby Locations
+  async getNearbyLocationsByProperty(propertyId: string): Promise<NearbyLocation[]> {
+    return await db.select().from(nearbyLocations).where(eq(nearbyLocations.propertyId, propertyId));
+  }
+
+  async createNearbyLocation(location: InsertNearbyLocation): Promise<NearbyLocation> {
+    const [created] = await db.insert(nearbyLocations).values(location).returning();
+    return created;
+  }
+
+  async deleteNearbyLocation(id: string): Promise<void> {
+    await db.delete(nearbyLocations).where(eq(nearbyLocations.id, id));
+  }
+
+  // Property Tariffs
+  async getTariffsByProperty(propertyId: string): Promise<PropertyTariff[]> {
+    return await db.select().from(propertyTariffs).where(eq(propertyTariffs.propertyId, propertyId));
+  }
+
+  async createPropertyTariff(tariff: InsertPropertyTariff): Promise<PropertyTariff> {
+    const [created] = await db.insert(propertyTariffs).values(tariff).returning();
+    return created;
+  }
+
+  async deletePropertyTariff(id: string): Promise<void> {
+    await db.delete(propertyTariffs).where(eq(propertyTariffs.id, id));
+  }
+
+  // Property Images
+  async getImagesByProperty(propertyId: string): Promise<PropertyImage[]> {
+    return await db.select().from(propertyImages).where(eq(propertyImages.propertyId, propertyId)).orderBy(propertyImages.sortOrder);
+  }
+
+  async createPropertyImage(image: InsertPropertyImage): Promise<PropertyImage> {
+    const [created] = await db.insert(propertyImages).values(image).returning();
+    return created;
+  }
+
+  async updatePropertyImage(id: string, data: Partial<PropertyImage>): Promise<PropertyImage | undefined> {
+    const [updated] = await db.update(propertyImages).set(data).where(eq(propertyImages.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deletePropertyImage(id: string): Promise<void> {
+    await db.delete(propertyImages).where(eq(propertyImages.id, id));
   }
 }
 

@@ -1,0 +1,98 @@
+Please IMPLEMENT a FULLY DYNAMIC "ADD PROPERTY" SYSTEM for ADMIN in the Hsquareliving app with PLUS (+) buttons in every section to allow adding new data on the fly.
+
+1. ADMIN ACCESS & BUTTON
+- Add a “+ Add Property” button in Admin → Properties.
+- Visible only to ADMIN role.
+- Opens a multi-step dynamic property creation form.
+
+2. BASIC PROPERTY DETAILS (Dynamic Fields)
+- Property Name
+- Website Display Name
+- Category (Hotel / Hostel)
+- Phone Number
+- Email
+- Full Address
+- City / Location
+- Google Map Link
+- Allow admin to ADD additional custom fields via “+ Add Field”.
+
+3. AMENITIES SECTION (PLUS ENABLED)
+- Show predefined amenities (WiFi, AC, Meals, Gym, Laundry, etc.).
+- Add “+ Add Amenity” button.
+- Admin can:
+  - Add new amenity name
+  - Enable/disable amenities per property
+- Newly added amenities should be reusable globally.
+
+4. PROPERTY RULES (PLUS ENABLED)
+- Display rules as a list.
+- “+ Add Rule” button to add unlimited rules.
+- Allow edit / delete / reorder rules.
+
+5. NEARBY LOCATIONS (PLUS ENABLED)
+- “+ Add Nearby Location”
+- Fields:
+  - Place Name
+  - Distance (km / minutes)
+  - Category (Metro, College, Office, Hospital, Mall)
+- Unlimited entries per property.
+
+6. PRICING / TARIFF (ACADEMIC YEAR BASED)
+- “+ Add Academic Year”
+- Fields per year:
+  - Monthly Price
+  - Deposit
+  - Discount / Offer
+- Allow multiple tariffs per property.
+
+7. ROOMS CONFIGURATION (PLUS ENABLED)
+- “+ Add Room Category”
+- Fields:
+  - Room Type (Single / Double / Triple / Dorm / Custom)
+  - Occupancy
+  - Room Size (sq ft)
+  - Total Rooms
+  - Available Beds
+  - Price per Room / Bed
+- Allow custom room categories.
+
+8. IMAGES & PHOTOS
+- Upload multiple Property Photos
+- Upload Room Category Photos
+- “+ Add Photo” button
+- Image preview, reorder & delete
+- Max size: 5MB, JPG/PNG only
+
+9. SAVE OPTIONS
+- Save as Draft
+- Publish Property
+- Validate required fields before publish.
+
+10. BACKEND & DATA MODEL
+- Normalize data into:
+  - Properties
+  - Amenities (global)
+  - PropertyAmenities
+  - Rules
+  - NearbyLocations
+  - Tariffs
+  - Rooms
+  - Images
+- Use propertyId for relations.
+- Secure all routes (ADMIN only).
+
+11. UI / UX QUALITY
+- Step progress indicator
+- Collapsible sections
+- Clean premium UI (Hsquareliving branding)
+- Mobile & desktop responsive
+- Autosave draft on step change
+
+12. TESTING
+- Admin can add Hotel & Hostel properties
+- Admin can add custom amenities
+- Admin can add unlimited rooms & rules
+- Images upload correctly
+- Property shows instantly in Properties listing
+
+Confirm once ADMIN can dynamically add, edit, and publish properties with PLUS (+) buttons in all sections.
