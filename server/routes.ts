@@ -104,6 +104,188 @@ export async function registerRoutes(
     }
   });
 
+  // Store OTPs temporarily (in production, use Redis or similar)
+  const otpStore: Map<string, { otp: string; expiry: number; name: string }> = new Map();
+
+  // Visitor login - Send OTP
+  app.post("/api/auth/visitor/send-otp", async (req, res) => {
+    try {
+      const { phone, name } = req.body;
+      
+      if (!phone || !name) {
+        return res.status(400).json({ error: "Phone number and name required" });
+      }
+
+      // Generate 4-digit OTP (in production, use SMS service)
+      const otp = "1234"; // Mock OTP for development
+      const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+      
+      otpStore.set(phone, { otp, expiry, name });
+      
+      console.log(`OTP for ${phone}: ${otp}`); // For development
+      
+      res.json({ success: true, message: "OTP sent successfully" });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  // Visitor login - Verify OTP
+  app.post("/api/auth/visitor/verify-otp", async (req, res) => {
+    try {
+      const { phone, otp } = req.body;
+      
+      if (!phone || !otp) {
+        return res.status(400).json({ error: "Phone and OTP required" });
+      }
+
+      const storedData = otpStore.get(phone);
+      
+      if (!storedData) {
+        return res.status(400).json({ error: "OTP expired or not found. Please request a new one." });
+      }
+
+      if (Date.now() > storedData.expiry) {
+        otpStore.delete(phone);
+        return res.status(400).json({ error: "OTP expired. Please request a new one." });
+      }
+
+      if (storedData.otp !== otp) {
+        return res.status(401).json({ error: "Invalid OTP" });
+      }
+
+      // OTP verified, clear it
+      otpStore.delete(phone);
+
+      // Get device info from headers
+      const userAgent = req.headers["user-agent"] || "";
+      const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "";
+      const deviceType = /mobile/i.test(userAgent) ? "mobile" : /tablet/i.test(userAgent) ? "tablet" : "desktop";
+
+      // Check if lead already exists
+      let lead = await storage.getLeadByPhone(phone);
+      
+      if (lead) {
+        // Update existing lead activity
+        lead = await storage.updateLeadActivity(lead.id);
+      } else {
+        // Create new lead
+        lead = await storage.createLead({
+          name: storedData.name,
+          phone,
+          phoneVerified: true,
+          ipAddress,
+          userAgent,
+          deviceType,
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        lead: {
+          id: lead!.id,
+          name: lead!.name,
+          phone: lead!.phone,
+          email: lead!.email,
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
+  // Visitor login - Email/Password fallback
+  app.post("/api/auth/visitor/email-login", async (req, res) => {
+    try {
+      const { email, password, name } = req.body;
+      
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: "Email, password, and name required" });
+      }
+
+      // Get device info from headers
+      const userAgent = req.headers["user-agent"] || "";
+      const ipAddress = req.ip || req.headers["x-forwarded-for"]?.toString() || "";
+      const deviceType = /mobile/i.test(userAgent) ? "mobile" : /tablet/i.test(userAgent) ? "tablet" : "desktop";
+
+      // Check if lead already exists by email
+      let lead = await storage.getLeadByEmail(email);
+      
+      if (lead) {
+        // Update existing lead activity
+        lead = await storage.updateLeadActivity(lead.id);
+      } else {
+        // Create new lead (no password storage for visitors - just tracking)
+        lead = await storage.createLead({
+          name,
+          email,
+          ipAddress,
+          userAgent,
+          deviceType,
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        lead: {
+          id: lead!.id,
+          name: lead!.name,
+          phone: lead!.phone,
+          email: lead!.email,
+        }
+      });
+    } catch (error) {
+      console.error("Error during email login:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Update lead activity (heartbeat)
+  app.post("/api/auth/visitor/activity", async (req, res) => {
+    try {
+      const { leadId } = req.body;
+      
+      if (!leadId) {
+        return res.status(400).json({ error: "Lead ID required" });
+      }
+
+      await storage.updateLead(leadId, { lastActivityAt: new Date() });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating activity:", error);
+      res.status(500).json({ error: "Failed to update activity" });
+    }
+  });
+
+  // ============ LEADS (Admin) ============
+  
+  // Get all leads
+  app.get("/api/leads", async (req, res) => {
+    try {
+      const leads = await storage.getAllLeads();
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  // Get lead by ID
+  app.get("/api/leads/:id", async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error fetching lead:", error);
+      res.status(500).json({ error: "Failed to fetch lead" });
+    }
+  });
+
   // ============ PROPERTIES ============
   
   // Get all properties with room types
