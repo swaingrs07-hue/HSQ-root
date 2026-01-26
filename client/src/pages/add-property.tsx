@@ -1,10 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { apiRequest } from "@/lib/queryClient";
@@ -31,6 +32,10 @@ import {
   Loader2,
   Save,
   Send,
+  Upload,
+  Star,
+  GripVertical,
+  RefreshCw,
 } from "lucide-react";
 
 const STEPS = [
@@ -81,25 +86,25 @@ const propertyFormSchema = z.object({
     discountLabel: z.string().optional(),
   })).optional(),
   images: z.array(z.object({
-    imageUrl: z.string().url("Valid URL required"),
+    imageUrl: z.string().min(1, "Image URL required"),
     caption: z.string().optional(),
     isPrimary: z.boolean().optional(),
-    roomTypeIndex: z.number().optional(),
+    order: z.number().optional(),
   })).optional(),
 });
 
 type PropertyFormData = z.infer<typeof propertyFormSchema>;
 
-const defaultRoomType = {
-  name: "Single" as const,
-  customName: "",
-  occupancy: 1,
-  totalRooms: 1,
-  totalBeds: 1,
-  availableBeds: 1,
-  basePrice: 0,
-  size: "",
-};
+interface UploadedImage {
+  id: string;
+  url: string;
+  caption: string;
+  isPrimary: boolean;
+  order: number;
+  uploading?: boolean;
+  error?: string;
+  progress?: number;
+}
 
 const roomTypeOptions = [
   { value: "Single", label: "Single" },
@@ -123,6 +128,10 @@ const nearbyCategories = [
   { value: "other", label: "Other" },
 ];
 
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGES = 10;
+
 export default function AddProperty() {
   const [, setLocation] = useLocation();
   const { user, token } = useAuth();
@@ -132,8 +141,17 @@ export default function AddProperty() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newRule, setNewRule] = useState("");
   const [newAmenityId, setNewAmenityId] = useState("");
+  const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+  const [newAmenityName, setNewAmenityName] = useState("");
+  const [newAmenityIcon, setNewAmenityIcon] = useState("");
+  const [isCreatingAmenity, setIsCreatingAmenity] = useState(false);
+  
+  // Image upload state
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: globalAmenities = [] } = useQuery({
+  const { data: globalAmenities = [], refetch: refetchAmenities } = useQuery({
     queryKey: ["/api/amenities"],
     queryFn: async () => {
       const res = await fetch("/api/amenities");
@@ -197,11 +215,6 @@ export default function AddProperty() {
     name: "tariffs",
   });
 
-  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({
-    control: form.control,
-    name: "images",
-  });
-
   const handleAddRule = () => {
     if (newRule.trim()) {
       appendRule({ rule: newRule.trim() });
@@ -217,8 +230,269 @@ export default function AddProperty() {
     }
   };
 
+  // Create new amenity
+  const handleCreateAmenity = async () => {
+    if (!newAmenityName.trim()) {
+      toast({
+        title: "Error",
+        description: "Amenity name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for duplicates (case-insensitive)
+    const exists = globalAmenities.some(
+      (a: any) => a.name.toLowerCase() === newAmenityName.trim().toLowerCase()
+    );
+    if (exists) {
+      toast({
+        title: "Duplicate Amenity",
+        description: "This amenity already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingAmenity(true);
+    try {
+      const res = await fetch("/api/admin/amenities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newAmenityName.trim(),
+          icon: newAmenityIcon || "✓",
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create amenity");
+      }
+
+      const newAmenity = await res.json();
+      await refetchAmenities();
+      
+      // Auto-add the new amenity to the form
+      appendAmenity({ amenityId: newAmenity.id, name: newAmenity.name });
+      
+      setNewAmenityName("");
+      setNewAmenityIcon("");
+      setShowAddAmenityModal(false);
+      
+      toast({
+        title: "Amenity Created",
+        description: `"${newAmenity.name}" has been added and selected.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingAmenity(false);
+    }
+  };
+
+  // Image upload functions
+  const uploadFile = async (file: File): Promise<string> => {
+    // Request presigned URL
+    const urlRes = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      }),
+    });
+
+    if (!urlRes.ok) {
+      throw new Error("Failed to get upload URL");
+    }
+
+    const { uploadURL, objectPath } = await urlRes.json();
+
+    // Upload file directly to cloud storage
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Failed to upload file");
+    }
+
+    return objectPath;
+  };
+
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files) return;
+
+    const remainingSlots = MAX_IMAGES - uploadedImages.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: "Maximum Images",
+        description: `You can only upload up to ${MAX_IMAGES} images.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    for (const file of filesToUpload) {
+      // Validate file type
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        toast({
+          title: "Invalid File Type",
+          description: `${file.name} is not a valid image. Use JPG, PNG, or WEBP.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: "File Too Large",
+          description: `${file.name} exceeds 10MB limit.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const isPrimary = uploadedImages.length === 0;
+
+      // Add placeholder with loading state
+      setUploadedImages(prev => [...prev, {
+        id: tempId,
+        url: URL.createObjectURL(file),
+        caption: file.name.replace(/\.[^/.]+$/, ""),
+        isPrimary,
+        order: prev.length,
+        uploading: true,
+        progress: 0,
+      }]);
+
+      try {
+        const objectPath = await uploadFile(file);
+        
+        // Update with actual URL
+        setUploadedImages(prev => prev.map(img => 
+          img.id === tempId 
+            ? { ...img, url: objectPath, uploading: false, progress: 100 }
+            : img
+        ));
+      } catch (error) {
+        setUploadedImages(prev => prev.map(img => 
+          img.id === tempId 
+            ? { ...img, uploading: false, error: "Upload failed" }
+            : img
+        ));
+        toast({
+          title: "Upload Failed",
+          description: `Failed to upload ${file.name}`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const handleSetPrimary = (id: string) => {
+    setUploadedImages(prev => prev.map(img => ({
+      ...img,
+      isPrimary: img.id === id,
+    })));
+  };
+
+  const handleRemoveImage = (id: string) => {
+    setUploadedImages(prev => {
+      const filtered = prev.filter(img => img.id !== id);
+      // If we removed the primary, make the first one primary
+      if (filtered.length > 0 && !filtered.some(img => img.isPrimary)) {
+        filtered[0].isPrimary = true;
+      }
+      return filtered;
+    });
+  };
+
+  const handleRetryUpload = async (id: string) => {
+    // Find the image and retry upload
+    const img = uploadedImages.find(i => i.id === id);
+    if (!img || !img.error) return;
+
+    // For retry, we would need the original file, which we don't have
+    // So we just remove the failed one
+    handleRemoveImage(id);
+    toast({
+      title: "Retry",
+      description: "Please select the file again to retry upload.",
+    });
+  };
+
+  const handleCaptionChange = (id: string, caption: string) => {
+    setUploadedImages(prev => prev.map(img => 
+      img.id === id ? { ...img, caption } : img
+    ));
+  };
+
+  const handleReorder = (newOrder: UploadedImage[]) => {
+    setUploadedImages(newOrder.map((img, idx) => ({ ...img, order: idx })));
+  };
+
+  // Sync uploadedImages to form
+  const syncImagesToForm = useCallback(() => {
+    const images = uploadedImages
+      .filter(img => !img.uploading && !img.error)
+      .map((img, idx) => ({
+        imageUrl: img.url,
+        caption: img.caption,
+        isPrimary: img.isPrimary,
+        order: idx,
+      }));
+    form.setValue("images", images);
+  }, [uploadedImages, form]);
+
+  // Sync when images change
+  useEffect(() => {
+    syncImagesToForm();
+  }, [uploadedImages, syncImagesToForm]);
+
   const createProperty = useMutation({
     mutationFn: async (data: PropertyFormData & { status: "draft" | "published" }) => {
+      // Sync images before submitting
+      const images = uploadedImages
+        .filter(img => !img.uploading && !img.error)
+        .map((img, idx) => ({
+          imageUrl: img.url,
+          caption: img.caption,
+          isPrimary: img.isPrimary,
+          order: idx,
+        }));
+
       const payload = {
         name: data.name,
         displayName: data.name,
@@ -243,7 +517,7 @@ export default function AddProperty() {
           size: rt.size || null,
         })),
         tariffs: data.tariffs || [],
-        images: data.images || [],
+        images: images,
       };
 
       const res = await fetch("/api/admin/properties", {
@@ -290,6 +564,17 @@ export default function AddProperty() {
       return;
     }
 
+    // Check for at least one image on publish
+    const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
+    if (status === "published" && validImages.length === 0) {
+      toast({
+        title: "Images Required",
+        description: "Please upload at least one image before publishing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     const data = form.getValues();
     createProperty.mutate({ ...data, status });
@@ -297,6 +582,18 @@ export default function AddProperty() {
   };
 
   const nextStep = () => {
+    // Validate images step
+    if (currentStep === 5) {
+      const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
+      if (validImages.length === 0) {
+        toast({
+          title: "Images Required",
+          description: "Please upload at least one image before continuing.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     if (currentStep < STEPS.length) {
       setCurrentStep(currentStep + 1);
     }
@@ -307,6 +604,9 @@ export default function AddProperty() {
       setCurrentStep(currentStep - 1);
     }
   };
+
+  // Check if Next should be disabled on Images step
+  const isNextDisabled = currentStep === 5 && uploadedImages.filter(img => !img.uploading && !img.error).length === 0;
 
   if (!user || user.role !== "admin") {
     return (
@@ -457,9 +757,20 @@ export default function AddProperty() {
                       </div>
                     </div>
 
+                    {/* Enhanced Amenities Section */}
                     <div className="border-t pt-6">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold">Amenities</h3>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddAmenityModal(true)}
+                          data-testid="button-open-add-amenity-modal"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add New Amenity
+                        </Button>
                       </div>
                       <div className="flex gap-2 mb-4">
                         <Select value={newAmenityId} onValueChange={setNewAmenityId}>
@@ -476,27 +787,37 @@ export default function AddProperty() {
                               ))}
                           </SelectContent>
                         </Select>
-                        <Button type="button" onClick={handleAddAmenity} className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" data-testid="button-add-amenity">
+                        <Button 
+                          type="button" 
+                          onClick={handleAddAmenity} 
+                          className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" 
+                          disabled={!newAmenityId}
+                          data-testid="button-add-amenity"
+                        >
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {amenityFields.map((field, index) => (
-                          <div
-                            key={field.id}
-                            className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1 rounded-full"
-                          >
-                            <span className="text-sm font-medium">{field.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeAmenity(index)}
-                              className="hover:text-red-500"
-                              data-testid={`button-remove-amenity-${index}`}
+                        {amenityFields.length === 0 ? (
+                          <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>
+                        ) : (
+                          amenityFields.map((field, index) => (
+                            <div
+                              key={field.id}
+                              className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1.5 rounded-full border border-[hsl(345,72%,41%)]/20"
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
+                              <span className="text-sm font-medium">{field.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeAmenity(index)}
+                                className="hover:text-red-600 transition-colors"
+                                data-testid={`button-remove-amenity-${index}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
@@ -594,61 +915,66 @@ export default function AddProperty() {
 
                       <div className="space-y-4">
                         {nearbyFields.map((field, index) => (
-                          <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                            <div>
-                              <Label>Place Name *</Label>
-                              <Input
-                                {...form.register(`nearbyLocations.${index}.placeName`)}
-                                placeholder="e.g., MIT College"
-                                className="mt-1"
-                                data-testid={`input-nearby-name-${index}`}
-                              />
-                            </div>
-                            <div>
-                              <Label>Distance *</Label>
-                              <Input
-                                {...form.register(`nearbyLocations.${index}.distance`)}
-                                placeholder="e.g., 500m"
-                                className="mt-1"
-                                data-testid={`input-nearby-distance-${index}`}
-                              />
-                            </div>
-                            <div>
-                              <Label>Category</Label>
-                              <Select
-                                value={form.watch(`nearbyLocations.${index}.category`)}
-                                onValueChange={(value) => form.setValue(`nearbyLocations.${index}.category`, value as any)}
-                              >
-                                <SelectTrigger className="mt-1" data-testid={`select-nearby-category-${index}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {nearbyCategories.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>
-                                      {cat.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex items-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => removeNearby(index)}
-                                data-testid={`button-remove-nearby-${index}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
+                          <Card key={field.id}>
+                            <CardContent className="pt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                                <div className="md:col-span-4">
+                                  <Label>Place Name *</Label>
+                                  <Input
+                                    {...form.register(`nearbyLocations.${index}.placeName`)}
+                                    placeholder="e.g., MIT College"
+                                    className="mt-1"
+                                    data-testid={`input-nearby-name-${index}`}
+                                  />
+                                </div>
+                                <div className="md:col-span-3">
+                                  <Label>Distance *</Label>
+                                  <Input
+                                    {...form.register(`nearbyLocations.${index}.distance`)}
+                                    placeholder="e.g., 2 km"
+                                    className="mt-1"
+                                    data-testid={`input-nearby-distance-${index}`}
+                                  />
+                                </div>
+                                <div className="md:col-span-4">
+                                  <Label>Category</Label>
+                                  <Select
+                                    value={form.watch(`nearbyLocations.${index}.category`)}
+                                    onValueChange={(value) => form.setValue(`nearbyLocations.${index}.category`, value as any)}
+                                  >
+                                    <SelectTrigger className="mt-1" data-testid={`select-nearby-category-${index}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {nearbyCategories.map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                          {cat.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="md:col-span-1 flex items-end">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="text-red-500 hover:text-red-700 mt-6"
+                                    onClick={() => removeNearby(index)}
+                                    data-testid={`button-remove-nearby-${index}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
 
                         {nearbyFields.length === 0 && (
-                          <p className="text-gray-500 text-sm text-center py-4">
-                            No nearby locations added yet. Click "Add Location" to add one.
-                          </p>
+                          <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed">
+                            <MapPin className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                            <p className="text-gray-500 text-sm">No nearby locations added yet.</p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -661,19 +987,28 @@ export default function AddProperty() {
                       <h2 className="text-xl font-semibold">Room Types</h2>
                       <Button
                         type="button"
-                        onClick={() => appendRoomType({ ...defaultRoomType })}
-                        className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]"
-                        data-testid="button-add-room"
+                        variant="outline"
+                        onClick={() => appendRoomType({
+                          name: "Single" as const,
+                          customName: "",
+                          occupancy: 1,
+                          totalRooms: 1,
+                          totalBeds: 1,
+                          availableBeds: 1,
+                          basePrice: 0,
+                          size: "",
+                        })}
+                        data-testid="button-add-room-type"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Room Type
                       </Button>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {roomTypeFields.map((field, index) => (
-                        <Card key={field.id} className="border-2">
-                          <CardHeader className="pb-4">
+                        <Card key={field.id}>
+                          <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-lg">Room Type {index + 1}</CardTitle>
                               {roomTypeFields.length > 1 && (
@@ -682,24 +1017,23 @@ export default function AddProperty() {
                                   variant="ghost"
                                   className="text-red-500 hover:text-red-700"
                                   onClick={() => removeRoomType(index)}
-                                  data-testid={`button-remove-room-${index}`}
+                                  data-testid={`button-remove-room-type-${index}`}
                                 >
-                                  <Trash2 className="w-4 h-4 mr-1" />
-                                  Remove
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               )}
                             </div>
                           </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                               <div>
-                                <Label>Room Type *</Label>
+                                <Label>Type *</Label>
                                 <Select
                                   value={form.watch(`roomTypes.${index}.name`)}
                                   onValueChange={(value) => form.setValue(`roomTypes.${index}.name`, value as any)}
                                 >
                                   <SelectTrigger className="mt-1" data-testid={`select-room-type-${index}`}>
-                                    <SelectValue placeholder="Select room type" />
+                                    <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {roomTypeOptions.map((opt) => (
@@ -710,81 +1044,83 @@ export default function AddProperty() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div>
-                                <Label>Custom Name (optional)</Label>
-                                <Input
-                                  {...form.register(`roomTypes.${index}.customName`)}
-                                  placeholder="e.g., Premium Deluxe"
-                                  className="mt-1"
-                                  data-testid={`input-room-custom-name-${index}`}
-                                />
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {form.watch(`roomTypes.${index}.name`) === "Custom" && (
+                                <div>
+                                  <Label>Custom Name</Label>
+                                  <Input
+                                    {...form.register(`roomTypes.${index}.customName`)}
+                                    placeholder="e.g., Executive Suite"
+                                    className="mt-1"
+                                    data-testid={`input-custom-room-name-${index}`}
+                                  />
+                                </div>
+                              )}
+
                               <div>
-                                <Label>Occupancy (persons) *</Label>
+                                <Label>Occupancy *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.occupancy`, { valueAsNumber: true })}
                                   min={1}
+                                  {...form.register(`roomTypes.${index}.occupancy`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-room-occupancy-${index}`}
+                                  data-testid={`input-occupancy-${index}`}
                                 />
                               </div>
+
                               <div>
                                 <Label>Total Rooms *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.totalRooms`, { valueAsNumber: true })}
                                   min={1}
+                                  {...form.register(`roomTypes.${index}.totalRooms`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-room-total-${index}`}
+                                  data-testid={`input-total-rooms-${index}`}
                                 />
                               </div>
-                              <div>
-                                <Label>Room Size (e.g., 120 sqft)</Label>
-                                <Input
-                                  {...form.register(`roomTypes.${index}.size`)}
-                                  placeholder="e.g., 120 sqft"
-                                  className="mt-1"
-                                  data-testid={`input-room-size-${index}`}
-                                />
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <Label>Total Beds *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.totalBeds`, { valueAsNumber: true })}
                                   min={1}
+                                  {...form.register(`roomTypes.${index}.totalBeds`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-room-total-beds-${index}`}
+                                  data-testid={`input-total-beds-${index}`}
                                 />
                               </div>
+
                               <div>
                                 <Label>Available Beds *</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`roomTypes.${index}.availableBeds`, { valueAsNumber: true })}
                                   min={0}
+                                  {...form.register(`roomTypes.${index}.availableBeds`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-room-available-beds-${index}`}
+                                  data-testid={`input-available-beds-${index}`}
                                 />
                               </div>
-                            </div>
 
-                            <div>
-                              <Label>Base Price (₹/month) *</Label>
-                              <Input
-                                type="number"
-                                {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
-                                min={0}
-                                className="mt-1"
-                                data-testid={`input-room-price-${index}`}
-                              />
+                              <div>
+                                <Label>Base Price (₹/month) *</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
+                                  className="mt-1"
+                                  data-testid={`input-base-price-${index}`}
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Room Size</Label>
+                                <Input
+                                  {...form.register(`roomTypes.${index}.size`)}
+                                  placeholder="e.g., 150 sq ft"
+                                  className="mt-1"
+                                  data-testid={`input-room-size-${index}`}
+                                />
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -800,24 +1136,24 @@ export default function AddProperty() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => appendTariff({ 
-                          academicYear: "2025-26", 
-                          monthlyPrice: 0, 
-                          deposit: 0, 
-                          discount: 0, 
-                          discountLabel: "" 
+                        onClick={() => appendTariff({
+                          academicYear: "",
+                          monthlyPrice: 0,
+                          deposit: 0,
+                          discount: 0,
+                          discountLabel: "",
                         })}
                         data-testid="button-add-tariff"
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Add Academic Year Tariff
+                        Add Tariff
                       </Button>
                     </div>
 
-                    <div className="bg-[hsl(345,72%,41%)]/5 border border-[hsl(345,72%,41%)]/20 rounded-lg p-4">
-                      <p className="text-sm">
-                        <strong>Note:</strong> Room-level pricing is set in the Room Types step. 
-                        Use this section to add special academic year tariffs with discounts if applicable.
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-700">
+                        <strong>Tip:</strong> Add different tariffs for different academic years or seasons. 
+                        The default booking amount is ₹1,00,000.
                       </p>
                     </div>
 
@@ -825,57 +1161,48 @@ export default function AddProperty() {
                       {tariffFields.map((field, index) => (
                         <Card key={field.id}>
                           <CardContent className="pt-6">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                              <div>
+                            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
+                              <div className="md:col-span-2">
                                 <Label>Academic Year *</Label>
                                 <Input
                                   {...form.register(`tariffs.${index}.academicYear`)}
-                                  placeholder="e.g., 2025-26"
+                                  placeholder="e.g., 2024-25"
                                   className="mt-1"
-                                  data-testid={`input-tariff-year-${index}`}
+                                  data-testid={`input-academic-year-${index}`}
                                 />
                               </div>
                               <div>
                                 <Label>Monthly Price (₹)</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`tariffs.${index}.monthlyPrice`, { valueAsNumber: true })}
                                   min={0}
+                                  {...form.register(`tariffs.${index}.monthlyPrice`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-tariff-price-${index}`}
+                                  data-testid={`input-monthly-price-${index}`}
                                 />
                               </div>
                               <div>
                                 <Label>Deposit (₹)</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`tariffs.${index}.deposit`, { valueAsNumber: true })}
                                   min={0}
+                                  {...form.register(`tariffs.${index}.deposit`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-tariff-deposit-${index}`}
+                                  data-testid={`input-deposit-${index}`}
                                 />
                               </div>
                               <div>
                                 <Label>Discount (%)</Label>
                                 <Input
                                   type="number"
-                                  {...form.register(`tariffs.${index}.discount`, { valueAsNumber: true })}
                                   min={0}
                                   max={100}
+                                  {...form.register(`tariffs.${index}.discount`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-tariff-discount-${index}`}
+                                  data-testid={`input-discount-${index}`}
                                 />
                               </div>
-                              <div className="flex gap-2">
-                                <div className="flex-1">
-                                  <Label>Discount Label</Label>
-                                  <Input
-                                    {...form.register(`tariffs.${index}.discountLabel`)}
-                                    placeholder="e.g., Early Bird"
-                                    className="mt-1"
-                                    data-testid={`input-tariff-label-${index}`}
-                                  />
-                                </div>
+                              <div className="flex items-end">
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -892,111 +1219,189 @@ export default function AddProperty() {
                       ))}
 
                       {tariffFields.length === 0 && (
-                        <p className="text-gray-500 text-center py-8">
-                          No special tariffs added. Room prices will be used as default pricing.
-                        </p>
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed">
+                          <IndianRupee className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-gray-500 text-sm">No tariffs added yet.</p>
+                          <p className="text-gray-400 text-xs">Add pricing for different academic years.</p>
+                        </div>
                       )}
                     </div>
                   </div>
                 )}
 
+                {/* Enhanced Images Step */}
                 {currentStep === 5 && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-semibold">Property Images</h2>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => appendImage({ imageUrl: "", caption: "", isPrimary: imageFields.length === 0 })}
-                        data-testid="button-add-image"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Image URL
-                      </Button>
+                      <span className="text-sm text-gray-500">
+                        {uploadedImages.filter(img => !img.uploading && !img.error).length} / {MAX_IMAGES} images
+                      </span>
                     </div>
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <p className="text-sm text-blue-700">
-                        <strong>Tip:</strong> Add image URLs from cloud storage (Google Drive, Imgur, etc.). 
-                        The first image marked as "Primary" will be shown as the main property image.
+                        <strong>Tip:</strong> Upload high-quality images (JPG, PNG, WEBP). 
+                        Drag and drop or click to upload. The star-marked image will be the primary image shown on listings.
                       </p>
                     </div>
 
-                    <div className="space-y-4">
-                      {imageFields.map((field, index) => (
-                        <Card key={field.id}>
-                          <CardContent className="pt-6">
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                              <div className="md:col-span-5">
-                                <Label>Image URL *</Label>
-                                <Input
-                                  {...form.register(`images.${index}.imageUrl`)}
-                                  placeholder="https://..."
-                                  className="mt-1"
-                                  data-testid={`input-image-url-${index}`}
-                                />
-                              </div>
-                              <div className="md:col-span-3">
-                                <Label>Caption</Label>
-                                <Input
-                                  {...form.register(`images.${index}.caption`)}
-                                  placeholder="e.g., Building Exterior"
-                                  className="mt-1"
-                                  data-testid={`input-image-caption-${index}`}
-                                />
-                              </div>
-                              <div className="md:col-span-2 flex items-center gap-2">
-                                <Switch
-                                  checked={form.watch(`images.${index}.isPrimary`) || false}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      imageFields.forEach((_, i) => {
-                                        form.setValue(`images.${i}.isPrimary`, i === index);
-                                      });
-                                    } else {
-                                      form.setValue(`images.${index}.isPrimary`, false);
-                                    }
-                                  }}
-                                  data-testid={`switch-image-primary-${index}`}
-                                />
-                                <Label className="text-sm">Primary</Label>
-                              </div>
-                              <div className="md:col-span-2 flex justify-end">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="text-red-500 hover:text-red-700"
-                                  onClick={() => removeImage(index)}
-                                  data-testid={`button-remove-image-${index}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            {form.watch(`images.${index}.imageUrl`) && (
-                              <div className="mt-4">
-                                <img
-                                  src={form.watch(`images.${index}.imageUrl`)}
-                                  alt={form.watch(`images.${index}.caption`) || "Preview"}
-                                  className="h-24 w-auto rounded-lg object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-
-                      {imageFields.length === 0 && (
-                        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                          <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                          <p className="text-gray-500">No images added yet.</p>
-                          <p className="text-gray-400 text-sm">Click "Add Image URL" to add property photos.</p>
-                        </div>
-                      )}
+                    {/* Drag & Drop Upload Area */}
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                        isDragging
+                          ? "border-[hsl(345,72%,41%)] bg-[hsl(345,72%,41%)]/5"
+                          : "border-gray-300 hover:border-gray-400"
+                      } ${uploadedImages.length >= MAX_IMAGES ? "opacity-50 pointer-events-none" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => uploadedImages.length < MAX_IMAGES && fileInputRef.current?.click()}
+                      data-testid="dropzone-images"
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleFileSelect(e.target.files)}
+                        data-testid="input-file-upload"
+                      />
+                      <Upload className={`w-12 h-12 mx-auto mb-4 ${isDragging ? "text-[hsl(345,72%,41%)]" : "text-gray-400"}`} />
+                      <p className="text-lg font-medium text-gray-700 mb-1">
+                        {isDragging ? "Drop images here" : "Drag & drop images here"}
+                      </p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        or click to browse from your device
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-[hsl(345,72%,41%)] text-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,41%)]/5"
+                        disabled={uploadedImages.length >= MAX_IMAGES}
+                        data-testid="button-browse-images"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Browse Images
+                      </Button>
+                      <p className="text-xs text-gray-400 mt-3">
+                        Supported: JPG, PNG, WEBP (max 10MB each)
+                      </p>
                     </div>
+
+                    {/* Image Grid with Reorder */}
+                    {uploadedImages.length > 0 ? (
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          <GripVertical className="w-4 h-4 inline-block mr-1" />
+                          Drag to reorder images. Click the star to set as primary.
+                        </p>
+                        <Reorder.Group
+                          axis="y"
+                          values={uploadedImages}
+                          onReorder={handleReorder}
+                          className="space-y-3"
+                        >
+                          {uploadedImages.map((image) => (
+                            <Reorder.Item
+                              key={image.id}
+                              value={image}
+                              className="bg-white border rounded-lg p-4 shadow-sm cursor-grab active:cursor-grabbing"
+                            >
+                              <div className="flex items-center gap-4">
+                                <GripVertical className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                
+                                {/* Thumbnail */}
+                                <div className="relative w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                  {image.uploading ? (
+                                    <div className="flex items-center justify-center h-full">
+                                      <Loader2 className="w-6 h-6 animate-spin text-[hsl(345,72%,41%)]" />
+                                    </div>
+                                  ) : image.error ? (
+                                    <div className="flex items-center justify-center h-full bg-red-50">
+                                      <X className="w-6 h-6 text-red-500" />
+                                    </div>
+                                  ) : (
+                                    <img
+                                      src={image.url.startsWith("blob:") ? image.url : image.url}
+                                      alt={image.caption}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  )}
+                                  {image.isPrimary && !image.uploading && !image.error && (
+                                    <div className="absolute top-1 left-1 bg-yellow-400 rounded-full p-0.5">
+                                      <Star className="w-3 h-3 text-yellow-800 fill-yellow-800" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Caption Input */}
+                                <div className="flex-1">
+                                  <Input
+                                    value={image.caption}
+                                    onChange={(e) => handleCaptionChange(image.id, e.target.value)}
+                                    placeholder="Add caption..."
+                                    className="text-sm"
+                                    disabled={image.uploading}
+                                    data-testid={`input-image-caption-${image.id}`}
+                                  />
+                                  {image.error && (
+                                    <p className="text-red-500 text-xs mt-1">{image.error}</p>
+                                  )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {image.error ? (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRetryUpload(image.id)}
+                                      className="text-blue-500 hover:text-blue-700"
+                                      data-testid={`button-retry-${image.id}`}
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                    </Button>
+                                  ) : !image.uploading && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleSetPrimary(image.id)}
+                                      className={image.isPrimary ? "text-yellow-500" : "text-gray-400 hover:text-yellow-500"}
+                                      title="Set as primary"
+                                      data-testid={`button-set-primary-${image.id}`}
+                                    >
+                                      <Star className={`w-4 h-4 ${image.isPrimary ? "fill-yellow-500" : ""}`} />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveImage(image.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                    data-testid={`button-remove-image-${image.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </Reorder.Item>
+                          ))}
+                        </Reorder.Group>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                        <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-500 font-medium">No images added yet</p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          Upload at least 1 image to continue
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1026,7 +1431,7 @@ export default function AddProperty() {
                           <p><strong>Amenities:</strong> {amenityFields.length}</p>
                           <p><strong>Rules:</strong> {ruleFields.length}</p>
                           <p><strong>Nearby Locations:</strong> {nearbyFields.length}</p>
-                          <p><strong>Images:</strong> {imageFields.length}</p>
+                          <p><strong>Images:</strong> {uploadedImages.filter(i => !i.uploading && !i.error).length}</p>
                           <p><strong>Tariffs:</strong> {tariffFields.length}</p>
                         </CardContent>
                       </Card>
@@ -1063,6 +1468,35 @@ export default function AddProperty() {
                                 ))}
                               </tbody>
                             </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Image Preview Grid */}
+                    {uploadedImages.filter(i => !i.uploading && !i.error).length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Images</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                            {uploadedImages
+                              .filter(i => !i.uploading && !i.error)
+                              .map((img) => (
+                                <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                  <img
+                                    src={img.url}
+                                    alt={img.caption}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {img.isPrimary && (
+                                    <div className="absolute top-1 left-1 bg-yellow-400 rounded-full p-0.5">
+                                      <Star className="w-3 h-3 text-yellow-800 fill-yellow-800" />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
                           </div>
                         </CardContent>
                       </Card>
@@ -1129,6 +1563,7 @@ export default function AddProperty() {
                   <Button
                     type="button"
                     onClick={nextStep}
+                    disabled={isNextDisabled}
                     className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]"
                     data-testid="button-next-step"
                   >
@@ -1141,6 +1576,68 @@ export default function AddProperty() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add New Amenity Modal */}
+      <Dialog open={showAddAmenityModal} onOpenChange={setShowAddAmenityModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Amenity</DialogTitle>
+            <DialogDescription>
+              Create a new amenity that will be available for all properties.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="amenity-name">Amenity Name *</Label>
+              <Input
+                id="amenity-name"
+                value={newAmenityName}
+                onChange={(e) => setNewAmenityName(e.target.value)}
+                placeholder="e.g., Swimming Pool"
+                className="mt-1"
+                data-testid="input-new-amenity-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="amenity-icon">Icon (Emoji)</Label>
+              <Input
+                id="amenity-icon"
+                value={newAmenityIcon}
+                onChange={(e) => setNewAmenityIcon(e.target.value)}
+                placeholder="e.g., 🏊"
+                className="mt-1"
+                maxLength={4}
+                data-testid="input-new-amenity-icon"
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave empty for default checkmark</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddAmenityModal(false)}
+              data-testid="button-cancel-amenity"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateAmenity}
+              disabled={isCreatingAmenity || !newAmenityName.trim()}
+              className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]"
+              data-testid="button-save-amenity"
+            >
+              {isCreatingAmenity ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Add Amenity
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

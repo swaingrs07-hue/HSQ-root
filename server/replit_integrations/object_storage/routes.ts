@@ -65,14 +65,13 @@ export function registerObjectStorageRoutes(app: Express): void {
   /**
    * Serve uploaded objects.
    *
-   * GET /objects/:objectPath(*)
-   *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
+   * Handles paths like /objects/uploads/uuid
+   * Express 5.x requires named params, so we use a regex route.
    */
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  app.get(/^\/objects\/(.+)$/, async (req, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const objectPath = req.path;
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error serving object:", error);
