@@ -1,23 +1,26 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X } from "lucide-react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { visitor, admin, logout, isAdmin } = useAuth();
 
   const navItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "Properties", href: "/properties", icon: Building2 },
     { name: "Student Portal", href: "/student/register", icon: User },
-    { name: "Admin", href: "/admin/login", icon: ShieldCheck },
+    ...(isAdmin ? [{ name: "Admin Dashboard", href: "/admin", icon: ShieldCheck }] : []),
   ];
+
+  const userName = admin?.email?.split("@")[0] || visitor?.name || "Guest";
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
-      {/* Navbar */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/">
@@ -31,7 +34,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </a>
           </Link>
 
-          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
@@ -48,12 +50,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </a>
               </Link>
             ))}
-            <Link href="/properties">
-              <Button size="sm" className="font-bold">Book Now</Button>
-            </Link>
+            <div className="flex items-center gap-3 pl-4 border-l">
+              <span className="text-sm text-muted-foreground">
+                Hi, <span className="font-semibold text-foreground">{userName}</span>
+              </span>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={logout}
+                className="text-muted-foreground hover:text-destructive"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </nav>
 
-          {/* Mobile Menu Toggle */}
           <button
             className="md:hidden p-2 text-foreground"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -62,9 +74,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Mobile Nav */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-background p-4 flex flex-col gap-4 shadow-lg animate-in slide-in-from-top-5">
+            <div className="flex items-center justify-between pb-4 border-b">
+              <span className="text-sm text-muted-foreground">
+                Hi, <span className="font-semibold text-foreground">{userName}</span>
+              </span>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="w-4 h-4 mr-2" /> Logout
+              </Button>
+            </div>
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
                 <a
@@ -85,12 +109,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 w-full">
         {children}
       </main>
 
-      {/* Footer */}
       <footer className="border-t bg-card py-12 mt-12">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">

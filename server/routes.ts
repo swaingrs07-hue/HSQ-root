@@ -174,11 +174,12 @@ export async function registerRoutes(
         lead = await storage.createLead({
           name: storedData.name,
           phone,
-          phoneVerified: true,
           ipAddress,
           userAgent,
           deviceType,
         });
+        // Mark phone as verified
+        await storage.updateLead(lead.id, { phoneVerified: true });
       }
 
       res.json({ 
