@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -777,14 +777,23 @@ export default function AddProperty() {
                           <SelectTrigger className="flex-1" data-testid="select-amenity">
                             <SelectValue placeholder="Select amenity to add" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {globalAmenities
-                              .filter((a: any) => !amenityFields.some(f => f.amenityId === a.id))
-                              .map((amenity: any) => (
-                                <SelectItem key={amenity.id} value={amenity.id}>
-                                  {amenity.icon} {amenity.name}
-                                </SelectItem>
-                              ))}
+                          <SelectContent className="max-h-[300px]">
+                            {(() => {
+                              const availableAmenities = globalAmenities.filter((a: any) => !amenityFields.some(f => f.amenityId === a.id));
+                              const categories = Array.from(new Set(availableAmenities.map((a: any) => a.category || "Other"))) as string[];
+                              return categories.map((category: string) => (
+                                <SelectGroup key={category}>
+                                  <SelectLabel className="font-semibold text-primary">{category}</SelectLabel>
+                                  {availableAmenities
+                                    .filter((a: any) => (a.category || "Other") === category)
+                                    .map((amenity: any) => (
+                                      <SelectItem key={amenity.id} value={amenity.id}>
+                                        {amenity.icon} {amenity.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                              ));
+                            })()}
                           </SelectContent>
                         </Select>
                         <Button 
