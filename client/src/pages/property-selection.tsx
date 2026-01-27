@@ -152,10 +152,11 @@ export default function PropertySelection() {
 
     if (priceFilter !== "all") {
       result = result.filter((p) => {
-        const minPrice = Math.min(...(p.roomTypes?.map((r: any) => r.basePrice) || [0]));
-        if (priceFilter === "0-4000") return minPrice < 4000;
-        if (priceFilter === "4000-5000") return minPrice >= 4000 && minPrice <= 5000;
-        if (priceFilter === "5000+") return minPrice > 5000;
+        const minPrice = getLowestPrice(p.roomTypes, p.bookingMode);
+        const effectiveMonthlyPrice = p.bookingMode === "academic_year" ? minPrice / 12 : minPrice;
+        if (priceFilter === "0-4000") return effectiveMonthlyPrice < 4000;
+        if (priceFilter === "4000-5000") return effectiveMonthlyPrice >= 4000 && effectiveMonthlyPrice <= 5000;
+        if (priceFilter === "5000+") return effectiveMonthlyPrice > 5000;
         return true;
       });
     }
@@ -168,15 +169,19 @@ export default function PropertySelection() {
 
     if (sortBy === "price-asc") {
       result.sort((a, b) => {
-        const minA = Math.min(...(a.roomTypes?.map((r: any) => r.basePrice) || [0]));
-        const minB = Math.min(...(b.roomTypes?.map((r: any) => r.basePrice) || [0]));
-        return minA - minB;
+        const minA = getLowestPrice(a.roomTypes, a.bookingMode);
+        const minB = getLowestPrice(b.roomTypes, b.bookingMode);
+        const effectiveA = a.bookingMode === "academic_year" ? minA / 12 : minA;
+        const effectiveB = b.bookingMode === "academic_year" ? minB / 12 : minB;
+        return effectiveA - effectiveB;
       });
     } else if (sortBy === "price-desc") {
       result.sort((a, b) => {
-        const minA = Math.min(...(a.roomTypes?.map((r: any) => r.basePrice) || [0]));
-        const minB = Math.min(...(b.roomTypes?.map((r: any) => r.basePrice) || [0]));
-        return minB - minA;
+        const minA = getLowestPrice(a.roomTypes, a.bookingMode);
+        const minB = getLowestPrice(b.roomTypes, b.bookingMode);
+        const effectiveA = a.bookingMode === "academic_year" ? minA / 12 : minA;
+        const effectiveB = b.bookingMode === "academic_year" ? minB / 12 : minB;
+        return effectiveB - effectiveA;
       });
     } else if (sortBy === "newest") {
       result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -185,8 +190,8 @@ export default function PropertySelection() {
     return result;
   }, [properties, searchQuery, priceFilter, roomTypeFilter, sortBy]);
 
-  const handleSelectRoom = (propId: string, roomId: string, price: number, roomName: string, propName: string) => {
-    localStorage.setItem("selected_room", JSON.stringify({ propId, roomId, price, roomName, propName }));
+  const handleSelectRoom = (propId: string, roomId: string, price: number, roomName: string, propName: string, bookingMode: string, deposit: number = 0) => {
+    localStorage.setItem("selected_room", JSON.stringify({ propId, roomId, price, roomName, propName, bookingMode, deposit }));
     setLocation("/payment-plans");
   };
 
@@ -198,9 +203,13 @@ export default function PropertySelection() {
     return { available: true, text: "Available" };
   };
 
-  const getLowestPrice = (roomTypes: any[]) => {
+  const getLowestPrice = (roomTypes: any[], bookingMode: string = "monthly") => {
     if (!roomTypes || roomTypes.length === 0) return 0;
-    return Math.min(...roomTypes.map((r) => r.basePrice));
+    if (bookingMode === "academic_year") {
+      const prices = roomTypes.map((r) => r.academicYearPrice || r.basePrice * 12).filter((p) => p > 0);
+      return prices.length > 0 ? Math.min(...prices) : 0;
+    }
+    return Math.min(...roomTypes.map((r) => r.basePrice).filter((p) => p > 0));
   };
 
   const clearFilters = () => {
@@ -364,7 +373,7 @@ export default function PropertySelection() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredProperties.map((prop, index) => {
                 const availability = getAvailabilityStatus(prop.roomTypes);
-                const lowestPrice = getLowestPrice(prop.roomTypes);
+                const lowestPrice = getLowestPrice(prop.roomTypes, prop.bookingMode);
                 const displayAmenities = prop.amenities?.slice(0, 6) || [];
 
                 return (
@@ -390,10 +399,17 @@ export default function PropertySelection() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                         
-                        <div className="absolute top-4 left-4">
+                        <div className="absolute top-4 left-4 flex flex-col gap-2">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-full text-sm font-medium text-gray-700 shadow-sm">
                             <MapPin className="w-4 h-4 text-primary" />
                             {prop.location}
+                          </span>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                            prop.bookingMode === "academic_year" 
+                              ? "bg-purple-500 text-white" 
+                              : "bg-blue-500 text-white"
+                          }`}>
+                            {prop.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
                           </span>
                         </div>
 
@@ -411,7 +427,9 @@ export default function PropertySelection() {
                           <div className="flex items-baseline gap-1">
                             <span className="text-white/70 text-sm">from</span>
                             <span className="text-white text-2xl font-bold">₹{lowestPrice.toLocaleString()}</span>
-                            <span className="text-white/70 text-sm">/month</span>
+                            <span className="text-white/70 text-sm">
+                              {prop.bookingMode === "academic_year" ? "/year" : "/month"}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -489,6 +507,13 @@ export default function PropertySelection() {
                   <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
                     <MapPin className="w-4 h-4" />
                     {selectedProperty.location}
+                    <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      selectedProperty.bookingMode === "academic_year" 
+                        ? "bg-purple-500 text-white" 
+                        : "bg-blue-500 text-white"
+                    }`}>
+                      {selectedProperty.bookingMode === "academic_year" ? "Academic Year Booking" : "Monthly Booking"}
+                    </span>
                   </div>
                   <h2 className="text-3xl font-bold text-white">{selectedProperty.name}</h2>
                 </div>
@@ -527,17 +552,28 @@ export default function PropertySelection() {
                         <div className="flex items-center gap-4 w-full sm:w-auto">
                           <div className="text-right">
                             <div className="text-2xl font-bold text-primary">
-                              ₹{room.basePrice.toLocaleString()}
+                              ₹{selectedProperty.bookingMode === "academic_year" 
+                                ? (room.academicYearPrice || room.basePrice * 12).toLocaleString()
+                                : room.basePrice.toLocaleString()}
                             </div>
-                            <div className="text-xs text-muted-foreground">/month</div>
+                            <div className="text-xs text-muted-foreground">
+                              {selectedProperty.bookingMode === "academic_year" ? "/year" : "/month"}
+                            </div>
+                            {room.deposit > 0 && (
+                              <div className="text-xs text-muted-foreground">+ ₹{room.deposit.toLocaleString()} deposit</div>
+                            )}
                           </div>
                           <Button
                             onClick={() => handleSelectRoom(
                               selectedProperty.id,
                               room.id,
-                              room.basePrice,
+                              selectedProperty.bookingMode === "academic_year" 
+                                ? (room.academicYearPrice || room.basePrice * 12)
+                                : room.basePrice,
                               room.name,
-                              selectedProperty.name
+                              selectedProperty.name,
+                              selectedProperty.bookingMode || "monthly",
+                              room.deposit || 0
                             )}
                             disabled={room.availableBeds === 0}
                             className="flex-1 sm:flex-none"

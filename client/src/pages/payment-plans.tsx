@@ -15,6 +15,8 @@ interface SelectedRoom {
   price: number;
   roomName: string;
   propName: string;
+  bookingMode?: string;
+  deposit?: number;
 }
 
 export default function PaymentPlans() {
@@ -117,16 +119,30 @@ export default function PaymentPlans() {
                 <p className="text-sm text-muted-foreground">Room Type</p>
                 <p className="font-bold">{roomData.roomName} Occupancy</p>
               </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Booking Type</p>
+                <p className={`font-bold ${roomData.bookingMode === "academic_year" ? "text-purple-600" : "text-blue-600"}`}>
+                  {roomData.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
+                </p>
+              </div>
               <div className="pt-4 border-t border-primary/10">
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-muted-foreground">Base Fee</p>
+                  <p className="text-sm text-muted-foreground">
+                    {roomData.bookingMode === "academic_year" ? "Annual Fee" : "Monthly Fee"}
+                  </p>
                   <p className="font-medium">₹{roomData.price.toLocaleString()}</p>
                 </div>
+                {(roomData.deposit || 0) > 0 && (
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm text-muted-foreground">Deposit (Refundable)</p>
+                    <p className="font-medium">₹{roomData.deposit?.toLocaleString()}</p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-lg font-bold text-primary mt-4 pt-4 border-t border-primary/10">
                   <p>Total Payable</p>
                   <p>
                     ₹{(
-                      roomData.price - (PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || 0)
+                      roomData.price + (roomData.deposit || 0) - (PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || 0)
                     ).toLocaleString()}
                   </p>
                 </div>

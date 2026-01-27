@@ -550,7 +550,7 @@ export default function AdminDashboard() {
                           >
                             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                               <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
+                                <div className="flex items-center gap-3 mb-2 flex-wrap">
                                   <h3 className="text-xl font-bold">{property.name}</h3>
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     property.active 
@@ -558,6 +558,13 @@ export default function AdminDashboard() {
                                       : "bg-red-100 text-red-700"
                                   }`}>
                                     {property.active ? "Active" : "Inactive"}
+                                  </span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    property.bookingMode === "academic_year" 
+                                      ? "bg-purple-100 text-purple-700" 
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}>
+                                    {property.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground mb-3">

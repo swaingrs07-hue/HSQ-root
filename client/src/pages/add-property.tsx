@@ -58,6 +58,7 @@ const propertyFormSchema = z.object({
   pincode: z.string().min(6, "Valid pincode required").max(6),
   description: z.string().optional(),
   category: z.enum(["hotel", "hostel"]),
+  bookingMode: z.enum(["academic_year", "monthly"]),
   googleMapsUrl: z.string().optional(),
   amenities: z.array(z.object({
     amenityId: z.string(),
@@ -79,6 +80,8 @@ const propertyFormSchema = z.object({
     totalBeds: z.number().min(1, "Total beds required"),
     availableBeds: z.number().min(0, "Available beds required"),
     basePrice: z.number().min(0, "Price required"),
+    academicYearPrice: z.number().min(0).optional(),
+    deposit: z.number().min(0).optional(),
     size: z.string().optional(),
   })).min(1, "At least one room type is required"),
   tariffs: z.array(z.object({
@@ -173,6 +176,7 @@ export default function AddProperty() {
       pincode: "",
       description: "",
       category: "hostel",
+      bookingMode: "monthly",
       googleMapsUrl: "",
       amenities: [],
       rules: [],
@@ -185,6 +189,8 @@ export default function AddProperty() {
         totalBeds: 1,
         availableBeds: 1,
         basePrice: 0,
+        academicYearPrice: 0,
+        deposit: 0,
         size: "",
       }],
       tariffs: [],
@@ -578,8 +584,31 @@ export default function AddProperty() {
       return;
     }
 
-    setIsSubmitting(true);
+    // Validate pricing based on booking mode
     const data = form.getValues();
+    if (status === "published") {
+      const bookingMode = data.bookingMode;
+      const invalidRooms = data.roomTypes.filter(room => {
+        if (bookingMode === "academic_year") {
+          return !room.academicYearPrice || room.academicYearPrice <= 0;
+        } else {
+          return !room.basePrice || room.basePrice <= 0;
+        }
+      });
+      
+      if (invalidRooms.length > 0) {
+        toast({
+          title: "Pricing Required",
+          description: bookingMode === "academic_year" 
+            ? "Please set Academic Year Price for all room types before publishing."
+            : "Please set Base Price (₹/month) for all room types before publishing.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     createProperty.mutate({ ...data, status });
     setIsSubmitting(false);
   };
@@ -709,6 +738,65 @@ export default function AddProperty() {
                             <SelectItem value="hotel">Hotel</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <Label className="text-base font-semibold mb-4 block">Booking Mode *</Label>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Choose how students can book rooms at this property
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            form.watch("bookingMode") === "academic_year"
+                              ? "border-[hsl(345,72%,41%)] bg-[hsl(345,72%,41%)]/5"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                          onClick={() => form.setValue("bookingMode", "academic_year")}
+                          data-testid="radio-academic-year"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              form.watch("bookingMode") === "academic_year"
+                                ? "border-[hsl(345,72%,41%)]"
+                                : "border-gray-300"
+                            }`}>
+                              {form.watch("bookingMode") === "academic_year" && (
+                                <div className="w-3 h-3 rounded-full bg-[hsl(345,72%,41%)]" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">Academic Year Only</p>
+                              <p className="text-sm text-muted-foreground">Fixed annual pricing (e.g., 2024-25)</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            form.watch("bookingMode") === "monthly"
+                              ? "border-[hsl(345,72%,41%)] bg-[hsl(345,72%,41%)]/5"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                          onClick={() => form.setValue("bookingMode", "monthly")}
+                          data-testid="radio-monthly"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              form.watch("bookingMode") === "monthly"
+                                ? "border-[hsl(345,72%,41%)]"
+                                : "border-gray-300"
+                            }`}>
+                              {form.watch("bookingMode") === "monthly" && (
+                                <div className="w-3 h-3 rounded-full bg-[hsl(345,72%,41%)]" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">Monthly Booking</p>
+                              <p className="text-sm text-muted-foreground">Flexible month-wise pricing</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1015,6 +1103,8 @@ export default function AddProperty() {
                           totalBeds: 1,
                           availableBeds: 1,
                           basePrice: 0,
+                          academicYearPrice: 0,
+                          deposit: 0,
                           size: "",
                         })}
                         data-testid="button-add-room-type"
@@ -1120,14 +1210,38 @@ export default function AddProperty() {
                                 />
                               </div>
 
+                              {form.watch("bookingMode") === "monthly" ? (
+                                <div>
+                                  <Label>Base Price (₹/month) *</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
+                                    className="mt-1"
+                                    data-testid={`input-base-price-${index}`}
+                                  />
+                                </div>
+                              ) : (
+                                <div>
+                                  <Label>Academic Year Price (₹/year) *</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    {...form.register(`roomTypes.${index}.academicYearPrice`, { valueAsNumber: true })}
+                                    className="mt-1"
+                                    data-testid={`input-academic-price-${index}`}
+                                  />
+                                </div>
+                              )}
+
                               <div>
-                                <Label>Base Price (₹/month) *</Label>
+                                <Label>Deposit (₹)</Label>
                                 <Input
                                   type="number"
                                   min={0}
-                                  {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
+                                  {...form.register(`roomTypes.${index}.deposit`, { valueAsNumber: true })}
                                   className="mt-1"
-                                  data-testid={`input-base-price-${index}`}
+                                  data-testid={`input-deposit-${index}`}
                                 />
                               </div>
 
@@ -1436,6 +1550,12 @@ export default function AddProperty() {
                         <CardContent className="space-y-2">
                           <p><strong>Name:</strong> {form.watch("name") || "-"}</p>
                           <p><strong>Category:</strong> {form.watch("category")}</p>
+                          <p>
+                            <strong>Booking Mode:</strong>{" "}
+                            <span className={form.watch("bookingMode") === "academic_year" ? "text-purple-600 font-medium" : "text-blue-600 font-medium"}>
+                              {form.watch("bookingMode") === "academic_year" ? "Academic Year Only" : "Monthly Booking"}
+                            </span>
+                          </p>
                           <p><strong>City:</strong> {form.watch("city") || "-"}</p>
                           <p><strong>Address:</strong> {form.watch("address") || "-"}</p>
                         </CardContent>
@@ -1470,7 +1590,10 @@ export default function AddProperty() {
                                   <th className="text-left py-2">Custom Name</th>
                                   <th className="text-center py-2">Occupancy</th>
                                   <th className="text-center py-2">Beds</th>
-                                  <th className="text-right py-2">Price/Month</th>
+                                  <th className="text-right py-2">
+                                    {form.watch("bookingMode") === "monthly" ? "Price/Month" : "Price/Year"}
+                                  </th>
+                                  <th className="text-right py-2">Deposit</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1482,7 +1605,12 @@ export default function AddProperty() {
                                     <td className="text-center py-2">
                                       {form.watch(`roomTypes.${index}.availableBeds`)} / {form.watch(`roomTypes.${index}.totalBeds`)}
                                     </td>
-                                    <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.basePrice`)?.toLocaleString()}</td>
+                                    <td className="text-right py-2">
+                                      ₹{form.watch("bookingMode") === "monthly" 
+                                        ? form.watch(`roomTypes.${index}.basePrice`)?.toLocaleString()
+                                        : form.watch(`roomTypes.${index}.academicYearPrice`)?.toLocaleString()}
+                                    </td>
+                                    <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.deposit`)?.toLocaleString() || 0}</td>
                                   </tr>
                                 ))}
                               </tbody>
