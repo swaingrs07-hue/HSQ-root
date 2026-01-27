@@ -1566,25 +1566,54 @@ export async function registerRoutes(
     try {
       const { name, email, phone, password } = req.body;
       
+      // Validate required fields
+      if (!name || !name.trim()) {
+        console.error("Sales exec creation failed: Name is required");
+        return res.status(400).json({ error: "Full name is required" });
+      }
+      if (!email || !email.trim()) {
+        console.error("Sales exec creation failed: Email is required");
+        return res.status(400).json({ error: "Email is required" });
+      }
+      if (!phone || !phone.trim()) {
+        console.error("Sales exec creation failed: Phone is required");
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+      if (!password || password.length < 6) {
+        console.error("Sales exec creation failed: Password too short");
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+      
       // Check if email exists
-      const existing = await storage.getUserByEmail(email.toLowerCase());
-      if (existing) {
+      const existingEmail = await storage.getUserByEmail(email.toLowerCase());
+      if (existingEmail) {
+        console.error("Sales exec creation failed: Email already registered -", email);
         return res.status(409).json({ error: "Email already registered" });
       }
       
+      // Check if phone exists
+      const existingPhone = await storage.getUserByPhone(phone.trim());
+      if (existingPhone) {
+        console.error("Sales exec creation failed: Phone already registered -", phone);
+        return res.status(409).json({ error: "Phone number already registered" });
+      }
+      
       const hashedPassword = await hashPassword(password);
+      console.log("Creating sales executive:", { name, email: email.toLowerCase(), phone });
+      
       const salesExec = await storage.createSalesExecutive({
-        name,
-        email: email.toLowerCase(),
-        phone,
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone.trim(),
         password: hashedPassword,
         role: "sales_executive",
       });
       
+      console.log("Sales executive created successfully:", salesExec.id);
       res.status(201).json({ ...salesExec, password: undefined });
-    } catch (error) {
-      console.error("Error creating sales executive:", error);
-      res.status(500).json({ error: "Failed to create sales executive" });
+    } catch (error: any) {
+      console.error("Error creating sales executive:", error.message, error.stack);
+      res.status(500).json({ error: error.message || "Failed to create sales executive" });
     }
   });
 
