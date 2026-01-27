@@ -68,7 +68,7 @@ export default function AdminSalesManagement() {
   const [newExecForm, setNewExecForm] = useState({
     email: "",
     password: "",
-    fullName: "",
+    name: "",
     phone: ""
   });
 
@@ -149,7 +149,7 @@ export default function AdminSalesManagement() {
       }
       toast({ title: "Success", description: "Sales executive created successfully" });
       setCreateDialogOpen(false);
-      setNewExecForm({ email: "", password: "", fullName: "", phone: "" });
+      setNewExecForm({ email: "", password: "", name: "", phone: "" });
       loadSalesExecs();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -249,12 +249,12 @@ export default function AdminSalesManagement() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="name">Full Name</Label>
                 <Input
-                  id="fullName"
+                  id="name"
                   data-testid="input-exec-fullname"
-                  value={newExecForm.fullName}
-                  onChange={(e) => setNewExecForm({ ...newExecForm, fullName: e.target.value })}
+                  value={newExecForm.name}
+                  onChange={(e) => setNewExecForm({ ...newExecForm, name: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
