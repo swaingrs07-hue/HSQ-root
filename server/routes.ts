@@ -1398,8 +1398,33 @@ export async function registerRoutes(
   // Get pending approval bookings (admin only)
   app.get("/api/bookings/pending-approval", async (req, res) => {
     try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
       const bookings = await storage.getPendingApprovalBookings();
-      res.json(bookings);
+      
+      const enrichedBookings = await Promise.all(
+        bookings.map(async (booking) => {
+          const property = await storage.getProperty(booking.propertyId);
+          const roomType = await storage.getRoomType(booking.roomTypeId);
+          const createdByUser = booking.createdBy ? await storage.getUser(booking.createdBy) : null;
+          
+          return {
+            ...booking,
+            propertyName: property?.name || "Unknown Property",
+            roomTypeName: roomType?.name || "Unknown Room",
+            createdByName: createdByUser?.name || "Unknown",
+          };
+        })
+      );
+      
+      res.json(enrichedBookings);
     } catch (error) {
       console.error("Error fetching pending approval bookings:", error);
       res.status(500).json({ error: "Failed to fetch bookings" });
@@ -1511,7 +1536,17 @@ export async function registerRoutes(
   // Approve booking (admin only)
   app.post("/api/bookings/:id/approve", async (req, res) => {
     try {
-      const { approvedBy } = req.body;
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      if (!payload.userId) {
+        return res.status(401).json({ error: "Invalid token payload" });
+      }
       
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
@@ -1524,7 +1559,7 @@ export async function registerRoutes(
 
       const updated = await storage.updateBooking(req.params.id, {
         approvalStatus: "approved",
-        approvedBy,
+        approvedBy: payload.userId,
         approvedAt: new Date(),
         status: "pending_payment",
       });
@@ -1539,7 +1574,19 @@ export async function registerRoutes(
   // Reject booking (admin only)
   app.post("/api/bookings/:id/reject", async (req, res) => {
     try {
-      const { rejectedBy, rejectionReason } = req.body;
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const payload = verifyToken(token);
+      if (!payload || payload.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      if (!payload.userId) {
+        return res.status(401).json({ error: "Invalid token payload" });
+      }
+      
+      const { rejectionReason } = req.body;
       
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
@@ -1548,7 +1595,7 @@ export async function registerRoutes(
 
       const updated = await storage.updateBooking(req.params.id, {
         approvalStatus: "rejected",
-        rejectedBy,
+        rejectedBy: payload.userId,
         rejectionReason: rejectionReason || "Discount not approved",
         status: "cancelled",
       });

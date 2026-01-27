@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
@@ -37,6 +37,11 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [approvalsLoading, setApprovalsLoading] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => {
     loadStats();
@@ -49,7 +54,83 @@ export default function AdminDashboard() {
     if (activeTab === "properties") {
       loadProperties();
     }
+    if (activeTab === "approvals") {
+      loadPendingApprovals();
+    }
   }, [activeTab]);
+
+  const loadPendingApprovals = async () => {
+    try {
+      setApprovalsLoading(true);
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch("/api/bookings/pending-approval", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch pending approvals");
+      const data = await response.json();
+      setPendingApprovals(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load pending approvals",
+        variant: "destructive",
+      });
+    } finally {
+      setApprovalsLoading(false);
+    }
+  };
+
+  const approveBooking = async (bookingId: string) => {
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch(`/api/bookings/${bookingId}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) throw new Error("Failed to approve booking");
+      toast({ title: "Success", description: "Booking approved successfully" });
+      loadPendingApprovals();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to approve booking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const rejectBooking = async () => {
+    if (!selectedBooking) return;
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch(`/api/bookings/${selectedBooking.id}/reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rejectionReason: rejectionReason || "Discount not approved",
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to reject booking");
+      toast({ title: "Success", description: "Booking rejected" });
+      setRejectDialogOpen(false);
+      setRejectionReason("");
+      setSelectedBooking(null);
+      loadPendingApprovals();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reject booking",
+        variant: "destructive",
+      });
+    }
+  };
 
   const loadProperties = async () => {
     try {
@@ -214,6 +295,17 @@ export default function AdminDashboard() {
           >
             <Users className="mr-2 h-4 w-4" /> Leads
           </Button>
+          <Button 
+            variant="ghost" 
+            className={`w-full justify-start font-medium ${activeTab === "approvals" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            onClick={() => setActiveTab("approvals")}
+            data-testid="nav-approvals"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" /> Pending Approvals
+            {pendingApprovals.length > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2">{pendingApprovals.length}</span>
+            )}
+          </Button>
           <Link href="/admin/leads">
             <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground" data-testid="nav-lead-analytics">
               <BarChart3 className="mr-2 h-4 w-4" /> Lead Analytics
@@ -231,7 +323,9 @@ export default function AdminDashboard() {
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-heading font-bold">
-            {activeTab === "overview" ? "Dashboard Overview" : activeTab === "properties" ? "Property Management" : "Leads Management"}
+            {activeTab === "overview" ? "Dashboard Overview" : 
+             activeTab === "properties" ? "Property Management" : 
+             activeTab === "approvals" ? "Pending Approvals" : "Leads Management"}
           </h1>
           {activeTab === "overview" && (
             <div className="flex gap-2">
@@ -379,6 +473,121 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
               </>
+            )}
+
+            {activeTab === "approvals" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-500" />
+                        Bookings Pending Approval ({pendingApprovals.length})
+                      </CardTitle>
+                      <Button variant="outline" onClick={loadPendingApprovals} data-testid="button-refresh-approvals">
+                        Refresh
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {approvalsLoading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : pendingApprovals.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        No bookings pending approval.
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Booking Code</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Property</TableHead>
+                            <TableHead>Base Fee</TableHead>
+                            <TableHead>Discount</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Created By</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pendingApprovals.map((booking) => (
+                            <TableRow key={booking.id} data-testid={`approval-row-${booking.id}`}>
+                              <TableCell className="font-mono font-medium">{booking.bookingCode}</TableCell>
+                              <TableCell>
+                                {booking.walkInName || booking.studentId || "Lead Conversion"}
+                              </TableCell>
+                              <TableCell>{booking.propertyName || booking.propertyId}</TableCell>
+                              <TableCell>₹{booking.baseFee?.toLocaleString()}</TableCell>
+                              <TableCell className="text-orange-600">
+                                ₹{booking.discount?.toLocaleString()} 
+                                ({booking.baseFee > 0 ? ((booking.discount / booking.baseFee) * 100).toFixed(1) : 0}%)
+                              </TableCell>
+                              <TableCell className="max-w-[150px] truncate">{booking.discountReason || "-"}</TableCell>
+                              <TableCell>{booking.createdByName || "-"}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => approveBooking(booking.id)}
+                                    data-testid={`button-approve-${booking.id}`}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                      setSelectedBooking(booking);
+                                      setRejectDialogOpen(true);
+                                    }}
+                                    data-testid={`button-reject-${booking.id}`}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Reject Booking</DialogTitle>
+                      <DialogDescription>
+                        Provide a reason for rejecting booking {selectedBooking?.bookingCode}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Rejection Reason</Label>
+                        <Input
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          placeholder="Enter reason for rejection"
+                          data-testid="input-rejection-reason"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+                      <Button variant="destructive" onClick={rejectBooking} data-testid="button-confirm-reject">
+                        Confirm Rejection
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             )}
 
             {activeTab === "leads" && (
