@@ -40,12 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-heading font-bold text-xl group-hover:bg-accent transition-colors">
-              H²
-            </div>
-            <span className="font-heading font-bold text-xl tracking-tight text-foreground">
-              Hsquare<span className="text-primary">living</span>
-            </span>
+            <img src="/hsquare-logo.jpg" alt="Hsquare" className="h-10 w-auto" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -139,12 +134,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-heading font-bold text-xl">
-                H²
-              </div>
-              <span className="font-heading font-bold text-xl tracking-tight">
-                Hsquare<span className="text-primary">living</span>
-              </span>
+              <img src="/hsquare-logo.jpg" alt="Hsquare" className="h-12 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Premium student accommodation designed for comfort, community, and success.

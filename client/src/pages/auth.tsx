@@ -115,15 +115,9 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-white to-primary/10 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-heading font-bold text-2xl">
-              H²
-            </div>
+          <div className="inline-flex flex-col items-center gap-2 mb-4">
+            <img src="/hsquare-logo.jpg" alt="Hsquare - harmony in living" className="h-28 w-auto" />
           </div>
-          <h1 className="text-3xl font-heading font-bold text-primary">
-            Hsquare<span className="text-foreground">living</span>
-          </h1>
-          <p className="text-muted-foreground mt-2">Premium Student Accommodation</p>
         </div>
 
         <Card className="shadow-2xl border-none">
