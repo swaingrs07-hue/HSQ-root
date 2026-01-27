@@ -10,6 +10,7 @@ export const bookingStatusEnum = pgEnum("booking_status", ["pending_payment", "a
 export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared", "Standard", "Deluxe", "Suite", "Double", "Triple", "Dorm", "Custom"]);
 export const propertyCategoryEnum = pgEnum("property_category", ["hotel", "hostel"]);
 export const propertyStatusEnum = pgEnum("property_status", ["draft", "published"]);
+export const bookingModeEnum = pgEnum("booking_mode", ["academic_year", "monthly"]);
 export const nearbyLocationCategoryEnum = pgEnum("nearby_location_category", ["metro", "college", "office", "hospital", "mall", "restaurant", "other"]);
 
 // Users table (for authentication)
@@ -62,6 +63,7 @@ export const properties = pgTable("properties", {
   name: text("name").notNull(),
   displayName: text("display_name"),
   category: propertyCategoryEnum("category").default("hostel"),
+  bookingMode: bookingModeEnum("booking_mode").default("monthly").notNull(),
   location: text("location").notNull(),
   address: text("address"),
   city: text("city"),
@@ -126,6 +128,8 @@ export const roomTypes = pgTable("room_types", {
   name: roomTypeEnum("name").notNull(),
   customName: text("custom_name"),
   basePrice: integer("base_price").notNull(),
+  academicYearPrice: integer("academic_year_price"),
+  deposit: integer("deposit").default(0),
   size: text("size"),
   occupancy: integer("occupancy").default(1),
   totalRooms: integer("total_rooms").default(1),
