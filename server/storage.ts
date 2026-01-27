@@ -84,10 +84,20 @@ export interface IStorage {
   
   // Bookings
   getBooking(id: string): Promise<Booking | undefined>;
+  getBookingByCode(bookingCode: string): Promise<Booking | undefined>;
   getBookingsByStudent(studentId: string): Promise<Booking[]>;
+  getBookingsByProperty(propertyId: string): Promise<Booking[]>;
+  getBookingsByCreator(userId: string): Promise<Booking[]>;
+  getPendingApprovalBookings(): Promise<Booking[]>;
   getAllBookings(): Promise<Booking[]>;
+  createBookingWithCode(booking: InsertBooking): Promise<Booking>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: string, data: Partial<Booking>): Promise<Booking | undefined>;
+  confirmBooking(id: string, approvedBy?: string): Promise<Booking | undefined>;
+  cancelBooking(id: string, reason?: string): Promise<Booking | undefined>;
+  generateBookingCode(): Promise<string>;
+  getRoomTypeAvailability(roomTypeId: string): Promise<{ totalBeds: number; availableBeds: number; bookedBeds: number }>;
+  allocateBed(bookingId: string): Promise<Booking | undefined>;
   
   // Installments
   getInstallment(id: string): Promise<Installment | undefined>;
@@ -356,6 +366,11 @@ export class DatabaseStorage implements IStorage {
     return booking || undefined;
   }
 
+  async getBookingByCode(bookingCode: string): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.bookingCode, bookingCode));
+    return booking || undefined;
+  }
+
   async getBookingsByStudent(studentId: string): Promise<Booking[]> {
     return await db
       .select()
@@ -364,8 +379,64 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(bookings.createdAt));
   }
 
+  async getBookingsByProperty(propertyId: string): Promise<Booking[]> {
+    return await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.propertyId, propertyId))
+      .orderBy(desc(bookings.createdAt));
+  }
+
+  async getBookingsByCreator(userId: string): Promise<Booking[]> {
+    return await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.createdBy, userId))
+      .orderBy(desc(bookings.createdAt));
+  }
+
+  async getPendingApprovalBookings(): Promise<Booking[]> {
+    return await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.approvalStatus, "pending"))
+      .orderBy(desc(bookings.createdAt));
+  }
+
   async getAllBookings(): Promise<Booking[]> {
     return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+  }
+
+  async generateBookingCode(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `HSQ-${year}-`;
+    
+    // Get the latest booking code for this year
+    const [latest] = await db
+      .select({ bookingCode: bookings.bookingCode })
+      .from(bookings)
+      .where(sql`${bookings.bookingCode} LIKE ${prefix + '%'}`)
+      .orderBy(desc(bookings.bookingCode))
+      .limit(1);
+    
+    let nextNumber = 1;
+    if (latest?.bookingCode) {
+      const lastNumber = parseInt(latest.bookingCode.replace(prefix, ''), 10);
+      if (!isNaN(lastNumber)) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+    
+    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  async createBookingWithCode(insertBooking: InsertBooking): Promise<Booking> {
+    const bookingCode = await this.generateBookingCode();
+    const [booking] = await db.insert(bookings).values({
+      ...insertBooking,
+      bookingCode,
+    }).returning();
+    return booking;
   }
 
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
@@ -380,6 +451,92 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return booking || undefined;
+  }
+
+  async confirmBooking(id: string, approvedBy?: string): Promise<Booking | undefined> {
+    const booking = await this.getBooking(id);
+    if (!booking) return undefined;
+    
+    // Allocate bed first
+    const roomType = await this.getRoomType(booking.roomTypeId);
+    if (!roomType || roomType.availableBeds < 1) {
+      throw new Error("No beds available for this room type");
+    }
+    
+    // Decrease available beds
+    await this.updateRoomTypeAvailability(booking.roomTypeId, -1);
+    
+    // Update booking status to confirmed
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        status: "confirmed",
+        approvalStatus: booking.approvalRequired ? "approved" : "not_required",
+        approvedBy: approvedBy || undefined,
+        approvedAt: approvedBy ? new Date() : undefined,
+        bedAllocated: true,
+        bedAllocatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async cancelBooking(id: string, reason?: string): Promise<Booking | undefined> {
+    const booking = await this.getBooking(id);
+    if (!booking) return undefined;
+    
+    // If bed was allocated, release it
+    if (booking.bedAllocated) {
+      await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
+    }
+    
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        status: "cancelled",
+        rejectionReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async getRoomTypeAvailability(roomTypeId: string): Promise<{ totalBeds: number; availableBeds: number; bookedBeds: number }> {
+    const roomType = await this.getRoomType(roomTypeId);
+    if (!roomType) {
+      return { totalBeds: 0, availableBeds: 0, bookedBeds: 0 };
+    }
+    
+    return {
+      totalBeds: roomType.totalBeds,
+      availableBeds: roomType.availableBeds,
+      bookedBeds: roomType.totalBeds - roomType.availableBeds,
+    };
+  }
+
+  async allocateBed(bookingId: string): Promise<Booking | undefined> {
+    const booking = await this.getBooking(bookingId);
+    if (!booking || booking.bedAllocated) return booking;
+    
+    // Decrease available beds
+    await this.updateRoomTypeAvailability(booking.roomTypeId, -1);
+    
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        bedAllocated: true,
+        bedAllocatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    
+    return updated || undefined;
   }
 
   // Installments
