@@ -17,7 +17,7 @@ import { Link } from "wouter";
 interface SalesExecutive {
   id: string;
   email: string;
-  fullName: string;
+  name: string;
   phone: string | null;
   isActive: boolean;
   assignedProperties: { id: string; name: string }[];
@@ -134,6 +134,24 @@ export default function AdminSalesManagement() {
   };
 
   const createSalesExecutive = async () => {
+    // Validate required fields
+    if (!newExecForm.name.trim()) {
+      toast({ title: "Error", description: "Full name is required", variant: "destructive" });
+      return;
+    }
+    if (!newExecForm.email.trim()) {
+      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    if (!newExecForm.phone.trim()) {
+      toast({ title: "Error", description: "Phone number is required", variant: "destructive" });
+      return;
+    }
+    if (!newExecForm.password || newExecForm.password.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    
     try {
       const response = await fetch("/api/admin/sales-executives", {
         method: "POST",
@@ -380,7 +398,7 @@ export default function AdminSalesManagement() {
                   <TableBody>
                     {salesExecs.map((exec) => (
                       <TableRow key={exec.id} data-testid={`row-exec-${exec.id}`}>
-                        <TableCell className="font-medium">{exec.fullName}</TableCell>
+                        <TableCell className="font-medium">{exec.name}</TableCell>
                         <TableCell>{exec.email}</TableCell>
                         <TableCell>{exec.phone || "-"}</TableCell>
                         <TableCell>
@@ -506,7 +524,7 @@ export default function AdminSalesManagement() {
       <Dialog open={assignPropertyDialogOpen} onOpenChange={setAssignPropertyDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Properties to {selectedExec?.fullName}</DialogTitle>
+            <DialogTitle>Assign Properties to {selectedExec?.name}</DialogTitle>
             <DialogDescription>Select properties to assign to this sales executive</DialogDescription>
           </DialogHeader>
           <div className="max-h-[300px] overflow-y-auto py-4">
@@ -562,7 +580,7 @@ export default function AdminSalesManagement() {
               <SelectContent>
                 {salesExecs.filter(e => e.isActive).map((exec) => (
                   <SelectItem key={exec.id} value={exec.id}>
-                    {exec.fullName} ({exec.totalLeads} leads)
+                    {exec.name} ({exec.totalLeads} leads)
                   </SelectItem>
                 ))}
               </SelectContent>
