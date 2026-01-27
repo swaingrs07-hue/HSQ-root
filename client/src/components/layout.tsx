@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import hsquareLogo from "@/assets/hsquare-logo.jpg";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -40,7 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <img src="/hsquare-logo.jpg" alt="Hsquare" className="h-10 w-auto" />
+            <img src={hsquareLogo} alt="Hsquare" className="h-10 w-auto" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -134,7 +135,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <img src="/hsquare-logo.jpg" alt="Hsquare" className="h-12 w-auto" />
+              <img src={hsquareLogo} alt="Hsquare" className="h-12 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Premium student accommodation designed for comfort, community, and success.

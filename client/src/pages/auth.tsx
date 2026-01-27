@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Phone } from "lucide-react";
+import hsquareLogo from "@/assets/hsquare-logo.jpg";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -116,7 +117,7 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center gap-2 mb-4">
-            <img src="/hsquare-logo.jpg" alt="Hsquare - harmony in living" className="h-28 w-auto" />
+            <img src={hsquareLogo} alt="Hsquare - harmony in living" className="h-28 w-auto" />
           </div>
         </div>
 
