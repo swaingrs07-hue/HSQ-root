@@ -11,6 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -772,41 +775,48 @@ export default function AddProperty() {
                           Add New Amenity
                         </Button>
                       </div>
-                      <div className="flex gap-2 mb-4">
-                        <Select value={newAmenityId} onValueChange={setNewAmenityId}>
-                          <SelectTrigger className="flex-1" data-testid="select-amenity">
-                            <SelectValue placeholder="Select amenity to add" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between" data-testid="button-select-amenities">
+                            <span className="text-muted-foreground">Click to select amenities</span>
+                            <Check className="w-4 h-4 ml-2" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-80" align="start">
+                          <ScrollArea className="h-[300px] p-2">
                             {(() => {
                               const availableAmenities = globalAmenities.filter((a: any) => !amenityFields.some(f => f.amenityId === a.id));
                               const categories = Array.from(new Set(availableAmenities.map((a: any) => a.category || "Other"))) as string[];
+                              if (availableAmenities.length === 0) {
+                                return <p className="text-sm text-muted-foreground p-2">All amenities selected</p>;
+                              }
                               return categories.map((category: string) => (
-                                <SelectGroup key={category}>
-                                  <SelectLabel className="font-semibold text-primary">{category}</SelectLabel>
+                                <div key={category} className="mb-3">
+                                  <p className="font-semibold text-primary text-sm mb-2 px-2">{category}</p>
                                   {availableAmenities
                                     .filter((a: any) => (a.category || "Other") === category)
                                     .map((amenity: any) => (
-                                      <SelectItem key={amenity.id} value={amenity.id}>
-                                        {amenity.icon} {amenity.name}
-                                      </SelectItem>
+                                      <div
+                                        key={amenity.id}
+                                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                                        onClick={() => {
+                                          appendAmenity({ amenityId: amenity.id, name: amenity.name });
+                                        }}
+                                        data-testid={`checkbox-amenity-${amenity.id}`}
+                                      >
+                                        <div className="w-4 h-4 border rounded flex items-center justify-center">
+                                          <Plus className="w-3 h-3 text-muted-foreground" />
+                                        </div>
+                                        <span className="text-sm">{amenity.icon} {amenity.name}</span>
+                                      </div>
                                     ))}
-                                </SelectGroup>
+                                </div>
                               ));
                             })()}
-                          </SelectContent>
-                        </Select>
-                        <Button 
-                          type="button" 
-                          onClick={handleAddAmenity} 
-                          className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" 
-                          disabled={!newAmenityId}
-                          data-testid="button-add-amenity"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
+                          </ScrollArea>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <div className="flex flex-wrap gap-2 mt-4">
                         {amenityFields.length === 0 ? (
                           <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>
                         ) : (
