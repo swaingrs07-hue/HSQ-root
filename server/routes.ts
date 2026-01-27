@@ -1359,6 +1359,248 @@ export async function registerRoutes(
     }
   });
 
+  // Get booking by code
+  app.get("/api/bookings/code/:code", async (req, res) => {
+    try {
+      const booking = await storage.getBookingByCode(req.params.code);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching booking by code:", error);
+      res.status(500).json({ error: "Failed to fetch booking" });
+    }
+  });
+
+  // Get bookings by property
+  app.get("/api/properties/:propertyId/bookings", async (req, res) => {
+    try {
+      const bookings = await storage.getBookingsByProperty(req.params.propertyId);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching property bookings:", error);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get bookings created by user (for sales executives)
+  app.get("/api/bookings/created-by/:userId", async (req, res) => {
+    try {
+      const bookings = await storage.getBookingsByCreator(req.params.userId);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching user bookings:", error);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get pending approval bookings (admin only)
+  app.get("/api/bookings/pending-approval", async (req, res) => {
+    try {
+      const bookings = await storage.getPendingApprovalBookings();
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching pending approval bookings:", error);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get room type availability
+  app.get("/api/room-types/:roomTypeId/availability", async (req, res) => {
+    try {
+      const availability = await storage.getRoomTypeAvailability(req.params.roomTypeId);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching availability:", error);
+      res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
+  // Create booking with workflow (supports walk-in, lead, student)
+  app.post("/api/bookings/generate", async (req, res) => {
+    try {
+      const {
+        customerType,
+        studentId,
+        leadId,
+        walkInName,
+        walkInPhone,
+        walkInEmail,
+        propertyId,
+        roomTypeId,
+        stayPlanType,
+        checkInDate,
+        checkOutDate,
+        durationMonths,
+        baseFee,
+        deposit,
+        discount,
+        discountReason,
+        paymentType,
+        paymentPlanId,
+        createdBy,
+        assignedSalesExecId,
+      } = req.body;
+
+      // Validate room availability
+      const roomType = await storage.getRoomType(roomTypeId);
+      if (!roomType || roomType.availableBeds <= 0) {
+        return res.status(400).json({ error: "No beds available for this room type" });
+      }
+
+      // Calculate total fee
+      const totalDiscount = discount || 0;
+      const totalFee = baseFee - totalDiscount;
+
+      // Determine approval requirement based on discount percentage
+      const discountPercent = baseFee > 0 ? (totalDiscount / baseFee) * 100 : 0;
+      const approvalRequired = discountPercent > 10; // More than 10% discount requires admin approval
+
+      // Determine initial status
+      let initialStatus = "draft";
+      if (approvalRequired) {
+        initialStatus = "pending_approval";
+      } else if (paymentType === "full" || paymentType === "partial") {
+        initialStatus = "pending_payment";
+      }
+
+      // Create booking with code
+      const booking = await storage.createBookingWithCode({
+        studentId: customerType === "student" ? studentId : null,
+        leadId: customerType === "lead" ? leadId : null,
+        walkInName: customerType === "walk_in" ? walkInName : null,
+        walkInPhone: customerType === "walk_in" ? walkInPhone : null,
+        walkInEmail: customerType === "walk_in" ? walkInEmail : null,
+        propertyId,
+        roomTypeId,
+        stayPlanType: stayPlanType || "academic_year",
+        checkInDate: checkInDate ? new Date(checkInDate) : null,
+        checkOutDate: checkOutDate ? new Date(checkOutDate) : null,
+        durationMonths: durationMonths || null,
+        baseFee,
+        deposit: deposit || 0,
+        discount: totalDiscount,
+        totalFee,
+        paymentPlanId: paymentPlanId || null,
+        paymentType: paymentType || "full",
+        discountReason: discountReason || null,
+        discountApprovedBy: null,
+        discountApprovedAt: null,
+        status: initialStatus,
+        approvalRequired,
+        approvalStatus: approvalRequired ? "pending" : "not_required",
+        createdBy: createdBy || null,
+        assignedSalesExecId: assignedSalesExecId || null,
+        agreementUrl: null,
+        signatureData: null,
+      });
+
+      // If lead conversion, update lead status
+      if (customerType === "lead" && leadId) {
+        await storage.updateLead(leadId, { status: "converted" });
+      }
+
+      res.json({ booking, requiresApproval: approvalRequired });
+    } catch (error) {
+      console.error("Error generating booking:", error);
+      res.status(500).json({ error: "Failed to generate booking" });
+    }
+  });
+
+  // Approve booking (admin only)
+  app.post("/api/bookings/:id/approve", async (req, res) => {
+    try {
+      const { approvedBy } = req.body;
+      
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      if (booking.approvalStatus !== "pending") {
+        return res.status(400).json({ error: "Booking is not pending approval" });
+      }
+
+      const updated = await storage.updateBooking(req.params.id, {
+        approvalStatus: "approved",
+        approvedBy,
+        approvedAt: new Date(),
+        status: "pending_payment",
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error approving booking:", error);
+      res.status(500).json({ error: "Failed to approve booking" });
+    }
+  });
+
+  // Reject booking (admin only)
+  app.post("/api/bookings/:id/reject", async (req, res) => {
+    try {
+      const { rejectedBy, rejectionReason } = req.body;
+      
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const updated = await storage.updateBooking(req.params.id, {
+        approvalStatus: "rejected",
+        rejectedBy,
+        rejectionReason: rejectionReason || "Discount not approved",
+        status: "cancelled",
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error rejecting booking:", error);
+      res.status(500).json({ error: "Failed to reject booking" });
+    }
+  });
+
+  // Confirm booking (after payment)
+  app.post("/api/bookings/:id/confirm", async (req, res) => {
+    try {
+      const { approvedBy } = req.body;
+      
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Check if booking can be confirmed
+      if (booking.status !== "pending_payment" && booking.status !== "draft") {
+        return res.status(400).json({ error: "Booking cannot be confirmed in current status" });
+      }
+
+      const confirmed = await storage.confirmBooking(req.params.id, approvedBy);
+      res.json(confirmed);
+    } catch (error: any) {
+      console.error("Error confirming booking:", error);
+      res.status(500).json({ error: error.message || "Failed to confirm booking" });
+    }
+  });
+
+  // Cancel booking
+  app.post("/api/bookings/:id/cancel", async (req, res) => {
+    try {
+      const { reason } = req.body;
+      
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const cancelled = await storage.cancelBooking(req.params.id, reason);
+      res.json(cancelled);
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  });
+
   // ============ PAYMENTS ============
   
   // Create payment (simulate Razorpay)
