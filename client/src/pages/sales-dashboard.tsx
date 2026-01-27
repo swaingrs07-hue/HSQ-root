@@ -349,13 +349,22 @@ export default function SalesDashboard() {
           <h1 className="text-3xl font-bold">Sales Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
         </div>
-        <Dialog open={createLeadDialogOpen} onOpenChange={setCreateLeadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-lead">
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Lead
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => window.location.href = "/booking/generate"}
+            className="bg-orange-500 hover:bg-orange-600"
+            data-testid="button-generate-booking"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Generate Booking
+          </Button>
+          <Dialog open={createLeadDialogOpen} onOpenChange={setCreateLeadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-create-lead">
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Lead
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Create New Lead</DialogTitle>
@@ -473,7 +482,8 @@ export default function SalesDashboard() {
               <Button onClick={createLead} data-testid="button-submit-create-lead">Create Lead</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">

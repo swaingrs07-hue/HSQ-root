@@ -19,6 +19,7 @@ import LeadAnalytics from "@/pages/lead-analytics";
 import AddProperty from "@/pages/add-property";
 import AdminSalesManagement from "@/pages/admin-sales-management";
 import SalesDashboard from "@/pages/sales-dashboard";
+import BookingGeneration from "@/pages/booking-generation";
 
 function AppContent() {
   const [location] = useLocation();
@@ -46,6 +47,8 @@ function AppContent() {
               <Route path="/admin/leads" component={LeadAnalytics} />
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/sales" component={SalesDashboard} />
+              <Route path="/booking/generate" component={BookingGeneration} />
+              <Route path="/admin/booking/generate" component={BookingGeneration} />
               <Route path="/operations" component={AdminDashboard} />
               <Route component={NotFound} />
             </Switch>

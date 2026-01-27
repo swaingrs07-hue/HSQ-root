@@ -528,6 +528,14 @@ export default function AdminDashboard() {
                           <Plus className="h-4 w-4 mr-2" />
                           Add Property
                         </Button>
+                        <Button 
+                          onClick={() => setLocation("/admin/booking/generate")}
+                          className="bg-orange-500 hover:bg-orange-600"
+                          data-testid="button-generate-booking"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Generate Booking
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
