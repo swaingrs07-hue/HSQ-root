@@ -6,7 +6,9 @@ import { z } from "zod";
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["user", "admin", "manager", "staff", "sales_executive"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
-export const bookingStatusEnum = pgEnum("booking_status", ["pending_payment", "active", "completed", "cancelled"]);
+export const bookingStatusEnum = pgEnum("booking_status", ["draft", "pending_payment", "pending_approval", "confirmed", "active", "completed", "cancelled"]);
+export const approvalStatusEnum = pgEnum("approval_status", ["not_required", "pending", "approved", "rejected"]);
+export const stayPlanTypeEnum = pgEnum("stay_plan_type", ["academic_year", "monthly", "custom"]);
 export const roomTypeEnum = pgEnum("room_type", ["Single", "Shared", "Standard", "Deluxe", "Suite", "Double", "Triple", "Dorm", "Custom"]);
 export const propertyCategoryEnum = pgEnum("property_category", ["hotel", "hostel"]);
 export const propertyStatusEnum = pgEnum("property_status", ["draft", "published"]);
@@ -155,14 +157,31 @@ export const propertyImages = pgTable("property_images", {
 // Bookings table
 export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").references(() => students.id).notNull(),
+  bookingCode: varchar("booking_code").unique(), // Human-readable booking ID like HSQ-2026-0001
+  
+  // Customer (either student or walk-in)
+  studentId: varchar("student_id").references(() => students.id),
+  leadId: varchar("lead_id").references(() => leads.id),
+  walkInName: text("walk_in_name"),
+  walkInPhone: text("walk_in_phone"),
+  walkInEmail: text("walk_in_email"),
+  
+  // Property and room
   propertyId: varchar("property_id").references(() => properties.id).notNull(),
   roomTypeId: varchar("room_type_id").references(() => roomTypes.id).notNull(),
+  
+  // Stay plan
+  stayPlanType: stayPlanTypeEnum("stay_plan_type").default("monthly").notNull(),
+  checkInDate: text("check_in_date"),
+  checkOutDate: text("check_out_date"),
+  durationMonths: integer("duration_months"),
   
   // Pricing
   baseFee: integer("base_fee").notNull(),
   discount: integer("discount").default(0).notNull(),
+  discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).default("0"),
   totalFee: integer("total_fee").notNull(), // baseFee - discount
+  deposit: integer("deposit").default(0),
   
   // Discount details
   discountReason: text("discount_reason"),
@@ -171,14 +190,37 @@ export const bookings = pgTable("bookings", {
   
   // Payment plan
   paymentPlanId: text("payment_plan_id").notNull(), // plan-1, plan-2, plan-3
+  paymentType: text("payment_type"), // token, partial, full
   
-  status: bookingStatusEnum("status").default("pending_payment").notNull(),
+  // Approval workflow
+  approvalStatus: approvalStatusEnum("approval_status").default("not_required").notNull(),
+  approvalRequired: boolean("approval_required").default(false).notNull(),
+  approvalReason: text("approval_reason"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Created by (Admin or Sales Exec)
+  createdBy: varchar("created_by").references(() => users.id),
+  assignedSalesExecId: varchar("assigned_sales_exec_id").references(() => users.id),
+  
+  status: bookingStatusEnum("status").default("draft").notNull(),
+  
+  // Bed allocation
+  bedAllocated: boolean("bed_allocated").default(false).notNull(),
+  bedAllocatedAt: timestamp("bed_allocated_at"),
   
   // Agreement
   agreementGenerated: boolean("agreement_generated").default(false).notNull(),
   agreementGeneratedAt: timestamp("agreement_generated_at"),
   agreementUrl: text("agreement_url"),
   signatureData: text("signature_data"), // Base64 signature image
+  
+  // Invoice
+  invoiceGenerated: boolean("invoice_generated").default(false).notNull(),
+  invoiceUrl: text("invoice_url"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -478,6 +520,10 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
     fields: [bookings.studentId],
     references: [students.id],
   }),
+  lead: one(leads, {
+    fields: [bookings.leadId],
+    references: [leads.id],
+  }),
   property: one(properties, {
     fields: [bookings.propertyId],
     references: [properties.id],
@@ -485,6 +531,18 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   roomType: one(roomTypes, {
     fields: [bookings.roomTypeId],
     references: [roomTypes.id],
+  }),
+  createdByUser: one(users, {
+    fields: [bookings.createdBy],
+    references: [users.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [bookings.approvedBy],
+    references: [users.id],
+  }),
+  salesExec: one(users, {
+    fields: [bookings.assignedSalesExecId],
+    references: [users.id],
   }),
   installments: many(installments),
   payments: many(payments),
@@ -530,7 +588,38 @@ export const loginSchema = z.object({
 export const insertStudentSchema = createInsertSchema(students).omit({ id: true, createdAt: true, phoneVerified: true });
 export const insertPropertySchema = createInsertSchema(properties).omit({ id: true, createdAt: true, active: true });
 export const insertRoomTypeSchema = createInsertSchema(roomTypes).omit({ id: true, createdAt: true, active: true });
-export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true, updatedAt: true, agreementGenerated: true, agreementGeneratedAt: true, status: true });
+export const insertBookingSchema = createInsertSchema(bookings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true, 
+  agreementGenerated: true, 
+  agreementGeneratedAt: true, 
+  bedAllocated: true,
+  bedAllocatedAt: true,
+  invoiceGenerated: true,
+  invoiceUrl: true,
+});
+
+// Booking creation schema for API validation
+export const createBookingSchema = z.object({
+  leadId: z.string().optional(),
+  walkInName: z.string().optional(),
+  walkInPhone: z.string().optional(),
+  walkInEmail: z.string().email().optional().or(z.literal("")),
+  propertyId: z.string().min(1, "Property is required"),
+  roomTypeId: z.string().min(1, "Room type is required"),
+  stayPlanType: z.enum(["academic_year", "monthly", "custom"]),
+  checkInDate: z.string().optional(),
+  checkOutDate: z.string().optional(),
+  durationMonths: z.number().min(1).optional(),
+  baseFee: z.number().min(0),
+  discount: z.number().min(0).default(0),
+  discountPercent: z.number().min(0).max(100).default(0),
+  discountReason: z.string().optional(),
+  deposit: z.number().min(0).default(0),
+  paymentPlanId: z.string().min(1, "Payment plan is required"),
+  paymentType: z.enum(["token", "partial", "full"]).optional(),
+});
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true, paid: true, paidAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });

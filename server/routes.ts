@@ -1323,7 +1323,7 @@ export async function registerRoutes(
       }
 
       const [student, property, roomType, installments, payments] = await Promise.all([
-        storage.getStudent(booking.studentId),
+        booking.studentId ? storage.getStudent(booking.studentId) : Promise.resolve(undefined),
         storage.getProperty(booking.propertyId),
         storage.getRoomType(booking.roomTypeId),
         storage.getInstallmentsByBooking(booking.id),
