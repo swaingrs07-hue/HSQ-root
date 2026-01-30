@@ -1,0 +1,68 @@
+Upgrade the existing Kanban CRM Requests Board into a premium, enterprise-grade experience with advanced visuals, analytics, and usability.
+
+DO THE FOLLOWING:
+
+1. Visual Polish (Apple-Level):
+   - Apply a refined color system:
+     Unqualified → Soft Gray
+     Qualified → Blue
+     Viewing → Indigo
+     Negotiating → Amber
+     Won → Green
+   - Add subtle gradients to column headers.
+   - Use rounded cards (14–16px) with soft shadows.
+   - Add smooth hover lift and shadow increase on cards.
+   - Ensure consistent spacing and typography across the board.
+
+2. Pipeline Analytics (Top Summary):
+   - Add a sticky top summary bar showing:
+     - Total requests
+     - Total pipeline value
+     - Won value
+     - Conversion percentage
+   - Animate numbers on load.
+   - Update analytics live when cards move between columns.
+
+3. Smart Drag & Drop Behavior:
+   - Animate card movement smoothly between columns.
+   - Prevent invalid moves (e.g., Unqualified → Won directly).
+   - Show visual highlight on valid drop zones.
+   - Auto-save status changes instantly to backend.
+
+4. Card Detail Drawer:
+   - On card click, open a right-side slide-in drawer.
+   - Show:
+     - Customer profile
+     - Property & room details
+     - Sales executive
+     - Status timeline
+     - Notes & activity log
+   - Close drawer without page reload.
+
+5. Filters & Productivity:
+   - Add advanced filters:
+     - Property
+     - Sales executive
+     - Date range
+     - Deal value
+   - Persist filter state on refresh.
+   - Add quick search with debounce.
+
+6. Feedback & States:
+   - Show success toast when card is moved.
+   - Show error toast if update fails.
+   - Add skeleton loaders for board and cards.
+   - Replace empty columns with friendly empty-state UI.
+
+7. Performance & Stability:
+   - Optimize rendering for large pipelines (100+ cards).
+   - Prevent UI flicker or re-mount on drag.
+   - Ensure no blank screen under any failure.
+
+FINAL RESULT:
+- Kanban board feels fast, smooth, and premium
+- Pipeline analytics update in real-time
+- Card interactions feel native and delightful
+- CRM is enterprise-ready and scalable
+
+Implement clean, maintainable, production-quality code.

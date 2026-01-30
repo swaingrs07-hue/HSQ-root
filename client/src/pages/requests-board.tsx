@@ -1,8 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -31,11 +37,16 @@ import {
   User,
   Phone,
   Mail,
-  Calendar,
+  Calendar as CalendarIcon,
   IndianRupee,
+  ChevronDown,
+  SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { KanbanBoard, mapStageToLeadStatus, type KanbanStage } from "@/components/kanban-board";
 import type { Lead } from "@shared/schema";
+import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 interface Property {
   id: string;
@@ -47,20 +58,76 @@ interface SalesExecutive {
   name: string;
 }
 
+interface FilterState {
+  searchTerm: string;
+  propertyId: string;
+  salesExecId: string;
+  dateRange: DateRange | undefined;
+  dealValueMin: string;
+  dealValueMax: string;
+}
+
+const FILTER_STORAGE_KEY = "hsquare_kanban_filters";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function RequestsBoard() {
   const { toast } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState<string>("all");
-  const [salesFilter, setSalesFilter] = useState<string>("all");
   const [properties, setProperties] = useState<Property[]>([]);
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  
+  const [filters, setFilters] = useState<FilterState>(() => {
+    try {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          dateRange: parsed.dateRange?.from 
+            ? {
+                from: new Date(parsed.dateRange.from),
+                to: parsed.dateRange.to ? new Date(parsed.dateRange.to) : undefined,
+              }
+            : undefined,
+        };
+      }
+    } catch {}
+    return {
+      searchTerm: "",
+      propertyId: "all",
+      salesExecId: "all",
+      dateRange: undefined,
+      dealValueMin: "",
+      dealValueMax: "",
+    };
+  });
+  
+  const debouncedSearch = useDebounce(filters.searchTerm, 300);
+  
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    } catch {}
+  }, [filters]);
   
   const [newRequest, setNewRequest] = useState({
     name: "",
@@ -146,6 +213,7 @@ export default function RequestsBoard() {
     oldStage: KanbanStage
   ) => {
     const newStatus = mapStageToLeadStatus(newStage);
+    const targetColumn = newStage.charAt(0).toUpperCase() + newStage.slice(1);
     
     setLeads((prev) =>
       prev.map((lead) =>
@@ -167,8 +235,9 @@ export default function RequestsBoard() {
       if (!response.ok) throw new Error("Failed to update status");
 
       toast({
-        title: "Request moved",
-        description: `Moved to ${newStage} stage`,
+        title: "Request moved successfully",
+        description: `Moved to ${targetColumn} stage`,
+        className: "bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0",
       });
     } catch (err) {
       setLeads((prev) =>
@@ -217,6 +286,7 @@ export default function RequestsBoard() {
       toast({
         title: "Request created",
         description: "New request has been added to the board",
+        className: "bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0",
       });
 
       setAddModalOpen(false);
@@ -238,11 +308,6 @@ export default function RequestsBoard() {
         variant: "destructive",
       });
     }
-  };
-
-  const handleView = (lead: Lead) => {
-    setSelectedLead(lead);
-    setViewModalOpen(true);
   };
 
   const handleDelete = async (lead: Lead) => {
@@ -271,33 +336,82 @@ export default function RequestsBoard() {
     }
   };
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      !searchTerm ||
-      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.propertyName?.toLowerCase().includes(searchTerm.toLowerCase());
+  const clearFilters = useCallback(() => {
+    setFilters({
+      searchTerm: "",
+      propertyId: "all",
+      salesExecId: "all",
+      dateRange: undefined,
+      dealValueMin: "",
+      dealValueMax: "",
+    });
+  }, []);
 
-    const matchesProperty =
-      propertyFilter === "all" || lead.propertyId === propertyFilter;
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.propertyId !== "all") count++;
+    if (filters.salesExecId !== "all") count++;
+    if (filters.dateRange?.from || filters.dateRange?.to) count++;
+    if (filters.dealValueMin || filters.dealValueMax) count++;
+    return count;
+  }, [filters]);
 
-    const matchesSales =
-      salesFilter === "all" || lead.assignedToId === salesFilter;
+  const filteredLeads = useMemo(() => {
+    return leads.filter((lead) => {
+      const matchesSearch =
+        !debouncedSearch ||
+        lead.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        lead.phone?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        lead.propertyName?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-    return matchesSearch && matchesProperty && matchesSales;
-  });
+      const matchesProperty =
+        filters.propertyId === "all" || lead.propertyId === filters.propertyId;
+
+      const matchesSales =
+        filters.salesExecId === "all" || lead.assignedToId === filters.salesExecId;
+
+      let matchesDate = true;
+      if (filters.dateRange?.from || filters.dateRange?.to) {
+        const leadDate = lead.createdAt ? new Date(lead.createdAt) : null;
+        if (leadDate) {
+          const from = filters.dateRange?.from ? startOfDay(filters.dateRange.from) : new Date(0);
+          const to = filters.dateRange?.to ? endOfDay(filters.dateRange.to) : new Date();
+          matchesDate = isWithinInterval(leadDate, { start: from, end: to });
+        }
+      }
+
+      let matchesDealValue = true;
+      const dealValue = lead.budgetMax || lead.budgetMin || 0;
+      if (filters.dealValueMin) {
+        matchesDealValue = dealValue >= parseInt(filters.dealValueMin);
+      }
+      if (matchesDealValue && filters.dealValueMax) {
+        matchesDealValue = dealValue <= parseInt(filters.dealValueMax);
+      }
+
+      return matchesSearch && matchesProperty && matchesSales && matchesDate && matchesDealValue;
+    });
+  }, [leads, debouncedSearch, filters]);
+
+  const dateRangePresets = [
+    { label: "Today", days: 0 },
+    { label: "Last 7 days", days: 7 },
+    { label: "Last 30 days", days: 30 },
+    { label: "Last 90 days", days: 90 },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4"
+        className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm"
       >
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-indigo-500" />
               Requests Board
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -310,15 +424,15 @@ export default function RequestsBoard() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search requests..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 w-64 bg-slate-50 border-slate-200"
+                value={filters.searchTerm}
+                onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+                className="pl-9 w-72 bg-white/80 border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20"
                 data-testid="input-search-requests"
               />
-              {searchTerm && (
+              {filters.searchTerm && (
                 <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  onClick={() => setFilters({ ...filters, searchTerm: "" })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
                 >
                   <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
                 </button>
@@ -327,18 +441,28 @@ export default function RequestsBoard() {
 
             <Button
               variant="outline"
-              size="icon"
               onClick={() => setShowFilters(!showFilters)}
-              className={showFilters ? "bg-indigo-50 border-indigo-300" : ""}
+              className={`relative rounded-xl transition-all ${
+                showFilters 
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-700" 
+                  : "hover:bg-slate-50"
+              }`}
               data-testid="button-toggle-filters"
             >
-              <Filter className="h-4 w-4" />
+              <SlidersHorizontal className="h-4 w-4 mr-2" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[10px]">
+                  {activeFilterCount}
+                </Badge>
+              )}
             </Button>
 
             <Button
               variant="outline"
               size="icon"
               onClick={loadLeads}
+              className="rounded-xl hover:bg-slate-50"
               data-testid="button-refresh-requests"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -346,7 +470,7 @@ export default function RequestsBoard() {
 
             <Button
               onClick={() => setAddModalOpen(true)}
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-lg shadow-indigo-500/25"
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-lg shadow-indigo-500/25 rounded-xl"
               data-testid="button-add-request"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -355,61 +479,149 @@ export default function RequestsBoard() {
           </div>
         </div>
 
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100"
-          >
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-slate-600">Property:</Label>
-              <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                <SelectTrigger className="w-48" data-testid="select-property-filter">
-                  <SelectValue placeholder="All Properties" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Properties</SelectItem>
-                  {properties.map((prop) => (
-                    <SelectItem key={prop.id} value={prop.id}>
-                      {prop.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-slate-600">Sales Exec:</Label>
-              <Select value={salesFilter} onValueChange={setSalesFilter}>
-                <SelectTrigger className="w-48" data-testid="select-sales-filter">
-                  <SelectValue placeholder="All Sales Execs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sales Execs</SelectItem>
-                  {salesExecs.map((exec) => (
-                    <SelectItem key={exec.id} value={exec.id}>
-                      {exec.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setPropertyFilter("all");
-                setSalesFilter("all");
-                setSearchTerm("");
-              }}
-              data-testid="button-clear-filters"
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
             >
-              Clear Filters
-            </Button>
-          </motion.div>
-        )}
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600 whitespace-nowrap">Property:</Label>
+                  <Select 
+                    value={filters.propertyId} 
+                    onValueChange={(v) => setFilters({ ...filters, propertyId: v })}
+                  >
+                    <SelectTrigger className="w-44 rounded-xl" data-testid="select-property-filter">
+                      <SelectValue placeholder="All Properties" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {properties.map((prop) => (
+                        <SelectItem key={prop.id} value={prop.id}>
+                          {prop.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600 whitespace-nowrap">Sales Exec:</Label>
+                  <Select 
+                    value={filters.salesExecId} 
+                    onValueChange={(v) => setFilters({ ...filters, salesExecId: v })}
+                  >
+                    <SelectTrigger className="w-44 rounded-xl" data-testid="select-sales-filter">
+                      <SelectValue placeholder="All Sales Execs" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sales Execs</SelectItem>
+                      {salesExecs.map((exec) => (
+                        <SelectItem key={exec.id} value={exec.id}>
+                          {exec.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600 whitespace-nowrap">Date:</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-52 justify-start text-left font-normal rounded-xl"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.dateRange?.from ? (
+                          filters.dateRange?.to ? (
+                            <>
+                              {format(filters.dateRange.from, "MMM d")} -{" "}
+                              {format(filters.dateRange.to, "MMM d")}
+                            </>
+                          ) : (
+                            format(filters.dateRange.from, "MMM d, yyyy")
+                          )
+                        ) : (
+                          <span className="text-slate-500">Select date range</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <div className="p-3 border-b border-slate-100">
+                        <div className="flex gap-1">
+                          {dateRangePresets.map((preset) => (
+                            <Button
+                              key={preset.label}
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() =>
+                                setFilters({
+                                  ...filters,
+                                  dateRange: {
+                                    from: preset.days === 0 ? new Date() : subDays(new Date(), preset.days),
+                                    to: new Date(),
+                                  },
+                                })
+                              }
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <Calendar
+                        mode="range"
+                        selected={filters.dateRange}
+                        onSelect={(range) =>
+                          setFilters({ ...filters, dateRange: range || { from: undefined, to: undefined } })
+                        }
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600 whitespace-nowrap">Deal Value:</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.dealValueMin}
+                      onChange={(e) => setFilters({ ...filters, dealValueMin: e.target.value })}
+                      className="w-24 rounded-xl"
+                    />
+                    <span className="text-slate-400">-</span>
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.dealValueMax}
+                      onChange={(e) => setFilters({ ...filters, dealValueMax: e.target.value })}
+                      className="w-24 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="text-slate-500 hover:text-slate-700 rounded-xl"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <div className="overflow-x-auto">
@@ -418,17 +630,17 @@ export default function RequestsBoard() {
           loading={loading}
           error={error || undefined}
           onStageChange={handleStageChange}
-          onView={handleView}
-          onEdit={handleView}
           onDelete={handleDelete}
         />
       </div>
 
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-indigo-500" />
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500">
+                <Plus className="h-4 w-4 text-white" />
+              </div>
               Add New Request
             </DialogTitle>
             <DialogDescription>
@@ -448,7 +660,7 @@ export default function RequestsBoard() {
                   onChange={(e) =>
                     setNewRequest({ ...newRequest, name: e.target.value })
                   }
-                  className="pl-9"
+                  className="pl-9 rounded-xl"
                   data-testid="input-request-name"
                 />
               </div>
@@ -465,7 +677,7 @@ export default function RequestsBoard() {
                   onChange={(e) =>
                     setNewRequest({ ...newRequest, phone: e.target.value })
                   }
-                  className="pl-9"
+                  className="pl-9 rounded-xl"
                   data-testid="input-request-phone"
                 />
               </div>
@@ -483,7 +695,7 @@ export default function RequestsBoard() {
                   onChange={(e) =>
                     setNewRequest({ ...newRequest, email: e.target.value })
                   }
-                  className="pl-9"
+                  className="pl-9 rounded-xl"
                   data-testid="input-request-email"
                 />
               </div>
@@ -497,7 +709,7 @@ export default function RequestsBoard() {
                   setNewRequest({ ...newRequest, propertyId: v })
                 }
               >
-                <SelectTrigger data-testid="select-request-property">
+                <SelectTrigger className="rounded-xl" data-testid="select-request-property">
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
                 <SelectContent>
@@ -523,7 +735,7 @@ export default function RequestsBoard() {
                     onChange={(e) =>
                       setNewRequest({ ...newRequest, budgetMin: e.target.value })
                     }
-                    className="pl-9"
+                    className="pl-9 rounded-xl"
                     data-testid="input-request-budget-min"
                   />
                 </div>
@@ -540,7 +752,7 @@ export default function RequestsBoard() {
                     onChange={(e) =>
                       setNewRequest({ ...newRequest, budgetMax: e.target.value })
                     }
-                    className="pl-9"
+                    className="pl-9 rounded-xl"
                     data-testid="input-request-budget-max"
                   />
                 </div>
@@ -556,7 +768,7 @@ export default function RequestsBoard() {
                 onChange={(e) =>
                   setNewRequest({ ...newRequest, notes: e.target.value })
                 }
-                className="resize-none"
+                className="resize-none rounded-xl"
                 rows={3}
                 data-testid="textarea-request-notes"
               />
@@ -564,102 +776,15 @@ export default function RequestsBoard() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddModalOpen(false)}>
+            <Button variant="outline" onClick={() => setAddModalOpen(false)} className="rounded-xl">
               Cancel
             </Button>
             <Button
               onClick={handleAddRequest}
-              className="bg-indigo-500 hover:bg-indigo-600"
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-xl"
               data-testid="button-submit-request"
             >
               Add Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-indigo-500" />
-              Request Details
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedLead && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-slate-500">Name</Label>
-                  <p className="font-medium text-slate-800">{selectedLead.name}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Status</Label>
-                  <Badge variant="secondary" className="mt-1">
-                    {selectedLead.status}
-                  </Badge>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Phone</Label>
-                  <p className="text-slate-700">{selectedLead.phone || "-"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Email</Label>
-                  <p className="text-slate-700">{selectedLead.email || "-"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Property</Label>
-                  <p className="text-slate-700">{selectedLead.propertyName || "-"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Source</Label>
-                  <p className="text-slate-700">{selectedLead.source}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Budget</Label>
-                  <p className="text-slate-700">
-                    {selectedLead.budgetMin || selectedLead.budgetMax
-                      ? `₹${(selectedLead.budgetMin || 0).toLocaleString("en-IN")} - ₹${(
-                          selectedLead.budgetMax || 0
-                        ).toLocaleString("en-IN")}`
-                      : "-"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-500">Priority</Label>
-                  <Badge
-                    variant="outline"
-                    className={`mt-1 ${
-                      selectedLead.priority === "hot"
-                        ? "border-red-300 text-red-600"
-                        : selectedLead.priority === "warm"
-                        ? "border-amber-300 text-amber-600"
-                        : "border-slate-300 text-slate-600"
-                    }`}
-                  >
-                    {selectedLead.priority}
-                  </Badge>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs text-slate-500">Created</Label>
-                  <p className="text-slate-700">
-                    {new Date(selectedLead.createdAt).toLocaleString("en-IN")}
-                  </p>
-                </div>
-                {selectedLead.notes && (
-                  <div className="col-span-2">
-                    <Label className="text-xs text-slate-500">Notes</Label>
-                    <p className="text-slate-700 text-sm">{selectedLead.notes}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewModalOpen(false)}>
-              Close
             </Button>
           </DialogFooter>
         </DialogContent>
