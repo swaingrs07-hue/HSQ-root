@@ -140,6 +140,25 @@ export default function AdminDashboard() {
     salesPerformance: [] as { name: string; leads: number; closed: number }[],
   });
   const [chartsLoading, setChartsLoading] = useState(true);
+  const [chartsError, setChartsError] = useState<{
+    leadsTrend?: string;
+    leadSources?: string;
+    propertyBookings?: string;
+    salesPerformance?: string;
+  }>({});
+
+  const getAuthToken = () => {
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed?.token || null;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
 
   useEffect(() => {
     loadStats();
@@ -148,30 +167,66 @@ export default function AdminDashboard() {
   
   const loadChartData = async () => {
     setChartsLoading(true);
+    setChartsError({});
+    
+    const token = getAuthToken();
+    const errors: typeof chartsError = {};
+    
     try {
-      const [analyticsRes, propertiesRes, salesExecsRes] = await Promise.all([
-        fetch("/api/leads/analytics/summary").then(r => r.ok ? r.json() : null),
-        fetch("/api/properties").then(r => r.ok ? r.json() : []),
-        fetch("/api/admin/sales-executives", {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-        }).then(r => r.ok ? r.json() : [])
+      const [analyticsRes, propertiesRes, salesExecsRes] = await Promise.allSettled([
+        fetch("/api/leads/analytics/summary").then(r => {
+          if (!r.ok) throw new Error("Failed to load leads analytics");
+          return r.json();
+        }),
+        fetch("/api/properties").then(r => {
+          if (!r.ok) throw new Error("Failed to load properties");
+          return r.json();
+        }),
+        token ? fetch("/api/admin/sales-executives", {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => {
+          if (!r.ok) throw new Error("Failed to load sales executives");
+          return r.json();
+        }) : Promise.resolve([])
       ]);
       
+      const analytics = analyticsRes.status === 'fulfilled' ? analyticsRes.value : null;
+      const propertiesData = propertiesRes.status === 'fulfilled' ? propertiesRes.value : [];
+      const salesExecsData = salesExecsRes.status === 'fulfilled' ? salesExecsRes.value : [];
+      
+      if (analyticsRes.status === 'rejected') {
+        errors.leadsTrend = "Unable to load leads trend";
+        errors.leadSources = "Unable to load lead sources";
+      }
+      if (propertiesRes.status === 'rejected') {
+        errors.propertyBookings = "Unable to load property data";
+      }
+      if (salesExecsRes.status === 'rejected') {
+        errors.salesPerformance = "Unable to load sales data";
+      }
+      
       setChartData({
-        leadsTrend: analyticsRes?.leadsByMonth || [],
-        leadSources: analyticsRes?.leadsBySource || [],
-        propertyBookings: propertiesRes?.slice(0, 6).map((p: any) => ({
+        leadsTrend: analytics?.leadsByMonth || [],
+        leadSources: analytics?.leadsBySource || [],
+        propertyBookings: propertiesData?.slice(0, 6).map((p: any) => ({
           name: p.name?.split(' ').slice(0, 2).join(' ') || 'Property',
           bookings: p.roomTypes?.reduce((sum: number, rt: any) => sum + (rt.totalBeds - rt.availableBeds), 0) || 0
         })) || [],
-        salesPerformance: salesExecsRes?.map((exec: any) => ({
+        salesPerformance: salesExecsData?.map((exec: any) => ({
           name: exec.name?.split(' ')[0] || 'Exec',
           leads: exec.totalLeads || 0,
           closed: exec.closedDeals || 0
         })) || []
       });
+      setChartsError(errors);
     } catch (error) {
       console.error("Failed to load chart data:", error);
+      setChartsError({
+        leadsTrend: "Unable to load data",
+        leadSources: "Unable to load data",
+        propertyBookings: "Unable to load data",
+        salesPerformance: "Unable to load data"
+      });
     } finally {
       setChartsLoading(false);
     }
@@ -613,18 +668,22 @@ export default function AdminDashboard() {
                     <LeadsTrendChart 
                       data={chartData.leadsTrend} 
                       loading={chartsLoading}
+                      error={chartsError.leadsTrend}
                     />
                     <LeadSourcePieChart 
                       data={chartData.leadSources} 
                       loading={chartsLoading}
+                      error={chartsError.leadSources}
                     />
                     <PropertyBookingsChart 
                       data={chartData.propertyBookings} 
                       loading={chartsLoading}
+                      error={chartsError.propertyBookings}
                     />
                     <SalesPerformanceChart 
                       data={chartData.salesPerformance} 
                       loading={chartsLoading}
+                      error={chartsError.salesPerformance}
                     />
                   </div>
                 </motion.div>
