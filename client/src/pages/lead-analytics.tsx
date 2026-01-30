@@ -32,6 +32,7 @@ interface LeadAnalytics {
   conversionRate: number;
   leadsByMonth: { month: string; count: number }[];
   conversionsByMonth: { month: string; conversions: number; total: number; rate: number }[];
+  conversionsBySource: { source: string; total: number; conversions: number; rate: number }[];
   leadsByDevice: { device: string; count: number }[];
   recentLeads: any[];
 }
@@ -263,6 +264,14 @@ export default function LeadAnalyticsPage() {
     value: item.count,
     fill: COLORS[index % COLORS.length],
   })) || [];
+
+  const conversionBySourceData = analytics?.conversionsBySource.map((item, index) => ({
+    name: SOURCE_LABELS[item.source] || item.source,
+    total: item.total,
+    conversions: item.conversions,
+    rate: Math.round(item.rate * 10) / 10,
+    fill: COLORS[index % COLORS.length],
+  })).sort((a, b) => b.rate - a.rate) || [];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -664,6 +673,38 @@ export default function LeadAnalyticsPage() {
               ) : (
                 <div className="h-[300px] flex items-center justify-center text-gray-500">
                   No lead status data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="chart-conversion-by-source">
+            <CardHeader>
+              <CardTitle>Conversion Rate by Source</CardTitle>
+              <CardDescription>Which lead sources convert best</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {conversionBySourceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={conversionBySourceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
+                    <YAxis yAxisId="left" orientation="left" stroke="hsl(200, 70%, 50%)" />
+                    <YAxis yAxisId="right" orientation="right" stroke="hsl(150, 60%, 45%)" unit="%" />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === 'rate' ? `${value}%` : value,
+                        name === 'rate' ? 'Conversion Rate' : name === 'total' ? 'Total Leads' : 'Conversions'
+                      ]}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="total" name="Total Leads" fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="conversions" name="Conversions" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-500">
+                  No conversion data by source available
                 </div>
               )}
             </CardContent>

@@ -141,6 +141,7 @@ export interface IStorage {
     conversionRate: number;
     leadsByMonth: { month: string; count: number }[];
     conversionsByMonth: { month: string; conversions: number; total: number; rate: number }[];
+    conversionsBySource: { source: string; total: number; conversions: number; rate: number }[];
     leadsByDevice: { device: string; count: number }[];
     recentLeads: Lead[];
   }>;
@@ -791,6 +792,23 @@ export class DatabaseStorage implements IStorage {
       count: row.count,
     }));
 
+    // Conversions by source
+    const conversionSourceData = await db
+      .select({
+        source: leads.source,
+        total: sql<number>`count(*)::int`,
+        conversions: sql<number>`SUM(CASE WHEN converted_to_student THEN 1 ELSE 0 END)::int`,
+      })
+      .from(leads)
+      .groupBy(leads.source);
+
+    const conversionsBySource = conversionSourceData.map((row) => ({
+      source: row.source || "unknown",
+      total: row.total,
+      conversions: row.conversions || 0,
+      rate: row.total > 0 ? ((row.conversions || 0) / row.total) * 100 : 0,
+    }));
+
     // Recent leads (last 10)
     const recentLeads = await db
       .select()
@@ -805,6 +823,7 @@ export class DatabaseStorage implements IStorage {
       conversionRate,
       leadsByMonth,
       conversionsByMonth,
+      conversionsBySource,
       leadsByDevice,
       recentLeads,
     };
