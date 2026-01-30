@@ -384,69 +384,93 @@ function AdminSalesManagementContent() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales Execs</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-execs">{salesExecs.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Execs</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-active-execs">
-              {salesExecs.filter(e => e.isActive).length}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="p-5 bg-gradient-to-br from-indigo-500 to-indigo-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-100 text-sm font-medium">Total Sales Execs</p>
+                <p className="text-3xl font-bold text-white mt-1" data-testid="text-total-execs">{salesExecs.length}</p>
+              </div>
+              <div className="p-3 bg-white/20 rounded-xl">
+                <Users className="h-6 w-6 text-white" />
+              </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-leads">
-              {salesExecs.reduce((sum, e) => sum + (e.totalLeads ?? 0), 0)}
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="p-5 bg-gradient-to-br from-emerald-500 to-emerald-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-emerald-100 text-sm font-medium">Active Execs</p>
+                <p className="text-3xl font-bold text-white mt-1" data-testid="text-active-execs">
+                  {salesExecs.filter(e => e.isActive).length}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 rounded-xl">
+                <UserCheck className="h-6 w-6 text-white" />
+              </div>
             </div>
-          </CardContent>
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Closed Deals</CardTitle>
-            <Target className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-closed-deals">
-              {salesExecs.reduce((sum, e) => sum + (e.closedDeals ?? 0), 0)}
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="p-5 bg-gradient-to-br from-violet-500 to-violet-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-violet-100 text-sm font-medium">Total Leads</p>
+                <p className="text-3xl font-bold text-white mt-1" data-testid="text-total-leads">
+                  {salesExecs.reduce((sum, e) => sum + (e.totalLeads ?? 0), 0)}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 rounded-xl">
+                <Target className="h-6 w-6 text-white" />
+              </div>
             </div>
-          </CardContent>
+          </div>
+        </Card>
+        <Card className="border-0 shadow-md overflow-hidden">
+          <div className="p-5 bg-gradient-to-br from-amber-500 to-amber-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-100 text-sm font-medium">Closed Deals</p>
+                <p className="text-3xl font-bold text-white mt-1" data-testid="text-closed-deals">
+                  {salesExecs.reduce((sum, e) => sum + (e.closedDeals ?? 0), 0)}
+                </p>
+              </div>
+              <div className="p-3 bg-white/20 rounded-xl">
+                <Target className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="executives" data-testid="tab-executives">
+        <TabsList className="bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger 
+            value="executives" 
+            data-testid="tab-executives"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
+          >
             <Users className="h-4 w-4 mr-2" />
             Sales Executives
           </TabsTrigger>
-          <TabsTrigger value="leads" data-testid="tab-leads">
+          <TabsTrigger 
+            value="leads" 
+            data-testid="tab-leads"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
+          >
             <Target className="h-4 w-4 mr-2" />
             Lead Assignment
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="executives">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sales Executives</CardTitle>
+        <TabsContent value="executives" className="mt-4">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <CardTitle className="text-lg font-semibold">Sales Executives</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loading ? (
                 <p className="text-center py-8">Loading...</p>
               ) : salesExecs.length === 0 ? (
@@ -528,12 +552,12 @@ function AdminSalesManagementContent() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="leads">
-          <Card>
-            <CardHeader>
-              <CardTitle>Unassigned Leads</CardTitle>
+        <TabsContent value="leads" className="mt-4">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <CardTitle className="text-lg font-semibold">Unassigned Leads</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loading ? (
                 <p className="text-center py-8">Loading...</p>
               ) : leads.length === 0 ? (
