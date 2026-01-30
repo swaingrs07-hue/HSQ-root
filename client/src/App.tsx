@@ -23,6 +23,8 @@ import AdminSalesManagement from "@/pages/admin-sales-management";
 import SalesDashboard from "@/pages/sales-dashboard";
 import BookingGeneration from "@/pages/booking-generation";
 import RequestsBoard from "@/pages/requests-board";
+import Profile from "@/pages/profile";
+import AdminSettings from "@/pages/admin-settings";
 
 function AppContent() {
   const [location] = useLocation();
@@ -49,6 +51,8 @@ function AppContent() {
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/admin/booking/generate" component={BookingGeneration} />
               <Route path="/admin/requests" component={RequestsBoard} />
+              <Route path="/admin/settings" component={AdminSettings} />
+              <Route path="/profile" component={Profile} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
               <Route path="/booking/generate" component={BookingGeneration} />
