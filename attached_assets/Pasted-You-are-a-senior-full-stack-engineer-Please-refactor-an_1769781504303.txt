@@ -1,0 +1,68 @@
+You are a senior full-stack engineer.
+
+Please refactor and enhance the "Edit Lead" section with the following requirements:
+
+1. Edit Lead UI Fixes
+- Improve layout spacing, alignment, and visual hierarchy
+- Use a clean, modern UI (cards, clear labels, consistent buttons)
+- Ensure form validation and proper error handling
+- Make the Edit Lead modal responsive and accessible
+
+2. Next Follow-Up Feature
+- Add a new field: "Next Follow-Up Date & Time"
+- This field should be visible and editable by:
+  - Sales Executive
+  - Admin
+- Allow optional notes for the follow-up
+- Save follow-up data in the database linked to the lead ID
+
+3. Role-Based Workflow
+- Sales Executive:
+  - Can schedule and update next follow-up date
+  - Can mark follow-up as "Completed"
+- Admin:
+  - Can view all scheduled follow-ups
+  - Can override or reschedule follow-ups
+  - Can take action if follow-up is missed
+
+4. Notification System
+- Automatically notify the assigned Sales Executive when:
+  - Follow-up date is approaching (e.g., 24 hours before)
+  - Follow-up date has passed and status is NOT completed
+- Notification methods:
+  - In-app notification (required)
+  - Email notification (optional if email service exists)
+
+5. Escalation Logic (Important)
+- If follow-up is NOT completed within the scheduled time:
+  - Mark follow-up as "Overdue"
+  - Display it in Admin dashboard under "Action Required"
+  - Notify Admin with lead details and assigned sales person
+
+6. Admin Dashboard Update
+- Add a section: "Overdue Follow-Ups"
+- Show:
+  - Lead name
+  - Client contact
+  - Assigned sales executive
+  - Follow-up date
+  - Status
+  - Quick action buttons (Reassign / Reschedule / Call)
+
+7. Backend Logic
+- Add necessary database fields:
+  - next_follow_up_at
+  - follow_up_status (pending | completed | overdue)
+  - follow_up_notes
+- Create a scheduled job / cron task to:
+  - Check overdue follow-ups
+  - Trigger notifications
+  - Update status automatically
+
+8. Code Quality Expectations
+- Clean, modular, and scalable code
+- Separate concerns (UI, API, services)
+- Use meaningful variable and function names
+- Add comments where business logic exists
+
+Please implement this end-to-end with production-ready standards.

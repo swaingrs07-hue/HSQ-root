@@ -333,6 +333,14 @@ export const leadPriorityEnum = pgEnum("lead_priority", [
   "hot"
 ]);
 
+// Follow-up status enum
+export const followUpStatusEnum = pgEnum("follow_up_status", [
+  "pending",
+  "completed",
+  "overdue",
+  "cancelled"
+]);
+
 // Leads table (visitor/prospect tracking)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -374,6 +382,7 @@ export const leads = pgTable("leads", {
   
   // Follow-up tracking
   followUpAt: timestamp("follow_up_at"),
+  followUpStatus: followUpStatusEnum("follow_up_status"),
   followUpNotes: text("follow_up_notes"),
   
   // Login tracking
