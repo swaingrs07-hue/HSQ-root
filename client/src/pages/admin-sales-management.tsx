@@ -77,7 +77,8 @@ interface Property {
   name: string;
   address: string;
   city: string;
-  isActive: boolean;
+  location: string;
+  active: boolean;
 }
 
 interface Lead {
@@ -535,6 +536,7 @@ function AdminSalesManagementContent() {
                             size="sm"
                             onClick={() => {
                               setSelectedExec(exec);
+                              setSelectedPropertyIds([]);
                               setAssignPropertyDialogOpen(true);
                             }}
                             data-testid={`button-assign-properties-${exec.id}`}
@@ -620,42 +622,54 @@ function AdminSalesManagementContent() {
       </Tabs>
 
       <Dialog open={assignPropertyDialogOpen} onOpenChange={setAssignPropertyDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md flex flex-col max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Assign Properties to {selectedExec?.name}</DialogTitle>
             <DialogDescription>Select properties to assign to this sales executive</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[300px] overflow-y-auto py-4">
-            {properties.filter(p => p.isActive).map((property) => {
-              const isAssigned = selectedExec?.assignedProperties.some(ap => ap.id === property.id);
-              return (
-                <div key={property.id} className="flex items-center space-x-2 py-2">
-                  <Checkbox
-                    id={property.id}
-                    disabled={isAssigned}
-                    checked={isAssigned || selectedPropertyIds.includes(property.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedPropertyIds([...selectedPropertyIds, property.id]);
-                      } else {
-                        setSelectedPropertyIds(selectedPropertyIds.filter(id => id !== property.id));
-                      }
-                    }}
-                    data-testid={`checkbox-property-${property.id}`}
-                  />
-                  <Label htmlFor={property.id} className="flex-1 cursor-pointer">
-                    <div>{property.name}</div>
-                    <div className="text-sm text-muted-foreground">{property.city}</div>
-                  </Label>
-                  {isAssigned && <Badge variant="secondary">Assigned</Badge>}
-                </div>
-              );
-            })}
+          <div className="flex-1 overflow-y-auto py-4 min-h-[200px]">
+            {properties.filter(p => p.active).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <Building2 className="h-12 w-12 mb-2 opacity-50" />
+                <p>No properties available</p>
+              </div>
+            ) : (
+              properties.filter(p => p.active).map((property) => {
+                const isAssigned = selectedExec?.assignedProperties?.some(ap => ap.id === property.id) ?? false;
+                return (
+                  <div key={property.id} className="flex items-center space-x-3 py-3 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <Checkbox
+                      id={property.id}
+                      disabled={isAssigned}
+                      checked={isAssigned || selectedPropertyIds.includes(property.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPropertyIds([...selectedPropertyIds, property.id]);
+                        } else {
+                          setSelectedPropertyIds(selectedPropertyIds.filter(id => id !== property.id));
+                        }
+                      }}
+                      data-testid={`checkbox-property-${property.id}`}
+                    />
+                    <Label htmlFor={property.id} className="flex-1 cursor-pointer">
+                      <div className="font-medium">{property.name}</div>
+                      <div className="text-sm text-muted-foreground">{property.location || property.city || property.address}</div>
+                    </Label>
+                    {isAssigned && <Badge variant="secondary" className="shrink-0">Already Assigned</Badge>}
+                  </div>
+                );
+              })
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4 sticky bottom-0 bg-white">
             <Button variant="outline" onClick={() => setAssignPropertyDialogOpen(false)} data-testid="button-cancel-assign-properties">Cancel</Button>
-            <Button onClick={assignProperties} disabled={selectedPropertyIds.length === 0} data-testid="button-confirm-assign-properties">
-              Assign Selected
+            <Button 
+              onClick={assignProperties} 
+              disabled={selectedPropertyIds.length === 0}
+              className="bg-pink-500 hover:bg-pink-600"
+              data-testid="button-confirm-assign-properties"
+            >
+              Assign Selected {selectedPropertyIds.length > 0 && `(${selectedPropertyIds.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
