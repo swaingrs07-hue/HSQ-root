@@ -739,6 +739,128 @@ export async function registerRoutes(
     }
   });
 
+  // ============ FOLLOW-UP MANAGEMENT ============
+
+  // Get overdue follow-ups (admin only)
+  app.get("/api/leads/follow-ups/overdue", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const payload = req.user;
+      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const overdueLeads = await storage.getOverdueFollowUps();
+      
+      // Sales executives only see their assigned leads
+      if (payload.role === "sales_executive") {
+        const filteredLeads = overdueLeads.filter(lead => lead.assignedToId === payload.id);
+        return res.json(filteredLeads);
+      }
+      
+      res.json(overdueLeads);
+    } catch (error) {
+      console.error("Error fetching overdue follow-ups:", error);
+      res.status(500).json({ error: "Failed to fetch overdue follow-ups" });
+    }
+  });
+
+  // Get upcoming follow-ups
+  app.get("/api/leads/follow-ups/upcoming", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const payload = req.user;
+      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const hoursAhead = parseInt(req.query.hours as string) || 24;
+      const upcomingLeads = await storage.getUpcomingFollowUps(hoursAhead);
+      
+      // Sales executives only see their assigned leads
+      if (payload.role === "sales_executive") {
+        const filteredLeads = upcomingLeads.filter(lead => lead.assignedToId === payload.id);
+        return res.json(filteredLeads);
+      }
+      
+      res.json(upcomingLeads);
+    } catch (error) {
+      console.error("Error fetching upcoming follow-ups:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming follow-ups" });
+    }
+  });
+
+  // Update follow-up for a lead
+  app.patch("/api/leads/:id/follow-up", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const payload = req.user;
+      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { followUpAt, followUpStatus, followUpNotes } = req.body;
+      const leadId = req.params.id;
+
+      // Get the lead to check permissions
+      const lead = await storage.getLead(leadId);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      // Sales executives can only update their own assigned leads
+      if (payload.role === "sales_executive" && lead.assignedToId !== payload.id) {
+        return res.status(403).json({ error: "You can only update leads assigned to you" });
+      }
+
+      const updateData: Record<string, any> = {};
+      if (followUpAt !== undefined) updateData.followUpAt = followUpAt ? new Date(followUpAt) : null;
+      if (followUpStatus !== undefined) updateData.followUpStatus = followUpStatus;
+      if (followUpNotes !== undefined) updateData.followUpNotes = followUpNotes;
+
+      const updatedLead = await storage.updateLead(leadId, updateData);
+
+      // Log activity
+      await storage.createLeadActivity({
+        leadId,
+        actorId: payload.id,
+        actionType: "follow_up_updated",
+        previousValue: JSON.stringify({ 
+          followUpAt: lead.followUpAt, 
+          followUpStatus: lead.followUpStatus 
+        }),
+        newValue: JSON.stringify({ followUpAt, followUpStatus }),
+        description: followUpStatus === "completed" 
+          ? "Marked follow-up as completed" 
+          : `Updated follow-up to ${followUpAt ? new Date(followUpAt).toLocaleString() : "cleared"}`,
+      });
+
+      // Create notification for follow-up scheduled
+      if (followUpAt && lead.assignedToId) {
+        await storage.createNotification({
+          userId: lead.assignedToId,
+          title: "Follow-up Scheduled",
+          message: `Follow-up scheduled for ${lead.name} on ${new Date(followUpAt).toLocaleDateString()}`,
+          type: "lead",
+          actionUrl: `/sales/leads/${leadId}`,
+        });
+      }
+
+      res.json(updatedLead);
+    } catch (error) {
+      console.error("Error updating follow-up:", error);
+      res.status(500).json({ error: "Failed to update follow-up" });
+    }
+  });
+
+  // Mark overdue follow-ups (admin/cron job)
+  app.post("/api/leads/follow-ups/mark-overdue", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const count = await storage.markOverdueFollowUps();
+      res.json({ message: `Marked ${count} follow-ups as overdue`, count });
+    } catch (error) {
+      console.error("Error marking overdue follow-ups:", error);
+      res.status(500).json({ error: "Failed to mark overdue follow-ups" });
+    }
+  });
+
   // ============ PROPERTIES ============
   
   // Get all properties with room types
