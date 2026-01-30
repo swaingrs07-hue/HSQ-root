@@ -1,0 +1,101 @@
+Redesign the Admin Panel UI into a modern, high-graphic, enterprise-grade CRM application without breaking existing functionality.
+
+UI / UX GOALS:
+- Premium SaaS look (Notion + Linear + Stripe style)
+- Clean white/soft-dark surfaces
+- Smooth animations
+- Zero clutter, zero blank pages
+- Mobile + desktop responsive
+
+IMPLEMENT THE FOLLOWING:
+
+1. Global Design System:
+   - Use a consistent color palette:
+     Primary: Indigo / Royal Blue
+     Accent: Emerald / Cyan
+     Background: Soft gray / Glass white
+     Text: Dark slate
+   - Add rounded cards (12–16px radius)
+   - Soft shadows (no harsh borders)
+   - Use modern fonts (Inter / Poppins)
+   - Smooth hover + transition effects
+
+2. Layout Redesign:
+   - Replace current layout with:
+     - Left collapsible sidebar (icons + labels)
+     - Top sticky header with:
+       - Property switcher
+       - User profile dropdown
+       - Notifications icon
+   - No full-page reloads (SPA behavior)
+
+3. Sidebar (Admin):
+   - Dashboard
+   - Properties
+   - Sales Executives
+   - Leads
+   - Bookings
+   - Reports
+   - Settings
+   - Highlight active route clearly
+   - Add subtle icon animations
+
+4. Dashboard Page (High Graphic Feel):
+   - KPI cards with icons:
+     - Total Properties
+     - Active Sales Executives
+     - Leads Today
+     - Bookings This Month
+   - Gradient cards (very subtle)
+   - Animated number counters
+   - Property-wise performance mini charts
+   - Skeleton loaders (no blank screen)
+
+5. Tables & Lists:
+   - Replace plain tables with:
+     - Card-based data tables
+     - Sticky headers
+     - Column filters & search
+     - Status badges (active, inactive, pending)
+   - Add row hover animation
+   - Add empty-state illustrations instead of blank UI
+
+6. Forms (Add / Edit):
+   - Convert forms into card-based layouts
+   - Group fields logically
+   - Floating labels
+   - Inline validation messages
+   - Disable submit button with loader on submit
+   - Success toast instead of redirect crash
+
+7. Animations & Feedback:
+   - Page transitions (fade / slide)
+   - Button ripple / hover effects
+   - Toast notifications for success & error
+   - Loading spinners + skeleton screens everywhere
+
+8. Dark Mode (Optional but Recommended):
+   - Toggle in header
+   - Persist user preference
+   - Maintain contrast & readability
+
+9. Error Handling:
+   - Global error boundary UI
+   - Friendly error pages (not blank screen)
+   - API failure fallback UI
+
+10. Performance & Clean Code:
+   - Component-based structure
+   - Reusable UI components
+   - Lazy-load heavy pages
+   - Remove unused CSS
+   - Ensure fast rendering
+
+FINAL RESULT:
+- App should feel premium, modern, smooth
+- No blank pages
+- No raw tables
+- No outdated UI
+- Production-ready admin panel
+
+Redesign visually while preserving all logic and data flow.

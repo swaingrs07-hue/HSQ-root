@@ -5,7 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
-import { AuthProvider } from "@/contexts/auth-context";
+import { AdminLayout } from "@/components/admin-layout";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import Home from "@/pages/home";
 import StudentRegistration from "@/pages/student-registration";
 import PropertySelection from "@/pages/property-selection";
@@ -23,8 +24,12 @@ import BookingGeneration from "@/pages/booking-generation";
 
 function AppContent() {
   const [location] = useLocation();
+  const { user, isAdmin } = useAuth();
   
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login";
+  const isAdminRoute = location.startsWith("/admin") || location === "/sales" || location === "/booking/generate";
+  const isSalesExec = user?.role === "sales_executive";
+  const useAdminLayout = (isAdmin || isSalesExec) && isAdminRoute;
 
   return (
     <Switch>
@@ -32,7 +37,22 @@ function AppContent() {
       <Route path="/login" component={AuthPage} />
       <Route path="/admin/login" component={AuthPage} />
       <Route>
-        {isAuthPage ? null : (
+        {isAuthPage ? null : useAdminLayout ? (
+          <AdminLayout>
+            <Switch>
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/admin/add-property" component={AddProperty} />
+              <Route path="/admin/leads" component={LeadAnalytics} />
+              <Route path="/admin/lead-analytics" component={LeadAnalytics} />
+              <Route path="/admin/sales-management" component={AdminSalesManagement} />
+              <Route path="/admin/booking/generate" component={BookingGeneration} />
+              <Route path="/sales" component={SalesDashboard} />
+              <Route path="/booking/generate" component={BookingGeneration} />
+              <Route path="/properties" component={PropertySelection} />
+              <Route component={NotFound} />
+            </Switch>
+          </AdminLayout>
+        ) : (
           <Layout>
             <Switch>
               <Route path="/" component={Home} />
