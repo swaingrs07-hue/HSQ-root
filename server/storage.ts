@@ -215,6 +215,7 @@ export interface IStorage {
   
   // Lead Assignment & Scoping
   getLeadsForSalesExec(userId: string): Promise<Lead[]>;
+  getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]>;
   assignLeadToUser(leadId: string, userId: string, assignedBy: string): Promise<Lead | undefined>;
   reassignLead(leadId: string, newUserId: string, reassignedBy: string): Promise<Lead | undefined>;
   
@@ -1195,6 +1196,22 @@ export class DatabaseStorage implements IStorage {
   // Lead Assignment & Scoping
   async getLeadsForSalesExec(userId: string): Promise<Lead[]> {
     return await db.select().from(leads).where(eq(leads.assignedToId, userId)).orderBy(desc(leads.createdAt));
+  }
+
+  async getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]> {
+    if (propertyIds.length === 0) return [];
+    
+    // Get leads that are:
+    // 1. Assigned to this sales exec, OR
+    // 2. For their assigned properties AND assigned to them
+    return await db.select().from(leads)
+      .where(
+        and(
+          inArray(leads.propertyId, propertyIds),
+          eq(leads.assignedToId, userId)
+        )
+      )
+      .orderBy(desc(leads.createdAt));
   }
 
   async assignLeadToUser(leadId: string, userId: string, assignedBy: string): Promise<Lead | undefined> {

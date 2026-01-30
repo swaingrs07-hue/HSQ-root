@@ -2017,6 +2017,43 @@ export async function registerRoutes(
 
   // ============ SALES EXECUTIVE DASHBOARD ============
 
+  // Get assigned properties for current sales exec (alias for frontend compatibility)
+  app.get("/api/sales/properties", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const properties = await storage.getAssignedPropertiesForUser(authReq.user!.userId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching assigned properties:", error);
+      res.status(500).json({ error: "Failed to fetch assigned properties" });
+    }
+  });
+
+  // Get leads scoped to sales exec's assigned properties
+  app.get("/api/sales/leads", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const userId = authReq.user!.userId;
+      
+      // Get assigned property IDs for this sales exec
+      const assignedProperties = await storage.getAssignedPropertiesForUser(userId);
+      const assignedPropertyIds = assignedProperties.map(p => p.id);
+      
+      if (assignedPropertyIds.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get leads that are either:
+      // 1. Assigned to this sales exec, OR
+      // 2. For their assigned properties (even if not yet assigned to them)
+      const leads = await storage.getLeadsForAssignedProperties(userId, assignedPropertyIds);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
   // Get assigned properties for current sales exec
   app.get("/api/sales/my-properties", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
     try {
@@ -2063,6 +2100,15 @@ export async function registerRoutes(
       
       const authReq = req as AuthRequest;
       const data = validation.data;
+      
+      // If sales executive, verify they're assigned to this property
+      if (authReq.user!.role === "sales_executive") {
+        const assignedProperties = await storage.getAssignedPropertiesForUser(authReq.user!.userId);
+        const isAssigned = assignedProperties.some(p => p.id === data.propertyId);
+        if (!isAssigned) {
+          return res.status(403).json({ error: "You are not assigned to this property" });
+        }
+      }
       
       // Get property name
       const property = await storage.getProperty(data.propertyId);
