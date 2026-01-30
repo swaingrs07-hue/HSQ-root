@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -351,8 +350,7 @@ export default function AdminLeads() {
   const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || propertyFilter !== "all" || deviceFilter !== "all";
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Lead Management</h1>
@@ -779,7 +777,6 @@ export default function AdminLeads() {
             </div>
           </CardContent>
         </Card>
-      </div>
 
       <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
         <DialogContent className="max-w-md">
@@ -871,6 +868,6 @@ export default function AdminLeads() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </div>
   );
 }
