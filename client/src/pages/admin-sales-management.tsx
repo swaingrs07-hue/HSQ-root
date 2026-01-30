@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2 } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2 } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -120,6 +120,13 @@ function AdminSalesManagementContent() {
 
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [selectedExecId, setSelectedExecId] = useState<string>("");
+  
+  // Property Mapping state
+  const [propertyMappings, setPropertyMappings] = useState<{property: Property, assignedExecs: SalesExecutive[]}[]>([]);
+  const [selectedPropertyForMapping, setSelectedPropertyForMapping] = useState<string>("");
+  const [selectedExecForMapping, setSelectedExecForMapping] = useState<string>("");
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [addMappingDialogOpen, setAddMappingDialogOpen] = useState(false);
 
   const getAuthToken = () => token || "";
 
@@ -131,6 +138,9 @@ function AdminSalesManagementContent() {
   useEffect(() => {
     if (activeTab === "leads") {
       loadUnassignedLeads();
+    }
+    if (activeTab === "property-mapping") {
+      loadPropertyMappings();
     }
   }, [activeTab]);
 
@@ -184,6 +194,81 @@ function AdminSalesManagementContent() {
       toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPropertyMappings = async () => {
+    try {
+      setMappingLoading(true);
+      const mappings: {property: Property, assignedExecs: SalesExecutive[]}[] = [];
+      
+      for (const property of properties) {
+        const response = await fetch(`/api/admin/properties/${property.id}/sales-execs`, {
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        if (response.ok) {
+          const execs = await response.json();
+          mappings.push({ property, assignedExecs: execs });
+        }
+      }
+      
+      setPropertyMappings(mappings);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load property mappings", variant: "destructive" });
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const addPropertyMapping = async () => {
+    if (!selectedPropertyForMapping || !selectedExecForMapping) {
+      toast({ title: "Error", description: "Please select both property and sales executive", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const response = await fetch("/api/admin/property-assignments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({
+          propertyId: selectedPropertyForMapping,
+          salesExecId: selectedExecForMapping
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add mapping");
+      }
+      
+      toast({ title: "Success", description: "Property assigned to sales executive" });
+      setAddMappingDialogOpen(false);
+      setSelectedPropertyForMapping("");
+      setSelectedExecForMapping("");
+      loadPropertyMappings();
+      loadSalesExecs();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const removePropertyMapping = async (propertyId: string, salesExecId: string) => {
+    try {
+      const response = await fetch(`/api/admin/property-assignments/${propertyId}/${salesExecId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      
+      if (!response.ok) throw new Error("Failed to remove mapping");
+      
+      toast({ title: "Success", description: "Property assignment removed" });
+      loadPropertyMappings();
+      loadSalesExecs();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to remove assignment", variant: "destructive" });
     }
   };
 
@@ -464,6 +549,14 @@ function AdminSalesManagementContent() {
             <Target className="h-4 w-4 mr-2" />
             Lead Assignment
           </TabsTrigger>
+          <TabsTrigger 
+            value="property-mapping" 
+            data-testid="tab-property-mapping"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
+          >
+            <Link2 className="h-4 w-4 mr-2" />
+            Property Mapping
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="executives" className="mt-4">
@@ -619,7 +712,141 @@ function AdminSalesManagementContent() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="property-mapping" className="mt-4">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold">Property → Sales Executive Mapping</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Auto-assigns new leads to sales executives based on property. Uses load balancing (assigns to exec with fewest active leads).
+                  </p>
+                </div>
+                <Button onClick={() => setAddMappingDialogOpen(true)} data-testid="button-add-mapping">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Mapping
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {mappingLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : propertyMappings.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No property mappings configured. Add mappings to enable auto-assignment.</p>
+              ) : (
+                <div className="divide-y">
+                  {propertyMappings.map(({ property, assignedExecs }) => (
+                    <div key={property.id} className="p-4" data-testid={`mapping-property-${property.id}`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{property.name}</h4>
+                            <p className="text-sm text-muted-foreground">{property.city}, {property.location}</p>
+                          </div>
+                        </div>
+                        <Badge variant={property.active ? "default" : "secondary"}>
+                          {property.active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="mt-4 ml-13">
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Assigned Sales Executives:</p>
+                        {assignedExecs.length === 0 ? (
+                          <p className="text-sm text-yellow-600 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            No executives assigned - leads will be marked as unassigned
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {assignedExecs.map((exec) => (
+                              <Badge 
+                                key={exec.id} 
+                                variant="outline" 
+                                className="flex items-center gap-2 py-1 px-3"
+                                data-testid={`mapping-exec-${exec.id}`}
+                              >
+                                <UserCheck className="h-3 w-3" />
+                                {exec.name}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-4 w-4 ml-1 hover:bg-red-100"
+                                  onClick={() => removePropertyMapping(property.id, exec.id)}
+                                  data-testid={`button-remove-mapping-${property.id}-${exec.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Add Property Mapping Dialog */}
+      <Dialog open={addMappingDialogOpen} onOpenChange={setAddMappingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Property Mapping</DialogTitle>
+            <DialogDescription>
+              Assign a sales executive to handle leads from a specific property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Property</Label>
+              <Select value={selectedPropertyForMapping} onValueChange={setSelectedPropertyForMapping}>
+                <SelectTrigger data-testid="select-property-for-mapping">
+                  <SelectValue placeholder="Select property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties.filter(p => p.active).map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name} - {property.city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Sales Executive</Label>
+              <Select value={selectedExecForMapping} onValueChange={setSelectedExecForMapping}>
+                <SelectTrigger data-testid="select-exec-for-mapping">
+                  <SelectValue placeholder="Select sales executive" />
+                </SelectTrigger>
+                <SelectContent>
+                  {salesExecs.filter(e => e.isActive).map((exec) => (
+                    <SelectItem key={exec.id} value={exec.id}>
+                      {exec.name} ({exec.totalLeads} leads)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddMappingDialogOpen(false)} data-testid="button-cancel-mapping">
+              Cancel
+            </Button>
+            <Button onClick={addPropertyMapping} data-testid="button-confirm-mapping">
+              Add Mapping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={assignPropertyDialogOpen} onOpenChange={setAssignPropertyDialogOpen}>
         <DialogContent className="max-w-md max-h-[80vh] flex flex-col p-0">
