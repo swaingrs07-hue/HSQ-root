@@ -1925,6 +1925,200 @@ export async function registerRoutes(
   });
 
   // ============ ADMIN ============
+
+  // ============ PROPERTY-SALES EXEC MANAGEMENT ============
+
+  // Get all property-sales exec assignments
+  app.get("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const assignments = await storage.getAllPropertyAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching property assignments:", error);
+      res.status(500).json({ error: "Failed to fetch property assignments" });
+    }
+  });
+
+  // Get sales execs for a specific property
+  app.get("/api/admin/properties/:propertyId/sales-execs", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const salesExecs = await storage.getActiveSalesExecsForProperty(req.params.propertyId);
+      res.json(salesExecs);
+    } catch (error) {
+      console.error("Error fetching property sales execs:", error);
+      res.status(500).json({ error: "Failed to fetch sales executives" });
+    }
+  });
+
+  // Assign sales exec to property
+  app.post("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { propertyId, salesExecId } = req.body;
+
+      if (!propertyId || !salesExecId) {
+        return res.status(400).json({ error: "Property ID and Sales Exec ID are required" });
+      }
+
+      const assignment = await storage.assignPropertyToUser({
+        propertyId,
+        userId: salesExecId,
+        assignedBy: authReq.user!.userId,
+        isActive: true,
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning property:", error);
+      res.status(500).json({ error: "Failed to assign property" });
+    }
+  });
+
+  // Remove sales exec from property
+  app.delete("/api/admin/property-assignments/:propertyId/:salesExecId", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      await storage.removePropertyAssignment(req.params.salesExecId, req.params.propertyId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing property assignment:", error);
+      res.status(500).json({ error: "Failed to remove assignment" });
+    }
+  });
+
+  // Auto-assign lead to sales exec based on property
+  app.post("/api/admin/leads/:id/auto-assign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const leadId = req.params.id;
+      const lead = await storage.getLead(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      if (!lead.propertyId) {
+        return res.status(400).json({ error: "Lead has no property assigned" });
+      }
+
+      // Get sales exec with least leads for this property
+      const salesExec = await storage.getSalesExecWithLeastLeads(lead.propertyId);
+      
+      if (!salesExec) {
+        // No sales exec mapped - mark as unassigned
+        const updatedLead = await storage.updateLead(leadId, {
+          assignmentType: "unassigned",
+        });
+        
+        // Create notification for admin
+        const admins = await storage.getSalesExecutives();
+        for (const admin of admins.filter(u => u.role === "admin")) {
+          await storage.createNotification({
+            userId: admin.id,
+            title: "Unassigned Lead - Action Required",
+            message: `Lead "${lead.name}" for property has no sales executive assigned.`,
+            type: "warning",
+            actionUrl: "/admin/requests",
+          });
+        }
+        
+        return res.json({ ...updatedLead, assignedExec: null, assignmentType: "unassigned" });
+      }
+
+      // Assign to sales exec
+      const authReq = req as AuthRequest;
+      const updatedLead = await storage.updateLead(leadId, {
+        assignedToId: salesExec.id,
+        assignedAt: new Date(),
+        assignmentType: "property_auto",
+      });
+
+      // Log activity
+      await storage.createLeadActivity({
+        leadId,
+        actorId: authReq.user!.userId,
+        actionType: "lead_reassigned",
+        newValue: JSON.stringify({ salesExecId: salesExec.id, type: "property_auto" }),
+        description: `Auto-assigned to ${salesExec.name} based on property mapping`,
+      });
+
+      // Notify sales exec
+      await storage.createNotification({
+        userId: salesExec.id,
+        title: "New Lead Assigned",
+        message: `Lead "${lead.name}" has been auto-assigned to you.`,
+        type: "lead",
+        actionUrl: "/sales/requests",
+      });
+
+      res.json({ ...updatedLead, assignedExec: salesExec, assignmentType: "property_auto" });
+    } catch (error) {
+      console.error("Error auto-assigning lead:", error);
+      res.status(500).json({ error: "Failed to auto-assign lead" });
+    }
+  });
+
+  // Manual lead reassignment by admin
+  app.post("/api/admin/leads/:id/reassign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { salesExecId } = req.body;
+      const leadId = req.params.id;
+
+      if (!salesExecId) {
+        return res.status(400).json({ error: "Sales Exec ID is required" });
+      }
+
+      const lead = await storage.getLead(leadId);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const updatedLead = await storage.updateLead(leadId, {
+        assignedToId: salesExecId,
+        assignedAt: new Date(),
+        assignmentType: "admin_manual",
+      });
+
+      // Log activity
+      await storage.createLeadActivity({
+        leadId,
+        actorId: authReq.user!.userId,
+        actionType: "lead_reassigned",
+        newValue: JSON.stringify({ salesExecId, type: "admin_manual" }),
+        description: `Manually reassigned by admin`,
+      });
+
+      // Notify new sales exec
+      const salesExec = await storage.getUser(salesExecId);
+      if (salesExec) {
+        await storage.createNotification({
+          userId: salesExecId,
+          title: "Lead Assigned to You",
+          message: `Lead "${lead.name}" has been assigned to you by admin.`,
+          type: "lead",
+          actionUrl: "/sales/requests",
+        });
+      }
+
+      res.json(updatedLead);
+    } catch (error) {
+      console.error("Error reassigning lead:", error);
+      res.status(500).json({ error: "Failed to reassign lead" });
+    }
+  });
+
+  // Get unassigned leads (needs action)
+  app.get("/api/admin/leads/unassigned", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const allLeads = await storage.getAllLeads();
+      const unassignedLeads = allLeads.filter(lead => 
+        !lead.assignedToId || lead.assignmentType === "unassigned"
+      );
+      res.json(unassignedLeads);
+    } catch (error) {
+      console.error("Error fetching unassigned leads:", error);
+      res.status(500).json({ error: "Failed to fetch unassigned leads" });
+    }
+  });
   
   // Apply discount override
   app.post("/api/admin/discount", async (req, res) => {
