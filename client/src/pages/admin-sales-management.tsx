@@ -147,8 +147,11 @@ function AdminSalesManagementContent() {
       const data = await response.json();
       console.log("Sales executives loaded:", data);
       setSalesExecs(data || []);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to load sales executives", variant: "destructive" });
+    } catch (error: any) {
+      console.error("Failed to load sales executives:", error);
+      const errorMessage = error.message || "Failed to load sales executives";
+      setError(errorMessage);
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -440,7 +443,7 @@ function AdminSalesManagementContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-leads">
-              {salesExecs.reduce((sum, e) => sum + e.totalLeads, 0)}
+              {salesExecs.reduce((sum, e) => sum + (e.totalLeads ?? 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -451,7 +454,7 @@ function AdminSalesManagementContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-closed-deals">
-              {salesExecs.reduce((sum, e) => sum + e.closedDeals, 0)}
+              {salesExecs.reduce((sum, e) => sum + (e.closedDeals ?? 0), 0)}
             </div>
           </CardContent>
         </Card>
