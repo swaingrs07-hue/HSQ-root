@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,8 @@ import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+import { LeadsTrendChart, PropertyBookingsChart, SalesPerformanceChart, LeadSourcePieChart } from "@/components/animated-charts";
+import { FadeInView, StaggeredList, StaggeredItem } from "@/components/motion-primitives";
 
 function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -129,10 +132,50 @@ export default function AdminDashboard() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  
+  const [chartData, setChartData] = useState({
+    leadsTrend: [] as { month: string; count: number }[],
+    leadSources: [] as { source: string; count: number }[],
+    propertyBookings: [] as { name: string; bookings: number }[],
+    salesPerformance: [] as { name: string; leads: number; closed: number }[],
+  });
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   useEffect(() => {
     loadStats();
+    loadChartData();
   }, []);
+  
+  const loadChartData = async () => {
+    setChartsLoading(true);
+    try {
+      const [analyticsRes, propertiesRes, salesExecsRes] = await Promise.all([
+        fetch("/api/leads/analytics/summary").then(r => r.ok ? r.json() : null),
+        fetch("/api/properties").then(r => r.ok ? r.json() : []),
+        fetch("/api/admin/sales-executives", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        }).then(r => r.ok ? r.json() : [])
+      ]);
+      
+      setChartData({
+        leadsTrend: analyticsRes?.leadsByMonth || [],
+        leadSources: analyticsRes?.leadsBySource || [],
+        propertyBookings: propertiesRes?.slice(0, 6).map((p: any) => ({
+          name: p.name?.split(' ').slice(0, 2).join(' ') || 'Property',
+          bookings: p.roomTypes?.reduce((sum: number, rt: any) => sum + (rt.totalBeds - rt.availableBeds), 0) || 0
+        })) || [],
+        salesPerformance: salesExecsRes?.map((exec: any) => ({
+          name: exec.name?.split(' ')[0] || 'Exec',
+          leads: exec.totalLeads || 0,
+          closed: exec.closedDeals || 0
+        })) || []
+      });
+    } catch (error) {
+      console.error("Failed to load chart data:", error);
+    } finally {
+      setChartsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === "leads") {
@@ -554,6 +597,37 @@ export default function AdminDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+                
+                {/* Animated Charts Section */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="mt-6"
+                >
+                  <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-indigo-500" />
+                    Analytics Overview
+                  </h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <LeadsTrendChart 
+                      data={chartData.leadsTrend} 
+                      loading={chartsLoading}
+                    />
+                    <LeadSourcePieChart 
+                      data={chartData.leadSources} 
+                      loading={chartsLoading}
+                    />
+                    <PropertyBookingsChart 
+                      data={chartData.propertyBookings} 
+                      loading={chartsLoading}
+                    />
+                    <SalesPerformanceChart 
+                      data={chartData.salesPerformance} 
+                      loading={chartsLoading}
+                    />
+                  </div>
+                </motion.div>
               </>
             )}
 

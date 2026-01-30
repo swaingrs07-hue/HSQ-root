@@ -1,0 +1,51 @@
+Implement animated charts and Apple-level micro-interactions across the Admin CRM dashboard without breaking existing logic.
+
+DO THE FOLLOWING:
+
+1. Libraries:
+   - Install and configure Recharts for data visualization.
+   - Install and configure Framer Motion for animations and micro-interactions.
+   - Ensure libraries are loaded once and reused globally.
+
+2. Animated Charts (Recharts):
+   - Add animated Line, Bar, and Pie charts for:
+     - Leads trend (time-based)
+     - Property-wise bookings
+     - Sales executive performance
+   - Enable smooth chart entry animations.
+   - Use rounded bars, smooth curves, and clean tooltips.
+   - Make all charts responsive.
+   - Handle empty or loading data with skeleton loaders (no blank charts).
+
+3. Apple-Level Micro-Interactions:
+   - Add subtle hover lift and scale to cards (spring-based motion).
+   - Add tap feedback on buttons (scale-down on click).
+   - Add smooth page transition animations between routes.
+   - Add animated number counters for KPI cards.
+   - Add skeleton loaders during API fetches.
+   - Add toast notifications for success and error actions.
+
+4. UI Polish Rules:
+   - Use soft shadows and rounded corners (12–16px).
+   - Avoid harsh animations or sudden state changes.
+   - Apply easing and duration consistent with Apple Human Interface Guidelines.
+   - Maintain 60fps smoothness.
+
+5. Error & State Handling:
+   - Prevent blank screens if chart data is missing or API fails.
+   - Show graceful fallback UI instead of crashes.
+   - Log errors safely without breaking UI.
+
+6. Performance:
+   - Lazy-load heavy chart components.
+   - Optimize re-renders.
+   - Ensure charts do not re-animate unnecessarily on state change.
+
+FINAL RESULT:
+- Dashboard feels premium and high-graphic
+- Charts animate smoothly on load
+- UI responds naturally to every interaction
+- No blank pages, no UI flicker
+- Production-ready implementation
+
+Apply changes cleanly and verify full dashboard experience.
