@@ -518,7 +518,7 @@ export default function RequestsBoard() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm rounded-t-xl ${isMobile ? 'hidden' : ''}`}
+        className={`bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm rounded-t-xl relative z-30 ${isMobile ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -532,7 +532,7 @@ export default function RequestsBoard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
+            <div className="relative z-40">
               <Wand2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-500" />
               <Input
                 ref={searchInputRef}
