@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,11 +42,14 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Sparkles,
+  Wand2,
+  Zap,
 } from "lucide-react";
 import { KanbanBoard, mapStageToLeadStatus, type KanbanStage } from "@/components/kanban-board";
 import type { Lead } from "@shared/schema";
 import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { parseNaturalLanguageQuery, getSearchSuggestions, describeFilters, type ParsedSearchFilters } from "@/lib/nlp-search";
 
 interface Property {
   id: string;
@@ -94,6 +97,12 @@ export default function RequestsBoard() {
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  
+  const [nlpQuery, setNlpQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [nlpFilters, setNlpFilters] = useState<ParsedSearchFilters | null>(null);
+  const [nlpMode, setNlpMode] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   const [filters, setFilters] = useState<FilterState>(() => {
     try {
@@ -356,8 +365,95 @@ export default function RequestsBoard() {
     return count;
   }, [filters]);
 
+  const handleNlpSearch = useCallback((query: string) => {
+    if (!query.trim()) {
+      setNlpFilters(null);
+      setNlpMode(false);
+      return;
+    }
+    const parsed = parseNaturalLanguageQuery(query);
+    setNlpFilters(parsed);
+    setNlpMode(true);
+    setShowSuggestions(false);
+    toast({
+      title: "Smart Search Applied",
+      description: describeFilters(parsed) || "Searching...",
+    });
+  }, [toast]);
+
+  const clearNlpSearch = useCallback(() => {
+    setNlpQuery("");
+    setNlpFilters(null);
+    setNlpMode(false);
+  }, []);
+
+  const suggestions = useMemo(() => getSearchSuggestions(nlpQuery), [nlpQuery]);
+
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
+      if (nlpMode && nlpFilters) {
+        if (nlpFilters.searchTerm) {
+          const term = nlpFilters.searchTerm.toLowerCase();
+          const matchesText = 
+            lead.name.toLowerCase().includes(term) ||
+            lead.phone?.toLowerCase().includes(term) ||
+            lead.email?.toLowerCase().includes(term) ||
+            lead.propertyName?.toLowerCase().includes(term) ||
+            lead.notes?.toLowerCase().includes(term);
+          if (!matchesText) return false;
+        }
+        
+        if (nlpFilters.status?.length) {
+          if (!nlpFilters.status.includes(lead.status)) return false;
+        }
+        
+        if (nlpFilters.priority?.length) {
+          if (!lead.priority || !nlpFilters.priority.includes(lead.priority)) return false;
+        }
+        
+        if (nlpFilters.dateRange) {
+          const leadDate = lead.createdAt ? new Date(lead.createdAt) : null;
+          if (leadDate) {
+            if (leadDate < nlpFilters.dateRange.from || leadDate > nlpFilters.dateRange.to) return false;
+          }
+        }
+        
+        if (nlpFilters.budgetMin !== undefined) {
+          const budget = lead.budgetMax || lead.budgetMin || 0;
+          if (budget < nlpFilters.budgetMin) return false;
+        }
+        
+        if (nlpFilters.budgetMax !== undefined) {
+          const budget = lead.budgetMax || lead.budgetMin || 0;
+          if (budget > nlpFilters.budgetMax) return false;
+        }
+        
+        if (nlpFilters.source?.length) {
+          if (!lead.source || !nlpFilters.source.includes(lead.source)) return false;
+        }
+        
+        if (nlpFilters.assigned === true && !lead.assignedToId) return false;
+        if (nlpFilters.assigned === false && lead.assignedToId) return false;
+        
+        if (nlpFilters.salesExecName) {
+          const execName = nlpFilters.salesExecName.toLowerCase();
+          const matchingExec = salesExecs.find(e => e.name.toLowerCase().includes(execName));
+          if (!matchingExec || lead.assignedToId !== matchingExec.id) return false;
+        }
+        
+        if (nlpFilters.propertyName) {
+          const propName = nlpFilters.propertyName.toLowerCase();
+          if (!lead.propertyName?.toLowerCase().includes(propName)) return false;
+        }
+        
+        const matchesProperty =
+          filters.propertyId === "all" || lead.propertyId === filters.propertyId;
+        const matchesSales =
+          filters.salesExecId === "all" || lead.assignedToId === filters.salesExecId;
+        
+        return matchesProperty && matchesSales;
+      }
+      
       const matchesSearch =
         !debouncedSearch ||
         lead.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -392,7 +488,7 @@ export default function RequestsBoard() {
 
       return matchesSearch && matchesProperty && matchesSales && matchesDate && matchesDealValue;
     });
-  }, [leads, debouncedSearch, filters]);
+  }, [leads, debouncedSearch, filters, nlpMode, nlpFilters, salesExecs]);
 
   const dateRangePresets = [
     { label: "Today", days: 0 },
@@ -421,23 +517,101 @@ export default function RequestsBoard() {
 
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Wand2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-500" />
               <Input
-                placeholder="Search requests..."
-                value={filters.searchTerm}
-                onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-                className="pl-9 w-72 bg-white/80 border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20"
-                data-testid="input-search-requests"
+                ref={searchInputRef}
+                placeholder="Try: hot leads from last week..."
+                value={nlpQuery}
+                onChange={(e) => {
+                  setNlpQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleNlpSearch(nlpQuery);
+                  }
+                  if (e.key === "Escape") {
+                    setShowSuggestions(false);
+                  }
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className={`pl-9 pr-20 w-80 bg-white/80 border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-purple-500/20 ${
+                  nlpMode ? "border-purple-300 bg-purple-50/50" : ""
+                }`}
+                data-testid="input-nlp-search"
               />
-              {filters.searchTerm && (
-                <button
-                  onClick={() => setFilters({ ...filters, searchTerm: "" })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {nlpQuery && (
+                  <button
+                    onClick={clearNlpSearch}
+                    className="p-1 rounded-full hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600" />
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleNlpSearch(nlpQuery)}
+                  className="h-7 px-2 text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 rounded-lg"
+                  data-testid="button-smart-search"
                 >
-                  <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-                </button>
-              )}
+                  <Zap className="h-3 w-3 mr-1" />
+                  AI
+                </Button>
+              </div>
+
+              <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50"
+                  >
+                    <div className="p-2 border-b border-slate-100">
+                      <p className="text-xs text-slate-500 font-medium px-2">Try searching for...</p>
+                    </div>
+                    {suggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onMouseDown={() => {
+                          setNlpQuery(suggestion);
+                          handleNlpSearch(suggestion);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-purple-50 flex items-center gap-2 transition-colors"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                        <span className="text-slate-700">{suggestion}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+
+            {nlpMode && nlpFilters && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2"
+              >
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1 rounded-lg flex items-center gap-1.5">
+                  <Wand2 className="h-3 w-3" />
+                  Smart Filter
+                </Badge>
+                <span className="text-xs text-slate-500 max-w-48 truncate" title={describeFilters(nlpFilters)}>
+                  {describeFilters(nlpFilters)}
+                </span>
+                <button
+                  onClick={clearNlpSearch}
+                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600" />
+                </button>
+              </motion.div>
+            )}
 
             <Button
               variant="outline"
@@ -451,9 +625,9 @@ export default function RequestsBoard() {
             >
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               Filters
-              {activeFilterCount > 0 && (
+              {(activeFilterCount > 0 || nlpMode) && (
                 <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[10px]">
-                  {activeFilterCount}
+                  {nlpMode ? "AI" : activeFilterCount}
                 </Badge>
               )}
             </Button>
