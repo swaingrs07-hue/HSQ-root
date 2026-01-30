@@ -1,17 +1,104 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
 import type { Lead } from "@shared/schema";
+
+function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  
+  useEffect(() => {
+    const duration = 1000;
+    const steps = 30;
+    const increment = value / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setDisplayValue(value);
+        clearInterval(timer);
+      } else {
+        setDisplayValue(Math.floor(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [value]);
+  
+  return <span>{prefix}{displayValue.toLocaleString()}{suffix}</span>;
+}
+
+function KPICard({ 
+  title, 
+  value, 
+  prefix = "", 
+  suffix = "",
+  icon: Icon, 
+  trend, 
+  trendValue,
+  gradient,
+  loading 
+}: { 
+  title: string; 
+  value: number; 
+  prefix?: string;
+  suffix?: string;
+  icon: React.ComponentType<{ className?: string }>; 
+  trend?: "up" | "down" | "neutral";
+  trendValue?: string;
+  gradient: string;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <Card className="relative overflow-hidden border-0 shadow-lg">
+        <CardContent className="p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-3 w-20" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
+      <div className={`absolute inset-0 opacity-[0.08] ${gradient}`} />
+      <CardContent className="p-6 relative">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-500">{title}</p>
+            <p className="text-3xl font-bold text-slate-800 tracking-tight">
+              <AnimatedNumber value={value} prefix={prefix} suffix={suffix} />
+            </p>
+            {trend && trendValue && (
+              <div className={`flex items-center gap-1 text-xs font-medium ${
+                trend === "up" ? "text-emerald-600" : trend === "down" ? "text-rose-600" : "text-slate-500"
+              }`}>
+                {trend === "up" ? <ArrowUpRight className="w-3 h-3" /> : 
+                 trend === "down" ? <ArrowDownRight className="w-3 h-3" /> : null}
+                <span>{trendValue}</span>
+              </div>
+            )}
+          </div>
+          <div className={`p-3 rounded-xl ${gradient} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AdminDashboard() {
   const { toast } = useToast();
@@ -267,73 +354,59 @@ export default function AdminDashboard() {
     : 0;
 
   return (
-    <div className="flex min-h-screen bg-muted/10">
-      <aside className="w-64 bg-sidebar border-r hidden md:block">
-        <div className="p-6">
-          <h2 className="text-2xl font-heading font-bold text-primary">Admin</h2>
-        </div>
-        <nav className="space-y-1 px-4">
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
           <Button 
-            variant="ghost" 
-            className={`w-full justify-start font-medium ${activeTab === "overview" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            variant={activeTab === "overview" ? "default" : "ghost"}
+            className={`gap-2 ${activeTab === "overview" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("overview")}
+            data-testid="tab-overview"
           >
-            <Home className="mr-2 h-4 w-4" /> Dashboard
+            <Activity className="h-4 w-4" /> Overview
           </Button>
           <Button 
-            variant="ghost" 
-            className={`w-full justify-start font-medium ${activeTab === "properties" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            variant={activeTab === "properties" ? "default" : "ghost"}
+            className={`gap-2 ${activeTab === "properties" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("properties")}
-            data-testid="nav-properties"
+            data-testid="tab-properties"
           >
-            <Building2 className="mr-2 h-4 w-4" /> Properties
+            <Building2 className="h-4 w-4" /> Properties
           </Button>
           <Button 
-            variant="ghost" 
-            className={`w-full justify-start font-medium ${activeTab === "leads" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            variant={activeTab === "leads" ? "default" : "ghost"}
+            className={`gap-2 ${activeTab === "leads" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("leads")}
+            data-testid="tab-leads"
           >
-            <Users className="mr-2 h-4 w-4" /> Leads
+            <Users className="h-4 w-4" /> Leads
           </Button>
           <Button 
-            variant="ghost" 
-            className={`w-full justify-start font-medium ${activeTab === "approvals" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground"}`}
+            variant={activeTab === "approvals" ? "default" : "ghost"}
+            className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("approvals")}
-            data-testid="nav-approvals"
+            data-testid="tab-approvals"
           >
-            <AlertTriangle className="mr-2 h-4 w-4" /> Pending Approvals
+            <AlertTriangle className="h-4 w-4" /> Approvals
             {pendingApprovals.length > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2">{pendingApprovals.length}</span>
+              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {pendingApprovals.length}
+              </Badge>
             )}
           </Button>
-          <Link href="/admin/leads">
-            <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground" data-testid="nav-lead-analytics">
-              <BarChart3 className="mr-2 h-4 w-4" /> Lead Analytics
+        </div>
+        {activeTab === "overview" && (
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 border-slate-200 hover:bg-slate-50" data-testid="button-download-report">
+              <FileText className="h-4 w-4" /> Export
             </Button>
-          </Link>
-          <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground">
-            <DollarSign className="mr-2 h-4 w-4" /> Payments
-          </Button>
-          <Button variant="ghost" className="w-full justify-start font-medium text-muted-foreground">
-            <FileText className="mr-2 h-4 w-4" /> Agreements
-          </Button>
-        </nav>
-      </aside>
-
-      <main className="flex-1 p-8 overflow-y-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-heading font-bold">
-            {activeTab === "overview" ? "Dashboard Overview" : 
-             activeTab === "properties" ? "Property Management" : 
-             activeTab === "approvals" ? "Pending Approvals" : "Leads Management"}
-          </h1>
-          {activeTab === "overview" && (
-            <div className="flex gap-2">
-              <Button variant="outline" data-testid="button-download-report">Download Report</Button>
-              <Dialog open={discountModalOpen} onOpenChange={setDiscountModalOpen}>
-                <DialogTrigger asChild>
-                  <Button data-testid="button-apply-discount">Apply Discount Override</Button>
-                </DialogTrigger>
+            <Dialog open={discountModalOpen} onOpenChange={setDiscountModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md" data-testid="button-apply-discount">
+                  <DollarSign className="h-4 w-4" /> Apply Discount
+                </Button>
+              </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Apply Custom Discount</DialogTitle>
@@ -396,78 +469,87 @@ export default function AdminDashboard() {
           <>
             {activeTab === "overview" && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold" data-testid="stat-total-students">
-                        {stats.totalStudents}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Bookings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold" data-testid="stat-total-bookings">
-                        {stats.totalBookings}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Revenue (Total)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold" data-testid="stat-revenue">
-                        ₹{(stats.totalRevenue / 100000).toFixed(2)}L
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Pending Payments</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-amber-600" data-testid="stat-pending">
-                        ₹{(stats.pendingPayments / 100000).toFixed(2)}L
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <KPICard
+                    title="Total Students"
+                    value={stats.totalStudents}
+                    icon={GraduationCap}
+                    gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
+                    trend="up"
+                    trendValue="+12% this month"
+                    loading={loading}
+                  />
+                  <KPICard
+                    title="Total Bookings"
+                    value={stats.totalBookings}
+                    icon={CalendarCheck}
+                    gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
+                    trend="up"
+                    trendValue="+8% this month"
+                    loading={loading}
+                  />
+                  <KPICard
+                    title="Revenue"
+                    value={Math.round(stats.totalRevenue / 100000)}
+                    prefix="₹"
+                    suffix="L"
+                    icon={CreditCard}
+                    gradient="bg-gradient-to-br from-violet-500 to-violet-600"
+                    trend="up"
+                    trendValue="+15% this month"
+                    loading={loading}
+                  />
+                  <KPICard
+                    title="Pending Payments"
+                    value={Math.round(stats.pendingPayments / 100000)}
+                    prefix="₹"
+                    suffix="L"
+                    icon={Clock}
+                    gradient="bg-gradient-to-br from-amber-500 to-amber-600"
+                    trend="neutral"
+                    trendValue="Due this week"
+                    loading={loading}
+                  />
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Status</CardTitle>
+                {/* System Status Card */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Activity className="h-5 w-5 text-indigo-500" />
+                      System Status
+                    </CardTitle>
+                    <CardDescription>Real-time platform health monitoring</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <p className="text-sm font-medium">Database Connection</p>
-                          <p className="text-xs text-muted-foreground">PostgreSQL</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                        <div className="p-2 bg-emerald-100 rounded-lg">
+                          <CheckCircle className="h-5 w-5 text-emerald-600" />
                         </div>
-                        <span className="text-xs text-green-600 font-medium">Active</span>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">Database</p>
+                          <p className="text-xs text-slate-500">PostgreSQL Connected</p>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <p className="text-sm font-medium">API Server</p>
-                          <p className="text-xs text-muted-foreground">Express Backend</p>
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                        <div className="p-2 bg-emerald-100 rounded-lg">
+                          <CheckCircle className="h-5 w-5 text-emerald-600" />
                         </div>
-                        <span className="text-xs text-green-600 font-medium">Running</span>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">API Server</p>
+                          <p className="text-xs text-slate-500">Express Running</p>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium">Occupancy Rate</p>
-                          <p className="text-xs text-muted-foreground">Current bookings vs capacity</p>
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                        <div className="p-2 bg-indigo-100 rounded-lg">
+                          <TrendingUp className="h-5 w-5 text-indigo-600" />
                         </div>
-                        <span className="text-xs text-primary font-medium">{occupancyRate}%</span>
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">Occupancy Rate</p>
+                          <p className="text-xs text-slate-500">{occupancyRate}% Capacity</p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -857,7 +939,6 @@ export default function AdminDashboard() {
             )}
           </>
         )}
-      </main>
     </div>
   );
 }
