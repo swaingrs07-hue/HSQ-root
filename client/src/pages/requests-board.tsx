@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { KanbanBoard, mapStageToLeadStatus, mapLeadStatusToStage, type KanbanStage } from "@/components/kanban-board";
 import { MobileKanban } from "@/components/kanban-mobile";
+import { EditLeadModal } from "@/components/edit-lead-modal";
 import type { Lead } from "@shared/schema";
 import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -112,6 +113,8 @@ export default function RequestsBoard() {
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   
   const [nlpQuery, setNlpQuery] = useState("");
@@ -846,6 +849,10 @@ export default function RequestsBoard() {
             error={error || undefined}
             onStageChange={handleStageChange}
             onDelete={handleDelete}
+            onEdit={(lead) => {
+              setSelectedLead(lead);
+              setEditModalOpen(true);
+            }}
           />
         </div>
       )}
@@ -1005,6 +1012,18 @@ export default function RequestsBoard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditLeadModal
+        lead={selectedLead}
+        open={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedLead(null);
+        }}
+        onSave={() => {
+          loadLeads();
+        }}
+      />
     </div>
   );
 }

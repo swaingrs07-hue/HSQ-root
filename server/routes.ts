@@ -753,7 +753,7 @@ export async function registerRoutes(
       
       // Sales executives only see their assigned leads
       if (payload.role === "sales_executive") {
-        const filteredLeads = overdueLeads.filter(lead => lead.assignedToId === payload.id);
+        const filteredLeads = overdueLeads.filter(lead => lead.assignedToId === payload.userId);
         return res.json(filteredLeads);
       }
       
@@ -777,7 +777,7 @@ export async function registerRoutes(
       
       // Sales executives only see their assigned leads
       if (payload.role === "sales_executive") {
-        const filteredLeads = upcomingLeads.filter(lead => lead.assignedToId === payload.id);
+        const filteredLeads = upcomingLeads.filter(lead => lead.assignedToId === payload.userId);
         return res.json(filteredLeads);
       }
       
@@ -800,13 +800,13 @@ export async function registerRoutes(
       const leadId = req.params.id;
 
       // Get the lead to check permissions
-      const lead = await storage.getLead(leadId);
+      const lead = await storage.getLead(leadId as string);
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
       }
 
       // Sales executives can only update their own assigned leads
-      if (payload.role === "sales_executive" && lead.assignedToId !== payload.id) {
+      if (payload.role === "sales_executive" && lead.assignedToId !== payload.userId) {
         return res.status(403).json({ error: "You can only update leads assigned to you" });
       }
 
@@ -815,12 +815,12 @@ export async function registerRoutes(
       if (followUpStatus !== undefined) updateData.followUpStatus = followUpStatus;
       if (followUpNotes !== undefined) updateData.followUpNotes = followUpNotes;
 
-      const updatedLead = await storage.updateLead(leadId, updateData);
+      const updatedLead = await storage.updateLead(leadId as string, updateData);
 
       // Log activity
       await storage.createLeadActivity({
-        leadId,
-        actorId: payload.id,
+        leadId: leadId as string,
+        actorId: payload.userId,
         actionType: "follow_up_updated",
         previousValue: JSON.stringify({ 
           followUpAt: lead.followUpAt, 
