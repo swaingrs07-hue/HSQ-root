@@ -514,11 +514,11 @@ export default function RequestsBoard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm ${isMobile ? 'hidden' : ''}`}
+        className={`bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm rounded-t-xl ${isMobile ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
