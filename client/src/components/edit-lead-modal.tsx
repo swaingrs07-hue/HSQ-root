@@ -45,6 +45,10 @@ import {
   AlertCircle,
   X,
   MessageSquare,
+  UserCheck,
+  Zap,
+  ShieldCheck,
+  UserX,
 } from "lucide-react";
 import { format, addHours, addDays, setHours, setMinutes } from "date-fns";
 import type { Lead } from "@shared/schema";
@@ -375,6 +379,57 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
                   rows={3}
                   data-testid="input-edit-lead-notes"
                 />
+              </div>
+
+              {/* Assignment Info Section */}
+              <div className="p-4 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-xl border space-y-3">
+                <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" />
+                  Assignment Info
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-500">Assigned To</p>
+                    <p className="font-medium">
+                      {lead?.assignedToId ? (lead as any)?.assignedToName || "Sales Executive" : "Unassigned"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Assignment Type</p>
+                    <div className="mt-0.5">
+                      {lead?.assignmentType === "property_auto" && (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                          <Zap className="w-3 h-3 mr-1" />
+                          Auto (Property)
+                        </Badge>
+                      )}
+                      {lead?.assignmentType === "admin_manual" && (
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                          <ShieldCheck className="w-3 h-3 mr-1" />
+                          Manual (Admin)
+                        </Badge>
+                      )}
+                      {lead?.assignmentType === "unassigned" && (
+                        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">
+                          <UserX className="w-3 h-3 mr-1" />
+                          Unassigned
+                        </Badge>
+                      )}
+                      {!lead?.assignmentType && lead?.assignedToId && (
+                        <Badge variant="outline">Legacy Assignment</Badge>
+                      )}
+                      {!lead?.assignmentType && !lead?.assignedToId && (
+                        <Badge variant="secondary">Not Assigned</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {lead?.assignedAt && (
+                    <div className="col-span-2">
+                      <p className="text-slate-500">Assigned On</p>
+                      <p className="font-medium">{format(new Date(lead.assignedAt), "MMM d, yyyy 'at' h:mm a")}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
