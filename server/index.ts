@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -102,6 +103,86 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      
+      // Start background job for overdue follow-up notifications
+      startFollowUpNotificationJob();
     },
   );
 })();
+
+// Background job for checking overdue follow-ups and sending notifications
+async function startFollowUpNotificationJob() {
+  const CHECK_INTERVAL_MS = 30 * 60 * 1000; // Check every 30 minutes
+  
+  async function checkOverdueFollowUps() {
+    try {
+      log("Checking for overdue follow-ups...", "background");
+      
+      // Get all overdue follow-ups (across all sales execs)
+      const overdueLeads = await storage.getOverdueFollowUps();
+      
+      if (overdueLeads.length > 0) {
+        log(`Found ${overdueLeads.length} leads with overdue follow-ups`, "background");
+        
+        // Group leads by assigned exec
+        const leadsByExec = new Map<string, typeof overdueLeads>();
+        for (const lead of overdueLeads) {
+          if (lead.assignedToId) {
+            const execId = lead.assignedToId;
+            if (!leadsByExec.has(execId)) {
+              leadsByExec.set(execId, []);
+            }
+            leadsByExec.get(execId)!.push(lead);
+          }
+        }
+        
+        // Create notifications for each exec with overdue leads
+        for (const [execId, leads] of Array.from(leadsByExec.entries())) {
+          await storage.createNotification({
+            userId: execId,
+            type: "warning",
+            title: `${leads.length} overdue follow-ups need attention`,
+            message: `You have ${leads.length} leads with overdue follow-ups. Please review and take action.`
+          });
+          log(`Created overdue notification for exec ${execId} (${leads.length} leads)`, "background");
+        }
+      }
+      
+      // Also check upcoming follow-ups (within 1 hour) to send reminder notifications
+      const upcomingLeads = await storage.getUpcomingFollowUps(1);
+      if (upcomingLeads.length > 0) {
+        log(`Found ${upcomingLeads.length} leads with follow-ups in the next hour`, "background");
+        
+        // Group by exec to send one notification per exec
+        const upcomingByExec = new Map<string, typeof upcomingLeads>();
+        for (const lead of upcomingLeads) {
+          if (lead.assignedToId) {
+            if (!upcomingByExec.has(lead.assignedToId)) {
+              upcomingByExec.set(lead.assignedToId, []);
+            }
+            upcomingByExec.get(lead.assignedToId)!.push(lead);
+          }
+        }
+        
+        for (const [execId, leads] of Array.from(upcomingByExec.entries())) {
+          await storage.createNotification({
+            userId: execId,
+            type: "follow_up",
+            title: `${leads.length} follow-ups scheduled soon`,
+            message: `You have ${leads.length} follow-ups scheduled within the next hour.`
+          });
+          log(`Created follow-up reminder for exec ${execId}`, "background");
+        }
+      }
+    } catch (error) {
+      log(`Error in follow-up notification job: ${error}`, "background");
+    }
+  }
+  
+  // Run immediately on startup
+  await checkOverdueFollowUps();
+  
+  // Then run every CHECK_INTERVAL_MS
+  setInterval(checkOverdueFollowUps, CHECK_INTERVAL_MS);
+  log(`Follow-up notification job started (runs every 30 minutes)`, "background");
+}
