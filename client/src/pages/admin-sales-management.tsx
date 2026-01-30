@@ -316,7 +316,12 @@ function AdminSalesManagementContent() {
   const assignProperties = async () => {
     if (!selectedExec) return;
     try {
-      for (const propertyId of selectedPropertyIds) {
+      const currentlyAssigned = selectedExec.assignedProperties?.map((p: any) => p.id) || [];
+      const toAdd = selectedPropertyIds.filter((id: string) => !currentlyAssigned.includes(id));
+      const toRemove = currentlyAssigned.filter((id: string) => !selectedPropertyIds.includes(id));
+      
+      // Add new assignments
+      for (const propertyId of toAdd) {
         await fetch("/api/admin/property-assignments", {
           method: "POST",
           headers: {
@@ -326,12 +331,25 @@ function AdminSalesManagementContent() {
           body: JSON.stringify({ userId: selectedExec.id, propertyId })
         });
       }
-      toast({ title: "Success", description: "Properties assigned successfully" });
+      
+      // Remove deselected assignments
+      for (const propertyId of toRemove) {
+        await fetch(`/api/admin/property-assignments/${selectedExec.id}/${propertyId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+      }
+      
+      const changes = [];
+      if (toAdd.length > 0) changes.push(`${toAdd.length} added`);
+      if (toRemove.length > 0) changes.push(`${toRemove.length} removed`);
+      
+      toast({ title: "Success", description: changes.length > 0 ? `Properties updated: ${changes.join(", ")}` : "No changes made" });
       setAssignPropertyDialogOpen(false);
       setSelectedPropertyIds([]);
       loadSalesExecs();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to assign properties", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update properties", variant: "destructive" });
     }
   };
 
@@ -629,7 +647,8 @@ function AdminSalesManagementContent() {
                             size="sm"
                             onClick={() => {
                               setSelectedExec(exec);
-                              setSelectedPropertyIds([]);
+                              // Pre-populate with currently assigned properties
+                              setSelectedPropertyIds(exec.assignedProperties?.map((p: any) => p.id) || []);
                               setAssignPropertyDialogOpen(true);
                             }}
                             data-testid={`button-assign-properties-${exec.id}`}
@@ -862,13 +881,13 @@ function AdminSalesManagementContent() {
               </div>
             ) : (
               properties.filter(p => p.active).map((property) => {
-                const isAssigned = selectedExec?.assignedProperties?.some(ap => ap.id === property.id) ?? false;
+                const isCurrentlyAssigned = selectedExec?.assignedProperties?.some(ap => ap.id === property.id) ?? false;
+                const isSelected = selectedPropertyIds.includes(property.id);
                 return (
                   <div key={property.id} className="flex items-center space-x-3 py-3 px-2 rounded-lg hover:bg-slate-50 transition-colors">
                     <Checkbox
                       id={property.id}
-                      disabled={isAssigned}
-                      checked={isAssigned || selectedPropertyIds.includes(property.id)}
+                      checked={isSelected}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           setSelectedPropertyIds([...selectedPropertyIds, property.id]);
@@ -882,7 +901,7 @@ function AdminSalesManagementContent() {
                       <div className="font-medium">{property.name}</div>
                       <div className="text-sm text-muted-foreground">{property.location || property.city || property.address}</div>
                     </Label>
-                    {isAssigned && <Badge variant="secondary" className="shrink-0">Already Assigned</Badge>}
+                    {isCurrentlyAssigned && <Badge variant="outline" className="shrink-0 text-green-600 border-green-200">Assigned</Badge>}
                   </div>
                 );
               })
@@ -892,11 +911,10 @@ function AdminSalesManagementContent() {
             <Button variant="outline" onClick={() => setAssignPropertyDialogOpen(false)} data-testid="button-cancel-assign-properties">Cancel</Button>
             <Button 
               onClick={assignProperties} 
-              disabled={selectedPropertyIds.length === 0}
               className="bg-pink-500 hover:bg-pink-600"
               data-testid="button-confirm-assign-properties"
             >
-              Assign Selected {selectedPropertyIds.length > 0 && `(${selectedPropertyIds.length})`}
+              Save Changes {selectedPropertyIds.length > 0 && `(${selectedPropertyIds.length} selected)`}
             </Button>
           </DialogFooter>
         </DialogContent>
