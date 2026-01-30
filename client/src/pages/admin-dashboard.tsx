@@ -146,6 +146,9 @@ export default function AdminDashboard() {
     propertyBookings?: string;
     salesPerformance?: string;
   }>({});
+  
+  const [overdueFollowUps, setOverdueFollowUps] = useState<Lead[]>([]);
+  const [overdueLoading, setOverdueLoading] = useState(false);
 
   const getAuthToken = () => {
     try {
@@ -163,7 +166,28 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadStats();
     loadChartData();
+    loadOverdueFollowUps();
   }, []);
+  
+  const loadOverdueFollowUps = async () => {
+    try {
+      setOverdueLoading(true);
+      const token = getAuthToken();
+      if (!token) return;
+      
+      const res = await fetch("/api/leads/follow-ups/overdue", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOverdueFollowUps(data);
+      }
+    } catch (error) {
+      console.error("Failed to load overdue follow-ups:", error);
+    } finally {
+      setOverdueLoading(false);
+    }
+  };
   
   const loadChartData = async () => {
     setChartsLoading(true);
@@ -650,6 +674,69 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Overdue Follow-Ups Card */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Clock className="h-5 w-5 text-orange-500" />
+                      Overdue Follow-Ups
+                      {overdueFollowUps.length > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {overdueFollowUps.length}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>Leads that need immediate attention</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {overdueLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    ) : overdueFollowUps.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                        <CheckCircle className="h-10 w-10 mb-2" />
+                        <p className="text-sm font-medium">All follow-ups are up to date!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {overdueFollowUps.slice(0, 5).map((lead) => (
+                          <div
+                            key={lead.id}
+                            className="flex items-center justify-between p-3 bg-orange-50 rounded-xl border border-orange-100"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-orange-100 rounded-lg">
+                                <Phone className="h-4 w-4 text-orange-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-800">{lead.name}</p>
+                                <p className="text-xs text-slate-500">
+                                  Due: {formatDate(lead.followUpAt)}
+                                </p>
+                              </div>
+                            </div>
+                            <Link href={`/admin/requests`}>
+                              <Button size="sm" variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-100">
+                                View
+                              </Button>
+                            </Link>
+                          </div>
+                        ))}
+                        {overdueFollowUps.length > 5 && (
+                          <Link href="/admin/requests">
+                            <Button variant="ghost" className="w-full text-orange-600 hover:bg-orange-50">
+                              View all {overdueFollowUps.length} overdue follow-ups
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
                 

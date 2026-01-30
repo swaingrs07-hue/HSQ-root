@@ -445,7 +445,7 @@ export const leadRemarks = pgTable("lead_remarks", {
 });
 
 // Notifications
-export const notificationTypeEnum = pgEnum("notification_type", ["info", "success", "warning", "error", "lead", "booking", "payment"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["info", "success", "warning", "error", "lead", "booking", "payment", "follow_up"]);
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

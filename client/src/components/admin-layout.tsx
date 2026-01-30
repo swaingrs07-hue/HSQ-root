@@ -26,7 +26,8 @@ import {
   XCircle,
   UserPlus,
   CreditCard,
-  Calendar
+  Calendar,
+  Clock
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -54,7 +55,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error" | "lead" | "booking" | "payment";
+  type: "info" | "success" | "warning" | "error" | "lead" | "booking" | "payment" | "follow_up";
   isRead: boolean;
   actionUrl?: string;
   createdAt: string;
@@ -149,6 +150,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       case "lead": return <UserPlus className="w-4 h-4 text-indigo-500" />;
       case "booking": return <Calendar className="w-4 h-4 text-purple-500" />;
       case "payment": return <CreditCard className="w-4 h-4 text-emerald-500" />;
+      case "follow_up": return <Clock className="w-4 h-4 text-orange-500" />;
       default: return <Info className="w-4 h-4 text-blue-500" />;
     }
   };
