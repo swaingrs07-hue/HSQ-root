@@ -55,7 +55,7 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray, isNull, lt, gte, count } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -128,6 +128,12 @@ export interface IStorage {
   updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined>;
   getAllLeads(): Promise<Lead[]>;
   updateLeadActivity(id: string): Promise<Lead | undefined>;
+  
+  // Follow-up Management
+  getOverdueFollowUps(): Promise<Lead[]>;
+  getUpcomingFollowUps(hoursAhead?: number): Promise<Lead[]>;
+  updateFollowUpStatus(leadId: string, status: string, notes?: string): Promise<Lead | undefined>;
+  markOverdueFollowUps(): Promise<number>;
   
   // Analytics
   getStats(): Promise<{
@@ -675,6 +681,65 @@ export class DatabaseStorage implements IStorage {
       .where(eq(leads.id, id))
       .returning();
     return lead || undefined;
+  }
+
+  // Follow-up Management
+  async getOverdueFollowUps(): Promise<Lead[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(leads)
+      .where(
+        and(
+          lt(leads.followUpAt, now),
+          eq(leads.followUpStatus, "pending")
+        )
+      )
+      .orderBy(asc(leads.followUpAt));
+  }
+
+  async getUpcomingFollowUps(hoursAhead: number = 24): Promise<Lead[]> {
+    const now = new Date();
+    const future = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    return await db
+      .select()
+      .from(leads)
+      .where(
+        and(
+          gte(leads.followUpAt, now),
+          lte(leads.followUpAt, future),
+          eq(leads.followUpStatus, "pending")
+        )
+      )
+      .orderBy(asc(leads.followUpAt));
+  }
+
+  async updateFollowUpStatus(leadId: string, status: string, notes?: string): Promise<Lead | undefined> {
+    const updateData: Record<string, any> = { followUpStatus: status };
+    if (notes !== undefined) {
+      updateData.followUpNotes = notes;
+    }
+    const [lead] = await db
+      .update(leads)
+      .set(updateData)
+      .where(eq(leads.id, leadId))
+      .returning();
+    return lead || undefined;
+  }
+
+  async markOverdueFollowUps(): Promise<number> {
+    const now = new Date();
+    const result = await db
+      .update(leads)
+      .set({ followUpStatus: "overdue" })
+      .where(
+        and(
+          lt(leads.followUpAt, now),
+          eq(leads.followUpStatus, "pending")
+        )
+      )
+      .returning();
+    return result.length;
   }
 
   // Analytics
