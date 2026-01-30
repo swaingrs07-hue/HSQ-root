@@ -61,6 +61,69 @@ function calculateInstallments(baseFee: number, planId: string, customDiscount: 
   });
 }
 
+// Helper function for auto-assigning leads based on property mapping
+async function autoAssignLead(leadId: string, propertyId: string): Promise<{ assigned: boolean; salesExecId?: string; assignmentType: string }> {
+  if (!propertyId) {
+    return { assigned: false, assignmentType: "unassigned" };
+  }
+  
+  try {
+    // Get sales exec with least active leads for this property
+    const salesExec = await storage.getSalesExecWithLeastLeads(propertyId);
+    
+    if (!salesExec) {
+      // No sales exec mapped to this property
+      await storage.updateLead(leadId, {
+        assignmentType: "unassigned",
+      });
+      
+      // Notify admins about unassigned lead
+      const admins = await storage.getSalesExecutives();
+      for (const admin of admins.filter((u: any) => u.role === "admin")) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "Unassigned Lead - Action Required",
+          message: `A new lead requires assignment (no sales exec mapped to property).`,
+          type: "warning",
+          actionUrl: "/admin/sales-management",
+        });
+      }
+      
+      return { assigned: false, assignmentType: "unassigned" };
+    }
+    
+    // Assign to sales exec with load balancing
+    await storage.updateLead(leadId, {
+      assignedToId: salesExec.id,
+      assignedAt: new Date(),
+      assignmentType: "property_auto",
+    });
+    
+    // Notify sales exec
+    await storage.createNotification({
+      userId: salesExec.id,
+      title: "New Lead Assigned",
+      message: `A new lead has been auto-assigned to you based on property mapping.`,
+      type: "lead",
+      actionUrl: "/sales/requests",
+    });
+    
+    // Log activity
+    await storage.createLeadActivity({
+      leadId,
+      actorId: "system",
+      actionType: "lead_assigned",
+      newValue: JSON.stringify({ salesExecId: salesExec.id, type: "property_auto" }),
+      description: `Auto-assigned to ${salesExec.name} based on property mapping`,
+    });
+    
+    return { assigned: true, salesExecId: salesExec.id, assignmentType: "property_auto" };
+  } catch (error) {
+    console.error("Error auto-assigning lead:", error);
+    return { assigned: false, assignmentType: "unassigned" };
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -589,6 +652,11 @@ export async function registerRoutes(
           signedUp: true, // Lead created from property view = signed up
           viewCount: 1,
         });
+        
+        // Auto-assign lead to sales executive based on property mapping
+        if (lead && propertyId) {
+          await autoAssignLead(lead.id, propertyId);
+        }
       }
       
       res.json({ success: true, leadId: lead?.id, score: lead?.score, priority: lead?.priority });
@@ -2592,6 +2660,7 @@ export async function registerRoutes(
         isManualEntry: true,
         assignedToId: authReq.user!.userId,
         assignedAt: new Date(),
+        assignmentType: authReq.user!.role === "admin" ? "admin_manual" : "property_auto", // Sales exec creates = auto assignment, Admin creates = manual
         score: 5,
         priority: "cold",
       });
