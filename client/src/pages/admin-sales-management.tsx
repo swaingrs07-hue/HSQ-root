@@ -622,12 +622,12 @@ function AdminSalesManagementContent() {
       </Tabs>
 
       <Dialog open={assignPropertyDialogOpen} onOpenChange={setAssignPropertyDialogOpen}>
-        <DialogContent className="max-w-md flex flex-col max-h-[80vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <DialogTitle>Assign Properties to {selectedExec?.name}</DialogTitle>
             <DialogDescription>Select properties to assign to this sales executive</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-4 min-h-[200px]">
+          <div className="flex-1 overflow-y-auto px-6 min-h-0">
             {properties.filter(p => p.active).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <Building2 className="h-12 w-12 mb-2 opacity-50" />
@@ -661,7 +661,7 @@ function AdminSalesManagementContent() {
               })
             )}
           </div>
-          <DialogFooter className="border-t pt-4 sticky bottom-0 bg-white">
+          <DialogFooter className="border-t px-6 py-4 shrink-0 bg-white">
             <Button variant="outline" onClick={() => setAssignPropertyDialogOpen(false)} data-testid="button-cancel-assign-properties">Cancel</Button>
             <Button 
               onClick={assignProperties} 
