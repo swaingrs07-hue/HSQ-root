@@ -1836,14 +1836,24 @@ export async function registerRoutes(
     try {
       const salesExecs = await storage.getSalesExecutives();
       
-      // Get stats for each sales exec
-      const execsWithStats = await Promise.all(salesExecs.map(async (exec) => {
+      // Get stats and assigned properties for each sales exec
+      const execsWithData = await Promise.all(salesExecs.map(async (exec) => {
         const stats = await storage.getSalesExecStats(exec.id);
-        const assignments = await storage.getPropertyAssignments(exec.id);
-        return { ...exec, stats, propertyCount: assignments.length };
+        const assignedProperties = await storage.getAssignedPropertiesForUser(exec.id);
+        return { 
+          ...exec, 
+          // Flatten stats to top level for frontend compatibility
+          totalLeads: stats?.totalLeads || 0,
+          hotLeads: stats?.hotLeads || 0,
+          warmLeads: stats?.warmLeads || 0,
+          coldLeads: stats?.coldLeads || 0,
+          closedDeals: stats?.closedDeals || 0,
+          // Return assigned properties with id and name
+          assignedProperties: assignedProperties.map(p => ({ id: p.id, name: p.name }))
+        };
       }));
       
-      res.json(execsWithStats);
+      res.json(execsWithData);
     } catch (error) {
       console.error("Error fetching sales executives:", error);
       res.status(500).json({ error: "Failed to fetch sales executives" });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,8 +11,52 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Sales Management Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="container mx-auto py-8 px-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Something went wrong</AlertTitle>
+            <AlertDescription>
+              {this.state.error?.message || "An unexpected error occurred. Please refresh the page."}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button onClick={() => window.location.reload()}>Refresh Page</Button>
+            <Link href="/admin">
+              <Button variant="outline" className="ml-2">Back to Dashboard</Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface SalesExecutive {
   id: string;
@@ -51,14 +95,15 @@ interface Lead {
   createdAt: string;
 }
 
-export default function AdminSalesManagement() {
+function AdminSalesManagementContent() {
   const { toast } = useToast();
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState("executives");
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [assignPropertyDialogOpen, setAssignPropertyDialogOpen] = useState(false);
   const [assignLeadDialogOpen, setAssignLeadDialogOpen] = useState(false);
@@ -91,12 +136,17 @@ export default function AdminSalesManagement() {
   const loadSalesExecs = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch("/api/admin/sales-executives", {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
-      if (!response.ok) throw new Error("Failed to fetch sales executives");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch sales executives");
+      }
       const data = await response.json();
-      setSalesExecs(data);
+      console.log("Sales executives loaded:", data);
+      setSalesExecs(data || []);
     } catch (error) {
       toast({ title: "Error", description: "Failed to load sales executives", variant: "destructive" });
     } finally {
@@ -238,6 +288,55 @@ export default function AdminSalesManagement() {
       default: return <Badge className="bg-blue-500 text-white">Cold</Badge>;
     }
   };
+
+  if (loading && salesExecs.length === 0) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/admin">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Sales Team Management</h1>
+            <p className="text-muted-foreground">Loading sales data...</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/admin">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Sales Team Management</h1>
+          </div>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div className="mt-4">
+          <Button onClick={() => loadSalesExecs()}>Retry</Button>
+          <Link href="/admin">
+            <Button variant="outline" className="ml-2">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -403,7 +502,7 @@ export default function AdminSalesManagement() {
                         <TableCell>{exec.phone || "-"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {exec.assignedProperties.map((prop) => (
+                            {(exec.assignedProperties || []).map((prop) => (
                               <Badge key={prop.id} variant="outline" className="flex items-center gap-1">
                                 {prop.name}
                                 <button
@@ -415,17 +514,20 @@ export default function AdminSalesManagement() {
                                 </button>
                               </Badge>
                             ))}
+                            {(!exec.assignedProperties || exec.assignedProperties.length === 0) && (
+                              <span className="text-muted-foreground text-sm">No properties</span>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell>{exec.totalLeads}</TableCell>
+                        <TableCell>{exec.totalLeads ?? 0}</TableCell>
                         <TableCell>
-                          <span className="text-red-500 font-medium">{exec.hotLeads}</span>
+                          <span className="text-red-500 font-medium">{exec.hotLeads ?? 0}</span>
                           {" / "}
-                          <span className="text-orange-500 font-medium">{exec.warmLeads}</span>
+                          <span className="text-orange-500 font-medium">{exec.warmLeads ?? 0}</span>
                           {" / "}
-                          <span className="text-blue-500 font-medium">{exec.coldLeads}</span>
+                          <span className="text-blue-500 font-medium">{exec.coldLeads ?? 0}</span>
                         </TableCell>
-                        <TableCell className="text-green-600 font-medium">{exec.closedDeals}</TableCell>
+                        <TableCell className="text-green-600 font-medium">{exec.closedDeals ?? 0}</TableCell>
                         <TableCell>
                           <Badge variant={exec.isActive ? "default" : "secondary"}>
                             {exec.isActive ? "Active" : "Inactive"}
@@ -595,5 +697,13 @@ export default function AdminSalesManagement() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AdminSalesManagement() {
+  return (
+    <ErrorBoundary>
+      <AdminSalesManagementContent />
+    </ErrorBoundary>
   );
 }
