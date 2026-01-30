@@ -17,7 +17,8 @@ import {
   ChevronDown,
   TrendingUp,
   CalendarCheck,
-  Menu
+  Menu,
+  Kanban
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -43,6 +44,7 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
+  { name: "Requests", href: "/admin/requests", icon: Kanban },
   { name: "Sales Executives", href: "/admin/sales-management", icon: Users },
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
@@ -52,6 +54,7 @@ const adminNavItems: NavItem[] = [
 
 const salesNavItems: NavItem[] = [
   { name: "Dashboard", href: "/sales", icon: LayoutDashboard },
+  { name: "Requests", href: "/sales/requests", icon: Kanban },
   { name: "My Leads", href: "/sales", icon: Target },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },

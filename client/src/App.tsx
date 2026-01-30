@@ -21,13 +21,14 @@ import AddProperty from "@/pages/add-property";
 import AdminSalesManagement from "@/pages/admin-sales-management";
 import SalesDashboard from "@/pages/sales-dashboard";
 import BookingGeneration from "@/pages/booking-generation";
+import RequestsBoard from "@/pages/requests-board";
 
 function AppContent() {
   const [location] = useLocation();
   const { user, isAdmin } = useAuth();
   
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login";
-  const isAdminRoute = location.startsWith("/admin") || location === "/sales" || location === "/booking/generate";
+  const isAdminRoute = location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate";
   const isSalesExec = user?.role === "sales_executive";
   const useAdminLayout = (isAdmin || isSalesExec) && isAdminRoute;
 
@@ -46,7 +47,9 @@ function AppContent() {
               <Route path="/admin/lead-analytics" component={LeadAnalytics} />
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/admin/booking/generate" component={BookingGeneration} />
+              <Route path="/admin/requests" component={RequestsBoard} />
               <Route path="/sales" component={SalesDashboard} />
+              <Route path="/sales/requests" component={RequestsBoard} />
               <Route path="/booking/generate" component={BookingGeneration} />
               <Route path="/properties" component={PropertySelection} />
               <Route component={NotFound} />

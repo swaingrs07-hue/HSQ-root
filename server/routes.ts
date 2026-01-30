@@ -477,6 +477,28 @@ export async function registerRoutes(
     }
   });
 
+  // Update lead status only (for Kanban board drag-drop)
+  app.patch("/api/leads/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+      
+      const lead = await storage.updateLead(req.params.id as string, { 
+        status,
+        lastActivityAt: new Date()
+      });
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      res.status(500).json({ error: "Failed to update lead status" });
+    }
+  });
+
   // Track property view and update lead status to "interested" with auto-scoring
   app.post("/api/leads/track-property-view", async (req, res) => {
     try {

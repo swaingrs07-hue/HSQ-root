@@ -1,0 +1,72 @@
+Design and implement a modern Kanban-style CRM Requests Board similar to ColivHQ with a premium SaaS look and smooth UX.
+
+REQUIREMENTS:
+
+1. Layout & Structure:
+   - Use a left fixed sidebar with icons + labels:
+     Dashboard, Properties, Rooms, Members, Requests, Issues, Bills, Vendors, Reports, Settings
+   - Main content area should be a horizontal Kanban board.
+   - Each column represents a request stage:
+     Unqualified → Qualified → Viewing → Negotiating → Won
+   - Columns must be horizontally scrollable and responsive.
+
+2. Kanban Columns:
+   - Each column should show:
+     - Stage name
+     - Count of requests
+     - Total value (₹ / $)
+   - Sticky column headers.
+   - Clean card spacing with no clutter.
+
+3. Request Cards:
+   - Card design:
+     - Rounded corners
+     - Soft shadow
+     - Status color strip on top
+   - Card content:
+     - Customer name
+     - Property name
+     - Room type
+     - Date
+     - Location
+     - Monthly value
+     - Assigned sales avatar
+   - 3-dot menu for actions (view, edit, move, delete)
+
+4. Interactions (Premium Feel):
+   - Drag & drop cards between columns (smooth animation).
+   - Hover lift effect on cards.
+   - Subtle transition when card changes stage.
+   - Skeleton loaders while loading data.
+   - Empty-state UI if no cards exist.
+
+5. Top Actions:
+   - Search bar to filter requests.
+   - Refresh button.
+   - Filter button (property, sales executive, date).
+   - “+ Add Request” floating action button.
+
+6. Data Logic:
+   - Requests must be property-wise.
+   - Sales executives see ONLY assigned property requests.
+   - Admin can view all pipelines.
+   - Moving card updates status in backend instantly.
+
+7. Error Handling:
+   - No blank screen at any point.
+   - If API fails, show friendly error message.
+   - Always render fallback UI.
+
+8. Performance:
+   - Lazy-load request data.
+   - Optimize drag-and-drop re-rendering.
+   - Smooth 60fps interactions.
+
+FINAL RESULT:
+- UI looks and behaves like ColivHQ
+- Modern Kanban CRM pipeline
+- Property-wise & sales-wise data isolation
+- High-end SaaS visual quality
+- Production-ready implementation
+
+Implement clean, scalable, component-based code.
