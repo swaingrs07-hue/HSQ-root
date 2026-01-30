@@ -147,8 +147,8 @@ export default function AdminLeads() {
   });
 
   const { data: leadHistory = [] } = useQuery<LeadActivity[]>({
-    queryKey: ["/api/admin/leads", selectedLeadForHistory?.id, "history"],
-    enabled: !!selectedLeadForHistory,
+    queryKey: [`/api/admin/leads/${selectedLeadForHistory?.id}/history`],
+    enabled: !!selectedLeadForHistory?.id,
   });
 
   const assignMutation = useMutation({
