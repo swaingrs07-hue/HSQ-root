@@ -1,0 +1,53 @@
+Fix the layout, alignment, and spacing issues on the Requests (Kanban) page and make it visually balanced and fully responsive.
+
+DO THE FOLLOWING:
+
+1. Board Container:
+   - Wrap the entire Requests Board inside a centered max-width container.
+   - Apply consistent horizontal padding.
+   - Prevent content from sticking to screen edges.
+
+2. Kanban Columns Alignment:
+   - Use CSS Grid or Flexbox correctly to align columns evenly.
+   - Ensure all columns have equal width and height.
+   - Add consistent gap between columns.
+   - Prevent column overlap or uneven spacing.
+
+3. Column Headers:
+   - Align stage title, count badge, and value horizontally.
+   - Keep header height consistent across all columns.
+   - Make headers sticky inside each column.
+
+4. Cards Alignment:
+   - Center cards inside columns.
+   - Ensure card width does not exceed column width.
+   - Fix top spacing so first card aligns correctly under header.
+   - Add consistent vertical spacing between cards.
+
+5. Empty Column UI:
+   - Center empty-state icon and message vertically and horizontally.
+   - Ensure empty columns have the same height as filled columns.
+   - Avoid collapsed or stretched empty columns.
+
+6. Top Metrics Section:
+   - Align KPI cards in a single row with equal width.
+   - Maintain consistent spacing and vertical rhythm.
+   - Ensure responsiveness on smaller screens (wrap cleanly).
+
+7. Responsive Behavior:
+   - Enable horizontal scroll for Kanban columns on small screens.
+   - Prevent vertical scroll inside columns unless necessary.
+   - Ensure no content overflow or cutoff.
+
+8. Visual Polish:
+   - Standardize border-radius and shadows.
+   - Align background gradients consistently.
+   - Remove any extra margin or padding causing misalignment.
+
+9. Final Validation:
+   - All columns align perfectly side-by-side.
+   - Headers and cards line up cleanly.
+   - No uneven gaps or broken spacing.
+   - Layout looks polished on all screen sizes.
+
+Apply fixes cleanly without breaking drag-and-drop or existing logic.

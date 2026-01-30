@@ -254,9 +254,9 @@ const PipelineAnalytics = memo(function PipelineAnalytics({ leads, groupedLeads 
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100 px-6 py-4"
+      className="bg-white/95 backdrop-blur-xl border-b border-slate-100 px-4 sm:px-6 py-4"
     >
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -543,32 +543,33 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-[320px] flex flex-col h-full"
+      className="flex-shrink-0 w-[280px] min-w-[280px] flex flex-col"
+      style={{ minHeight: "500px" }}
       data-testid={`kanban-column-${column.id}`}
     >
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`sticky top-0 z-10 p-4 rounded-t-2xl border-b bg-gradient-to-r ${column.gradient} backdrop-blur-sm`}
+        className={`sticky top-0 z-10 p-4 rounded-t-2xl border border-b-0 bg-gradient-to-r ${column.gradient} ${column.borderColor}`}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div 
-              className="w-3 h-3 rounded-full shadow-sm"
+              className="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
               style={{ background: column.iconColor }}
             />
-            <h3 className={`font-semibold ${column.color}`}>{column.title}</h3>
+            <h3 className={`font-semibold text-sm ${column.color} truncate`}>{column.title}</h3>
             <Badge 
               variant="secondary" 
-              className="h-5 px-2 text-xs bg-white/60 backdrop-blur-sm font-medium"
+              className="h-5 px-2 text-xs bg-white/60 backdrop-blur-sm font-medium flex-shrink-0"
             >
               {leads.length}
             </Badge>
           </div>
         </div>
         <div className="flex items-center gap-1 text-sm text-slate-600">
-          <IndianRupee className="w-3.5 h-3.5" />
-          <span className="font-semibold">
+          <IndianRupee className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-semibold truncate">
             {totalValue.toLocaleString("en-IN")}
           </span>
         </div>
@@ -582,6 +583,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
             ? "ring-2 ring-inset ring-red-300 bg-red-50/30" 
             : ""
         } ${showDropIndicator && validDrop ? "bg-opacity-60" : ""}`}
+        style={{ minHeight: "400px" }}
       >
         <SortableContext
           items={leads.map((l) => l.id)}
@@ -592,7 +594,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-16 text-slate-400"
+                className="flex flex-col items-center justify-center h-full min-h-[300px] text-slate-400"
               >
                 <div className={`w-14 h-14 rounded-2xl ${column.bgColor} flex items-center justify-center mb-4 shadow-sm`}>
                   <Sparkles className="w-6 h-6" style={{ color: column.iconColor }} />
@@ -783,25 +785,27 @@ function LeadDetailDrawer({ lead, open, onClose, onEdit }: LeadDetailDrawerProps
 
 function KanbanSkeleton() {
   return (
-    <div className="flex flex-col">
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100 px-6 py-4">
-        <div className="grid grid-cols-4 gap-4">
+    <div className="flex flex-col h-full">
+      <div className="bg-white/95 backdrop-blur-xl border-b border-slate-100 px-4 sm:px-6 py-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       </div>
-      <div className="flex gap-6 p-6 overflow-x-auto">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex-shrink-0 w-[320px]">
-            <Skeleton className="h-20 rounded-t-2xl" />
-            <div className="space-y-3 p-3 bg-slate-50 rounded-b-2xl">
-              {[1, 2, 3].map((j) => (
-                <Skeleton key={j} className="h-40 rounded-2xl" />
-              ))}
+      <div className="flex-1 overflow-x-auto px-4 sm:px-6 py-6">
+        <div className="inline-flex gap-4" style={{ minWidth: "max-content" }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex-shrink-0 w-[280px]" style={{ minHeight: "500px" }}>
+              <Skeleton className="h-20 rounded-t-2xl" />
+              <div className="space-y-3 p-3 bg-slate-50 rounded-b-2xl min-h-[400px]">
+                {[1, 2, 3].map((j) => (
+                  <Skeleton key={j} className="h-40 rounded-2xl" />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -957,7 +961,7 @@ export function KanbanBoard({
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
       
       <DndContext
@@ -966,28 +970,34 @@ export function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div
-          className="flex gap-6 p-6 overflow-x-auto min-h-[600px]"
-          data-testid="kanban-board"
+        <div 
+          className="flex-1 overflow-x-auto px-4 sm:px-6 py-6"
+          style={{ minHeight: "calc(100vh - 280px)" }}
         >
-          {KANBAN_COLUMNS.map((column) => (
-            <KanbanColumnComponent
-              key={column.id}
-              column={column}
-              leads={groupedLeads[column.id]}
-              totalValue={columnTotals[column.id]}
-              onView={handleView}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onMove={handleMove}
-              activeStage={activeStage}
-            />
-          ))}
+          <div
+            className="inline-flex gap-4 pb-4"
+            style={{ minWidth: "max-content" }}
+            data-testid="kanban-board"
+          >
+            {KANBAN_COLUMNS.map((column) => (
+              <KanbanColumnComponent
+                key={column.id}
+                column={column}
+                leads={groupedLeads[column.id]}
+                totalValue={columnTotals[column.id]}
+                onView={handleView}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onMove={handleMove}
+                activeStage={activeStage}
+              />
+            ))}
+          </div>
         </div>
 
         <DragOverlay>
           {activeLead && (
-            <div className="w-[320px]">
+            <div className="w-[280px]">
               <RequestCard lead={activeLead} isDragging />
             </div>
           )}
@@ -1000,6 +1010,6 @@ export function KanbanBoard({
         onClose={() => setDrawerOpen(false)}
         onEdit={onEdit}
       />
-    </>
+    </div>
   );
 }
