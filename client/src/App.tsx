@@ -52,7 +52,7 @@ function AppContent() {
               <Route path="/admin/booking/generate" component={BookingGeneration} />
               <Route path="/admin/requests" component={RequestsBoard} />
               <Route path="/admin/settings" component={AdminSettings} />
-              <Route path="/profile" component={Profile} />
+              <Route path="/admin/profile" component={Profile} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
               <Route path="/booking/generate" component={BookingGeneration} />

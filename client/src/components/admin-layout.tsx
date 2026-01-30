@@ -259,7 +259,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <Link href="/profile">
+                <Link href="/admin/profile">
                   <DropdownMenuItem className="cursor-pointer">
                     <User className="w-4 h-4 mr-2" />
                     Profile
