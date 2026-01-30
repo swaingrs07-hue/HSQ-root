@@ -2055,6 +2055,87 @@ export async function registerRoutes(
     }
   });
 
+  // Bulk assign leads (admin only)
+  app.post("/api/admin/leads/bulk-assign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { leadIds, userId } = req.body;
+      const authReq = req as AuthRequest;
+      
+      if (!Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ error: "Lead IDs array required" });
+      }
+      if (!userId) {
+        return res.status(400).json({ error: "Sales executive ID required" });
+      }
+      
+      const results = { assigned: 0, skipped: 0, errors: [] as string[] };
+      
+      for (const leadId of leadIds) {
+        try {
+          const lead = await storage.getLead(leadId);
+          if (!lead) {
+            results.errors.push(`Lead ${leadId} not found`);
+            continue;
+          }
+          
+          // Skip if already assigned to same user
+          if (lead.assignedToId === userId) {
+            results.skipped++;
+            continue;
+          }
+          
+          await storage.assignLeadToUser(leadId, userId, authReq.user!.userId);
+          results.assigned++;
+        } catch (err) {
+          results.errors.push(`Failed to assign lead ${leadId}`);
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Assigned ${results.assigned} leads, skipped ${results.skipped}`,
+        ...results 
+      });
+    } catch (error) {
+      console.error("Error bulk assigning leads:", error);
+      res.status(500).json({ error: "Failed to bulk assign leads" });
+    }
+  });
+
+  // Get lead assignment history (admin only)
+  app.get("/api/admin/leads/:id/history", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const leadId = req.params.id as string;
+      const activities = await storage.getLeadActivities(leadId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching lead history:", error);
+      res.status(500).json({ error: "Failed to fetch lead history" });
+    }
+  });
+
+  // Get sales executives with lead counts
+  app.get("/api/admin/sales-executives/lead-counts", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const salesExecs = await storage.getSalesExecutives();
+      const leads = await storage.getAllLeads();
+      
+      const execsWithCounts = salesExecs.map(exec => {
+        const assignedLeads = leads.filter(l => l.assignedToId === exec.id);
+        return {
+          ...exec,
+          leadCount: assignedLeads.length,
+          activeLeadCount: assignedLeads.filter(l => !["converted", "lost", "deal_closed"].includes(l.status)).length
+        };
+      });
+      
+      res.json(execsWithCounts);
+    } catch (error) {
+      console.error("Error fetching sales exec lead counts:", error);
+      res.status(500).json({ error: "Failed to fetch data" });
+    }
+  });
+
   // ============ SALES EXECUTIVE DASHBOARD ============
 
   // Get assigned properties for current sales exec (alias for frontend compatibility)

@@ -1,0 +1,56 @@
+Fix the Lead Management page so that Admin can assign leads to Sales Executives and manage them efficiently.
+
+IMPLEMENT THE FOLLOWING:
+
+1. Lead Assignment UI:
+   - Add a multi-select dropdown on each lead row (or bulk selection).
+   - Dropdown lists all active Sales Executives.
+   - Show number of leads already assigned per executive.
+   - Include "Assign" button beside dropdown.
+
+2. Bulk Assignment:
+   - Add checkboxes on lead rows.
+   - Admin can select multiple leads and assign to one or more Sales Executives in one action.
+
+3. Backend / API:
+   - Create API endpoint: POST /assign-leads
+     - Params: lead_ids[], sales_executive_id
+     - Save mapping in lead_sales_executive_mapping table
+     - Prevent duplicate assignments
+   - Create API endpoint: GET /sales-executive-leads
+     - Return all leads assigned to each sales executive
+
+4. Permissions:
+   - Only Admin can assign or reassign leads.
+   - Sales Executives cannot assign themselves leads.
+
+5. Notifications:
+   - Send a push/email notification to Sales Executive when a lead is assigned.
+   - Show toast message on successful assignment.
+
+6. Lead Status Updates:
+   - Allow Admin to mark lead as "Qualified", "Contacted", "Negotiating", "Won", "Lost".
+   - Status changes reflected in Kanban board and analytics.
+
+7. Lead Filters:
+   - Add filters:
+     - Assigned / Unassigned
+     - Device Type (Mobile / Desktop)
+     - Last Activity Date
+     - Lead Stage (Qualified / Unqualified / Viewing / Negotiating / Won)
+   - Search by name, phone, email.
+
+8. UI Polishing:
+   - Sticky assign dropdown when scrolling.
+   - Smooth animations when updating lead assignment.
+   - Highlight updated rows in soft green briefly on assignment.
+
+9. Audit Trail:
+   - Track assignment history (who assigned, when, to whom).
+   - Allow Admin to view assignment log per lead.
+
+10. Validation:
+   - Disable "Assign" button if no Sales Executive is selected.
+   - Show error if lead is already assigned to the selected executive.
+
+Fix fully without breaking existing lead view or analytics.

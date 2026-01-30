@@ -17,6 +17,7 @@ import AuthPage from "@/pages/auth";
 import AdminDashboard from "@/pages/admin-dashboard";
 import UserDashboard from "@/pages/user-dashboard";
 import LeadAnalytics from "@/pages/lead-analytics";
+import AdminLeads from "@/pages/admin-leads";
 import AddProperty from "@/pages/add-property";
 import AdminSalesManagement from "@/pages/admin-sales-management";
 import SalesDashboard from "@/pages/sales-dashboard";
@@ -43,7 +44,7 @@ function AppContent() {
             <Switch>
               <Route path="/admin" component={AdminDashboard} />
               <Route path="/admin/add-property" component={AddProperty} />
-              <Route path="/admin/leads" component={LeadAnalytics} />
+              <Route path="/admin/leads" component={AdminLeads} />
               <Route path="/admin/lead-analytics" component={LeadAnalytics} />
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/admin/booking/generate" component={BookingGeneration} />
@@ -67,7 +68,7 @@ function AppContent() {
               <Route path="/agreement" component={Agreement} />
               <Route path="/admin" component={AdminDashboard} />
               <Route path="/admin/add-property" component={AddProperty} />
-              <Route path="/admin/leads" component={LeadAnalytics} />
+              <Route path="/admin/leads" component={AdminLeads} />
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/booking/generate" component={BookingGeneration} />
