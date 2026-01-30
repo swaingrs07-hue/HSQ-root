@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default("user"),
+  avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

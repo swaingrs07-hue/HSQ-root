@@ -10,7 +10,10 @@ interface User {
   phone?: string;
   phoneVerified?: boolean;
   role: UserRole;
+  avatarUrl?: string | null;
   isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AuthContextType {

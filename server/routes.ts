@@ -273,6 +273,34 @@ export async function registerRoutes(
     }
   });
 
+  // Update user profile
+  app.patch("/api/auth/profile", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { name, avatarUrl, phone } = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, {
+        ...(name && { name }),
+        ...(avatarUrl !== undefined && { avatarUrl }),
+        ...(phone && { phone }),
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   // Store OTPs temporarily (in production, use Redis or similar)
   const otpStore: Map<string, { otp: string; expiry: number; name: string }> = new Map();
 
