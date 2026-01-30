@@ -341,6 +341,13 @@ export const followUpStatusEnum = pgEnum("follow_up_status", [
   "cancelled"
 ]);
 
+// Assignment type enum - how the lead was assigned to a sales executive
+export const assignmentTypeEnum = pgEnum("assignment_type", [
+  "property_auto",   // Auto-assigned based on property mapping
+  "admin_manual",    // Manually assigned by admin
+  "unassigned"       // No sales executive mapped - needs action
+]);
+
 // Leads table (visitor/prospect tracking)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -362,6 +369,7 @@ export const leads = pgTable("leads", {
   // Sales Executive assignment
   assignedToId: varchar("assigned_to_id").references(() => users.id),
   assignedAt: timestamp("assigned_at"),
+  assignmentType: assignmentTypeEnum("assignment_type").default("unassigned"),
   isManualEntry: boolean("is_manual_entry").default(false).notNull(),
   
   // Budget tracking
@@ -419,6 +427,7 @@ export const salesExecProperties = pgTable("sales_exec_properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
 });

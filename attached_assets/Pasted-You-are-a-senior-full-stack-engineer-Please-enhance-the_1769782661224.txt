@@ -1,0 +1,129 @@
+You are a senior full-stack engineer.
+
+Please enhance the Lead Management system with PROPERTY-BASED AUTO ASSIGNMENT and follow-up workflow.
+
+────────────────────────────────────────
+1. Property-Based Auto Assignment Logic
+────────────────────────────────────────
+- Each property must have one or more assigned Sales Executives
+- When a new lead is created for a property:
+  - Automatically assign the lead to the Sales Executive mapped to that property
+  - If multiple executives are mapped:
+    - Assign to the executive with the least active leads for that property
+- If no sales executive is mapped to the property:
+  - Assign the lead to Admin
+  - Flag the lead as "Unassigned – Action Required"
+
+────────────────────────────────────────
+2. Property → Sales Executive Mapping
+────────────────────────────────────────
+- Create a mapping system:
+  - Property can be linked to one or more Sales Executives
+- Admin-only access:
+  - Assign / remove sales executives for a property
+  - View which executives are responsible for which properties
+
+Example:
+Property: "Hsquare Bayview"
+Assigned Sales Executives:
+- Sales Exec A
+- Sales Exec B
+
+────────────────────────────────────────
+3. Edit Lead UI Updates
+────────────────────────────────────────
+- Display:
+  - Property name
+  - Auto-assigned sales executive
+- Make sales executive field:
+  - Read-only for Sales Executive
+  - Editable for Admin (manual override)
+- Show assignment source:
+  - "Auto-assigned (Property-based)"
+
+────────────────────────────────────────
+4. Follow-Up Scheduling
+────────────────────────────────────────
+- Add field: "Next Follow-Up Date & Time"
+- Editable by Sales Executive and Admin
+- Allow follow-up notes
+- Track follow-up status:
+  - pending
+  - completed
+  - overdue
+
+────────────────────────────────────────
+5. Notification Rules
+────────────────────────────────────────
+- Notify Sales Executive when:
+  - A lead is auto-assigned to them
+  - Follow-up is due (24 hours before)
+  - Follow-up becomes overdue
+- Notify Admin when:
+  - Lead is unassigned
+  - Follow-up is overdue
+
+────────────────────────────────────────
+6. Escalation Logic
+────────────────────────────────────────
+- If follow-up is overdue:
+  - Mark status as "Overdue"
+  - Show in Admin dashboard under "Action Required"
+  - Allow Admin to reassign sales executive or reschedule follow-up
+
+────────────────────────────────────────
+7. Admin Dashboard Enhancements
+────────────────────────────────────────
+- Add section: "Property-Based Lead Assignment"
+- Add section: "Overdue Follow-Ups"
+- Display:
+  - Lead
+  - Property
+  - Assigned sales executive
+  - Follow-up date
+  - Status
+- Quick actions:
+  - Reassign sales executive
+  - Assign property executive
+  - Reschedule follow-up
+
+────────────────────────────────────────
+8. Database Changes
+────────────────────────────────────────
+Properties table:
+- id
+- name
+
+Property_Sales_Executives table:
+- property_id
+- sales_executive_id
+- is_active
+
+Leads table:
+- property_id
+- assigned_sales_id
+- assignment_type (property_auto | admin_manual)
+- next_follow_up_at
+- follow_up_status
+- follow_up_notes
+
+────────────────────────────────────────
+9. Background Jobs
+────────────────────────────────────────
+- On lead creation:
+  - Run property-based assignment logic
+- Scheduled job (every 15 minutes):
+  - Check overdue follow-ups
+  - Update statuses
+  - Send notifications
+  - Escalate to admin if required
+
+────────────────────────────────────────
+10. Code Quality Expectations
+────────────────────────────────────────
+- Clean and scalable architecture
+- Clear service layer for assignment logic
+- Business rules documented in code comments
+- Production-ready implementation
+
+Please implement this end-to-end.

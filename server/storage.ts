@@ -129,9 +129,9 @@ export interface IStorage {
   getAllLeads(): Promise<Lead[]>;
   updateLeadActivity(id: string): Promise<Lead | undefined>;
   
-  // Follow-up Management
-  getOverdueFollowUps(): Promise<Lead[]>;
-  getUpcomingFollowUps(hoursAhead?: number): Promise<Lead[]>;
+  // Follow-up Management (userId optional - if not provided returns all, if provided filters by assigned user)
+  getOverdueFollowUps(userId?: string): Promise<Lead[]>;
+  getUpcomingFollowUps(userIdOrHours?: string | number): Promise<Lead[]>;
   updateFollowUpStatus(leadId: string, status: string, notes?: string): Promise<Lead | undefined>;
   markOverdueFollowUps(): Promise<number>;
   
@@ -223,6 +223,8 @@ export interface IStorage {
   assignPropertyToUser(assignment: InsertSalesExecProperty): Promise<SalesExecProperty>;
   removePropertyAssignment(userId: string, propertyId: string): Promise<void>;
   getAssignedPropertiesForUser(userId: string): Promise<Property[]>;
+  getActiveSalesExecsForProperty(propertyId: string): Promise<User[]>;
+  getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined>;
   
   // Lead Assignment & Scoping
   getLeadsForSalesExec(userId: string): Promise<Lead[]>;
@@ -243,8 +245,6 @@ export interface IStorage {
   
   // Follow-ups
   setFollowUp(leadId: string, followUpAt: Date, notes?: string): Promise<Lead | undefined>;
-  getUpcomingFollowUps(userId: string): Promise<Lead[]>;
-  getOverdueFollowUps(userId: string): Promise<Lead[]>;
   
   // Sales Exec Stats
   getSalesExecStats(userId: string): Promise<{
@@ -684,33 +684,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Follow-up Management
-  async getOverdueFollowUps(): Promise<Lead[]> {
+  async getOverdueFollowUps(userId?: string): Promise<Lead[]> {
     const now = new Date();
+    const conditions = [
+      lt(leads.followUpAt, now),
+      sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`
+    ];
+    
+    if (userId) {
+      conditions.push(eq(leads.assignedToId, userId));
+    }
+    
     return await db
       .select()
       .from(leads)
-      .where(
-        and(
-          lt(leads.followUpAt, now),
-          eq(leads.followUpStatus, "pending")
-        )
-      )
+      .where(and(...conditions))
       .orderBy(asc(leads.followUpAt));
   }
 
-  async getUpcomingFollowUps(hoursAhead: number = 24): Promise<Lead[]> {
+  async getUpcomingFollowUps(userIdOrHours?: string | number): Promise<Lead[]> {
     const now = new Date();
+    const hoursAhead = typeof userIdOrHours === 'number' ? userIdOrHours : 168; // 7 days default
+    const userId = typeof userIdOrHours === 'string' ? userIdOrHours : undefined;
     const future = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    
+    const conditions = [
+      gte(leads.followUpAt, now),
+      lte(leads.followUpAt, future),
+      eq(leads.followUpStatus, "pending")
+    ];
+    
+    if (userId) {
+      conditions.push(eq(leads.assignedToId, userId));
+    }
+    
     return await db
       .select()
       .from(leads)
-      .where(
-        and(
-          gte(leads.followUpAt, now),
-          lte(leads.followUpAt, future),
-          eq(leads.followUpStatus, "pending")
-        )
-      )
+      .where(and(...conditions))
       .orderBy(asc(leads.followUpAt));
   }
 
@@ -783,6 +794,7 @@ export class DatabaseStorage implements IStorage {
     conversionRate: number;
     leadsByMonth: { month: string; count: number }[];
     conversionsByMonth: { month: string; conversions: number; total: number; rate: number }[];
+    conversionsBySource: { source: string; total: number; conversions: number; rate: number }[];
     leadsByDevice: { device: string; count: number }[];
     recentLeads: Lead[];
   }> {
@@ -1297,6 +1309,45 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(properties).where(inArray(properties.id, propertyIds));
   }
 
+  async getActiveSalesExecsForProperty(propertyId: string): Promise<User[]> {
+    const assignments = await db.select().from(salesExecProperties)
+      .where(and(
+        eq(salesExecProperties.propertyId, propertyId),
+        eq(salesExecProperties.isActive, true)
+      ));
+    if (assignments.length === 0) return [];
+    const userIds = assignments.map(a => a.userId);
+    return await db.select().from(users).where(inArray(users.id, userIds));
+  }
+
+  async getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined> {
+    // Get all active sales execs for this property
+    const salesExecs = await this.getActiveSalesExecsForProperty(propertyId);
+    if (salesExecs.length === 0) return undefined;
+    
+    // Count active leads for each sales exec for this property
+    let minLeads = Infinity;
+    let selectedExec: User | undefined;
+    
+    for (const exec of salesExecs) {
+      const leadCount = await db.select({ count: sql<number>`count(*)::int` })
+        .from(leads)
+        .where(and(
+          eq(leads.assignedToId, exec.id),
+          eq(leads.propertyId, propertyId),
+          sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`
+        ));
+      
+      const count = leadCount[0]?.count || 0;
+      if (count < minLeads) {
+        minLeads = count;
+        selectedExec = exec;
+      }
+    }
+    
+    return selectedExec;
+  }
+
   // Lead Assignment & Scoping
   async getLeadsForSalesExec(userId: string): Promise<Lead[]> {
     return await db.select().from(leads).where(eq(leads.assignedToId, userId)).orderBy(desc(leads.createdAt));
@@ -1438,31 +1489,6 @@ export class DatabaseStorage implements IStorage {
       followUpNotes: notes,
     }).where(eq(leads.id, leadId)).returning();
     return updated || undefined;
-  }
-
-  async getUpcomingFollowUps(userId: string): Promise<Lead[]> {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 7);
-    
-    return await db.select().from(leads)
-      .where(and(
-        eq(leads.assignedToId, userId),
-        gte(leads.followUpAt, now),
-        lt(leads.followUpAt, tomorrow)
-      ))
-      .orderBy(leads.followUpAt);
-  }
-
-  async getOverdueFollowUps(userId: string): Promise<Lead[]> {
-    const now = new Date();
-    return await db.select().from(leads)
-      .where(and(
-        eq(leads.assignedToId, userId),
-        lt(leads.followUpAt, now),
-        sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`
-      ))
-      .orderBy(leads.followUpAt);
   }
 
   // Sales Exec Stats
