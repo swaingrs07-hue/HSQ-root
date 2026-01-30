@@ -294,18 +294,7 @@ function AdminSalesManagementContent() {
 
   if (loading && salesExecs.length === 0) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/admin">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Sales Team Management</h1>
-            <p className="text-muted-foreground">Loading sales data...</p>
-          </div>
-        </div>
+      <div className="space-y-6">
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -315,45 +304,25 @@ function AdminSalesManagementContent() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/admin">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Sales Team Management</h1>
-          </div>
-        </div>
+      <div className="space-y-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-        <div className="mt-4">
+        <div className="flex gap-2">
           <Button onClick={() => loadSalesExecs()}>Retry</Button>
-          <Link href="/admin">
-            <Button variant="outline" className="ml-2">Back to Dashboard</Button>
-          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="icon" data-testid="button-back">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Sales Team Management</h1>
-            <p className="text-muted-foreground">Manage sales executives, property assignments, and lead distribution</p>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Sales Team Management</h1>
+          <p className="text-sm text-slate-500">Manage sales executives, property assignments, and lead distribution</p>
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
