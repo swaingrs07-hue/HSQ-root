@@ -435,6 +435,20 @@ export const leadRemarks = pgTable("lead_remarks", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Notifications
+export const notificationTypeEnum = pgEnum("notification_type", ["info", "success", "warning", "error", "lead", "booking", "payment"]);
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: notificationTypeEnum("type").notNull().default("info"),
+  isRead: boolean("is_read").default(false).notNull(),
+  actionUrl: text("action_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   student: one(students, {
@@ -712,3 +726,7 @@ export type InsertLeadRemark = z.infer<typeof insertLeadRemarkSchema>;
 
 export type ManualLead = z.infer<typeof manualLeadSchema>;
 export type DealClosure = z.infer<typeof dealClosureSchema>;
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;

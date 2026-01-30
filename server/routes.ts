@@ -2503,5 +2503,67 @@ export async function registerRoutes(
     }
   });
 
+  // ===================== NOTIFICATIONS =====================
+
+  // Get user notifications
+  app.get("/api/notifications", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const limit = parseInt(req.query.limit as string) || 20;
+      const notificationsList = await storage.getUserNotifications(userId, limit);
+      const unreadCount = await storage.getUnreadNotificationCount(userId);
+      
+      res.json({ notifications: notificationsList, unreadCount });
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get unread notification count
+  app.get("/api/notifications/unread-count", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await storage.markNotificationRead(id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.patch("/api/notifications/mark-all-read", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
   return httpServer;
 }
