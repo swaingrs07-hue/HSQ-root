@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
@@ -149,6 +149,14 @@ export default function AdminDashboard() {
   
   const [overdueFollowUps, setOverdueFollowUps] = useState<Lead[]>([]);
   const [overdueLoading, setOverdueLoading] = useState(false);
+  
+  // Property assignment stats
+  const [propertyAssignments, setPropertyAssignments] = useState<{
+    totalProperties: number;
+    propertiesWithExecs: number;
+    unassignedLeads: number;
+  }>({ totalProperties: 0, propertiesWithExecs: 0, unassignedLeads: 0 });
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   const getAuthToken = () => {
     try {
@@ -167,6 +175,7 @@ export default function AdminDashboard() {
     loadStats();
     loadChartData();
     loadOverdueFollowUps();
+    loadPropertyAssignmentStats();
   }, []);
   
   const loadOverdueFollowUps = async () => {
@@ -186,6 +195,44 @@ export default function AdminDashboard() {
       console.error("Failed to load overdue follow-ups:", error);
     } finally {
       setOverdueLoading(false);
+    }
+  };
+
+  const loadPropertyAssignmentStats = async () => {
+    try {
+      setAssignmentLoading(true);
+      const token = getAuthToken();
+      if (!token) return;
+      
+      const [propertiesRes, unassignedRes] = await Promise.all([
+        fetch("/api/properties"),
+        fetch("/api/admin/leads/unassigned", { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      
+      const properties = propertiesRes.ok ? await propertiesRes.json() : [];
+      const unassignedLeads = unassignedRes.ok ? await unassignedRes.json() : [];
+      
+      // Count properties that have at least one sales exec assigned
+      let propertiesWithExecs = 0;
+      for (const property of properties) {
+        const execsRes = await fetch(`/api/admin/properties/${property.id}/sales-execs`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (execsRes.ok) {
+          const execs = await execsRes.json();
+          if (execs.length > 0) propertiesWithExecs++;
+        }
+      }
+      
+      setPropertyAssignments({
+        totalProperties: properties.length,
+        propertiesWithExecs,
+        unassignedLeads: unassignedLeads.length
+      });
+    } catch (error) {
+      console.error("Failed to load property assignment stats:", error);
+    } finally {
+      setAssignmentLoading(false);
     }
   };
   
@@ -735,6 +782,64 @@ export default function AdminDashboard() {
                             </Button>
                           </Link>
                         )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Property Assignment Summary Card */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Link2 className="h-5 w-5 text-blue-500" />
+                      Property Auto-Assignment
+                    </CardTitle>
+                    <CardDescription>Property → Sales Exec mapping status</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {assignmentLoading ? (
+                      <div className="space-y-3">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="p-3 bg-blue-50 rounded-xl text-center">
+                            <Building2 className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                            <p className="text-2xl font-bold text-blue-700">{propertyAssignments.totalProperties}</p>
+                            <p className="text-xs text-blue-600">Properties</p>
+                          </div>
+                          <div className="p-3 bg-green-50 rounded-xl text-center">
+                            <UserCheck className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                            <p className="text-2xl font-bold text-green-700">{propertyAssignments.propertiesWithExecs}</p>
+                            <p className="text-xs text-green-600">With Execs</p>
+                          </div>
+                          <div className={`p-3 rounded-xl text-center ${propertyAssignments.unassignedLeads > 0 ? 'bg-yellow-50' : 'bg-slate-50'}`}>
+                            <Zap className={`h-5 w-5 mx-auto mb-1 ${propertyAssignments.unassignedLeads > 0 ? 'text-yellow-600' : 'text-slate-400'}`} />
+                            <p className={`text-2xl font-bold ${propertyAssignments.unassignedLeads > 0 ? 'text-yellow-700' : 'text-slate-500'}`}>
+                              {propertyAssignments.unassignedLeads}
+                            </p>
+                            <p className={`text-xs ${propertyAssignments.unassignedLeads > 0 ? 'text-yellow-600' : 'text-slate-400'}`}>
+                              Unassigned
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {propertyAssignments.totalProperties > propertyAssignments.propertiesWithExecs && (
+                          <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                            <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+                            <p className="text-sm text-yellow-700">
+                              {propertyAssignments.totalProperties - propertyAssignments.propertiesWithExecs} properties have no sales execs assigned
+                            </p>
+                          </div>
+                        )}
+                        
+                        <Link href="/admin/sales-management">
+                          <Button variant="outline" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
+                            Manage Property Mappings
+                          </Button>
+                        </Link>
                       </div>
                     )}
                   </CardContent>
