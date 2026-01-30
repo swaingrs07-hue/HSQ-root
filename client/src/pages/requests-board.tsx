@@ -91,7 +91,15 @@ export default function RequestsBoard() {
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch("/api/leads", {
+      const authData = localStorage.getItem("hsquare_auth");
+      const user = authData ? JSON.parse(authData)?.user : null;
+      const isSalesExec = user?.role === "sales_executive";
+      
+      const url = isSalesExec 
+        ? `/api/sales/my-leads`
+        : "/api/leads";
+      
+      const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!response.ok) throw new Error("Failed to load requests");

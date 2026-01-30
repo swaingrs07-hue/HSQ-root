@@ -255,22 +255,15 @@ function RequestCard({
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <ArrowRight className="w-4 h-4 mr-2" />
-                Move to
-                <DropdownMenu>
-                  <DropdownMenuContent>
-                    {KANBAN_COLUMNS.filter((c) => c.id !== stage).map((col) => (
-                      <DropdownMenuItem
-                        key={col.id}
-                        onClick={() => onMove?.(lead, col.id)}
-                      >
-                        {col.title}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </DropdownMenuItem>
+              {KANBAN_COLUMNS.filter((c) => c.id !== stage).map((col) => (
+                <DropdownMenuItem
+                  key={col.id}
+                  onClick={() => onMove?.(lead, col.id)}
+                >
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Move to {col.title}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuItem
                 className="text-red-600"
                 onClick={() => onDelete?.(lead)}

@@ -478,20 +478,38 @@ export async function registerRoutes(
   });
 
   // Update lead status only (for Kanban board drag-drop)
-  app.patch("/api/leads/:id/status", async (req, res) => {
+  const validLeadStatuses = [
+    "new", "contacted", "interested", "site_visit", "negotiation",
+    "converted", "lost", "cold", "warm", "hot", "visit_scheduled", "deal_closed"
+  ];
+  
+  app.patch("/api/leads/:id/status", authMiddleware, async (req, res) => {
     try {
       const { status } = req.body;
       if (!status) {
         return res.status(400).json({ error: "Status is required" });
       }
       
+      if (!validLeadStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
+      
+      // Fetch lead to check ownership
+      const existingLead = await storage.getLead(req.params.id as string);
+      if (!existingLead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Sales executives can only update their assigned leads
+      const user = (req as any).user;
+      if (user?.role === "sales_executive" && existingLead.assignedToId !== user.id) {
+        return res.status(403).json({ error: "You can only update leads assigned to you" });
+      }
+      
       const lead = await storage.updateLead(req.params.id as string, { 
         status,
         lastActivityAt: new Date()
       });
-      if (!lead) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
       res.json(lead);
     } catch (error) {
       console.error("Error updating lead status:", error);

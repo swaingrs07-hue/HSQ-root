@@ -54,6 +54,25 @@ Preferred communication style: Simple, everyday language.
 - **Deal Closure**: Close deals with room type, final amount, payment plan; auto-locks lead after closure
 - **Key Tables**: salesExecPropertyAssignments, leadActivities, leadRemarks
 
+### Kanban Requests Board
+- **Route**: `/admin/requests` (Admin), `/sales/requests` (Sales Executive)
+- **Purpose**: Visual pipeline management for lead requests using drag-and-drop Kanban interface
+- **Stages**: Unqualified → Qualified → Viewing → Negotiating → Won
+- **Features**:
+  - Drag-and-drop cards between columns with smooth animations (@dnd-kit)
+  - Status color indicators and priority badges
+  - 3-dot menu for quick actions (View, Edit, Move, Delete)
+  - Search and filter by property/sales executive
+  - Add new request modal with customer details
+  - Column totals showing request count and value
+- **Role Scoping**: Sales executives see only assigned leads; admins see all
+- **Stage-to-Status Mapping**:
+  - Unqualified: new, cold
+  - Qualified: contacted, warm, interested
+  - Viewing: site_visit, visit_scheduled
+  - Negotiating: negotiation, hot
+  - Won: converted, deal_closed
+
 ### Lead Scoring System (Property-Wise)
 - **Score Range**: 0-100 per property
 - **Priority Classification**: Cold (0-30), Warm (31-60), Hot (61-100)
