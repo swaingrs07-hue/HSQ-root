@@ -138,9 +138,20 @@ export default function AdminLeads() {
     refetchInterval: 30000,
   });
 
-  const { data: salesExecs = [], isLoading: execsLoading } = useQuery<SalesExecWithCounts[]>({
-    queryKey: ["/api/admin/sales-executives/lead-counts"],
+  const { data: rawSalesExecs = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/sales-executives"],
   });
+
+  const salesExecs = useMemo(() => {
+    return rawSalesExecs.map(exec => {
+      const assignedLeads = leads.filter(l => l.assignedToId === exec.id);
+      return {
+        ...exec,
+        leadCount: assignedLeads.length,
+        activeLeadCount: assignedLeads.filter(l => !["converted", "lost", "deal_closed"].includes(l.status)).length
+      } as SalesExecWithCounts;
+    });
+  }, [rawSalesExecs, leads]);
 
   const { data: properties = [] } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
