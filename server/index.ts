@@ -111,6 +111,10 @@ app.use((req, res, next) => {
 })();
 
 // Background job for checking overdue follow-ups and sending notifications
+// Track last notification time per user to avoid spamming
+const lastNotificationSent = new Map<string, number>();
+const NOTIFICATION_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hour cooldown between same notification types
+
 async function startFollowUpNotificationJob() {
   const CHECK_INTERVAL_MS = 30 * 60 * 1000; // Check every 30 minutes
   
@@ -136,15 +140,23 @@ async function startFollowUpNotificationJob() {
           }
         }
         
-        // Create notifications for each exec with overdue leads
+        // Create notifications for each exec with overdue leads (with deduplication)
         for (const [execId, leads] of Array.from(leadsByExec.entries())) {
-          await storage.createNotification({
-            userId: execId,
-            type: "warning",
-            title: `${leads.length} overdue follow-ups need attention`,
-            message: `You have ${leads.length} leads with overdue follow-ups. Please review and take action.`
-          });
-          log(`Created overdue notification for exec ${execId} (${leads.length} leads)`, "background");
+          const throttleKey = `overdue_${execId}`;
+          const lastSent = lastNotificationSent.get(throttleKey) || 0;
+          
+          if (Date.now() - lastSent > NOTIFICATION_COOLDOWN_MS) {
+            await storage.createNotification({
+              userId: execId,
+              type: "warning",
+              title: `${leads.length} overdue follow-ups need attention`,
+              message: `You have ${leads.length} leads with overdue follow-ups. Please review and take action.`
+            });
+            lastNotificationSent.set(throttleKey, Date.now());
+            log(`Created overdue notification for exec ${execId} (${leads.length} leads)`, "background");
+          } else {
+            log(`Skipped overdue notification for exec ${execId} (cooldown active)`, "background");
+          }
         }
       }
       
@@ -165,13 +177,21 @@ async function startFollowUpNotificationJob() {
         }
         
         for (const [execId, leads] of Array.from(upcomingByExec.entries())) {
-          await storage.createNotification({
-            userId: execId,
-            type: "follow_up",
-            title: `${leads.length} follow-ups scheduled soon`,
-            message: `You have ${leads.length} follow-ups scheduled within the next hour.`
-          });
-          log(`Created follow-up reminder for exec ${execId}`, "background");
+          const throttleKey = `upcoming_${execId}`;
+          const lastSent = lastNotificationSent.get(throttleKey) || 0;
+          
+          if (Date.now() - lastSent > NOTIFICATION_COOLDOWN_MS) {
+            await storage.createNotification({
+              userId: execId,
+              type: "follow_up",
+              title: `${leads.length} follow-ups scheduled soon`,
+              message: `You have ${leads.length} follow-ups scheduled within the next hour.`
+            });
+            lastNotificationSent.set(throttleKey, Date.now());
+            log(`Created follow-up reminder for exec ${execId}`, "background");
+          } else {
+            log(`Skipped upcoming notification for exec ${execId} (cooldown active)`, "background");
+          }
         }
       }
     } catch (error) {

@@ -2188,6 +2188,35 @@ export async function registerRoutes(
     }
   });
   
+  // Get property assignment summary stats (aggregated endpoint)
+  app.get("/api/admin/property-assignment-stats", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const properties = await storage.getProperties();
+      const allLeads = await storage.getAllLeads();
+      
+      // Get all property-exec assignments in one query
+      const propertyExecCounts = new Map<number, number>();
+      for (const property of properties) {
+        const execs = await storage.getPropertySalesExecs(property.id);
+        propertyExecCounts.set(property.id, execs.length);
+      }
+      
+      const propertiesWithExecs = Array.from(propertyExecCounts.values()).filter(count => count > 0).length;
+      const unassignedLeads = allLeads.filter(lead => 
+        !lead.assignedToId || lead.assignmentType === "unassigned"
+      );
+      
+      res.json({
+        totalProperties: properties.length,
+        propertiesWithExecs,
+        unassignedLeads: unassignedLeads.length
+      });
+    } catch (error) {
+      console.error("Error fetching property assignment stats:", error);
+      res.status(500).json({ error: "Failed to fetch property assignment stats" });
+    }
+  });
+  
   // Apply discount override
   app.post("/api/admin/discount", async (req, res) => {
     try {

@@ -204,31 +204,14 @@ export default function AdminDashboard() {
       const token = getAuthToken();
       if (!token) return;
       
-      const [propertiesRes, unassignedRes] = await Promise.all([
-        fetch("/api/properties"),
-        fetch("/api/admin/leads/unassigned", { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      
-      const properties = propertiesRes.ok ? await propertiesRes.json() : [];
-      const unassignedLeads = unassignedRes.ok ? await unassignedRes.json() : [];
-      
-      // Count properties that have at least one sales exec assigned
-      let propertiesWithExecs = 0;
-      for (const property of properties) {
-        const execsRes = await fetch(`/api/admin/properties/${property.id}/sales-execs`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (execsRes.ok) {
-          const execs = await execsRes.json();
-          if (execs.length > 0) propertiesWithExecs++;
-        }
-      }
-      
-      setPropertyAssignments({
-        totalProperties: properties.length,
-        propertiesWithExecs,
-        unassignedLeads: unassignedLeads.length
+      const res = await fetch("/api/admin/property-assignment-stats", {
+        headers: { Authorization: `Bearer ${token}` }
       });
+      
+      if (res.ok) {
+        const stats = await res.json();
+        setPropertyAssignments(stats);
+      }
     } catch (error) {
       console.error("Failed to load property assignment stats:", error);
     } finally {
