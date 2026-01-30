@@ -45,7 +45,8 @@ import {
   Wand2,
   Zap,
 } from "lucide-react";
-import { KanbanBoard, mapStageToLeadStatus, type KanbanStage } from "@/components/kanban-board";
+import { KanbanBoard, mapStageToLeadStatus, mapLeadStatusToStage, type KanbanStage } from "@/components/kanban-board";
+import { MobileKanban } from "@/components/kanban-mobile";
 import type { Lead } from "@shared/schema";
 import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -72,6 +73,19 @@ interface FilterState {
 
 const FILTER_STORAGE_KEY = "hsquare_kanban_filters";
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -90,6 +104,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function RequestsBoard() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +112,7 @@ export default function RequestsBoard() {
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   
   const [nlpQuery, setNlpQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -502,7 +518,7 @@ export default function RequestsBoard() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm"
+        className={`sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm ${isMobile ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -798,15 +814,41 @@ export default function RequestsBoard() {
         </AnimatePresence>
       </motion.div>
 
-      <div className="overflow-x-auto">
-        <KanbanBoard
-          leads={filteredLeads}
-          loading={loading}
-          error={error || undefined}
-          onStageChange={handleStageChange}
-          onDelete={handleDelete}
-        />
-      </div>
+      {isMobile ? (
+        <div className="h-[calc(100vh-100px)]">
+          <MobileKanban
+            leads={filteredLeads}
+            loading={loading}
+            canEdit={true}
+            onStageChange={async (leadId, newStage) => {
+              const lead = leads.find(l => l.id === leadId);
+              if (lead) {
+                const oldStage = mapLeadStatusToStage(lead.status);
+                await handleStageChange(leadId, newStage, oldStage);
+              }
+            }}
+            onAddClick={() => setAddModalOpen(true)}
+            onFilterClick={() => setShowFilters(!showFilters)}
+            onSearchClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            onCardView={(lead) => {
+              toast({
+                title: lead.name,
+                description: `${lead.phone} • ${lead.propertyName || "No property"}`,
+              });
+            }}
+          />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <KanbanBoard
+            leads={filteredLeads}
+            loading={loading}
+            error={error || undefined}
+            onStageChange={handleStageChange}
+            onDelete={handleDelete}
+          />
+        </div>
+      )}
 
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
