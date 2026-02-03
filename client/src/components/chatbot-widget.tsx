@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { MessageCircle, X, Send, Loader2, Bot, User, Minimize2, GripHorizontal } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, User, Minimize2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import gyanAvatar from "@/assets/gyan-ai-avatar.png";
 
 interface ChatMessage {
   id: string;
@@ -189,8 +190,8 @@ export function ChatbotWidget() {
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-full bg-white overflow-hidden flex items-center justify-center">
+                  <img src={gyanAvatar} alt="Gyan AI" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="text-white font-semibold text-sm">Gyan AI</h3>
@@ -233,14 +234,14 @@ export function ChatbotWidget() {
                     className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                   >
                     <div 
-                      className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
+                      className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ${
                         message.role === "assistant" 
-                          ? "bg-gradient-to-br from-purple-500 to-indigo-500" 
+                          ? "bg-white" 
                           : "bg-gray-200"
                       }`}
                     >
                       {message.role === "assistant" ? (
-                        <Bot className="w-4 h-4 text-white" />
+                        <img src={gyanAvatar} alt="Gyan AI" className="w-full h-full object-cover" />
                       ) : (
                         <User className="w-4 h-4 text-gray-600" />
                       )}
