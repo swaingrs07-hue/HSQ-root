@@ -34,7 +34,13 @@ import {
   Users,
   TrendingUp,
   Power,
+  Phone,
+  Mail,
+  User,
+  Building2,
+  IndianRupee,
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 
 type ChatbotSettings = {
@@ -55,6 +61,19 @@ type ChatbotSettings = {
   maxMessagesBeforeEscalation: number;
   blockedKeywords: string[];
   updatedAt: string;
+};
+
+type CapturedLead = {
+  id: string;
+  createdAt: string;
+  leadId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  propertyId?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+  message?: string;
 };
 
 type KnowledgeEntry = {
@@ -140,6 +159,11 @@ export default function AdminChatbot() {
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/admin/chatbot/conversations"],
     queryFn: () => authFetch("/api/admin/chatbot/conversations"),
+  });
+
+  const { data: capturedLeads = [], isLoading: leadsLoading } = useQuery<CapturedLead[]>({
+    queryKey: ["/api/admin/chatbot/captured-leads"],
+    queryFn: () => authFetch("/api/admin/chatbot/captured-leads"),
   });
 
   const toggleMutation = useMutation({
@@ -569,54 +593,157 @@ export default function AdminChatbot() {
         </TabsContent>
 
         <TabsContent value="leads" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Lead Capture Configuration</CardTitle>
-              <CardDescription>Configure how the chatbot collects visitor information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 rounded-lg border">
-                <div>
-                  <p className="font-medium">Enable Lead Capture</p>
-                  <p className="text-sm text-muted-foreground">Automatically collect visitor details during conversations</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-1">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Lead Capture Settings</CardTitle>
+                <CardDescription>Configure collection preferences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border">
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-sm">Enable Capture</p>
+                    <p className="text-xs text-muted-foreground">Auto-collect visitor info</p>
+                  </div>
+                  <Switch
+                    data-testid="switch-lead-capture"
+                    checked={editingSettings.leadCaptureEnabled ?? settings?.leadCaptureEnabled ?? true}
+                    onCheckedChange={(checked) => setEditingSettings({ ...editingSettings, leadCaptureEnabled: checked })}
+                  />
                 </div>
-                <Switch
-                  data-testid="switch-lead-capture"
-                  checked={editingSettings.leadCaptureEnabled ?? settings?.leadCaptureEnabled ?? true}
-                  onCheckedChange={(checked) => setEditingSettings({ ...editingSettings, leadCaptureEnabled: checked })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Required Fields</Label>
-                <p className="text-sm text-muted-foreground">These fields must be collected before ending conversation</p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {["name", "email", "phone", "property_interest"].map((field) => (
-                    <Badge key={field} variant="default" className="capitalize">
-                      {field.replace("_", " ")}
-                    </Badge>
-                  ))}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Required</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["name", "email", "phone", "property"].map((field) => (
+                      <Badge key={field} className="text-xs capitalize bg-primary/10 text-primary hover:bg-primary/20">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Optional Fields</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {["budget", "move_in_date", "room_preference"].map((field) => (
-                    <Badge key={field} variant="outline" className="capitalize">
-                      {field.replace("_", " ")}
-                    </Badge>
-                  ))}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Optional</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["budget", "move-in", "room type"].map((field) => (
+                      <Badge key={field} variant="outline" className="text-xs capitalize">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <Button
-                data-testid="button-save-leads"
-                onClick={() => updateSettingsMutation.mutate(editingSettings)}
-                disabled={Object.keys(editingSettings).length === 0 || updateSettingsMutation.isPending}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
+                <Button
+                  data-testid="button-save-leads"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => updateSettingsMutation.mutate(editingSettings)}
+                  disabled={Object.keys(editingSettings).length === 0 || updateSettingsMutation.isPending}
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save Settings
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Captured Leads</CardTitle>
+                    <CardDescription>Leads collected via chatbot conversations</CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {capturedLeads.length} total
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {leadsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 rounded-xl border animate-pulse">
+                        <div className="h-10 w-10 rounded-full bg-muted" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-32 bg-muted rounded" />
+                          <div className="h-3 w-48 bg-muted rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : capturedLeads.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="mx-auto w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                      <Users className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="font-medium text-muted-foreground">No leads captured yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">Leads will appear here when visitors share their details</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-3">
+                      {capturedLeads.map((lead, index) => (
+                        <motion.div
+                          key={lead.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="group relative p-4 rounded-xl border bg-card hover:bg-muted/30 transition-all duration-200 hover:shadow-sm"
+                          data-testid={`lead-card-${lead.id}`}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <h4 className="font-semibold text-sm truncate">{lead.name}</h4>
+                                <span className="text-xs text-muted-foreground shrink-0">
+                                  {format(new Date(lead.createdAt), "MMM d, h:mm a")}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {lead.email && (
+                                  <span className="flex items-center gap-1.5">
+                                    <Mail className="h-3 w-3" />
+                                    <span className="truncate max-w-[180px]">{lead.email}</span>
+                                  </span>
+                                )}
+                                {lead.phone && (
+                                  <span className="flex items-center gap-1.5">
+                                    <Phone className="h-3 w-3" />
+                                    {lead.phone}
+                                  </span>
+                                )}
+                              </div>
+                              {(lead.budgetMin || lead.budgetMax || lead.message) && (
+                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                  {(lead.budgetMin || lead.budgetMax) && (
+                                    <Badge variant="outline" className="text-xs gap-1">
+                                      <IndianRupee className="h-2.5 w-2.5" />
+                                      {lead.budgetMin && lead.budgetMax
+                                        ? `${(lead.budgetMin / 1000)}k - ${(lead.budgetMax / 1000)}k`
+                                        : lead.budgetMax
+                                          ? `Up to ${(lead.budgetMax / 1000)}k`
+                                          : `${(lead.budgetMin! / 1000)}k+`}
+                                    </Badge>
+                                  )}
+                                  {lead.propertyId && (
+                                    <Badge variant="secondary" className="text-xs gap-1">
+                                      <Building2 className="h-2.5 w-2.5" />
+                                      Property
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="knowledge" className="mt-6 space-y-6">

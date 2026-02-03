@@ -2596,6 +2596,18 @@ export async function registerRoutes(
     }
   });
 
+  // Get captured leads from chatbot
+  app.get("/api/admin/chatbot/captured-leads", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const leads = await chatbotAdmin.getCapturedLeads(limit);
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching captured leads:", error);
+      res.status(500).json({ error: "Failed to fetch captured leads" });
+    }
+  });
+
   // Get chatbot conversations
   app.get("/api/admin/chatbot/conversations", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {

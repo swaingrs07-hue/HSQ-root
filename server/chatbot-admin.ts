@@ -236,3 +236,21 @@ export async function deleteConversation(conversationId: string) {
   await db.delete(schema.chatbotEvents).where(eq(schema.chatbotEvents.conversationId, conversationId));
   await db.delete(schema.chatbotConversations).where(eq(schema.chatbotConversations.id, conversationId));
 }
+
+export async function getCapturedLeads(limit = 50) {
+  const events = await db
+    .select()
+    .from(schema.chatbotEvents)
+    .where(eq(schema.chatbotEvents.eventType, "lead_created"))
+    .orderBy(sql`${schema.chatbotEvents.createdAt} DESC`)
+    .limit(limit);
+
+  return events.map(event => {
+    const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+    return {
+      id: event.id,
+      createdAt: event.createdAt,
+      ...metadata,
+    };
+  });
+}

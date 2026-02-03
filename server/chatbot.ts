@@ -327,6 +327,23 @@ export async function createLeadFromChat(
       })
       .returning({ id: schema.leads.id });
 
+    // Log chatbot event for lead capture tracking
+    await db.insert(schema.chatbotEvents).values({
+      eventType: "lead_created",
+      metadata: JSON.stringify({
+        leadId: lead.id,
+        name: safeName,
+        email: safeEmail,
+        phone: safePhone,
+        propertyId: validPropertyId,
+        budgetMin,
+        budgetMax,
+        message: qualification.message,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+      }),
+    });
+
     return { leadId: lead.id };
   } catch (error) {
     console.error("Error creating lead from chat:", error);
