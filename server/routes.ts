@@ -11,29 +11,6 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
-import { v2 as cloudinary } from "cloudinary";
-import multer from "multer";
-
-// Configure multer for video uploads (200MB limit)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = ["video/mp4", "video/webm"];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid file type. Only MP4 and WebM videos are allowed."));
-    }
-  },
-});
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
