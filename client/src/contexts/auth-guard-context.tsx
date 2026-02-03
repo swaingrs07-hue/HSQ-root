@@ -9,6 +9,7 @@ type PendingAction = {
 
 interface AuthGuardContextType {
   requireAuth: (action: () => void, actionLabel?: string) => void;
+  openAuthModal: (actionLabel?: string) => void;
   isModalOpen: boolean;
 }
 
@@ -36,6 +37,11 @@ export function AuthGuardProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated]);
 
+  const openAuthModal = useCallback((actionLabel = "continue") => {
+    setPendingAction({ action: () => {}, label: actionLabel });
+    setIsModalOpen(true);
+  }, []);
+
   const handleSuccess = useCallback(() => {
     if (pendingAction) {
       setTimeout(() => {
@@ -51,7 +57,7 @@ export function AuthGuardProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthGuardContext.Provider value={{ requireAuth, isModalOpen }}>
+    <AuthGuardContext.Provider value={{ requireAuth, openAuthModal, isModalOpen }}>
       {children}
       <AuthModal
         isOpen={isModalOpen}

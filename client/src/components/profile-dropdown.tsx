@@ -27,7 +27,9 @@ import {
   HelpCircle,
   LogOut,
   ChevronDown,
+  LogIn,
 } from "lucide-react";
+import { useAuthGuard } from "@/contexts/auth-guard-context";
 
 const roleColors: Record<string, string> = {
   admin: "bg-red-100 text-red-700 border-red-200",
@@ -47,11 +49,26 @@ export function ProfileDropdown() {
   const { user, logout, isAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const { openAuthModal } = useAuthGuard();
+
+  // Show Sign In button for guests
+  if (!user) {
+    return (
+      <Button
+        onClick={() => openAuthModal("access your account")}
+        className="bg-primary hover:bg-primary/90 text-white font-medium px-5 py-2 rounded-full shadow-sm hover:shadow transition-all"
+        data-testid="button-sign-in"
+      >
+        <LogIn className="h-4 w-4 mr-2" />
+        Sign In
+      </Button>
+    );
+  }
 
   const isSalesExec = user?.role === "sales_executive";
   const showProperties = isAdmin || isSalesExec;
 
-  const userInitials = user?.name
+  const userInitials = user.name
     ? user.name
         .split(" ")
         .map((n: string) => n[0])
@@ -62,7 +79,7 @@ export function ProfileDropdown() {
 
   const handleLogout = () => {
     logout();
-    setLocation("/login");
+    setLocation("/");
   };
 
   const menuItems = [
