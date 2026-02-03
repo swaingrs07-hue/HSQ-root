@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "../components/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -243,7 +242,7 @@ export default function AdminActivityLogs() {
     }
   });
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (actionType !== "all") params.set("actionType", actionType);
@@ -253,7 +252,23 @@ export default function AdminActivityLogs() {
     if (startDate) params.set("startDate", new Date(startDate).toISOString());
     if (endDate) params.set("endDate", new Date(endDate).toISOString());
     
-    window.open(`/api/admin/activity-logs/export/csv?${params.toString()}`, "_blank");
+    try {
+      const res = await fetch(`/api/admin/activity-logs/export/csv?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `activity-logs-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to export CSV:", err);
+    }
   };
 
   const logs = logsData?.logs || [];
@@ -272,8 +287,7 @@ export default function AdminActivityLogs() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Activity Log</h1>
@@ -530,7 +544,6 @@ export default function AdminActivityLogs() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </AdminLayout>
+    </div>
   );
 }
