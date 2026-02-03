@@ -230,25 +230,29 @@ function AdminUsersContent() {
     setTargetUserId("");
     setReassignLeads(true);
     setReassignProperties(true);
+    setDependencies(null);
+    setReassignDialogOpen(true);
     const deps = await checkDependencies(user.id);
     if (deps) {
       setDependencies(deps.dependencies);
       setIsLastAdmin(deps.isLastAdmin);
       setCanDelete(deps.canDelete);
     }
-    setReassignDialogOpen(true);
   };
 
   const openDeleteDialog = async (user: User) => {
     setSelectedUser(user);
     setDeleteConfirmText("");
+    setDependencies(null);
+    setIsLastAdmin(false);
+    setCanDelete(false);
+    setDeleteDialogOpen(true);
     const deps = await checkDependencies(user.id);
     if (deps) {
       setDependencies(deps.dependencies);
       setIsLastAdmin(deps.isLastAdmin);
       setCanDelete(deps.canDelete);
     }
-    setDeleteDialogOpen(true);
   };
 
   const reassignUserItems = async () => {
@@ -690,6 +694,12 @@ function AdminUsersContent() {
               Transfer leads and property assignments to another team member before removing this user.
             </DialogDescription>
           </DialogHeader>
+          {!dependencies && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              <span className="ml-2 text-slate-500">Loading assignments...</span>
+            </div>
+          )}
           {dependencies && (
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -782,7 +792,14 @@ function AdminUsersContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {isLastAdmin && (
+            {!dependencies && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <span className="ml-2 text-slate-500">Checking dependencies...</span>
+              </div>
+            )}
+
+            {dependencies && isLastAdmin && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Cannot Remove</AlertTitle>
@@ -790,7 +807,7 @@ function AdminUsersContent() {
               </Alert>
             )}
 
-            {!canDelete && !isLastAdmin && dependencies && (
+            {dependencies && !canDelete && !isLastAdmin && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Active Assignments</AlertTitle>
@@ -801,7 +818,7 @@ function AdminUsersContent() {
               </Alert>
             )}
 
-            {canDelete && !isLastAdmin && (
+            {dependencies && canDelete && !isLastAdmin && (
               <>
                 <p className="text-sm text-slate-600">
                   Are you sure you want to remove this user? This action cannot be undone.
