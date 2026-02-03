@@ -143,7 +143,9 @@ export default function AuthPage() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleCapsLock = useCallback((e: KeyboardEvent) => {
-    setCapsLockOn(e.getModifierState("CapsLock"));
+    if (e.getModifierState) {
+      setCapsLockOn(e.getModifierState("CapsLock"));
+    }
   }, []);
 
   useEffect(() => {
