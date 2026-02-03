@@ -848,8 +848,29 @@ export async function registerRoutes(
         }
       }
       
-      const leads = await storage.getAllLeads(propertyId);
-      res.json(leads);
+      const allLeads = await storage.getAllLeads(propertyId);
+      
+      // Deduplicate leads by phone number (keep most recent)
+      const seenPhones = new Set<string>();
+      const seenEmails = new Set<string>();
+      const uniqueLeads = allLeads.filter(lead => {
+        const phone = lead.phone;
+        const email = lead.email;
+        
+        // Skip if we've already seen this phone or email
+        if (phone && seenPhones.has(phone)) {
+          return false;
+        }
+        if (email && seenEmails.has(email)) {
+          return false;
+        }
+        
+        if (phone) seenPhones.add(phone);
+        if (email) seenEmails.add(email);
+        return true;
+      });
+      
+      res.json(uniqueLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ error: "Failed to fetch leads" });
