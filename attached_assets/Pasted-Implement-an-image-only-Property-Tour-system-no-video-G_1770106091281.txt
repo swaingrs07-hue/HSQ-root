@@ -1,0 +1,88 @@
+Implement an image-only "Property Tour" system (no video).
+
+Goal:
+- Admin can upload/replace/remove property tour images anytime
+- Images are shown in a premium modal when user clicks "Take a Tour"
+- Tour is property-wise and category-wise (Overview, Rooms, Amenities, Location)
+
+1) Database changes
+Add these columns to properties table (JSON text fields):
+- tour_overview_images (text / JSON)
+- tour_rooms_images (text / JSON)
+- tour_amenities_images (text / JSON)
+- tour_location_images (text / JSON)
+
+Each field stores a JSON array of image URLs, e.g.:
+["https://.../img1.jpg","https://.../img2.jpg"]
+
+2) Image hosting (do NOT store images on Replit disk)
+Use Cloudinary for image uploads.
+Add env vars:
+- CLOUDINARY_CLOUD_NAME
+- CLOUDINARY_API_KEY
+- CLOUDINARY_API_SECRET
+
+3) Backend APIs
+Create endpoints:
+
+A) POST /api/upload/image
+- Accept multipart/form-data with file
+- Validate mime types: image/jpeg, image/png, image/webp
+- Upload to Cloudinary under folder: hsquare/property-tours/{propertyId}/{category}
+- Return secure_url
+
+B) PATCH /api/properties/:id/tour-images
+- Body:
+  {
+    "category": "overview" | "rooms" | "amenities" | "location",
+    "images": ["url1","url2",...]
+  }
+- Save into the matching JSON column
+- Admin only
+
+C) GET /api/properties/:id
+- Include all tour image arrays (parse JSON safely)
+- If missing/invalid JSON, return empty arrays (never crash)
+
+4) Admin UI page
+Create: /admin/property-tour-images
+
+UI requirements:
+- Property selector dropdown
+- Tabs: Overview / Rooms / Amenities / Location
+- For current tab:
+  - Grid gallery (cards)
+  - Upload button (multiple images allowed)
+  - Each image card has: Preview + "Remove" icon
+  - Drag & drop reorder (optional, if easy)
+  - "Save" button (or auto-save after each change)
+- Add "Add Images" supports selecting multiple files at once
+- Show upload progress + toast success/fail
+
+5) Public Tour UI (Home Page)
+- Keep existing "Take a Tour" button
+- On click open a premium modal:
+  - Property selector
+  - Tabs: Overview, Rooms, Amenities, Location
+  - Show image slider/carousel (next/prev arrows + swipe on mobile)
+  - Thumbnails row below carousel
+  - If no images: show "Tour images coming soon" with a placeholder
+
+6) Performance + premium feel
+- Use responsive images (Cloudinary transformations if possible)
+- Lazy-load images in carousel
+- Preload first 1–2 images only
+- Add smooth fade transition between slides
+- Modal should have blur backdrop + rounded corners + close button
+
+7) Security
+- Only Admin can access /admin/property-tour-images
+- Only Admin can call upload/update endpoints
+- Validate file size limit e.g. 8MB per image
+
+Deliverables:
+- DB migration
+- Backend endpoints
+- Admin page UI
+- Home page modal UI connected to property tour images
+- Works even if some categories have no images (no crashes)
