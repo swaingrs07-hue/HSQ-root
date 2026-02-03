@@ -243,14 +243,43 @@ export async function getCapturedLeads(limit = 50) {
     .from(schema.chatbotEvents)
     .where(eq(schema.chatbotEvents.eventType, "lead_created"))
     .orderBy(sql`${schema.chatbotEvents.createdAt} DESC`)
-    .limit(limit);
+    .limit(limit * 2);
 
-  return events.map(event => {
+  const seenLeadIds = new Set<string>();
+  const uniqueLeads: Array<{
+    id: string;
+    createdAt: Date | null;
+    leadId?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    propertyId?: string;
+    budgetMin?: number;
+    budgetMax?: number;
+    message?: string;
+  }> = [];
+
+  for (const event of events) {
     const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-    return {
+    const leadId = metadata.leadId;
+    
+    if (leadId && seenLeadIds.has(leadId)) {
+      continue;
+    }
+    if (leadId) {
+      seenLeadIds.add(leadId);
+    }
+    
+    uniqueLeads.push({
       id: event.id,
       createdAt: event.createdAt,
       ...metadata,
-    };
-  });
+    });
+    
+    if (uniqueLeads.length >= limit) {
+      break;
+    }
+  }
+
+  return uniqueLeads;
 }
