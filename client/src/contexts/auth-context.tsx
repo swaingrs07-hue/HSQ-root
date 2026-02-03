@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     
-    const isPublicRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
+    const isAuthRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
     const isBrowsableRoute = BROWSABLE_ROUTES.some(route => 
       location === route || location.startsWith(route + "/")
     );
@@ -69,7 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const isProtectedRoute = isAdminRoute || isOperationsRoute || isSalesRoute || isDashboardRoute || isBookingsRoute || isProfileRoute;
     
-    if (!isPublicRoute && !isBrowsableRoute && isProtectedRoute && !user) {
+    // Progressive Auth: If user is NOT logged in and lands on /auth, redirect to home
+    // They can browse freely and will see auth modal when taking protected actions
+    if (!user && isAuthRoute) {
+      setLocation("/");
+      return;
+    }
+    
+    // Redirect to auth only for protected routes when not logged in
+    if (!isAuthRoute && !isBrowsableRoute && isProtectedRoute && !user) {
       setLocation("/auth");
       return;
     }
