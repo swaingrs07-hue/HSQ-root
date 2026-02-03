@@ -51,7 +51,7 @@ export default function AdminPropertyTourImages() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({
-    queryKey: ["/api/admin/properties"],
+    queryKey: ["/api/properties"],
   });
 
   const selectedProperty = properties?.find(p => p.id === selectedPropertyId);
