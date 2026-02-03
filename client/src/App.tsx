@@ -26,6 +26,7 @@ import RequestsBoard from "@/pages/requests-board";
 import Profile from "@/pages/profile";
 import AdminSettings from "@/pages/admin-settings";
 import AdminUsers from "@/pages/admin-users";
+import AdminActivityLogs from "@/pages/admin-activity-logs";
 
 function AppContent() {
   const [location] = useLocation();
@@ -54,6 +55,7 @@ function AppContent() {
               <Route path="/admin/requests" component={RequestsBoard} />
               <Route path="/admin/settings" component={AdminSettings} />
               <Route path="/admin/users" component={AdminUsers} />
+              <Route path="/admin/activity-logs" component={AdminActivityLogs} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />

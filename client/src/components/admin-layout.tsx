@@ -27,7 +27,8 @@ import {
   UserPlus,
   CreditCard,
   Calendar,
-  Clock
+  Clock,
+  Activity
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -76,6 +77,7 @@ const adminNavItems: NavItem[] = [
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
+  { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
