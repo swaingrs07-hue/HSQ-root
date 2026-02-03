@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2 } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -127,6 +128,15 @@ function AdminSalesManagementContent() {
   const [selectedExecForMapping, setSelectedExecForMapping] = useState<string>("");
   const [mappingLoading, setMappingLoading] = useState(false);
   const [addMappingDialogOpen, setAddMappingDialogOpen] = useState(false);
+  
+  // Deactivation/Reassignment state
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [execToDeactivate, setExecToDeactivate] = useState<SalesExecutive | null>(null);
+  const [reassignToExecId, setReassignToExecId] = useState<string>("");
+  const [deactivating, setDeactivating] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [execToEdit, setExecToEdit] = useState<SalesExecutive | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
 
   const getAuthToken = () => token || "";
 
@@ -395,6 +405,94 @@ function AdminSalesManagementContent() {
       default: return <Badge className="bg-blue-500 text-white">Cold</Badge>;
     }
   };
+  
+  // Deactivate sales executive
+  const openDeactivateDialog = (exec: SalesExecutive) => {
+    setExecToDeactivate(exec);
+    setReassignToExecId("");
+    setDeactivateDialogOpen(true);
+  };
+  
+  const deactivateSalesExec = async () => {
+    if (!execToDeactivate) return;
+    
+    try {
+      setDeactivating(true);
+      
+      // If exec has leads and reassign target selected, reassign first
+      if ((execToDeactivate.totalLeads || 0) > 0 && reassignToExecId) {
+        const reassignRes = await fetch(`/api/admin/sales-executives/${execToDeactivate.id}/reassign-all`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAuthToken()}`
+          },
+          body: JSON.stringify({ toUserId: reassignToExecId })
+        });
+        if (!reassignRes.ok) throw new Error("Failed to reassign leads");
+      }
+      
+      // Deactivate the exec
+      const res = await fetch(`/api/admin/sales-executives/${execToDeactivate.id}/deactivate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      
+      if (!res.ok) throw new Error("Failed to deactivate");
+      
+      toast({ title: "Success", description: `${execToDeactivate.name} has been deactivated` });
+      setDeactivateDialogOpen(false);
+      setExecToDeactivate(null);
+      loadSalesExecs();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to deactivate", variant: "destructive" });
+    } finally {
+      setDeactivating(false);
+    }
+  };
+  
+  // Reactivate sales executive
+  const reactivateSalesExec = async (exec: SalesExecutive) => {
+    try {
+      const res = await fetch(`/api/admin/sales-executives/${exec.id}/reactivate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      if (!res.ok) throw new Error("Failed to reactivate");
+      toast({ title: "Success", description: `${exec.name} has been reactivated` });
+      loadSalesExecs();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to reactivate", variant: "destructive" });
+    }
+  };
+  
+  // Edit sales executive
+  const openEditDialog = (exec: SalesExecutive) => {
+    setExecToEdit(exec);
+    setEditForm({ name: exec.name, email: exec.email, phone: exec.phone || "" });
+    setEditDialogOpen(true);
+  };
+  
+  const updateSalesExec = async () => {
+    if (!execToEdit) return;
+    try {
+      const res = await fetch(`/api/admin/sales-executives/${execToEdit.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify(editForm)
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast({ title: "Success", description: "Sales executive updated" });
+      setEditDialogOpen(false);
+      setExecToEdit(null);
+      loadSalesExecs();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update", variant: "destructive" });
+    }
+  };
 
   if (loading && salesExecs.length === 0) {
     return (
@@ -642,20 +740,45 @@ function AdminSalesManagementContent() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedExec(exec);
-                              // Pre-populate with currently assigned properties
-                              setSelectedPropertyIds(exec.assignedProperties?.map((p: any) => p.id) || []);
-                              setAssignPropertyDialogOpen(true);
-                            }}
-                            data-testid={`button-assign-properties-${exec.id}`}
-                          >
-                            <Building2 className="h-4 w-4 mr-1" />
-                            Assign
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" data-testid={`button-actions-${exec.id}`}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(exec)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedExec(exec);
+                                setSelectedPropertyIds(exec.assignedProperties?.map((p: any) => p.id) || []);
+                                setAssignPropertyDialogOpen(true);
+                              }}>
+                                <Building2 className="h-4 w-4 mr-2" />
+                                Assign Properties
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {exec.isActive ? (
+                                <DropdownMenuItem 
+                                  onClick={() => openDeactivateDialog(exec)}
+                                  className="text-orange-600"
+                                >
+                                  <Power className="h-4 w-4 mr-2" />
+                                  Deactivate
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => reactivateSalesExec(exec)}
+                                  className="text-green-600"
+                                >
+                                  <Power className="h-4 w-4 mr-2" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -947,6 +1070,112 @@ function AdminSalesManagementContent() {
             <Button variant="outline" onClick={() => setAssignLeadDialogOpen(false)} data-testid="button-cancel-assign-lead">Cancel</Button>
             <Button onClick={assignLeadToExec} disabled={!selectedExecId} data-testid="button-confirm-assign-lead">
               Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deactivate Sales Executive Dialog */}
+      <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Deactivate {execToDeactivate?.name}
+            </DialogTitle>
+            <DialogDescription>
+              This will remove them from assignment dropdowns and boards.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {(execToDeactivate?.totalLeads || 0) > 0 && (
+              <Alert className="border-orange-200 bg-orange-50">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertTitle className="text-orange-800">This user has {execToDeactivate?.totalLeads} leads</AlertTitle>
+                <AlertDescription className="text-orange-700">
+                  Reassign these leads to another sales executive before deactivating.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {(execToDeactivate?.totalLeads || 0) > 0 && (
+              <div>
+                <Label htmlFor="reassign-exec">Reassign Leads To</Label>
+                <Select value={reassignToExecId} onValueChange={setReassignToExecId}>
+                  <SelectTrigger id="reassign-exec" data-testid="select-reassign-exec">
+                    <SelectValue placeholder="Select sales executive" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {salesExecs.filter(e => e.isActive && e.id !== execToDeactivate?.id).map((exec) => (
+                      <SelectItem key={exec.id} value={exec.id}>
+                        {exec.name} ({exec.totalLeads} leads)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeactivateDialogOpen(false)} data-testid="button-cancel-deactivate">
+              Cancel
+            </Button>
+            <Button 
+              onClick={deactivateSalesExec} 
+              disabled={deactivating || ((execToDeactivate?.totalLeads || 0) > 0 && !reassignToExecId)}
+              className="bg-orange-500 hover:bg-orange-600"
+              data-testid="button-confirm-deactivate"
+            >
+              {deactivating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {(execToDeactivate?.totalLeads || 0) > 0 ? "Reassign & Deactivate" : "Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Sales Executive Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Sales Executive</DialogTitle>
+            <DialogDescription>Update sales executive details</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Name</Label>
+              <Input 
+                id="edit-name" 
+                value={editForm.name} 
+                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                data-testid="input-edit-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input 
+                id="edit-email" 
+                type="email"
+                value={editForm.email} 
+                onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input 
+                id="edit-phone" 
+                value={editForm.phone} 
+                onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                data-testid="input-edit-phone"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} data-testid="button-cancel-edit">
+              Cancel
+            </Button>
+            <Button onClick={updateSalesExec} data-testid="button-confirm-edit">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

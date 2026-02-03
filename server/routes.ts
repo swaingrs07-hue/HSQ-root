@@ -2397,6 +2397,134 @@ export async function registerRoutes(
     }
   });
 
+  // Update sales executive (admin only)
+  app.put("/api/admin/sales-executives/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, email, phone } = req.body;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "Sales executive not found" });
+      }
+      
+      // Check email uniqueness if changed
+      if (email && email.toLowerCase() !== user.email) {
+        const existingEmail = await storage.getUserByEmail(email.toLowerCase());
+        if (existingEmail) {
+          return res.status(409).json({ error: "Email already registered" });
+        }
+      }
+      
+      const updated = await storage.updateUser(id, {
+        name: name?.trim(),
+        email: email?.toLowerCase().trim(),
+        phone: phone?.trim(),
+      });
+      
+      res.json({ ...updated, password: undefined });
+    } catch (error: any) {
+      console.error("Error updating sales executive:", error);
+      res.status(500).json({ error: error.message || "Failed to update sales executive" });
+    }
+  });
+
+  // Deactivate sales executive (admin only)
+  app.post("/api/admin/sales-executives/:id/deactivate", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authReq = req as AuthRequest;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "Sales executive not found" });
+      }
+      
+      const updated = await storage.updateUser(id, { isActive: false });
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "sales_exec_deactivated",
+        entityType: "user",
+        entityId: id,
+        details: JSON.stringify({ name: user.name }),
+      });
+      
+      res.json({ success: true, message: "Sales executive deactivated" });
+    } catch (error: any) {
+      console.error("Error deactivating sales executive:", error);
+      res.status(500).json({ error: error.message || "Failed to deactivate" });
+    }
+  });
+
+  // Reactivate sales executive (admin only)
+  app.post("/api/admin/sales-executives/:id/reactivate", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authReq = req as AuthRequest;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "Sales executive not found" });
+      }
+      
+      const updated = await storage.updateUser(id, { isActive: true });
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "sales_exec_reactivated",
+        entityType: "user",
+        entityId: id,
+        details: JSON.stringify({ name: user.name }),
+      });
+      
+      res.json({ success: true, message: "Sales executive reactivated" });
+    } catch (error: any) {
+      console.error("Error reactivating sales executive:", error);
+      res.status(500).json({ error: error.message || "Failed to reactivate" });
+    }
+  });
+
+  // Reassign all leads from one sales exec to another (admin only)
+  app.post("/api/admin/sales-executives/:id/reassign-all", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { toUserId } = req.body;
+      const authReq = req as AuthRequest;
+      
+      if (!toUserId) {
+        return res.status(400).json({ error: "Target user ID required" });
+      }
+      
+      // Get all leads assigned to this exec
+      const allLeads = await storage.getAllLeads();
+      const leadsToReassign = allLeads.filter(l => l.assignedToId === id);
+      
+      // Reassign each lead
+      let count = 0;
+      for (const lead of leadsToReassign) {
+        await storage.updateLead(lead.id, {
+          assignedToId: toUserId,
+          assignmentType: "admin_manual",
+        });
+        count++;
+      }
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "bulk_lead_reassignment",
+        entityType: "user",
+        entityId: id,
+        details: JSON.stringify({ count, fromUserId: id, toUserId }),
+      });
+      
+      res.json({ success: true, message: `${count} leads reassigned`, count });
+    } catch (error: any) {
+      console.error("Error reassigning leads:", error);
+      res.status(500).json({ error: error.message || "Failed to reassign leads" });
+    }
+  });
+
   // Get all property assignments (admin only)
   app.get("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {

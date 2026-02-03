@@ -1,0 +1,77 @@
+Add Admin controls to manage Sales Team and Roles.
+
+IMPLEMENT THESE FEATURES WITHOUT BREAKING EXISTING LEADS/REQUESTS LOGIC:
+
+A) Sales Executives Page: Remove/Delete Option
+1. Add an "Actions" menu (3-dot or button) on each Sales Executive row with:
+   - Edit
+   - Deactivate (Recommended default)
+   - Remove from Sales Team (soft delete)
+   - Delete permanently (Admin-only, optional)
+
+2. Soft Delete / Deactivate (default behavior):
+   - Add fields: is_active, deactivated_at, deactivated_by
+   - Deactivated sales exec should NOT appear in dropdowns, assignment lists, or boards.
+   - Keep historical data (leads/bookings) intact.
+
+3. Reassignment Safety:
+   - If sales exec has assigned leads/requests:
+     - Show a warning modal:
+       "This user has X leads. Reassign before deactivating."
+     - Provide a dropdown to choose another active sales executive to reassign all items.
+   - Implement reassignment transaction:
+     - Move all open leads/requests to chosen executive before deactivation.
+
+4. API:
+   - POST /sales-executives/:id/deactivate
+   - POST /sales-executives/:id/reassign (body: {to_sales_exec_id})
+   - DELETE /sales-executives/:id (hard delete only if no dependencies OR with confirmed reassignment)
+
+5. UI Feedback:
+   - Toast success/error
+   - Optimistic UI update (row disappears or status badge changes)
+   - No blank screens on failure
+
+B) Admin Panel: User Management (Admins + Sales Executives)
+1. Create a new Admin page in sidebar: "Users" (or "Team & Roles")
+   - Only visible to Admin role.
+
+2. Users Table:
+   - Show: Name, Email, Phone, Role (Admin/Sales), Status, Assigned Properties, Created At, Actions
+   - Add search and filters (role/status/property)
+
+3. Create User Modal:
+   - Admin can add a new user with role selection:
+     - Admin
+     - Sales Executive
+   - Validate unique email/phone.
+   - Create login credentials (password set flow):
+     - Option A: admin sets temporary password
+     - Option B: send reset-link email (if email service exists)
+   - On success, new user appears in Users list.
+
+4. Role Change & Assignment:
+   - Admin can change user role (Admin <-> Sales) with confirmation.
+   - Admin can assign properties to Sales Executive from Users page:
+     - Multi-select property list
+     - Save mapping in user_property_mapping
+   - Admin role can optionally be assigned properties too (for scoped admin), but default admin sees all.
+
+5. Permissions & Guards:
+   - Enforce backend middleware:
+     - Only Admin can view Users page, change roles, delete/deactivate users.
+   - Sales Executives must never see admin-only actions.
+
+6. Database / Data Model (if not present):
+   - users table: id, name, email, phone, role ENUM('ADMIN','SALES'), is_active, created_at
+   - user_property_mapping: id, user_id, property_id, assigned_by, assigned_at, status
+   - Ensure joins return assigned property names in Sales Executive list.
+
+7. Final Checks:
+   - Admin can deactivate/remove sales executive from Sales Executives page.
+   - Admin can create another Admin or Sales Executive from Users panel.
+   - Admin can assign properties to sales executive from Users panel.
+   - No data mixing between properties.
+   - No blank pages, add error boundaries and loaders.
+
+Build this as clean reusable components and verify end-to-end.
