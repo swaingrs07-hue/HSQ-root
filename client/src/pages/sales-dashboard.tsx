@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Target, Phone, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useProperty } from "@/contexts/property-context";
 import { format, parseISO, isAfter, isBefore, addDays } from "date-fns";
 
 interface Lead {
@@ -42,6 +43,7 @@ interface Property {
 export default function SalesDashboard() {
   const { toast } = useToast();
   const { user, token } = useAuth();
+  const { selectedPropertyId } = useProperty();
   const [activeTab, setActiveTab] = useState("all");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -102,12 +104,16 @@ export default function SalesDashboard() {
   useEffect(() => {
     loadLeads();
     loadProperties();
-  }, []);
+  }, [selectedPropertyId]);
 
   const loadLeads = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/sales/leads", {
+      let url = "/api/sales/leads";
+      if (selectedPropertyId) {
+        url = `${url}?propertyId=${selectedPropertyId}`;
+      }
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       if (!response.ok) throw new Error("Failed to fetch leads");

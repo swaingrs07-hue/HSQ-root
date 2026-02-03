@@ -231,7 +231,7 @@ export interface IStorage {
   getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined>;
   
   // Lead Assignment & Scoping
-  getLeadsForSalesExec(userId: string): Promise<Lead[]>;
+  getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]>;
   getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]>;
   assignLeadToUser(leadId: string, userId: string, assignedBy: string): Promise<Lead | undefined>;
   reassignLead(leadId: string, newUserId: string, reassignedBy: string): Promise<Lead | undefined>;
@@ -1375,8 +1375,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Lead Assignment & Scoping
-  async getLeadsForSalesExec(userId: string): Promise<Lead[]> {
-    return await db.select().from(leads).where(eq(leads.assignedToId, userId)).orderBy(desc(leads.createdAt));
+  async getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]> {
+    const conditions = [eq(leads.assignedToId, userId)];
+    if (propertyId) {
+      conditions.push(eq(leads.propertyId, propertyId));
+    }
+    return await db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.createdAt));
   }
 
   async getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]> {

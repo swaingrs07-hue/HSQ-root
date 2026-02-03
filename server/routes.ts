@@ -3493,6 +3493,7 @@ export async function registerRoutes(
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.user!.userId;
+      const propertyId = req.query.propertyId as string | undefined;
       
       // Get assigned property IDs for this sales exec
       const assignedProperties = await storage.getAssignedPropertiesForUser(userId);
@@ -3502,10 +3503,18 @@ export async function registerRoutes(
         return res.json([]);
       }
       
+      // If propertyId is specified, verify the exec is assigned to it
+      if (propertyId && !assignedPropertyIds.includes(propertyId)) {
+        return res.status(403).json({ error: "Not authorized for this property" });
+      }
+      
+      // Filter to specified property or use all assigned properties
+      const targetPropertyIds = propertyId ? [propertyId] : assignedPropertyIds;
+      
       // Get leads that are either:
       // 1. Assigned to this sales exec, OR
       // 2. For their assigned properties (even if not yet assigned to them)
-      const leads = await storage.getLeadsForAssignedProperties(userId, assignedPropertyIds);
+      const leads = await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
       res.json(leads);
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -3529,7 +3538,8 @@ export async function registerRoutes(
   app.get("/api/sales/my-leads", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const leads = await storage.getLeadsForSalesExec(authReq.user!.userId);
+      const propertyId = req.query.propertyId as string | undefined;
+      const leads = await storage.getLeadsForSalesExec(authReq.user!.userId, propertyId);
       res.json(leads);
     } catch (error) {
       console.error("Error fetching leads:", error);
