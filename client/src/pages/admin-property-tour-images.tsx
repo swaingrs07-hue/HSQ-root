@@ -7,7 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, ImagePlus, Trash2, Save, Loader2, GripVertical, Eye, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { apiRequest } from "@/lib/queryClient";
+
+function getAuthToken(): string {
+  try {
+    const auth = JSON.parse(localStorage.getItem("hsquare_auth") || "{}");
+    return auth.token || "";
+  } catch {
+    return "";
+  }
+}
 
 interface Property {
   id: string;
@@ -76,10 +84,18 @@ export default function AdminPropertyTourImages() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ category, images }: { category: TourCategory; images: string[] }) => {
-      const response = await apiRequest("PATCH", `/api/admin/properties/${selectedPropertyId}/tour-images`, {
-        category,
-        images,
+      const token = getAuthToken();
+      const response = await fetch(`/api/admin/properties/${selectedPropertyId}/tour-images`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ category, images }),
       });
+      if (!response.ok) {
+        throw new Error("Failed to save images");
+      }
       return response.json();
     },
     onSuccess: () => {
