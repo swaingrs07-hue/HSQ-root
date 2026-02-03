@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import {
   Bot,
   Settings2,
@@ -96,8 +95,31 @@ export default function AdminChatbot() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const getAuthToken = () => {
+    try {
+      const auth = JSON.parse(localStorage.getItem("hsquare_auth") || "{}");
+      return auth.token || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const token = getAuthToken();
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    return res.json();
+  };
+
   const { data: settings, isLoading: settingsLoading } = useQuery<ChatbotSettings>({
     queryKey: ["/api/admin/chatbot/settings"],
+    queryFn: () => authFetch("/api/admin/chatbot/settings"),
   });
 
   const { data: stats } = useQuery<{
@@ -107,20 +129,26 @@ export default function AdminChatbot() {
     avgResponseTime: string;
   }>({
     queryKey: ["/api/admin/chatbot/stats"],
+    queryFn: () => authFetch("/api/admin/chatbot/stats"),
   });
 
   const { data: knowledge = [] } = useQuery<KnowledgeEntry[]>({
     queryKey: ["/api/admin/chatbot/knowledge"],
+    queryFn: () => authFetch("/api/admin/chatbot/knowledge"),
   });
 
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/admin/chatbot/conversations"],
+    queryFn: () => authFetch("/api/admin/chatbot/conversations"),
   });
 
   const toggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const res = await apiRequest("POST", "/api/admin/chatbot/toggle", { enabled });
-      return res.json();
+      return authFetch("/api/admin/chatbot/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/settings"] });
@@ -131,8 +159,11 @@ export default function AdminChatbot() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<ChatbotSettings>) => {
-      const res = await apiRequest("PUT", "/api/admin/chatbot/settings", data);
-      return res.json();
+      return authFetch("/api/admin/chatbot/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/settings"] });
@@ -144,8 +175,11 @@ export default function AdminChatbot() {
 
   const createKnowledgeMutation = useMutation({
     mutationFn: async (data: Partial<KnowledgeEntry>) => {
-      const res = await apiRequest("POST", "/api/admin/chatbot/knowledge", data);
-      return res.json();
+      return authFetch("/api/admin/chatbot/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/knowledge"] });
@@ -158,8 +192,7 @@ export default function AdminChatbot() {
 
   const deleteKnowledgeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/admin/chatbot/knowledge/${id}`);
-      return res.json();
+      return authFetch(`/api/admin/chatbot/knowledge/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/knowledge"] });
@@ -172,8 +205,11 @@ export default function AdminChatbot() {
     if (!testMessage.trim()) return;
     setTestLoading(true);
     try {
-      const res = await apiRequest("POST", "/api/admin/chatbot/test", { message: testMessage });
-      const data = await res.json();
+      const data = await authFetch("/api/admin/chatbot/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: testMessage }),
+      });
       setTestResponse(data.response);
       setTestMessage("");
     } catch {
