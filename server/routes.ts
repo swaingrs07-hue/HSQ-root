@@ -2775,18 +2775,18 @@ export async function registerRoutes(
       // Get counts of assigned items
       const leads = await db.select({ count: sql<number>`count(*)::int` })
         .from(schema.leads)
-        .where(eq(schema.leads.assignedTo, id));
+        .where(eq(schema.leads.assignedToId, id));
       
       const requests = await db.select({ count: sql<number>`count(*)::int` })
         .from(schema.leads)
         .where(and(
-          eq(schema.leads.assignedTo, id),
+          eq(schema.leads.assignedToId, id),
           inArray(schema.leads.status, ["new", "contacted", "warm", "interested", "hot", "site_visit", "visit_scheduled", "negotiation"])
         ));
 
       const properties = await db.select({ count: sql<number>`count(*)::int` })
-        .from(schema.salesExecPropertyAssignments)
-        .where(eq(schema.salesExecPropertyAssignments.userId, id));
+        .from(schema.salesExecProperties)
+        .where(eq(schema.salesExecProperties.userId, id));
 
       // Check if last admin
       const adminCount = await db.select({ count: sql<number>`count(*)::int` })
@@ -2840,8 +2840,8 @@ export async function registerRoutes(
       // Reassign leads
       if (reassignLeads !== false) {
         const result = await db.update(schema.leads)
-          .set({ assignedTo: toUserId, updatedAt: new Date() })
-          .where(eq(schema.leads.assignedTo, id));
+          .set({ assignedToId: toUserId, updatedAt: new Date() })
+          .where(eq(schema.leads.assignedToId, id));
         leadsReassigned = result.rowCount || 0;
       }
 
@@ -2849,20 +2849,20 @@ export async function registerRoutes(
       if (reassignProperties !== false) {
         // Delete old assignments and create new ones
         const existingAssignments = await db.select()
-          .from(schema.salesExecPropertyAssignments)
-          .where(eq(schema.salesExecPropertyAssignments.userId, id));
+          .from(schema.salesExecProperties)
+          .where(eq(schema.salesExecProperties.userId, id));
         
         for (const assignment of existingAssignments) {
           // Check if target already has this property
           const targetHas = await db.select()
-            .from(schema.salesExecPropertyAssignments)
+            .from(schema.salesExecProperties)
             .where(and(
-              eq(schema.salesExecPropertyAssignments.userId, toUserId),
-              eq(schema.salesExecPropertyAssignments.propertyId, assignment.propertyId)
+              eq(schema.salesExecProperties.userId, toUserId),
+              eq(schema.salesExecProperties.propertyId, assignment.propertyId)
             ));
           
           if (targetHas.length === 0) {
-            await db.insert(schema.salesExecPropertyAssignments).values({
+            await db.insert(schema.salesExecProperties).values({
               userId: toUserId,
               propertyId: assignment.propertyId,
               assignedBy: authReq.user!.userId,
@@ -2872,8 +2872,8 @@ export async function registerRoutes(
         }
 
         // Remove old assignments
-        await db.delete(schema.salesExecPropertyAssignments)
-          .where(eq(schema.salesExecPropertyAssignments.userId, id));
+        await db.delete(schema.salesExecProperties)
+          .where(eq(schema.salesExecProperties.userId, id));
       }
 
       // Log activity
@@ -2943,11 +2943,11 @@ export async function registerRoutes(
       // Check for remaining dependencies
       const leads = await db.select({ count: sql<number>`count(*)::int` })
         .from(schema.leads)
-        .where(eq(schema.leads.assignedTo, id));
+        .where(eq(schema.leads.assignedToId, id));
       
       const properties = await db.select({ count: sql<number>`count(*)::int` })
-        .from(schema.salesExecPropertyAssignments)
-        .where(eq(schema.salesExecPropertyAssignments.userId, id));
+        .from(schema.salesExecProperties)
+        .where(eq(schema.salesExecProperties.userId, id));
 
       if ((leads[0]?.count || 0) > 0 || (properties[0]?.count || 0) > 0) {
         return res.status(400).json({ 
