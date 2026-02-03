@@ -52,6 +52,7 @@ import type { Lead } from "@shared/schema";
 import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { parseNaturalLanguageQuery, getSearchSuggestions, describeFilters, type ParsedSearchFilters } from "@/lib/nlp-search";
+import { useProperty } from "@/contexts/property-context";
 
 interface Property {
   id: string;
@@ -106,6 +107,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function RequestsBoard() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { selectedPropertyId } = useProperty();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,9 +192,15 @@ export default function RequestsBoard() {
       const user = authData ? JSON.parse(authData)?.user : null;
       const isSalesExec = user?.role === "sales_executive";
       
-      const url = isSalesExec 
+      let url = isSalesExec 
         ? `/api/sales/my-leads`
         : "/api/leads";
+      
+      // Add propertyId filter if selected
+      if (selectedPropertyId) {
+        const separator = url.includes("?") ? "&" : "?";
+        url = `${url}${separator}propertyId=${selectedPropertyId}`;
+      }
       
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -205,7 +213,7 @@ export default function RequestsBoard() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthToken]);
+  }, [getAuthToken, selectedPropertyId]);
 
   const loadFilters = useCallback(async () => {
     try {

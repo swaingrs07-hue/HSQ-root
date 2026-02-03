@@ -830,10 +830,22 @@ export async function registerRoutes(
 
   // ============ LEADS (Admin) ============
   
-  // Get all leads
+  // Get all leads (with optional propertyId filter)
   app.get("/api/leads", async (req, res) => {
     try {
-      const leads = await storage.getAllLeads();
+      const propertyId = req.query.propertyId as string | undefined;
+      const user = req.session?.user;
+      
+      // If sales executive, only show assigned property leads
+      if (user?.role === "sales_executive" && propertyId) {
+        const assignments = await storage.getSalesExecPropertyAssignments(user.id);
+        const assignedPropertyIds = assignments.map(a => a.propertyId);
+        if (!assignedPropertyIds.includes(propertyId)) {
+          return res.status(403).json({ error: "You do not have access to this property" });
+        }
+      }
+      
+      const leads = await storage.getAllLeads(propertyId);
       res.json(leads);
     } catch (error) {
       console.error("Error fetching leads:", error);

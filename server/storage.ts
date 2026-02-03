@@ -130,7 +130,7 @@ export interface IStorage {
   getLeadByEmail(email: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined>;
-  getAllLeads(): Promise<Lead[]>;
+  getAllLeads(propertyId?: string): Promise<Lead[]>;
   updateLeadActivity(id: string): Promise<Lead | undefined>;
   
   // Follow-up Management (userId optional - if not provided returns all, if provided filters by assigned user)
@@ -690,7 +690,10 @@ export class DatabaseStorage implements IStorage {
     return lead || undefined;
   }
 
-  async getAllLeads(): Promise<Lead[]> {
+  async getAllLeads(propertyId?: string): Promise<Lead[]> {
+    if (propertyId) {
+      return await db.select().from(leads).where(eq(leads.propertyId, propertyId)).orderBy(desc(leads.lastActivityAt));
+    }
     return await db.select().from(leads).orderBy(desc(leads.lastActivityAt));
   }
 

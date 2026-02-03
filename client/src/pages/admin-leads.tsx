@@ -68,6 +68,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
+import { useProperty } from "@/contexts/property-context";
 
 interface SalesExecWithCounts {
   id: string;
@@ -132,9 +133,19 @@ export default function AdminLeads() {
   const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<string>("lastActivityAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  const { selectedPropertyId } = useProperty();
 
   const { data: leads = [], isLoading: leadsLoading, refetch: refetchLeads } = useQuery<Lead[]>({
-    queryKey: ["/api/leads"],
+    queryKey: ["/api/leads", selectedPropertyId],
+    queryFn: async () => {
+      const url = selectedPropertyId 
+        ? `/api/leads?propertyId=${selectedPropertyId}` 
+        : "/api/leads";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch leads");
+      return res.json();
+    },
     refetchInterval: 30000,
   });
 
