@@ -850,12 +850,25 @@ export async function registerRoutes(
       
       const allLeads = await storage.getAllLeads(propertyId);
       
-      // Deduplicate leads by phone number (keep most recent)
+      // Get staff emails to filter out
+      const staffUsers = await storage.getUsersByRole(["admin", "sales_executive"]);
+      const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
+      const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
+      
+      // Filter out staff and deduplicate leads by phone/email (keep most recent)
       const seenPhones = new Set<string>();
       const seenEmails = new Set<string>();
       const uniqueLeads = allLeads.filter(lead => {
         const phone = lead.phone;
-        const email = lead.email;
+        const email = lead.email?.toLowerCase();
+        
+        // Skip staff members
+        if (email && staffEmails.has(email)) {
+          return false;
+        }
+        if (phone && staffPhones.has(phone)) {
+          return false;
+        }
         
         // Skip if we've already seen this phone or email
         if (phone && seenPhones.has(phone)) {
