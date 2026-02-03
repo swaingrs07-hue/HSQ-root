@@ -81,5 +81,25 @@ export function registerObjectStorageRoutes(app: Express): void {
       return res.status(500).json({ error: "Failed to serve object" });
     }
   });
+
+  /**
+   * Serve public files via API path.
+   *
+   * Handles paths like /api/uploads/public/:id
+   * Maps to /objects/uploads/:id in object storage
+   */
+  app.get("/api/uploads/public/:id", async (req, res) => {
+    try {
+      const objectPath = `/objects/uploads/${req.params.id}`;
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving public upload:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "Object not found" });
+      }
+      return res.status(500).json({ error: "Failed to serve object" });
+    }
+  });
 }
 
