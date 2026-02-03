@@ -24,6 +24,8 @@ import SalesDashboard from "@/pages/sales-dashboard";
 import BookingGeneration from "@/pages/booking-generation";
 import RequestsBoard from "@/pages/requests-board";
 import Profile from "@/pages/profile";
+import Settings from "@/pages/settings";
+import Help from "@/pages/help";
 import AdminSettings from "@/pages/admin-settings";
 import AdminUsers from "@/pages/admin-users";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
@@ -57,6 +59,9 @@ function AppContent() {
               <Route path="/admin/users" component={AdminUsers} />
               <Route path="/admin/activity-logs" component={AdminActivityLogs} />
               <Route path="/admin/profile" component={Profile} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/settings" component={Settings} />
+              <Route path="/help" component={Help} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
               <Route path="/booking/generate" component={BookingGeneration} />
@@ -75,6 +80,9 @@ function AppContent() {
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
               <Route path="/booking/generate" component={BookingGeneration} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/settings" component={Settings} />
+              <Route path="/help" component={Help} />
               <Route component={NotFound} />
             </Switch>
           </Layout>

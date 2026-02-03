@@ -1,0 +1,80 @@
+Add a professional Profile option in the top header for all logged-in users (Admin, Sales, Staff, Resident) with a modern dropdown menu, avatar, and role-based navigation.
+
+IMPLEMENT:
+
+1) Header UI (Top Right)
+- Replace the plain “Hi, <name> (role)” text with a compact Profile component:
+  - Circular avatar (initials fallback if no image)
+  - User name + role badge
+  - Chevron icon
+- Make it clickable and open a dropdown (popover) aligned right.
+
+2) Dropdown Menu (Apple-level UI)
+- Dropdown contents:
+  - User mini card at top: avatar, name, email, role badge
+  - Divider
+  - Menu items:
+    a) Profile
+    b) Settings
+    c) Change Password (or Reset Password)
+    d) My Properties (only if Sales/Admin and properties exist)
+    e) Help / Support (optional)
+  - Divider
+  - Logout (red)
+
+- Add micro-interactions:
+  - Smooth open/close animation
+  - Hover highlight
+  - Click feedback
+  - Close on outside click and ESC key
+
+3) Routing
+- Ensure these routes exist and work for all roles:
+  - /profile
+  - /settings
+- If user is not logged in, hide profile dropdown and show Login button.
+
+4) Profile Page (All Users)
+- Create a modern profile page:
+  - Avatar upload (image picker + preview)
+  - Full name (editable)
+  - Email (read-only or editable based on role)
+  - Phone (editable)
+  - Role (read-only)
+  - Assigned properties list (if Sales/Admin)
+  - Save button with loading state + toast
+
+5) Avatar Upload (Backend + Storage)
+- Add secure endpoint:
+  POST /api/users/me/avatar
+  - Accept multipart/form-data
+  - Validate file type (jpg/png/webp) and size limit
+  - Store file (local uploads folder or cloud if configured)
+  - Save avatar_url in users table
+- Add:
+  GET /api/users/me (returns avatar_url, name, email, role, phone)
+
+6) Security & Access Control
+- Only logged-in users can access /profile and /settings
+- Users can only edit their own profile:
+  - /api/users/me update endpoint
+- Admin can have separate route /admin/users for managing others (keep existing).
+
+7) UX & Reliability
+- Never show blank UI:
+  - Add skeleton loader while fetching user data
+  - Show fallback avatar if image missing
+- Add toast notifications for:
+  - Profile updated
+  - Avatar updated
+  - Failed save
+
+8) Final Validation
+- All roles see profile dropdown in header
+- Profile menu opens smoothly and closes correctly
+- Clicking Profile goes to /profile
+- Avatar upload works and persists after refresh
+- Logout clears session and redirects to login
+- Works on desktop + mobile (dropdown becomes bottom sheet on mobile)
+
+Implement clean, component-based code and verify end-to-end.

@@ -5,6 +5,7 @@ import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, U
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo.jpg";
+import { ProfileDropdown } from "./profile-dropdown";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -60,22 +61,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {item.name}
               </Link>
             ))}
-            <div className="flex items-center gap-3 pl-4 border-l">
-              <span className="text-sm text-muted-foreground">
-                Hi, <span className="font-semibold text-foreground">{userName}</span>
-                {user?.role && (
-                  <span className="ml-1 text-xs text-primary capitalize">({user.role})</span>
-                )}
-              </span>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={logout}
-                className="text-muted-foreground hover:text-destructive"
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
+            <div className="pl-4 border-l">
+              <ProfileDropdown />
             </div>
           </nav>
 
@@ -90,23 +77,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {mobileMenuOpen && (
           <div className="md:hidden border-t bg-background p-4 flex flex-col gap-4 shadow-lg animate-in slide-in-from-top-5">
-            <div className="flex items-center justify-between pb-4 border-b">
-              <span className="text-sm text-muted-foreground">
-                Hi, <span className="font-semibold text-foreground">{userName}</span>
-                {user?.role && (
-                  <span className="ml-1 text-xs text-primary capitalize">({user.role})</span>
-                )}
-              </span>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className="text-muted-foreground hover:text-destructive"
-                data-testid="button-logout-mobile"
-              >
-                <LogOut className="w-4 h-4 mr-2" /> Logout
-              </Button>
-            </div>
             {navItems.map((item) => (
               <Link 
                 key={item.href} 
