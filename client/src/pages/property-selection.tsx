@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Search, Wifi, Wind, Shield, Car, Coffee, Utensils, Dumbbell, Tv, Droplets, ChevronRight, Bed, Users, SlidersHorizontal, X, Building2, IndianRupee } from "lucide-react";
+import { MapPin, Search, Wifi, Wind, Shield, Car, Coffee, Utensils, Dumbbell, Tv, Droplets, ChevronRight, Bed, Users, SlidersHorizontal, X, Building2, IndianRupee, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +12,7 @@ import { getProperties } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import propertyExterior from "@/assets/property-exterior.png";
+import { SmartSearch } from "@/components/smart-search";
 
 const amenityIcons: Record<string, any> = {
   "Free Wifi": Wifi,
@@ -78,6 +79,13 @@ function AmenityChip({ name }: { name: string }) {
   );
 }
 
+interface NlpSearchResult {
+  properties: any[];
+  filters: any;
+  interpretation: string;
+  totalResults: number;
+}
+
 export default function PropertySelection() {
   const [, setLocation] = useLocation();
   const [properties, setProperties] = useState<any[]>([]);
@@ -88,11 +96,25 @@ export default function PropertySelection() {
   const [sortBy, setSortBy] = useState("default");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
+  const [nlpSearchResults, setNlpSearchResults] = useState<NlpSearchResult | null>(null);
+  const [useNlpSearch, setUseNlpSearch] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
     loadProperties();
+    
+    const savedSearch = sessionStorage.getItem("searchResults");
+    if (savedSearch) {
+      try {
+        const results = JSON.parse(savedSearch);
+        setNlpSearchResults(results);
+        setUseNlpSearch(true);
+        sessionStorage.removeItem("searchResults");
+      } catch (e) {
+        console.error("Failed to parse search results:", e);
+      }
+    }
   }, []);
 
   // Track property view for lead analytics
@@ -138,6 +160,13 @@ export default function PropertySelection() {
   };
 
   const filteredProperties = useMemo(() => {
+    if (useNlpSearch && nlpSearchResults && nlpSearchResults.properties.length > 0) {
+      return nlpSearchResults.properties.map(nlpProp => {
+        const fullProp = properties.find(p => p.id === nlpProp.id);
+        return fullProp || nlpProp;
+      }).filter(Boolean);
+    }
+    
     let result = [...properties];
 
     if (searchQuery) {
@@ -145,7 +174,7 @@ export default function PropertySelection() {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
-          p.location.toLowerCase().includes(query) ||
+          p.location?.toLowerCase().includes(query) ||
           (p.address && p.address.toLowerCase().includes(query))
       );
     }
@@ -188,7 +217,7 @@ export default function PropertySelection() {
     }
 
     return result;
-  }, [properties, searchQuery, priceFilter, roomTypeFilter, sortBy]);
+  }, [properties, searchQuery, priceFilter, roomTypeFilter, sortBy, useNlpSearch, nlpSearchResults]);
 
   const handleSelectRoom = (propId: string, roomId: string, price: number, roomName: string, propName: string, bookingMode: string, deposit: number = 0) => {
     localStorage.setItem("selected_room", JSON.stringify({ propId, roomId, price, roomName, propName, bookingMode, deposit }));
@@ -245,14 +274,48 @@ export default function PropertySelection() {
             className="mt-8 max-w-4xl mx-auto"
           >
             <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6">
-              <div className="flex flex-col md:flex-row gap-4">
+              <SmartSearch 
+                onSearchResults={(results) => {
+                  setNlpSearchResults(results);
+                  setUseNlpSearch(true);
+                }}
+                placeholder="Search with AI... Try 'rooms under 15000 in Juhu with AC'"
+              />
+              
+              {useNlpSearch && nlpSearchResults && (
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    {nlpSearchResults.interpretation}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setUseNlpSearch(false);
+                      setNlpSearchResults(null);
+                    }}
+                    className="text-xs"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Clear AI Search
+                  </Button>
+                </div>
+              )}
+              
+              <div className="flex flex-col md:flex-row gap-4 mt-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
-                    placeholder="Search by property name or location..."
+                    placeholder="Or search by property name or location..."
                     className="pl-12 h-12 text-base border-gray-200 focus:border-primary"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (e.target.value) {
+                        setUseNlpSearch(false);
+                      }
+                    }}
                     data-testid="input-search-property"
                   />
                 </div>

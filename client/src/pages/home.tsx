@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import heroImage from "@/assets/hero-student-living.png";
 import { ArrowRight, Wifi, Shield, Coffee, Users, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
+import { SmartSearch } from "@/components/smart-search";
 
 export default function Home() {
   const [tourModalOpen, setTourModalOpen] = useState(false);
+  const [, setLocation] = useLocation();
+
+  const handleSearchResults = (results: any) => {
+    if (results.totalResults > 0 || results.interpretation) {
+      sessionStorage.setItem("searchResults", JSON.stringify(results));
+      setLocation("/properties");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-16 pb-20">
@@ -35,6 +44,13 @@ export default function Home() {
             <p className="text-xl md:text-2xl text-white/90 font-light max-w-lg">
               Experience premium student living with world-class amenities, vibrant community, and strict safety standards.
             </p>
+            <div className="mt-6 max-w-xl">
+              <SmartSearch 
+                onSearchResults={handleSearchResults}
+                placeholder="Search with AI... 'rooms under 15000 near Juhu'"
+                className="[&_input]:bg-white/95 [&_input]:text-gray-900 [&_input]:placeholder-gray-500"
+              />
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Link href="/properties">
                 <Button size="lg" className="bg-accent hover:bg-accent/90 text-white border-none text-lg px-8 h-14 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">

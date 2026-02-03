@@ -12,6 +12,7 @@ import { logActivity, formatActivityMessage, type ActionType, type EntityType } 
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
+import { searchProperties, getSuggestedFilters } from "./nlp-search";
 
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
@@ -1281,6 +1282,57 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching property:", error);
       res.status(500).json({ error: "Failed to fetch property" });
+    }
+  });
+
+  // ============ NLP SEARCH ============
+  
+  const searchRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    message: { error: "Too many search requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const searchQuerySchema = z.object({
+    query: z.string().max(500).optional().default(""),
+    filters: z.object({
+      city: z.string().max(100).nullable().optional(),
+      minPrice: z.number().int().min(0).max(10000000).nullable().optional(),
+      maxPrice: z.number().int().min(0).max(10000000).nullable().optional(),
+      amenities: z.array(z.string().max(50)).max(20).nullable().optional(),
+      roomType: z.string().max(50).nullable().optional(),
+      occupancy: z.number().int().min(1).max(10).nullable().optional(),
+      keywords: z.array(z.string().max(50)).max(10).nullable().optional(),
+      sortBy: z.enum(["price_low", "price_high", "availability"]).nullable().optional(),
+    }).optional(),
+  });
+
+  // Search properties with natural language query
+  app.post("/api/search", searchRateLimiter, async (req, res) => {
+    try {
+      const parsed = searchQuerySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid search parameters" });
+      }
+      const { query, filters } = parsed.data;
+      const results = await searchProperties(query || "", filters);
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching properties:", error);
+      res.status(500).json({ error: "Failed to search properties" });
+    }
+  });
+
+  // Get suggested filters for search UI
+  app.get("/api/search/filters", searchRateLimiter, async (req, res) => {
+    try {
+      const filters = await getSuggestedFilters();
+      res.json(filters);
+    } catch (error) {
+      console.error("Error getting search filters:", error);
+      res.status(500).json({ error: "Failed to get search filters" });
     }
   });
 
