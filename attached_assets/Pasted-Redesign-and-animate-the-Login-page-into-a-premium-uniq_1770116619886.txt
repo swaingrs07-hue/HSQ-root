@@ -1,0 +1,66 @@
+Redesign and animate the Login page into a premium, unique, customer-enjoyable experience (Apple-level UI) while keeping the same login functionality.
+
+IMPLEMENT:
+
+1) New Visual Concept (Premium)
+- Keep Hsquare branding but redesign layout:
+  - Left: immersive hero (soft gradient + blurred shapes / subtle pattern)
+  - Right: login card (glassmorphism style)
+- Use clean typography, more breathing space, rounded corners (18–24px), soft shadow.
+
+2) Apple-level Animations (Framer Motion)
+- Animate on page load:
+  - Logo fades in + slight slide down
+  - Card scales from 0.98 → 1.00 with spring
+  - Inputs stagger in
+- Add micro-interactions:
+  - Input focus glow (subtle)
+  - Button hover lift + tap scale
+  - Password eye icon rotates slightly on toggle
+  - Smooth error shake animation only on invalid submit
+
+3) Delight (Unique Experience)
+- Add dynamic greeting based on time:
+  - “Good morning / afternoon / evening”
+- Add tiny “progress dots” when loading on Sign In (like iOS)
+- Add “caps lock is on” hint for password
+- Add success transition:
+  - After login success, show a 700ms “Welcome back” tick animation before routing.
+
+4) Better UX
+- Add “Remember me” toggle (iOS style switch)
+- Add “Forgot password” link (opens modal or route)
+- Add inline validation:
+  - email format
+  - password required
+- Show error messages below inputs (not toast only)
+
+5) Performance & Accessibility
+- Animations must be lightweight (60fps).
+- Respect reduced motion preference:
+  - If user prefers reduced motion, disable heavy animations.
+- Keyboard navigation:
+  - Enter submits
+  - Tab order correct
+  - ESC closes any modal
+
+6) Implementation Details
+- Use Tailwind for styling
+- Add Framer Motion if not installed:
+  npm install framer-motion
+- Keep existing auth API calls exactly the same.
+- Only refactor UI + UX around it.
+
+7) Mobile Experience
+- On mobile:
+  - Hero collapses into top gradient header
+  - Card becomes full-width with bottom padding
+- Add subtle background parallax only on desktop.
+
+FINAL RESULT:
+- Login page feels premium, unique, and enjoyable
+- Smooth animations + micro-interactions
+- No heavy graphics, no slow load
+- Existing login logic unchanged
+
+Implement clean, production-ready code and replace the current login page UI.
