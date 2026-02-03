@@ -26,6 +26,9 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("user"),
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true).notNull(),
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by").references(() => users.id),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

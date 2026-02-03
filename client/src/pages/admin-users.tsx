@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -77,13 +78,29 @@ function AdminUsersContent() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   const [createForm, setCreateForm] = useState({ name: "", email: "", phone: "", password: "", role: "sales_executive" });
   const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
+  
+  const [dependencies, setDependencies] = useState<{
+    leads: number;
+    activeLeads: number;
+    properties: number;
+  } | null>(null);
+  const [isLastAdmin, setIsLastAdmin] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  const [targetUserId, setTargetUserId] = useState("");
+  const [reassignLeads, setReassignLeads] = useState(true);
+  const [reassignProperties, setReassignProperties] = useState(true);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const loadUsers = useCallback(async () => {
     try {
@@ -194,6 +211,104 @@ function AdminUsersContent() {
     setSelectedUser(user);
     setDeactivateDialogOpen(true);
   };
+
+  const checkDependencies = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/dependencies`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to check dependencies");
+      return await res.json();
+    } catch (error) {
+      console.error("Error checking dependencies:", error);
+      return null;
+    }
+  };
+
+  const openReassignDialog = async (user: User) => {
+    setSelectedUser(user);
+    setTargetUserId("");
+    setReassignLeads(true);
+    setReassignProperties(true);
+    const deps = await checkDependencies(user.id);
+    if (deps) {
+      setDependencies(deps.dependencies);
+      setIsLastAdmin(deps.isLastAdmin);
+      setCanDelete(deps.canDelete);
+    }
+    setReassignDialogOpen(true);
+  };
+
+  const openDeleteDialog = async (user: User) => {
+    setSelectedUser(user);
+    setDeleteConfirmText("");
+    const deps = await checkDependencies(user.id);
+    if (deps) {
+      setDependencies(deps.dependencies);
+      setIsLastAdmin(deps.isLastAdmin);
+      setCanDelete(deps.canDelete);
+    }
+    setDeleteDialogOpen(true);
+  };
+
+  const reassignUserItems = async () => {
+    if (!selectedUser || !targetUserId) return;
+    try {
+      setReassigning(true);
+      const res = await fetch(`/api/admin/users/${selectedUser.id}/reassign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ toUserId: targetUserId, reassignLeads, reassignProperties })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to reassign");
+      }
+      const result = await res.json();
+      toast({ title: "Success", description: result.message });
+      setReassignDialogOpen(false);
+      loadUsers();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+  const deleteUser = async () => {
+    if (!selectedUser) return;
+    try {
+      setDeleting(true);
+      const res = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ confirmText: deleteConfirmText })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        if (err.requireConfirm) {
+          toast({ title: "Confirmation Required", description: "Type DELETE to confirm admin deletion", variant: "destructive" });
+          return;
+        }
+        throw new Error(err.error || "Failed to delete");
+      }
+      toast({ title: "Success", description: "User removed successfully" });
+      setDeleteDialogOpen(false);
+      loadUsers();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const activeUsers = users.filter(u => u.isActive && u.id !== selectedUser?.id && u.id !== currentUser?.id);
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -377,15 +492,29 @@ function AdminUsersContent() {
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           {user.id !== currentUser?.id && (
-                            <DropdownMenuItem 
-                              onClick={() => openDeactivateDialog(user)}
-                              className={user.isActive ? "text-orange-600" : "text-green-600"}
-                            >
-                              <Power className="h-4 w-4 mr-2" />
-                              {user.isActive ? "Deactivate" : "Reactivate"}
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => openDeactivateDialog(user)}
+                                className={user.isActive ? "text-orange-600" : "text-green-600"}
+                              >
+                                <Power className="h-4 w-4 mr-2" />
+                                {user.isActive ? "Deactivate" : "Reactivate"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openReassignDialog(user)}>
+                                <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                Reassign Items
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => openDeleteDialog(user)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove User
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -545,6 +674,171 @@ function AdminUsersContent() {
             >
               {deactivating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {selectedUser?.isActive ? "Deactivate" : "Reactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-blue-500" />
+              Reassign Items from {selectedUser?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Transfer leads and property assignments to another team member before removing this user.
+            </DialogDescription>
+          </DialogHeader>
+          {dependencies && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <p className="text-2xl font-bold text-slate-900">{dependencies.leads}</p>
+                  <p className="text-sm text-slate-500">Total Leads</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-2xl font-bold text-slate-900">{dependencies.properties}</p>
+                  <p className="text-sm text-slate-500">Properties</p>
+                </Card>
+              </div>
+              
+              {(dependencies.leads > 0 || dependencies.properties > 0) && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Reassign to</Label>
+                    <Select value={targetUserId} onValueChange={setTargetUserId}>
+                      <SelectTrigger data-testid="select-reassign-target">
+                        <SelectValue placeholder="Select a team member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeUsers.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="reassign-leads" 
+                        checked={reassignLeads}
+                        onCheckedChange={(checked) => setReassignLeads(checked as boolean)}
+                      />
+                      <Label htmlFor="reassign-leads" className="text-sm">
+                        Reassign all leads ({dependencies.leads})
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="reassign-properties" 
+                        checked={reassignProperties}
+                        onCheckedChange={(checked) => setReassignProperties(checked as boolean)}
+                      />
+                      <Label htmlFor="reassign-properties" className="text-sm">
+                        Reassign property assignments ({dependencies.properties})
+                      </Label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {dependencies.leads === 0 && dependencies.properties === 0 && (
+                <Alert>
+                  <AlertDescription>This user has no active assignments to reassign.</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={reassignUserItems}
+              disabled={reassigning || !targetUserId || (dependencies?.leads === 0 && dependencies?.properties === 0)}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-confirm-reassign"
+            >
+              {reassigning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Reassign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Remove {selectedUser?.name}
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently remove the user from the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {isLastAdmin && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Cannot Remove</AlertTitle>
+                <AlertDescription>This is the last admin account and cannot be deleted.</AlertDescription>
+              </Alert>
+            )}
+
+            {!canDelete && !isLastAdmin && dependencies && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Active Assignments</AlertTitle>
+                <AlertDescription>
+                  This user has {dependencies.leads} leads and {dependencies.properties} property assignments.
+                  Please reassign these items before removing the user.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {canDelete && !isLastAdmin && (
+              <>
+                <p className="text-sm text-slate-600">
+                  Are you sure you want to remove this user? This action cannot be undone.
+                </p>
+                {selectedUser?.role === "admin" && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-red-600 font-medium">
+                      Type DELETE to confirm admin removal
+                    </Label>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="DELETE"
+                      data-testid="input-delete-confirm"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={deleteUser}
+              disabled={
+                deleting || 
+                isLastAdmin || 
+                !canDelete ||
+                (selectedUser?.role === "admin" && deleteConfirmText !== "DELETE")
+              }
+              variant="destructive"
+              data-testid="button-confirm-delete"
+            >
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Remove User
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,75 @@
+Add an Admin-only option in the Team page to remove staff/sales users who leave the company, with safe reassignment and audit logging.
+
+IMPLEMENT:
+
+1) UI (Team Page Actions Menu)
+- In the Actions (⋮) menu for each user add:
+  a) Deactivate User (recommended)
+  b) Remove from Team (soft delete)
+  c) Delete Permanently (hard delete, only when safe)
+- Only show these options if current user role is ADMIN.
+
+2) Soft Delete / Deactivate (Default)
+- Add/ensure user fields:
+  is_active (boolean), deactivated_at, deactivated_by
+- Deactivated users:
+  - cannot login
+  - do not appear in assignment dropdowns (lead/property/request)
+  - remain visible in Team list with status "Inactive"
+- Keep historical data unchanged.
+
+3) Dependency Check Before Remove/Delete
+- Before deactivating or deleting, check:
+  - assigned leads count
+  - assigned requests count
+  - assigned properties count
+  - open approvals/tasks count
+- If any exist, show a modal:
+  "This user has X active assignments. Reassign before removing."
+  Provide:
+   - dropdown to select another active user
+   - checkbox: "Reassign all leads/requests to selected user"
+   - confirm button
+
+4) Reassignment Logic (Transactional)
+- Implement backend reassignment endpoint:
+  POST /users/:id/reassign
+  body: { to_user_id, reassign_leads: true, reassign_requests: true, reassign_properties: true }
+- Perform reassignment in a single transaction:
+  - move ownership/assigned_to fields
+  - update mapping tables
+  - ensure no duplicates
+  - keep audit history
+
+5) Hard Delete (Only when safe)
+- Add endpoint:
+  DELETE /users/:id
+- Allow only if:
+  - user has NO dependencies after reassignment
+  - user is NOT the last ADMIN in the system
+- If dependencies exist, block delete and instruct to deactivate instead.
+- If user created records, preserve created_by in logs using snapshot fields.
+
+6) Security Rules
+- Only ADMIN can deactivate/delete.
+- Prevent deleting self.
+- Prevent deleting the last remaining ADMIN.
+- For ADMIN deletion, require a second confirmation text like: type DELETE to confirm.
+
+7) Activity Log
+- Log every action in activity_logs:
+  - DEACTIVATE_USER
+  - REASSIGN_USER_ITEMS
+  - DELETE_USER
+  Include actor, entity, timestamp, and metadata (counts moved, to_user_id).
+
+8) UX Feedback
+- Add toast notifications for success/error.
+- Optimistic UI update: status changes immediately on success.
+- Add loaders to prevent double-click.
+
+FINAL CHECK:
+- Admin can remove/deactivate sales/staff safely
+- Reassignment works
+- No data loss, no blank screens
+- Users who leave cannot login and are excluded from assignments

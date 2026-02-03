@@ -1,8 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import * as schema from "@shared/schema";
 import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema } from "@shared/schema";
 import { z } from "zod";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
@@ -2677,7 +2680,14 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      await storage.updateUser(id, { isActive: false });
+      await db.update(schema.users)
+        .set({ 
+          isActive: false,
+          deactivatedAt: new Date(),
+          deactivatedBy: authReq.user!.userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, id));
       
       await storage.createAuditLog({
         adminId: authReq.user!.userId,
@@ -2685,6 +2695,18 @@ export async function registerRoutes(
         entityType: "user",
         entityId: id,
         details: JSON.stringify({ name: user.name }),
+      });
+
+      // Log activity
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: authReq.user!.name, role: "admin" },
+        actionType: "DEACTIVATE",
+        entityType: "USER",
+        entityId: id,
+        entityLabel: user.name,
+        metadata: { email: user.email, role: user.role },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
       });
       
       res.json({ success: true, message: "User deactivated" });
@@ -2705,7 +2727,14 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      await storage.updateUser(id, { isActive: true });
+      await db.update(schema.users)
+        .set({ 
+          isActive: true,
+          deactivatedAt: null,
+          deactivatedBy: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, id));
       
       await storage.createAuditLog({
         adminId: authReq.user!.userId,
@@ -2714,11 +2743,245 @@ export async function registerRoutes(
         entityId: id,
         details: JSON.stringify({ name: user.name }),
       });
+
+      // Log activity
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: authReq.user!.name, role: "admin" },
+        actionType: "ACTIVATE",
+        entityType: "USER",
+        entityId: id,
+        entityLabel: user.name,
+        metadata: { email: user.email, role: user.role },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
+      });
       
       res.json({ success: true, message: "User reactivated" });
     } catch (error: any) {
       console.error("Error reactivating user:", error);
       res.status(500).json({ error: error.message || "Failed to reactivate" });
+    }
+  });
+
+  // Get user dependencies (leads, requests, properties assigned)
+  app.get("/api/admin/users/:id/dependencies", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get counts of assigned items
+      const leads = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.leads)
+        .where(eq(schema.leads.assignedTo, id));
+      
+      const requests = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.leads)
+        .where(and(
+          eq(schema.leads.assignedTo, id),
+          inArray(schema.leads.status, ["new", "contacted", "warm", "interested", "hot", "site_visit", "visit_scheduled", "negotiation"])
+        ));
+
+      const properties = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.salesExecPropertyAssignments)
+        .where(eq(schema.salesExecPropertyAssignments.userId, id));
+
+      // Check if last admin
+      const adminCount = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.users)
+        .where(and(
+          eq(schema.users.role, "admin"),
+          eq(schema.users.isActive, true)
+        ));
+
+      res.json({
+        user: { id: user.id, name: user.name, email: user.email, role: user.role },
+        dependencies: {
+          leads: leads[0]?.count || 0,
+          activeLeads: requests[0]?.count || 0,
+          properties: properties[0]?.count || 0,
+        },
+        isLastAdmin: user.role === "admin" && (adminCount[0]?.count || 0) <= 1,
+        canDelete: (leads[0]?.count || 0) === 0 && (properties[0]?.count || 0) === 0,
+      });
+    } catch (error: any) {
+      console.error("Error getting user dependencies:", error);
+      res.status(500).json({ error: error.message || "Failed to get dependencies" });
+    }
+  });
+
+  // Reassign all user items to another user
+  app.post("/api/admin/users/:id/reassign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { toUserId, reassignLeads, reassignProperties } = req.body;
+      const authReq = req as AuthRequest;
+
+      if (!toUserId) {
+        return res.status(400).json({ error: "Target user is required" });
+      }
+
+      const sourceUser = await storage.getUser(id);
+      const targetUser = await storage.getUser(toUserId);
+      
+      if (!sourceUser || !targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!targetUser.isActive) {
+        return res.status(400).json({ error: "Cannot reassign to an inactive user" });
+      }
+
+      let leadsReassigned = 0;
+      let propertiesReassigned = 0;
+
+      // Reassign leads
+      if (reassignLeads !== false) {
+        const result = await db.update(schema.leads)
+          .set({ assignedTo: toUserId, updatedAt: new Date() })
+          .where(eq(schema.leads.assignedTo, id));
+        leadsReassigned = result.rowCount || 0;
+      }
+
+      // Reassign property assignments
+      if (reassignProperties !== false) {
+        // Delete old assignments and create new ones
+        const existingAssignments = await db.select()
+          .from(schema.salesExecPropertyAssignments)
+          .where(eq(schema.salesExecPropertyAssignments.userId, id));
+        
+        for (const assignment of existingAssignments) {
+          // Check if target already has this property
+          const targetHas = await db.select()
+            .from(schema.salesExecPropertyAssignments)
+            .where(and(
+              eq(schema.salesExecPropertyAssignments.userId, toUserId),
+              eq(schema.salesExecPropertyAssignments.propertyId, assignment.propertyId)
+            ));
+          
+          if (targetHas.length === 0) {
+            await db.insert(schema.salesExecPropertyAssignments).values({
+              userId: toUserId,
+              propertyId: assignment.propertyId,
+              assignedBy: authReq.user!.userId,
+            });
+            propertiesReassigned++;
+          }
+        }
+
+        // Remove old assignments
+        await db.delete(schema.salesExecPropertyAssignments)
+          .where(eq(schema.salesExecPropertyAssignments.userId, id));
+      }
+
+      // Log activity
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: authReq.user!.name, role: "admin" },
+        actionType: "REASSIGN",
+        entityType: "USER",
+        entityId: id,
+        entityLabel: sourceUser.name,
+        metadata: {
+          toUserId,
+          toUserName: targetUser.name,
+          leadsReassigned,
+          propertiesReassigned,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
+      });
+
+      res.json({
+        success: true,
+        message: `Reassigned ${leadsReassigned} leads and ${propertiesReassigned} properties to ${targetUser.name}`,
+        leadsReassigned,
+        propertiesReassigned,
+      });
+    } catch (error: any) {
+      console.error("Error reassigning user items:", error);
+      res.status(500).json({ error: error.message || "Failed to reassign" });
+    }
+  });
+
+  // Delete user permanently (only when safe)
+  app.delete("/api/admin/users/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authReq = req as AuthRequest;
+      const { confirmText } = req.body || {};
+
+      if (id === authReq.user!.userId) {
+        return res.status(400).json({ error: "Cannot delete yourself" });
+      }
+
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if last admin
+      if (user.role === "admin") {
+        const adminCount = await db.select({ count: sql<number>`count(*)::int` })
+          .from(schema.users)
+          .where(and(
+            eq(schema.users.role, "admin"),
+            eq(schema.users.isActive, true)
+          ));
+        
+        if ((adminCount[0]?.count || 0) <= 1) {
+          return res.status(400).json({ error: "Cannot delete the last admin" });
+        }
+
+        // Require confirmation for admin deletion
+        if (confirmText !== "DELETE") {
+          return res.status(400).json({ error: "Type DELETE to confirm admin deletion", requireConfirm: true });
+        }
+      }
+
+      // Check for remaining dependencies
+      const leads = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.leads)
+        .where(eq(schema.leads.assignedTo, id));
+      
+      const properties = await db.select({ count: sql<number>`count(*)::int` })
+        .from(schema.salesExecPropertyAssignments)
+        .where(eq(schema.salesExecPropertyAssignments.userId, id));
+
+      if ((leads[0]?.count || 0) > 0 || (properties[0]?.count || 0) > 0) {
+        return res.status(400).json({ 
+          error: "User has active assignments. Please reassign before deleting.",
+          hasLeads: (leads[0]?.count || 0) > 0,
+          hasProperties: (properties[0]?.count || 0) > 0,
+        });
+      }
+
+      // Soft delete - mark as deleted
+      await db.update(schema.users)
+        .set({ 
+          isActive: false, 
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, id));
+
+      // Log activity
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: authReq.user!.name, role: "admin" },
+        actionType: "DELETE",
+        entityType: "USER",
+        entityId: id,
+        entityLabel: user.name,
+        metadata: { email: user.email, role: user.role },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
+      });
+
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: error.message || "Failed to delete user" });
     }
   });
 
