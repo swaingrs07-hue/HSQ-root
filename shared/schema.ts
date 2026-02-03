@@ -815,3 +815,6 @@ export const activityLogs = pgTable("activity_logs", {
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+
+// Re-export chat models for AI integrations
+export * from "./models/chat";
