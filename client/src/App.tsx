@@ -25,6 +25,7 @@ import BookingGeneration from "@/pages/booking-generation";
 import RequestsBoard from "@/pages/requests-board";
 import Profile from "@/pages/profile";
 import AdminSettings from "@/pages/admin-settings";
+import AdminUsers from "@/pages/admin-users";
 
 function AppContent() {
   const [location] = useLocation();
@@ -52,6 +53,7 @@ function AppContent() {
               <Route path="/admin/booking/generate" component={BookingGeneration} />
               <Route path="/admin/requests" component={RequestsBoard} />
               <Route path="/admin/settings" component={AdminSettings} />
+              <Route path="/admin/users" component={AdminUsers} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />

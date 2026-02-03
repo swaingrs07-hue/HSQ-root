@@ -72,7 +72,7 @@ const adminNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
-  { name: "Sales Executives", href: "/admin/sales-management", icon: Users },
+  { name: "Team", href: "/admin/users", icon: Users },
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },

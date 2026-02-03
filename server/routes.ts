@@ -2525,6 +2525,147 @@ export async function registerRoutes(
     }
   });
 
+  // ============ ADMIN USER MANAGEMENT ============
+
+  // Get all users (admin only)
+  app.get("/api/admin/users", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      res.json(allUsers.map((u: any) => ({ ...u, password: undefined })));
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Create user (admin only)
+  app.post("/api/admin/users", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { name, email, phone, password, role } = req.body;
+      
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: "Name, email, and password are required" });
+      }
+      
+      const existingEmail = await storage.getUserByEmail(email.toLowerCase());
+      if (existingEmail) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+      
+      if (phone) {
+        const existingPhone = await storage.getUserByPhone(phone.trim());
+        if (existingPhone) {
+          return res.status(409).json({ error: "Phone number already registered" });
+        }
+      }
+      
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone?.trim() || null,
+        password: hashedPassword,
+        role: role || "user",
+      });
+      
+      res.status(201).json({ ...user, password: undefined });
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: error.message || "Failed to create user" });
+    }
+  });
+
+  // Update user (admin only)
+  app.put("/api/admin/users/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, email, phone } = req.body;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (email && email.toLowerCase() !== user.email) {
+        const existingEmail = await storage.getUserByEmail(email.toLowerCase());
+        if (existingEmail) {
+          return res.status(409).json({ error: "Email already registered" });
+        }
+      }
+      
+      const updated = await storage.updateUser(id, {
+        name: name?.trim(),
+        email: email?.toLowerCase().trim(),
+        phone: phone?.trim(),
+      });
+      
+      res.json({ ...updated, password: undefined });
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: error.message || "Failed to update user" });
+    }
+  });
+
+  // Deactivate user (admin only)
+  app.post("/api/admin/users/:id/deactivate", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authReq = req as AuthRequest;
+      
+      if (id === authReq.user!.userId) {
+        return res.status(400).json({ error: "Cannot deactivate yourself" });
+      }
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      await storage.updateUser(id, { isActive: false });
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "user_deactivated",
+        entityType: "user",
+        entityId: id,
+        details: JSON.stringify({ name: user.name }),
+      });
+      
+      res.json({ success: true, message: "User deactivated" });
+    } catch (error: any) {
+      console.error("Error deactivating user:", error);
+      res.status(500).json({ error: error.message || "Failed to deactivate" });
+    }
+  });
+
+  // Reactivate user (admin only)
+  app.post("/api/admin/users/:id/reactivate", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authReq = req as AuthRequest;
+      
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      await storage.updateUser(id, { isActive: true });
+      
+      await storage.createAuditLog({
+        adminId: authReq.user!.userId,
+        action: "user_reactivated",
+        entityType: "user",
+        entityId: id,
+        details: JSON.stringify({ name: user.name }),
+      });
+      
+      res.json({ success: true, message: "User reactivated" });
+    } catch (error: any) {
+      console.error("Error reactivating user:", error);
+      res.status(500).json({ error: error.message || "Failed to reactivate" });
+    }
+  });
+
   // Get all property assignments (admin only)
   app.get("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
