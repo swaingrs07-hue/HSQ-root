@@ -2579,7 +2579,7 @@ export async function registerRoutes(
   app.put("/api/admin/users/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, email, phone } = req.body;
+      const { name, email, phone, role } = req.body;
       
       const user = await storage.getUser(id);
       if (!user) {
@@ -2593,11 +2593,13 @@ export async function registerRoutes(
         }
       }
       
-      const updated = await storage.updateUser(id, {
-        name: name?.trim(),
-        email: email?.toLowerCase().trim(),
-        phone: phone?.trim(),
-      });
+      const updateData: any = {};
+      if (name) updateData.name = name.trim();
+      if (email) updateData.email = email.toLowerCase().trim();
+      if (phone !== undefined) updateData.phone = phone?.trim() || null;
+      if (role) updateData.role = role;
+      
+      const updated = await storage.updateUser(id, updateData);
       
       res.json({ ...updated, password: undefined });
     } catch (error: any) {

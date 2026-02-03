@@ -72,14 +72,7 @@ function AppContent() {
               <Route path="/payment-plans" component={PaymentPlans} />
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
-              <Route path="/admin" component={AdminDashboard} />
-              <Route path="/admin/add-property" component={AddProperty} />
-              <Route path="/admin/leads" component={AdminLeads} />
-              <Route path="/admin/sales-management" component={AdminSalesManagement} />
-              <Route path="/sales" component={SalesDashboard} />
               <Route path="/booking/generate" component={BookingGeneration} />
-              <Route path="/admin/booking/generate" component={BookingGeneration} />
-              <Route path="/operations" component={AdminDashboard} />
               <Route component={NotFound} />
             </Switch>
           </Layout>
