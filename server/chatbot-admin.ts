@@ -243,9 +243,10 @@ export async function getCapturedLeads(limit = 50) {
     .from(schema.chatbotEvents)
     .where(eq(schema.chatbotEvents.eventType, "lead_created"))
     .orderBy(sql`${schema.chatbotEvents.createdAt} DESC`)
-    .limit(limit * 2);
+    .limit(limit * 3);
 
-  const seenLeadIds = new Set<string>();
+  const seenPhones = new Set<string>();
+  const seenEmails = new Set<string>();
   const uniqueLeads: Array<{
     id: string;
     createdAt: Date | null;
@@ -261,14 +262,19 @@ export async function getCapturedLeads(limit = 50) {
 
   for (const event of events) {
     const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-    const leadId = metadata.leadId;
+    const phone = metadata.phone;
+    const email = metadata.email;
     
-    if (leadId && seenLeadIds.has(leadId)) {
+    // Skip if we've already seen this phone or email
+    if (phone && seenPhones.has(phone)) {
       continue;
     }
-    if (leadId) {
-      seenLeadIds.add(leadId);
+    if (email && seenEmails.has(email)) {
+      continue;
     }
+    
+    if (phone) seenPhones.add(phone);
+    if (email) seenEmails.add(email);
     
     uniqueLeads.push({
       id: event.id,
