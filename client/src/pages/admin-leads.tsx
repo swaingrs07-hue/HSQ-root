@@ -123,6 +123,7 @@ export default function AdminLeads() {
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [selectedExecId, setSelectedExecId] = useState<string>("");
@@ -281,6 +282,10 @@ export default function AdminLeads() {
       result = result.filter((lead) => lead.deviceType === deviceFilter);
     }
 
+    if (sourceFilter !== "all") {
+      result = result.filter((lead) => lead.source === sourceFilter);
+    }
+
     result.sort((a, b) => {
       const aVal = a[sortField as keyof Lead];
       const bVal = b[sortField as keyof Lead];
@@ -293,7 +298,7 @@ export default function AdminLeads() {
     });
 
     return result;
-  }, [leads, searchTerm, statusFilter, assignmentFilter, propertyFilter, deviceFilter, sortField, sortOrder]);
+  }, [leads, searchTerm, statusFilter, assignmentFilter, propertyFilter, deviceFilter, sourceFilter, sortField, sortOrder]);
 
   const stats = useMemo(() => {
     const total = leads.length;
@@ -345,9 +350,10 @@ export default function AdminLeads() {
     setAssignmentFilter("all");
     setPropertyFilter("all");
     setDeviceFilter("all");
+    setSourceFilter("all");
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || propertyFilter !== "all" || deviceFilter !== "all";
+  const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || propertyFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
 
   return (
     <div className="space-y-6">
@@ -497,6 +503,24 @@ export default function AdminLeads() {
                     <SelectItem value="mobile">Mobile</SelectItem>
                     <SelectItem value="desktop">Desktop</SelectItem>
                     <SelectItem value="tablet">Tablet</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-source-filter">
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="website">Website</SelectItem>
+                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="social_media">Social Media</SelectItem>
+                    <SelectItem value="google_ads">Google Ads</SelectItem>
+                    <SelectItem value="walk_in">Walk-in</SelectItem>
+                    <SelectItem value="phone_inquiry">Phone Inquiry</SelectItem>
+                    <SelectItem value="email_campaign">Email Campaign</SelectItem>
+                    <SelectItem value="event">Event</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -829,42 +853,127 @@ export default function AdminLeads() {
       </Dialog>
 
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[70vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-            <DialogTitle>Activity History</DialogTitle>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
+            <DialogTitle>Lead Details</DialogTitle>
             <DialogDescription>
-              {selectedLeadForHistory?.name} - Assignment and status changes
+              {selectedLeadForHistory?.name} - Complete lead information
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
-            {leadHistory.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                <History className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p>No activity history available</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {leadHistory.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex gap-3 p-3 bg-slate-50 rounded-lg"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-                      <History className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {activity.performedByName || "System"} •{" "}
-                        {format(new Date(activity.createdAt), "MMM d, yyyy h:mm a")}
-                      </p>
-                    </div>
+            <Tabs defaultValue="details" className="w-full mt-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Details & UTM</TabsTrigger>
+                <TabsTrigger value="history">Activity History</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="mt-4 space-y-4">
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Contact</p>
+                    <p className="text-sm font-medium">{selectedLeadForHistory?.phone || "—"}</p>
+                    <p className="text-sm text-slate-600">{selectedLeadForHistory?.email || "—"}</p>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Source & Property</p>
+                    <p className="text-sm font-medium capitalize">{selectedLeadForHistory?.source?.replace("_", " ") || "—"}</p>
+                    <p className="text-sm text-slate-600">{selectedLeadForHistory?.propertyName || "No property"}</p>
+                  </div>
+                </div>
+
+                {/* Message */}
+                {selectedLeadForHistory?.message && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-xs text-blue-600 mb-1 font-medium">Lead Message</p>
+                    <p className="text-sm text-slate-700">{selectedLeadForHistory.message}</p>
+                  </div>
+                )}
+
+                {/* UTM Tracking Section */}
+                {(selectedLeadForHistory?.utmSource || selectedLeadForHistory?.utmCampaign || selectedLeadForHistory?.utmMedium) && (
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-100">
+                    <p className="text-xs text-purple-700 font-semibold mb-3 uppercase tracking-wide">UTM Tracking Data</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedLeadForHistory?.utmSource && (
+                        <div>
+                          <p className="text-xs text-slate-500">Source</p>
+                          <p className="text-sm font-medium text-slate-800">{selectedLeadForHistory.utmSource}</p>
+                        </div>
+                      )}
+                      {selectedLeadForHistory?.utmMedium && (
+                        <div>
+                          <p className="text-xs text-slate-500">Medium</p>
+                          <p className="text-sm font-medium text-slate-800">{selectedLeadForHistory.utmMedium}</p>
+                        </div>
+                      )}
+                      {selectedLeadForHistory?.utmCampaign && (
+                        <div>
+                          <p className="text-xs text-slate-500">Campaign</p>
+                          <p className="text-sm font-medium text-slate-800">{selectedLeadForHistory.utmCampaign}</p>
+                        </div>
+                      )}
+                      {selectedLeadForHistory?.utmTerm && (
+                        <div>
+                          <p className="text-xs text-slate-500">Term</p>
+                          <p className="text-sm font-medium text-slate-800">{selectedLeadForHistory.utmTerm}</p>
+                        </div>
+                      )}
+                      {selectedLeadForHistory?.utmContent && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-slate-500">Content</p>
+                          <p className="text-sm font-medium text-slate-800">{selectedLeadForHistory.utmContent}</p>
+                        </div>
+                      )}
+                    </div>
+                    {selectedLeadForHistory?.pageUrl && (
+                      <div className="mt-3 pt-3 border-t border-purple-200">
+                        <p className="text-xs text-slate-500">Landing Page</p>
+                        <p className="text-sm font-medium text-indigo-600 break-all">{selectedLeadForHistory.pageUrl}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* No UTM data message */}
+                {!selectedLeadForHistory?.utmSource && !selectedLeadForHistory?.utmCampaign && !selectedLeadForHistory?.utmMedium && (
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
+                    <p className="text-sm text-slate-500">No UTM tracking data available for this lead</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="history" className="mt-4">
+                {leadHistory.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <History className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p>No activity history available</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {leadHistory.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex gap-3 p-3 bg-slate-50 rounded-lg"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                          <History className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800">
+                            {activity.description}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {activity.performedByName || "System"} •{" "}
+                            {format(new Date(activity.createdAt), "MMM d, yyyy h:mm a")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </DialogContent>
       </Dialog>
