@@ -5,6 +5,7 @@ import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealC
 import { z } from "zod";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
 
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
@@ -2440,6 +2441,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Sales executive not found" });
       }
       
+      const adminUser = await storage.getUser(authReq.user!.userId);
       const updated = await storage.updateUser(id, { isActive: false });
       
       await storage.createAuditLog({
@@ -2448,6 +2450,17 @@ export async function registerRoutes(
         entityType: "user",
         entityId: id,
         details: JSON.stringify({ name: user.name }),
+      });
+
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: adminUser?.name || "Admin", role: "admin" },
+        actionType: "DEACTIVATE",
+        entityType: "SALES_EXECUTIVE",
+        entityId: id,
+        entityLabel: user.name,
+        metadata: { previousStatus: "active" },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
       });
       
       res.json({ success: true, message: "Sales executive deactivated" });
@@ -2468,6 +2481,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Sales executive not found" });
       }
       
+      const adminUser = await storage.getUser(authReq.user!.userId);
       const updated = await storage.updateUser(id, { isActive: true });
       
       await storage.createAuditLog({
@@ -2476,6 +2490,17 @@ export async function registerRoutes(
         entityType: "user",
         entityId: id,
         details: JSON.stringify({ name: user.name }),
+      });
+
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: adminUser?.name || "Admin", role: "admin" },
+        actionType: "ACTIVATE",
+        entityType: "SALES_EXECUTIVE",
+        entityId: id,
+        entityLabel: user.name,
+        metadata: { previousStatus: "inactive" },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
       });
       
       res.json({ success: true, message: "Sales executive reactivated" });
@@ -2495,6 +2520,10 @@ export async function registerRoutes(
       if (!toUserId) {
         return res.status(400).json({ error: "Target user ID required" });
       }
+      
+      const fromUser = await storage.getUser(id);
+      const toUser = await storage.getUser(toUserId);
+      const adminUser = await storage.getUser(authReq.user!.userId);
       
       // Get all leads assigned to this exec
       const allLeads = await storage.getAllLeads();
@@ -2516,6 +2545,17 @@ export async function registerRoutes(
         entityType: "user",
         entityId: id,
         details: JSON.stringify({ count, fromUserId: id, toUserId }),
+      });
+
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: adminUser?.name || "Admin", role: "admin" },
+        actionType: "REASSIGN",
+        entityType: "LEAD",
+        entityId: id,
+        entityLabel: `${count} leads`,
+        metadata: { from: fromUser?.name, to: toUser?.name, leadCount: count },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
       });
       
       res.json({ success: true, message: `${count} leads reassigned`, count });
@@ -2542,6 +2582,7 @@ export async function registerRoutes(
   app.post("/api/admin/users", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const { name, email, phone, password, role } = req.body;
+      const authReq = req as AuthRequest;
       
       if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email, and password are required" });
@@ -2559,6 +2600,7 @@ export async function registerRoutes(
         }
       }
       
+      const adminUser = await storage.getUser(authReq.user!.userId);
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         name: name.trim(),
@@ -2566,6 +2608,18 @@ export async function registerRoutes(
         phone: phone?.trim() || null,
         password: hashedPassword,
         role: role || "user",
+      });
+
+      const entityType = role === "sales_executive" ? "SALES_EXECUTIVE" : "USER";
+      await logActivity({
+        actor: { id: authReq.user!.userId, name: adminUser?.name || "Admin", role: "admin" },
+        actionType: "CREATE",
+        entityType: entityType as EntityType,
+        entityId: user.id,
+        entityLabel: user.name,
+        metadata: { role: user.role, email: user.email },
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent")
       });
       
       res.status(201).json({ ...user, password: undefined });
@@ -3247,6 +3301,160 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
       res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // =============================================
+  // ACTIVITY LOGS ENDPOINTS (Admin Only)
+  // =============================================
+
+  // Get activity logs with filters
+  app.get("/api/admin/activity-logs", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const {
+        actionType,
+        entityType,
+        actorUserId,
+        propertyId,
+        startDate,
+        endDate,
+        search,
+        limit = "50",
+        offset = "0"
+      } = req.query;
+
+      const filters = {
+        actionType: actionType as string | undefined,
+        entityType: entityType as string | undefined,
+        actorUserId: actorUserId as string | undefined,
+        propertyId: propertyId as string | undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        search: search as string | undefined,
+        limit: parseInt(limit as string, 10),
+        offset: parseInt(offset as string, 10)
+      };
+
+      const result = await storage.getActivityLogs(filters);
+      
+      // Add formatted messages
+      const logsWithMessages = result.logs.map(log => ({
+        ...log,
+        formattedMessage: formatActivityMessage(
+          log.actionType as ActionType,
+          log.entityType as EntityType,
+          log.actorName,
+          log.actorRole,
+          log.entityLabel,
+          log.metadataJson ? JSON.parse(log.metadataJson) : undefined
+        )
+      }));
+
+      res.json({
+        logs: logsWithMessages,
+        total: result.total,
+        limit: filters.limit,
+        offset: filters.offset
+      });
+    } catch (error: any) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch activity logs" });
+    }
+  });
+
+  // Get single activity log by ID
+  app.get("/api/admin/activity-logs/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const log = await storage.getActivityLogById(id);
+      
+      if (!log) {
+        return res.status(404).json({ error: "Activity log not found" });
+      }
+
+      const formattedMessage = formatActivityMessage(
+        log.actionType as ActionType,
+        log.entityType as EntityType,
+        log.actorName,
+        log.actorRole,
+        log.entityLabel,
+        log.metadataJson ? JSON.parse(log.metadataJson) : undefined
+      );
+
+      res.json({
+        ...log,
+        formattedMessage,
+        metadata: log.metadataJson ? JSON.parse(log.metadataJson) : null
+      });
+    } catch (error: any) {
+      console.error("Error fetching activity log:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch activity log" });
+    }
+  });
+
+  // Get available actors for filter dropdown
+  app.get("/api/admin/activity-logs/actors/list", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const actors = allUsers.map(u => ({ id: u.id, name: u.name, role: u.role }));
+      res.json(actors);
+    } catch (error: any) {
+      console.error("Error fetching actors:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch actors" });
+    }
+  });
+
+  // Export activity logs as CSV
+  app.get("/api/admin/activity-logs/export/csv", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { actionType, entityType, actorUserId, propertyId, startDate, endDate, search } = req.query;
+
+      const filters = {
+        actionType: actionType as string | undefined,
+        entityType: entityType as string | undefined,
+        actorUserId: actorUserId as string | undefined,
+        propertyId: propertyId as string | undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        search: search as string | undefined,
+        limit: 10000,
+        offset: 0
+      };
+
+      const result = await storage.getActivityLogs(filters);
+      
+      const csvRows = [
+        ["Time", "Actor", "Role", "Action", "Entity Type", "Entity", "Property", "Details"].join(",")
+      ];
+
+      for (const log of result.logs) {
+        const formattedMessage = formatActivityMessage(
+          log.actionType as ActionType,
+          log.entityType as EntityType,
+          log.actorName,
+          log.actorRole,
+          log.entityLabel,
+          log.metadataJson ? JSON.parse(log.metadataJson) : undefined
+        );
+        
+        csvRows.push([
+          new Date(log.createdAt).toISOString(),
+          `"${log.actorName}"`,
+          log.actorRole,
+          log.actionType,
+          log.entityType,
+          `"${log.entityLabel}"`,
+          `"${log.propertyName || ''}"`,
+          `"${formattedMessage.replace(/"/g, '""')}"`
+        ].join(","));
+      }
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=activity_logs_${new Date().toISOString().split('T')[0]}.csv`);
+      res.send(csvRows.join("\n"));
+    } catch (error: any) {
+      console.error("Error exporting activity logs:", error);
+      res.status(500).json({ error: error.message || "Failed to export activity logs" });
     }
   });
 
