@@ -29,7 +29,8 @@ import {
   CreditCard,
   Calendar,
   Clock,
-  Activity
+  Activity,
+  Bot
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -81,6 +82,7 @@ const adminNavItems: NavItem[] = [
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
+  { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

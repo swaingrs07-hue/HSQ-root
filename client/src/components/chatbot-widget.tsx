@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { MessageCircle, X, Send, Loader2, User, Minimize2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,15 +14,48 @@ interface ChatMessage {
   isStreaming?: boolean;
 }
 
+interface ChatbotSettings {
+  enabled: boolean;
+  botName: string;
+  greetingMessage: string;
+  tone: string;
+  defaultLanguage: string;
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  outsideHoursMessage: string;
+}
+
 export function ChatbotWidget() {
+  const { data: settings } = useQuery<ChatbotSettings>({
+    queryKey: ["/api/chatbot/settings"],
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [isOpen, setIsOpen] = useState(false);
+  const getDefaultMessage = () => {
+    if (settings?.greetingMessage) {
+      return settings.greetingMessage;
+    }
+    return "Hello, I'm Gyan AI.\n\nI manage everything around your living experience — from bookings and rooms to meals, security, and support.\n\nThink of me as the central intelligence of Hsquareliving, keeping your stay smooth, smart, and stress-free.";
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hello, I'm Gyan AI.\n\nI manage everything around your living experience — from bookings and rooms to meals, security, and support.\n\nThink of me as the central intelligence of Hsquareliving, keeping your stay smooth, smart, and stress-free.",
+      content: getDefaultMessage(),
     },
   ]);
+
+  useEffect(() => {
+    if (settings?.greetingMessage) {
+      setMessages([{
+        id: "welcome",
+        role: "assistant",
+        content: settings.greetingMessage,
+      }]);
+    }
+  }, [settings?.greetingMessage]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -162,6 +196,10 @@ export function ChatbotWidget() {
       sendMessage();
     }
   };
+
+  if (settings?.enabled === false) {
+    return null;
+  }
 
   return (
     <>
