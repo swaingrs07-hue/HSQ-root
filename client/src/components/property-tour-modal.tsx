@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Building2, Bed, Sparkles, MapPin, Check, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -151,6 +153,32 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
     trackEvent("tour_thumbnail_clicked", { propertyId: selectedPropertyId, tab: activeTab, index });
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const diff = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50;
+    
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0) {
+        handleNextImage();
+      } else {
+        handlePrevImage();
+      }
+    }
+    
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   const handleEnquire = () => {
     trackEvent("tour_enquire_clicked", { propertyId: selectedPropertyId });
     onClose();
@@ -241,7 +269,13 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                 </div>
               </div>
 
-              <div className="flex-1 relative rounded-2xl overflow-hidden bg-black/50" style={{ aspectRatio: "16/9", minHeight: "200px" }}>
+              <div 
+              className="flex-1 relative rounded-2xl overflow-hidden bg-black/50 touch-pan-y"
+              style={{ aspectRatio: "16/9", minHeight: "200px" }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
                 {loading ? (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />

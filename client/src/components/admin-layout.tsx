@@ -18,6 +18,7 @@ import {
   TrendingUp,
   CalendarCheck,
   Menu,
+  Camera,
   Kanban,
   CheckCheck,
   Info,
@@ -79,6 +80,7 @@ const adminNavItems: NavItem[] = [
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
+  { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

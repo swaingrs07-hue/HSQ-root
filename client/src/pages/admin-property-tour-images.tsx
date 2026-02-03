@@ -215,18 +215,18 @@ export default function AdminPropertyTourImages() {
                               contentType: file.type,
                             }),
                           });
-                          const { uploadURL } = await res.json();
+                          const data = await res.json();
+                          (file as any).objectPath = data.objectPath;
                           return {
                             method: "PUT",
-                            url: uploadURL,
+                            url: data.uploadURL,
                             headers: { "Content-Type": file.type as string },
                           };
                         }}
                         onComplete={(result) => {
                           result.successful?.forEach((file) => {
-                            if (file.uploadURL) {
-                              const url = new URL(file.uploadURL);
-                              const objectPath = url.pathname;
+                            const objectPath = (file as any).objectPath;
+                            if (objectPath) {
                               handleAddImage(objectPath);
                             }
                           });
