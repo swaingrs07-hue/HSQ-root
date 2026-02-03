@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, Sparkles, MapPin, IndianRupee, Home, Filter, Loader2 } from "lucide-react";
+import { Search, X, Sparkles, MapPin, IndianRupee, Home, Filter, Loader2, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,10 @@ interface SmartSearchProps {
   onSearchResults?: (results: SearchResult) => void;
   placeholder?: string;
   className?: string;
+  showFiltersButton?: boolean;
+  onFiltersClick?: () => void;
+  externalFiltersActive?: boolean;
+  onTextSearch?: (query: string) => void;
 }
 
 const EXAMPLE_QUERIES = [
@@ -62,7 +66,15 @@ const EXAMPLE_QUERIES = [
   "Premium rooms in Andheri",
 ];
 
-export function SmartSearch({ onSearchResults, placeholder, className }: SmartSearchProps) {
+export function SmartSearch({ 
+  onSearchResults, 
+  placeholder, 
+  className,
+  showFiltersButton = false,
+  onFiltersClick,
+  externalFiltersActive = false,
+  onTextSearch
+}: SmartSearchProps) {
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -193,10 +205,24 @@ export function SmartSearch({ onSearchResults, placeholder, className }: SmartSe
               "Search"
             )}
           </Button>
+          {showFiltersButton && onFiltersClick && (
+            <Button
+              variant="outline"
+              onClick={onFiltersClick}
+              className="rounded-full px-4 gap-2 border-gray-300"
+              data-testid="button-toggle-filters"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+              {externalFiltersActive && (
+                <span className="w-2 h-2 bg-purple-600 rounded-full" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
-      {hasActiveFilters && (
+      {Object.values(activeFilters).some(v => v != null && (Array.isArray(v) ? v.length > 0 : true)) && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

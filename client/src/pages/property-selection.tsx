@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Search, Wifi, Wind, Shield, Car, Coffee, Utensils, Dumbbell, Tv, Droplets, ChevronRight, Bed, Users, SlidersHorizontal, X, Building2, IndianRupee, Sparkles } from "lucide-react";
+import { MapPin, Wifi, Wind, Shield, Car, Coffee, Utensils, Dumbbell, Tv, Droplets, ChevronRight, Bed, Users, X, Building2, IndianRupee, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -280,6 +280,9 @@ export default function PropertySelection() {
                   setUseNlpSearch(true);
                 }}
                 placeholder="Search with AI... Try 'rooms under 15000 in Juhu with AC'"
+                showFiltersButton={true}
+                onFiltersClick={() => setShowFilters(!showFilters)}
+                externalFiltersActive={hasActiveFilters}
               />
               
               {useNlpSearch && nlpSearchResults && (
@@ -302,36 +305,6 @@ export default function PropertySelection() {
                   </Button>
                 </div>
               )}
-              
-              <div className="flex flex-col md:flex-row gap-4 mt-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    placeholder="Or search by property name or location..."
-                    className="pl-12 h-12 text-base border-gray-200 focus:border-primary"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      if (e.target.value) {
-                        setUseNlpSearch(false);
-                      }
-                    }}
-                    data-testid="input-search-property"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  className="h-12 px-6 gap-2"
-                  onClick={() => setShowFilters(!showFilters)}
-                  data-testid="button-toggle-filters"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  Filters
-                  {hasActiveFilters && (
-                    <span className="ml-1 w-2 h-2 bg-primary rounded-full" />
-                  )}
-                </Button>
-              </div>
 
               <AnimatePresence>
                 {showFilters && (
