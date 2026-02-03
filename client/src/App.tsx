@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { PropertyProvider } from "@/contexts/property-context";
 import Home from "@/pages/home";
 import StudentRegistration from "@/pages/student-registration";
 import PropertySelection from "@/pages/property-selection";
@@ -98,7 +99,9 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <AuthProvider>
-          <AppContent />
+          <PropertyProvider>
+            <AppContent />
+          </PropertyProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

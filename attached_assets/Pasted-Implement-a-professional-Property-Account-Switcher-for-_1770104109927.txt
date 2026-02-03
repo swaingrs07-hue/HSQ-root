@@ -1,0 +1,81 @@
+Implement a professional Property Account Switcher for Admin (and optionally Sales) to manage multiple properties easily, with scoped data loading and zero data mixing.
+
+BUILD:
+
+1) Top Header Switcher UI
+- Add a property switcher dropdown in the top header (left of notifications/profile).
+- Display:
+  - Current selected property name
+  - Small property icon
+  - Chevron
+- Dropdown content:
+  - "All Properties" (Admin only)
+  - Search input (debounced)
+  - List of properties (name + city + status badge)
+  - Recent properties (top section)
+  - Pin/Favorite property option
+
+2) Persist Selected Property
+- Store selected property context in:
+  - localStorage (fast)
+  - AND server-side user preference (optional)
+- On app load:
+  - Load the last selected property automatically.
+- Add a clear indicator when "All Properties" is active.
+
+3) Global Property Context (Frontend)
+- Create a global state/provider: PropertyContext
+  - selectedPropertyId (nullable for "All")
+  - selectedPropertyName
+  - setSelectedProperty()
+- On property change:
+  - Clear stale cached state
+  - Re-fetch all visible pages data (dashboard, leads, requests, bookings, reports)
+  - Show top progress bar/skeleton to avoid blank UI
+
+4) Backend Scoping Rules (Critical)
+- Modify all list APIs to accept propertyId scope:
+  - If Admin chooses "All": return all properties data
+  - If propertyId is selected: filter every query by that propertyId
+- Enforce server-side checks:
+  - Admin can access all
+  - Sales can access only assigned properties
+  - If Sales tries to access unassigned propertyId → return 403
+
+5) Data Isolation Fixes
+- Ensure these entities have property_id:
+  - leads
+  - requests
+  - bookings
+  - occupancy/rooms (if applicable)
+  - sales assignments
+- All queries MUST use property_id filter when selectedPropertyId exists.
+- Prevent UI from showing “other property data” in any panel.
+
+6) UX Enhancements (Pro Level)
+- Add toast: "Switched to <Property>"
+- Add keyboard support:
+  - Cmd/Ctrl+K opens switcher (optional)
+- Add mobile variant:
+  - Switcher becomes a bottom sheet with search
+- Add loading placeholders for dashboards/charts after switching.
+
+7) Admin Tools Integration
+- Add a quick shortcut inside switcher:
+  - "Manage Properties" button (Admin only)
+- On that page, allow:
+  - Create/edit property
+  - Activate/deactivate property
+
+8) Final Validation Checklist
+- Switching property updates:
+  - Dashboard KPIs
+  - Leads list
+  - Requests Kanban
+  - Sales executive assignments
+  - Reports
+- No mixed data after switching
+- Refresh keeps selected property
+- Sales role cannot view other properties
+
+Implement clean, reusable components and verify with 2+ properties and 1 sales user.

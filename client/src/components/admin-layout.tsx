@@ -51,6 +51,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
+import { PropertySwitcher } from "@/components/property-switcher";
 
 interface Notification {
   id: string;
@@ -322,6 +323,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 {navItems.find(item => location === item.href || (item.href !== "/admin" && location.startsWith(item.href)))?.name || "Dashboard"}
               </h1>
             </div>
+          </div>
+
+          {/* Center: Property Switcher */}
+          <div className="flex-1 flex justify-center max-w-md mx-4">
+            <PropertySwitcher />
           </div>
 
           {/* Right: Actions */}
