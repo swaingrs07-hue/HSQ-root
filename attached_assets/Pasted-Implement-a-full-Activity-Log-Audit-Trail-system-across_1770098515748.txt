@@ -1,0 +1,82 @@
+Implement a full Activity Log (Audit Trail) system across the CRM so Admin can see who created/updated/deleted/assigned anything.
+
+BUILD END-TO-END:
+
+1) Database (Create activity_logs table)
+- Create table: activity_logs with fields:
+  id (uuid/int)
+  actor_user_id (who performed action)
+  actor_name (snapshot)
+  actor_role (snapshot: ADMIN/SALES)
+  action_type (ENUM/string: CREATE, UPDATE, DELETE, DEACTIVATE, ASSIGN, UNASSIGN, REASSIGN, LOGIN, LOGOUT)
+  entity_type (string: USER, SALES_EXECUTIVE, LEAD, REQUEST, PROPERTY, BOOKING)
+  entity_id (id of affected record)
+  entity_label (snapshot name like "Rahul Sharma", "Lead: Shreya Pandey")
+  property_id (nullable, for property-scoped actions)
+  metadata_json (JSON: before/after changes, assigned_to, lead_ids, etc.)
+  ip_address (nullable)
+  user_agent (nullable)
+  created_at (timestamp)
+
+- Add proper indexes:
+  created_at, entity_type+entity_id, actor_user_id, property_id
+
+2) Backend Middleware (Auto Logging)
+- Create a reusable function: logActivity({actor, action_type, entity_type, entity_id, entity_label, property_id, metadata})
+- Call logActivity in these flows:
+  a) Sales Executive actions:
+     - Deactivate/Remove sales exec
+     - Assign/Unassign properties
+  b) Lead actions:
+     - Assign lead to sales exec
+     - Reassign lead
+     - Change lead stage/status (hot/warm/cold, pipeline stage)
+     - Delete lead (soft delete)
+  c) User actions:
+     - Create user
+     - Change role
+     - Activate/deactivate user
+  d) Requests/Bookings:
+     - Move request stage (kanban drag)
+     - Create booking from lead
+- Ensure logging happens even if frontend fails (server-side only).
+
+3) Frontend Admin UI: Activity Log Page
+- Add a new Admin-only sidebar item: "Activity Log"
+- Page layout:
+  - Top filters:
+    * Date range
+    * Action type (ASSIGN/DELETE/UPDATE/etc.)
+    * Entity type (LEAD/USER/PROPERTY/etc.)
+    * Actor (user dropdown)
+    * Property filter
+  - Search box (search by entity label, actor name, lead name, email, phone)
+  - Table columns:
+    Time, Actor, Action, Entity, Details, Property, View
+  - "View" opens a right-side drawer:
+    * Full metadata JSON rendered nicely (Before/After diff)
+    * Direct link to the entity page (lead/user/request)
+- Add pagination (server-side) and skeleton loaders.
+
+4) Detail Formatting (Human readable)
+- Convert metadata_json into readable messages like:
+  - "Admin Gyan assigned Lead 'Shreya Pandey' to Rahul Sharma"
+  - "Admin Gyan deactivated Sales Executive 'Amit Kumar'"
+  - "Rahul Sharma moved Request 'Gyan' from Qualified → Viewing"
+- Show badges with colors for action types.
+
+5) Security & Permissions
+- Only ADMIN can view full activity logs.
+- Sales executives can only view their own activity (optional toggle) OR no access (default).
+- Do not log passwords or sensitive secrets.
+
+6) Export
+- Add "Export CSV" and "Export PDF" for filtered results.
+
+7) Final Validation
+- Every assign/delete/update action creates a log record.
+- Logs show correct actor + timestamp + entity.
+- No performance issues (indexes + pagination).
+- No blank screens, handle API errors with toast + fallback UI.
+
+Implement cleanly and verify by performing 5 actions and confirming logs appear.

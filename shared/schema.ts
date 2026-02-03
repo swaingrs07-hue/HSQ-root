@@ -748,3 +748,53 @@ export type DealClosure = z.infer<typeof dealClosureSchema>;
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// Activity action type enum
+export const activityActionTypeEnum = pgEnum("activity_action_type", [
+  "CREATE",
+  "UPDATE", 
+  "DELETE",
+  "DEACTIVATE",
+  "ACTIVATE",
+  "ASSIGN",
+  "UNASSIGN",
+  "REASSIGN",
+  "LOGIN",
+  "LOGOUT",
+  "STAGE_CHANGE",
+  "STATUS_CHANGE"
+]);
+
+// Activity entity type enum
+export const activityEntityTypeEnum = pgEnum("activity_entity_type", [
+  "USER",
+  "SALES_EXECUTIVE",
+  "LEAD",
+  "REQUEST",
+  "PROPERTY",
+  "BOOKING",
+  "ROOM_TYPE",
+  "PAYMENT"
+]);
+
+// Activity Logs table for comprehensive audit trail
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  actorName: text("actor_name").notNull(),
+  actorRole: text("actor_role").notNull(),
+  actionType: activityActionTypeEnum("action_type").notNull(),
+  entityType: activityEntityTypeEnum("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  entityLabel: text("entity_label").notNull(),
+  propertyId: varchar("property_id").references(() => properties.id),
+  propertyName: text("property_name"),
+  metadataJson: text("metadata_json"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;

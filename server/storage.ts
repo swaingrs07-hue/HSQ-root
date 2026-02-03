@@ -17,6 +17,7 @@ import {
   leadActivities,
   leadRemarks,
   notifications,
+  activityLogs,
   type User,
   type InsertUser,
   type Student,
@@ -53,9 +54,11 @@ import {
   type InsertLeadRemark,
   type Notification,
   type InsertNotification,
+  type ActivityLog,
+  type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -263,6 +266,21 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
+
+  // Activity Logs
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogs(filters: {
+    actionType?: string;
+    entityType?: string;
+    actorUserId?: string;
+    propertyId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: ActivityLog[]; total: number }>;
+  getActivityLogById(id: string): Promise<ActivityLog | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1556,6 +1574,78 @@ export class DatabaseStorage implements IStorage {
       .update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.userId, userId));
+  }
+
+  // Activity Logs
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [created] = await db.insert(activityLogs).values(log).returning();
+    return created;
+  }
+
+  async getActivityLogs(filters: {
+    actionType?: string;
+    entityType?: string;
+    actorUserId?: string;
+    propertyId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: ActivityLog[]; total: number }> {
+    const conditions = [];
+    
+    if (filters.actionType) {
+      conditions.push(eq(activityLogs.actionType, filters.actionType as any));
+    }
+    if (filters.entityType) {
+      conditions.push(eq(activityLogs.entityType, filters.entityType as any));
+    }
+    if (filters.actorUserId) {
+      conditions.push(eq(activityLogs.actorUserId, filters.actorUserId));
+    }
+    if (filters.propertyId) {
+      conditions.push(eq(activityLogs.propertyId, filters.propertyId));
+    }
+    if (filters.startDate) {
+      conditions.push(gte(activityLogs.createdAt, filters.startDate));
+    }
+    if (filters.endDate) {
+      conditions.push(lte(activityLogs.createdAt, filters.endDate));
+    }
+    if (filters.search) {
+      const searchTerm = `%${filters.search}%`;
+      conditions.push(
+        or(
+          ilike(activityLogs.actorName, searchTerm),
+          ilike(activityLogs.entityLabel, searchTerm),
+          ilike(activityLogs.propertyName || '', searchTerm)
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [totalResult, logs] = await Promise.all([
+      db.select({ count: count() }).from(activityLogs).where(whereClause),
+      db
+        .select()
+        .from(activityLogs)
+        .where(whereClause)
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(filters.limit || 50)
+        .offset(filters.offset || 0)
+    ]);
+
+    return {
+      logs,
+      total: totalResult[0]?.count || 0
+    };
+  }
+
+  async getActivityLogById(id: string): Promise<ActivityLog | undefined> {
+    const [log] = await db.select().from(activityLogs).where(eq(activityLogs.id, id));
+    return log || undefined;
   }
 }
 
