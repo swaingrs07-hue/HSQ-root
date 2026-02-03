@@ -13,6 +13,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
+import * as chatbotAdmin from "./chatbot-admin";
 
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
@@ -2418,6 +2419,282 @@ export async function registerRoutes(
   });
 
   // ============ ADMIN ============
+
+  // ============ CHATBOT ADMIN CONTROL PANEL ============
+
+  // Get chatbot settings
+  app.get("/api/admin/chatbot/settings", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.query.propertyId as string | undefined;
+      const settings = await chatbotAdmin.getChatbotSettings(propertyId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching chatbot settings:", error);
+      res.status(500).json({ error: "Failed to fetch chatbot settings" });
+    }
+  });
+
+  // Update chatbot settings
+  app.put("/api/admin/chatbot/settings", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { propertyId, ...data } = req.body;
+      const settings = await chatbotAdmin.updateChatbotSettings(data, propertyId);
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: "UPDATE",
+        entityType: "PROPERTY",
+        entityId: settings.id,
+        entityLabel: "Chatbot Settings",
+        metadataJson: JSON.stringify({ changes: Object.keys(data) }),
+      });
+      
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating chatbot settings:", error);
+      res.status(500).json({ error: "Failed to update chatbot settings" });
+    }
+  });
+
+  // Toggle chatbot on/off
+  app.post("/api/admin/chatbot/toggle", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { enabled, propertyId } = req.body;
+      const settings = await chatbotAdmin.toggleChatbot(enabled, propertyId);
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: enabled ? "ACTIVATE" : "DEACTIVATE",
+        entityType: "PROPERTY",
+        entityId: settings.id,
+        entityLabel: "Chatbot",
+        metadataJson: JSON.stringify({ enabled }),
+      });
+      
+      res.json(settings);
+    } catch (error) {
+      console.error("Error toggling chatbot:", error);
+      res.status(500).json({ error: "Failed to toggle chatbot" });
+    }
+  });
+
+  // Get chatbot stats
+  app.get("/api/admin/chatbot/stats", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const propertyId = req.query.propertyId as string | undefined;
+      const stats = await chatbotAdmin.getChatbotStats(propertyId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching chatbot stats:", error);
+      res.status(500).json({ error: "Failed to fetch chatbot stats" });
+    }
+  });
+
+  // Get chatbot knowledge entries
+  app.get("/api/admin/chatbot/knowledge", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { propertyId, category, status, search } = req.query;
+      const entries = await chatbotAdmin.getChatbotKnowledge({
+        propertyId: propertyId as string,
+        category: category as string,
+        status: status as "draft" | "published",
+        search: search as string,
+      });
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching chatbot knowledge:", error);
+      res.status(500).json({ error: "Failed to fetch knowledge entries" });
+    }
+  });
+
+  // Create knowledge entry
+  app.post("/api/admin/chatbot/knowledge", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const entry = await chatbotAdmin.createChatbotKnowledge({
+        ...req.body,
+        createdBy: authReq.user!.userId,
+      });
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: "CREATE",
+        entityType: "PROPERTY",
+        entityId: entry.id,
+        entityLabel: `Knowledge: ${entry.category}`,
+      });
+      
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating knowledge entry:", error);
+      res.status(500).json({ error: "Failed to create knowledge entry" });
+    }
+  });
+
+  // Update knowledge entry
+  app.put("/api/admin/chatbot/knowledge/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const entry = await chatbotAdmin.updateChatbotKnowledge(req.params.id, req.body);
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: "UPDATE",
+        entityType: "PROPERTY",
+        entityId: req.params.id,
+        entityLabel: `Knowledge: ${entry?.category}`,
+      });
+      
+      res.json(entry);
+    } catch (error) {
+      console.error("Error updating knowledge entry:", error);
+      res.status(500).json({ error: "Failed to update knowledge entry" });
+    }
+  });
+
+  // Delete knowledge entry
+  app.delete("/api/admin/chatbot/knowledge/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      await chatbotAdmin.deleteChatbotKnowledge(req.params.id);
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: "DELETE",
+        entityType: "PROPERTY",
+        entityId: req.params.id,
+        entityLabel: "Knowledge Entry",
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting knowledge entry:", error);
+      res.status(500).json({ error: "Failed to delete knowledge entry" });
+    }
+  });
+
+  // Publish knowledge entry
+  app.post("/api/admin/chatbot/knowledge/:id/publish", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const entry = await chatbotAdmin.publishKnowledgeEntry(req.params.id);
+      res.json(entry);
+    } catch (error) {
+      console.error("Error publishing knowledge entry:", error);
+      res.status(500).json({ error: "Failed to publish knowledge entry" });
+    }
+  });
+
+  // Get chatbot conversations
+  app.get("/api/admin/chatbot/conversations", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { startDate, endDate, propertyId, outcome, device, limit, offset } = req.query;
+      const conversations = await chatbotAdmin.getChatbotConversations({
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        propertyId: propertyId as string,
+        outcome: outcome as string,
+        device: device as string,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get conversation messages
+  app.get("/api/admin/chatbot/conversations/:id/messages", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const messages = await chatbotAdmin.getConversationMessages(req.params.id);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching conversation messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // Flag conversation
+  app.post("/api/admin/chatbot/conversations/:id/flag", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { flagStatus } = req.body;
+      const conversation = await chatbotAdmin.flagConversation(req.params.id, flagStatus);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error flagging conversation:", error);
+      res.status(500).json({ error: "Failed to flag conversation" });
+    }
+  });
+
+  // Delete conversation (admin only with audit)
+  app.delete("/api/admin/chatbot/conversations/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      await chatbotAdmin.deleteConversation(req.params.id);
+      
+      await logActivity({
+        actorUserId: authReq.user!.userId,
+        actorName: authReq.user!.email,
+        actorRole: authReq.user!.role,
+        actionType: "DELETE",
+        entityType: "LEAD",
+        entityId: req.params.id,
+        entityLabel: "Chatbot Conversation",
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ error: "Failed to delete conversation" });
+    }
+  });
+
+  // Test chatbot (sandbox mode)
+  app.post("/api/admin/chatbot/test", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const { message, sessionId } = req.body;
+      const chatContext = await initChatContext();
+      const response = await streamChatResponse(message, [], chatContext);
+      res.json({ response, sessionId });
+    } catch (error) {
+      console.error("Error testing chatbot:", error);
+      res.status(500).json({ error: "Failed to test chatbot" });
+    }
+  });
+
+  // Public endpoint to get chatbot settings (for widget)
+  app.get("/api/chatbot/settings", async (req, res) => {
+    try {
+      const propertyId = req.query.propertyId as string | undefined;
+      const settings = await chatbotAdmin.getChatbotSettings(propertyId);
+      res.json({
+        enabled: settings.enabled,
+        botName: settings.botName,
+        greetingMessage: settings.greetingMessage,
+        tone: settings.tone,
+        defaultLanguage: settings.defaultLanguage,
+        workingHoursStart: settings.workingHoursStart,
+        workingHoursEnd: settings.workingHoursEnd,
+        outsideHoursMessage: settings.outsideHoursMessage,
+      });
+    } catch (error) {
+      console.error("Error fetching public chatbot settings:", error);
+      res.status(500).json({ error: "Failed to fetch chatbot settings" });
+    }
+  });
 
   // ============ PROPERTY-SALES EXEC MANAGEMENT ============
 
