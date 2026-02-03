@@ -20,7 +20,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
         { name: "Sales Team", href: "/admin/sales-management", icon: Users },
-        { name: "Admin", href: "/admin", icon: ShieldCheck },
       ]
     : isSalesExec
     ? [
@@ -28,11 +27,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: "Dashboard", href: "/sales", icon: Target },
         { name: "Properties", href: "/properties", icon: Building2 },
       ]
+    : user
+    ? [
+        { name: "Home", href: "/", icon: Home },
+        { name: "My Bookings", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Properties", href: "/properties", icon: Building2 },
+      ]
     : [
         { name: "Home", href: "/", icon: Home },
-        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
-        { name: "Student Portal", href: "/student/register", icon: User },
       ];
 
   const userName = user?.name || "Guest";
