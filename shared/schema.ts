@@ -83,6 +83,12 @@ export const properties = pgTable("properties", {
   customFields: text("custom_fields"),
   status: propertyStatusEnum("status").default("draft"),
   active: boolean("active").default(true).notNull(),
+  overviewVideoUrl: text("overview_video_url"),
+  roomsVideoUrl: text("rooms_video_url"),
+  amenitiesVideoUrl: text("amenities_video_url"),
+  locationVideoUrl: text("location_video_url"),
+  tourPosterUrl: text("tour_poster_url"),
+  highlights: text("highlights").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "wouter";
 import heroImage from "@/assets/hero-student-living.png";
-import { ArrowRight, Wifi, Shield, Coffee, Users } from "lucide-react";
+import { ArrowRight, Wifi, Shield, Coffee, Users, Play } from "lucide-react";
 import { motion } from "framer-motion";
+import { PropertyTourModal } from "@/components/property-tour-modal";
 
 export default function Home() {
+  const [tourModalOpen, setTourModalOpen] = useState(false);
+
   return (
     <div className="flex flex-col gap-16 pb-20">
       {/* Hero Section */}
@@ -37,11 +41,16 @@ export default function Home() {
                   Find Your Room
                 </Button>
               </Link>
-              <Link href="/about">
-                <Button size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 text-lg px-8 h-14 rounded-full font-semibold">
+              <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 text-lg px-8 h-14 rounded-full font-semibold group"
+                  onClick={() => setTourModalOpen(true)}
+                  data-testid="button-take-tour"
+                >
+                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                   Take a Tour
                 </Button>
-              </Link>
             </div>
           </motion.div>
         </div>
@@ -93,6 +102,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <PropertyTourModal 
+        isOpen={tourModalOpen} 
+        onClose={() => setTourModalOpen(false)} 
+      />
     </div>
   );
 }
