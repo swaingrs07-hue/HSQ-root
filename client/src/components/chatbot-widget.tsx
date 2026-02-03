@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Loader2, Bot, User, Minimize2 } from "lucide-react";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
+import { MessageCircle, X, Send, Loader2, Bot, User, Minimize2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +25,8 @@ export function ChatbotWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dragControls = useDragControls();
+  const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -162,24 +164,40 @@ export function ChatbotWidget() {
 
   return (
     <>
+      {/* Drag constraints boundary - full viewport */}
+      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
+      
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            drag
+            dragControls={dragControls}
+            dragConstraints={constraintsRef}
+            dragElastic={0.1}
+            dragMomentum={false}
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-24 right-4 z-50 w-[380px] max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+            style={{ touchAction: "none" }}
             data-testid="chatbot-window"
           >
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 flex items-center justify-between">
+            {/* Draggable header */}
+            <div 
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                   <Bot className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-white font-semibold text-sm">Hsquareliving Assistant</h3>
-                  <p className="text-white/70 text-xs">Online • Typically replies instantly</p>
+                  <p className="text-white/70 text-xs flex items-center gap-1">
+                    <GripHorizontal className="w-3 h-3" />
+                    Drag to move • Online
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
