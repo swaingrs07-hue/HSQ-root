@@ -1,0 +1,62 @@
+Upgrade the Login page background with “alive” floating blob animations and subtle parallax, while keeping the login form clean and Apple-level premium.
+
+IMPLEMENT:
+
+1) Background Animated Blobs (Lightweight + Premium)
+- Add 3–5 soft gradient blobs behind the login card:
+  - Use divs with border-radius: 9999px
+  - Use blur (backdrop blur) and opacity 0.18–0.32
+  - Use mix-blend-mode: multiply or soft-light (if looks good)
+- Animate blobs continuously:
+  - Slow drifting movement (x/y translate)
+  - Gentle scale breathing (1.0 ↔ 1.08)
+  - Slight rotation (±5–10deg)
+- Each blob has a different duration (12s–30s) so it feels organic.
+
+2) Implementation Method (choose best for stack)
+- Prefer Framer Motion for smooth animations:
+  - motion.div with animate={{ x: [...], y: [...], scale: [...], rotate: [...] }}
+  - transition={{ duration, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
+- If Framer Motion not installed:
+  - install: npm install framer-motion
+  - or use CSS keyframes (fallback)
+
+3) Parallax (Subtle)
+- Add optional mouse parallax on desktop:
+  - Track pointer position (throttle)
+  - Apply tiny translate effect to blobs (max 8–14px)
+  - Disable on mobile automatically.
+- Respect reduced motion:
+  - If prefers-reduced-motion, disable blob animation and parallax.
+
+4) Glass Login Card
+- Make the login card “floating glass”:
+  - bg-white/60 or bg-white/70
+  - backdrop-blur-xl
+  - border 1px white/30
+  - shadow-xl + soft
+- Add gentle floating animation to card:
+  - translateY 0 ↔ -6px very slow (8–12s)
+
+5) Premium Typography & Button Feel
+- Keep current Hsquare logo and form fields.
+- Improve input focus:
+  - subtle ring + glow
+- Button:
+  - hover lift + tap scale
+  - loading spinner dots inside button on submit
+
+6) Performance Rules
+- Ensure 60fps:
+  - Use transform only (translate/scale/rotate), no layout thrash
+  - Avoid heavy gradients/blur stacking
+  - Use will-change: transform
+- Limit blur size for performance on low-end devices.
+
+7) Final Output
+- Login page looks unique, premium, “alive”
+- No distraction: blobs stay behind and never cover form
+- Works on desktop + mobile
+- Respects reduced motion setting
+
+Deliver the final updated Login component + any needed CSS/util files.

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,12 +29,105 @@ const useReducedMotion = () => {
   return prefersReducedMotion;
 };
 
+const useMouseParallax = () => {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const { clientX, clientY } = e;
+      const { innerWidth, innerHeight } = window;
+      mouseX.set((clientX - innerWidth / 2) / innerWidth);
+      mouseY.set((clientY - innerHeight / 2) / innerHeight);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [mouseX, mouseY]);
+
+  return { mouseX, mouseY };
+};
+
+const FloatingBlob = ({ 
+  color, 
+  size, 
+  initialX, 
+  initialY, 
+  duration,
+  delay = 0,
+  mouseX,
+  mouseY,
+  parallaxStrength = 10,
+  reducedMotion = false
+}: {
+  color: string;
+  size: number;
+  initialX: number;
+  initialY: number;
+  duration: number;
+  delay?: number;
+  mouseX: any;
+  mouseY: any;
+  parallaxStrength?: number;
+  reducedMotion?: boolean;
+}) => {
+  const x = useTransform(mouseX, [-0.5, 0.5], [-parallaxStrength, parallaxStrength]);
+  const y = useTransform(mouseY, [-0.5, 0.5], [-parallaxStrength, parallaxStrength]);
+
+  if (reducedMotion) {
+    return (
+      <div
+        className="absolute rounded-full blur-3xl opacity-25"
+        style={{
+          background: color,
+          width: size,
+          height: size,
+          left: `${initialX}%`,
+          top: `${initialY}%`,
+          transform: "translate(-50%, -50%)",
+        }}
+      />
+    );
+  }
+
+  return (
+    <motion.div
+      className="absolute rounded-full blur-3xl will-change-transform"
+      style={{
+        background: color,
+        width: size,
+        height: size,
+        left: `${initialX}%`,
+        top: `${initialY}%`,
+        x,
+        y,
+        opacity: 0.25,
+        mixBlendMode: "multiply",
+      }}
+      animate={{
+        translateX: [0, 30, -20, 40, 0],
+        translateY: [0, -40, 20, -30, 0],
+        scale: [1, 1.05, 0.98, 1.03, 1],
+        rotate: [0, 5, -3, 8, 0],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        repeatType: "mirror",
+        ease: "easeInOut",
+      }}
+    />
+  );
+};
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [, setLocation] = useLocation();
   const { login, signup } = useAuth();
   const { toast } = useToast();
   const reducedMotion = useReducedMotion();
+  const { mouseX, mouseY } = useMouseParallax();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -157,7 +250,7 @@ export default function AuthPage() {
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, scale: 0.98, y: 20 },
+    hidden: { opacity: 0, scale: 0.95, y: 30 },
     visible: { 
       opacity: 1, 
       scale: 1, 
@@ -179,80 +272,54 @@ export default function AuthPage() {
     })
   };
 
-  const logoVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { delay: reducedMotion ? 0 : 0.1, duration: 0.5 }
-    }
-  };
+  const blobs = [
+    { color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", size: 400, initialX: 20, initialY: 30, duration: 20, parallaxStrength: 12 },
+    { color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", size: 350, initialX: 75, initialY: 20, duration: 25, parallaxStrength: 8 },
+    { color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", size: 300, initialX: 60, initialY: 70, duration: 18, parallaxStrength: 14 },
+    { color: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", size: 280, initialX: 30, initialY: 80, duration: 22, parallaxStrength: 10 },
+    { color: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)", size: 320, initialX: 85, initialY: 60, duration: 28, parallaxStrength: 6 },
+  ];
 
   return (
-    <div className="min-h-screen flex overflow-hidden">
-      {/* Left Hero Section - Desktop Only */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-primary/50" />
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-1/4 -left-1/4 w-[600px] h-[600px] rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-1/4 -right-1/4 w-[500px] h-[500px] rounded-full bg-white/5 blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-white/5 blur-2xl" />
-        </div>
-        <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
-          <motion.div
-            initial={reducedMotion ? {} : { opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-center max-w-md"
-          >
-            <h1 className="text-4xl font-bold mb-4">Find Your Perfect Home</h1>
-            <p className="text-lg text-white/80 leading-relaxed">
-              Discover premium student accommodations designed for comfort, convenience, and community.
-            </p>
-          </motion.div>
-          <motion.div
-            initial={reducedMotion ? {} : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-            className="mt-12 flex gap-8"
-          >
-            {[
-              { value: "500+", label: "Happy Students" },
-              { value: "15+", label: "Properties" },
-              { value: "4.9", label: "Rating" }
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
-                <div className="text-3xl font-bold">{stat.value}</div>
-                <div className="text-sm text-white/70">{stat.label}</div>
-              </div>
-            ))}
-          </motion.div>
-        </div>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-100 via-white to-slate-50">
+      {/* Animated Background Blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {blobs.map((blob, index) => (
+          <FloatingBlob
+            key={index}
+            color={blob.color}
+            size={blob.size}
+            initialX={blob.initialX}
+            initialY={blob.initialY}
+            duration={blob.duration}
+            delay={index * 0.5}
+            mouseX={mouseX}
+            mouseY={mouseY}
+            parallaxStrength={blob.parallaxStrength}
+            reducedMotion={reducedMotion}
+          />
+        ))}
       </div>
 
-      {/* Right Form Section */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-gradient-to-br from-slate-50 via-white to-slate-100">
-        {/* Mobile Header Gradient */}
-        <div className="lg:hidden absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/20 to-transparent" />
-        
-        <div className="w-full max-w-[420px] relative">
-          {/* Logo */}
-          <motion.div
-            variants={logoVariants}
-            initial="hidden"
-            animate="visible"
-            className="text-center mb-8"
-          >
-            <img 
-              src={hsquareLogo} 
-              alt="Hsquare Living" 
-              className="h-20 w-auto mx-auto mb-4 rounded-2xl shadow-lg"
-            />
-            <p className="text-lg text-muted-foreground font-medium">
-              {getGreeting()}! 👋
-            </p>
-          </motion.div>
-
+      {/* Floating Glass Login Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-[440px] mx-4"
+      >
+        {/* Card Float Animation */}
+        <motion.div
+          animate={reducedMotion ? {} : {
+            y: [0, -6, 0],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            repeatType: "mirror",
+            ease: "easeInOut",
+          }}
+        >
           {/* Success Animation Overlay */}
           <AnimatePresence>
             {showSuccess && (
@@ -260,7 +327,7 @@ export default function AuthPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-3xl"
+                className="absolute inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-xl rounded-3xl"
               >
                 <motion.div
                   initial={{ scale: 0 }}
@@ -268,14 +335,8 @@ export default function AuthPage() {
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                   className="text-center"
                 >
-                  <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-4">
-                    <motion.div
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ duration: 0.4, delay: 0.2 }}
-                    >
-                      <Check className="w-10 h-10 text-white" strokeWidth={3} />
-                    </motion.div>
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
+                    <Check className="w-10 h-10 text-white" strokeWidth={3} />
                   </div>
                   <p className="text-xl font-semibold text-gray-800">Welcome back!</p>
                 </motion.div>
@@ -283,23 +344,32 @@ export default function AuthPage() {
             )}
           </AnimatePresence>
 
-          {/* Auth Card */}
+          {/* Glass Card */}
           <motion.div
             variants={cardVariants}
             initial="hidden"
             animate={shakeForm ? "shake" : "visible"}
-            className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/5 border border-white/50 p-8"
+            className="bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 border border-white/50 p-8 md:p-10"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {isLogin ? "Sign In" : "Create Account"}
-              </h2>
+            {/* Logo & Greeting */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-center mb-8"
+            >
+              <img 
+                src={hsquareLogo} 
+                alt="Hsquare Living" 
+                className="h-16 w-auto mx-auto mb-4 rounded-2xl shadow-lg"
+              />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+                {getGreeting()}! 👋
+              </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLogin 
-                  ? "Enter your credentials to continue" 
-                  : "Join us to find your perfect home"}
+                {isLogin ? "Sign in to continue your journey" : "Create your account to get started"}
               </p>
-            </div>
+            </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <AnimatePresence mode="popLayout">
@@ -313,15 +383,15 @@ export default function AuthPage() {
                     custom={0}
                     className="space-y-2"
                   >
-                    <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
+                    <Label htmlFor="name" className="text-sm font-medium text-gray-700">Full Name</Label>
                     <div className="relative">
-                      <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${focusedField === 'name' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${focusedField === 'name' ? 'text-primary' : 'text-gray-400'}`} />
                       <Input
                         id="name"
                         placeholder="John Doe"
-                        className={`pl-11 h-12 rounded-xl border-2 transition-all duration-200 bg-white/50 ${
-                          errors.name ? "border-red-400 focus:border-red-500" : 
-                          focusedField === 'name' ? "border-primary ring-4 ring-primary/10" : "border-gray-200 hover:border-gray-300"
+                        className={`pl-11 h-12 rounded-xl border-2 transition-all duration-300 bg-white/80 backdrop-blur-sm ${
+                          errors.name ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : 
+                          focusedField === 'name' ? "border-primary ring-4 ring-primary/10 shadow-lg shadow-primary/5" : "border-gray-200 hover:border-gray-300"
                         }`}
                         value={name}
                         onFocus={() => setFocusedField('name')}
@@ -354,16 +424,16 @@ export default function AuthPage() {
                 custom={isLogin ? 0 : 1}
                 className="space-y-2"
               >
-                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
                 <div className="relative">
-                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${focusedField === 'email' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${focusedField === 'email' ? 'text-primary' : 'text-gray-400'}`} />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className={`pl-11 h-12 rounded-xl border-2 transition-all duration-200 bg-white/50 ${
-                      errors.email ? "border-red-400 focus:border-red-500" : 
-                      focusedField === 'email' ? "border-primary ring-4 ring-primary/10" : "border-gray-200 hover:border-gray-300"
+                    className={`pl-11 h-12 rounded-xl border-2 transition-all duration-300 bg-white/80 backdrop-blur-sm ${
+                      errors.email ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : 
+                      focusedField === 'email' ? "border-primary ring-4 ring-primary/10 shadow-lg shadow-primary/5" : "border-gray-200 hover:border-gray-300"
                     }`}
                     value={email}
                     onFocus={() => setFocusedField('email')}
@@ -398,16 +468,16 @@ export default function AuthPage() {
                     custom={2}
                     className="space-y-2"
                   >
-                    <Label htmlFor="phone" className="text-sm font-medium">Mobile Number</Label>
+                    <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Mobile Number</Label>
                     <div className="relative">
-                      <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${focusedField === 'phone' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${focusedField === 'phone' ? 'text-primary' : 'text-gray-400'}`} />
                       <Input
                         id="phone"
                         type="tel"
                         placeholder="9876543210"
-                        className={`pl-11 h-12 rounded-xl border-2 transition-all duration-200 bg-white/50 ${
-                          errors.phone ? "border-red-400 focus:border-red-500" : 
-                          focusedField === 'phone' ? "border-primary ring-4 ring-primary/10" : "border-gray-200 hover:border-gray-300"
+                        className={`pl-11 h-12 rounded-xl border-2 transition-all duration-300 bg-white/80 backdrop-blur-sm ${
+                          errors.phone ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : 
+                          focusedField === 'phone' ? "border-primary ring-4 ring-primary/10 shadow-lg shadow-primary/5" : "border-gray-200 hover:border-gray-300"
                         }`}
                         value={phone}
                         onFocus={() => setFocusedField('phone')}
@@ -441,16 +511,16 @@ export default function AuthPage() {
                 custom={isLogin ? 1 : 3}
                 className="space-y-2"
               >
-                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
                 <div className="relative">
-                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${focusedField === 'password' ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${focusedField === 'password' ? 'text-primary' : 'text-gray-400'}`} />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder={isLogin ? "Enter your password" : "Create a strong password"}
-                    className={`pl-11 pr-11 h-12 rounded-xl border-2 transition-all duration-200 bg-white/50 ${
-                      errors.password ? "border-red-400 focus:border-red-500" : 
-                      focusedField === 'password' ? "border-primary ring-4 ring-primary/10" : "border-gray-200 hover:border-gray-300"
+                    className={`pl-11 pr-11 h-12 rounded-xl border-2 transition-all duration-300 bg-white/80 backdrop-blur-sm ${
+                      errors.password ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : 
+                      focusedField === 'password' ? "border-primary ring-4 ring-primary/10 shadow-lg shadow-primary/5" : "border-gray-200 hover:border-gray-300"
                     }`}
                     value={password}
                     onFocus={() => setFocusedField('password')}
@@ -465,7 +535,7 @@ export default function AuthPage() {
                     type="button"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
                   >
@@ -498,7 +568,7 @@ export default function AuthPage() {
                   </motion.p>
                 )}
                 {!isLogin && !errors.password && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-500">
                     Min 8 characters, 1 uppercase, 1 number
                   </p>
                 )}
@@ -519,7 +589,7 @@ export default function AuthPage() {
                       onCheckedChange={setRememberMe}
                       className="data-[state=checked]:bg-primary"
                     />
-                    <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                    <Label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
                       Remember me
                     </Label>
                   </div>
@@ -538,26 +608,26 @@ export default function AuthPage() {
                 initial="hidden"
                 animate="visible"
                 custom={isLogin ? 3 : 4}
+                className="pt-2"
               >
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 text-base font-semibold rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-200"
-                  disabled={loading || !isFormValid()}
-                  data-testid="button-submit"
+                <motion.div
+                  whileHover={{ scale: 1.01, y: -2 }}
+                  whileTap={{ scale: 0.99 }}
                 >
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full flex items-center justify-center gap-2"
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary via-primary to-primary/90 shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/35 transition-all duration-300"
+                    disabled={loading || !isFormValid()}
+                    data-testid="button-submit"
                   >
                     {loading ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="flex gap-1">
                           {[0, 1, 2].map((i) => (
                             <motion.div
                               key={i}
                               className="w-2 h-2 bg-white rounded-full"
-                              animate={{ opacity: [0.3, 1, 0.3] }}
+                              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }}
                               transition={{
                                 duration: 0.8,
                                 repeat: Infinity,
@@ -566,13 +636,13 @@ export default function AuthPage() {
                             />
                           ))}
                         </div>
-                        <span>{isLogin ? "Signing in" : "Creating account"}</span>
+                        <span>{isLogin ? "Signing in..." : "Creating account..."}</span>
                       </div>
                     ) : (
                       <span>{isLogin ? "Sign In" : "Create Account"}</span>
                     )}
-                  </motion.div>
-                </Button>
+                  </Button>
+                </motion.div>
               </motion.div>
             </form>
 
@@ -583,11 +653,11 @@ export default function AuthPage() {
               custom={isLogin ? 4 : 5}
               className="mt-6 text-center"
             >
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-600">
                 {isLogin ? "Don't have an account?" : "Already have an account?"}
                 <button
                   type="button"
-                  className="ml-1 text-primary hover:text-primary/80 font-semibold transition-colors"
+                  className="ml-1.5 text-primary hover:text-primary/80 font-semibold transition-colors"
                   onClick={toggleMode}
                   data-testid="button-toggle-mode"
                 >
@@ -601,15 +671,15 @@ export default function AuthPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="text-center text-xs text-muted-foreground mt-6"
+            className="text-center text-xs text-gray-500 mt-6"
           >
             By continuing, you agree to our{" "}
-            <a href="#" className="text-primary hover:underline">Terms of Service</a>
+            <a href="#" className="text-primary hover:underline">Terms</a>
             {" "}and{" "}
             <a href="#" className="text-primary hover:underline">Privacy Policy</a>
           </motion.p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
