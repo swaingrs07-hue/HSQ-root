@@ -22,7 +22,65 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const { login, signup } = useAuth();
+
+  const validateEmail = (email: string): string => {
+    if (!email) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validatePassword = (password: string): string => {
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return "";
+  };
+
+  const validateName = (name: string): string => {
+    if (!name) return "Name is required";
+    if (name.length < 2) return "Name must be at least 2 characters";
+    return "";
+  };
+
+  const validatePhone = (phone: string): string => {
+    if (!phone) return "Phone number is required";
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone.replace(/[\s-]/g, ""))) return "Please enter a valid 10-digit phone number";
+    return "";
+  };
+
+  const validateField = (field: string, value: string) => {
+    let error = "";
+    switch (field) {
+      case "email": error = validateEmail(value); break;
+      case "password": error = validatePassword(value); break;
+      case "name": error = validateName(value); break;
+      case "phone": error = validatePhone(value); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+    return error;
+  };
+
+  const handleBlur = (field: string, value: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    validateField(field, value);
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    errors.email = validateEmail(email);
+    errors.password = validatePassword(password);
+    if (mode === "signup") {
+      errors.name = validateName(name);
+      errors.phone = validatePhone(phone);
+    }
+    setFieldErrors(errors);
+    setTouched({ email: true, password: true, name: true, phone: true });
+    return Object.values(errors).every(e => !e);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +105,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -76,6 +139,8 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
     setName("");
     setPhone("");
     setError("");
+    setFieldErrors({});
+    setTouched({});
   };
 
   const switchMode = (newMode: "login" | "signup") => {
@@ -183,12 +248,18 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
                             id="name"
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => {
+                              setName(e.target.value);
+                              if (touched.name) validateField("name", e.target.value);
+                            }}
+                            onBlur={() => handleBlur("name", name)}
                             placeholder="Enter your full name"
-                            className="pl-10"
-                            required={mode === "signup"}
+                            className={`pl-10 ${touched.name && fieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                           />
                         </div>
+                        {touched.name && fieldErrors.name && (
+                          <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -204,12 +275,18 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
                         id="email"
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (touched.email) validateField("email", e.target.value);
+                        }}
+                        onBlur={() => handleBlur("email", email)}
                         placeholder="Enter your email"
-                        className="pl-10"
-                        required
+                        className={`pl-10 ${touched.email && fieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       />
                     </div>
+                    {touched.email && fieldErrors.email && (
+                      <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>
+                    )}
                   </div>
 
                   <AnimatePresence mode="wait">
@@ -232,12 +309,18 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
                             id="phone"
                             type="tel"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
+                            onChange={(e) => {
+                              setPhone(e.target.value);
+                              if (touched.phone) validateField("phone", e.target.value);
+                            }}
+                            onBlur={() => handleBlur("phone", phone)}
                             placeholder="Enter your phone number"
-                            className="pl-10"
-                            required={mode === "signup"}
+                            className={`pl-10 ${touched.phone && fieldErrors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                           />
                         </div>
+                        {touched.phone && fieldErrors.phone && (
+                          <p className="text-xs text-red-500 mt-1">{fieldErrors.phone}</p>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -253,10 +336,13 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
                         id="password"
                         type={showPassword ? "text" : "password"}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (touched.password) validateField("password", e.target.value);
+                        }}
+                        onBlur={() => handleBlur("password", password)}
                         placeholder="Enter your password"
-                        className="pl-10 pr-10"
-                        required
+                        className={`pl-10 pr-10 ${touched.password && fieldErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       />
                       <button
                         type="button"
@@ -267,6 +353,9 @@ export function AuthModal({ isOpen, onClose, onSuccess, actionLabel = "continue"
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    {touched.password && fieldErrors.password && (
+                      <p className="text-xs text-red-500 mt-1">{fieldErrors.password}</p>
+                    )}
                   </div>
 
                   <AnimatePresence>
