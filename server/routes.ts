@@ -1329,6 +1329,58 @@ export async function registerRoutes(
     }
   });
 
+  // Update property tour images (Admin only)
+  app.patch("/api/admin/properties/:id/tour-images", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const { category, images } = req.body;
+      
+      // Validate category
+      const validCategories = ["overview", "rooms", "amenities", "location"];
+      if (!category || !validCategories.includes(category)) {
+        return res.status(400).json({ error: "Invalid category. Must be one of: overview, rooms, amenities, location" });
+      }
+      
+      // Validate images array
+      if (!Array.isArray(images)) {
+        return res.status(400).json({ error: "Images must be an array of URLs" });
+      }
+      
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      // Map category to column name
+      const columnMap: Record<string, string> = {
+        overview: "tourOverviewImages",
+        rooms: "tourRoomsImages",
+        amenities: "tourAmenitiesImages",
+        location: "tourLocationImages",
+      };
+      
+      const updates = {
+        [columnMap[category]]: JSON.stringify(images),
+      };
+
+      const updatedProperty = await storage.updateProperty(id, updates);
+      
+      // Log the action
+      await storage.createAuditLog({
+        adminId: (req as AuthRequest).user!.userId,
+        action: "UPDATE_PROPERTY_TOUR_IMAGES",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, category, imageCount: images.length }),
+      });
+
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error updating property tour images:", error);
+      res.status(500).json({ error: "Failed to update property tour images" });
+    }
+  });
+
   // Toggle property active status (Admin only)
   app.post("/api/admin/properties/:id/toggle-status", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
