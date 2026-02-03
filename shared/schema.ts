@@ -817,5 +817,130 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ i
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 
+// ============ CHATBOT ADMIN CONTROL TABLES ============
+
+// Chatbot tone enum
+export const chatbotToneEnum = pgEnum("chatbot_tone", ["professional", "friendly", "sales", "support"]);
+
+// Chatbot knowledge status enum
+export const chatbotKnowledgeStatusEnum = pgEnum("chatbot_knowledge_status", ["draft", "published"]);
+
+// Chatbot message role enum
+export const chatbotMessageRoleEnum = pgEnum("chatbot_message_role", ["user", "bot"]);
+
+// Chatbot event type enum
+export const chatbotEventTypeEnum = pgEnum("chatbot_event_type", ["lead_created", "escalation", "error", "session_start", "session_end"]);
+
+// Chatbot Settings table (global or per-property)
+export const chatbotSettings = pgTable("chatbot_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id),
+  enabled: boolean("enabled").default(true).notNull(),
+  botName: text("bot_name").default("Gyan AI").notNull(),
+  greetingMessage: text("greeting_message").default("Hello! I'm Gyan AI, your personal assistant for finding the perfect student accommodation. How can I help you today?").notNull(),
+  tone: chatbotToneEnum("tone").default("friendly").notNull(),
+  defaultLanguage: text("default_language").default("English").notNull(),
+  workingHoursStart: text("working_hours_start").default("09:00"),
+  workingHoursEnd: text("working_hours_end").default("21:00"),
+  outsideHoursMessage: text("outside_hours_message").default("Thanks for reaching out! Our team is currently away. We'll respond during business hours (9 AM - 9 PM IST)."),
+  allowedTopics: text("allowed_topics").array().default(sql`ARRAY['faqs', 'pricing', 'availability', 'booking', 'amenities', 'location']`),
+  blockedTopics: text("blocked_topics").array().default(sql`ARRAY[]::text[]`),
+  leadCaptureEnabled: boolean("lead_capture_enabled").default(true).notNull(),
+  leadCaptureOnPricing: boolean("lead_capture_on_pricing").default(true),
+  leadCaptureOnAvailability: boolean("lead_capture_on_availability").default(true),
+  leadCaptureOnBooking: boolean("lead_capture_on_booking").default(true),
+  leadCaptureOnLocation: boolean("lead_capture_on_location").default(true),
+  leadCaptureOnContact: boolean("lead_capture_on_contact").default(true),
+  requiredLeadFields: text("required_lead_fields").array().default(sql`ARRAY['name', 'phone', 'email']`),
+  escalationEnabled: boolean("escalation_enabled").default(true).notNull(),
+  escalationTriggerWords: text("escalation_trigger_words").array().default(sql`ARRAY['call me', 'talk to agent', 'speak to human', 'real person']`),
+  escalationWhatsapp: text("escalation_whatsapp"),
+  escalationEmail: text("escalation_email"),
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(10).notNull(),
+  spamDetectionEnabled: boolean("spam_detection_enabled").default(true).notNull(),
+  allowedDomains: text("allowed_domains").array().default(sql`ARRAY[]::text[]`),
+  blockedIps: text("blocked_ips").array().default(sql`ARRAY[]::text[]`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Chatbot Knowledge entries (FAQs, property info, policies)
+export const chatbotKnowledge = pgTable("chatbot_knowledge", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id),
+  category: text("category").notNull(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  status: chatbotKnowledgeStatusEnum("status").default("draft").notNull(),
+  version: integer("version").default(1).notNull(),
+  previousVersionId: varchar("previous_version_id"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Chatbot Conversations
+export const chatbotConversations = pgTable("chatbot_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  propertyId: varchar("property_id").references(() => properties.id),
+  leadId: varchar("lead_id").references(() => leads.id),
+  channel: text("channel").default("web").notNull(),
+  pageUrl: text("page_url"),
+  referrer: text("referrer"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  device: text("device"),
+  ipAddress: text("ip_address"),
+  outcome: text("outcome"),
+  flagStatus: text("flag_status"),
+  messageCount: integer("message_count").default(0).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+});
+
+// Chatbot Messages
+export const chatbotMessages = pgTable("chatbot_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => chatbotConversations.id).notNull(),
+  role: chatbotMessageRoleEnum("role").notNull(),
+  message: text("message").notNull(),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Chatbot Events (lead creation, escalation, errors)
+export const chatbotEvents = pgTable("chatbot_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => chatbotConversations.id),
+  eventType: chatbotEventTypeEnum("event_type").notNull(),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Chatbot schemas and types
+export const insertChatbotSettingsSchema = createInsertSchema(chatbotSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type ChatbotSettings = typeof chatbotSettings.$inferSelect;
+export type InsertChatbotSettings = z.infer<typeof insertChatbotSettingsSchema>;
+
+export const insertChatbotKnowledgeSchema = createInsertSchema(chatbotKnowledge).omit({ id: true, createdAt: true, updatedAt: true });
+export type ChatbotKnowledge = typeof chatbotKnowledge.$inferSelect;
+export type InsertChatbotKnowledge = z.infer<typeof insertChatbotKnowledgeSchema>;
+
+export const insertChatbotConversationSchema = createInsertSchema(chatbotConversations).omit({ id: true, startedAt: true });
+export type ChatbotConversation = typeof chatbotConversations.$inferSelect;
+export type InsertChatbotConversation = z.infer<typeof insertChatbotConversationSchema>;
+
+export const insertChatbotMessageSchema = createInsertSchema(chatbotMessages).omit({ id: true, createdAt: true });
+export type ChatbotMessage = typeof chatbotMessages.$inferSelect;
+export type InsertChatbotMessage = z.infer<typeof insertChatbotMessageSchema>;
+
+export const insertChatbotEventSchema = createInsertSchema(chatbotEvents).omit({ id: true, createdAt: true });
+export type ChatbotEvent = typeof chatbotEvents.$inferSelect;
+export type InsertChatbotEvent = z.infer<typeof insertChatbotEventSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

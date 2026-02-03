@@ -1,0 +1,122 @@
+Create an Admin-only "AI Chatbot Control Panel" that gives full control over the website/app chatbot (settings, behavior, knowledge, routing, logs, and safety).
+
+IMPLEMENT:
+
+1) Admin Navigation & Access
+- Add a new Admin menu item: "AI Chatbot" (visible only to ADMIN and SUPER_ADMIN).
+- Create route: /admin/ai-chatbot
+- Protect route with backend + frontend role guards.
+
+2) Control Panel Sections (Tabs)
+Create tabs inside AI Chatbot panel:
+
+A) Overview
+- Toggle: Chatbot ON/OFF (global)
+- Status: Connected/Healthy (API + DB)
+- KPI cards:
+  - Conversations today
+  - Leads captured
+  - Avg response time
+  - Escalations to human
+- Button: "Test Chat" (opens sandbox chat window)
+
+B) Behavior Settings
+- Fields:
+  - Bot name
+  - Greeting message
+  - Tone selector (Professional / Friendly / Sales / Support)
+  - Language default (English/Hindi/Odia)
+  - Working hours (chat outside hours → auto message)
+- Policies:
+  - What bot can answer (FAQs, pricing, availability, booking steps)
+  - Blocked topics toggle list
+- Save settings with validation + toast.
+
+C) Lead Capture Rules
+- Configure "Convert chat to lead" triggers:
+  - When user asks: price, availability, booking, location
+  - When user shares phone/email
+- Define required lead fields:
+  - name, phone, email, city, property_interest, budget, move_in_date
+- Auto-assign lead:
+  - property-wise mapping to Sales Exec
+  - fallback to unassigned queue
+
+D) Knowledge / Content (No-code)
+- Add a Knowledge Manager:
+  - Upload FAQ entries (Q/A)
+  - Add property info (amenities, rules, pricing, location)
+  - Add policies (refund, security deposit)
+- Versioning:
+  - Publish / Draft
+  - Rollback last version
+- Basic search across knowledge entries.
+
+E) Human Handoff / Escalation
+- Toggle: "Escalate to human"
+- Define escalation triggers:
+  - user says "call me" / "talk to agent"
+  - bot confidence low or repeated confusion
+- Handoff destination:
+  - WhatsApp number
+  - Sales team inbox page inside CRM
+  - Email notification to admin
+- Add “Create ticket” option.
+
+F) Chat Logs & Analytics
+- Conversation list with filters:
+  - date range, device, location, property, outcome (lead/no lead)
+- View conversation transcript in drawer
+- Export CSV/PDF
+- Flag conversation as:
+  - Good / Needs improvement
+  - Spam
+- Show user journey (page_url + referrer + utm if available)
+
+G) Security & Abuse Controls
+- Rate limit config
+- Spam detection:
+  - honeypot + throttling
+- Allowlist domains for embed
+- Blocklist IPs (optional)
+- Admin-only “Delete transcript” with approvals workflow
+
+3) Backend Data Model
+Add tables:
+- chatbot_settings (single row or per property)
+- chatbot_knowledge (faq entries, property info, tags, status draft/published)
+- chatbot_conversations (session_id, user_id optional, started_at, ended_at, channel, page_url, utm fields)
+- chatbot_messages (conversation_id, role user/bot, message, created_at)
+- chatbot_events (lead_created, escalation, error logs)
+All changes should be recorded in activity_logs with actor + metadata.
+
+4) API Endpoints
+- GET/PUT /api/admin/chatbot/settings
+- GET/POST/PUT/DELETE /api/admin/chatbot/knowledge
+- GET /api/admin/chatbot/conversations?filters=
+- GET /api/admin/chatbot/conversations/:id/messages
+- POST /api/admin/chatbot/test (sandbox)
+- POST /api/admin/chatbot/toggle (on/off)
+Enforce ADMIN/SUPER_ADMIN server-side authorization.
+
+5) Frontend Widget Integration
+- Ensure widget reads current settings:
+  - enabled/disabled
+  - greeting message
+  - lead capture rules
+- If disabled: widget hidden for all users (except admin test mode).
+- Add “Admin preview mode” toggle to test without affecting public users.
+
+6) UX Quality
+- Apple-level UI:
+  - clean cards, tabs, subtle animations, skeleton loaders
+  - no blank screens
+- Toasts on save, errors, publish actions
+- Confirm dialogs for destructive actions
+
+FINAL VALIDATION
+- Admin can fully control chatbot from /admin/ai-chatbot
+- Settings persist and affect live chatbot instantly
+- Conversations and leads are logged
+- Lead capture works and assignments are property-wise
+- All actions recorded in audit logs
