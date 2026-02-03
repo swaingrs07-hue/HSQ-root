@@ -422,6 +422,15 @@ export const leads = pgTable("leads", {
   bookingConfirmed: boolean("booking_confirmed").default(false).notNull(),
   discountRequested: boolean("discount_requested").default(false).notNull(),
   
+  // UTM tracking for website leads
+  utmSource: text("utm_source"),
+  utmCampaign: text("utm_campaign"),
+  utmMedium: text("utm_medium"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
+  pageUrl: text("page_url"),
+  message: text("message"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

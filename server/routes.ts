@@ -1,14 +1,84 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
+import rateLimit from "express-rate-limit";
+import cors from "cors";
+
+// Rate limiter for web leads endpoint
+const webLeadsRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per IP per 15 minutes
+  message: { error: "Too many lead submissions, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Allowed marketing domains for CORS
+const ALLOWED_MARKETING_DOMAINS = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/.*\.hsquareliving\.com$/,
+  /^https?:\/\/hsquareliving\.com$/,
+  /^https?:\/\/.*\.replit\.dev$/,
+  /^https?:\/\/.*\.repl\.co$/,
+];
+
+// CORS options for web leads
+const webLeadsCorsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // Allow non-browser requests (Postman, etc.)
+    const isAllowed = ALLOWED_MARKETING_DOMAINS.some(pattern => pattern.test(origin));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "X-LEAD-API-KEY"],
+};
+
+// API key validation middleware for web leads
+const validateWebLeadApiKey = (req: Request, res: Response, next: NextFunction) => {
+  const apiKey = req.headers["x-lead-api-key"];
+  const expectedKey = process.env.WEB_LEADS_API_KEY;
+  
+  if (!expectedKey) {
+    console.error("WEB_LEADS_API_KEY not configured");
+    return res.status(500).json({ error: "Lead capture not configured" });
+  }
+  
+  if (!apiKey || apiKey !== expectedKey) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  
+  next();
+};
+
+// Phone number normalization
+function normalizePhone(phone: string | undefined): string | undefined {
+  if (!phone) return undefined;
+  // Remove all non-digit characters except +
+  let normalized = phone.replace(/[^\d+]/g, "");
+  // Add +91 if it's a 10-digit Indian number
+  if (normalized.length === 10 && !normalized.startsWith("+")) {
+    normalized = "+91" + normalized;
+  }
+  return normalized;
+}
+
+// Email normalization  
+function normalizeEmail(email: string | undefined): string | undefined {
+  if (!email) return undefined;
+  return email.trim().toLowerCase();
+}
 
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
@@ -140,6 +210,240 @@ export async function registerRoutes(
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
+
+  // ============ WEB LEAD CAPTURE ============
+  
+  // Schema for web lead validation
+  const webLeadSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    property_interest: z.string().optional(),
+    message: z.string().optional(),
+    source: z.string().optional(),
+    utm_source: z.string().optional(),
+    utm_campaign: z.string().optional(),
+    utm_medium: z.string().optional(),
+    utm_term: z.string().optional(),
+    utm_content: z.string().optional(),
+    page_url: z.string().optional(),
+    // Honeypot field - should be empty if human
+    website: z.string().optional(),
+  }).refine(data => data.phone || data.email, {
+    message: "Either phone or email is required"
+  });
+
+  // Web lead capture endpoint - public but secured
+  app.options("/api/leads/web", cors(webLeadsCorsOptions));
+  app.post("/api/leads/web", 
+    cors(webLeadsCorsOptions),
+    webLeadsRateLimiter,
+    validateWebLeadApiKey,
+    async (req: Request, res: Response) => {
+      try {
+        // Check honeypot field - bots will fill this
+        if (req.body.website && req.body.website.length > 0) {
+          // Silently reject but return success to not tip off bots
+          return res.json({ success: true, message: "Thank you for your interest" });
+        }
+
+        // Validate input
+        const validationResult = webLeadSchema.safeParse(req.body);
+        if (!validationResult.success) {
+          return res.status(400).json({ 
+            error: "Validation failed", 
+            details: validationResult.error.flatten().fieldErrors 
+          });
+        }
+
+        const data = validationResult.data;
+        const normalizedPhone = normalizePhone(data.phone);
+        const normalizedEmail = normalizeEmail(data.email);
+
+        // Check for existing lead by phone or email
+        let existingLead = null;
+        if (normalizedPhone || normalizedEmail) {
+          const conditions = [];
+          if (normalizedPhone) {
+            conditions.push(eq(schema.leads.phone, normalizedPhone));
+          }
+          if (normalizedEmail) {
+            conditions.push(eq(schema.leads.email, normalizedEmail));
+          }
+          
+          const existingLeads = await db.select()
+            .from(schema.leads)
+            .where(or(...conditions))
+            .limit(1);
+          
+          existingLead = existingLeads[0] || null;
+        }
+
+        // Find property if property_interest is provided
+        let propertyId: string | null = null;
+        let propertyName: string | null = null;
+        if (data.property_interest) {
+          const properties = await db.select()
+            .from(schema.properties)
+            .where(eq(schema.properties.name, data.property_interest))
+            .limit(1);
+          
+          if (properties[0]) {
+            propertyId = properties[0].id;
+            propertyName = properties[0].name;
+          }
+        }
+
+        // Auto-assign to sales executive if property is specified
+        let assignedToId: string | null = null;
+        let assignmentType: "auto" | "manual" | "unassigned" = "unassigned";
+        
+        if (propertyId) {
+          // Find sales executive assigned to this property with round-robin load balancing
+          const assignments = await db.select({
+            salesExecId: schema.salesExecProperties.salesExecId,
+          })
+            .from(schema.salesExecProperties)
+            .where(eq(schema.salesExecProperties.propertyId, propertyId));
+          
+          if (assignments.length > 0) {
+            // Get lead counts for each sales exec to do load balancing
+            const salesExecIds = assignments.map(a => a.salesExecId);
+            const leadCounts = await db.select({
+              assignedToId: schema.leads.assignedToId,
+              count: sql<number>`count(*)::int`,
+            })
+              .from(schema.leads)
+              .where(and(
+                inArray(schema.leads.assignedToId, salesExecIds),
+                isNull(schema.leads.dealClosedAt)
+              ))
+              .groupBy(schema.leads.assignedToId);
+            
+            // Create map of lead counts
+            const countMap = new Map(leadCounts.map(l => [l.assignedToId, l.count]));
+            
+            // Find the sales exec with fewest leads
+            let minLeads = Infinity;
+            let selectedExecId = salesExecIds[0];
+            for (const execId of salesExecIds) {
+              const count = countMap.get(execId) || 0;
+              if (count < minLeads) {
+                minLeads = count;
+                selectedExecId = execId;
+              }
+            }
+            
+            assignedToId = selectedExecId;
+            assignmentType = "auto";
+          }
+        }
+
+        let lead;
+        if (existingLead) {
+          // Update existing lead with new UTM data and message
+          const [updatedLead] = await db.update(schema.leads)
+            .set({
+              name: data.name || existingLead.name,
+              phone: normalizedPhone || existingLead.phone,
+              email: normalizedEmail || existingLead.email,
+              propertyId: propertyId || existingLead.propertyId,
+              propertyName: propertyName || existingLead.propertyName,
+              message: data.message || existingLead.message,
+              utmSource: data.utm_source || existingLead.utmSource,
+              utmCampaign: data.utm_campaign || existingLead.utmCampaign,
+              utmMedium: data.utm_medium || existingLead.utmMedium,
+              utmTerm: data.utm_term || existingLead.utmTerm,
+              utmContent: data.utm_content || existingLead.utmContent,
+              pageUrl: data.page_url || existingLead.pageUrl,
+              lastActivityAt: new Date(),
+              loginCount: existingLead.loginCount + 1,
+              // Update assignment only if not already assigned
+              assignedToId: existingLead.assignedToId || assignedToId,
+              assignmentType: existingLead.assignedToId ? existingLead.assignmentType : assignmentType,
+              assignedAt: existingLead.assignedToId ? existingLead.assignedAt : (assignedToId ? new Date() : null),
+            })
+            .where(eq(schema.leads.id, existingLead.id))
+            .returning();
+          
+          lead = updatedLead;
+          
+          // Log activity for returning lead
+          await logActivity({
+            actionType: "update",
+            entityType: "lead",
+            entityId: lead.id,
+            details: { 
+              source: "website_return",
+              message: "Lead returned via website form",
+              utmSource: data.utm_source,
+              pageUrl: data.page_url,
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"],
+          });
+        } else {
+          // Create new lead
+          const [newLead] = await db.insert(schema.leads)
+            .values({
+              name: data.name,
+              phone: normalizedPhone,
+              email: normalizedEmail,
+              source: "website",
+              status: "new",
+              propertyId,
+              propertyName,
+              message: data.message,
+              utmSource: data.utm_source,
+              utmCampaign: data.utm_campaign,
+              utmMedium: data.utm_medium,
+              utmTerm: data.utm_term,
+              utmContent: data.utm_content,
+              pageUrl: data.page_url,
+              ipAddress: req.ip,
+              userAgent: req.headers["user-agent"],
+              assignedToId,
+              assignmentType,
+              assignedAt: assignedToId ? new Date() : null,
+              signedUp: true,
+              score: 5, // Initial signup score
+            })
+            .returning();
+          
+          lead = newLead;
+          
+          // Log activity for new lead
+          await logActivity({
+            actionType: "create",
+            entityType: "lead",
+            entityId: lead.id,
+            details: { 
+              source: "website",
+              message: "Lead created from website form",
+              property: propertyName,
+              assignedTo: assignedToId,
+              utmSource: data.utm_source,
+              utmCampaign: data.utm_campaign,
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"],
+          });
+        }
+
+        // TODO: Send notifications to admin and assigned sales executive
+        // This would integrate with email/WhatsApp services when configured
+
+        res.json({ 
+          success: true, 
+          message: "Thank you for your interest! Our team will contact you shortly.",
+          leadId: lead.id,
+        });
+      } catch (error) {
+        console.error("Web lead capture error:", error);
+        res.status(500).json({ error: "Failed to process lead" });
+      }
+    }
+  );
 
   // ============ AUTH ============
 
