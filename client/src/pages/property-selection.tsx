@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getProperties } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { useAuthGuard } from "@/contexts/auth-guard-context";
 import propertyExterior from "@/assets/property-exterior.png";
 import { SmartSearch } from "@/components/smart-search";
 
@@ -100,6 +101,7 @@ export default function PropertySelection() {
   const [useNlpSearch, setUseNlpSearch] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { requireAuth } = useAuthGuard();
 
   useEffect(() => {
     loadProperties();
@@ -220,8 +222,10 @@ export default function PropertySelection() {
   }, [properties, searchQuery, priceFilter, roomTypeFilter, sortBy, useNlpSearch, nlpSearchResults]);
 
   const handleSelectRoom = (propId: string, roomId: string, price: number, roomName: string, propName: string, bookingMode: string, deposit: number = 0) => {
-    localStorage.setItem("selected_room", JSON.stringify({ propId, roomId, price, roomName, propName, bookingMode, deposit }));
-    setLocation("/payment-plans");
+    requireAuth(() => {
+      localStorage.setItem("selected_room", JSON.stringify({ propId, roomId, price, roomName, propName, bookingMode, deposit }));
+      setLocation("/payment-plans");
+    }, "book this room");
   };
 
   const getAvailabilityStatus = (roomTypes: any[]) => {
@@ -654,9 +658,11 @@ export default function PropertySelection() {
                     Close
                   </Button>
                   <Button className="flex-1" onClick={() => {
-                    if (selectedProperty.phone) {
-                      window.open(`tel:${selectedProperty.phone}`, "_self");
-                    }
+                    requireAuth(() => {
+                      if (selectedProperty.phone) {
+                        window.open(`tel:${selectedProperty.phone}`, "_self");
+                      }
+                    }, "request a callback");
                   }}>
                     Request Callback
                   </Button>
