@@ -2046,17 +2046,6 @@ export async function registerRoutes(
     }
   });
 
-  // Remove sales exec from property
-  app.delete("/api/admin/property-assignments/:propertyId/:salesExecId", authMiddleware, roleMiddleware("admin"), async (req, res) => {
-    try {
-      await storage.removePropertyAssignment(req.params.salesExecId, req.params.propertyId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error removing property assignment:", error);
-      res.status(500).json({ error: "Failed to remove assignment" });
-    }
-  });
-
   // Auto-assign lead to sales exec based on property
   app.post("/api/admin/leads/:id/auto-assign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
