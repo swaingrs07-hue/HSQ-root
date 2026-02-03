@@ -2309,9 +2309,11 @@ export async function registerRoutes(
   app.get("/api/admin/sales-executives", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const salesExecs = await storage.getSalesExecutives();
+      // Filter out soft-deleted users
+      const activeExecs = salesExecs.filter((u: any) => !u.deletedAt);
       
       // Get stats and assigned properties for each sales exec
-      const execsWithData = await Promise.all(salesExecs.map(async (exec) => {
+      const execsWithData = await Promise.all(activeExecs.map(async (exec) => {
         const stats = await storage.getSalesExecStats(exec.id);
         const assignedProperties = await storage.getAssignedPropertiesForUser(exec.id);
         return { 
@@ -2563,7 +2565,9 @@ export async function registerRoutes(
   app.get("/api/admin/users", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const allUsers = await storage.getAllUsers();
-      res.json(allUsers.map((u: any) => ({ ...u, password: undefined })));
+      // Filter out soft-deleted users (deletedAt is not null)
+      const activeUsers = allUsers.filter((u: any) => !u.deletedAt);
+      res.json(activeUsers.map((u: any) => ({ ...u, password: undefined })));
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ error: "Failed to fetch users" });
