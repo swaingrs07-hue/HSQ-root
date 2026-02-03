@@ -18,7 +18,7 @@ export function ChatbotWidget() {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi there! 👋 I'm here to help you find the perfect student accommodation. What are you looking for?",
+      content: "Hello, I'm Gyan AI.\n\nI manage everything around your living experience — from bookings and rooms to meals, security, and support.\n\nThink of me as the central intelligence of Hsquareliving, keeping your stay smooth, smart, and stress-free.",
     },
   ]);
   const [inputValue, setInputValue] = useState("");
@@ -193,7 +193,7 @@ export function ChatbotWidget() {
                   <Bot className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold text-sm">Hsquareliving Assistant</h3>
+                  <h3 className="text-white font-semibold text-sm">Gyan AI</h3>
                   <p className="text-white/70 text-xs flex items-center gap-1">
                     <GripHorizontal className="w-3 h-3" />
                     Drag to move • Online
