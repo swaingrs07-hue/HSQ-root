@@ -1,0 +1,107 @@
+Implement a Progressive Authentication system so new users can browse the website/app freely, and are asked to Login/Sign Up only when they try to take an action.
+
+GOAL:
+- Allow explore-first experience
+- Trigger Login/Signup only on intent (click/action)
+- Apple-level smooth UI (no hard redirects)
+
+IMPLEMENT:
+
+1) Public vs Protected Experience
+- Allow unauthenticated users to:
+  - View Home page
+  - Browse properties
+  - View rooms, amenities, pricing
+  - Use search and filters
+- Restrict actions that require identity:
+  - Book room
+  - Save/Favorite property
+  - Chat with agent
+  - Generate booking
+  - Contact sales
+  - Access dashboard features
+
+2) Action Intercept Logic (Core)
+- Wrap all protected actions with an auth guard:
+  - If user is NOT logged in:
+    → DO NOT redirect immediately
+    → Open Login / Signup prompt
+- Preserve user intent (what they clicked).
+
+3) Apple-Level Auth Prompt (UI)
+- Use a centered modal / bottom sheet (NOT full page redirect):
+  - Soft blur background
+  - Rounded card (16–20px)
+  - Smooth fade + scale animation
+- Content:
+  Title: “Sign in to continue”
+  Subtitle: “Create an account to complete your action”
+- Buttons:
+  - Continue with Email
+  - Create Account
+  - Maybe later (dismiss)
+- Optional:
+  - “Continue as Guest” (limited actions)
+
+4) Login / Signup Flow
+- Inside modal:
+  - Toggle tabs: Login | Sign Up
+  - Minimal fields only:
+    Login → Email + Password
+    Signup → Name + Email + Phone + Password
+- Inline validation
+- Password show/hide
+- Loading state on submit
+- Error messages (human friendly)
+
+5) Intent Resume (Very Important)
+- After successful login/signup:
+  - Resume the original action automatically
+    Examples:
+      - Clicked “Book Now” → open booking flow
+      - Clicked “Chat” → open chatbot
+      - Clicked “Save Property” → save it
+- Store intent temporarily in memory/session.
+
+6) UX Polish (Apple-Level)
+- No page refresh
+- Smooth transitions
+- Keyboard accessible (ESC closes modal)
+- Mobile:
+  - Modal becomes bottom sheet
+- Use subtle haptics/animations if supported
+
+7) Routing Rules
+- Do NOT block routes for browsing pages
+- Protect only:
+  - /dashboard
+  - /bookings
+  - /admin
+  - /profile
+- If user directly opens protected route:
+  → Redirect to login page (full page fallback)
+
+8) Backend Support
+- Add endpoint:
+  GET /api/auth/me → returns user or null
+- Use short-lived session or JWT
+- After signup:
+  - Auto-login user
+  - Log activity: USER_SIGNUP_FROM_WEBSITE
+
+9) Conversion Enhancements (Optional)
+- Show benefits inside modal:
+  - “Track your booking”
+  - “Get faster responses”
+  - “Exclusive offers”
+- Track analytics:
+  - login_prompt_shown
+  - signup_completed
+  - action_resumed
+
+FINAL VALIDATION:
+- New user can browse entire site without login
+- Clicking any protected action opens auth modal
+- Login/signup is smooth and beautiful
+- After login, original action continues
+- Works perfectly on desktop and mobile

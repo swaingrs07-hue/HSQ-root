@@ -40,6 +40,7 @@ export function useAuth() {
 }
 
 const PUBLIC_ROUTES = ["/login", "/auth", "/admin/login"];
+const BROWSABLE_ROUTES = ["/", "/properties", "/search", "/about", "/contact"];
 const STORAGE_KEY = "hsquare_auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -56,11 +57,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isLoading) return;
     
     const isPublicRoute = PUBLIC_ROUTES.some(route => location.startsWith(route));
+    const isBrowsableRoute = BROWSABLE_ROUTES.some(route => 
+      location === route || location.startsWith(route + "/")
+    );
     const isAdminRoute = location.startsWith("/admin");
     const isOperationsRoute = location.startsWith("/operations");
     const isSalesRoute = location.startsWith("/sales");
+    const isDashboardRoute = location.startsWith("/dashboard");
+    const isBookingsRoute = location.startsWith("/bookings");
+    const isProfileRoute = location.startsWith("/profile");
     
-    if (!isPublicRoute && !user) {
+    const isProtectedRoute = isAdminRoute || isOperationsRoute || isSalesRoute || isDashboardRoute || isBookingsRoute || isProfileRoute;
+    
+    if (!isPublicRoute && !isBrowsableRoute && isProtectedRoute && !user) {
       setLocation("/auth");
       return;
     }

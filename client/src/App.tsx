@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { AuthGuardProvider } from "@/contexts/auth-guard-context";
 import { PropertyProvider } from "@/contexts/property-context";
 import Home from "@/pages/home";
 import StudentRegistration from "@/pages/student-registration";
@@ -105,9 +106,11 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <AuthProvider>
-          <PropertyProvider>
-            <AppContent />
-          </PropertyProvider>
+          <AuthGuardProvider>
+            <PropertyProvider>
+              <AppContent />
+            </PropertyProvider>
+          </AuthGuardProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
