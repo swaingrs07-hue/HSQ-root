@@ -26,6 +26,7 @@ interface AuthContextType {
   signup: (name: string, email: string, phone: string, password: string) => Promise<{ success: boolean; error?: string; redirectPath?: string }>;
   logout: () => void;
   getRedirectPath: () => string;
+  refetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -169,6 +170,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLocation("/auth");
   }
 
+  async function refetchUser(): Promise<void> {
+    if (!token) return;
+    try {
+      const response = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error("Error refetching user:", error);
+    }
+  }
+
   function getRedirectPath(): string {
     if (!user) return "/auth";
     switch (user.role) {
@@ -207,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signup,
       logout,
       getRedirectPath,
+      refetchUser,
     }}>
       {children}
     </AuthContext.Provider>

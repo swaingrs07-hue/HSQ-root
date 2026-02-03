@@ -21,7 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 export default function Profile() {
-  const { user, token } = useAuth();
+  const { user, token, refetchUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +69,8 @@ export default function Profile() {
       if (!res.ok) throw new Error("Failed to update profile");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refetchUser();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "Profile Updated",
