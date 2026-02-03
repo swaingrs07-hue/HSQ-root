@@ -146,7 +146,13 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
     }
   };
 
+  const handleClose = () => {
+    trackEvent("tour_closed", { propertyId: selectedPropertyId, lastTab: activeTab });
+    onClose();
+  };
+
   const handleEnquire = () => {
+    trackEvent("tour_enquire_clicked", { propertyId: selectedPropertyId });
     onClose();
     window.location.href = `/properties?enquire=${selectedPropertyId}`;
   };
@@ -169,7 +175,8 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/80 backdrop-blur-md"
-          onClick={onClose}
+          onClick={handleClose}
+          data-testid="tour-modal-backdrop"
         />
 
         <motion.div
@@ -183,8 +190,9 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
             <Button
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm"
+              data-testid="button-close-tour"
             >
               <X className="w-5 h-5" />
             </Button>
@@ -194,7 +202,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
             <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <Select value={selectedPropertyId} onValueChange={handlePropertyChange}>
-                  <SelectTrigger className="w-full sm:w-64 bg-white/10 border-white/20 text-white rounded-xl">
+                  <SelectTrigger className="w-full sm:w-64 bg-white/10 border-white/20 text-white rounded-xl" data-testid="select-tour-property">
                     <SelectValue placeholder="Select Property" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
@@ -218,6 +226,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                     <button
                       key={tab.id}
                       onClick={() => handleTabChange(tab.id)}
+                      data-testid={`tab-tour-${tab.id}`}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                         activeTab === tab.id
@@ -232,7 +241,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                 </div>
               </div>
 
-              <div className="flex-1 relative rounded-2xl overflow-hidden bg-black/50 min-h-[200px]">
+              <div className="flex-1 relative rounded-2xl overflow-hidden bg-black/50" style={{ aspectRatio: "16/9", minHeight: "200px" }}>
                 {loading ? (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -259,6 +268,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                             size="icon"
                             onClick={handlePlayPause}
                             className="rounded-full bg-white/20 hover:bg-white/30 text-white"
+                            data-testid="button-video-play"
                           >
                             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
                           </Button>
@@ -267,6 +277,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                             size="icon"
                             onClick={() => setIsMuted(!isMuted)}
                             className="rounded-full bg-white/20 hover:bg-white/30 text-white"
+                            data-testid="button-video-mute"
                           >
                             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                           </Button>
@@ -276,6 +287,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                           size="icon"
                           onClick={handleFullscreen}
                           className="rounded-full bg-white/20 hover:bg-white/30 text-white"
+                          data-testid="button-video-fullscreen"
                         >
                           <Maximize className="w-5 h-5" />
                         </Button>
@@ -331,14 +343,16 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                 <Button
                   onClick={handleEnquire}
                   className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-12 font-semibold shadow-lg shadow-primary/25"
+                  data-testid="button-tour-enquire"
                 >
                   Book / Enquire
                   <ChevronRight className="w-5 h-5 ml-1" />
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="w-full bg-transparent border-white/20 text-white hover:bg-white/10 rounded-xl h-12"
+                  data-testid="button-tour-close-bottom"
                 >
                   Close Tour
                 </Button>
