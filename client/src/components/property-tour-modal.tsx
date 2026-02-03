@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Pause, Volume2, VolumeX, Maximize, Building2, Bed, Sparkles, MapPin, ChevronRight, Check } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Building2, Bed, Sparkles, MapPin, Check, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -9,11 +9,10 @@ interface Property {
   id: string;
   name: string;
   location: string;
-  overviewVideoUrl?: string | null;
-  roomsVideoUrl?: string | null;
-  amenitiesVideoUrl?: string | null;
-  locationVideoUrl?: string | null;
-  tourPosterUrl?: string | null;
+  tourOverviewImages?: string | null;
+  tourRoomsImages?: string | null;
+  tourAmenitiesImages?: string | null;
+  tourLocationImages?: string | null;
   highlights?: string[] | null;
   amenities: string[];
 }
@@ -42,14 +41,23 @@ const trackEvent = (eventName: string, data?: Record<string, unknown>) => {
   }
 };
 
+function parseImages(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: PropertyTourModalProps) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -90,18 +98,18 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
 
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
 
-  const getVideoUrl = useCallback(() => {
-    if (!selectedProperty) return null;
+  const getImages = useCallback((): string[] => {
+    if (!selectedProperty) return [];
     switch (activeTab) {
-      case "overview": return selectedProperty.overviewVideoUrl;
-      case "rooms": return selectedProperty.roomsVideoUrl;
-      case "amenities": return selectedProperty.amenitiesVideoUrl;
-      case "location": return selectedProperty.locationVideoUrl;
-      default: return null;
+      case "overview": return parseImages(selectedProperty.tourOverviewImages);
+      case "rooms": return parseImages(selectedProperty.tourRoomsImages);
+      case "amenities": return parseImages(selectedProperty.tourAmenitiesImages);
+      case "location": return parseImages(selectedProperty.tourLocationImages);
+      default: return [];
     }
   }, [selectedProperty, activeTab]);
 
-  const videoUrl = getVideoUrl();
+  const images = getImages();
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -110,11 +118,8 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
   }, [selectedPropertyId]);
 
   useEffect(() => {
-    setIsPlaying(false);
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
-  }, [videoUrl]);
+    setCurrentImageIndex(0);
+  }, [activeTab, selectedPropertyId]);
 
   const handlePropertyChange = (propertyId: string) => {
     setSelectedPropertyId(propertyId);
@@ -126,29 +131,24 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
     trackEvent("tab_changed", { tab: tabId, propertyId: selectedPropertyId });
   };
 
-  const handlePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-        trackEvent("video_played", { propertyId: selectedPropertyId, tab: activeTab });
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleFullscreen = () => {
-    if (videoRef.current) {
-      if (videoRef.current.requestFullscreen) {
-        videoRef.current.requestFullscreen();
-      }
-    }
-  };
-
   const handleClose = () => {
     trackEvent("tour_closed", { propertyId: selectedPropertyId, lastTab: activeTab });
     onClose();
+  };
+
+  const handlePrevImage = () => {
+    if (images.length === 0) return;
+    setCurrentImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    if (images.length === 0) return;
+    setCurrentImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleThumbnailClick = (index: number) => {
+    setCurrentImageIndex(index);
+    trackEvent("tour_thumbnail_clicked", { propertyId: selectedPropertyId, tab: activeTab, index });
   };
 
   const handleEnquire = () => {
@@ -246,62 +246,84 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
-                ) : videoUrl ? (
+                ) : images.length > 0 ? (
                   <>
-                    <video
-                      ref={videoRef}
-                      className="w-full h-full object-contain"
-                      poster={selectedProperty?.tourPosterUrl || undefined}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      muted={isMuted}
-                      playsInline
-                    >
-                      <source src={videoUrl} type="video/mp4" />
-                    </video>
+                    <AnimatePresence mode="wait">
+                      <motion.img
+                        key={`${activeTab}-${currentImageIndex}`}
+                        src={images[currentImageIndex]}
+                        alt={`${activeTab} ${currentImageIndex + 1}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="w-full h-full object-contain"
+                        loading="lazy"
+                        onLoad={() => setImageLoading(false)}
+                        onLoadStart={() => setImageLoading(true)}
+                      />
+                    </AnimatePresence>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handlePlayPause}
-                            className="rounded-full bg-white/20 hover:bg-white/30 text-white"
-                            data-testid="button-video-play"
-                          >
-                            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setIsMuted(!isMuted)}
-                            className="rounded-full bg-white/20 hover:bg-white/30 text-white"
-                            data-testid="button-video-mute"
-                          >
-                            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                          </Button>
-                        </div>
+                    {images.length > 1 && (
+                      <>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={handleFullscreen}
-                          className="rounded-full bg-white/20 hover:bg-white/30 text-white"
-                          data-testid="button-video-fullscreen"
+                          onClick={handlePrevImage}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          data-testid="button-prev-image"
                         >
-                          <Maximize className="w-5 h-5" />
+                          <ChevronLeft className="w-6 h-6" />
                         </Button>
-                      </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleNextImage}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          data-testid="button-next-image"
+                        >
+                          <ChevronRight className="w-6 h-6" />
+                        </Button>
+                      </>
+                    )}
+
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full text-white text-sm">
+                      {currentImageIndex + 1} / {images.length}
                     </div>
                   </>
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
-                    <Play className="w-16 h-16 mb-4 opacity-50" />
-                    <p className="text-lg font-medium">No video available for this section</p>
+                    <Camera className="w-16 h-16 mb-4 opacity-50" />
+                    <p className="text-lg font-medium">Tour images coming soon</p>
                     <p className="text-sm mt-1">Check other tabs or properties</p>
                   </div>
                 )}
               </div>
+
+              {images.length > 1 && (
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+                  {images.map((img, index) => (
+                    <button
+                      key={`thumb-${index}`}
+                      onClick={() => handleThumbnailClick(index)}
+                      data-testid={`thumbnail-${index}`}
+                      className={cn(
+                        "flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all",
+                        currentImageIndex === index 
+                          ? "border-primary ring-2 ring-primary/50" 
+                          : "border-transparent hover:border-white/30"
+                      )}
+                    >
+                      <img
+                        src={img}
+                        alt={`Thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="w-full md:w-80 bg-white/5 backdrop-blur-sm p-4 md:p-6 flex flex-col border-t md:border-t-0 md:border-l border-white/10">

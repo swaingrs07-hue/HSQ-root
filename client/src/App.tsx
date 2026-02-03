@@ -30,6 +30,7 @@ import Help from "@/pages/help";
 import AdminSettings from "@/pages/admin-settings";
 import AdminUsers from "@/pages/admin-users";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
+import AdminPropertyTourImages from "@/pages/admin-property-tour-images";
 
 function AppContent() {
   const [location] = useLocation();
@@ -59,6 +60,7 @@ function AppContent() {
               <Route path="/admin/settings" component={AdminSettings} />
               <Route path="/admin/users" component={AdminUsers} />
               <Route path="/admin/activity-logs" component={AdminActivityLogs} />
+              <Route path="/admin/property-tour-images" component={AdminPropertyTourImages} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
