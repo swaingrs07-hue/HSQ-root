@@ -83,18 +83,22 @@ export function ChatbotWidget() {
       if (!reader) throw new Error("No reader available");
 
       let accumulatedContent = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+              const data = JSON.parse(jsonStr);
               
               if (data.content) {
                 accumulatedContent += data.content;
@@ -121,11 +125,20 @@ export function ChatbotWidget() {
                 console.log("Lead created:", data.leadId);
               }
             } catch {
-              // Skip malformed JSON
+              // Skip malformed JSON - will be completed in next chunk
             }
           }
         }
       }
+      
+      // Ensure streaming state is cleared on completion
+      setMessages(prev => 
+        prev.map(m => 
+          m.id === assistantMessage.id 
+            ? { ...m, isStreaming: false }
+            : m
+        )
+      );
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => 

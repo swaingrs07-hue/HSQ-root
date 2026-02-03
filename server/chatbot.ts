@@ -1,7 +1,19 @@
 import OpenAI from "openai";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { z } from "zod";
+
+const leadQualificationSchema = z.object({
+  name: z.string().max(200).nullable().optional(),
+  email: z.string().email().max(200).nullable().optional(),
+  phone: z.string().max(20).nullable().optional(),
+  budgetMin: z.number().int().min(0).max(10000000).nullable().optional(),
+  budgetMax: z.number().int().min(0).max(10000000).nullable().optional(),
+  preferredPropertyId: z.string().uuid().nullable().optional(),
+  message: z.string().max(1000).nullable().optional(),
+  isQualified: z.boolean().default(false),
+});
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -197,10 +209,59 @@ Respond ONLY with the JSON object, no other text.`;
 
   try {
     const content = response.choices[0]?.message?.content || "{}";
-    return JSON.parse(content) as LeadQualification;
-  } catch {
+    const parsed = JSON.parse(content);
+    const validated = leadQualificationSchema.safeParse(parsed);
+    if (!validated.success) {
+      console.error("Lead validation failed:", validated.error);
+      return { isQualified: false };
+    }
+    return {
+      name: validated.data.name || undefined,
+      email: validated.data.email || undefined,
+      phone: validated.data.phone || undefined,
+      budgetMin: validated.data.budgetMin || undefined,
+      budgetMax: validated.data.budgetMax || undefined,
+      preferredPropertyId: validated.data.preferredPropertyId || undefined,
+      message: validated.data.message || undefined,
+      isQualified: validated.data.isQualified,
+    };
+  } catch (error) {
+    console.error("Lead extraction error:", error);
     return { isQualified: false };
   }
+}
+
+function sanitizeString(str: string | undefined, maxLen: number): string | undefined {
+  if (!str) return undefined;
+  return str.replace(/[<>]/g, '').trim().slice(0, maxLen) || undefined;
+}
+
+function sanitizePhone(phone: string | undefined): string | undefined {
+  if (!phone) return undefined;
+  return phone.replace(/[^\d+\-\s()]/g, '').trim().slice(0, 20) || undefined;
+}
+
+async function validatePropertyId(propertyId: string | undefined): Promise<string | undefined> {
+  if (!propertyId) return undefined;
+  try {
+    const [property] = await db
+      .select({ id: schema.properties.id })
+      .from(schema.properties)
+      .where(and(
+        eq(schema.properties.id, propertyId),
+        eq(schema.properties.active, true)
+      ))
+      .limit(1);
+    return property?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+function computeIsQualified(name?: string, email?: string, phone?: string): boolean {
+  const hasName = Boolean(name && name.trim().length > 0);
+  const hasContact = Boolean((email && email.trim().length > 0) || (phone && phone.trim().length > 0));
+  return hasName && hasContact;
 }
 
 export async function createLeadFromChat(
@@ -211,26 +272,39 @@ export async function createLeadFromChat(
     pageUrl?: string;
   }
 ): Promise<{ leadId: string } | null> {
-  if (!qualification.name || (!qualification.email && !qualification.phone)) {
+  const safeName = sanitizeString(qualification.name, 200);
+  const safeEmail = sanitizeString(qualification.email, 200);
+  const safePhone = sanitizePhone(qualification.phone);
+
+  const isActuallyQualified = computeIsQualified(safeName, safeEmail, safePhone);
+  if (!isActuallyQualified || !safeName) {
     return null;
+  }
+
+  const validPropertyId = await validatePropertyId(qualification.preferredPropertyId);
+  
+  let budgetMin = qualification.budgetMin;
+  let budgetMax = qualification.budgetMax;
+  if (budgetMin && budgetMax && budgetMin > budgetMax) {
+    [budgetMin, budgetMax] = [budgetMax, budgetMin];
   }
 
   try {
     const [lead] = await db
       .insert(schema.leads)
       .values({
-        name: qualification.name,
-        email: qualification.email || undefined,
-        phone: qualification.phone || undefined,
-        propertyId: qualification.preferredPropertyId || undefined,
+        name: safeName as string,
+        email: safeEmail,
+        phone: safePhone,
+        propertyId: validPropertyId,
         source: "chatbot",
         status: "new",
-        budgetMin: qualification.budgetMin || undefined,
-        budgetMax: qualification.budgetMax || undefined,
-        message: qualification.message || undefined,
-        ipAddress: metadata.ipAddress || undefined,
-        userAgent: metadata.userAgent || undefined,
-        pageUrl: metadata.pageUrl || undefined,
+        budgetMin: budgetMin || undefined,
+        budgetMax: budgetMax || undefined,
+        message: sanitizeString(qualification.message, 1000),
+        ipAddress: sanitizeString(metadata.ipAddress, 50),
+        userAgent: sanitizeString(metadata.userAgent, 500),
+        pageUrl: sanitizeString(metadata.pageUrl, 500),
         enquirySubmitted: true,
         score: 25,
         priority: "warm",

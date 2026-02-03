@@ -4104,6 +4104,15 @@ export async function registerRoutes(
     legacyHeaders: false,
   });
 
+  // Request size validation middleware for chatbot (limit to 50KB)
+  const chatbotSizeLimit = (req: Request, res: Response, next: NextFunction) => {
+    const contentLength = parseInt(req.headers["content-length"] || "0", 10);
+    if (contentLength > 50 * 1024) {
+      return res.status(413).json({ error: "Request too large" });
+    }
+    next();
+  };
+
   // Initialize chat context (cached)
   let chatContextCache: Awaited<ReturnType<typeof initChatContext>> | null = null;
   let chatContextLastUpdate = 0;
@@ -4119,7 +4128,7 @@ export async function registerRoutes(
   }
 
   // Chatbot message endpoint with streaming
-  app.post("/api/chatbot/message", chatbotRateLimiter, async (req: Request, res: Response) => {
+  app.post("/api/chatbot/message", chatbotSizeLimit, chatbotRateLimiter, async (req: Request, res: Response) => {
     try {
       const { messages } = req.body as { messages: ChatMessage[] };
       
@@ -4151,18 +4160,16 @@ export async function registerRoutes(
 
       const qualification = await extractLeadInfo(allMessages, context);
       
-      // If qualified, create lead
-      if (qualification.isQualified) {
-        const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
-        const result = await createLeadFromChat(qualification, {
-          ipAddress,
-          userAgent: req.headers["user-agent"],
-          pageUrl: req.headers.referer,
-        });
-        
-        if (result) {
-          res.write(`data: ${JSON.stringify({ leadCreated: true, leadId: result.leadId })}\n\n`);
-        }
+      // Try to create lead - server-side validation enforces qualification rules
+      const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
+      const result = await createLeadFromChat(qualification, {
+        ipAddress,
+        userAgent: req.headers["user-agent"],
+        pageUrl: req.headers.referer,
+      });
+      
+      if (result) {
+        res.write(`data: ${JSON.stringify({ leadCreated: true, leadId: result.leadId })}\n\n`);
       }
 
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -4179,7 +4186,7 @@ export async function registerRoutes(
   });
 
   // Non-streaming endpoint for simple queries
-  app.post("/api/chatbot/query", chatbotRateLimiter, async (req: Request, res: Response) => {
+  app.post("/api/chatbot/query", chatbotSizeLimit, chatbotRateLimiter, async (req: Request, res: Response) => {
     try {
       const { messages } = req.body as { messages: ChatMessage[] };
       
