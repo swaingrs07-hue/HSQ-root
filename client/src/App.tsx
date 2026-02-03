@@ -31,6 +31,7 @@ import AdminSettings from "@/pages/admin-settings";
 import AdminUsers from "@/pages/admin-users";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
 import AdminPropertyTourImages from "@/pages/admin-property-tour-images";
+import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
   const [location] = useLocation();
@@ -88,6 +89,7 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route component={NotFound} />
             </Switch>
+            <ChatbotWidget />
           </Layout>
         )}
       </Route>

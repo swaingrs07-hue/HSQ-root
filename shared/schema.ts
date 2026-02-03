@@ -293,6 +293,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "phone_inquiry",
   "email_campaign",
   "event",
+  "chatbot",
   "other"
 ]);
 

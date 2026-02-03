@@ -11,6 +11,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
+import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
@@ -4089,6 +4090,130 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error exporting activity logs:", error);
       res.status(500).json({ error: error.message || "Failed to export activity logs" });
+    }
+  });
+
+  // ==================== CHATBOT API ====================
+  
+  // Rate limiter for chatbot (more generous than web leads)
+  const chatbotRateLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30, // 30 messages per minute per IP
+    message: { error: "Too many messages, please slow down" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Initialize chat context (cached)
+  let chatContextCache: Awaited<ReturnType<typeof initChatContext>> | null = null;
+  let chatContextLastUpdate = 0;
+  const CONTEXT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  async function getChatContext() {
+    const now = Date.now();
+    if (!chatContextCache || now - chatContextLastUpdate > CONTEXT_CACHE_TTL) {
+      chatContextCache = await initChatContext();
+      chatContextLastUpdate = now;
+    }
+    return chatContextCache;
+  }
+
+  // Chatbot message endpoint with streaming
+  app.post("/api/chatbot/message", chatbotRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { messages } = req.body as { messages: ChatMessage[] };
+      
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "Messages array is required" });
+      }
+
+      const context = await getChatContext();
+
+      // Set up SSE for streaming
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+
+      const stream = await streamChatResponse(messages, context);
+      let fullResponse = "";
+
+      for await (const chunk of stream) {
+        fullResponse += chunk;
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+
+      // After response is complete, try to extract lead info
+      const allMessages: ChatMessage[] = [
+        ...messages,
+        { role: "assistant" as const, content: fullResponse },
+      ];
+
+      const qualification = await extractLeadInfo(allMessages, context);
+      
+      // If qualified, create lead
+      if (qualification.isQualified) {
+        const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
+        const result = await createLeadFromChat(qualification, {
+          ipAddress,
+          userAgent: req.headers["user-agent"],
+          pageUrl: req.headers.referer,
+        });
+        
+        if (result) {
+          res.write(`data: ${JSON.stringify({ leadCreated: true, leadId: result.leadId })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      console.error("Chatbot error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "An error occurred" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ error: "Failed to process message" });
+      }
+    }
+  });
+
+  // Non-streaming endpoint for simple queries
+  app.post("/api/chatbot/query", chatbotRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { messages } = req.body as { messages: ChatMessage[] };
+      
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: "Messages array is required" });
+      }
+
+      const context = await getChatContext();
+      const stream = await streamChatResponse(messages, context);
+      
+      let fullResponse = "";
+      for await (const chunk of stream) {
+        fullResponse += chunk;
+      }
+
+      res.json({ response: fullResponse });
+    } catch (error: any) {
+      console.error("Chatbot query error:", error);
+      res.status(500).json({ error: "Failed to process query" });
+    }
+  });
+
+  // Get chatbot context/status
+  app.get("/api/chatbot/status", async (_req: Request, res: Response) => {
+    try {
+      const context = await getChatContext();
+      res.json({
+        available: true,
+        propertiesCount: context.properties.length,
+        properties: context.properties.map(p => ({ id: p.id, name: p.name, city: p.city })),
+      });
+    } catch (error) {
+      console.error("Chatbot status error:", error);
+      res.json({ available: false, error: "Chatbot temporarily unavailable" });
     }
   });
 
