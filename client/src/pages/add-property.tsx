@@ -549,7 +549,7 @@ export default function AddProperty() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/properties"] });
       toast({
         title: variables.status === "published" ? "Property Published!" : "Draft Saved!",
-        description: `${data.property.name} has been ${variables.status === "published" ? "published" : "saved as draft"}.`,
+        description: `${data.name} has been ${variables.status === "published" ? "published" : "saved as draft"}.`,
       });
       setLocation("/admin");
     },
