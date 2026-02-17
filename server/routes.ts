@@ -492,7 +492,7 @@ export async function registerRoutes(
         name,
         phone,
         email: email || null,
-        source: "tour_enquiry",
+        source: "website",
         status: "new",
         propertyId: propertyId || null,
         propertyName,
