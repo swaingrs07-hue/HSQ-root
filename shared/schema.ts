@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -220,6 +220,9 @@ export const bookings = pgTable("bookings", {
   // Bed allocation
   bedAllocated: boolean("bed_allocated").default(false).notNull(),
   bedAllocatedAt: timestamp("bed_allocated_at"),
+  
+  // Resident details (JSON)
+  residentDetails: jsonb("resident_details"),
   
   // Agreement
   agreementGenerated: boolean("agreement_generated").default(false).notNull(),

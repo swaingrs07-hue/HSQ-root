@@ -36,6 +36,7 @@ import AdminChatbot from "@/pages/admin-chatbot";
 import AdminCalendar from "@/pages/admin-calendar";
 import AdminHeroSlides from "@/pages/admin-hero-slides";
 import AdminFooterSettings from "@/pages/admin-footer-settings";
+import CompletedBookings from "@/pages/completed-bookings";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
@@ -62,6 +63,7 @@ function AppContent() {
               <Route path="/admin/lead-analytics" component={LeadAnalytics} />
               <Route path="/admin/sales-management" component={AdminSalesManagement} />
               <Route path="/admin/booking/generate" component={BookingGeneration} />
+              <Route path="/admin/bookings/completed" component={CompletedBookings} />
               <Route path="/admin/requests" component={RequestsBoard} />
               <Route path="/admin/settings" component={AdminSettings} />
               <Route path="/admin/users" component={AdminUsers} />
@@ -77,6 +79,7 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
+              <Route path="/sales/bookings/completed" component={CompletedBookings} />
               <Route path="/booking/generate" component={BookingGeneration} />
               <Route path="/properties" component={PropertySelection} />
               <Route component={NotFound} />

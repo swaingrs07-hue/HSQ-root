@@ -2454,6 +2454,69 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/bookings/completed", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const allBookings = await storage.getAllBookings();
+      
+      const completedStatuses = ["confirmed", "active", "completed"];
+      let filtered = allBookings.filter((b: any) => completedStatuses.includes(b.status));
+      
+      if (user?.role === "sales_executive") {
+        filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.id);
+      }
+      
+      const enriched = await Promise.all(filtered.map(async (booking: any) => {
+        const [property, roomType] = await Promise.all([
+          storage.getProperty(booking.propertyId),
+          storage.getRoomType(booking.roomTypeId),
+        ]);
+        
+        let customerName = booking.walkInName || "Unknown";
+        let customerPhone = booking.walkInPhone || "";
+        let customerEmail = booking.walkInEmail || "";
+        
+        if (booking.studentId) {
+          const student = await storage.getStudent(booking.studentId);
+          if (student) {
+            customerName = student.fullName;
+            customerPhone = student.phone || "";
+            customerEmail = student.email;
+          }
+        } else if (booking.leadId) {
+          const lead = await storage.getLead(booking.leadId);
+          if (lead) {
+            customerName = lead.name;
+            customerPhone = lead.phone || "";
+            customerEmail = lead.email || "";
+          }
+        }
+        
+        let salesExecName = null;
+        if (booking.assignedSalesExecId) {
+          const exec = await storage.getUser(booking.assignedSalesExecId);
+          if (exec) salesExecName = exec.fullName;
+        }
+        
+        return {
+          ...booking,
+          propertyName: property?.name || "Unknown",
+          roomTypeName: roomType?.customName || roomType?.name || "Unknown",
+          occupancy: roomType?.occupancy || 0,
+          customerName,
+          customerPhone,
+          customerEmail,
+          salesExecName,
+        };
+      }));
+      
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching completed bookings:", error);
+      res.status(500).json({ error: "Failed to fetch completed bookings" });
+    }
+  });
+
   // Get booking by ID with details
   app.get("/api/bookings/:id", async (req, res) => {
     try {
@@ -2608,6 +2671,7 @@ export async function registerRoutes(
         paymentPlanId,
         createdBy,
         assignedSalesExecId,
+        residentDetails,
       } = req.body;
 
       // Validate room availability
@@ -2661,6 +2725,7 @@ export async function registerRoutes(
         assignedSalesExecId: assignedSalesExecId || null,
         agreementUrl: null,
         signatureData: null,
+        residentDetails: residentDetails || null,
       });
 
       // Create installment records based on payment type

@@ -33,7 +33,8 @@ import {
   Bot,
   UserCog,
   Image as ImageIcon,
-  PanelBottom
+  PanelBottom,
+  CheckCircle2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -82,6 +83,7 @@ const adminNavItems: NavItem[] = [
   { name: "Sales Management", href: "/admin/sales-management", icon: UserCog },
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
+  { name: "Completed Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
@@ -98,6 +100,7 @@ const salesNavItems: NavItem[] = [
   { name: "My Leads", href: "/sales", icon: Target },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },
+  { name: "My Bookings", href: "/sales/bookings/completed", icon: CheckCircle2 },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
 ];
 
