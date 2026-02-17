@@ -448,6 +448,74 @@ export async function registerRoutes(
     }
   );
 
+  // ============ TOUR ENQUIRY ============
+  app.post("/api/enquiry", async (req, res) => {
+    try {
+      const { name, phone, email, propertyId, minBudget, maxBudget, notes } = req.body;
+      if (!name || !phone) {
+        return res.status(400).json({ error: "Name and phone are required" });
+      }
+
+      let propertyName: string | null = null;
+      let assignedToId: string | null = null;
+      let assignmentType: "property_auto" | "admin_manual" | "unassigned" = "unassigned";
+
+      if (propertyId) {
+        const [prop] = await db.select().from(schema.properties).where(eq(schema.properties.id, propertyId)).limit(1);
+        if (prop) {
+          propertyName = prop.name;
+          const assignments = await db.select({ userId: schema.salesExecProperties.userId })
+            .from(schema.salesExecProperties)
+            .where(eq(schema.salesExecProperties.propertyId, propertyId));
+          if (assignments.length > 0) {
+            const salesExecIds = assignments.map(a => a.userId);
+            const leadCounts = await db.select({
+              assignedToId: schema.leads.assignedToId,
+              count: sql<number>`count(*)::int`,
+            }).from(schema.leads)
+              .where(and(inArray(schema.leads.assignedToId, salesExecIds), isNull(schema.leads.dealClosedAt)))
+              .groupBy(schema.leads.assignedToId);
+            const countMap = new Map(leadCounts.map(l => [l.assignedToId, l.count]));
+            let minLeads = Infinity;
+            let selectedExecId = salesExecIds[0];
+            for (const execId of salesExecIds) {
+              const count = countMap.get(execId) || 0;
+              if (count < minLeads) { minLeads = count; selectedExecId = execId; }
+            }
+            assignedToId = selectedExecId;
+            assignmentType = "property_auto";
+          }
+        }
+      }
+
+      const [lead] = await db.insert(schema.leads).values({
+        name,
+        phone,
+        email: email || null,
+        source: "tour_enquiry",
+        status: "new",
+        propertyId: propertyId || null,
+        propertyName,
+        budgetMin: minBudget ? parseInt(String(minBudget).replace(/[^0-9]/g, '')) || null : null,
+        budgetMax: maxBudget ? parseInt(String(maxBudget).replace(/[^0-9]/g, '')) || null : null,
+        message: notes || null,
+        enquirySubmitted: true,
+        signedUp: true,
+        score: 25,
+        assignedToId,
+        assignmentType,
+        assignedAt: assignedToId ? new Date() : null,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      }).returning();
+
+      res.json({ success: true, message: "Thank you for your enquiry! Our team will contact you shortly." });
+    } catch (error) {
+      console.error("Tour enquiry error:", error);
+      res.status(500).json({ error: "Failed to submit enquiry" });
+    }
+  });
+
   // ============ AUTH ============
 
   // Sign up - Create new user account
