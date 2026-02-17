@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { AdminLayout } from "@/components/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon } from "lucide-react";
 
@@ -28,6 +28,7 @@ interface FooterData {
 
 export default function AdminFooterSettings() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -66,15 +67,37 @@ export default function AdminFooterSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch("/api/footer-settings", {
+      const res = await fetch("/api/footer-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Error", description: err.error || "Failed to save footer settings", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      const updated = await res.json();
+      setData({
+        companyDescription: updated.companyDescription || "",
+        email: updated.email || "",
+        phone: updated.phone || "",
+        location: updated.location || "",
+        copyrightText: updated.copyrightText || "",
+        quickLinks: updated.quickLinks || [],
+        supportLinks: updated.supportLinks || [],
+        socialInstagram: updated.socialInstagram || "",
+        socialFacebook: updated.socialFacebook || "",
+        socialTwitter: updated.socialTwitter || "",
+        socialLinkedin: updated.socialLinkedin || "",
+      });
       setSaved(true);
+      toast({ title: "Saved", description: "Footer settings updated successfully. Changes will appear on the website." });
       setTimeout(() => setSaved(false), 2000);
     } catch (error) {
-      console.error("Failed to save");
+      console.error("Failed to save:", error);
+      toast({ title: "Error", description: "Failed to save footer settings", variant: "destructive" });
     }
     setSaving(false);
   };
@@ -96,16 +119,13 @@ export default function AdminFooterSettings() {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      </AdminLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
       <div className="space-y-6" data-testid="admin-footer-settings">
         <div className="flex items-center justify-between">
           <div>
@@ -303,6 +323,5 @@ export default function AdminFooterSettings() {
           </Card>
         </div>
       </div>
-    </AdminLayout>
   );
 }

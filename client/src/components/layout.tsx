@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo.jpg";
 import { ProfileDropdown } from "./profile-dropdown";
@@ -36,14 +37,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
-  const [footer, setFooter] = useState<FooterData>(DEFAULT_FOOTER);
 
-  useEffect(() => {
-    fetch("/api/footer-settings")
-      .then(res => res.ok ? res.json() : DEFAULT_FOOTER)
-      .then(data => setFooter(data))
-      .catch(() => {});
-  }, []);
+  const { data: footer = DEFAULT_FOOTER } = useQuery<FooterData>({
+    queryKey: ["/api/footer-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/footer-settings");
+      if (!res.ok) return DEFAULT_FOOTER;
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
 
   const isSalesExec = user?.role === "sales_executive";
 
