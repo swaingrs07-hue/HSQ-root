@@ -52,6 +52,7 @@ Preferred communication style: Simple, everyday language.
 - **Activity Logging**: Immutable audit trail for all status changes, assignments, and remarks
 - **Follow-up System**: Schedule follow-ups with notes, track upcoming (7 days) and overdue follow-ups
 - **Deal Closure**: Close deals with room type, final amount, payment plan; auto-locks lead after closure
+- **Calendar Integration**: Monthly calendar view at `/admin/calendar` showing follow-ups and site visits; ICS file download and Google Calendar link generation; "Add to Calendar" buttons in follow-up dialogs and edit-lead-modal
 - **Key Tables**: salesExecPropertyAssignments, leadActivities, leadRemarks
 
 ### Kanban Requests Board
