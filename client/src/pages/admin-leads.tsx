@@ -352,7 +352,9 @@ export default function AdminLeads() {
   const getExecName = (userId: string | null) => {
     if (!userId) return null;
     const exec = salesExecs.find((e) => e.id === userId);
-    return exec?.name || "Unknown";
+    if (exec) return exec.name;
+    const rawExec = rawSalesExecs.find((e: any) => e.id === userId);
+    return rawExec?.name || "Unknown";
   };
 
   const clearFilters = () => {
@@ -716,36 +718,37 @@ export default function AdminLeads() {
                             </DropdownMenu>
                           </TableCell>
                           <TableCell>
-                            {lead.assignedToId ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                                  <span className="text-xs font-medium text-indigo-600">
-                                    {getExecName(lead.assignedToId)?.charAt(0)}
-                                  </span>
-                                </div>
-                                <span className="text-sm">{getExecName(lead.assignedToId)}</span>
-                              </div>
-                            ) : (
-                              <Select
-                                onValueChange={(userId) => assignMutation.mutate({ leadId: lead.id, userId })}
-                              >
-                                <SelectTrigger className="h-8 w-[140px] text-xs" data-testid={`select-assign-${lead.id}`}>
-                                  <SelectValue placeholder="Assign..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {salesExecs.filter((e) => e.isActive).map((exec) => (
-                                    <SelectItem key={exec.id} value={exec.id}>
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span>{exec.name}</span>
-                                        <Badge variant="secondary" className="text-[10px]">
-                                          {exec.activeLeadCount}
-                                        </Badge>
+                            <Select
+                              value={lead.assignedToId || ""}
+                              onValueChange={(userId) => assignMutation.mutate({ leadId: lead.id, userId })}
+                            >
+                              <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`select-assign-${lead.id}`}>
+                                <SelectValue placeholder="Assign...">
+                                  {lead.assignedToId ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-[10px] font-medium text-indigo-600">
+                                          {getExecName(lead.assignedToId)?.charAt(0)}
+                                        </span>
                                       </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
+                                      <span className="truncate">{getExecName(lead.assignedToId)}</span>
+                                    </div>
+                                  ) : "Assign..."}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {salesExecs.filter((e) => e.isActive).map((exec) => (
+                                  <SelectItem key={exec.id} value={exec.id}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span>{exec.name}</span>
+                                      <Badge variant="secondary" className="text-[10px]">
+                                        {exec.activeLeadCount}
+                                      </Badge>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm text-slate-500">
