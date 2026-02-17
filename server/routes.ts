@@ -3177,6 +3177,86 @@ export async function registerRoutes(
     }
   });
 
+  // ============ EXTERNAL REGISTERED STUDENTS (Hostel Flow API) ============
+  
+  const HOSTEL_FLOW_BASE_URL = "https://hostel-flow--swaingrs07.replit.app";
+  
+  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
+    try {
+      const apiKey = process.env.HOSTEL_FLOW_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "External API key not configured" });
+      }
+
+      const searchQuery = (req.query.search as string || "").trim();
+
+      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("External API error:", response.status, errorText);
+        return res.status(response.status).json({ 
+          error: "Failed to fetch from external system",
+          details: response.status === 401 || response.status === 403 
+            ? "Authentication failed - API key may be invalid or expired" 
+            : "External service unavailable"
+        });
+      }
+
+      let residents = await response.json();
+      
+      if (!Array.isArray(residents)) {
+        residents = residents.residents || residents.data || [];
+      }
+
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        residents = residents.filter((r: any) => {
+          const name = (r.fullName || r.name || "").toLowerCase();
+          const phone = (r.phone || "").toLowerCase();
+          const email = (r.email || "").toLowerCase();
+          return name.includes(query) || phone.includes(query) || email.includes(query);
+        });
+      }
+
+      res.json(residents);
+    } catch (error) {
+      console.error("Error fetching registered students:", error);
+      res.status(500).json({ error: "Failed to connect to external system" });
+    }
+  });
+
+  app.get("/api/admin/registered-students/:id", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
+    try {
+      const apiKey = process.env.HOSTEL_FLOW_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "External API key not configured" });
+      }
+
+      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: "Student not found in external system" });
+      }
+
+      const resident = await response.json();
+      res.json(resident);
+    } catch (error) {
+      console.error("Error fetching registered student:", error);
+      res.status(500).json({ error: "Failed to connect to external system" });
+    }
+  });
+
   // Apply discount override
   app.post("/api/admin/discount", async (req, res) => {
     try {

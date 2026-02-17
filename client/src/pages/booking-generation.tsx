@@ -37,6 +37,10 @@ import {
   Receipt,
   Shield,
   Tag,
+  Search,
+  GraduationCap,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 
 interface Property {
@@ -67,11 +71,18 @@ interface Lead {
   propertyName: string | null;
 }
 
-interface Student {
+interface RegisteredStudent {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  collegeName?: string;
+  course?: string;
+  year?: string;
+  city?: string;
+  roomNumber?: string;
+  propertyName?: string;
 }
 
 const STEP_CONFIG = [
@@ -95,7 +106,11 @@ export default function BookingGeneration() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
+  const [studentSearchError, setStudentSearchError] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<RegisteredStudent | null>(null);
   const [availability, setAvailability] = useState<{ totalBeds: number; availableBeds: number; bookedBeds: number } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -261,6 +276,31 @@ export default function BookingGeneration() {
     setFormData(prev => ({ ...prev, roomTypeId }));
   };
 
+  const fetchRegisteredStudents = async (search?: string) => {
+    try {
+      setStudentSearchLoading(true);
+      setStudentSearchError(null);
+      const params = search ? `?search=${encodeURIComponent(search)}` : "";
+      const response = await fetch(`/api/admin/registered-students${params}`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRegisteredStudents(Array.isArray(data) ? data : []);
+      } else {
+        const err = await response.json().catch(() => ({ error: "Connection failed" }));
+        setStudentSearchError(err.details || err.error || "Failed to fetch students");
+        setRegisteredStudents([]);
+      }
+    } catch (error) {
+      console.error("Error fetching registered students:", error);
+      setStudentSearchError("Unable to connect to external system");
+      setRegisteredStudents([]);
+    } finally {
+      setStudentSearchLoading(false);
+    }
+  };
+
   const handleCustomerTypeChange = (type: string) => {
     setFormData(prev => ({
       ...prev,
@@ -270,6 +310,24 @@ export default function BookingGeneration() {
       walkInName: "",
       walkInPhone: "",
       walkInEmail: "",
+    }));
+    setSelectedStudent(null);
+    setStudentSearch("");
+    setStudentSearchError(null);
+    if (type === "student") {
+      fetchRegisteredStudents();
+    }
+  };
+
+  const handleStudentSelect = (student: RegisteredStudent) => {
+    const studentName = student.fullName || student.name || "";
+    setSelectedStudent(student);
+    setFormData(prev => ({
+      ...prev,
+      studentId: student.id,
+      walkInName: studentName,
+      walkInPhone: student.phone || "",
+      walkInEmail: student.email || "",
     }));
   };
 
@@ -388,14 +446,17 @@ export default function BookingGeneration() {
 
   const getCustomerName = () => {
     if (formData.customerType === "lead") return getSelectedLead()?.name || "";
+    if (formData.customerType === "student") return selectedStudent?.fullName || selectedStudent?.name || formData.walkInName;
     return formData.walkInName;
   };
   const getCustomerPhone = () => {
     if (formData.customerType === "lead") return getSelectedLead()?.phone || "";
+    if (formData.customerType === "student") return selectedStudent?.phone || formData.walkInPhone;
     return formData.walkInPhone;
   };
   const getCustomerEmail = () => {
     if (formData.customerType === "lead") return getSelectedLead()?.email || "";
+    if (formData.customerType === "student") return selectedStudent?.email || formData.walkInEmail;
     return formData.walkInEmail;
   };
 
@@ -609,16 +670,158 @@ export default function BookingGeneration() {
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-5 bg-blue-50 rounded-xl border border-blue-100"
+                      className="space-y-4 p-5 bg-slate-50 rounded-xl border border-slate-200"
                     >
-                      <div className="flex items-start gap-3">
-                        <Shield className="h-5 w-5 text-blue-500 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-blue-800">Student Registration</p>
-                          <p className="text-sm text-blue-600 mt-1">
-                            Student registration is handled through the student portal. For existing students, please use the "Convert Lead" option instead.
-                          </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="h-5 w-5 text-indigo-500" />
+                          <Label className="text-sm font-medium text-slate-700">Search Registered Students</Label>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => fetchRegisteredStudents(studentSearch || undefined)}
+                          disabled={studentSearchLoading}
+                          className="text-xs text-indigo-600 hover:text-indigo-700"
+                          data-testid="button-refresh-students"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${studentSearchLoading ? "animate-spin" : ""}`} />
+                          Refresh
+                        </Button>
+                      </div>
+
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Search by name, phone, or email..."
+                          value={studentSearch}
+                          onChange={(e) => {
+                            setStudentSearch(e.target.value);
+                            const val = e.target.value;
+                            if (val.length >= 2 || val.length === 0) {
+                              fetchRegisteredStudents(val || undefined);
+                            }
+                          }}
+                          className="pl-10 bg-white border-slate-300 focus:border-indigo-500"
+                          data-testid="input-student-search"
+                        />
+                      </div>
+
+                      {studentSearchError && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-amber-800">Connection Issue</p>
+                            <p className="text-xs text-amber-600 mt-0.5">{studentSearchError}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {studentSearchLoading && (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-5 w-5 text-indigo-500 animate-spin mr-2" />
+                          <span className="text-sm text-slate-500">Fetching registered students...</span>
+                        </div>
+                      )}
+
+                      {!studentSearchLoading && !studentSearchError && registeredStudents.length === 0 && (
+                        <div className="text-center py-6">
+                          <GraduationCap className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500">
+                            {studentSearch ? "No students found matching your search" : "No registered students found"}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">Try searching by name, phone number, or email</p>
+                        </div>
+                      )}
+
+                      {!studentSearchLoading && registeredStudents.length > 0 && (
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                          {registeredStudents.map((student) => {
+                            const isSelected = selectedStudent?.id === student.id;
+                            const displayName = student.fullName || student.name || "Unknown";
+                            return (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => handleStudentSelect(student)}
+                                className={`w-full p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+                                  isSelected
+                                    ? "border-indigo-500 bg-indigo-50 shadow-sm"
+                                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                                }`}
+                                data-testid={`student-card-${student.id}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                                    isSelected ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"
+                                  }`}>
+                                    {displayName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <p className={`font-semibold text-sm truncate ${isSelected ? "text-indigo-700" : "text-slate-800"}`}>
+                                        {displayName}
+                                      </p>
+                                      {isSelected && <CheckCircle className="h-4 w-4 text-indigo-600 shrink-0" />}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
+                                      {student.phone && (
+                                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{student.phone}</span>
+                                      )}
+                                      {student.email && (
+                                        <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{student.email}</span>
+                                      )}
+                                    </div>
+                                    {(student.collegeName || student.course) && (
+                                      <p className="text-xs text-slate-400 mt-1 truncate">
+                                        {[student.collegeName, student.course, student.year].filter(Boolean).join(" · ")}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {selectedStudent && (
+                        <div className="p-4 bg-white rounded-lg border border-indigo-100 shadow-sm mt-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-sm font-semibold text-slate-700">Selected Student</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-slate-400 text-xs">Name</span>
+                              <p className="font-medium text-slate-800">{selectedStudent.fullName || selectedStudent.name}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-xs">Phone</span>
+                              <p className="font-medium text-slate-800">{selectedStudent.phone || "—"}</p>
+                            </div>
+                            {selectedStudent.email && (
+                              <div>
+                                <span className="text-slate-400 text-xs">Email</span>
+                                <p className="font-medium text-slate-800">{selectedStudent.email}</p>
+                              </div>
+                            )}
+                            {selectedStudent.collegeName && (
+                              <div>
+                                <span className="text-slate-400 text-xs">College</span>
+                                <p className="font-medium text-slate-800">{selectedStudent.collegeName}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg">
+                        <ExternalLink className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                        <p className="text-xs text-indigo-600">
+                          Students are fetched from the Hostel Flow registration system
+                        </p>
                       </div>
                     </motion.div>
                   )}
