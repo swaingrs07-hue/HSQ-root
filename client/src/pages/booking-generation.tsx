@@ -354,6 +354,12 @@ export default function BookingGeneration() {
       walkInName: studentName,
       walkInPhone: student.phone || "",
       walkInEmail: student.email || "",
+      residentName: studentName,
+      residentPhone: student.phone || "",
+      residentEmail: student.email || "",
+      residentRoomNo: student.roomNumber || "",
+      residentInstitute: student.collegeName || "",
+      residentCourse: student.course || "",
     }));
   };
 
@@ -367,6 +373,9 @@ export default function BookingGeneration() {
         walkInPhone: selectedLead.phone || "",
         walkInEmail: selectedLead.email || "",
         propertyId: selectedLead.propertyId || prev.propertyId,
+        residentName: selectedLead.name || "",
+        residentPhone: selectedLead.phone || "",
+        residentEmail: selectedLead.email || "",
       }));
     }
   };
