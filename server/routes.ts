@@ -3198,13 +3198,25 @@ export async function registerRoutes(
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("External API error:", response.status, errorText);
-        return res.status(response.status).json({ 
+        let errorDetail = "External service unavailable";
+        try {
+          const errorData = JSON.parse(await response.text());
+          if (errorData.error?.includes("admin user not found")) {
+            errorDetail = "API key is valid but the linked admin account doesn't exist on Hostel Flow. Please set up the admin user on the external system.";
+          } else if (errorData.error?.includes("Invalid token")) {
+            errorDetail = "API key is invalid or expired. Please update the HOSTEL_FLOW_API_KEY.";
+          } else if (response.status === 401 || response.status === 403) {
+            errorDetail = `Authentication failed: ${errorData.error || "API key may be invalid"}`;
+          } else {
+            errorDetail = errorData.error || errorDetail;
+          }
+        } catch (e) { /* ignore parse error */ }
+        console.error("External API error:", response.status, errorDetail);
+        const statusCode = (response.status === 401 || response.status === 403) ? response.status : 502;
+        return res.status(statusCode).json({ 
           error: "Failed to fetch from external system",
-          details: response.status === 401 || response.status === 403 
-            ? "Authentication failed - API key may be invalid or expired" 
-            : "External service unavailable"
+          details: errorDetail,
+          upstreamStatus: response.status
         });
       }
 
