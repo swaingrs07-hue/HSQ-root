@@ -18,6 +18,7 @@ import {
   leadRemarks,
   notifications,
   activityLogs,
+  heroSlides,
   type User,
   type InsertUser,
   type Student,
@@ -56,6 +57,8 @@ import {
   type InsertNotification,
   type ActivityLog,
   type InsertActivityLog,
+  type HeroSlide,
+  type InsertHeroSlide,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -282,6 +285,14 @@ export interface IStorage {
     offset?: number;
   }): Promise<{ logs: ActivityLog[]; total: number }>;
   getActivityLogById(id: string): Promise<ActivityLog | undefined>;
+  
+  // Hero Slides
+  getHeroSlides(activeOnly?: boolean): Promise<HeroSlide[]>;
+  getHeroSlide(id: string): Promise<HeroSlide | undefined>;
+  createHeroSlide(slide: InsertHeroSlide): Promise<HeroSlide>;
+  updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
+  deleteHeroSlide(id: string): Promise<void>;
+  reorderHeroSlides(slideIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1658,6 +1669,40 @@ export class DatabaseStorage implements IStorage {
   async getActivityLogById(id: string): Promise<ActivityLog | undefined> {
     const [log] = await db.select().from(activityLogs).where(eq(activityLogs.id, id));
     return log || undefined;
+  }
+
+  async getHeroSlides(activeOnly: boolean = false): Promise<HeroSlide[]> {
+    if (activeOnly) {
+      return db.select().from(heroSlides).where(eq(heroSlides.isActive, true)).orderBy(asc(heroSlides.sortOrder));
+    }
+    return db.select().from(heroSlides).orderBy(asc(heroSlides.sortOrder));
+  }
+
+  async getHeroSlide(id: string): Promise<HeroSlide | undefined> {
+    const [slide] = await db.select().from(heroSlides).where(eq(heroSlides.id, id));
+    return slide || undefined;
+  }
+
+  async createHeroSlide(slide: InsertHeroSlide): Promise<HeroSlide> {
+    const [created] = await db.insert(heroSlides).values(slide).returning();
+    return created;
+  }
+
+  async updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined> {
+    const [updated] = await db.update(heroSlides).set(data).where(eq(heroSlides.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteHeroSlide(id: string): Promise<void> {
+    await db.delete(heroSlides).where(eq(heroSlides.id, id));
+  }
+
+  async reorderHeroSlides(slideIds: string[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < slideIds.length; i++) {
+        await tx.update(heroSlides).set({ sortOrder: i }).where(eq(heroSlides.id, slideIds[i]));
+      }
+    });
   }
 }
 

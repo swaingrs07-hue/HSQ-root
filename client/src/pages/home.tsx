@@ -18,7 +18,7 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 
-const HERO_SLIDES = [
+const DEFAULT_SLIDES = [
   {
     image: heroLobby,
     title: "Experience Premium Living",
@@ -45,6 +45,13 @@ const HERO_SLIDES = [
   },
 ];
 
+const KEN_BURNS_VARIANTS = [
+  { initial: { scale: 1.0, x: "0%", y: "0%" }, animate: { scale: 1.15, x: "-2%", y: "-1%" } },
+  { initial: { scale: 1.15, x: "2%", y: "1%" }, animate: { scale: 1.0, x: "0%", y: "0%" } },
+  { initial: { scale: 1.0, x: "1%", y: "-1%" }, animate: { scale: 1.12, x: "-1%", y: "1%" } },
+  { initial: { scale: 1.1, x: "-1%", y: "0%" }, animate: { scale: 1.0, x: "1%", y: "-1%" } },
+];
+
 const AMENITY_SHOWCASE = [
   { image: amenityGym, title: "Fitness Center", desc: "State-of-the-art equipment for your wellness journey", icon: Dumbbell },
   { image: amenityStudy, title: "Study Lounge", desc: "Quiet, modern spaces designed for academic excellence", icon: BookOpen },
@@ -66,12 +73,31 @@ export default function Home() {
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
+  const [heroSlides, setHeroSlides] = useState(DEFAULT_SLIDES);
+  const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
   const heroOpacity = useTransform(scrollY, [0, 600], [1, 0]);
   const heroScale = useTransform(scrollY, [0, 600], [1, 1.1]);
   const overlayY = useTransform(scrollY, [0, 400], [0, 100]);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/hero-slides?active=true")
+      .then(res => res.ok ? res.json() : [])
+      .then((apiSlides: any[]) => {
+        if (apiSlides.length > 0) {
+          setHeroSlides(apiSlides.map(s => ({
+            image: s.imageUrl,
+            title: s.title,
+            subtitle: s.subtitle || "",
+            caption: s.caption || "",
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     getProperties().then(data => {
@@ -81,16 +107,18 @@ export default function Home() {
   }, []);
 
   const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
-  }, []);
+    setSlideDirection(1);
+    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+  }, [heroSlides.length]);
 
   const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
-  }, []);
+    setSlideDirection(-1);
+    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+  }, [heroSlides.length]);
 
   useEffect(() => {
     if (isAutoPlaying) {
-      slideInterval.current = setInterval(nextSlide, 5000);
+      slideInterval.current = setInterval(nextSlide, 6000);
     }
     return () => {
       if (slideInterval.current) clearInterval(slideInterval.current);
@@ -117,25 +145,36 @@ export default function Home() {
         onMouseLeave={() => setIsAutoPlaying(true)}
         data-testid="hero-section"
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false}>
           <motion.div
             key={currentSlide}
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
             className="absolute inset-0"
             style={{ scale: heroScale }}
           >
-            <img
-              src={HERO_SLIDES[currentSlide].image}
-              alt={HERO_SLIDES[currentSlide].title}
-              className="w-full h-full object-cover"
+            <motion.img
+              src={heroSlides[currentSlide].image}
+              alt={heroSlides[currentSlide].title}
+              className="w-full h-full object-cover will-change-transform"
+              initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
+              animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
+              transition={{ duration: 8, ease: "linear" }}
             />
           </motion.div>
         </AnimatePresence>
 
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/70 z-10" />
+        <motion.div
+          className="absolute inset-0 z-10"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          style={{
+            background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)",
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent z-10" />
 
         <motion.div
@@ -161,15 +200,15 @@ export default function Home() {
                   animate={{ opacity: 1, letterSpacing: "0.3em" }}
                   transition={{ duration: 1, delay: 0.3 }}
                 >
-                  {HERO_SLIDES[currentSlide].subtitle}
+                  {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
                 <h1 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold text-white leading-tight drop-shadow-2xl">
-                  {HERO_SLIDES[currentSlide].title}
+                  {heroSlides[currentSlide].title}
                 </h1>
 
                 <p className="text-white/80 text-lg md:text-xl font-light max-w-2xl mx-auto">
-                  {HERO_SLIDES[currentSlide].caption}
+                  {heroSlides[currentSlide].caption}
                 </p>
               </motion.div>
             </AnimatePresence>
@@ -221,15 +260,28 @@ export default function Home() {
                 <ChevronRight className="w-5 h-5" />
               </button>
               <div className="flex gap-2 ml-4">
-                {HERO_SLIDES.map((_, i) => (
+                {heroSlides.map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => setCurrentSlide(i)}
-                    className={`h-0.5 rounded-full transition-all duration-500 ${
-                      i === currentSlide ? "w-8 bg-amber-400" : "w-4 bg-white/40 hover:bg-white/60"
-                    }`}
+                    onClick={() => { setSlideDirection(i > currentSlide ? 1 : -1); setCurrentSlide(i); }}
+                    className="relative h-1 rounded-full overflow-hidden transition-all duration-500"
+                    style={{ width: i === currentSlide ? "2rem" : "1rem" }}
                     data-testid={`button-hero-dot-${i}`}
-                  />
+                  >
+                    <span className={`absolute inset-0 rounded-full ${i === currentSlide ? "bg-white/30" : "bg-white/20 hover:bg-white/40"}`} />
+                    {i === currentSlide && isAutoPlaying && (
+                      <motion.span
+                        className="absolute inset-0 rounded-full bg-amber-400 origin-left"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{ duration: 6, ease: "linear" }}
+                        key={`progress-${currentSlide}`}
+                      />
+                    )}
+                    {i === currentSlide && !isAutoPlaying && (
+                      <span className="absolute inset-0 rounded-full bg-amber-400" />
+                    )}
+                  </button>
                 ))}
               </div>
             </div>

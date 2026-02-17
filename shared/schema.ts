@@ -942,5 +942,21 @@ export const insertChatbotEventSchema = createInsertSchema(chatbotEvents).omit({
 export type ChatbotEvent = typeof chatbotEvents.$inferSelect;
 export type InsertChatbotEvent = z.infer<typeof insertChatbotEventSchema>;
 
+// Hero Slides table (for admin-managed homepage carousel)
+export const heroSlides = pgTable("hero_slides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  caption: text("caption"),
+  imageUrl: text("image_url").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertHeroSlideSchema = createInsertSchema(heroSlides).omit({ id: true, createdAt: true });
+export type HeroSlide = typeof heroSlides.$inferSelect;
+export type InsertHeroSlide = z.infer<typeof insertHeroSlideSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

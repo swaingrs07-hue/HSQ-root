@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
@@ -213,6 +213,61 @@ export async function registerRoutes(
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // ============ HERO SLIDES ============
+  
+  app.get("/api/hero-slides", async (req, res) => {
+    try {
+      const activeOnly = req.query.active === "true";
+      const slides = await storage.getHeroSlides(activeOnly);
+      res.json(slides);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hero slides" });
+    }
+  });
+
+  app.post("/api/hero-slides", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const parsed = insertHeroSlideSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
+      const slide = await storage.createHeroSlide(parsed.data);
+      res.status(201).json(slide);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create hero slide" });
+    }
+  });
+
+  app.put("/api/hero-slides/:id", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const parsed = insertHeroSlideSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
+      const slide = await storage.updateHeroSlide(req.params.id, parsed.data);
+      if (!slide) return res.status(404).json({ error: "Slide not found" });
+      res.json(slide);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update hero slide" });
+    }
+  });
+
+  app.delete("/api/hero-slides/:id", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteHeroSlide(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete hero slide" });
+    }
+  });
+
+  app.post("/api/hero-slides/reorder", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const { slideIds } = req.body;
+      if (!Array.isArray(slideIds)) return res.status(400).json({ error: "slideIds must be an array" });
+      await storage.reorderHeroSlides(slideIds);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reorder slides" });
+    }
   });
 
   // ============ WEB LEAD CAPTURE ============
