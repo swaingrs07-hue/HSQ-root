@@ -3211,7 +3211,7 @@ export async function registerRoutes(
     return cachedHostelFlowJWT;
   }
 
-  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       let jwt: string;
       try {
@@ -3284,7 +3284,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/registered-students/:id", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registered-students/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       let jwt: string;
       try {
