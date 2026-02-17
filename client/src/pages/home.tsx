@@ -8,6 +8,7 @@ import heroDining from "@/assets/hero-dining.jpg";
 import amenityGym from "@/assets/amenity-gym.jpg";
 import amenityStudy from "@/assets/amenity-study.jpg";
 import heroStudentLiving from "@/assets/hero-student-living.png";
+import hsquareLogo from "@assets/Hsquare_Logo_File-07_1771351647884.png";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
@@ -200,6 +201,11 @@ export default function Home() {
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent z-10" />
+
+        <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-30 pointer-events-none select-none" data-testid="hero-watermark">
+          <img src={hsquareLogo} alt="" className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert" />
+          <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">Hsquare Living</span>
+        </div>
 
         <motion.div
           style={{ opacity: heroOpacity }}
