@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Property {
   id: string;
@@ -77,6 +78,7 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (isOpen) {
@@ -231,6 +233,8 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
       const data = await response.json();
       if (response.ok) {
         trackEvent("tour_enquiry_submitted", { propertyId: selectedPropertyId });
+        queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin"] });
         setModalView("success");
         setEnquiryForm({ name: "", phone: "", email: "", propertyId: "", minBudget: "", maxBudget: "", notes: "" });
       } else {
