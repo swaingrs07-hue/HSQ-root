@@ -41,6 +41,10 @@ import {
   GraduationCap,
   ExternalLink,
   RefreshCw,
+  Camera,
+  Upload,
+  X,
+  Heart,
 } from "lucide-react";
 
 interface Property {
@@ -88,6 +92,7 @@ interface RegisteredStudent {
 const STEP_CONFIG = [
   { label: "Customer", icon: UserPlus, description: "Select customer type" },
   { label: "Property", icon: Building2, description: "Choose property & room" },
+  { label: "Resident", icon: Heart, description: "Resident details & photo" },
   { label: "Pricing", icon: IndianRupee, description: "Set pricing & payment" },
   { label: "Confirm", icon: ClipboardCheck, description: "Review & submit" },
 ];
@@ -112,6 +117,8 @@ export default function BookingGeneration() {
   const [studentSearchError, setStudentSearchError] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<RegisteredStudent | null>(null);
   const [availability, setAvailability] = useState<{ totalBeds: number; availableBeds: number; bookedBeds: number } | null>(null);
+  const [residentPhotoUrl, setResidentPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     customerType: "walk_in",
@@ -134,6 +141,23 @@ export default function BookingGeneration() {
     paymentPlanId: "",
     tokenAmount: 100000,
     numberOfInstallments: 2,
+    residentName: "",
+    residentRoomNo: "",
+    residentPhone: "",
+    residentEmail: "",
+    residentDietaryPreference: "",
+    residentGender: "",
+    residentDob: "",
+    residentAccommodationType: "",
+    residentInstitute: "",
+    residentCourse: "",
+    residentMoveInDate: "",
+    residentCheckOutDate: "",
+    parentName: "",
+    parentPhone: "",
+    parentEmail: "",
+    parentRelation: "",
+    residentPhotoPath: "",
   });
 
   const isAdmin = user?.role === "admin";
@@ -347,6 +371,40 @@ export default function BookingGeneration() {
     }
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Photo must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const res = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify({ contentType: file.type }),
+      });
+      if (!res.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await res.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const photoUrl = `/api/uploads/public/${objectPath.split("/").pop()}`;
+      setResidentPhotoUrl(URL.createObjectURL(file));
+      setFormData(prev => ({ ...prev, residentPhotoPath: objectPath }));
+      toast({ title: "Photo uploaded", description: "Resident photo uploaded successfully." });
+    } catch (error) {
+      console.error("Photo upload error:", error);
+      toast({ title: "Upload failed", description: "Failed to upload photo. Please try again.", variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const validateStep = (stepNum: number) => {
     switch (stepNum) {
       case 1:
@@ -359,6 +417,8 @@ export default function BookingGeneration() {
       case 2:
         return !!(formData.propertyId && formData.roomTypeId && availability && availability.availableBeds > 0);
       case 3:
+        return !!(formData.residentName.trim() && formData.residentPhone.trim() && formData.residentGender);
+      case 4:
         return formData.baseFee > 0;
       default:
         return true;
@@ -367,6 +427,14 @@ export default function BookingGeneration() {
 
   const handleNext = () => {
     if (validateStep(step)) {
+      if (step === 2 && !formData.residentName) {
+        setFormData(prev => ({
+          ...prev,
+          residentName: prev.residentName || getCustomerName() || "",
+          residentPhone: prev.residentPhone || getCustomerPhone() || "",
+          residentEmail: prev.residentEmail || getCustomerEmail() || "",
+        }));
+      }
       setStep(step + 1);
     } else {
       toast({
@@ -409,6 +477,25 @@ export default function BookingGeneration() {
           tokenAmount: formData.paymentType === "partial" ? formData.tokenAmount : null,
           numberOfInstallments: formData.paymentType === "installments" ? formData.numberOfInstallments : null,
           paymentPlanId: formData.paymentPlanId || null,
+          residentDetails: {
+            name: formData.residentName,
+            roomNo: formData.residentRoomNo,
+            phone: formData.residentPhone,
+            email: formData.residentEmail,
+            dietaryPreference: formData.residentDietaryPreference,
+            gender: formData.residentGender,
+            dob: formData.residentDob,
+            accommodationType: formData.residentAccommodationType,
+            institute: formData.residentInstitute,
+            course: formData.residentCourse,
+            moveInDate: formData.residentMoveInDate,
+            checkOutDate: formData.residentCheckOutDate,
+            parentName: formData.parentName,
+            parentPhone: formData.parentPhone,
+            parentEmail: formData.parentEmail,
+            parentRelation: formData.parentRelation,
+            photoPath: formData.residentPhotoPath,
+          },
           createdBy: user?.id,
           assignedSalesExecId: isSalesExec ? user?.id : null,
         }),
@@ -501,7 +588,7 @@ export default function BookingGeneration() {
                   {s.label}
                 </span>
               </div>
-              {idx < 3 && (
+              {idx < 4 && (
                 <div className={`flex-1 h-0.5 mx-3 mt-[-14px] rounded-full transition-all duration-500 ${step > stepNum ? "bg-green-400" : "bg-slate-200"}`} />
               )}
             </div>
@@ -1010,6 +1097,208 @@ export default function BookingGeneration() {
               {step === 3 && (
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 mb-1">
+                    <Heart className="h-5 w-5 text-indigo-500" />
+                    <h3 className="text-lg font-semibold text-slate-800">Resident Details</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 space-y-5">
+                      <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                        <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                          <User className="h-4 w-4" /> Personal Information
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Full Name <span className="text-red-500">*</span></Label>
+                            <Input value={formData.residentName} onChange={(e) => setFormData(prev => ({ ...prev, residentName: e.target.value }))} placeholder="Resident full name" className="bg-white" data-testid="input-resident-name" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Room Number</Label>
+                            <Input value={formData.residentRoomNo} onChange={(e) => setFormData(prev => ({ ...prev, residentRoomNo: e.target.value }))} placeholder="e.g. A-101" className="bg-white" data-testid="input-resident-room" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Phone Number <span className="text-red-500">*</span></Label>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input value={formData.residentPhone} onChange={(e) => setFormData(prev => ({ ...prev, residentPhone: e.target.value }))} placeholder="Phone number" className="pl-10 bg-white" data-testid="input-resident-phone" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Email ID</Label>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input type="email" value={formData.residentEmail} onChange={(e) => setFormData(prev => ({ ...prev, residentEmail: e.target.value }))} placeholder="Resident email" className="pl-10 bg-white" data-testid="input-resident-email" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Gender <span className="text-red-500">*</span></Label>
+                            <Select value={formData.residentGender} onValueChange={(v) => setFormData(prev => ({ ...prev, residentGender: v }))}>
+                              <SelectTrigger className="bg-white" data-testid="select-resident-gender">
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="male">Male</SelectItem>
+                                <SelectItem value="female">Female</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Date of Birth</Label>
+                            <Input type="date" value={formData.residentDob} onChange={(e) => setFormData(prev => ({ ...prev, residentDob: e.target.value }))} className="bg-white" data-testid="input-resident-dob" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Dietary Preference</Label>
+                            <Select value={formData.residentDietaryPreference} onValueChange={(v) => setFormData(prev => ({ ...prev, residentDietaryPreference: v }))}>
+                              <SelectTrigger className="bg-white" data-testid="select-dietary-preference">
+                                <SelectValue placeholder="Select preference" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vegetarian">Vegetarian</SelectItem>
+                                <SelectItem value="non_vegetarian">Non-Vegetarian</SelectItem>
+                                <SelectItem value="vegan">Vegan</SelectItem>
+                                <SelectItem value="eggetarian">Eggetarian</SelectItem>
+                                <SelectItem value="jain">Jain</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Accommodation Type</Label>
+                            <Select value={formData.residentAccommodationType} onValueChange={(v) => setFormData(prev => ({ ...prev, residentAccommodationType: v }))}>
+                              <SelectTrigger className="bg-white" data-testid="select-accommodation-type">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="single">Single Occupancy</SelectItem>
+                                <SelectItem value="double">Double Sharing</SelectItem>
+                                <SelectItem value="triple">Triple Sharing</SelectItem>
+                                <SelectItem value="dormitory">Dormitory</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                        <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4" /> Academic / Professional Details
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Institute / Company Name</Label>
+                            <Input value={formData.residentInstitute} onChange={(e) => setFormData(prev => ({ ...prev, residentInstitute: e.target.value }))} placeholder="University or company name" className="bg-white" data-testid="input-resident-institute" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Course Name / Job Title</Label>
+                            <Input value={formData.residentCourse} onChange={(e) => setFormData(prev => ({ ...prev, residentCourse: e.target.value }))} placeholder="e.g. B.Tech CSE / Software Engineer" className="bg-white" data-testid="input-resident-course" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Move-in Date</Label>
+                            <Input type="date" value={formData.residentMoveInDate} onChange={(e) => setFormData(prev => ({ ...prev, residentMoveInDate: e.target.value }))} className="bg-white" data-testid="input-resident-movein" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Check-out Date</Label>
+                            <Input type="date" value={formData.residentCheckOutDate} onChange={(e) => setFormData(prev => ({ ...prev, residentCheckOutDate: e.target.value }))} className="bg-white" data-testid="input-resident-checkout" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                        <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                          <Users className="h-4 w-4" /> Parent / Guardian Details
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Parent / Guardian Name</Label>
+                            <Input value={formData.parentName} onChange={(e) => setFormData(prev => ({ ...prev, parentName: e.target.value }))} placeholder="Full name" className="bg-white" data-testid="input-parent-name" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Relation</Label>
+                            <Select value={formData.parentRelation} onValueChange={(v) => setFormData(prev => ({ ...prev, parentRelation: v }))}>
+                              <SelectTrigger className="bg-white" data-testid="select-parent-relation">
+                                <SelectValue placeholder="Select relation" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="father">Father</SelectItem>
+                                <SelectItem value="mother">Mother</SelectItem>
+                                <SelectItem value="guardian">Guardian</SelectItem>
+                                <SelectItem value="sibling">Sibling</SelectItem>
+                                <SelectItem value="spouse">Spouse</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Parent Phone</Label>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input value={formData.parentPhone} onChange={(e) => setFormData(prev => ({ ...prev, parentPhone: e.target.value }))} placeholder="Parent phone number" className="pl-10 bg-white" data-testid="input-parent-phone" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Parent Email</Label>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input type="email" value={formData.parentEmail} onChange={(e) => setFormData(prev => ({ ...prev, parentEmail: e.target.value }))} placeholder="Parent email" className="pl-10 bg-white" data-testid="input-parent-email" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                        <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                          <Camera className="h-4 w-4" /> Resident Photo
+                        </h4>
+                        <div className="flex flex-col items-center gap-3">
+                          {residentPhotoUrl ? (
+                            <div className="relative">
+                              <img src={residentPhotoUrl} alt="Resident" className="w-36 h-36 rounded-xl object-cover border-2 border-indigo-200 shadow-md" data-testid="img-resident-photo" />
+                              <button
+                                type="button"
+                                onClick={() => { setResidentPhotoUrl(null); setFormData(prev => ({ ...prev, residentPhotoPath: "" })); }}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+                                data-testid="button-remove-photo"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center text-slate-400 gap-2">
+                              <Camera className="h-8 w-8" />
+                              <span className="text-xs">No photo</span>
+                            </div>
+                          )}
+                          <label className="cursor-pointer">
+                            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={photoUploading} data-testid="input-photo-upload" />
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${photoUploading ? "bg-slate-100 text-slate-400 border-slate-200" : "bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100"}`}>
+                              {photoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                              {photoUploading ? "Uploading..." : "Upload Photo"}
+                            </div>
+                          </label>
+                          <p className="text-xs text-slate-400 text-center">JPG, PNG under 5MB</p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <h4 className="text-sm font-semibold text-indigo-700 mb-2">Quick Summary</h4>
+                        <div className="space-y-1.5 text-xs text-slate-600">
+                          {formData.residentName && <p><span className="font-medium">Name:</span> {formData.residentName}</p>}
+                          {formData.residentRoomNo && <p><span className="font-medium">Room:</span> {formData.residentRoomNo}</p>}
+                          {formData.residentGender && <p><span className="font-medium">Gender:</span> {formData.residentGender}</p>}
+                          {formData.residentInstitute && <p><span className="font-medium">Institute:</span> {formData.residentInstitute}</p>}
+                          {formData.residentMoveInDate && <p><span className="font-medium">Move-in:</span> {formData.residentMoveInDate}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 mb-1">
                     <IndianRupee className="h-5 w-5 text-indigo-500" />
                     <h3 className="text-lg font-semibold text-slate-800">Pricing & Payment</h3>
                   </div>
@@ -1254,7 +1543,7 @@ export default function BookingGeneration() {
                 </div>
               )}
 
-              {step === 4 && (
+              {step === 5 && (
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 mb-1">
                     <ClipboardCheck className="h-5 w-5 text-indigo-500" />
@@ -1300,6 +1589,30 @@ export default function BookingGeneration() {
                       </div>
                     </div>
                   </div>
+
+                  {formData.residentName && (
+                    <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
+                          <Heart className="h-4 w-4 text-pink-600" />
+                        </div>
+                        <h4 className="font-semibold text-sm text-slate-500 uppercase tracking-wide">Resident Details</h4>
+                      </div>
+                      <div className="flex gap-4">
+                        {residentPhotoUrl && (
+                          <img src={residentPhotoUrl} alt="Resident" className="w-16 h-16 rounded-lg object-cover border" />
+                        )}
+                        <div className="space-y-1 text-sm">
+                          <p className="font-bold text-slate-800">{formData.residentName}</p>
+                          {formData.residentRoomNo && <p className="text-slate-500">Room: {formData.residentRoomNo}</p>}
+                          {formData.residentGender && <p className="text-slate-500 capitalize">Gender: {formData.residentGender}</p>}
+                          {formData.residentInstitute && <p className="text-slate-500">{formData.residentInstitute}</p>}
+                          {formData.residentMoveInDate && <p className="text-slate-500">Move-in: {formData.residentMoveInDate}</p>}
+                          {formData.parentName && <p className="text-slate-500">Parent: {formData.parentName} ({formData.parentRelation})</p>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="p-5 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
                     <div className="flex items-center gap-2 mb-4">
@@ -1364,7 +1677,7 @@ export default function BookingGeneration() {
                   <div />
                 )}
 
-                {step < 4 ? (
+                {step < 5 ? (
                   <Button
                     onClick={handleNext}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-6"
