@@ -14,6 +14,7 @@ import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
 import * as chatbotAdmin from "./chatbot-admin";
+import { getLeadRecommendations } from "./lead-recommendations";
 
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
@@ -3163,6 +3164,19 @@ export async function registerRoutes(
     }
   });
   
+  // AI Lead Engagement Recommendations
+  app.get("/api/admin/lead-recommendations", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const forceRefresh = req.query.refresh === "true";
+      const limit = Math.min(parseInt(req.query.limit as string) || 8, 15);
+      const result = await getLeadRecommendations(forceRefresh, limit);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating lead recommendations:", error);
+      res.status(500).json({ error: "Failed to generate recommendations" });
+    }
+  });
+
   // Apply discount override
   app.post("/api/admin/discount", async (req, res) => {
     try {
