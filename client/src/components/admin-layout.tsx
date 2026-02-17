@@ -91,6 +91,7 @@ const adminNavItems: NavItem[] = [
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
+  { name: "Data Export", href: "/admin/data-export", icon: FileText },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

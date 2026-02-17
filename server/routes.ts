@@ -5278,5 +5278,171 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== DATA EXPORT / DOWNLOAD ====================
+
+  const escapeCsvField = (val: any): string => {
+    if (val === null || val === undefined) return "";
+    let str = String(val);
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = "'" + str;
+    }
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const csvRow = (fields: any[]) => fields.map(escapeCsvField).join(",");
+
+  app.get("/api/admin/export/bookings", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.bookings).orderBy(schema.bookings.createdAt);
+      const header = ["Booking Code","Customer Type","Walk-in Name","Walk-in Phone","Walk-in Email","Property ID","Room Type ID","Stay Plan","Check-in","Check-out","Base Fee","Deposit","Discount","Discount Reason","Total Amount","Payment Type","Token Amount","Status","Approval Status","Approved By","Agreement Generated","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.bookingCode, r.customerType, r.walkInName, r.walkInPhone, r.walkInEmail,
+        r.propertyId, r.roomTypeId, r.stayPlanType, r.checkInDate, r.checkOutDate,
+        r.baseFee, r.deposit, r.discount, r.discountReason, r.totalAmount,
+        r.paymentType, r.tokenAmount, r.status, r.approvalStatus, r.approvedBy,
+        r.agreementGenerated, r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=bookings_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/leads", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.leads).orderBy(schema.leads.createdAt);
+      const header = ["Name","Email","Phone","Property Name","Source","Entry Source","Status","Notes","Assigned To","Priority","Budget Min","Budget Max","Follow-up Date","Follow-up Notes","Deal Amount","Deal Room Type","Deal Payment Plan","Converted At","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.name, r.email, r.phone, r.propertyName, r.source, r.entrySource, r.status, r.notes,
+        r.assignedToId, r.priority, r.budgetMin, r.budgetMax,
+        r.followUpDate, r.followUpNotes, r.dealAmount, r.dealRoomType, r.dealPaymentPlan,
+        r.convertedAt ? new Date(r.convertedAt).toISOString() : "",
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=leads_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/students", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.students);
+      const header = ["Full Name","Phone","Address","City","State","Pincode","Emergency Name","Emergency Relation","Emergency Phone","College","Course","Year","ID Proof Type","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.fullName, r.phone, r.address, r.city, r.state, r.pincode,
+        r.emergencyName, r.emergencyRelation, r.emergencyPhone,
+        r.collegeName, r.course, r.year, r.idProofType,
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=students_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/payments", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.payments).orderBy(schema.payments.createdAt);
+      const header = ["Booking ID","Installment ID","Amount","Status","Payment Method","Razorpay Order ID","Razorpay Payment ID","Failure Reason","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.bookingId, r.installmentId, r.amount, r.status,
+        r.paymentMethod, r.razorpayOrderId, r.razorpayPaymentId, r.failureReason,
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=payments_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/installments", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.installments).orderBy(schema.installments.createdAt);
+      const header = ["Booking ID","Name","Amount","Due Date","Paid","Paid At","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.bookingId, r.name, r.amount, r.dueDate, r.paid,
+        r.paidAt ? new Date(r.paidAt).toISOString() : "",
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=installments_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/users", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select({
+        id: schema.users.id, name: schema.users.name, email: schema.users.email,
+        phone: schema.users.phone, role: schema.users.role, isActive: schema.users.isActive,
+        createdAt: schema.users.createdAt
+      }).from(schema.users).orderBy(schema.users.createdAt);
+      const header = ["Name","Email","Phone","Role","Active","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.name, r.email, r.phone, r.role, r.isActive,
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=users_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/properties", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.properties);
+      const header = ["Name","Address","City","State","Description","Booking Mode","Amenities","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.name, r.address, r.city, r.state, r.description, r.bookingMode,
+        Array.isArray(r.amenities) ? (r.amenities as string[]).join("; ") : "",
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=properties_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/summary", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const [bookingCount] = await db.select({ count: sql`count(*)` }).from(schema.bookings);
+      const [leadCount] = await db.select({ count: sql`count(*)` }).from(schema.leads);
+      const [studentCount] = await db.select({ count: sql`count(*)` }).from(schema.students);
+      const [paymentCount] = await db.select({ count: sql`count(*)` }).from(schema.payments);
+      const [installmentCount] = await db.select({ count: sql`count(*)` }).from(schema.installments);
+      const [userCount] = await db.select({ count: sql`count(*)` }).from(schema.users);
+      const [propertyCount] = await db.select({ count: sql`count(*)` }).from(schema.properties);
+      res.json({
+        bookings: Number(bookingCount.count),
+        leads: Number(leadCount.count),
+        students: Number(studentCount.count),
+        payments: Number(paymentCount.count),
+        installments: Number(installmentCount.count),
+        users: Number(userCount.count),
+        properties: Number(propertyCount.count),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch summary" });
+    }
+  });
+
   return httpServer;
 }
