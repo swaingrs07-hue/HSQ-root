@@ -782,49 +782,6 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <section className="py-16 bg-gray-900 text-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
-            <div>
-              <h4 className="font-heading font-bold text-lg mb-4">Hsquareliving</h4>
-              <p className="text-white/50 text-sm leading-relaxed font-light">
-                Premium student accommodation redefining the standard of hostel living across Mumbai.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-sm uppercase tracking-wider text-white/70 mb-4 font-semibold">Quick Links</h4>
-              <div className="space-y-2">
-                <Link href="/properties" className="block text-white/50 hover:text-amber-400 text-sm transition-colors">Properties</Link>
-                <Link href="/login" className="block text-white/50 hover:text-amber-400 text-sm transition-colors">Login / Register</Link>
-                <button onClick={() => setTourModalOpen(true)} className="block text-white/50 hover:text-amber-400 text-sm transition-colors">Virtual Tour</button>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm uppercase tracking-wider text-white/70 mb-4 font-semibold">Contact</h4>
-              <div className="space-y-2 text-white/50 text-sm">
-                <p>Mumbai, Maharashtra</p>
-                <p>info@hsquareliving.com</p>
-                <p>+91 98765 43210</p>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm uppercase tracking-wider text-white/70 mb-4 font-semibold">Experience</h4>
-              <div className="flex items-center gap-1 mb-2">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="text-white/50 text-sm font-light">Rated 4.8/5 by our residents</p>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-white/10 text-center">
-            <p className="text-white/30 text-xs tracking-wider uppercase">
-              &copy; {new Date().getFullYear()} Hsquareliving Pvt Ltd. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <PropertyTourModal
         isOpen={tourModalOpen}
         onClose={() => setTourModalOpen(false)}
