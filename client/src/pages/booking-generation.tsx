@@ -1154,10 +1154,8 @@ export default function BookingGeneration() {
                                 <SelectValue placeholder="Select preference" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="vegetarian">Vegetarian</SelectItem>
-                                <SelectItem value="non_vegetarian">Non-Vegetarian</SelectItem>
-                                <SelectItem value="vegan">Vegan</SelectItem>
-                                <SelectItem value="eggetarian">Eggetarian</SelectItem>
+                                <SelectItem value="veg">Veg</SelectItem>
+                                <SelectItem value="non_veg">Non Veg</SelectItem>
                                 <SelectItem value="jain">Jain</SelectItem>
                               </SelectContent>
                             </Select>
@@ -1172,7 +1170,6 @@ export default function BookingGeneration() {
                                 <SelectItem value="single">Single Occupancy</SelectItem>
                                 <SelectItem value="double">Double Sharing</SelectItem>
                                 <SelectItem value="triple">Triple Sharing</SelectItem>
-                                <SelectItem value="dormitory">Dormitory</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
