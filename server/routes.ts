@@ -3181,58 +3181,99 @@ export async function registerRoutes(
   
   const HOSTEL_FLOW_BASE_URL = "https://hostel-flow--swaingrs07.replit.app";
   
+  let cachedHostelFlowJWT: string | null = null;
+  let jwtExpiresAt: number = 0;
+
+  async function getHostelFlowJWT(): Promise<string> {
+    if (cachedHostelFlowJWT && Date.now() < jwtExpiresAt) {
+      return cachedHostelFlowJWT;
+    }
+    const email = process.env.HOSTEL_FLOW_EMAIL;
+    const password = process.env.HOSTEL_FLOW_PASSWORD;
+    if (!email || !password) {
+      throw new Error("HOSTEL_FLOW_EMAIL and HOSTEL_FLOW_PASSWORD not configured");
+    }
+    const loginRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!loginRes.ok) {
+      const errText = await loginRes.text();
+      throw new Error(`Login failed (${loginRes.status}): ${errText}`);
+    }
+    const loginData = await loginRes.json() as any;
+    cachedHostelFlowJWT = loginData.jwtToken || loginData.token;
+    if (!cachedHostelFlowJWT) {
+      throw new Error("No token returned from Hostel Flow login");
+    }
+    jwtExpiresAt = Date.now() + 23 * 60 * 60 * 1000;
+    return cachedHostelFlowJWT;
+  }
+
   app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
     try {
-      const apiKey = process.env.HOSTEL_FLOW_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ error: "External API key not configured" });
+      let jwt: string;
+      try {
+        jwt = await getHostelFlowJWT();
+      } catch (loginErr: any) {
+        console.error("Hostel Flow login error:", loginErr.message);
+        return res.status(502).json({ 
+          error: "Failed to authenticate with Hostel Flow",
+          details: loginErr.message
+        });
       }
 
       const searchQuery = (req.query.search as string || "").trim();
 
-      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
+      let response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${jwt}`,
           "Content-Type": "application/json",
         },
       });
+
+      if (response.status === 401) {
+        cachedHostelFlowJWT = null;
+        jwtExpiresAt = 0;
+        try {
+          jwt = await getHostelFlowJWT();
+          response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
+            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+          });
+        } catch (retryErr: any) {
+          return res.status(502).json({ error: "Failed to re-authenticate with Hostel Flow", details: retryErr.message });
+        }
+      }
 
       if (!response.ok) {
         let errorDetail = "External service unavailable";
         try {
           const errorData = JSON.parse(await response.text());
-          if (errorData.error?.includes("admin user not found")) {
-            errorDetail = "API key is valid but the linked admin account doesn't exist on Hostel Flow. Please set up the admin user on the external system.";
-          } else if (errorData.error?.includes("Invalid token")) {
-            errorDetail = "API key is invalid or expired. Please update the HOSTEL_FLOW_API_KEY.";
-          } else if (response.status === 401 || response.status === 403) {
-            errorDetail = `Authentication failed: ${errorData.error || "API key may be invalid"}`;
-          } else {
-            errorDetail = errorData.error || errorDetail;
-          }
-        } catch (e) { /* ignore parse error */ }
+          errorDetail = errorData.error || errorDetail;
+        } catch (e) {}
         console.error("External API error:", response.status, errorDetail);
-        const statusCode = (response.status === 401 || response.status === 403) ? response.status : 502;
-        return res.status(statusCode).json({ 
+        return res.status(502).json({ 
           error: "Failed to fetch from external system",
-          details: errorDetail,
-          upstreamStatus: response.status
+          details: errorDetail
         });
       }
 
       let residents = await response.json();
       
       if (!Array.isArray(residents)) {
-        residents = residents.residents || residents.data || [];
+        residents = (residents as any).residents || (residents as any).data || [];
       }
 
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        residents = residents.filter((r: any) => {
+        residents = (residents as any[]).filter((r: any) => {
           const name = (r.fullName || r.name || "").toLowerCase();
           const phone = (r.phone || "").toLowerCase();
           const email = (r.email || "").toLowerCase();
-          return name.includes(query) || phone.includes(query) || email.includes(query);
+          const college = (r.college || r.instituteName || "").toLowerCase();
+          const room = (r.room || "").toLowerCase();
+          return name.includes(query) || phone.includes(query) || email.includes(query) || college.includes(query) || room.includes(query);
         });
       }
 
@@ -3245,20 +3286,35 @@ export async function registerRoutes(
 
   app.get("/api/admin/registered-students/:id", authMiddleware, roleMiddleware("admin", "sales_executive"), async (req: AuthRequest, res) => {
     try {
-      const apiKey = process.env.HOSTEL_FLOW_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ error: "External API key not configured" });
+      let jwt: string;
+      try {
+        jwt = await getHostelFlowJWT();
+      } catch (loginErr: any) {
+        return res.status(502).json({ error: "Failed to authenticate with Hostel Flow" });
       }
 
-      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
+      let response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${jwt}`,
           "Content-Type": "application/json",
         },
       });
 
+      if (response.status === 401) {
+        cachedHostelFlowJWT = null;
+        jwtExpiresAt = 0;
+        try {
+          jwt = await getHostelFlowJWT();
+          response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
+            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+          });
+        } catch (retryErr: any) {
+          return res.status(502).json({ error: "Failed to re-authenticate with Hostel Flow", details: retryErr.message });
+        }
+      }
+
       if (!response.ok) {
-        return res.status(response.status).json({ error: "Student not found in external system" });
+        return res.status(response.status === 404 ? 404 : 502).json({ error: "Student not found in external system" });
       }
 
       const resident = await response.json();
