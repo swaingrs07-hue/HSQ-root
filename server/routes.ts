@@ -270,6 +270,104 @@ export async function registerRoutes(
     }
   });
 
+  // ============ INSTAGRAM LIVE FEED ============
+
+  async function fetchInstagramPosts(): Promise<any[]> {
+    const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+    if (!accessToken) {
+      throw new Error("Instagram access token not configured");
+    }
+
+    const response = await fetch(
+      `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=25&access_token=${accessToken}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Instagram API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    return (data.data || []).filter(
+      (post: any) => post.media_type === "IMAGE" || post.media_type === "CAROUSEL_ALBUM"
+    );
+  }
+
+  async function syncInstagramIfStale(): Promise<void> {
+    const lastSync = await storage.getLastInstagramSync();
+    const now = new Date();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    if (lastSync && lastSync.status === "success" && (now.getTime() - lastSync.syncedAt.getTime()) < oneDayMs) {
+      return;
+    }
+
+    try {
+      const posts = await fetchInstagramPosts();
+      const mappedPosts = posts.map((p: any) => ({
+        id: p.id,
+        mediaType: p.media_type,
+        mediaUrl: p.media_url,
+        thumbnailUrl: p.thumbnail_url || null,
+        caption: p.caption || null,
+        permalink: p.permalink,
+        instagramTimestamp: new Date(p.timestamp),
+        cachedAt: new Date(),
+      }));
+      await storage.upsertInstagramPosts(mappedPosts);
+      await storage.logInstagramSync(mappedPosts.length, "success");
+    } catch (error: any) {
+      await storage.logInstagramSync(0, "error", error.message);
+      throw error;
+    }
+  }
+
+  app.get("/api/instagram/posts", async (req, res) => {
+    try {
+      try {
+        await syncInstagramIfStale();
+      } catch (syncError: any) {
+        console.error("Instagram sync failed:", syncError.message);
+      }
+
+      const posts = await storage.getInstagramPosts();
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch Instagram posts" });
+    }
+  });
+
+  app.post("/api/instagram/sync", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const posts = await fetchInstagramPosts();
+      const mappedPosts = posts.map((p: any) => ({
+        id: p.id,
+        mediaType: p.media_type,
+        mediaUrl: p.media_url,
+        thumbnailUrl: p.thumbnail_url || null,
+        caption: p.caption || null,
+        permalink: p.permalink,
+        instagramTimestamp: new Date(p.timestamp),
+        cachedAt: new Date(),
+      }));
+      await storage.upsertInstagramPosts(mappedPosts);
+      await storage.logInstagramSync(mappedPosts.length, "success");
+      res.json({ success: true, count: mappedPosts.length });
+    } catch (error: any) {
+      await storage.logInstagramSync(0, "error", error.message);
+      res.status(500).json({ error: error.message || "Failed to sync Instagram posts" });
+    }
+  });
+
+  app.get("/api/instagram/sync-status", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const lastSync = await storage.getLastInstagramSync();
+      res.json(lastSync || { syncedAt: null, status: "never" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get sync status" });
+    }
+  });
+
   // ============ WEB LEAD CAPTURE ============
   
   // Schema for web lead validation

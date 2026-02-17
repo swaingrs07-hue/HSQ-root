@@ -11,7 +11,7 @@ import heroStudentLiving from "@/assets/hero-student-living.png";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
-  ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart
+  ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
@@ -74,6 +74,10 @@ export default function Home() {
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [heroSlides, setHeroSlides] = useState(DEFAULT_SLIDES);
+  const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
+  const [igCurrentSlide, setIgCurrentSlide] = useState(0);
+  const [igAutoPlaying, setIgAutoPlaying] = useState(true);
+  const igInterval = useRef<NodeJS.Timeout | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -105,6 +109,26 @@ export default function Home() {
       setPropertiesLoading(false);
     }).catch(() => setPropertiesLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/instagram/posts")
+      .then(res => res.ok ? res.json() : [])
+      .then((posts: any[]) => {
+        if (posts.length > 0) setInstagramPosts(posts);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (igAutoPlaying && instagramPosts.length > 1) {
+      igInterval.current = setInterval(() => {
+        setIgCurrentSlide(prev => (prev + 1) % instagramPosts.length);
+      }, 5000);
+    }
+    return () => {
+      if (igInterval.current) clearInterval(igInterval.current);
+    };
+  }, [igAutoPlaying, instagramPosts.length]);
 
   const nextSlide = useCallback(() => {
     setSlideDirection(1);
@@ -437,6 +461,166 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {instagramPosts.length > 0 && (
+        <section
+          className="py-20 md:py-28 bg-gradient-to-b from-stone-50 to-white overflow-hidden"
+          onMouseEnter={() => setIgAutoPlaying(false)}
+          onMouseLeave={() => setIgAutoPlaying(true)}
+          data-testid="instagram-feed-section"
+        >
+          <div className="container mx-auto px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="flex flex-col md:flex-row items-start md:items-end justify-between mb-12"
+            >
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)" }}>
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                  </div>
+                  <p className="text-sm tracking-[0.3em] uppercase font-medium" style={{ background: "linear-gradient(135deg, #f09433, #dc2743, #bc1888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live From Instagram</p>
+                </div>
+                <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-2">
+                  Life at Hsquareliving
+                </h2>
+                <p className="text-gray-500 font-light">Follow our journey and see what makes us special</p>
+              </div>
+              <a
+                href="https://www.instagram.com/hsquareliving/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 md:mt-0 group flex items-center gap-2 text-sm font-semibold tracking-wider uppercase hover:opacity-80 transition-opacity"
+                style={{ background: "linear-gradient(135deg, #f09433, #dc2743, #bc1888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+                data-testid="link-instagram-profile"
+              >
+                @hsquareliving <ExternalLink className="w-4 h-4 text-pink-600 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </motion.div>
+
+            <div className="relative">
+              <div className="relative aspect-[16/9] md:aspect-[21/9] overflow-hidden rounded-lg shadow-2xl">
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={igCurrentSlide}
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                    className="absolute inset-0"
+                  >
+                    <img
+                      src={instagramPosts[igCurrentSlide]?.mediaUrl}
+                      alt={instagramPosts[igCurrentSlide]?.caption?.slice(0, 100) || "Instagram post"}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/10" />
+
+                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
+                      <div className="max-w-3xl">
+                        {instagramPosts[igCurrentSlide]?.caption && (
+                          <motion.p
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.6 }}
+                            className="text-white/90 text-sm md:text-base leading-relaxed line-clamp-3 mb-4 font-light"
+                          >
+                            {instagramPosts[igCurrentSlide].caption}
+                          </motion.p>
+                        )}
+                        <motion.a
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.5 }}
+                          href={instagramPosts[igCurrentSlide]?.permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs uppercase tracking-wider font-semibold hover:bg-white/20 transition-all rounded-none"
+                          data-testid="link-instagram-post"
+                        >
+                          View on Instagram
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </motion.a>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                <div className="absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-white text-xs font-medium tracking-wide">LIVE FEED</span>
+                </div>
+
+                <button
+                  onClick={() => setIgCurrentSlide(prev => (prev - 1 + instagramPosts.length) % instagramPosts.length)}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+                  data-testid="button-ig-prev"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setIgCurrentSlide(prev => (prev + 1) % instagramPosts.length)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+                  data-testid="button-ig-next"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-2">
+                {instagramPosts.slice(0, 12).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setIgCurrentSlide(i)}
+                    className="relative h-1.5 rounded-full overflow-hidden transition-all duration-500"
+                    style={{ width: i === igCurrentSlide ? "2rem" : "0.75rem" }}
+                    data-testid={`button-ig-dot-${i}`}
+                  >
+                    <span className={`absolute inset-0 rounded-full ${
+                      i === igCurrentSlide
+                        ? "bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600"
+                        : "bg-gray-300 hover:bg-gray-400"
+                    }`} />
+                    {i === igCurrentSlide && igAutoPlaying && (
+                      <motion.span
+                        className="absolute inset-0 rounded-full origin-left"
+                        style={{ background: "linear-gradient(90deg, #f09433, #dc2743, #bc1888)" }}
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{ duration: 5, ease: "linear" }}
+                        key={`ig-progress-${igCurrentSlide}`}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                {instagramPosts.slice(0, 8).map((post: any, i: number) => (
+                  <motion.button
+                    key={post.id}
+                    onClick={() => setIgCurrentSlide(i)}
+                    className={`aspect-square overflow-hidden rounded-sm transition-all duration-300 ${
+                      i === igCurrentSlide ? "ring-2 ring-pink-500 ring-offset-2 scale-95" : "opacity-70 hover:opacity-100"
+                    }`}
+                    whileHover={{ scale: 1.05 }}
+                    data-testid={`button-ig-thumb-${i}`}
+                  >
+                    <img
+                      src={post.mediaUrl}
+                      alt={post.caption?.slice(0, 50) || `Post ${i + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {!propertiesLoading && properties.length > 0 && (
         <section className="py-20 md:py-28 bg-white">

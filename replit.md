@@ -89,6 +89,14 @@ Preferred communication style: Simple, everyday language.
   - Lost Status: Score reset to 0
 - **Admin Dashboard**: Lead Scoring Dashboard with priority distribution, averages, and top property analysis
 
+### Instagram Live Feed
+- **API**: Instagram Graph API integration with daily caching
+- **Tables**: `instagramPosts` (cached media), `instagramSyncLog` (sync history)
+- **Endpoints**: `GET /api/instagram/posts` (public, auto-syncs if stale), `POST /api/instagram/sync` (admin manual), `GET /api/instagram/sync-status` (admin)
+- **Caching**: Posts cached in DB, refreshed once per 24 hours automatically
+- **Frontend**: Premium slideshow section on homepage between amenities and featured residences
+- **Environment**: Requires `INSTAGRAM_ACCESS_TOKEN` secret for Instagram Graph API
+
 ### Code Organization
 ```
 client/src/
