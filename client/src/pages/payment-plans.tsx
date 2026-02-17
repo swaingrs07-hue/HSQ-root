@@ -87,13 +87,18 @@ export default function PaymentPlans() {
     let total = roomData.price;
     if (plan.discount) total -= plan.discount;
 
-    return plan.installments.map(inst => {
-      let amount = inst.fixed;
-      if (inst.percentage > 0) {
-        amount = (total - 100000) * (inst.percentage / 100);
-      }
-      return { ...inst, amount: Math.round(amount) };
-    });
+    const bookingAmount = Math.min(100000, total);
+    const remaining = Math.max(0, total - bookingAmount);
+
+    return plan.installments
+      .map(inst => {
+        let amount = inst.fixed > 0 ? Math.min(inst.fixed, total) : 0;
+        if (inst.percentage > 0) {
+          amount = remaining * (inst.percentage / 100);
+        }
+        return { ...inst, amount: Math.round(amount) };
+      })
+      .filter(inst => inst.amount > 0);
   };
 
   return (
@@ -160,7 +165,7 @@ export default function PaymentPlans() {
                 disabled={processing}
                 data-testid="button-proceed-payment"
               >
-                {processing ? "Creating Booking..." : "Proceed to Pay ₹1,00,000"}
+                {processing ? "Creating Booking..." : `Proceed to Pay ₹${Math.min(100000, roomData.price).toLocaleString("en-IN")}`}
               </Button>
             </CardFooter>
           </Card>
