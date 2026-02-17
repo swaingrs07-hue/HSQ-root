@@ -35,6 +35,7 @@ import AdminPropertyTourImages from "@/pages/admin-property-tour-images";
 import AdminChatbot from "@/pages/admin-chatbot";
 import AdminCalendar from "@/pages/admin-calendar";
 import AdminHeroSlides from "@/pages/admin-hero-slides";
+import AdminFooterSettings from "@/pages/admin-footer-settings";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
@@ -68,6 +69,7 @@ function AppContent() {
               <Route path="/admin/property-tour-images" component={AdminPropertyTourImages} />
               <Route path="/admin/ai-chatbot" component={AdminChatbot} />
               <Route path="/admin/hero-slides" component={AdminHeroSlides} />
+              <Route path="/admin/footer-settings" component={AdminFooterSettings} />
               <Route path="/admin/calendar" component={AdminCalendar} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />

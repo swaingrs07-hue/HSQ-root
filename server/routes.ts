@@ -270,6 +270,65 @@ export async function registerRoutes(
     }
   });
 
+  // ============ FOOTER SETTINGS ============
+
+  app.get("/api/footer-settings", async (req, res) => {
+    try {
+      const settings = await storage.getFooterSettings();
+      if (!settings) {
+        return res.json({
+          companyDescription: "Premium student accommodation designed for comfort, community, and success.",
+          email: "support@hsquareliving.com",
+          phone: "+91 98765 43210",
+          location: "Bangalore, India",
+          copyrightText: "Hsquareliving Pvt Ltd. All rights reserved.",
+          quickLinks: [{ label: "Properties", href: "/properties" }, { label: "About Us", href: "/about" }, { label: "Contact", href: "/contact" }],
+          supportLinks: [{ label: "FAQs", href: "/faq" }, { label: "Terms & Conditions", href: "/terms" }, { label: "Privacy Policy", href: "/privacy" }],
+        });
+      }
+      res.json({
+        ...settings,
+        quickLinks: JSON.parse(settings.quickLinks || "[]"),
+        supportLinks: JSON.parse(settings.supportLinks || "[]"),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch footer settings" });
+    }
+  });
+
+  const footerUpdateSchema = z.object({
+    companyDescription: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    location: z.string().optional(),
+    copyrightText: z.string().optional(),
+    quickLinks: z.array(z.object({ label: z.string(), href: z.string() })).optional(),
+    supportLinks: z.array(z.object({ label: z.string(), href: z.string() })).optional(),
+    socialInstagram: z.string().nullable().optional(),
+    socialFacebook: z.string().nullable().optional(),
+    socialTwitter: z.string().nullable().optional(),
+    socialLinkedin: z.string().nullable().optional(),
+  });
+
+  app.put("/api/footer-settings", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+    try {
+      const parsed = footerUpdateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid footer data", details: parsed.error.format() });
+      const { quickLinks, supportLinks, ...rest } = parsed.data;
+      const data: any = { ...rest };
+      if (quickLinks) data.quickLinks = JSON.stringify(quickLinks);
+      if (supportLinks) data.supportLinks = JSON.stringify(supportLinks);
+      const settings = await storage.upsertFooterSettings(data);
+      res.json({
+        ...settings,
+        quickLinks: JSON.parse(settings.quickLinks || "[]"),
+        supportLinks: JSON.parse(settings.supportLinks || "[]"),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update footer settings" });
+    }
+  });
+
   // ============ INSTAGRAM LIVE FEED ============
 
   async function fetchInstagramPosts(): Promise<any[]> {

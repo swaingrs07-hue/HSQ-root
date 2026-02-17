@@ -21,6 +21,7 @@ import {
   heroSlides,
   instagramPosts,
   instagramSyncLog,
+  footerSettings,
   type User,
   type InsertUser,
   type Student,
@@ -62,6 +63,7 @@ import {
   type HeroSlide,
   type InsertHeroSlide,
   type InstagramPost,
+  type FooterSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -296,6 +298,10 @@ export interface IStorage {
   updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
   deleteHeroSlide(id: string): Promise<void>;
   reorderHeroSlides(slideIds: string[]): Promise<void>;
+
+  // Footer Settings
+  getFooterSettings(): Promise<FooterSettings | null>;
+  upsertFooterSettings(data: Partial<FooterSettings>): Promise<FooterSettings>;
 
   // Instagram
   getInstagramPosts(): Promise<InstagramPost[]>;
@@ -1713,6 +1719,21 @@ export class DatabaseStorage implements IStorage {
         await tx.update(heroSlides).set({ sortOrder: i }).where(eq(heroSlides.id, slideIds[i]));
       }
     });
+  }
+
+  async getFooterSettings(): Promise<FooterSettings | null> {
+    const [settings] = await db.select().from(footerSettings).limit(1);
+    return settings || null;
+  }
+
+  async upsertFooterSettings(data: Partial<FooterSettings>): Promise<FooterSettings> {
+    const existing = await this.getFooterSettings();
+    if (existing) {
+      const [updated] = await db.update(footerSettings).set({ ...data, updatedAt: new Date() }).where(eq(footerSettings.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(footerSettings).values(data as any).returning();
+    return created;
   }
 
   async getInstagramPosts(): Promise<InstagramPost[]> {

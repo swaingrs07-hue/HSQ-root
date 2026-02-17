@@ -32,7 +32,8 @@ import {
   Activity,
   Bot,
   UserCog,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PanelBottom
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -86,6 +87,7 @@ const adminNavItems: NavItem[] = [
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
+  { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];

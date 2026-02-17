@@ -980,5 +980,26 @@ export const insertHeroSlideSchema = createInsertSchema(heroSlides).omit({ id: t
 export type HeroSlide = typeof heroSlides.$inferSelect;
 export type InsertHeroSlide = z.infer<typeof insertHeroSlideSchema>;
 
+// Footer Settings (admin-editable footer content)
+export const footerSettings = pgTable("footer_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyDescription: text("company_description").notNull().default("Premium student accommodation designed for comfort, community, and success."),
+  email: text("email").notNull().default("support@hsquareliving.com"),
+  phone: text("phone").notNull().default("+91 98765 43210"),
+  location: text("location").notNull().default("Bangalore, India"),
+  copyrightText: text("copyright_text").notNull().default("Hsquareliving Pvt Ltd. All rights reserved."),
+  quickLinks: text("quick_links").notNull().default('[{"label":"Properties","href":"/properties"},{"label":"About Us","href":"/about"},{"label":"Contact","href":"/contact"}]'),
+  supportLinks: text("support_links").notNull().default('[{"label":"FAQs","href":"/faq"},{"label":"Terms & Conditions","href":"/terms"},{"label":"Privacy Policy","href":"/privacy"}]'),
+  socialInstagram: text("social_instagram"),
+  socialFacebook: text("social_facebook"),
+  socialTwitter: text("social_twitter"),
+  socialLinkedin: text("social_linkedin"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertFooterSettingsSchema = createInsertSchema(footerSettings).omit({ id: true, updatedAt: true });
+export type FooterSettings = typeof footerSettings.$inferSelect;
+export type InsertFooterSettings = z.infer<typeof insertFooterSettingsSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";
