@@ -2391,6 +2391,8 @@ export async function registerRoutes(
         discount,
         discountReason,
         paymentType,
+        tokenAmount,
+        numberOfInstallments,
         paymentPlanId,
         createdBy,
         assignedSalesExecId,
@@ -2408,13 +2410,13 @@ export async function registerRoutes(
 
       // Determine approval requirement based on discount percentage
       const discountPercent = baseFee > 0 ? (totalDiscount / baseFee) * 100 : 0;
-      const approvalRequired = discountPercent > 10; // More than 10% discount requires admin approval
+      const approvalRequired = discountPercent > 10;
 
       // Determine initial status
       let initialStatus = "draft";
       if (approvalRequired) {
         initialStatus = "pending_approval";
-      } else if (paymentType === "full" || paymentType === "partial") {
+      } else if (paymentType === "full" || paymentType === "partial" || paymentType === "installments") {
         initialStatus = "pending_payment";
       }
 
@@ -2449,12 +2451,41 @@ export async function registerRoutes(
         signatureData: null,
       });
 
+      // Create installment records based on payment type
+      const installmentRecords: any[] = [];
+      if (paymentType === "partial" && tokenAmount) {
+        installmentRecords.push(
+          { bookingId: booking.id, name: "Booking Amount (Token)", amount: tokenAmount, dueDate: "Immediate" },
+          { bookingId: booking.id, name: "Balance Payment", amount: totalFee - tokenAmount, dueDate: "Before Move-in" }
+        );
+      } else if (paymentType === "installments" && numberOfInstallments) {
+        const numInstallments = numberOfInstallments || 2;
+        const perInstallment = Math.round(totalFee / numInstallments);
+        for (let i = 0; i < numInstallments; i++) {
+          const isLast = i === numInstallments - 1;
+          const amount = isLast ? totalFee - (perInstallment * (numInstallments - 1)) : perInstallment;
+          installmentRecords.push({
+            bookingId: booking.id,
+            name: i === 0 ? "Booking Amount" : `Installment ${i}`,
+            amount,
+            dueDate: i === 0 ? "Immediate" : `Installment ${i} Due`,
+          });
+        }
+      } else {
+        installmentRecords.push(
+          { bookingId: booking.id, name: "Full Payment", amount: totalFee, dueDate: "Immediate" }
+        );
+      }
+      if (installmentRecords.length > 0) {
+        await storage.createInstallments(installmentRecords);
+      }
+
       // If lead conversion, update lead status
       if (customerType === "lead" && leadId) {
         await storage.updateLead(leadId, { status: "converted" });
       }
 
-      res.json({ booking, requiresApproval: approvalRequired });
+      res.json({ booking, requiresApproval: approvalRequired, installments: installmentRecords });
     } catch (error) {
       console.error("Error generating booking:", error);
       res.status(500).json({ error: "Failed to generate booking" });

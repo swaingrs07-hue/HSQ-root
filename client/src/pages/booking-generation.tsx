@@ -132,6 +132,8 @@ export default function BookingGeneration() {
     discountReason: "",
     paymentType: "full",
     paymentPlanId: "",
+    tokenAmount: 100000,
+    numberOfInstallments: 2,
   });
 
   const isAdmin = user?.role === "admin";
@@ -404,6 +406,8 @@ export default function BookingGeneration() {
           discount: formData.discount,
           discountReason: formData.discountReason,
           paymentType: formData.paymentType,
+          tokenAmount: formData.paymentType === "partial" ? formData.tokenAmount : null,
+          numberOfInstallments: formData.paymentType === "installments" ? formData.numberOfInstallments : null,
           paymentPlanId: formData.paymentPlanId || null,
           createdBy: user?.id,
           assignedSalesExecId: isSalesExec ? user?.id : null,
@@ -1121,6 +1125,67 @@ export default function BookingGeneration() {
                         </div>
                       </div>
 
+                      {formData.paymentType === "partial" && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                          <Label className="text-sm font-semibold text-blue-800">Token / Booking Amount</Label>
+                          <p className="text-xs text-blue-600">Amount to be paid upfront to confirm the booking</p>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 font-medium">₹</span>
+                            <Input
+                              type="number"
+                              value={formData.tokenAmount}
+                              onChange={(e) => {
+                                const val = Math.max(0, Math.min(calculateTotal(), parseInt(e.target.value) || 0));
+                                setFormData(prev => ({ ...prev, tokenAmount: val }));
+                              }}
+                              className="pl-7 bg-white border-blue-300 font-medium"
+                              data-testid="input-token-amount"
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-blue-600">
+                            <span>Balance due later: ₹{(calculateTotal() - formData.tokenAmount).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.paymentType === "installments" && (
+                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+                          <Label className="text-sm font-semibold text-purple-800">Installment Plan</Label>
+                          <p className="text-xs text-purple-600">Split the total into equal scheduled payments</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[2, 3, 4].map(num => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, numberOfInstallments: num }))}
+                                className={`p-3 rounded-lg border-2 text-center transition-all ${
+                                  formData.numberOfInstallments === num
+                                    ? "border-purple-500 bg-purple-100 text-purple-700"
+                                    : "border-purple-200 bg-white text-slate-600 hover:border-purple-300"
+                                }`}
+                                data-testid={`btn-installments-${num}`}
+                              >
+                                <p className="text-lg font-bold">{num}</p>
+                                <p className="text-xs">parts</p>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="space-y-1 mt-2">
+                            {Array.from({ length: formData.numberOfInstallments }, (_, i) => {
+                              const perInstallment = Math.round(calculateTotal() / formData.numberOfInstallments);
+                              const isLast = i === formData.numberOfInstallments - 1;
+                              const amount = isLast ? calculateTotal() - (perInstallment * (formData.numberOfInstallments - 1)) : perInstallment;
+                              return (
+                                <div key={i} className="flex justify-between text-sm text-purple-700 bg-white px-3 py-2 rounded-md border border-purple-100">
+                                  <span>{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
+                                  <span className="font-semibold">₹{amount.toLocaleString()}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
                         <h4 className="text-sm font-semibold text-slate-600 mb-3">Payment Summary</h4>
                         <div className="space-y-2">
@@ -1147,6 +1212,32 @@ export default function BookingGeneration() {
                               ₹{calculateTotal().toLocaleString()}
                             </span>
                           </div>
+                          {formData.paymentType === "partial" && (
+                            <>
+                              <Separator className="my-2" />
+                              <div className="flex justify-between text-sm">
+                                <span className="text-blue-600 font-medium">Pay Now (Token)</span>
+                                <span className="font-bold text-blue-700">₹{formData.tokenAmount.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Balance Due</span>
+                                <span className="font-medium text-slate-600">₹{(calculateTotal() - formData.tokenAmount).toLocaleString()}</span>
+                              </div>
+                            </>
+                          )}
+                          {formData.paymentType === "installments" && (
+                            <>
+                              <Separator className="my-2" />
+                              <div className="flex justify-between text-sm">
+                                <span className="text-purple-600 font-medium">Per Installment</span>
+                                <span className="font-bold text-purple-700">₹{Math.round(calculateTotal() / formData.numberOfInstallments).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Number of Parts</span>
+                                <span className="font-medium text-slate-600">{formData.numberOfInstallments} installments</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -1237,6 +1328,16 @@ export default function BookingGeneration() {
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="capitalize">{formData.paymentType} payment</Badge>
+                      {formData.paymentType === "partial" && formData.tokenAmount > 0 && (
+                        <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                          Token: ₹{formData.tokenAmount.toLocaleString()} + Balance: ₹{(calculateTotal() - formData.tokenAmount).toLocaleString()}
+                        </Badge>
+                      )}
+                      {formData.paymentType === "installments" && formData.numberOfInstallments > 0 && (
+                        <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
+                          {formData.numberOfInstallments} installments × ₹{Math.round(calculateTotal() / formData.numberOfInstallments).toLocaleString()}
+                        </Badge>
+                      )}
                       {needsApproval() && (
                         <Badge variant="destructive" className="flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
