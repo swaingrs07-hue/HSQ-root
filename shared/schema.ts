@@ -942,6 +942,28 @@ export const insertChatbotEventSchema = createInsertSchema(chatbotEvents).omit({
 export type ChatbotEvent = typeof chatbotEvents.$inferSelect;
 export type InsertChatbotEvent = z.infer<typeof insertChatbotEventSchema>;
 
+// Instagram Posts Cache (for live Instagram feed on homepage)
+export const instagramPosts = pgTable("instagram_posts", {
+  id: varchar("id").primaryKey(),
+  mediaType: text("media_type").notNull(),
+  mediaUrl: text("media_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  caption: text("caption"),
+  permalink: text("permalink").notNull(),
+  instagramTimestamp: timestamp("instagram_timestamp").notNull(),
+  cachedAt: timestamp("cached_at").defaultNow().notNull(),
+});
+
+export type InstagramPost = typeof instagramPosts.$inferSelect;
+
+export const instagramSyncLog = pgTable("instagram_sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+  postCount: integer("post_count").default(0),
+  status: text("status").notNull(),
+  errorMessage: text("error_message"),
+});
+
 // Hero Slides table (for admin-managed homepage carousel)
 export const heroSlides = pgTable("hero_slides", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

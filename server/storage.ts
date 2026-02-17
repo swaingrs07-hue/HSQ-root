@@ -19,6 +19,8 @@ import {
   notifications,
   activityLogs,
   heroSlides,
+  instagramPosts,
+  instagramSyncLog,
   type User,
   type InsertUser,
   type Student,
@@ -59,6 +61,7 @@ import {
   type InsertActivityLog,
   type HeroSlide,
   type InsertHeroSlide,
+  type InstagramPost,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -293,6 +296,13 @@ export interface IStorage {
   updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
   deleteHeroSlide(id: string): Promise<void>;
   reorderHeroSlides(slideIds: string[]): Promise<void>;
+
+  // Instagram
+  getInstagramPosts(): Promise<InstagramPost[]>;
+  upsertInstagramPosts(posts: InstagramPost[]): Promise<void>;
+  getLastInstagramSync(): Promise<{ syncedAt: Date; status: string } | null>;
+  logInstagramSync(postCount: number, status: string, errorMessage?: string): Promise<void>;
+  clearInstagramPosts(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1703,6 +1713,32 @@ export class DatabaseStorage implements IStorage {
         await tx.update(heroSlides).set({ sortOrder: i }).where(eq(heroSlides.id, slideIds[i]));
       }
     });
+  }
+
+  async getInstagramPosts(): Promise<InstagramPost[]> {
+    return await db.select().from(instagramPosts).orderBy(desc(instagramPosts.instagramTimestamp));
+  }
+
+  async upsertInstagramPosts(posts: InstagramPost[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(instagramPosts);
+      for (const post of posts) {
+        await tx.insert(instagramPosts).values(post);
+      }
+    });
+  }
+
+  async getLastInstagramSync(): Promise<{ syncedAt: Date; status: string } | null> {
+    const [latest] = await db.select().from(instagramSyncLog).orderBy(desc(instagramSyncLog.syncedAt)).limit(1);
+    return latest ? { syncedAt: latest.syncedAt, status: latest.status } : null;
+  }
+
+  async logInstagramSync(postCount: number, status: string, errorMessage?: string): Promise<void> {
+    await db.insert(instagramSyncLog).values({ postCount, status, errorMessage });
+  }
+
+  async clearInstagramPosts(): Promise<void> {
+    await db.delete(instagramPosts);
   }
 }
 
