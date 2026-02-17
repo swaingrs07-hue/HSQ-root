@@ -2696,24 +2696,33 @@ export async function registerRoutes(
         initialStatus = "pending_payment";
       }
 
+      // For student type, check if student exists locally before setting FK
+      let validStudentId: string | null = null;
+      if (customerType === "student" && studentId) {
+        const localStudent = await storage.getStudent(studentId);
+        if (localStudent) {
+          validStudentId = studentId;
+        }
+      }
+
       // Create booking with code
       const booking = await storage.createBookingWithCode({
-        studentId: customerType === "student" ? studentId : null,
+        studentId: validStudentId,
         leadId: customerType === "lead" ? leadId : null,
-        walkInName: customerType === "walk_in" ? walkInName : null,
-        walkInPhone: customerType === "walk_in" ? walkInPhone : null,
-        walkInEmail: customerType === "walk_in" ? walkInEmail : null,
+        walkInName: walkInName || null,
+        walkInPhone: walkInPhone || null,
+        walkInEmail: walkInEmail || null,
         propertyId,
         roomTypeId,
         stayPlanType: stayPlanType || "academic_year",
-        checkInDate: checkInDate ? new Date(checkInDate) : null,
-        checkOutDate: checkOutDate ? new Date(checkOutDate) : null,
+        checkInDate: checkInDate || null,
+        checkOutDate: checkOutDate || null,
         durationMonths: durationMonths || null,
         baseFee,
         deposit: deposit || 0,
         discount: totalDiscount,
         totalFee,
-        paymentPlanId: paymentPlanId || null,
+        paymentPlanId: paymentPlanId || "custom",
         paymentType: paymentType || "full",
         discountReason: discountReason || null,
         discountApprovedBy: null,
