@@ -227,7 +227,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/hero-slides", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.post("/api/hero-slides", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const parsed = insertHeroSlideSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
@@ -238,7 +238,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/hero-slides/:id", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.put("/api/hero-slides/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const parsed = insertHeroSlideSchema.partial().safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
@@ -250,7 +250,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/hero-slides/:id", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.delete("/api/hero-slides/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteHeroSlide(req.params.id);
       res.json({ success: true });
@@ -259,7 +259,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/hero-slides/reorder", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.post("/api/hero-slides/reorder", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { slideIds } = req.body;
       if (!Array.isArray(slideIds)) return res.status(400).json({ error: "slideIds must be an array" });
@@ -310,7 +310,7 @@ export async function registerRoutes(
     socialLinkedin: z.string().nullable().optional(),
   });
 
-  app.put("/api/footer-settings", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.put("/api/footer-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const parsed = footerUpdateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid footer data", details: parsed.error.format() });
@@ -396,7 +396,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/instagram/sync", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.post("/api/instagram/sync", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const posts = await fetchInstagramPosts();
       const mappedPosts = posts.map((p: any) => ({
@@ -418,7 +418,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/instagram/sync-status", authMiddleware, roleMiddleware(["admin"]), async (req: AuthRequest, res) => {
+  app.get("/api/instagram/sync-status", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const lastSync = await storage.getLastInstagramSync();
       res.json(lastSync || { syncedAt: null, status: "never" });
