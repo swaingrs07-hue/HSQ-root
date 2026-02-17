@@ -74,7 +74,6 @@ interface NavItem {
 
 const adminNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
   { name: "Team", href: "/admin/users", icon: Users },
   { name: "Leads", href: "/admin/leads", icon: Target },
