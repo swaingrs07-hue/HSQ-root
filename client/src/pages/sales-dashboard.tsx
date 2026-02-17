@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Phone, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2 } from "lucide-react";
+import { Target, Phone, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download } from "lucide-react";
+import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
 import { format, parseISO, isAfter, isBefore, addDays } from "date-fns";
@@ -853,6 +854,39 @@ export default function SalesDashboard() {
               />
             </div>
           </div>
+          {selectedLead?.followUpAt && (
+            <div className="flex items-center gap-2 px-1 pb-2">
+              <span className="text-xs text-muted-foreground">Add existing follow-up to calendar:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-google-calendar-followup"
+                onClick={() => {
+                  const start = new Date(selectedLead.followUpAt!);
+                  const end = new Date(start.getTime() + 30 * 60000);
+                  const url = buildGoogleCalendarUrl(
+                    `Follow-up: ${selectedLead.name}`,
+                    start.toISOString(),
+                    end.toISOString(),
+                    `Follow-up with ${selectedLead.name}\nPhone: ${selectedLead.phone || 'N/A'}\nEmail: ${selectedLead.email || 'N/A'}\nNotes: ${selectedLead.followUpNotes || ''}`
+                  );
+                  window.open(url, '_blank');
+                }}
+              >
+                <CalendarPlus className="w-3.5 h-3.5 mr-1.5" />
+                Google Calendar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-ics-followup"
+                onClick={() => downloadICS('follow_up', selectedLead.id)}
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                .ics
+              </Button>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFollowUpDialogOpen(false)} data-testid="button-cancel-followup">Cancel</Button>
             <Button onClick={setFollowUp} data-testid="button-confirm-followup">Schedule</Button>

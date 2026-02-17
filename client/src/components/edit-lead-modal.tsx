@@ -48,9 +48,12 @@ import {
   UserCheck,
   Zap,
   ShieldCheck,
+  CalendarPlus,
+  Download,
   UserX,
 } from "lucide-react";
 import { format, addHours, addDays, setHours, setMinutes } from "date-fns";
+import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import type { Lead } from "@shared/schema";
 
 interface EditLeadModalProps {
@@ -459,11 +462,43 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
                 <div className="mt-1">{getStatusBadge()}</div>
               </div>
               {formData.followUpAt && (
-                <div className="text-right">
+                <div className="text-right space-y-1">
                   <p className="text-xs text-slate-500">Scheduled for</p>
                   <p className="text-sm font-medium text-slate-700">
                     {format(new Date(formData.followUpAt), "MMM d, yyyy 'at' h:mm a")}
                   </p>
+                  <div className="flex items-center gap-1.5 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      data-testid="button-google-calendar-edit-modal"
+                      className="h-6 px-2 text-xs text-indigo-600 hover:bg-indigo-50"
+                      onClick={() => {
+                        const start = new Date(formData.followUpAt!);
+                        const end = new Date(start.getTime() + 30 * 60000);
+                        const url = buildGoogleCalendarUrl(
+                          `Follow-up: ${lead?.name || ''}`,
+                          start.toISOString(),
+                          end.toISOString(),
+                          `Follow-up with ${lead?.name || ''}\nNotes: ${formData.followUpNotes || ''}`
+                        );
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      <CalendarPlus className="w-3 h-3 mr-1" />
+                      Google
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      data-testid="button-ics-edit-modal"
+                      className="h-6 px-2 text-xs text-indigo-600 hover:bg-indigo-50"
+                      onClick={() => lead && downloadICS('follow_up', lead.id)}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      .ics
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

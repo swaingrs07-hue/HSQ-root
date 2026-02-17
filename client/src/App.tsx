@@ -33,6 +33,7 @@ import AdminUsers from "@/pages/admin-users";
 import AdminActivityLogs from "@/pages/admin-activity-logs";
 import AdminPropertyTourImages from "@/pages/admin-property-tour-images";
 import AdminChatbot from "@/pages/admin-chatbot";
+import AdminCalendar from "@/pages/admin-calendar";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
@@ -65,6 +66,7 @@ function AppContent() {
               <Route path="/admin/activity-logs" component={AdminActivityLogs} />
               <Route path="/admin/property-tour-images" component={AdminPropertyTourImages} />
               <Route path="/admin/ai-chatbot" component={AdminChatbot} />
+              <Route path="/admin/calendar" component={AdminCalendar} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />

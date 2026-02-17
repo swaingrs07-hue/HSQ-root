@@ -80,6 +80,7 @@ const adminNavItems: NavItem[] = [
   { name: "Sales Management", href: "/admin/sales-management", icon: UserCog },
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
+  { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
@@ -93,6 +94,7 @@ const salesNavItems: NavItem[] = [
   { name: "My Leads", href: "/sales", icon: Target },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },
+  { name: "Calendar", href: "/admin/calendar", icon: Calendar },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

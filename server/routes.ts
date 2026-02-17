@@ -1164,6 +1164,147 @@ export async function registerRoutes(
     }
   });
 
+  // ============ CALENDAR INTEGRATION ============
+
+  app.get("/api/calendar/events", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const payload = req.user;
+      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const fromRaw = req.query.from ? new Date(req.query.from as string) : new Date();
+      const toRaw = req.query.to ? new Date(req.query.to as string) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const from = isNaN(fromRaw.getTime()) ? new Date() : fromRaw;
+      const to = isNaN(toRaw.getTime()) ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : toRaw;
+
+      const conditions = [];
+
+      if (payload.role === "sales_executive") {
+        conditions.push(eq(schema.leads.assignedToId, payload.userId));
+      }
+
+      const allLeads = await db.select().from(schema.leads).where(
+        conditions.length > 0 ? and(...conditions) : undefined
+      );
+
+      const events: Array<{
+        id: string;
+        title: string;
+        startAt: string;
+        endAt: string;
+        description: string;
+        location?: string;
+        sourceType: string;
+        sourceId: string;
+        leadName: string;
+      }> = [];
+
+      for (const lead of allLeads) {
+        if (lead.followUpAt) {
+          const followUpDate = new Date(lead.followUpAt);
+          if (followUpDate >= from && followUpDate <= to) {
+            const endDate = new Date(followUpDate.getTime() + 30 * 60 * 1000);
+            events.push({
+              id: `follow_up_${lead.id}`,
+              title: `Follow-up: ${lead.name}`,
+              startAt: followUpDate.toISOString(),
+              endAt: endDate.toISOString(),
+              description: `Follow-up with ${lead.name}${lead.followUpNotes ? '. Notes: ' + lead.followUpNotes : ''}`,
+              location: lead.propertyName || undefined,
+              sourceType: 'follow_up',
+              sourceId: lead.id,
+              leadName: lead.name,
+            });
+          }
+        }
+
+        if (lead.status === 'visit_scheduled' || lead.status === 'site_visit') {
+          const visitDate = lead.followUpAt ? new Date(lead.followUpAt) : new Date(lead.createdAt);
+          if (visitDate >= from && visitDate <= to) {
+            const endDate = new Date(visitDate.getTime() + 60 * 60 * 1000);
+            events.push({
+              id: `site_visit_${lead.id}`,
+              title: `Site Visit: ${lead.name}`,
+              startAt: visitDate.toISOString(),
+              endAt: endDate.toISOString(),
+              description: `Site visit with ${lead.name}${lead.propertyName ? ' at ' + lead.propertyName : ''}`,
+              location: lead.propertyName || undefined,
+              sourceType: 'site_visit',
+              sourceId: lead.id,
+              leadName: lead.name,
+            });
+          }
+        }
+      }
+
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+
+  app.get("/api/calendar/events/:sourceType/:id/ics", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { sourceType, id } = req.params;
+      const payload = req.user;
+
+      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (sourceType !== 'follow_up' && sourceType !== 'site_visit') {
+        return res.status(400).json({ error: "Invalid source type" });
+      }
+
+      const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, id));
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      if (payload.role === "sales_executive" && lead.assignedToId !== payload.userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { generateICS } = await import("./calendar");
+      let startAt: Date;
+      let endAt: Date;
+      let title: string;
+      let description: string;
+
+      if (sourceType === 'follow_up') {
+        startAt = lead.followUpAt ? new Date(lead.followUpAt) : new Date(lead.createdAt);
+        endAt = new Date(startAt.getTime() + 30 * 60 * 1000);
+        title = `Follow-up: ${lead.name}`;
+        description = `Follow-up with ${lead.name}${lead.followUpNotes ? '. Notes: ' + lead.followUpNotes : ''}`;
+      } else {
+        startAt = lead.followUpAt ? new Date(lead.followUpAt) : new Date(lead.createdAt);
+        endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
+        title = `Site Visit: ${lead.name}`;
+        description = `Site visit with ${lead.name}${lead.propertyName ? ' at ' + lead.propertyName : ''}`;
+      }
+
+      const icsContent = generateICS({
+        id: `${sourceType}_${lead.id}`,
+        title,
+        startAt,
+        endAt,
+        description,
+        location: lead.propertyName || undefined,
+        sourceType: sourceType as 'follow_up' | 'site_visit' | 'booking',
+        sourceId: lead.id,
+      });
+
+      res.setHeader('Content-Type', 'text/calendar');
+      res.setHeader('Content-Disposition', 'attachment; filename="event.ics"');
+      res.send(icsContent);
+    } catch (error) {
+      console.error("Error generating ICS:", error);
+      res.status(500).json({ error: "Failed to generate calendar file" });
+    }
+  });
+
   // ============ FOLLOW-UP MANAGEMENT ============
 
   // Get overdue follow-ups (admin only)
