@@ -351,22 +351,25 @@ export default function RequestsBoard() {
 
     try {
       const token = getAuthToken();
-      const response = await fetch(`/api/leads/${lead.id}`, {
+      const response = await fetch(`/api/admin/leads/${lead.id}`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      if (!response.ok) throw new Error("Failed to delete");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete");
+      }
 
       toast({
         title: "Request deleted",
         description: "The request has been removed",
       });
       loadLeads();
-    } catch (err) {
+    } catch (err: any) {
       toast({
         title: "Failed to delete request",
-        description: "Please try again",
+        description: err.message || "Please try again",
         variant: "destructive",
       });
     }
