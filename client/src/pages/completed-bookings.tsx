@@ -86,7 +86,11 @@ export default function CompletedBookings() {
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["/api/bookings/completed"],
     queryFn: async () => {
-      const res = await fetch("/api/bookings/completed", { credentials: "include" });
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/bookings/completed", { headers });
       if (!res.ok) throw new Error("Failed to fetch bookings");
       return res.json();
     },
