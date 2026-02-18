@@ -1246,6 +1246,39 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/leads/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const lead = await storage.getLead(id);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const allBookings = await storage.getAllBookings();
+      const leadBookings = allBookings.filter((b: any) => b.leadId === id);
+      if (leadBookings.length > 0) {
+        return res.status(400).json({ 
+          error: `Cannot delete lead with ${leadBookings.length} existing booking(s). Please remove bookings first.` 
+        });
+      }
+
+      await storage.deleteLead(id);
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "DELETE_LEAD",
+        entityType: "lead",
+        entityId: id,
+        details: JSON.stringify({ name: lead.name, email: lead.email, phone: lead.phone }),
+      });
+
+      res.json({ success: true, message: `Lead "${lead.name}" deleted successfully` });
+    } catch (error) {
+      console.error("Error deleting lead:", error);
+      res.status(500).json({ error: "Failed to delete lead" });
+    }
+  });
+
   // Track property view and update lead status to "interested" with auto-scoring
   app.post("/api/leads/track-property-view", async (req, res) => {
     try {

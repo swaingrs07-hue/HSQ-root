@@ -140,6 +140,7 @@ export interface IStorage {
   getLeadByEmail(email: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined>;
+  deleteLead(id: string): Promise<void>;
   getAllLeads(propertyId?: string): Promise<Lead[]>;
   updateLeadActivity(id: string): Promise<Lead | undefined>;
   
@@ -731,6 +732,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(leads.id, id))
       .returning();
     return lead || undefined;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    await db.delete(leadRemarks).where(eq(leadRemarks.leadId, id));
+    await db.delete(leadActivities).where(eq(leadActivities.leadId, id));
+    await db.delete(leads).where(eq(leads.id, id));
   }
 
   async getAllLeads(propertyId?: string): Promise<Lead[]> {

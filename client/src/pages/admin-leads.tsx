@@ -65,6 +65,9 @@ import {
   Tablet,
   ArrowUpDown,
   AlertCircle,
+  Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
@@ -133,6 +136,9 @@ export default function AdminLeads() {
   const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<string>("lastActivityAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [deleteLeadName, setDeleteLeadName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const { selectedPropertyId } = useProperty();
 
@@ -261,6 +267,31 @@ export default function AdminLeads() {
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
     },
   });
+
+  const handleDeleteLead = async () => {
+    if (!deleteLeadId) return;
+    setIsDeleting(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch(`/api/admin/leads/${deleteLeadId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete lead");
+      toast({ title: "Deleted", description: data.message });
+      setDeleteLeadId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete lead",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const filteredLeads = useMemo(() => {
     let result = [...leads];
@@ -803,6 +834,18 @@ export default function AdminLeads() {
                                     </DropdownMenuItem>
                                   </>
                                 )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                  onClick={() => {
+                                    setDeleteLeadId(lead.id);
+                                    setDeleteLeadName(lead.name);
+                                  }}
+                                  data-testid={`button-delete-lead-${lead.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Lead
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -989,6 +1032,35 @@ export default function AdminLeads() {
               </TabsContent>
             </Tabs>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteLeadId} onOpenChange={(open) => { if (!open) setDeleteLeadId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Lead
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteLeadName}</strong>? This will permanently remove the lead along with all activity history and remarks. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteLeadId(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteLead} 
+              disabled={isDeleting}
+              className="gap-2"
+              data-testid="button-confirm-delete-lead"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {isDeleting ? "Deleting..." : "Delete Lead"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
