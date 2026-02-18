@@ -144,9 +144,44 @@ export default function AdminHeroSlides() {
     setPreviewUrl(null);
   };
 
+  const compressImage = (file: File, maxWidth = 1920, quality = 0.8): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            const compressed = new File([blob], file.name.replace(/\.\w+$/, ".webp"), { type: "image/webp" });
+            resolve(compressed);
+          },
+          "image/webp",
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleUploadImage = async (file: File) => {
     setUploading(true);
     try {
+      const originalSize = file.size;
+      const compressed = await compressImage(file);
+      const savedPercent = Math.round((1 - compressed.size / originalSize) * 100);
+
       const urlRes = await fetch("/api/uploads/request-url", {
         method: "POST",
         headers: {
@@ -154,9 +189,9 @@ export default function AdminHeroSlides() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
+          name: compressed.name,
+          size: compressed.size,
+          contentType: compressed.type,
         }),
       });
 
@@ -165,15 +200,18 @@ export default function AdminHeroSlides() {
 
       const uploadRes = await fetch(uploadURL, {
         method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+        body: compressed,
+        headers: { "Content-Type": compressed.type },
       });
 
       if (!uploadRes.ok) throw new Error("Failed to upload file");
 
       setForm((prev) => ({ ...prev, imageUrl: objectPath }));
-      setPreviewUrl(URL.createObjectURL(file));
-      toast({ title: "Image uploaded successfully" });
+      setPreviewUrl(URL.createObjectURL(compressed));
+      toast({
+        title: "Image uploaded & compressed",
+        description: `${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(compressed.size / 1024 / 1024).toFixed(1)}MB (${savedPercent}% smaller)`,
+      });
     } catch (error) {
       toast({ title: "Failed to upload image", variant: "destructive" });
     } finally {
@@ -188,8 +226,8 @@ export default function AdminHeroSlides() {
         toast({ title: "Please select an image file", variant: "destructive" });
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        toast({ title: "Image must be under 10MB", variant: "destructive" });
+      if (file.size > 20 * 1024 * 1024) {
+        toast({ title: "Image must be under 20MB", variant: "destructive" });
         return;
       }
       handleUploadImage(file);
@@ -274,7 +312,8 @@ export default function AdminHeroSlides() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-700">Click to upload image</p>
-                    <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP up to 10MB</p>
+                    <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP up to 20MB</p>
+                    <p className="text-xs text-slate-400">Auto-compressed to WebP for fast loading</p>
                     <p className="text-xs text-slate-400">Recommended: 1920x1080 (16:9)</p>
                   </div>
                 </div>
