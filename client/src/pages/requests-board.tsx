@@ -869,7 +869,7 @@ export default function RequestsBoard() {
       )}
 
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500">
@@ -882,7 +882,7 @@ export default function RequestsBoard() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2" style={{ maxHeight: "60vh" }}>
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
               <div className="relative">
@@ -933,6 +933,33 @@ export default function RequestsBoard() {
                   data-testid="input-request-email"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="source">Source</Label>
+              <Select
+                value={newRequest.source}
+                onValueChange={(v) =>
+                  setNewRequest({ ...newRequest, source: v })
+                }
+              >
+                <SelectTrigger className="rounded-xl" data-testid="select-request-source">
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="website">Website</SelectItem>
+                  <SelectItem value="hsquare_dynamics">Hsquare Dynamics</SelectItem>
+                  <SelectItem value="walk_in">Walk-in</SelectItem>
+                  <SelectItem value="phone_inquiry">Phone Inquiry</SelectItem>
+                  <SelectItem value="referral">Referral</SelectItem>
+                  <SelectItem value="social_media">Social Media</SelectItem>
+                  <SelectItem value="google_ads">Google Ads</SelectItem>
+                  <SelectItem value="email_campaign">Email Campaign</SelectItem>
+                  <SelectItem value="event">Event</SelectItem>
+                  <SelectItem value="chatbot">Chatbot</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

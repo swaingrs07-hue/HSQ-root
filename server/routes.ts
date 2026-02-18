@@ -1171,6 +1171,55 @@ export async function registerRoutes(
     }
   });
 
+  // Create a new lead (internal - from admin/sales exec panels)
+  app.post("/api/leads", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { name, phone, email, propertyId, budgetMin, budgetMax, notes, source, isManualEntry } = req.body;
+
+      if (!name || !phone) {
+        return res.status(400).json({ error: "Name and phone are required" });
+      }
+
+      let propertyName: string | null = null;
+      if (propertyId) {
+        const property = await storage.getProperty(propertyId);
+        if (property) {
+          propertyName = property.name;
+        }
+      }
+
+      const lead = await storage.createLead({
+        name,
+        phone,
+        email: email || null,
+        propertyId: propertyId || null,
+        propertyName,
+        source: source || "website",
+        entrySource: isManualEntry ? "walk_in" : null,
+        status: "new",
+        notes: notes || null,
+        isManualEntry: isManualEntry || true,
+        budgetMin: budgetMin || null,
+        budgetMax: budgetMax || null,
+        assignedToId: req.user?.role === "sales_executive" ? req.user.userId : null,
+        assignmentType: req.user?.role === "sales_executive" ? "auto" : "unassigned",
+      });
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "CREATE_LEAD",
+        entityType: "lead",
+        entityId: lead.id,
+        details: JSON.stringify({ name, phone, source: source || "website" }),
+      });
+
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
   // Get lead by ID
   app.get("/api/leads/:id", async (req, res) => {
     try {

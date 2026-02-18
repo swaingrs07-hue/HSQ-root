@@ -430,8 +430,8 @@ const RequestCard = memo(function RequestCard({
             </div>
           )}
           {lead.source && (
-            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-              {lead.source}
+            <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 rounded-full ${lead.source === 'hsquare_dynamics' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+              {lead.source === 'hsquare_dynamics' ? 'Hsquare Dynamics' : lead.source === 'walk_in' ? 'Walk-in' : lead.source === 'phone_inquiry' ? 'Phone' : lead.source === 'social_media' ? 'Social Media' : lead.source === 'google_ads' ? 'Google Ads' : lead.source === 'email_campaign' ? 'Email' : lead.source}
             </Badge>
           )}
         </div>

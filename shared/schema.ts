@@ -297,6 +297,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "email_campaign",
   "event",
   "chatbot",
+  "hsquare_dynamics",
   "other"
 ]);
 
