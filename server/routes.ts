@@ -705,7 +705,7 @@ export async function registerRoutes(
         name,
         phone,
         email: email || null,
-        source: "website",
+        source: "hsquare_dynamics",
         status: "new",
         propertyId: propertyId || null,
         propertyName,
@@ -718,6 +718,7 @@ export async function registerRoutes(
         assignedToId,
         assignmentType,
         assignedAt: assignedToId ? new Date() : null,
+        isManualEntry: false,
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       }).returning();

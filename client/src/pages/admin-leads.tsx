@@ -556,6 +556,7 @@ export default function AdminLeads() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="hsquare_dynamics">Hsquare Dynamics</SelectItem>
                     <SelectItem value="website">Website</SelectItem>
                     <SelectItem value="referral">Referral</SelectItem>
                     <SelectItem value="social_media">Social Media</SelectItem>
@@ -563,6 +564,7 @@ export default function AdminLeads() {
                     <SelectItem value="walk_in">Walk-in</SelectItem>
                     <SelectItem value="phone_inquiry">Phone Inquiry</SelectItem>
                     <SelectItem value="email_campaign">Email Campaign</SelectItem>
+                    <SelectItem value="chatbot">Chatbot</SelectItem>
                     <SelectItem value="event">Event</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
@@ -686,9 +688,15 @@ export default function AdminLeads() {
                               <DeviceIcon className="w-4 h-4 text-slate-400" />
                               <div>
                                 <p className="font-medium text-slate-800">{lead.name}</p>
-                                <p className="text-xs text-slate-500">
-                                  {lead.isManualEntry ? `via ${lead.entrySource || "manual"}` : lead.source}
-                                </p>
+                                {lead.source === "hsquare_dynamics" ? (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
+                                    Hsquare Dynamics
+                                  </span>
+                                ) : (
+                                  <p className="text-xs text-slate-500">
+                                    {lead.isManualEntry ? `via ${lead.entrySource || "manual"}` : lead.source}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </TableCell>
