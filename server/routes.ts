@@ -1919,6 +1919,39 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/properties/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const allBookings = await storage.getAllBookings();
+      const propertyBookings = allBookings.filter((b: any) => b.propertyId === id);
+      if (propertyBookings.length > 0) {
+        return res.status(400).json({ 
+          error: `Cannot delete property with ${propertyBookings.length} existing booking(s). Please cancel or remove bookings first.` 
+        });
+      }
+
+      await storage.deleteProperty(id);
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "DELETE_PROPERTY",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name }),
+      });
+
+      res.json({ success: true, message: `Property "${property.name}" deleted successfully` });
+    } catch (error) {
+      console.error("Error deleting property:", error);
+      res.status(500).json({ error: "Failed to delete property" });
+    }
+  });
+
   // Update room type (Admin only)
   app.patch("/api/admin/room-types/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {

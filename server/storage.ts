@@ -91,6 +91,7 @@ export interface IStorage {
   getAllPropertiesIncludingInactive(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, data: Partial<Property>): Promise<Property | undefined>;
+  deleteProperty(id: string): Promise<void>;
   
   // Room Types
   getRoomType(id: string): Promise<RoomType | undefined>;
@@ -405,6 +406,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(properties.id, id))
       .returning();
     return property || undefined;
+  }
+
+  async deleteProperty(id: string): Promise<void> {
+    await db.delete(propertyImages).where(eq(propertyImages.propertyId, id));
+    await db.delete(propertyTariffs).where(eq(propertyTariffs.propertyId, id));
+    await db.delete(propertyRules).where(eq(propertyRules.propertyId, id));
+    await db.delete(nearbyLocations).where(eq(nearbyLocations.propertyId, id));
+    await db.delete(roomTypes).where(eq(roomTypes.propertyId, id));
+    await db.delete(salesExecProperties).where(eq(salesExecProperties.propertyId, id));
+    await db.delete(properties).where(eq(properties.id, id));
   }
 
   // Room Types

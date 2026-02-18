@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2 } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
@@ -448,6 +448,35 @@ export default function AdminDashboard() {
         description: "Failed to update property status",
         variant: "destructive",
       });
+    }
+  };
+
+  const [deletePropertyId, setDeletePropertyId] = useState<string | null>(null);
+  const [deletePropertyName, setDeletePropertyName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteProperty = async () => {
+    if (!deletePropertyId) return;
+    setIsDeleting(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const response = await fetch(`/api/admin/properties/${deletePropertyId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete property");
+      toast({ title: "Deleted", description: data.message });
+      setDeletePropertyId(null);
+      loadProperties();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete property",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1369,6 +1398,19 @@ export default function AdminDashboard() {
                                   <Power className="h-4 w-4" />
                                   {property.active ? "Disable" : "Enable"}
                                 </Button>
+                                <Button 
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDeletePropertyId(property.id);
+                                    setDeletePropertyName(property.name);
+                                  }}
+                                  className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                  data-testid={`button-delete-property-${property.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                </Button>
                               </div>
                             </div>
                             {property.roomTypes && property.roomTypes.length > 0 && (
@@ -1402,6 +1444,35 @@ export default function AdminDashboard() {
             )}
           </>
         )}
+
+      <Dialog open={!!deletePropertyId} onOpenChange={(open) => { if (!open) setDeletePropertyId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Property
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deletePropertyName}</strong>? This will permanently remove the property along with all its room types, rules, tariffs, images, and sales executive assignments. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeletePropertyId(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteProperty} 
+              disabled={isDeleting}
+              className="gap-2"
+              data-testid="button-confirm-delete-property"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {isDeleting ? "Deleting..." : "Delete Property"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
