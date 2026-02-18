@@ -71,7 +71,7 @@ export default function Home() {
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isAutoPlaying] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [heroSlides, setHeroSlides] = useState(DEFAULT_SLIDES);
@@ -166,8 +166,6 @@ export default function Home() {
       <section
         ref={heroRef}
         className="relative w-full h-screen overflow-hidden"
-        onMouseEnter={() => setIsAutoPlaying(false)}
-        onMouseLeave={() => setIsAutoPlaying(true)}
         data-testid="hero-section"
       >
         <AnimatePresence initial={false}>

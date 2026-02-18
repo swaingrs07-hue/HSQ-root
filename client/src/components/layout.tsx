@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo.jpg";
@@ -36,7 +36,18 @@ const DEFAULT_FOOTER: FooterData = {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, logout, isAdmin } = useAuth();
+
+  const isHomePage = location === "/";
+
+  useEffect(() => {
+    if (!isHomePage) { setScrolled(true); return; }
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isHomePage]);
 
   const { data: footer = DEFAULT_FOOTER } = useQuery<FooterData>({
     queryKey: ["/api/footer-settings"],
@@ -76,9 +87,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const userName = user?.name || "Guest";
 
+  const headerTransparent = isHomePage && !scrolled && !mobileMenuOpen;
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <header className={cn(
+        "fixed top-0 z-50 w-full transition-all duration-300",
+        headerTransparent
+          ? "bg-transparent border-b border-transparent"
+          : "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
+      )}>
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
             <img src={hsquareLogo} alt="Hsquare" className="h-10 w-auto" />
@@ -90,23 +108,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 key={item.href} 
                 href={item.href}
                 className={cn(
-                  "text-sm font-medium transition-colors hover:text-primary flex items-center gap-2",
-                  location === item.href
-                    ? "text-primary font-bold"
-                    : "text-muted-foreground"
+                  "text-sm font-medium transition-colors flex items-center gap-2",
+                  headerTransparent
+                    ? "text-white/90 hover:text-white"
+                    : location === item.href
+                      ? "text-primary font-bold"
+                      : "text-muted-foreground hover:text-primary"
                 )}
               >
                 <item.icon className="w-4 h-4" />
                 {item.name}
               </Link>
             ))}
-            <div className="pl-4 border-l">
+            <div className={cn("pl-4 border-l", headerTransparent ? "border-white/20" : "")}>
               <ProfileDropdown />
             </div>
           </nav>
 
           <button
-            className="md:hidden p-2 text-foreground"
+            className={cn("md:hidden p-2", headerTransparent ? "text-white" : "text-foreground")}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             data-testid="button-mobile-menu"
           >
@@ -135,6 +155,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </header>
+
+      {!isHomePage && <div className="h-16" />}
 
       <main className="flex-1 w-full">
         {children}
