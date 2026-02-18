@@ -2454,13 +2454,12 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/bookings/completed", async (req, res) => {
+  app.get("/api/bookings/completed", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const user = (req as any).user;
+      const user = req.user;
       const allBookings = await storage.getAllBookings();
       
-      const completedStatuses = ["confirmed", "active", "completed"];
-      let filtered = allBookings.filter((b: any) => completedStatuses.includes(b.status));
+      let filtered = allBookings;
       
       if (user?.role === "sales_executive") {
         filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.id);

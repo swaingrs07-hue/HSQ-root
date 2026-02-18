@@ -58,6 +58,16 @@ function getStatusBadge(status: string) {
       return <Badge className="bg-green-100 text-green-700 border-green-200" data-testid={`status-${status}`}>Active</Badge>;
     case "completed":
       return <Badge className="bg-purple-100 text-purple-700 border-purple-200" data-testid={`status-${status}`}>Completed</Badge>;
+    case "pending_payment":
+      return <Badge className="bg-amber-100 text-amber-700 border-amber-200" data-testid={`status-${status}`}>Pending Payment</Badge>;
+    case "pending_approval":
+      return <Badge className="bg-orange-100 text-orange-700 border-orange-200" data-testid={`status-${status}`}>Pending Approval</Badge>;
+    case "draft":
+      return <Badge className="bg-slate-100 text-slate-700 border-slate-200" data-testid={`status-${status}`}>Draft</Badge>;
+    case "cancelled":
+      return <Badge className="bg-red-100 text-red-700 border-red-200" data-testid={`status-${status}`}>Cancelled</Badge>;
+    case "rejected":
+      return <Badge className="bg-red-100 text-red-700 border-red-200" data-testid={`status-${status}`}>Rejected</Badge>;
     default:
       return <Badge variant="secondary" data-testid={`status-${status}`}>{status}</Badge>;
   }
@@ -117,12 +127,12 @@ export default function CompletedBookings() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2" data-testid="text-page-title">
             <CheckCircle2 className="h-7 w-7 text-green-600" />
-            {isSalesExec ? "My Completed Bookings" : "Completed Bookings"}
+            {isSalesExec ? "My Bookings" : "All Bookings"}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             {isSalesExec
-              ? "View bookings from your won leads"
-              : "All confirmed, active, and completed bookings"}
+              ? "View bookings from your leads"
+              : "All bookings across all properties and statuses"}
           </p>
         </div>
       </div>
@@ -202,9 +212,13 @@ export default function CompletedBookings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="pending_payment">Pending Payment</SelectItem>
+            <SelectItem value="pending_approval">Pending Approval</SelectItem>
             <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <Button
@@ -241,7 +255,7 @@ export default function CompletedBookings() {
             <CheckCircle2 className="h-12 w-12 text-slate-300 mb-3" />
             <h3 className="text-lg font-semibold text-slate-600">No Bookings Found</h3>
             <p className="text-sm text-slate-400 mt-1">
-              {searchQuery ? "Try a different search term" : "No completed bookings yet"}
+              {searchQuery ? "Try a different search term" : "No bookings yet. Generate a booking from the Bookings page."}
             </p>
           </CardContent>
         </Card>
