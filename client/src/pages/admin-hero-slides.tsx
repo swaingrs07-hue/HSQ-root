@@ -229,7 +229,7 @@ export default function AdminHeroSlides() {
   };
 
   const SlideForm = () => (
-    <div className="space-y-5">
+    <div className="overflow-y-auto max-h-[70vh] pr-1 -mr-1 space-y-5">
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-slate-700">Slide Image</Label>
         <div className="relative">
@@ -284,7 +284,7 @@ export default function AdminHeroSlides() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-slate-700">Title *</Label>
           <Input
@@ -329,7 +329,7 @@ export default function AdminHeroSlides() {
         </Label>
       </div>
 
-      <div className="flex gap-3 justify-end pt-2">
+      <div className="flex gap-3 justify-end pt-2 sticky bottom-0 bg-white pb-1">
         <Button
           variant="outline"
           onClick={() => {
@@ -376,8 +376,8 @@ export default function AdminHeroSlides() {
               Add Slide
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-lg font-bold">Add New Slide</DialogTitle>
             </DialogHeader>
             <SlideForm />
@@ -512,8 +512,8 @@ export default function AdminHeroSlides() {
                           <Edit2 className="w-4 h-4 text-slate-500" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-xl">
-                        <DialogHeader>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                        <DialogHeader className="flex-shrink-0">
                           <DialogTitle className="text-lg font-bold">Edit Slide</DialogTitle>
                         </DialogHeader>
                         <SlideForm />
