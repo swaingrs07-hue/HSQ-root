@@ -572,31 +572,34 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-1 px-1 scrollbar-hide">
           <Button 
             variant={activeTab === "overview" ? "default" : "ghost"}
-            className={`gap-2 ${activeTab === "overview" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            size="sm"
+            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "overview" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("overview")}
             data-testid="tab-overview"
           >
-            <Activity className="h-4 w-4" /> Overview
+            <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Overview
           </Button>
           <Button 
             variant={activeTab === "properties" ? "default" : "ghost"}
-            className={`gap-2 ${activeTab === "properties" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            size="sm"
+            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "properties" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("properties")}
             data-testid="tab-properties"
           >
-            <Building2 className="h-4 w-4" /> Properties
+            <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Properties
           </Button>
           <Button 
             variant={activeTab === "leads" ? "default" : "ghost"}
-            className={`gap-2 ${activeTab === "leads" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            size="sm"
+            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "leads" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("leads")}
             data-testid="tab-leads"
           >
-            <Users className="h-4 w-4" /> Leads
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Leads
           </Button>
           <Button 
             variant={activeTab === "approvals" ? "default" : "ghost"}
