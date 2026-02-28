@@ -22,6 +22,11 @@ import {
   instagramPosts,
   instagramSyncLog,
   footerSettings,
+  chatbotSettings,
+  chatbotKnowledge,
+  chatbotConversations,
+  chatbotMessages,
+  chatbotEvents,
   type User,
   type InsertUser,
   type Student,
@@ -410,6 +415,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProperty(id: string): Promise<void> {
+    const propertyLeads = await db.select({ id: leads.id }).from(leads).where(eq(leads.propertyId, id));
+    const leadIds = propertyLeads.map(l => l.id);
+    if (leadIds.length > 0) {
+      for (const leadId of leadIds) {
+        await db.delete(leadActivities).where(eq(leadActivities.leadId, leadId));
+        await db.delete(leadRemarks).where(eq(leadRemarks.leadId, leadId));
+      }
+      await db.delete(leads).where(eq(leads.propertyId, id));
+    }
+
+    const convos = await db.select({ id: chatbotConversations.id }).from(chatbotConversations).where(eq(chatbotConversations.propertyId, id));
+    if (convos.length > 0) {
+      for (const c of convos) {
+        await db.delete(chatbotMessages).where(eq(chatbotMessages.conversationId, c.id));
+        await db.delete(chatbotEvents).where(eq(chatbotEvents.conversationId, c.id));
+      }
+      await db.delete(chatbotConversations).where(eq(chatbotConversations.propertyId, id));
+    }
+    await db.delete(chatbotKnowledge).where(eq(chatbotKnowledge.propertyId, id));
+    await db.delete(chatbotSettings).where(eq(chatbotSettings.propertyId, id));
+
     await db.delete(propertyImages).where(eq(propertyImages.propertyId, id));
     await db.delete(propertyTariffs).where(eq(propertyTariffs.propertyId, id));
     await db.delete(propertyRules).where(eq(propertyRules.propertyId, id));
