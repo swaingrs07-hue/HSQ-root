@@ -574,6 +574,12 @@ export class DatabaseStorage implements IStorage {
     return booking || undefined;
   }
 
+  async deleteBooking(id: string): Promise<void> {
+    await db.delete(payments).where(eq(payments.bookingId, id));
+    await db.delete(installments).where(eq(installments.bookingId, id));
+    await db.delete(bookings).where(eq(bookings.id, id));
+  }
+
   async confirmBooking(id: string, approvedBy?: string): Promise<Booking | undefined> {
     const booking = await this.getBooking(id);
     if (!booking) return undefined;

@@ -2666,6 +2666,28 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const booking = await storage.getBooking(id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      await storage.deleteBooking(id);
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "DELETE_BOOKING",
+        entityType: "booking",
+        entityId: id,
+        details: JSON.stringify({ bookingCode: booking.bookingCode }),
+      });
+      res.json({ success: true, message: "Booking deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+      res.status(500).json({ error: "Failed to delete booking" });
+    }
+  });
+
   // Get all bookings (admin)
   app.get("/api/bookings", async (req, res) => {
     try {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,20 @@ import {
   TrendingUp,
   Users,
   ArrowUpDown,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
 
@@ -76,12 +89,17 @@ function getStatusBadge(status: string) {
 export default function CompletedBookings() {
   const { user } = useAuth();
   const { selectedPropertyId } = useProperty();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isSalesExec = user?.role === "sales_executive";
+  const isAdmin = user?.role === "admin";
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [deleteBooking, setDeleteBooking] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["/api/bookings/completed"],
@@ -464,10 +482,78 @@ export default function CompletedBookings() {
                   </div>
                 </div>
               )}
+
+              {isAdmin && (
+                <div className="pt-3 border-t border-slate-200">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      setDeleteBooking(selectedBooking);
+                    }}
+                    data-testid="button-delete-booking"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Booking
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteBooking} onOpenChange={() => setDeleteBooking(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Booking
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the booking for <strong>{deleteBooking?.customerName}</strong>
+              {deleteBooking?.bookingCode ? ` (${deleteBooking.bookingCode})` : ""}? This will permanently remove the booking along with all associated payments and installments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleting}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteBooking) return;
+                setDeleting(true);
+                try {
+                  const authData = localStorage.getItem("hsquare_auth");
+                  const token = authData ? JSON.parse(authData)?.token : null;
+                  const res = await fetch(`/api/admin/bookings/${deleteBooking.id}`, {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Failed to delete booking");
+                  }
+                  toast({ title: "Booking deleted successfully" });
+                  queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+                  setSelectedBooking(null);
+                  setDeleteBooking(null);
+                } catch (error: any) {
+                  toast({ title: "Error", description: error.message, variant: "destructive" });
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              data-testid="button-confirm-delete"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {deleting ? "Deleting..." : "Delete Booking"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
