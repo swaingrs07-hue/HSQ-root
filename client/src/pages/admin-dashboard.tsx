@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2 } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminStats } from "@/lib/api";
@@ -477,6 +478,58 @@ export default function AdminDashboard() {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const [editProperty, setEditProperty] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    name: "", displayName: "", category: "hostel", bookingMode: "monthly",
+    location: "", address: "", city: "", phone: "", email: "",
+    amenities: "" as string, rules: "", mapsUrl: "", status: "draft",
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const openEditDialog = (property: any) => {
+    setEditProperty(property);
+    setEditForm({
+      name: property.name || "",
+      displayName: property.displayName || "",
+      category: property.category || "hostel",
+      bookingMode: property.bookingMode || "monthly",
+      location: property.location || "",
+      address: property.address || "",
+      city: property.city || "",
+      phone: property.phone || "",
+      email: property.email || "",
+      amenities: (property.amenities || []).join(", "),
+      rules: property.rules || "",
+      mapsUrl: property.mapsUrl || "",
+      status: property.status || "draft",
+    });
+  };
+
+  const handleEditProperty = async () => {
+    if (!editProperty) return;
+    setIsSaving(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const payload = {
+        ...editForm,
+        amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
+      };
+      const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to update property");
+      toast({ title: "Property updated successfully" });
+      setEditProperty(null);
+      loadProperties();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1392,6 +1445,16 @@ export default function AdminDashboard() {
                               </div>
                               <div className="flex flex-col gap-2">
                                 <Button 
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEditDialog(property)}
+                                  className="gap-2"
+                                  data-testid={`button-edit-property-${property.id}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Edit
+                                </Button>
+                                <Button 
                                   variant={property.active ? "destructive" : "default"}
                                   size="sm"
                                   onClick={() => togglePropertyStatus(property.id)}
@@ -1447,6 +1510,166 @@ export default function AdminDashboard() {
             )}
           </>
         )}
+
+      <Dialog open={!!editProperty} onOpenChange={(open) => { if (!open) setEditProperty(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-indigo-500" />
+              Edit Property
+            </DialogTitle>
+            <DialogDescription>
+              Update property details for {editProperty?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {editProperty && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Property Name *</Label>
+                  <Input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    data-testid="input-edit-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Display Name</Label>
+                  <Input
+                    value={editForm.displayName}
+                    onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                    placeholder="Optional display name"
+                    data-testid="input-edit-display-name"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={editForm.category} onValueChange={(v) => setEditForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger data-testid="select-edit-category"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hostel">Hostel</SelectItem>
+                      <SelectItem value="hotel">Hotel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Booking Mode</Label>
+                  <Select value={editForm.bookingMode} onValueChange={(v) => setEditForm(f => ({ ...f, bookingMode: v }))}>
+                    <SelectTrigger data-testid="select-edit-booking-mode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="academic_year">Academic Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Location *</Label>
+                  <Input
+                    value={editForm.location}
+                    onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))}
+                    data-testid="input-edit-location"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))}
+                    data-testid="input-edit-city"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Textarea
+                  value={editForm.address}
+                  onChange={(e) => setEditForm(f => ({ ...f, address: e.target.value }))}
+                  rows={2}
+                  data-testid="input-edit-address"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                    data-testid="input-edit-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={editForm.email}
+                    onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                    type="email"
+                    data-testid="input-edit-email"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Amenities (comma-separated)</Label>
+                <Textarea
+                  value={editForm.amenities}
+                  onChange={(e) => setEditForm(f => ({ ...f, amenities: e.target.value }))}
+                  rows={2}
+                  placeholder="Free Wifi, AC, 24X7 Security"
+                  data-testid="input-edit-amenities"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Rules</Label>
+                <Textarea
+                  value={editForm.rules}
+                  onChange={(e) => setEditForm(f => ({ ...f, rules: e.target.value }))}
+                  rows={2}
+                  placeholder="Check-in: 12:00 PM | Check-out: 11:00 AM"
+                  data-testid="input-edit-rules"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Google Maps URL</Label>
+                  <Input
+                    value={editForm.mapsUrl}
+                    onChange={(e) => setEditForm(f => ({ ...f, mapsUrl: e.target.value }))}
+                    placeholder="https://maps.app.goo.gl/..."
+                    data-testid="input-edit-maps-url"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                    <SelectTrigger data-testid="select-edit-status"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditProperty(null)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditProperty}
+              disabled={isSaving || !editForm.name || !editForm.location}
+              className="gap-2"
+              data-testid="button-save-property"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deletePropertyId} onOpenChange={(open) => { if (!open) setDeletePropertyId(null); }}>
         <DialogContent>

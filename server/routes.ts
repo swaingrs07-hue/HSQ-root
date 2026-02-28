@@ -1975,6 +1975,36 @@ export async function registerRoutes(
   });
 
   // Toggle property active status (Admin only)
+  app.patch("/api/admin/properties/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const property = await storage.getProperty(id);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status"];
+      const updates: any = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      updates.updatedAt = new Date();
+      const updatedProperty = await storage.updateProperty(id, updates);
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "EDIT_PROPERTY",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: updatedProperty?.name, fieldsUpdated: Object.keys(updates).filter(k => k !== "updatedAt") }),
+      });
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error updating property:", error);
+      res.status(500).json({ error: "Failed to update property" });
+    }
+  });
+
   app.post("/api/admin/properties/:id/toggle-status", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const id = req.params.id as string;
