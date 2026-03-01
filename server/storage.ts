@@ -27,6 +27,8 @@ import {
   chatbotConversations,
   chatbotMessages,
   chatbotEvents,
+  floors,
+  beds,
   type User,
   type InsertUser,
   type Student,
@@ -69,6 +71,10 @@ import {
   type InsertHeroSlide,
   type InstagramPost,
   type FooterSettings,
+  type Floor,
+  type InsertFloor,
+  type Bed,
+  type InsertBed,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -316,6 +322,19 @@ export interface IStorage {
   getLastInstagramSync(): Promise<{ syncedAt: Date; status: string } | null>;
   logInstagramSync(postCount: number, status: string, errorMessage?: string): Promise<void>;
   clearInstagramPosts(): Promise<void>;
+
+  // Floors
+  getFloorsByProperty(propertyId: string): Promise<Floor[]>;
+  createFloor(floor: InsertFloor): Promise<Floor>;
+  deleteFloor(id: string): Promise<void>;
+
+  // Beds
+  getBedsByFloor(floorId: string): Promise<Bed[]>;
+  getBedsByProperty(propertyId: string): Promise<Bed[]>;
+  updateBedStatus(bedId: string, status: string): Promise<Bed | undefined>;
+  createBed(bed: InsertBed): Promise<Bed>;
+  createBeds(beds: InsertBed[]): Promise<Bed[]>;
+  deleteBed(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1810,6 +1829,49 @@ export class DatabaseStorage implements IStorage {
 
   async clearInstagramPosts(): Promise<void> {
     await db.delete(instagramPosts);
+  }
+
+  // Floors
+  async getFloorsByProperty(propertyId: string): Promise<Floor[]> {
+    return await db.select().from(floors).where(eq(floors.propertyId, propertyId)).orderBy(asc(floors.floorNumber));
+  }
+
+  async createFloor(floor: InsertFloor): Promise<Floor> {
+    const [created] = await db.insert(floors).values(floor).returning();
+    return created;
+  }
+
+  async deleteFloor(id: string): Promise<void> {
+    await db.delete(beds).where(eq(beds.floorId, id));
+    await db.delete(floors).where(eq(floors.id, id));
+  }
+
+  // Beds
+  async getBedsByFloor(floorId: string): Promise<Bed[]> {
+    return await db.select().from(beds).where(eq(beds.floorId, floorId)).orderBy(asc(beds.bedNumber));
+  }
+
+  async getBedsByProperty(propertyId: string): Promise<Bed[]> {
+    return await db.select().from(beds).where(eq(beds.propertyId, propertyId)).orderBy(asc(beds.bedNumber));
+  }
+
+  async updateBedStatus(bedId: string, status: string): Promise<Bed | undefined> {
+    const [updated] = await db.update(beds).set({ status: status as any }).where(eq(beds.id, bedId)).returning();
+    return updated || undefined;
+  }
+
+  async createBed(bed: InsertBed): Promise<Bed> {
+    const [created] = await db.insert(beds).values(bed).returning();
+    return created;
+  }
+
+  async createBeds(bedData: InsertBed[]): Promise<Bed[]> {
+    if (bedData.length === 0) return [];
+    return await db.insert(beds).values(bedData).returning();
+  }
+
+  async deleteBed(id: string): Promise<void> {
+    await db.delete(beds).where(eq(beds.id, id));
   }
 }
 

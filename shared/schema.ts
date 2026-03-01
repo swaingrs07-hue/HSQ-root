@@ -1005,5 +1005,52 @@ export const insertFooterSettingsSchema = createInsertSchema(footerSettings).omi
 export type FooterSettings = typeof footerSettings.$inferSelect;
 export type InsertFooterSettings = z.infer<typeof insertFooterSettingsSchema>;
 
+// Bed status enum
+export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "reserved", "maintenance"]);
+
+// Floors table (for floor-wise property management)
+export const floors = pgTable("floors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  floorNumber: integer("floor_number").notNull(),
+  name: text("name").notNull(),
+  totalBeds: integer("total_beds").default(0).notNull(),
+  availableBeds: integer("available_beds").default(0).notNull(),
+  layoutImage: text("layout_image"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Beds table (individual bed tracking)
+export const beds = pgTable("beds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  floorId: varchar("floor_id").references(() => floors.id).notNull(),
+  roomTypeId: varchar("room_type_id").references(() => roomTypes.id).notNull(),
+  bedNumber: text("bed_number").notNull(),
+  status: bedStatusEnum("status").default("available").notNull(),
+  monthlyPrice: integer("monthly_price"),
+  position: jsonb("position"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const floorsRelations = relations(floors, ({ one, many }) => ({
+  property: one(properties, { fields: [floors.propertyId], references: [properties.id] }),
+  beds: many(beds),
+}));
+
+export const bedsRelations = relations(beds, ({ one }) => ({
+  property: one(properties, { fields: [beds.propertyId], references: [properties.id] }),
+  floor: one(floors, { fields: [beds.floorId], references: [floors.id] }),
+  roomType: one(roomTypes, { fields: [beds.roomTypeId], references: [roomTypes.id] }),
+}));
+
+export const insertFloorSchema = createInsertSchema(floors).omit({ id: true, createdAt: true });
+export type Floor = typeof floors.$inferSelect;
+export type InsertFloor = z.infer<typeof insertFloorSchema>;
+
+export const insertBedSchema = createInsertSchema(beds).omit({ id: true, createdAt: true });
+export type Bed = typeof beds.$inferSelect;
+export type InsertBed = z.infer<typeof insertBedSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

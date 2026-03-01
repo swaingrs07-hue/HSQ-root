@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertBedSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
@@ -5617,6 +5617,164 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch summary" });
+    }
+  });
+
+  // ============ FLOORS & BEDS ============
+
+  app.get("/api/properties/:id/floors", async (req, res) => {
+    try {
+      const propertyId = req.params.id;
+      const floorsList = await storage.getFloorsByProperty(propertyId);
+      const floorsWithBeds = await Promise.all(
+        floorsList.map(async (floor) => {
+          const floorBeds = await storage.getBedsByFloor(floor.id);
+          const availableBeds = floorBeds.filter(b => b.status === "available").length;
+          return {
+            ...floor,
+            totalBeds: floorBeds.length,
+            availableBeds,
+            beds: floorBeds,
+          };
+        })
+      );
+      res.json(floorsWithBeds);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch floors" });
+    }
+  });
+
+  app.get("/api/properties/:id/floors/:floorId/beds", async (req, res) => {
+    try {
+      const bedsList = await storage.getBedsByFloor(req.params.floorId);
+      res.json(bedsList);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch beds" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/floors", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const parsed = insertFloorSchema.safeParse({ ...req.body, propertyId: req.params.id });
+      if (!parsed.success) return res.status(400).json({ error: "Invalid floor data", details: parsed.error.format() });
+      const floor = await storage.createFloor(parsed.data);
+      res.status(201).json(floor);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create floor" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/floors/:floorId/beds", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { beds: bedData } = req.body;
+      if (!Array.isArray(bedData) || bedData.length === 0) {
+        return res.status(400).json({ error: "beds must be a non-empty array" });
+      }
+      const parsedBeds = bedData.map((b: any) => {
+        const result = insertBedSchema.safeParse({
+          ...b,
+          propertyId: req.params.id,
+          floorId: req.params.floorId,
+        });
+        if (!result.success) throw new Error(`Invalid bed data: ${JSON.stringify(result.error.format())}`);
+        return result.data;
+      });
+      const created = await storage.createBeds(parsedBeds);
+      const floor = (await storage.getFloorsByProperty(req.params.id)).find(f => f.id === req.params.floorId);
+      if (floor) {
+        const allFloorBeds = await storage.getBedsByFloor(req.params.floorId);
+        const availCount = allFloorBeds.filter(b => b.status === "available").length;
+        await db.update(schema.floors).set({ totalBeds: allFloorBeds.length, availableBeds: availCount }).where(eq(schema.floors.id, req.params.floorId));
+      }
+      res.status(201).json(created);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create beds" });
+    }
+  });
+
+  app.patch("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { status } = req.body;
+      if (!status || !["available", "occupied", "reserved", "maintenance"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be one of: available, occupied, reserved, maintenance" });
+      }
+      const updated = await storage.updateBedStatus(req.params.id, status);
+      if (!updated) return res.status(404).json({ error: "Bed not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update bed" });
+    }
+  });
+
+  app.delete("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteFloor(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete floor" });
+    }
+  });
+
+  app.delete("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteBed(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete bed" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/auto-generate-floors", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.params.id;
+      const { floorCount = 3 } = req.body;
+
+      const property = await storage.getProperty(propertyId);
+      if (!property) return res.status(404).json({ error: "Property not found" });
+
+      const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
+      if (roomTypesList.length === 0) return res.status(400).json({ error: "No room types found for this property" });
+
+      const existingFloors = await storage.getFloorsByProperty(propertyId);
+      if (existingFloors.length > 0) {
+        return res.status(400).json({ error: "Floors already exist for this property. Delete existing floors first." });
+      }
+
+      const createdFloors: any[] = [];
+      for (let i = 0; i < floorCount; i++) {
+        const floorName = i === 0 ? "Ground Floor" : `${i}${i === 1 ? "st" : i === 2 ? "nd" : i === 3 ? "rd" : "th"} Floor`;
+        const floor = await storage.createFloor({
+          propertyId,
+          floorNumber: i,
+          name: floorName,
+          totalBeds: 0,
+          availableBeds: 0,
+        });
+
+        const bedsToCreate: any[] = [];
+        for (const rt of roomTypesList) {
+          const bedsPerFloor = Math.ceil(rt.totalBeds / floorCount);
+          for (let b = 0; b < bedsPerFloor; b++) {
+            const bedNum = `${(i * 100) + b + 1}-${rt.name?.charAt(0) || "R"}`;
+            bedsToCreate.push({
+              propertyId,
+              floorId: floor.id,
+              roomTypeId: rt.id,
+              bedNumber: bedNum,
+              status: "available" as const,
+              monthlyPrice: rt.basePrice,
+            });
+          }
+        }
+
+        const createdBeds = await storage.createBeds(bedsToCreate);
+        await db.update(schema.floors).set({ totalBeds: createdBeds.length, availableBeds: createdBeds.length }).where(eq(schema.floors.id, floor.id));
+        createdFloors.push({ ...floor, totalBeds: createdBeds.length, availableBeds: createdBeds.length, beds: createdBeds });
+      }
+
+      res.status(201).json(createdFloors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to auto-generate floors" });
     }
   });
 
