@@ -88,6 +88,7 @@ const adminNavItems: NavItem[] = [
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
+  { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },

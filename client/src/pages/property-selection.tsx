@@ -205,12 +205,8 @@ export default function PropertySelection() {
   };
 
   const handlePropertySelect = (property: any) => {
-    setSelectedProperty(property);
-    setActiveDetailTab("Overview");
-    setGalleryIndex(0);
-    setIsLiked(false);
     trackPropertyView(property);
-    document.body.style.overflow = "hidden";
+    setLocation(`/properties/${property.id}`);
   };
 
   const closePropertyDetail = () => {

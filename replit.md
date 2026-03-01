@@ -89,6 +89,20 @@ Preferred communication style: Simple, everyday language.
   - Lost Status: Score reset to 0
 - **Admin Dashboard**: Lead Scoring Dashboard with priority distribution, averages, and top property analysis
 
+### Virtual Property Tour & Floor/Bed Booking
+- **Route**: `/properties/:id` — dedicated property detail page with integrated tour + booking
+- **Tour Gallery**: Categorized image viewer (Overview/Rooms/Amenities/Location) with Ken Burns effect, auto-play, fullscreen, swipe support, keyboard navigation, thumbnail filmstrip
+- **Floor & Bed Selection**: Interactive floor picker with expandable cards showing bed grids; color-coded beds (green=available, red=occupied, yellow=reserved, gray=maintenance); click to select and see booking summary
+- **Booking Summary Panel**: Sticky sidebar showing selected property, floor, bed, room type, and price; "Proceed to Book" navigates to student registration
+- **Admin Floor Management** (`/admin/floors-beds`): Property selector, auto-generate floors/beds from room types, visual floor/bed grid, status management
+- **Schema Tables**: `floors` (propertyId, floorNumber, name, totalBeds, availableBeds, layoutImage), `beds` (propertyId, floorId, roomTypeId, bedNumber, status enum, monthlyPrice, position jsonb)
+- **API Endpoints**: 
+  - `GET /api/properties/:id/floors` (public, floors with beds)
+  - `POST /api/admin/properties/:id/auto-generate-floors` (admin, auto-generate)
+  - `POST /api/admin/properties/:id/floors` (admin, create floor)
+  - `PATCH /api/admin/beds/:id` (admin, update bed status)
+- **Navigation**: Property cards on home page and property listing link to `/properties/:id`; "Virtual Tour" hero button navigates to `/properties`
+
 ### Instagram Live Feed
 - **API**: Instagram Graph API integration with daily caching
 - **Tables**: `instagramPosts` (cached media), `instagramSyncLog` (sync history)

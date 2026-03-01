@@ -256,16 +256,17 @@ export default function Home() {
                   Explore Properties
                 </Button>
               </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-transparent border-2 border-white/40 text-white hover:bg-white/10 hover:border-white/60 text-base px-8 h-14 rounded-none font-semibold tracking-wider group uppercase"
-                onClick={() => setTourModalOpen(true)}
-                data-testid="button-take-tour"
-              >
-                <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Virtual Tour
-              </Button>
+              <Link href="/properties">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-2 border-white/40 text-white hover:bg-white/10 hover:border-white/60 text-base px-8 h-14 rounded-none font-semibold tracking-wider group uppercase"
+                  data-testid="button-take-tour"
+                >
+                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                  Virtual Tour
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </motion.div>
@@ -668,7 +669,7 @@ export default function Home() {
                     className="group"
                     data-testid={`property-card-${property.id}`}
                   >
-                    <Link href="/properties">
+                    <Link href={`/properties/${property.id}`}>
                       <div className="relative overflow-hidden cursor-pointer">
                         <div className="aspect-[4/3] overflow-hidden bg-gray-100">
                           <img

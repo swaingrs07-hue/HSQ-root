@@ -38,6 +38,8 @@ import AdminHeroSlides from "@/pages/admin-hero-slides";
 import AdminFooterSettings from "@/pages/admin-footer-settings";
 import CompletedBookings from "@/pages/completed-bookings";
 import AdminDataExport from "@/pages/admin-data-export";
+import AdminFloorsBeds from "@/pages/admin-floors-beds";
+import PropertyBooking from "@/pages/property-booking";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
@@ -74,6 +76,7 @@ function AppContent() {
               <Route path="/admin/hero-slides" component={AdminHeroSlides} />
               <Route path="/admin/footer-settings" component={AdminFooterSettings} />
               <Route path="/admin/calendar" component={AdminCalendar} />
+              <Route path="/admin/floors-beds" component={AdminFloorsBeds} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
@@ -94,6 +97,7 @@ function AppContent() {
               <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />
+              <Route path="/properties/:id" component={PropertyBooking} />
               <Route path="/payment-plans" component={PaymentPlans} />
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
