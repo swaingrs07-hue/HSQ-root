@@ -177,8 +177,24 @@ export default function BookingGeneration() {
 
   const isAdmin = user?.role === "admin";
   const isSalesExec = user?.role === "sales_executive";
+  const isRegularUser = user?.role === "user" || user?.role === "student";
   const maxDiscountPercent = isSalesExec ? 10 : 100;
   const getAuthToken = () => token || "";
+
+  useEffect(() => {
+    if (isRegularUser && user) {
+      setFormData(prev => ({
+        ...prev,
+        customerType: "walk_in",
+        walkInName: user.name || "",
+        walkInPhone: user.phone || "",
+        walkInEmail: user.email || "",
+        residentName: user.name || "",
+        residentPhone: user.phone || "",
+        residentEmail: user.email || "",
+      }));
+    }
+  }, [user, isRegularUser]);
 
   useEffect(() => {
     fetchProperties();
@@ -655,9 +671,84 @@ export default function BookingGeneration() {
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 mb-1">
                     <UserPlus className="h-5 w-5 text-indigo-500" />
-                    <h3 className="text-lg font-semibold text-slate-800">Customer Information</h3>
+                    <h3 className="text-lg font-semibold text-slate-800">
+                      {isRegularUser ? "Your Details" : "Customer Information"}
+                    </h3>
                   </div>
 
+                  {isRegularUser ? (
+                    <div className="space-y-4">
+                      <div className="p-5 bg-indigo-50 rounded-xl border border-indigo-200">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center ring-2 ring-indigo-200">
+                            <User className="h-5 w-5 text-indigo-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800" data-testid="text-profile-name">{user?.name || "—"}</p>
+                            <div className="flex items-center gap-3 text-sm text-slate-500 mt-0.5">
+                              {user?.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{user.email}</span>}
+                              {user?.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{user.phone}</span>}
+                            </div>
+                          </div>
+                          <Badge className="ml-auto bg-indigo-100 text-indigo-700 border-indigo-200">Profile</Badge>
+                        </div>
+                        <p className="text-xs text-indigo-600">Your profile details will be used for this booking. You can update them below if needed.</p>
+                      </div>
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4 p-5 bg-slate-50 rounded-xl border border-slate-200"
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="walkInName" className="text-sm font-medium text-slate-700">Full Name <span className="text-red-500">*</span></Label>
+                            <div className="relative">
+                              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input
+                                id="walkInName"
+                                value={formData.walkInName}
+                                onChange={(e) => setFormData(prev => ({ ...prev, walkInName: e.target.value, residentName: e.target.value }))}
+                                className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Your full name"
+                                data-testid="input-user-name"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="walkInPhone" className="text-sm font-medium text-slate-700">Phone <span className="text-red-500">*</span></Label>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input
+                                id="walkInPhone"
+                                value={formData.walkInPhone}
+                                onChange={(e) => setFormData(prev => ({ ...prev, walkInPhone: e.target.value, residentPhone: e.target.value }))}
+                                className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Your phone number"
+                                data-testid="input-user-phone"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="walkInEmail" className="text-sm font-medium text-slate-700">Email <span className="text-slate-400 font-normal">(Optional)</span></Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                              id="walkInEmail"
+                              type="email"
+                              value={formData.walkInEmail}
+                              onChange={(e) => setFormData(prev => ({ ...prev, walkInEmail: e.target.value, residentEmail: e.target.value }))}
+                              className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                              placeholder="Your email address"
+                              data-testid="input-user-email"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    </div>
+                  ) : (
+                  <>
                   <div>
                     <Label className="text-sm font-medium text-slate-600 mb-3 block">Customer Type</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -961,7 +1052,9 @@ export default function BookingGeneration() {
                       </div>
                     </motion.div>
                   )}
-                </div>
+                  </>
+                  )}
+                  </div>
               )}
 
               {step === 2 && (
@@ -1859,7 +1952,7 @@ export default function BookingGeneration() {
                         )}
                       </div>
                       <Badge variant="secondary" className="mt-3 capitalize">
-                        {formData.customerType.replace("_", " ")}
+                        {isRegularUser ? "Profile Booking" : formData.customerType.replace("_", " ")}
                       </Badge>
                     </div>
 
