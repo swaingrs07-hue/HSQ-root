@@ -40,6 +40,7 @@ import CompletedBookings from "@/pages/completed-bookings";
 import AdminDataExport from "@/pages/admin-data-export";
 import AdminFloorsBeds from "@/pages/admin-floors-beds";
 import AdminVirtualTour from "@/pages/admin-virtual-tour";
+import AdminBookingTree from "@/pages/admin-booking-tree";
 import PropertyBooking from "@/pages/property-booking";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
@@ -78,6 +79,7 @@ function AppContent() {
               <Route path="/admin/footer-settings" component={AdminFooterSettings} />
               <Route path="/admin/calendar" component={AdminCalendar} />
               <Route path="/admin/floors-beds" component={AdminFloorsBeds} />
+              <Route path="/admin/booking-tree" component={AdminBookingTree} />
               <Route path="/admin/virtual-tour-uploads" component={AdminVirtualTour} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />

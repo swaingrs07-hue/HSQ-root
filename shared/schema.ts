@@ -223,6 +223,9 @@ export const bookings = pgTable("bookings", {
   // Bed allocation
   bedAllocated: boolean("bed_allocated").default(false).notNull(),
   bedAllocatedAt: timestamp("bed_allocated_at"),
+  bedId: varchar("bed_id"),
+  floorId: varchar("floor_id"),
+  roomId: varchar("room_id"),
   
   // Resident details (JSON)
   residentDetails: jsonb("resident_details"),
@@ -1008,6 +1011,31 @@ export const footerSettings = pgTable("footer_settings", {
 export const insertFooterSettingsSchema = createInsertSchema(footerSettings).omit({ id: true, updatedAt: true });
 export type FooterSettings = typeof footerSettings.$inferSelect;
 export type InsertFooterSettings = z.infer<typeof insertFooterSettingsSchema>;
+
+// Bed allocation action enum
+export const bedAllocationActionEnum = pgEnum("bed_allocation_action", ["allocate", "deallocate", "transfer"]);
+
+// Bed allocations table (tracks which booking occupies which bed and full history)
+export const bedAllocations = pgTable("bed_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bedId: varchar("bed_id").notNull(),
+  bookingId: varchar("booking_id").notNull(),
+  propertyId: varchar("property_id").notNull(),
+  floorId: varchar("floor_id").notNull(),
+  roomId: varchar("room_id"),
+  action: bedAllocationActionEnum("action").notNull(),
+  allocatedAt: timestamp("allocated_at").defaultNow().notNull(),
+  deallocatedAt: timestamp("deallocated_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+  notes: text("notes"),
+  allocatedBy: varchar("allocated_by"),
+  deallocatedBy: varchar("deallocated_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBedAllocationSchema = createInsertSchema(bedAllocations).omit({ id: true, createdAt: true });
+export type BedAllocation = typeof bedAllocations.$inferSelect;
+export type InsertBedAllocation = z.infer<typeof insertBedAllocationSchema>;
 
 // Bed status enum
 export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "reserved", "maintenance", "blocked"]);

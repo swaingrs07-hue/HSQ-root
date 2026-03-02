@@ -6266,5 +6266,382 @@ export async function registerRoutes(
     }
   });
 
+  // ==========================================
+  // BED-WISE BOOKING TREE ENDPOINTS
+  // ==========================================
+
+  // Get full booking tree for a property (property → floors → rooms → beds with booking info)
+  app.get("/api/admin/properties/:id/booking-tree", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.params.id;
+
+      // Get all floors with rooms and beds
+      const propertyFloors = await db.query.floors.findMany({
+        where: eq(schema.floors.propertyId, propertyId),
+        orderBy: schema.floors.floorNumber,
+        with: {
+          rooms: {
+            with: {
+              beds: true,
+              roomType: true,
+            },
+          },
+          beds: true,
+        },
+      });
+
+      // Get all active bed allocations for this property
+      const activeAllocations = await db.select()
+        .from(schema.bedAllocations)
+        .where(and(
+          eq(schema.bedAllocations.propertyId, propertyId),
+          eq(schema.bedAllocations.isActive, true),
+        ));
+
+      // Get all active/confirmed bookings for this property with bed assignments
+      const activeBookings = await db.select()
+        .from(schema.bookings)
+        .where(and(
+          eq(schema.bookings.propertyId, propertyId),
+          inArray(schema.bookings.status, ["confirmed", "active", "pending_payment", "pending_approval"]),
+        ));
+
+      // Get installments for these bookings
+      const bookingIds = activeBookings.map(b => b.id);
+      let bookingInstallments: any[] = [];
+      if (bookingIds.length > 0) {
+        bookingInstallments = await db.select()
+          .from(schema.installments)
+          .where(inArray(schema.installments.bookingId, bookingIds));
+      }
+
+      // Get payments for these bookings
+      let bookingPayments: any[] = [];
+      if (bookingIds.length > 0) {
+        bookingPayments = await db.select()
+          .from(schema.payments)
+          .where(inArray(schema.payments.bookingId, bookingIds));
+      }
+
+      // Map bed allocations by bedId for quick lookup
+      const allocationsByBed: Record<string, any> = {};
+      for (const alloc of activeAllocations) {
+        allocationsByBed[alloc.bedId] = alloc;
+      }
+
+      // Map bookings by id
+      const bookingsById: Record<string, any> = {};
+      for (const b of activeBookings) {
+        bookingsById[b.id] = {
+          ...b,
+          installments: bookingInstallments.filter(i => i.bookingId === b.id),
+          payments: bookingPayments.filter(p => p.bookingId === b.id),
+        };
+      }
+
+      // Also map bookings by bedId
+      const bookingsByBed: Record<string, any> = {};
+      for (const b of activeBookings) {
+        if (b.bedId) {
+          bookingsByBed[b.bedId] = bookingsById[b.id];
+        }
+      }
+
+      // Enrich beds with booking info
+      const enrichBed = (bed: any) => {
+        const allocation = allocationsByBed[bed.id];
+        const booking = bookingsByBed[bed.id];
+        return {
+          ...bed,
+          currentAllocation: allocation || null,
+          currentBooking: booking || null,
+        };
+      };
+
+      // Build tree response
+      const tree = propertyFloors.map((floor: any) => ({
+        ...floor,
+        rooms: (floor.rooms || []).map((room: any) => ({
+          ...room,
+          beds: (room.beds || []).map(enrichBed),
+        })),
+        beds: (floor.beds || []).filter((b: any) => !b.roomId).map(enrichBed),
+      }));
+
+      // Summary stats
+      const allBeds = tree.flatMap((f: any) => [
+        ...f.beds,
+        ...f.rooms.flatMap((r: any) => r.beds),
+      ]);
+      const stats = {
+        totalBeds: allBeds.length,
+        available: allBeds.filter((b: any) => b.status === "available").length,
+        occupied: allBeds.filter((b: any) => b.status === "occupied").length,
+        reserved: allBeds.filter((b: any) => b.status === "reserved").length,
+        maintenance: allBeds.filter((b: any) => b.status === "maintenance").length,
+        blocked: allBeds.filter((b: any) => b.status === "blocked").length,
+        withBooking: allBeds.filter((b: any) => b.currentBooking).length,
+      };
+
+      res.json({ floors: tree, stats });
+    } catch (error: any) {
+      console.error("Error fetching booking tree:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch booking tree" });
+    }
+  });
+
+  // Get detailed bed info with full booking history and allocation timeline
+  app.get("/api/admin/beds/:id/details", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const bedId = req.params.id;
+
+      // Get bed with room/floor info
+      const bed = await db.query.beds.findFirst({
+        where: eq(schema.beds.id, bedId),
+        with: {
+          room: true,
+          floor: true,
+          property: true,
+          roomType: true,
+        },
+      });
+
+      if (!bed) {
+        return res.status(404).json({ error: "Bed not found" });
+      }
+
+      // Get all allocations for this bed (history)
+      const allocations = await db.select()
+        .from(schema.bedAllocations)
+        .where(eq(schema.bedAllocations.bedId, bedId))
+        .orderBy(sql`${schema.bedAllocations.createdAt} DESC`);
+
+      // Get all bookings that have this bedId
+      const bedBookings = await db.select()
+        .from(schema.bookings)
+        .where(eq(schema.bookings.bedId, bedId))
+        .orderBy(sql`${schema.bookings.createdAt} DESC`);
+
+      // Get installments and payments for these bookings
+      const bIds = bedBookings.map(b => b.id);
+      let installments: any[] = [];
+      let payments: any[] = [];
+      if (bIds.length > 0) {
+        installments = await db.select()
+          .from(schema.installments)
+          .where(inArray(schema.installments.bookingId, bIds));
+        payments = await db.select()
+          .from(schema.payments)
+          .where(inArray(schema.payments.bookingId, bIds));
+      }
+
+      // Get block logs
+      const blockLogs = await db.select()
+        .from(schema.bedBlockLogs)
+        .where(eq(schema.bedBlockLogs.bedId, bedId))
+        .orderBy(sql`${schema.bedBlockLogs.createdAt} DESC`);
+
+      // Get current active booking
+      const activeBooking = bedBookings.find(b => 
+        ["confirmed", "active", "pending_payment", "pending_approval"].includes(b.status)
+      );
+
+      // Get guest/student details if active booking exists
+      let guestDetails: any = null;
+      if (activeBooking) {
+        if (activeBooking.studentId) {
+          const student = await db.select()
+            .from(schema.students)
+            .where(eq(schema.students.id, activeBooking.studentId))
+            .limit(1);
+          if (student.length > 0) {
+            guestDetails = {
+              type: "student",
+              name: student[0].fullName,
+              phone: student[0].phone,
+              email: student[0].email,
+              college: student[0].collegeName,
+              photo: student[0].photoUrl,
+            };
+          }
+        } else if (activeBooking.walkInName) {
+          guestDetails = {
+            type: "walk_in",
+            name: activeBooking.walkInName,
+            phone: activeBooking.walkInPhone,
+            email: activeBooking.walkInEmail,
+          };
+        }
+
+        if (activeBooking.leadId) {
+          const lead = await db.select()
+            .from(schema.leads)
+            .where(eq(schema.leads.id, activeBooking.leadId))
+            .limit(1);
+          if (lead.length > 0) {
+            guestDetails = {
+              ...guestDetails,
+              type: "lead",
+              name: lead[0].name,
+              phone: lead[0].phone,
+              email: lead[0].email,
+            };
+          }
+        }
+      }
+
+      // Enrich bookings with installments/payments
+      const enrichedBookings = bedBookings.map(b => ({
+        ...b,
+        installments: installments.filter(i => i.bookingId === b.id),
+        payments: payments.filter(p => p.bookingId === b.id),
+        totalPaid: payments
+          .filter(p => p.bookingId === b.id && p.status === "success")
+          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+      }));
+
+      res.json({
+        bed,
+        guestDetails,
+        activeBooking: activeBooking ? enrichedBookings.find(b => b.id === activeBooking.id) : null,
+        bookingHistory: enrichedBookings,
+        allocations,
+        blockLogs,
+      });
+    } catch (error: any) {
+      console.error("Error fetching bed details:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch bed details" });
+    }
+  });
+
+  // Allocate a bed to a booking
+  app.post("/api/admin/beds/:id/allocate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const bedId = req.params.id;
+      const { bookingId, notes } = req.body;
+
+      if (!bookingId) {
+        return res.status(400).json({ error: "bookingId is required" });
+      }
+
+      // Check bed exists and is available
+      const bed = await db.select().from(schema.beds).where(eq(schema.beds.id, bedId)).limit(1);
+      if (bed.length === 0) return res.status(404).json({ error: "Bed not found" });
+      if (bed[0].status !== "available") {
+        return res.status(400).json({ error: `Bed is currently ${bed[0].status}, cannot allocate` });
+      }
+
+      // Check no overlapping active allocation
+      const existing = await db.select()
+        .from(schema.bedAllocations)
+        .where(and(
+          eq(schema.bedAllocations.bedId, bedId),
+          eq(schema.bedAllocations.isActive, true),
+        ));
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "Bed already has an active allocation" });
+      }
+
+      // Check booking exists
+      const booking = await db.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId)).limit(1);
+      if (booking.length === 0) return res.status(404).json({ error: "Booking not found" });
+
+      // Create allocation
+      const [allocation] = await db.insert(schema.bedAllocations).values({
+        bedId,
+        bookingId,
+        propertyId: bed[0].propertyId,
+        floorId: bed[0].floorId,
+        roomId: bed[0].roomId,
+        action: "allocate",
+        allocatedBy: req.user?.email || "admin",
+        notes,
+      }).returning();
+
+      // Update bed status
+      await db.update(schema.beds)
+        .set({ status: "occupied" })
+        .where(eq(schema.beds.id, bedId));
+
+      // Update booking with bed info
+      await db.update(schema.bookings)
+        .set({
+          bedId,
+          floorId: bed[0].floorId,
+          roomId: bed[0].roomId,
+          bedAllocated: true,
+          bedAllocatedAt: new Date(),
+        })
+        .where(eq(schema.bookings.id, bookingId));
+
+      res.json({ allocation, message: "Bed allocated successfully" });
+    } catch (error: any) {
+      console.error("Error allocating bed:", error);
+      res.status(500).json({ error: error.message || "Failed to allocate bed" });
+    }
+  });
+
+  // Deallocate a bed (free it up)
+  app.post("/api/admin/beds/:id/deallocate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const bedId = req.params.id;
+      const { notes } = req.body;
+
+      // Deactivate current allocation
+      await db.update(schema.bedAllocations)
+        .set({
+          isActive: false,
+          deallocatedAt: new Date(),
+          deallocatedBy: req.user?.email || "admin",
+        })
+        .where(and(
+          eq(schema.bedAllocations.bedId, bedId),
+          eq(schema.bedAllocations.isActive, true),
+        ));
+
+      // Set bed back to available
+      await db.update(schema.beds)
+        .set({ status: "available" })
+        .where(eq(schema.beds.id, bedId));
+
+      // Clear bed assignment from booking
+      const booking = await db.select().from(schema.bookings).where(eq(schema.bookings.bedId, bedId)).limit(1);
+      if (booking.length > 0) {
+        await db.update(schema.bookings)
+          .set({ bedId: null, bedAllocated: false })
+          .where(eq(schema.bookings.id, booking[0].id));
+      }
+
+      res.json({ message: "Bed deallocated successfully" });
+    } catch (error: any) {
+      console.error("Error deallocating bed:", error);
+      res.status(500).json({ error: error.message || "Failed to deallocate bed" });
+    }
+  });
+
+  // Get unassigned bookings (bookings without a bed) for a property
+  app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.params.id;
+
+      const unassigned = await db.select()
+        .from(schema.bookings)
+        .where(and(
+          eq(schema.bookings.propertyId, propertyId),
+          inArray(schema.bookings.status, ["confirmed", "active", "pending_payment", "pending_approval", "draft"]),
+          or(
+            isNull(schema.bookings.bedId),
+            eq(schema.bookings.bedAllocated, false),
+          ),
+        ))
+        .orderBy(sql`${schema.bookings.createdAt} DESC`);
+
+      res.json(unassigned);
+    } catch (error: any) {
+      console.error("Error fetching unassigned bookings:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch unassigned bookings" });
+    }
+  });
+
   return httpServer;
 }

@@ -125,6 +125,22 @@ Preferred communication style: Simple, everyday language.
 - **Image Import Security**: Domain allowlist (Unsplash, Google, Imgur, Wikimedia), HTTPS-only, content-type validation, 20MB size limit, 15s timeout, max 20 URLs per batch
 - **Navigation**: Property cards on home page and property listing link to `/properties/:id`; "Virtual Tour" hero button navigates to `/properties`; `/properties/:id` accessible from both admin and public layouts
 
+### Booking Tree (Bed-wise Booking Details)
+- **Route**: `/admin/booking-tree` — admin page showing property → floor → room → bed hierarchy with live booking status
+- **Visual Tree**: Expandable floor cards → room cards with typology badges → color-coded bed cells with booking overlays
+- **Bed Detail Drawer**: Click any bed to see current occupant (guest details, photo), active booking (code, dates, payment progress bar), booking history, allocation timeline, block/unblock history
+- **Bed Allocation System**: Allocate unassigned bookings to available beds, deallocate occupied beds; prevents overlapping allocations
+- **Quick Actions**: Allocate/Deallocate buttons on hover over bed cells and in detail drawer
+- **Stats**: Top-level pills showing Total, Available, Occupied, Reserved, Blocked, With Booking counts
+- **Schema**: `bedAllocations` table tracks allocation history (bedId, bookingId, propertyId, action, allocatedAt/deallocatedAt, isActive); bookings table has bedId/floorId/roomId fields
+- **API Endpoints**:
+  - `GET /api/admin/properties/:id/booking-tree` (admin, full tree with booking enrichment)
+  - `GET /api/admin/beds/:id/details` (admin, bed with guest, booking history, allocations, block logs)
+  - `POST /api/admin/beds/:id/allocate` (admin, assign booking to bed, prevents overlapping)
+  - `POST /api/admin/beds/:id/deallocate` (admin, free up bed)
+  - `GET /api/admin/properties/:id/unassigned-bookings` (admin, bookings without bed assignment)
+- **Real-time**: Auto-refreshes every 30 seconds
+
 ### Instagram Live Feed
 - **API**: Instagram Graph API integration with daily caching
 - **Tables**: `instagramPosts` (cached media), `instagramSyncLog` (sync history)
