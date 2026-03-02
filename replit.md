@@ -82,13 +82,22 @@ Preferred communication style: Simple, everyday language.
 
 #### Season/Batch CRM Module
 - **Admin Route**: `/admin/seasons` — manage academic seasons/batches as CRM source-of-truth
-- **Schema**: `seasons` table (name, startDate, endDate, graceDays, status: UPCOMING/ACTIVE/ENDED, nextSeasonId), `resident_season_status` (bookingId, seasonId, status: RETAINED/NOT_RETAINED/PENDING, graceUntil, decisionReason), `season_close_jobs` + `season_close_job_items` for End Season flow
-- **Season CRUD**: Create, update, delete, activate (auto-ends previous ACTIVE), end seasons; only one ACTIVE allowed
+- **Schema**: `seasons` table (name, propertyId, startDate, endDate, graceDays, status: UPCOMING/ACTIVE/ENDED, nextSeasonId), `resident_season_status` (bookingId, seasonId, status: RETAINED/NOT_RETAINED/PENDING, graceUntil, decisionReason), `season_close_jobs` + `season_close_job_items` for End Season flow
+- **Season CRUD**: Create, update, delete, activate (auto-ends previous ACTIVE), end seasons; only one ACTIVE allowed per property
+- **Property Scoping**: Seasons can be scoped to a specific property via propertyId; season create/edit dialog includes property selector
 - **Resident Tracking**: Per-season resident status management with bulk update, individual status changes, grace period tracking
 - **End Season Flow**: Generate Close Report (snapshots all active bookings into job items) → Preview (grouped by RETAINED/NOT_RETAINED/PENDING) → Apply & Sync (calls internal `/api/sync/season-close` endpoint to process bookings) → Retry on failure
 - **HMS Sync**: Internal endpoint processes season close by completing NOT_RETAINED bookings; secured with internal token
 - **Audit Logging**: All season operations logged via `logActivity`
 - **API Endpoints**: ~15 endpoints under `/api/admin/seasons/` for full lifecycle management
+
+#### HMS Property Sync
+- **Admin Route**: `/admin/hms-sync` — link/unlink properties to external Hostel Management System
+- **External HMS**: `https://hostel-flow--swaingrs07.replit.app` with JWT auth (cached 23hrs)
+- **Property Fields**: `propertyCode` (for HMS matching), `hmsPropertyId`, `hmsPropertyName`, `hmsLinked` on properties table
+- **Features**: Link/unlink/re-link properties to HMS, verify HMS connections, auto-match by propertyCode or name
+- **API Endpoints**: `GET /api/admin/hms/properties`, `POST /api/admin/properties/:id/link-hms`, `POST .../unlink-hms`, `GET .../verify-hms`
+- **Property Code**: Optional field in Add Property form (Basic Details step) for HMS identification
 
 #### Instagram Live Feed
 - **Integration**: Instagram Graph API for displaying recent posts.

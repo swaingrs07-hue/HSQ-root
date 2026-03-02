@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar, Plus, Edit, Trash2, Play, Square, ChevronDown, ChevronUp,
   Loader2, AlertCircle, CheckCircle2, Users, FileText, RotateCcw,
-  ClipboardList, Zap, Clock, ArrowRight, RefreshCw
+  ClipboardList, Zap, Clock, ArrowRight, RefreshCw, Building
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -23,6 +23,7 @@ import {
 interface Season {
   id: string;
   name: string;
+  propertyId: string | null;
   startDate: string;
   endDate: string;
   graceDays: number;
@@ -30,6 +31,15 @@ interface Season {
   nextSeasonId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Property {
+  id: string;
+  name: string;
+  propertyCode: string | null;
+  hmsPropertyId: number | null;
+  hmsPropertyName: string | null;
+  hmsLinked: boolean;
 }
 
 interface ResidentStatus {
@@ -92,6 +102,7 @@ interface CloseJobItem {
 
 interface SeasonFormData {
   name: string;
+  propertyId: string;
   startDate: string;
   endDate: string;
   graceDays: number;
@@ -99,7 +110,7 @@ interface SeasonFormData {
 }
 
 const emptyForm: SeasonFormData = {
-  name: "", startDate: "", endDate: "", graceDays: 30, nextSeasonId: "",
+  name: "", propertyId: "", startDate: "", endDate: "", graceDays: 30, nextSeasonId: "",
 };
 
 const statusColors: Record<string, string> = {
@@ -125,6 +136,7 @@ export default function AdminSeasons() {
   const { toast } = useToast();
 
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -152,7 +164,17 @@ export default function AdminSeasons() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchSeasons(); }, []);
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch("/api/admin/properties", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setProperties(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  useEffect(() => { fetchSeasons(); fetchProperties(); }, []);
 
   const fetchResidents = async (seasonId: string) => {
     setResidentsLoading(true);
@@ -193,6 +215,7 @@ export default function AdminSeasons() {
   const openEdit = (s: Season) => {
     setForm({
       name: s.name,
+      propertyId: s.propertyId || "",
       startDate: s.startDate ? new Date(s.startDate).toISOString().slice(0, 10) : "",
       endDate: s.endDate ? new Date(s.endDate).toISOString().slice(0, 10) : "",
       graceDays: s.graceDays,
@@ -202,6 +225,11 @@ export default function AdminSeasons() {
     setDialogOpen(true);
   };
 
+  const getPropertyName = (propertyId: string | null) => {
+    if (!propertyId) return "All Properties";
+    return properties.find(p => p.id === propertyId)?.name || "Unknown Property";
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     if (!form.startDate || !form.endDate) { toast({ title: "Dates required", variant: "destructive" }); return; }
@@ -209,6 +237,7 @@ export default function AdminSeasons() {
     try {
       const body = {
         name: form.name,
+        propertyId: form.propertyId || null,
         startDate: new Date(form.startDate).toISOString(),
         endDate: new Date(form.endDate).toISOString(),
         graceDays: Number(form.graceDays) || 30,
@@ -464,6 +493,9 @@ export default function AdminSeasons() {
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-sm text-slate-500 flex-wrap">
+                        <span className="flex items-center gap-1 font-medium text-slate-600" data-testid={`text-season-property-${season.id}`}>
+                          <Building className="h-3.5 w-3.5" /> {getPropertyName(season.propertyId)}
+                        </span>
                         <span data-testid={`text-season-dates-${season.id}`}>
                           {formatDate(season.startDate)} — {formatDate(season.endDate)}
                         </span>
@@ -845,6 +877,22 @@ export default function AdminSeasons() {
                 placeholder="e.g. 2025-2026"
                 data-testid="input-season-name"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Property *</Label>
+              <Select value={form.propertyId || "all"} onValueChange={v => setForm(f => ({ ...f, propertyId: v === "all" ? "" : v }))}>
+                <SelectTrigger data-testid="select-property">
+                  <SelectValue placeholder="Select property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Properties (Global)</SelectItem>
+                  {properties.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.hmsLinked ? "✓ HMS" : ""} {p.propertyCode ? `(${p.propertyCode})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

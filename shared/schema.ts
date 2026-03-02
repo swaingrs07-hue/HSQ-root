@@ -68,6 +68,10 @@ export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   displayName: text("display_name"),
+  propertyCode: text("property_code"),
+  hmsPropertyId: integer("hms_property_id"),
+  hmsPropertyName: text("hms_property_name"),
+  hmsLinked: boolean("hms_linked").default(false).notNull(),
   category: propertyCategoryEnum("category").default("hostel"),
   bookingMode: bookingModeEnum("booking_mode").default("monthly").notNull(),
   location: text("location").notNull(),
@@ -1265,6 +1269,7 @@ export const seasonCloseJobStatusEnum = pgEnum("season_close_job_status", ["PREV
 export const seasons = pgTable("seasons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  propertyId: varchar("property_id").references(() => properties.id),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   graceDays: integer("grace_days").notNull().default(30),

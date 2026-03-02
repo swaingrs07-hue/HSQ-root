@@ -52,6 +52,7 @@ const STEPS = [
 
 const propertyFormSchema = z.object({
   name: z.string().min(1, "Property name is required"),
+  propertyCode: z.string().optional(),
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
@@ -170,6 +171,7 @@ export default function AddProperty() {
     resolver: zodResolver(propertyFormSchema),
     defaultValues: {
       name: "",
+      propertyCode: "",
       address: "",
       city: "",
       state: "",
@@ -738,6 +740,20 @@ export default function AddProperty() {
                             <SelectItem value="hotel">Hotel</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label htmlFor="propertyCode">Property Code (for HMS)</Label>
+                        <Input
+                          id="propertyCode"
+                          {...form.register("propertyCode")}
+                          placeholder="e.g., JUHU, GOREGAON"
+                          className="mt-1"
+                          data-testid="input-property-code"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Used for linking with external HMS system</p>
                       </div>
                     </div>
 

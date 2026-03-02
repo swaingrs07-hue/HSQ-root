@@ -1982,7 +1982,7 @@ export async function registerRoutes(
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider"];
+      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode"];
       const updates: any = {};
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
@@ -2351,6 +2351,7 @@ export async function registerRoutes(
         nearbyLocations: nearby,
         tariffs,
         roomTypes: rooms,
+        propertyCode,
       } = req.body;
 
       // Create the property
@@ -2370,6 +2371,7 @@ export async function registerRoutes(
         nearbyLocations: null,
         customFields: customFields ? JSON.stringify(customFields) : null,
         status: status || "draft",
+        propertyCode: propertyCode || null,
       });
 
       // Create property rules
@@ -3859,6 +3861,154 @@ export async function registerRoutes(
     jwtExpiresAt = Date.now() + 23 * 60 * 60 * 1000;
     return cachedHostelFlowJWT;
   }
+
+  app.get("/api/admin/hms/properties", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      let jwt: string;
+      try {
+        jwt = await getHostelFlowJWT();
+      } catch (loginErr: any) {
+        return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+      }
+
+      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/properties`, {
+        headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ error: "Failed to fetch HMS properties" });
+      }
+
+      const hmsProperties = await response.json();
+      res.json(hmsProperties);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch HMS properties" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/link-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { hmsPropertyId, hmsPropertyName, propertyCode } = req.body;
+      if (!hmsPropertyId || !hmsPropertyName) {
+        return res.status(400).json({ error: "hmsPropertyId and hmsPropertyName are required" });
+      }
+
+      const [updated] = await db.update(schema.properties).set({
+        hmsPropertyId,
+        hmsPropertyName,
+        propertyCode: propertyCode || null,
+        hmsLinked: true,
+        updatedAt: new Date(),
+      }).where(eq(schema.properties.id, req.params.id)).returning();
+
+      if (!updated) return res.status(404).json({ error: "Property not found" });
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "PROPERTY",
+        entityId: updated.id,
+        entityLabel: updated.name,
+        metadata: { action: "hms_linked", hmsPropertyId, hmsPropertyName, propertyCode },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to link HMS property" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/unlink-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [updated] = await db.update(schema.properties).set({
+        hmsPropertyId: null,
+        hmsPropertyName: null,
+        hmsLinked: false,
+        updatedAt: new Date(),
+      }).where(eq(schema.properties.id, req.params.id)).returning();
+
+      if (!updated) return res.status(404).json({ error: "Property not found" });
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "PROPERTY",
+        entityId: updated.id,
+        entityLabel: updated.name,
+        metadata: { action: "hms_unlinked" },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to unlink HMS property" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/verify-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, req.params.id));
+      if (!property) return res.status(404).json({ error: "Property not found" });
+
+      let jwt: string;
+      try {
+        jwt = await getHostelFlowJWT();
+      } catch (loginErr: any) {
+        return res.status(502).json({ error: "Failed to authenticate with HMS" });
+      }
+
+      const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/properties`, {
+        headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ error: "Failed to fetch HMS properties" });
+      }
+
+      const hmsProperties = (await response.json()) as any[];
+
+      let matched = null;
+      if (property.propertyCode) {
+        matched = hmsProperties.find((h: any) => h.propertyCode === property.propertyCode);
+      }
+      if (!matched) {
+        const normalizedName = property.name.toLowerCase().trim();
+        matched = hmsProperties.find((h: any) => h.name.toLowerCase().trim() === normalizedName);
+      }
+      if (!matched) {
+        const words = property.name.toLowerCase().split(/\s+/);
+        matched = hmsProperties.find((h: any) => {
+          const hmsWords = h.name.toLowerCase().split(/\s+/);
+          const common = words.filter((w: string) => hmsWords.includes(w));
+          return common.length >= 2;
+        });
+      }
+
+      let matchedBy = "none";
+      if (matched && property.propertyCode) {
+        const codeMatch = hmsProperties.find((h: any) => h.propertyCode === property.propertyCode);
+        matchedBy = codeMatch === matched ? "propertyCode" : "name";
+      } else if (matched) {
+        matchedBy = "name";
+      }
+
+      if (matched) {
+        res.json({
+          linked: true,
+          found: true,
+          hmsProperty: matched,
+          matchedBy,
+        });
+      } else {
+        res.json({
+          linked: false,
+          found: false,
+          availableHmsProperties: hmsProperties.map((h: any) => ({ id: h.id, name: h.name, city: h.city })),
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to verify HMS property" });
+    }
+  });
 
   app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
@@ -7115,20 +7265,24 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ error: "Invalid season data", details: parsed.error.format() });
 
       const { name, startDate, endDate, graceDays, status, nextSeasonId } = parsed.data;
+      const propertyId = req.body.propertyId || null;
 
       if (new Date(startDate) >= new Date(endDate)) {
         return res.status(400).json({ error: "Start date must be before end date" });
       }
 
       if (status === "ACTIVE") {
-        const existing = await db.select().from(schema.seasons).where(eq(schema.seasons.status, "ACTIVE"));
+        const activeConds: any[] = [eq(schema.seasons.status, "ACTIVE")];
+        if (propertyId) activeConds.push(eq(schema.seasons.propertyId, propertyId));
+        const existing = await db.select().from(schema.seasons).where(and(...activeConds));
         if (existing.length > 0) {
-          return res.status(400).json({ error: "Only one season can be ACTIVE at a time. End the current active season first." });
+          return res.status(400).json({ error: "Only one season can be ACTIVE at a time for this property. End the current active season first." });
         }
       }
 
       const [season] = await db.insert(schema.seasons).values({
         name,
+        propertyId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         graceDays: graceDays ?? 30,
@@ -7162,6 +7316,7 @@ export async function registerRoutes(
       if (req.body.endDate !== undefined) updateData.endDate = new Date(req.body.endDate);
       if (req.body.graceDays !== undefined) updateData.graceDays = req.body.graceDays;
       if (req.body.nextSeasonId !== undefined) updateData.nextSeasonId = req.body.nextSeasonId;
+      if (req.body.propertyId !== undefined) updateData.propertyId = req.body.propertyId || null;
 
       const [updated] = await db.update(schema.seasons).set(updateData).where(eq(schema.seasons.id, req.params.id)).returning();
 
@@ -7210,15 +7365,25 @@ export async function registerRoutes(
       const [existing] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!existing) return res.status(404).json({ error: "Season not found" });
 
-      const activeSeasons = await db.select().from(schema.seasons).where(eq(schema.seasons.status, "ACTIVE"));
+      const activeConds = [eq(schema.seasons.status, "ACTIVE")];
+      if (existing.propertyId) {
+        activeConds.push(eq(schema.seasons.propertyId, existing.propertyId));
+      }
+      const activeSeasons = await db.select().from(schema.seasons).where(and(...activeConds));
       for (const active of activeSeasons) {
-        await db.update(schema.seasons).set({ status: "ENDED", updatedAt: new Date() }).where(eq(schema.seasons.id, active.id));
+        if (active.id !== req.params.id) {
+          await db.update(schema.seasons).set({ status: "ENDED", updatedAt: new Date() }).where(eq(schema.seasons.id, active.id));
+        }
       }
 
       const [activated] = await db.update(schema.seasons).set({ status: "ACTIVE", updatedAt: new Date() }).where(eq(schema.seasons.id, req.params.id)).returning();
 
+      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      if (activated.propertyId) {
+        bookingConds.push(eq(schema.bookings.propertyId, activated.propertyId));
+      }
       const activeBookings = await db.select().from(schema.bookings)
-        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
+        .where(and(...bookingConds));
 
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
@@ -7282,8 +7447,12 @@ export async function registerRoutes(
       const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!season) return res.status(404).json({ error: "Season not found" });
 
+      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      if (season.propertyId) {
+        bookingConds.push(eq(schema.bookings.propertyId, season.propertyId));
+      }
       const activeBookings = await db.select().from(schema.bookings)
-        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
+        .where(and(...bookingConds));
 
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
@@ -7438,6 +7607,10 @@ export async function registerRoutes(
       const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!season) return res.status(404).json({ error: "Season not found" });
 
+      const closeBookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      if (season.propertyId) {
+        closeBookingConds.push(eq(schema.bookings.propertyId, season.propertyId));
+      }
       const activeBookings = await db.select({
         id: schema.bookings.id,
         bookingCode: schema.bookings.bookingCode,
@@ -7456,7 +7629,7 @@ export async function registerRoutes(
         .from(schema.bookings)
         .leftJoin(schema.students, eq(schema.bookings.studentId, schema.students.id))
         .leftJoin(schema.properties, eq(schema.bookings.propertyId, schema.properties.id))
-        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
+        .where(and(...closeBookingConds));
 
       const residentStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));

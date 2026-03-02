@@ -37,7 +37,8 @@ import {
   CheckCircle2,
   Globe,
   Layers,
-  Package
+  Package,
+  Link2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -96,6 +97,7 @@ const adminNavItems: NavItem[] = [
   { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
   { name: "Housing Plans", href: "/admin/packages", icon: Package },
   { name: "Seasons", href: "/admin/seasons", icon: Calendar },
+  { name: "HMS Sync", href: "/admin/hms-sync", icon: Link2 },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
