@@ -238,6 +238,11 @@ export default function BookingGeneration() {
   useEffect(() => {
     if (formData.propertyId) {
       fetchRoomTypes(formData.propertyId);
+      setFloorsLoading(true);
+      fetch(`/api/properties/${formData.propertyId}/floors`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => { setFloors(data || []); setFloorsLoading(false); })
+        .catch(() => { setFloors([]); setFloorsLoading(false); });
     }
   }, [formData.propertyId]);
 
@@ -363,13 +368,6 @@ export default function BookingGeneration() {
     setSelectedBedInfo(null);
     setExpandedFloors(new Set());
     setFloors([]);
-    if (propertyId) {
-      setFloorsLoading(true);
-      fetch(`/api/properties/${propertyId}/floors`)
-        .then(r => r.ok ? r.json() : [])
-        .then(data => { setFloors(data || []); setFloorsLoading(false); })
-        .catch(() => { setFloors([]); setFloorsLoading(false); });
-    }
   };
 
   const handleRoomTypeChange = (roomTypeId: string) => {
