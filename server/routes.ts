@@ -2754,6 +2754,26 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/my-bookings", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const bookings = await storage.getBookingsByCreator(userId);
+      const enriched = await Promise.all(bookings.map(async (b) => {
+        const [property, roomType, installments, payments] = await Promise.all([
+          storage.getProperty(b.propertyId),
+          storage.getRoomType(b.roomTypeId),
+          storage.getInstallmentsByBooking(b.id),
+          storage.getPaymentsByBooking(b.id),
+        ]);
+        return { ...b, property, roomType, installments, payments };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching user bookings:", error);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
   // Get bookings created by user (for sales executives)
   app.get("/api/bookings/created-by/:userId", async (req, res) => {
     try {

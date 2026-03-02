@@ -45,9 +45,11 @@ export default function UserDashboard() {
             <CardDescription>View and manage your room bookings</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full" data-testid="button-my-bookings">
-              View Bookings
-            </Button>
+            <Link href="/my-bookings">
+              <Button variant="outline" className="w-full" data-testid="button-my-bookings">
+                View Bookings
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -60,9 +62,11 @@ export default function UserDashboard() {
             <CardDescription>Track your payment history and dues</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full" data-testid="button-payments">
-              View Payments
-            </Button>
+            <Link href="/my-bookings">
+              <Button variant="outline" className="w-full" data-testid="button-payments">
+                View Payments
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 

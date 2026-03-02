@@ -107,7 +107,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     : user
     ? [
         { name: "Home", href: "/", icon: Home },
-        { name: "My Bookings", href: "/dashboard", icon: LayoutDashboard },
+        { name: "My Bookings", href: "/my-bookings", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
       ]
     : [

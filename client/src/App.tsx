@@ -37,6 +37,7 @@ import AdminCalendar from "@/pages/admin-calendar";
 import AdminHeroSlides from "@/pages/admin-hero-slides";
 import AdminFooterSettings from "@/pages/admin-footer-settings";
 import CompletedBookings from "@/pages/completed-bookings";
+import MyBookings from "@/pages/my-bookings";
 import AdminDataExport from "@/pages/admin-data-export";
 import AdminFloorsBeds from "@/pages/admin-floors-beds";
 import AdminVirtualTour from "@/pages/admin-virtual-tour";
@@ -107,6 +108,7 @@ function AppContent() {
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
               <Route path="/booking/generate" component={BookingGeneration} />
+              <Route path="/my-bookings" component={MyBookings} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
               <Route path="/help" component={Help} />
