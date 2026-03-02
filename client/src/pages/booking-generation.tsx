@@ -197,6 +197,42 @@ export default function BookingGeneration() {
   }, [user, isRegularUser]);
 
   useEffect(() => {
+    if (isRegularUser) {
+      const savedDraft = localStorage.getItem("hsquare_booking_draft");
+      if (savedDraft) {
+        try {
+          const draft = JSON.parse(savedDraft);
+          if (draft.formData) {
+            setFormData(prev => ({ ...prev, ...draft.formData }));
+            setStep(draft.step || 1);
+            if (draft.selectedBedId) setSelectedBedId(draft.selectedBedId);
+            if (draft.selectedFloorId) setSelectedFloorId(draft.selectedFloorId);
+            if (draft.selectedRoomId) setSelectedRoomId(draft.selectedRoomId);
+            if (draft.selectedBedInfo) setSelectedBedInfo(draft.selectedBedInfo);
+          }
+        } catch (e) {
+          console.error("Error restoring draft:", e);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isRegularUser && formData.propertyId) {
+      const draft = {
+        formData,
+        step,
+        selectedBedId,
+        selectedFloorId,
+        selectedRoomId,
+        selectedBedInfo,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem("hsquare_booking_draft", JSON.stringify(draft));
+    }
+  }, [formData, step, selectedBedId, selectedFloorId, selectedRoomId, isRegularUser]);
+
+  useEffect(() => {
     fetchProperties();
     if (isSalesExec && user?.id) {
       fetchAssignedLeads();
@@ -599,6 +635,7 @@ export default function BookingGeneration() {
       if (response.ok) {
         const data = await response.json();
         setBookingResult(data);
+        localStorage.removeItem("hsquare_booking_draft");
         if (data.booking) {
           localStorage.setItem("hsquare_booking", JSON.stringify(data.booking));
           if (data.installments) {

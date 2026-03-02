@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt } from "lucide-react";
+import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock } from "lucide-react";
 import { jsPDF } from "jspdf";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -17,14 +17,27 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-indigo-100 text-indigo-700",
 };
 
+const STEP_LABELS = ["Customer", "Property", "Resident", "Pricing", "Review"];
+
 export default function MyBookings() {
   const { user, getAuthToken } = useAuth();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [draft, setDraft] = useState<any>(null);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     fetchBookings();
+    try {
+      const saved = localStorage.getItem("hsquare_booking_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.formData?.propertyId) {
+          setDraft(parsed);
+        }
+      }
+    } catch (e) {}
   }, []);
 
   const fetchBookings = async () => {
@@ -287,7 +300,60 @@ export default function MyBookings() {
           <p className="text-slate-500 text-sm mt-1">View and manage your room bookings</p>
         </div>
 
-        {bookings.length === 0 ? (
+        {draft && (
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-5 shadow-sm" data-testid="resume-booking-card">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-800 text-sm">Incomplete Booking</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    You have an unfinished booking — Step {draft.step || 1} of 5 ({STEP_LABELS[(draft.step || 1) - 1]})
+                  </p>
+                  {draft.savedAt && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Last saved {new Date(draft.savedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} at {new Date(draft.savedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <div
+                          key={s}
+                          className={`h-1.5 w-6 rounded-full ${s < (draft.step || 1) ? "bg-amber-500" : s === (draft.step || 1) ? "bg-amber-400" : "bg-slate-200"}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-slate-400 hover:text-red-500 h-8 w-8 p-0"
+                  onClick={() => { localStorage.removeItem("hsquare_booking_draft"); setDraft(null); }}
+                  data-testid="button-discard-draft"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => navigate("/booking/generate")}
+                  data-testid="button-resume-booking"
+                >
+                  <PlayCircle className="h-4 w-4 mr-1.5" />
+                  Resume
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {bookings.length === 0 && !draft ? (
           <Card className="text-center py-12">
             <CardContent>
               <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
@@ -300,7 +366,7 @@ export default function MyBookings() {
               </Link>
             </CardContent>
           </Card>
-        ) : (
+        ) : bookings.length === 0 ? null : (
           <div className="space-y-4">
             {bookings.map((b: any) => {
               const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
