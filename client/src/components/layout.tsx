@@ -220,17 +220,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {searchOpen && (
           <div
             ref={searchRef}
-            className="absolute top-full left-0 right-0 bg-background/98 backdrop-blur-xl border-b border-border shadow-xl animate-in slide-in-from-top-2 duration-200 z-50"
+            className="absolute top-full left-0 right-0 z-50 animate-in slide-in-from-top-2 duration-300"
             data-testid="search-panel"
           >
-            <div className="container mx-auto px-4 py-4">
-              <div className="max-w-2xl mx-auto">
+            <div className="mx-4 mt-3 mb-2">
+              <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3)] p-5 ring-1 ring-white/10">
                 <SmartSearch
                   onSearchResults={handleSearchResults}
                   placeholder="Search properties, locations, or ask AI..."
-                  className="[&_input]:h-12 [&_input]:text-base [&_input]:rounded-lg [&_input]:border-amber-200 [&_input]:focus:border-amber-500 [&_input]:focus:ring-amber-500/20"
+                  className="[&_input]:h-12 [&_input]:text-base [&_input]:rounded-xl [&_input]:bg-white/15 [&_input]:backdrop-blur-sm [&_input]:border-white/25 [&_input]:text-white [&_input]:placeholder:text-white/60 [&_input]:focus:border-amber-400/60 [&_input]:focus:ring-amber-400/20 [&_input]:focus:bg-white/20 [&_button]:bg-amber-500 [&_button]:hover:bg-amber-400 [&_button]:text-white [&_button]:rounded-xl [&_button]:border-0"
                 />
-                <p className="text-xs text-muted-foreground mt-2 text-center">Press Escape to close</p>
+                <p className="text-xs text-white/50 mt-2.5 text-center tracking-wide">Press Escape to close</p>
               </div>
             </div>
           </div>
