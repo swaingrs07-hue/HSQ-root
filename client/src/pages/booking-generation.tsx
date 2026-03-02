@@ -339,7 +339,12 @@ export default function BookingGeneration() {
     } else {
       baseFee = selectedRoom.academicYearPrice || (selectedRoom.basePrice * 11);
     }
-    setFormData(prev => ({ ...prev, baseFee }));
+    const propDeposit = (property as any).deposit || (selectedRoom as any).deposit || 0;
+    setFormData(prev => ({
+      ...prev,
+      baseFee,
+      ...(isRegularUser ? { deposit: propDeposit, discount: 0 } : {}),
+    }));
   };
 
   const calculateTotal = () => {
@@ -1745,53 +1750,79 @@ export default function BookingGeneration() {
                         </p>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">Security Deposit</Label>
-                        <div className="relative">
-                          <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                          <Input
-                            type="number"
-                            value={formData.deposit || ""}
-                            onChange={(e) => setFormData(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                            className="pl-10 bg-white border-slate-300"
-                            placeholder="Enter deposit amount"
-                            data-testid="input-deposit"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                            <Tag className="h-3.5 w-3.5" />
-                            Discount
-                          </Label>
-                          {isSalesExec && (
-                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Max 10% without approval</span>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                          <Input
-                            type="number"
-                            value={formData.discount || ""}
-                            onChange={(e) => setFormData(prev => ({ ...prev, discount: parseInt(e.target.value) || 0 }))}
-                            className="pl-10 bg-white border-slate-300"
-                            placeholder="Enter discount amount"
-                            data-testid="input-discount"
-                          />
-                        </div>
-                        {getDiscountPercent() > 0 && (
-                          <p className={`text-xs flex items-center gap-1 ${needsApproval() ? "text-amber-600" : "text-slate-500"}`}>
-                            {getDiscountPercent().toFixed(1)}% discount
-                            {needsApproval() && (
-                              <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-600 ml-1">Requires Approval</Badge>
+                      {(() => {
+                        const propDeposit = getSelectedProperty()?.deposit || getSelectedRoomType()?.deposit || 0;
+                        return (
+                          <>
+                            {(propDeposit > 0 || !isRegularUser) && (
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium text-slate-700">Security Deposit</Label>
+                                <div className="relative">
+                                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                  {isRegularUser ? (
+                                    <Input
+                                      type="number"
+                                      value={propDeposit}
+                                      readOnly
+                                      className="pl-10 bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed"
+                                      data-testid="input-deposit"
+                                    />
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      value={formData.deposit || ""}
+                                      onChange={(e) => setFormData(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
+                                      className="pl-10 bg-white border-slate-300"
+                                      placeholder="Enter deposit amount"
+                                      data-testid="input-deposit"
+                                    />
+                                  )}
+                                </div>
+                                {isRegularUser && propDeposit > 0 && (
+                                  <p className="text-xs text-slate-500">Set by property</p>
+                                )}
+                              </div>
                             )}
-                          </p>
-                        )}
-                      </div>
+                          </>
+                        );
+                      })()}
 
-                      {formData.discount > 0 && (
+                      {!isRegularUser && (
+                        <>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                <Tag className="h-3.5 w-3.5" />
+                                Discount
+                              </Label>
+                              {isSalesExec && (
+                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Max 10% without approval</span>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input
+                                type="number"
+                                value={formData.discount || ""}
+                                onChange={(e) => setFormData(prev => ({ ...prev, discount: parseInt(e.target.value) || 0 }))}
+                                className="pl-10 bg-white border-slate-300"
+                                placeholder="Enter discount amount"
+                                data-testid="input-discount"
+                              />
+                            </div>
+                            {getDiscountPercent() > 0 && (
+                              <p className={`text-xs flex items-center gap-1 ${needsApproval() ? "text-amber-600" : "text-slate-500"}`}>
+                                {getDiscountPercent().toFixed(1)}% discount
+                                {needsApproval() && (
+                                  <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-600 ml-1">Requires Approval</Badge>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {!isRegularUser && formData.discount > 0 && (
                         <div className="space-y-2">
                           <Label className="text-sm font-medium text-slate-700">Discount Reason</Label>
                           <Textarea
