@@ -2929,8 +2929,9 @@ export async function registerRoutes(
           { bookingId: booking.id, name: "Full Payment", amount: totalFee, dueDate: "Immediate" }
         );
       }
+      let createdInstallments: any[] = [];
       if (installmentRecords.length > 0) {
-        await storage.createInstallments(installmentRecords);
+        createdInstallments = await storage.createInstallments(installmentRecords);
       }
 
       // If lead conversion, update lead status
@@ -2938,7 +2939,7 @@ export async function registerRoutes(
         await storage.updateLead(leadId, { status: "converted" });
       }
 
-      res.json({ booking, requiresApproval: approvalRequired, installments: installmentRecords });
+      res.json({ booking, requiresApproval: approvalRequired, installments: createdInstallments });
     } catch (error) {
       console.error("Error generating booking:", error);
       res.status(500).json({ error: "Failed to generate booking" });

@@ -593,6 +593,12 @@ export default function BookingGeneration() {
       if (response.ok) {
         const data = await response.json();
         setBookingResult(data);
+        if (data.booking) {
+          localStorage.setItem("hsquare_booking", JSON.stringify(data.booking));
+          if (data.installments) {
+            localStorage.setItem("hsquare_installments", JSON.stringify(data.installments));
+          }
+        }
         setConfirmDialogOpen(true);
         toast({
           title: "Booking Created",
@@ -2178,11 +2184,11 @@ export default function BookingGeneration() {
               variant="outline"
               onClick={() => {
                 setConfirmDialogOpen(false);
-                navigate(isAdmin ? "/admin" : "/sales");
+                navigate(isRegularUser ? "/my-bookings" : (isAdmin ? "/admin" : "/sales"));
               }}
               data-testid="button-done"
             >
-              Back to Dashboard
+              {isRegularUser ? "My Bookings" : "Back to Dashboard"}
             </Button>
             {!bookingResult?.requiresApproval && (
               <Button
