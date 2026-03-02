@@ -297,7 +297,7 @@ export default function PropertySelection() {
   const getLowestPrice = (roomTypes: any[], bookingMode: string = "monthly") => {
     if (!roomTypes || roomTypes.length === 0) return 0;
     if (bookingMode === "academic_year") {
-      const prices = roomTypes.map((r) => r.academicYearPrice || r.basePrice * 12).filter((p) => p > 0);
+      const prices = roomTypes.map((r) => r.academicYearPrice || r.basePrice * 11).filter((p) => p > 0);
       return prices.length > 0 ? Math.min(...prices) : 0;
     }
     return Math.min(...roomTypes.map((r) => r.basePrice).filter((p) => p > 0));
@@ -799,7 +799,7 @@ export default function PropertySelection() {
                                     <div className="text-right">
                                       <div className="text-2xl md:text-3xl font-bold text-amber-600">
                                         ₹{selectedProperty.bookingMode === "academic_year"
-                                          ? (room.academicYearPrice || room.basePrice * 12).toLocaleString()
+                                          ? (room.academicYearPrice || room.basePrice * 11).toLocaleString()
                                           : room.basePrice.toLocaleString()}
                                       </div>
                                       <div className="text-xs text-gray-400 uppercase tracking-wider">
@@ -814,7 +814,7 @@ export default function PropertySelection() {
                                         selectedProperty.id,
                                         room.id,
                                         selectedProperty.bookingMode === "academic_year"
-                                          ? (room.academicYearPrice || room.basePrice * 12)
+                                          ? (room.academicYearPrice || room.basePrice * 11)
                                           : room.basePrice,
                                         room.name,
                                         selectedProperty.name,

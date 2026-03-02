@@ -654,7 +654,7 @@ export default function Home() {
               {properties.slice(0, 3).map((property: any, i: number) => {
                 const lowestPrice = property.roomTypes?.length > 0
                   ? Math.min(...property.roomTypes.map((r: any) =>
-                      property.bookingMode === "academic_year" ? (r.academicYearPrice || r.basePrice * 12) : r.basePrice
+                      property.bookingMode === "academic_year" ? (r.academicYearPrice || r.basePrice * 11) : r.basePrice
                     ).filter((p: number) => p > 0))
                   : 0;
                 const totalBeds = property.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0;

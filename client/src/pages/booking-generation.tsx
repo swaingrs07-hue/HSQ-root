@@ -270,7 +270,7 @@ export default function BookingGeneration() {
     if (property.bookingMode === "monthly" && formData.stayPlanType === "monthly") {
       baseFee = selectedRoom.basePrice * formData.durationMonths;
     } else {
-      baseFee = selectedRoom.academicYearPrice || (selectedRoom.basePrice * 12);
+      baseFee = selectedRoom.academicYearPrice || (selectedRoom.basePrice * 11);
     }
     setFormData(prev => ({ ...prev, baseFee }));
   };
@@ -998,7 +998,7 @@ export default function BookingGeneration() {
                                 </Badge>
                               </div>
                               <p className="text-lg font-bold text-indigo-600 mt-2">
-                                ₹{(room.academicYearPrice || room.basePrice * 12).toLocaleString()}<span className="text-xs font-normal text-slate-400">/year</span>
+                                ₹{(room.academicYearPrice || room.basePrice * 11).toLocaleString()}<span className="text-xs font-normal text-slate-400">/year</span>
                               </p>
                               {room.basePrice > 0 && (
                                 <p className="text-xs text-slate-500">
@@ -1024,7 +1024,7 @@ export default function BookingGeneration() {
                       <Label className="text-sm font-medium text-slate-700">Stay Plan</Label>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { value: "academic_year", label: "Full Academic Year", desc: "12 months" },
+                          { value: "academic_year", label: "Full Academic Year", desc: "11 months" },
                           { value: "monthly", label: "Monthly Booking", desc: "Custom duration" },
                         ].map(opt => (
                           <button

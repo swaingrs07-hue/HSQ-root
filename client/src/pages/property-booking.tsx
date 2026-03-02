@@ -794,7 +794,7 @@ export default function PropertyBooking() {
     handleBookRoom(
       roomType.id,
       roomType.customName || roomType.name,
-      property.bookingMode === "academic_year" ? (roomType.academicYearPrice || roomType.basePrice * 12) : roomType.basePrice,
+      property.bookingMode === "academic_year" ? (roomType.academicYearPrice || roomType.basePrice * 11) : roomType.basePrice,
       roomType.deposit || 0
     );
   };
@@ -960,7 +960,7 @@ export default function PropertyBooking() {
                         <div className="text-right">
                           <div className="text-2xl font-bold text-amber-600">
                             ₹{property.bookingMode === "academic_year"
-                              ? (room.academicYearPrice || room.basePrice * 12).toLocaleString()
+                              ? (room.academicYearPrice || room.basePrice * 11).toLocaleString()
                               : room.basePrice.toLocaleString()}
                           </div>
                           <div className="text-xs text-stone-400 uppercase tracking-wider">
@@ -971,7 +971,7 @@ export default function PropertyBooking() {
                           onClick={() => handleBookRoom(
                             room.id,
                             room.customName || room.name,
-                            property.bookingMode === "academic_year" ? (room.academicYearPrice || room.basePrice * 12) : room.basePrice,
+                            property.bookingMode === "academic_year" ? (room.academicYearPrice || room.basePrice * 11) : room.basePrice,
                             room.deposit || 0
                           )}
                           disabled={room.availableBeds === 0}
@@ -1065,7 +1065,7 @@ export default function PropertyBooking() {
                               <div className="text-right">
                                 <span className="text-3xl font-bold text-amber-600">
                                   ₹{property.bookingMode === "academic_year"
-                                    ? (selectedRoomType.academicYearPrice || selectedRoomType.basePrice * 12).toLocaleString()
+                                    ? (selectedRoomType.academicYearPrice || selectedRoomType.basePrice * 11).toLocaleString()
                                     : selectedRoomType.basePrice.toLocaleString()}
                                 </span>
                                 <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
