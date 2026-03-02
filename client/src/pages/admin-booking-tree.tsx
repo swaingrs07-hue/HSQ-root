@@ -83,43 +83,54 @@ function getCheckoutDate(bed: any): string {
 
 const IsoBedSVG = React.memo(function IsoBedSVG({ status, w = 100, h = 70 }: { status: string; w?: number; h?: number }) {
   const cfg = BED_STATUS_CFG[status] || BED_STATUS_CFG.maintenance;
-  const frameColor = "#1a2744";
-  const frameDark = "#111d33";
-  const mattressTop = cfg.bg;
-  const mattressShade = cfg.border;
+  const uid = React.useId().replace(/:/g, "");
+  const frameTop = "#1e3050";
+  const frameSide = "#152238";
+  const frameFront = "#182840";
+  const sheetColor = cfg.dotColor;
+  const sheetLight = cfg.text;
+
   return (
-    <svg width={w} height={h} viewBox="0 0 100 70" fill="none" aria-hidden="true">
+    <svg width={w} height={h} viewBox="0 0 140 100" fill="none" aria-hidden="true">
       <defs>
-        <linearGradient id={`bedGrad-${status}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={mattressTop} />
-          <stop offset="100%" stopColor={mattressShade} stopOpacity="0.6" />
+        <linearGradient id={`mg${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={sheetColor} stopOpacity="0.7" />
+          <stop offset="100%" stopColor={sheetColor} stopOpacity="0.3" />
         </linearGradient>
-        <filter id={`bedShadow-${status}`} x="-10%" y="-10%" width="120%" height="130%">
-          <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor={cfg.dotColor} floodOpacity="0.25" />
+        <linearGradient id={`pw${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={sheetLight} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={sheetColor} stopOpacity="0.3" />
+        </linearGradient>
+        <filter id={`gs${uid}`} x="-20%" y="-20%" width="140%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
         </filter>
       </defs>
-      <ellipse cx="50" cy="66" rx="42" ry="3" fill="rgba(0,0,0,0.2)" />
-      <rect x="4" y="56" width="6" height="10" rx="2" fill="#334155" />
-      <rect x="90" y="56" width="6" height="10" rx="2" fill="#334155" />
-      <rect x="4" y="52" width="6" height="10" rx="2" fill="#475569" />
-      <rect x="90" y="52" width="6" height="10" rx="2" fill="#475569" />
-      <rect x="2" y="24" width="96" height="34" rx="5" fill={frameColor} stroke={frameDark} strokeWidth="1" />
-      <rect x="4" y="26" width="92" height="30" rx="4" fill={frameDark} />
-      <rect x="6" y="28" width="88" height="26" rx="3" fill={`url(#bedGrad-${status})`} filter={`url(#bedShadow-${status})`} />
-      <path d="M10 42 Q50 38 90 42" stroke={mattressShade} strokeWidth="0.8" fill="none" opacity="0.4" />
-      <path d="M10 48 Q50 44 90 48" stroke={mattressShade} strokeWidth="0.5" fill="none" opacity="0.25" />
-      <rect x="2" y="8" width="96" height="20" rx="5" fill={frameColor} stroke={frameDark} strokeWidth="1" />
-      <rect x="4" y="10" width="44" height="16" rx="4" fill="#2a3a5c" />
-      <rect x="6" y="11" width="40" height="14" rx="3" fill={mattressTop} opacity="0.7" />
-      <path d="M10 14 Q26 12 42 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
-      <path d="M10 20 Q26 18 42 20" stroke="rgba(255,255,255,0.08)" strokeWidth="1" fill="none" />
-      <rect x="52" y="10" width="44" height="16" rx="4" fill="#2a3a5c" />
-      <rect x="54" y="11" width="40" height="14" rx="3" fill={mattressTop} opacity="0.7" />
-      <path d="M58 14 Q74 12 90 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
-      <rect x="2" y="6" width="96" height="5" rx="3" fill={frameColor} />
-      <rect x="4" y="4" width="92" height="5" rx="2" fill="#2a3a5c" />
-      <path d="M4 4 L96 4" stroke={cfg.border} strokeWidth="1.5" opacity="0.5" />
-      <rect x="8" y="30" width="84" height="22" rx="2" fill={mattressTop} opacity="0.1" />
+      <ellipse cx="70" cy="94" rx="55" ry="5" fill={sheetColor} opacity="0.15" filter={`url(#gs${uid})`} />
+      <polygon points="8,78 8,88 70,95 132,88 132,78 70,85" fill="#0a1420" opacity="0.3" />
+      <rect x="12" y="72" width="5" height="14" rx="1.5" fill="#2a3a55" />
+      <rect x="123" y="72" width="5" height="14" rx="1.5" fill="#2a3a55" />
+      <rect x="12" y="28" width="5" height="10" rx="1.5" fill="#2a3a55" />
+      <rect x="123" y="28" width="5" height="10" rx="1.5" fill="#2a3a55" />
+      <rect x="10" y="36" width="120" height="8" rx="2" fill={frameSide} />
+      <rect x="10" y="76" width="120" height="8" rx="2" fill={frameFront} stroke={frameTop} strokeWidth="0.5" />
+      <rect x="8" y="38" width="124" height="40" rx="3" fill={frameSide} />
+      <rect x="10" y="36" width="120" height="40" rx="3" fill={frameTop} />
+      <rect x="13" y="39" width="114" height="34" rx="2" fill={`url(#mg${uid})`} />
+      <path d="M18 50 Q70 44 122 50" stroke={sheetLight} strokeWidth="0.7" fill="none" opacity="0.25" />
+      <path d="M18 58 Q70 53 122 58" stroke={sheetLight} strokeWidth="0.5" fill="none" opacity="0.15" />
+      <path d="M18 65 Q70 60 122 65" stroke={sheetLight} strokeWidth="0.4" fill="none" opacity="0.1" />
+      <rect x="15" y="42" width="18" height="12" rx="3" fill={`url(#pw${uid})`} />
+      <rect x="17" y="43" width="14" height="10" rx="2" fill={sheetColor} opacity="0.5" />
+      <path d="M19 46 Q24 44 29 46" stroke="rgba(255,255,255,0.2)" strokeWidth="1" fill="none" />
+      <rect x="38" y="42" width="18" height="12" rx="3" fill={`url(#pw${uid})`} />
+      <rect x="40" y="43" width="14" height="10" rx="2" fill={sheetColor} opacity="0.5" />
+      <path d="M42 46 Q47 44 52 46" stroke="rgba(255,255,255,0.2)" strokeWidth="1" fill="none" />
+      <rect x="8" y="24" width="124" height="16" rx="4" fill={frameSide} />
+      <rect x="10" y="22" width="120" height="16" rx="4" fill={frameTop} />
+      <rect x="12" y="20" width="116" height="5" rx="2" fill="#2a4060" />
+      <path d="M12 20 L128 20" stroke={sheetColor} strokeWidth="1.5" opacity="0.6" />
+      <rect x="13" y="39" width="114" height="2" rx="1" fill="rgba(255,255,255,0.04)" />
+      <rect x="10" y="76" width="120" height="1" rx="0.5" fill={sheetColor} opacity="0.3" />
     </svg>
   );
 });
@@ -139,52 +150,65 @@ const IsoCharacter = React.memo(function IsoCharacter({ gender, size = 32, pose 
 
   if (pose === "sitting") {
     return (
-      <svg width={size} height={size * 1.1} viewBox="0 0 48 54" fill="none" className="iso-char-breathe" aria-hidden="true">
-        <ellipse cx="24" cy="51" rx="14" ry="2.5" fill="rgba(0,0,0,0.2)" />
+      <svg width={size} height={size * 1.2} viewBox="0 0 52 62" fill="none" className="iso-char-breathe" aria-hidden="true">
         <g className="iso-char-idle">
-          <rect x="14" y="38" width="8" height="8" rx="3" fill={pants} />
-          <rect x="26" y="38" width="8" height="8" rx="3" fill={pants} />
-          <rect x="14" y="44" width="8" height="4" rx="2" fill={pantsDark} />
-          <rect x="26" y="44" width="8" height="4" rx="2" fill={pantsDark} />
-          <ellipse cx="18" cy="48" rx="4" ry="2" fill={shoes} />
-          <ellipse cx="30" cy="48" rx="4" ry="2" fill={shoes} />
-          <rect x="12" y="22" width="24" height="18" rx="5" fill={shirt} />
-          <rect x="12" y="30" width="24" height="10" rx="4" fill={shirtDark} opacity="0.4" />
-          <path d="M18 28 L18 36" stroke={shirtLight} strokeWidth="0.6" opacity="0.3" />
-          <path d="M24 26 L24 38" stroke={shirtLight} strokeWidth="0.4" opacity="0.2" />
-          <path d="M30 28 L30 36" stroke={shirtLight} strokeWidth="0.6" opacity="0.3" />
-          <rect x="6" y="25" width="7" height="13" rx="3" fill={shirt} className="iso-arm-l" />
-          <rect x="35" y="25" width="7" height="13" rx="3" fill={shirt} className="iso-arm-r" />
-          <ellipse cx="8" cy="38" rx="3" ry="2.5" fill={skin} />
-          <ellipse cx="40" cy="38" rx="3" ry="2.5" fill={skin} />
-          {!isMale && <rect x="6" y="37" width="5" height="7" rx="2" fill="#1F2937" className="iso-phone-glow" />}
-          <circle cx="24" cy="14" r="8" fill={skin} />
-          <ellipse cx="24" cy="16" rx="6.5" ry="5" fill={skin} />
-          <circle cx="24" cy="14.5" r="7.5" fill={skin} />
-          <circle cx="21" cy="14" r="1" fill="#1A0A00" />
-          <circle cx="27" cy="14" r="1" fill="#1A0A00" />
-          <circle cx="21.2" cy="13.6" r="0.3" fill="white" />
-          <circle cx="27.2" cy="13.6" r="0.3" fill="white" />
-          <path d="M22 12 Q23 11.5 24 12" stroke={hair} strokeWidth="0.5" fill="none" />
-          <path d="M25 12 Q26 11.5 27 12" stroke={hair} strokeWidth="0.5" fill="none" />
-          <ellipse cx="24" cy="17" rx="1.8" ry="0.8" fill={skinShade} />
-          <path d="M22.5 17 Q24 18.5 25.5 17" stroke={skinShade} strokeWidth="0.5" fill="none" />
-          <ellipse cx="18" cy="15.5" rx="1" ry="0.5" fill="#E8A0A0" opacity="0.3" />
-          <ellipse cx="30" cy="15.5" rx="1" ry="0.5" fill="#E8A0A0" opacity="0.3" />
+          <rect x="12" y="40" width="10" height="6" rx="3" fill={pants} />
+          <rect x="30" y="40" width="10" height="6" rx="3" fill={pants} />
+          <path d="M14 46 L12 52 Q12 54 15 54 L19 54 Q21 54 20 52 L18 46 Z" fill={pants} />
+          <path d="M34 46 L32 52 Q32 54 35 54 L39 54 Q41 54 40 52 L38 46 Z" fill={pants} />
+          <ellipse cx="16" cy="54" rx="5" ry="2.5" fill={shoes} />
+          <ellipse cx="36" cy="54" rx="5" ry="2.5" fill={shoes} />
+          <rect x="12" y="24" width="28" height="18" rx="6" fill={shirt} />
+          <rect x="12" y="32" width="28" height="10" rx="4" fill={shirtDark} opacity="0.35" />
+          <path d="M20 30 L20 38" stroke={shirtLight} strokeWidth="0.6" opacity="0.2" />
+          <path d="M26 28 L26 40" stroke={shirtLight} strokeWidth="0.4" opacity="0.15" />
+          <path d="M32 30 L32 38" stroke={shirtLight} strokeWidth="0.6" opacity="0.2" />
+          <rect x="5" y="27" width="8" height="14" rx="3.5" fill={shirt} className="iso-arm-l" style={{ transformOrigin: "9px 27px" }} />
+          <rect x="39" y="27" width="8" height="14" rx="3.5" fill={shirt} className="iso-arm-r" style={{ transformOrigin: "43px 27px" }} />
+          <ellipse cx="8" cy="41" rx="3.5" ry="3" fill={skin} />
+          <ellipse cx="44" cy="41" rx="3.5" ry="3" fill={skin} />
+          {!isMale && (
+            <>
+              <rect x="4" y="40" width="6" height="8" rx="2" fill="#1F2937" className="iso-phone-glow" />
+              <rect x="5" y="41" width="4" height="6" rx="1" fill="#334155" />
+              <rect x="5.5" y="41.5" width="3" height="4.5" rx="0.5" fill="#60a5fa" opacity="0.6" />
+            </>
+          )}
+          {isMale && (
+            <>
+              <rect x="42" y="38" width="5" height="7" rx="1.5" fill="#d4a574" opacity="0.15" />
+              <rect x="43" y="36" width="3" height="10" rx="1" fill="#8B7355" />
+            </>
+          )}
+          <circle cx="26" cy="14" r="9.5" fill={skin} />
+          <circle cx="26" cy="15" r="9" fill={skin} />
+          <ellipse cx="26" cy="17" rx="7" ry="5.5" fill={skin} />
+          <circle cx="22.5" cy="14.5" r="1.2" fill="#1A0A00" />
+          <circle cx="29.5" cy="14.5" r="1.2" fill="#1A0A00" />
+          <circle cx="22.8" cy="14" r="0.4" fill="white" />
+          <circle cx="29.8" cy="14" r="0.4" fill="white" />
+          <path d="M24 12.5 Q25 12 26 12.5" stroke={hair} strokeWidth="0.6" fill="none" />
+          <path d="M27 12.5 Q28 12 29 12.5" stroke={hair} strokeWidth="0.6" fill="none" />
+          <ellipse cx="26" cy="18" rx="2" ry="1" fill={skinShade} />
+          <path d="M24.5 18 Q26 19.5 27.5 18" stroke={skinShade} strokeWidth="0.5" fill="none" />
+          <ellipse cx="20" cy="16" rx="1.2" ry="0.6" fill="#E8A0A0" opacity="0.25" />
+          <ellipse cx="32" cy="16" rx="1.2" ry="0.6" fill="#E8A0A0" opacity="0.25" />
           {isMale ? (
             <>
-              <path d="M16 12 Q16 5 24 4 Q32 5 32 12 L30.5 9 Q29 6.5 24 6 Q19 6.5 17.5 9 Z" fill={hair} />
-              <path d="M18 8 Q24 6 30 8" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.5" />
+              <path d="M16.5 13 Q16.5 5 26 3.5 Q35.5 5 35.5 13 L34 9.5 Q32 6.5 26 6 Q20 6.5 18 9.5 Z" fill={hair} />
+              <path d="M19 8 Q26 5.5 33 8" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.4" />
+              <path d="M16.5 13 L17.5 11 Q17 13 16.5 14 Z" fill={hair} opacity="0.5" />
+              <path d="M35.5 13 L34.5 11 Q35 13 35.5 14 Z" fill={hair} opacity="0.5" />
             </>
           ) : (
             <>
-              <path d="M15.5 12.5 Q15.5 5 24 3.5 Q32.5 5 32.5 12.5 L31 9 Q29.5 6 24 5.5 Q18.5 6 17 9 Z" fill={hair} />
-              <path d="M15.5 12.5 Q14.5 18 14.5 24 L16.5 24 Q16.5 18 17 12.5 Z" fill={hair} />
-              <path d="M32.5 12.5 Q33.5 18 33.5 24 L31.5 24 Q31.5 18 31 12.5 Z" fill={hair} />
-              <path d="M18 6 Q24 4 30 6" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.4" />
+              <path d="M16 13 Q16 4.5 26 3 Q36 4.5 36 13 L34.5 9 Q32 6 26 5.5 Q20 6 17.5 9 Z" fill={hair} />
+              <path d="M16 13 Q15 20 15 27 L17.5 27 Q17.5 20 18 13 Z" fill={hair} />
+              <path d="M36 13 Q37 20 37 27 L34.5 27 Q34.5 20 34 13 Z" fill={hair} />
+              <path d="M19 6 Q26 3.5 33 6" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.35" />
             </>
           )}
-          <rect x="16" y="20" width="16" height="3" rx="1.5" fill={shirt} />
+          <rect x="18" y="22" width="16" height="4" rx="2" fill={shirt} />
         </g>
       </svg>
     );
@@ -830,23 +854,23 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                             <div className="iso-room-wall-back" />
                             <div className="iso-room-floor-shine" />
 
-                            <div className="relative z-10 p-5">
-                              <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
+                            <div className="relative z-10 pt-6 pb-5 pl-6 pr-5">
+                              <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <div className="iso-room-label">
                                     <DoorOpen className="w-3.5 h-3.5" />
                                     <span>Room {room.roomNumber}</span>
                                   </div>
-                                  {room.typology && <span className="text-[9px] px-2 py-0.5 rounded-md font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "rgba(129,140,248,0.85)", border: "1px solid rgba(99,102,241,0.25)" }}>{room.typology}</span>}
-                                  {room.hasSharedWashroom && <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20">WC</span>}
+                                  {room.typology && <span className="text-[9px] px-2.5 py-1 rounded-md font-semibold" style={{ background: "rgba(99,102,241,0.12)", color: "rgba(129,140,248,0.85)", border: "1px solid rgba(99,102,241,0.25)" }}>{room.typology}</span>}
+                                  {room.hasSharedWashroom && <span className="text-[8px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20 font-semibold">WC</span>}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-semibold" style={{ color: "#34d399" }}>{availCount} avail</span>
-                                  <span className="text-[10px] font-semibold" style={{ color: "#60a5fa" }}>{bookedCount} booked</span>
+                                  <span className="text-[10px] font-bold" style={{ color: "#34d399" }}>{availCount} avail</span>
+                                  <span className="text-[10px] font-bold" style={{ color: "#60a5fa" }}>{bookedCount} booked</span>
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                                 {roomBeds.map((bed: any, bIdx: number) => (
                                   <IsoBedScene key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
                                 ))}
@@ -1017,54 +1041,62 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
         .iso-room-cutaway {
           position: relative;
-          border-radius: 20px;
+          border-radius: 16px;
           overflow: visible;
-          background: linear-gradient(160deg, rgba(16,26,52,0.98), rgba(10,18,36,0.96));
-          border: 2px solid rgba(60,90,150,0.2);
+          background: linear-gradient(160deg, rgba(12,22,44,0.98), rgba(8,16,34,0.97));
+          border: none;
           box-shadow:
-            0 16px 60px rgba(0,0,0,0.7),
-            0 0 0 1px rgba(60,90,150,0.08),
-            inset 0 1px 0 rgba(255,255,255,0.06),
-            inset -8px 0 30px rgba(0,0,0,0.15),
-            inset 0 -8px 30px rgba(0,0,0,0.1);
-          transform: perspective(1200px) rotateY(-1.5deg) rotateX(1.5deg);
+            0 20px 60px rgba(0,0,0,0.8),
+            0 0 0 1px rgba(40,70,130,0.2),
+            inset 0 1px 0 rgba(255,255,255,0.04);
           transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.5s ease;
         }
         .iso-room-cutaway:hover {
-          transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-4px);
+          transform: translateY(-3px);
           box-shadow:
-            0 24px 80px rgba(0,0,0,0.8),
-            0 0 0 1px rgba(80,120,180,0.15),
-            inset 0 1px 0 rgba(255,255,255,0.08);
+            0 28px 80px rgba(0,0,0,0.9),
+            0 0 0 1px rgba(60,100,180,0.25),
+            inset 0 1px 0 rgba(255,255,255,0.06);
         }
         .iso-room-wall-left {
-          position: absolute; left: 0; top: 0; bottom: 0; width: 10px; z-index: 2;
-          background: linear-gradient(to bottom, rgba(80,120,180,0.5), rgba(40,65,110,0.15));
-          border-radius: 20px 0 0 20px;
-          box-shadow: inset -3px 0 8px rgba(0,0,0,0.3);
+          position: absolute; left: -4px; top: -4px; bottom: -4px; width: 18px; z-index: 2;
+          background: linear-gradient(180deg, #1a2d50, #0f1e3a 40%, #0a1628);
+          border-radius: 16px 0 0 16px;
+          border-right: 2px solid rgba(40,70,130,0.3);
+          box-shadow: inset -4px 0 12px rgba(0,0,0,0.5), 2px 0 8px rgba(0,0,0,0.3);
         }
         .iso-room-wall-back {
-          position: absolute; left: 0; right: 0; top: 0; height: 10px; z-index: 2;
-          background: linear-gradient(to right, rgba(80,120,180,0.5), rgba(40,65,110,0.15));
-          border-radius: 20px 20px 0 0;
-          box-shadow: inset 0 -3px 8px rgba(0,0,0,0.3);
+          position: absolute; left: -4px; right: 0; top: -4px; height: 18px; z-index: 2;
+          background: linear-gradient(90deg, #1a2d50, #152640 40%, #0f1e3a);
+          border-radius: 16px 16px 0 0;
+          border-bottom: 2px solid rgba(40,70,130,0.3);
+          box-shadow: inset 0 -4px 12px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
         }
         .iso-room-wall-left::after {
-          content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
-          background: linear-gradient(to bottom, rgba(120,160,220,0.3), transparent);
+          content: ''; position: absolute; right: 2px; top: 20px; bottom: 20px; width: 1px;
+          background: linear-gradient(to bottom, transparent, rgba(80,130,200,0.15), transparent);
         }
         .iso-room-wall-back::after {
-          content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-          background: linear-gradient(to right, rgba(120,160,220,0.3), transparent);
+          content: ''; position: absolute; left: 20px; right: 20px; bottom: 2px; height: 1px;
+          background: linear-gradient(to right, transparent, rgba(80,130,200,0.15), transparent);
+        }
+        .iso-room-wall-left::before {
+          content: ''; position: absolute; left: 3px; top: 20px; bottom: 20px; width: 1px;
+          background: linear-gradient(to bottom, transparent, rgba(60,100,170,0.08), transparent);
+        }
+        .iso-room-wall-back::before {
+          content: ''; position: absolute; left: 20px; right: 20px; top: 3px; height: 1px;
+          background: linear-gradient(to right, transparent, rgba(60,100,170,0.08), transparent);
         }
         .iso-room-floor-shine {
-          position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
-          background: linear-gradient(to top, rgba(80,120,180,0.05), transparent);
+          position: absolute; bottom: 0; left: 14px; right: 0; height: 60%;
+          background: linear-gradient(to top, rgba(40,80,150,0.04), transparent);
           pointer-events: none;
+          border-radius: 0 0 16px 0;
         }
         .iso-room-floor-shine::before {
-          content: ''; position: absolute; bottom: 10px; left: 15%; right: 15%; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(120,160,220,0.1), transparent);
+          content: ''; position: absolute; bottom: 12px; left: 10%; right: 10%; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(60,110,190,0.06), transparent);
         }
         .iso-room-label {
           display: flex; align-items: center; gap: 6px;
@@ -1084,11 +1116,11 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         }
         .iso-bed-scene:hover { transform: translateY(-6px) scale(1.03); }
         .iso-bed-halo {
-          position: absolute; inset: -10px; border-radius: 50%;
+          position: absolute; inset: -20px; border-radius: 50%;
           pointer-events: none; z-index: 0;
           animation: haloGlow 3s ease-in-out infinite;
         }
-        @keyframes haloGlow { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
+        @keyframes haloGlow { 0%, 100% { opacity: 0.5; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.06); } }
         .iso-bed-platform {
           position: relative; z-index: 1;
           background: linear-gradient(160deg, rgba(18,28,55,0.95), rgba(12,20,42,0.98));
@@ -1152,29 +1184,32 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
         className="iso-bed-scene w-full cursor-pointer"
         data-testid={`iso-bed-${bed.id}`}
       >
-        <div className="iso-bed-halo" style={{ background: `radial-gradient(ellipse at center, ${cfg.dotColor}30 0%, ${cfg.dotColor}08 50%, transparent 70%)`, boxShadow: `0 0 40px ${cfg.dotColor}20, inset 0 0 20px ${cfg.dotColor}10` }} />
+        <div className="iso-bed-halo" style={{ background: `radial-gradient(ellipse at center, ${cfg.dotColor}40 0%, ${cfg.dotColor}15 40%, ${cfg.dotColor}05 65%, transparent 80%)`, boxShadow: `0 0 60px ${cfg.dotColor}30, 0 0 120px ${cfg.dotColor}10` }} />
 
-        <div className="iso-bed-platform" style={{ borderColor: `${cfg.border}60`, boxShadow: `0 4px 24px ${cfg.dotColor}25, 0 0 1px ${cfg.border}` }}>
-          <div className="relative flex flex-col items-center justify-center py-4 px-3 min-h-[180px]">
+        <div className="iso-bed-platform" style={{ borderColor: `${cfg.border}50`, boxShadow: `0 4px 30px ${cfg.dotColor}30, 0 0 2px ${cfg.border}, inset 0 1px 0 rgba(255,255,255,0.05)` }}>
+          <div className="absolute top-2 right-2 z-20">
+            <div className="w-2.5 h-2.5 rounded-full iso-status-dot" style={{ background: cfg.dotColor, boxShadow: `0 0 8px ${cfg.dotColor}80` }} />
+          </div>
+          <div className="relative flex flex-col items-center justify-center py-4 px-3 min-h-[200px]">
             {showChar && (
               <>
-                <div className="relative">
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20">
-                    <IsoCharacter gender={getGender(bed)} size={48} pose="sitting" />
+                <div className="relative w-full flex items-end justify-center" style={{ minHeight: "120px" }}>
+                  <div className="absolute z-20" style={{ bottom: "40px", left: "50%", transform: "translateX(-50%)" }}>
+                    <IsoCharacter gender={getGender(bed)} size={44} pose="sitting" />
                   </div>
-                  <div className="relative z-10 mt-8">
-                    <IsoBedSVG status={bed.status} w={110} h={70} />
+                  <div className="relative z-10">
+                    <IsoBedSVG status={bed.status} w={130} h={90} />
                   </div>
                 </div>
-                <div className="mt-2.5 text-center">
-                  <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}dd`, boxShadow: `0 2px 12px ${cfg.dotColor}50` }}>
+                <div className="mt-3 text-center w-full">
+                  <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}dd`, boxShadow: `0 2px 16px ${cfg.dotColor}60` }}>
                     {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
                   </div>
                   {guestName && (
                     <div className="iso-guest-info-card mt-2">
-                      <p className="text-[11px] font-bold text-white/90">{guestName.split(" ").slice(0, 2).join(" ")}</p>
-                      {bed.currentBooking?.bookingCode && <p className="text-[9px] text-amber-400/80 font-mono mt-0.5">{bed.currentBooking.bookingCode}</p>}
-                      {checkoutDate && <p className="text-[8px] text-white/40 mt-0.5">Check-out: {checkoutDate}</p>}
+                      <p className="text-[11px] font-bold text-white/90 leading-tight">Guest: {guestName.split(" ").slice(0, 2).join(" ")}</p>
+                      {bed.currentBooking?.bookingCode && <p className="text-[9px] text-amber-400/80 font-mono mt-0.5">Booking: {bed.currentBooking.bookingCode}</p>}
+                      {checkoutDate && <p className="text-[8px] text-white/40 mt-0.5">Check-in: {checkoutDate}</p>}
                     </div>
                   )}
                 </div>
@@ -1183,10 +1218,10 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
 
             {isAvailable && (
               <div className="flex flex-col items-center gap-3">
-                <div style={{ filter: `drop-shadow(0 0 12px ${cfg.dotColor}50)` }}>
-                  <IsoBedSVG status="available" w={120} h={78} />
+                <div style={{ filter: `drop-shadow(0 4px 16px ${cfg.dotColor}50)` }}>
+                  <IsoBedSVG status="available" w={130} h={90} />
                 </div>
-                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc`, boxShadow: `0 2px 10px ${cfg.dotColor}40` }}>
+                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc`, boxShadow: `0 2px 12px ${cfg.dotColor}50` }}>
                   {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
                 </div>
                 <span className="text-[10px] font-bold px-4 py-1.5 rounded-full" style={{ background: `${cfg.dotColor}15`, color: cfg.text, border: `1px solid ${cfg.dotColor}30` }}>Available</span>
@@ -1195,8 +1230,8 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
 
             {bed.status === "reserved" && !showChar && (
               <div className="flex flex-col items-center gap-3">
-                <div style={{ filter: `drop-shadow(0 0 10px ${cfg.dotColor}40)` }}>
-                  <IsoBedSVG status="reserved" w={120} h={78} />
+                <div style={{ filter: `drop-shadow(0 4px 14px ${cfg.dotColor}45)` }}>
+                  <IsoBedSVG status="reserved" w={130} h={90} />
                 </div>
                 <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc` }}>
                   {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
@@ -1207,8 +1242,8 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
 
             {bed.status === "blocked" && (
               <div className="flex flex-col items-center gap-3">
-                <div className="relative">
-                  <IsoBedSVG status="blocked" w={110} h={70} />
+                <div className="relative" style={{ filter: `drop-shadow(0 4px 12px ${cfg.dotColor}40)` }}>
+                  <IsoBedSVG status="blocked" w={130} h={90} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Ban className="w-10 h-10 text-red-400/60" />
                   </div>
@@ -1222,8 +1257,8 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
 
             {bed.status === "maintenance" && (
               <div className="flex flex-col items-center gap-3">
-                <div className="relative">
-                  <IsoBedSVG status="maintenance" w={110} h={70} />
+                <div className="relative" style={{ filter: `drop-shadow(0 4px 12px ${cfg.dotColor}30)` }}>
+                  <IsoBedSVG status="maintenance" w={130} h={90} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <AlertTriangle className="w-10 h-10 text-slate-400/60" />
                   </div>
