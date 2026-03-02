@@ -206,6 +206,36 @@ export default function BookingGeneration() {
   }, [user]);
 
   useEffect(() => {
+    if (properties.length > 0) {
+      try {
+        const saved = localStorage.getItem("selected_room");
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.propertyId) {
+            const matchedProp = properties.find(p => p.id === data.propertyId);
+            if (matchedProp) {
+              setFormData(prev => ({
+                ...prev,
+                propertyId: data.propertyId,
+                roomTypeId: data.roomTypeId || "",
+              }));
+              if (data.bedId) {
+                setSelectedBedId(data.bedId);
+              }
+              if (data.floorName) {
+                setSelectedFloorId(data.floorId || "");
+              }
+            }
+          }
+          localStorage.removeItem("selected_room");
+        }
+      } catch (e) {
+        console.error("Error reading selected_room:", e);
+      }
+    }
+  }, [properties]);
+
+  useEffect(() => {
     if (formData.propertyId) {
       fetchRoomTypes(formData.propertyId);
     }
