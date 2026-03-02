@@ -714,6 +714,7 @@ export default function PropertyBooking() {
       deposit,
       bedId: selectedBed?.id,
       bedNumber: selectedBed?.bedNumber,
+      floorId: selectedFloor?.id,
       floorName: selectedFloor?.name,
     }));
     navigate("/booking/generate");

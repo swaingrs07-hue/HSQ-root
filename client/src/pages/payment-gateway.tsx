@@ -32,8 +32,13 @@ export default function PaymentGateway() {
   const processRazorpay = async () => {
     setStatus("processing");
     try {
-      const bookingInstallment = installments.find((i: any) => i.name === "Booking Amount" || i.name === "Booking Amount (Token)" || i.name === "Full Payment");
-      const payAmount = bookingInstallment?.amount || booking?.totalFee || 100000;
+      const bookingInstallment = installments.find((i: any) => !i.paid && (i.name === "Booking Amount" || i.name === "Booking Amount (Token)" || i.name === "Full Payment"));
+      const payAmount = bookingInstallment?.amount || booking?.totalFee || 0;
+      if (payAmount <= 0) {
+        toast({ title: "Already Paid", description: "This booking is already fully paid.", variant: "destructive" });
+        setStatus("choosing");
+        return;
+      }
       setAmountPaid(payAmount);
 
       const payment = await createPayment({
@@ -68,8 +73,8 @@ export default function PaymentGateway() {
   const processPayAtProperty = async () => {
     setStatus("processing");
     try {
-      const bookingInstallment = installments.find((i: any) => i.name === "Booking Amount" || i.name === "Booking Amount (Token)" || i.name === "Full Payment");
-      const payAmount = bookingInstallment?.amount || booking?.totalFee || 100000;
+      const bookingInstallment = installments.find((i: any) => !i.paid && (i.name === "Booking Amount" || i.name === "Booking Amount (Token)" || i.name === "Full Payment"));
+      const payAmount = bookingInstallment?.amount || booking?.totalFee || 0;
       setAmountPaid(payAmount);
       setPaymentMethod("pay_at_property");
 

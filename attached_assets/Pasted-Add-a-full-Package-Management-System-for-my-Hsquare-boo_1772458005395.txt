@@ -1,0 +1,71 @@
+Add a full Package Management System for my Hsquare booking/admin app. Create an Admin → Packages module where admin can create and manage custom packages that can be attached to a booking/guest and billed automatically.
+
+Package features:
+
+Admin can Create / Edit / Delete / Activate / Deactivate packages.
+
+Package fields: name, description, priceType (ONE_TIME / PER_DAY / PER_MONTH), basePrice, currency, taxPercent(optional), validFrom/validTo(optional), isActive, createdAt.
+
+Package contains items (extra services) admin can add/remove/reorder:
+
+Laundry (qty included per week/month + extra charge per item)
+
+Ala cart credit balance (wallet credit amount; allow top-up and deductions)
+
+Meals plan (breakfast/lunch/dinner toggles; veg/non-veg; daily limit)
+
+Housekeeping frequency, early check-in, late checkout, locker, etc.
+
+Each item supports: type, includedQty, unit, extraUnitPrice, rules (JSON), isOptional (guest can choose), maxQty(optional).
+
+Database / Models:
+
+packages table
+
+package_items table (FK packageId)
+
+booking_packages table (FK bookingId, packageId, startDate, endDate, status ACTIVE/ENDED, priceSnapshot JSON)
+
+package_usage table to track consumption (bookingId, itemType, qtyUsed, amountCharged, createdAt)
+
+If ala cart credit is enabled: wallet_ledger table (bookingId, credit, debit, refType, refId, note, createdAt)
+
+Backend APIs (admin protected):
+
+GET/POST /api/admin/packages
+
+GET/PUT/DELETE /api/admin/packages/:id
+
+POST /api/admin/packages/:id/duplicate
+
+POST /api/admin/bookings/:bookingId/packages/attach (select package + optional items + date range)
+
+POST /api/admin/bookings/:bookingId/packages/detach
+
+POST /api/admin/bookings/:bookingId/packages/usage (record laundry used, meals consumed, etc.)
+
+GET /api/admin/bookings/:bookingId/packages (show assigned packages + usage + balances)
+
+Business rules:
+
+Package price should be calculated by priceType (one-time/per-day/per-month) and booking date range.
+
+Prevent attaching inactive packages.
+
+Track included vs used; charge extra if usage exceeds includedQty.
+
+Ala cart credit works like a wallet: initial credit from package, then debit on orders; show remaining balance.
+
+Admin UI:
+
+Packages list with search/filter (Active/Inactive), create button.
+
+Package builder form with “Add Item” modal (Laundry / Ala cart credit / Meals plan / Custom).
+
+Preview panel showing total price and included benefits.
+
+Booking details page: “Packages” tab to attach package, see current packages, usage progress bars, wallet balance, and add usage entries.
+
+Quality:
+
+Keep code modular (routes/controllers/services), validate inputs, handle errors with clean messages, don’t break existing booking flow, and add realtime refresh if possible.

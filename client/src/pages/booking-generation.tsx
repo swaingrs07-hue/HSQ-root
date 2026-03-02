@@ -259,8 +259,8 @@ export default function BookingGeneration() {
               if (data.bedId) {
                 setSelectedBedId(data.bedId);
               }
-              if (data.floorName) {
-                setSelectedFloorId(data.floorId || "");
+              if (data.floorId) {
+                setSelectedFloorId(data.floorId);
               }
             }
           }

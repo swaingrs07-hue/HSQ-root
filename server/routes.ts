@@ -3128,11 +3128,24 @@ export async function registerRoutes(
     try {
       const { bookingId, amount, installmentId } = req.body;
 
+      // Validate payment amount against booking balance
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      const existingPayments = await storage.getPaymentsByBooking(bookingId);
+      const totalPaid = existingPayments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
+      const remainingBalance = (booking.totalFee || 0) - totalPaid;
+      if (remainingBalance <= 0) {
+        return res.status(400).json({ error: "Booking is already fully paid" });
+      }
+      const payAmount = Math.min(amount, remainingBalance);
+
       // Simulate payment processing
       const payment = await storage.createPayment({
         bookingId,
         installmentId: installmentId || null,
-        amount,
+        amount: payAmount,
         status: "pending",
         razorpayOrderId: null,
         razorpayPaymentId: null,
