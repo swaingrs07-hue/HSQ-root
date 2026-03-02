@@ -81,16 +81,18 @@ function getCheckoutDate(bed: any): string {
   } catch { return d; }
 }
 
-const IsoBedSVG = React.memo(function IsoBedSVG({ status, w = 56, h = 28 }: { status: string; w?: number; h?: number }) {
+const IsoBedSVG = React.memo(function IsoBedSVG({ status, w = 64, h = 44 }: { status: string; w?: number; h?: number }) {
   const cfg = BED_STATUS_CFG[status] || BED_STATUS_CFG.maintenance;
   return (
-    <svg width={w} height={h} viewBox="0 0 56 28" fill="none" aria-hidden="true">
-      <rect x="2" y="8" width="52" height="18" rx="3" fill="#1e293b" stroke={cfg.border} strokeWidth="1.2" />
-      <rect x="4" y="3" width="22" height="10" rx="2" fill="#334155" />
-      <rect x="6" y="5" width="18" height="6" rx="1.5" fill={cfg.bg} stroke={cfg.border} strokeWidth="0.5" />
-      <rect x="4" y="12" width="48" height="12" rx="2" fill={cfg.bg} />
-      <rect x="2" y="24" width="4" height="3" rx="1" fill="#475569" />
-      <rect x="50" y="24" width="4" height="3" rx="1" fill="#475569" />
+    <svg width={w} height={h} viewBox="0 0 64 44" fill="none" aria-hidden="true">
+      <rect x="2" y="14" width="60" height="24" rx="4" fill="#1e293b" stroke={cfg.border} strokeWidth="1.5" />
+      <rect x="4" y="4" width="24" height="14" rx="3" fill="#334155" />
+      <rect x="6" y="6" width="20" height="10" rx="2" fill={cfg.bg} stroke={cfg.border} strokeWidth="0.8" />
+      <rect x="4" y="16" width="56" height="18" rx="3" fill={cfg.bg} />
+      <rect x="6" y="20" width="52" height="2" rx="1" fill={cfg.border} opacity="0.3" />
+      <rect x="2" y="36" width="5" height="6" rx="1.5" fill="#475569" />
+      <rect x="57" y="36" width="5" height="6" rx="1.5" fill="#475569" />
+      <rect x="28" y="2" width="8" height="4" rx="2" fill={cfg.bg} opacity="0.5" />
     </svg>
   );
 });
@@ -523,77 +525,102 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
             <div className="transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]" style={{ transform: `scale(${zoom})`, transformOrigin: "center center", opacity: mounted ? 1 : 0 }}>
 
-              {drillLevel === "building" && (
-                <div className="relative iso-building-enter" style={{ perspective: "1200px" }}>
-                  <div style={{ transform: "rotateX(55deg) rotateZ(-45deg)", transformStyle: "preserve-3d" }}>
-                    <div className="absolute rounded-2xl" style={{ width: `${Math.max(400, sortedFloors.length * 60 + 350)}px`, height: `${Math.max(400, sortedFloors.length * 60 + 350)}px`, background: "radial-gradient(ellipse at center, rgba(15,25,50,0.5), rgba(5,10,20,0.8))", border: "1px solid rgba(255,255,255,0.03)", transform: "translateZ(-12px)", left: "-50px", top: "-30px", boxShadow: "0 0 120px rgba(0,0,0,0.7)" }} />
+              {drillLevel === "building" && (() => {
+                const FLOOR_W = 520;
+                const SLAB_H = 14;
+                const FLOOR_PAD = 16;
+                const floorHeights = sortedFloors.map((floor) => {
+                  const floorRooms = floor.rooms || [];
+                  const bedGroups = floorRooms.length > 0 ? floorRooms : [{ id: "o", beds: floor.beds || [] }];
+                  const maxBeds = Math.max(...bedGroups.map((g: any) => (g.beds || []).length), 1);
+                  const rows = Math.ceil(Math.min(maxBeds, 16) / 4);
+                  return 44 + rows * 72 + FLOOR_PAD;
+                });
+                const ROOF_H = 64;
+                const totalH = floorHeights.reduce((s, h) => s + h + SLAB_H, 0) + ROOF_H + 40;
 
-                    {sortedFloors.map((floor, floorIdx) => {
+                return (
+                <div className="relative iso-building-enter" style={{ width: `${FLOOR_W + 140}px`, height: `${totalH}px`, margin: "0 auto" }}>
+                  {(() => {
+                    let cumulY = totalH - 20;
+                    return sortedFloors.map((floor, floorIdx) => {
                       const floorRooms = floor.rooms || [];
                       const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
-                      const zPos = floorIdx * 110;
                       const bedGroups = floorRooms.length > 0 ? floorRooms : [{ id: "orphan", beds: floor.beds || [], roomNumber: "" }];
+                      const fH = floorHeights[floorIdx];
+                      cumulY -= fH + SLAB_H;
+                      const yPos = cumulY;
 
                       return (
-                        <div key={floor.id} className="absolute iso-floor-enter cursor-pointer" style={{ transform: `translateZ(${zPos}px)`, transformStyle: "preserve-3d", animationDelay: `${floorIdx * 120}ms` }} onClick={() => drillToFloor(floorIdx)}>
-                          <div className="absolute -left-[85px] top-1/2 -translate-y-1/2 iso-float-label" style={{ transform: "rotateZ(45deg) rotateX(-55deg)", transformStyle: "preserve-3d" }}>
-                            <div className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.15em] whitespace-nowrap" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.05))", border: "1px solid rgba(251,191,36,0.3)", color: "#fbbf24", backdropFilter: "blur(8px)" }}>
-                              Floor {floor.floorNumber}
+                        <div key={floor.id} className="absolute iso-floor-enter cursor-pointer" style={{ left: "70px", top: `${yPos}px`, width: `${FLOOR_W}px`, animationDelay: `${floorIdx * 120}ms` }} onClick={() => drillToFloor(floorIdx)}>
+                          <div className="absolute -left-[75px] top-1/2 -translate-y-1/2 z-10">
+                            <div className="px-3 py-2 rounded-xl text-xs font-black uppercase tracking-[0.12em] whitespace-nowrap iso-float-label" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.25), rgba(251,191,36,0.08))", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24", boxShadow: "0 4px 20px rgba(251,191,36,0.15)" }}>
+                              F{floor.floorNumber}
                             </div>
                           </div>
 
-                          <div className="relative group iso-floor-hover" style={{ width: "380px", minHeight: "90px", background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(100,140,200,0.12)", borderRadius: "12px", boxShadow: "0 4px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)", overflow: "hidden" }}>
-                            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: "linear-gradient(to bottom, rgba(100,140,200,0.4), rgba(100,140,200,0.1))", borderRadius: "12px 0 0 12px" }} />
+                          <div className="absolute left-0 right-0 bottom-0 rounded-b-xl" style={{ height: `${SLAB_H}px`, background: "linear-gradient(180deg, rgba(30,45,75,0.9), rgba(18,28,50,0.95))", borderLeft: "1px solid rgba(100,140,200,0.12)", borderRight: "1px solid rgba(100,140,200,0.12)", borderBottom: "1px solid rgba(100,140,200,0.15)" }} />
+                          <div className="absolute right-0 top-0 bottom-0 w-[12px] rounded-r-xl" style={{ background: "linear-gradient(90deg, rgba(18,28,50,0.6), rgba(12,20,35,0.9))", borderRight: "1px solid rgba(100,140,200,0.08)", transform: "skewY(-2deg)", transformOrigin: "top right" }} />
 
-                            <div className="p-3">
+                          <div className="relative group iso-floor-hover rounded-xl overflow-hidden" style={{ height: `${fH}px`, background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(100,140,200,0.12)", boxShadow: "0 6px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+                            <div className="absolute left-0 top-0 bottom-0 w-[4px] rounded-l-xl" style={{ background: "linear-gradient(to bottom, rgba(100,140,200,0.5), rgba(100,140,200,0.15))" }} />
+
+                            <div className="p-3 pb-1">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">{floor.name || `Floor ${floor.floorNumber}`}</span>
-                                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 text-slate-500">{allBeds.length} beds</span>
+                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", color: "#fbbf24" }}>
+                                    F{floor.floorNumber}
+                                  </div>
+                                  <span className="text-[11px] font-bold text-white/80">{floor.name || `Floor ${floor.floorNumber}`}</span>
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}>
+                                    {allBeds.filter((b: any) => b.status === "available").length} avail
+                                  </span>
+                                  <span className="text-[9px] text-slate-500">{allBeds.length} beds</span>
                                 </div>
-                                <ChevronRight className="w-3 h-3 text-white/15 group-hover:text-amber-400/60 transition-all" />
+                                <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-amber-400/70 transition-all" />
                               </div>
 
-                              <div className="flex gap-2 flex-wrap">
+                              <div className="flex gap-3 flex-wrap">
                                 {bedGroups.map((group: any) => {
                                   const beds = group.beds || [];
                                   if (beds.length === 0) return null;
                                   return (
-                                    <div key={group.id} className="flex-1 min-w-[120px]">
+                                    <div key={group.id} className="flex-1 min-w-[160px]">
                                       {group.roomNumber && (
-                                        <div className="flex items-center gap-1 mb-1">
-                                          <span className="text-[8px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(99,102,241,0.1)", color: "rgba(129,140,248,0.8)", border: "1px solid rgba(99,102,241,0.2)" }}>R{group.roomNumber}</span>
+                                        <div className="flex items-center gap-1 mb-1.5">
+                                          <DoorOpen className="w-3 h-3 text-indigo-400/60" />
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(99,102,241,0.1)", color: "rgba(129,140,248,0.8)", border: "1px solid rgba(99,102,241,0.2)" }}>Room {group.roomNumber}</span>
                                         </div>
                                       )}
-                                      <div className="flex gap-[5px] flex-wrap">
-                                        {beds.slice(0, 12).map((bed: any) => {
+                                      <div className="flex gap-[6px] flex-wrap">
+                                        {beds.slice(0, 16).map((bed: any) => {
                                           const cfg = BED_STATUS_CFG[bed.status] || BED_STATUS_CFG.maintenance;
                                           const hasBooking = !!bed.currentBooking && (bed.status === "occupied" || bed.status === "reserved");
                                           return (
-                                            <div key={bed.id} className="relative iso-bed-cell" style={{ width: "52px", height: "42px" }}>
+                                            <div key={bed.id} className="relative">
                                               <button
                                                 onClick={(e) => { e.stopPropagation(); onBedClick(bed.id); }}
                                                 onMouseEnter={(e) => handleBedHover(bed, e)}
                                                 onMouseLeave={() => setHoveredBed(null)}
-                                                className="w-full h-full rounded-lg overflow-hidden border transition-all duration-300 hover:scale-110 hover:z-10"
-                                                style={{ borderColor: cfg.border, background: cfg.bg, boxShadow: cfg.glow }}
+                                                className="rounded-lg overflow-hidden border transition-all duration-300 hover:scale-110 hover:z-20 flex flex-col items-center justify-center"
+                                                style={{ width: "68px", height: "62px", borderColor: cfg.border, background: `linear-gradient(160deg, ${cfg.bg}, rgba(15,23,42,0.4))`, boxShadow: cfg.glow }}
                                                 data-testid={`iso-bed-${bed.id}`}
                                               >
                                                 {hasBooking ? (
-                                                  <div className="flex flex-col items-center justify-center h-full">
-                                                    <IsoCharacter gender={getGender(bed)} size={18} />
-                                                    <span className="text-[5px] font-bold leading-none" style={{ color: cfg.text }}>{bed.bedNumber.length > 5 ? bed.bedNumber.slice(-4) : bed.bedNumber}</span>
+                                                  <div className="flex flex-col items-center justify-center gap-0.5">
+                                                    <IsoCharacter gender={getGender(bed)} size={28} />
+                                                    <span className="text-[7px] font-bold leading-none" style={{ color: cfg.text }}>{bed.bedNumber.length > 5 ? bed.bedNumber.slice(-4) : bed.bedNumber}</span>
                                                   </div>
                                                 ) : (
-                                                  <div className="flex flex-col items-center justify-center h-full gap-0.5">
-                                                    {bed.status === "blocked" ? <Ban className="w-3 h-3" style={{ color: cfg.text }} /> : bed.status === "available" ? <BedDouble className="w-3.5 h-3.5" style={{ color: `${cfg.text}99` }} /> : <AlertTriangle className="w-3 h-3" style={{ color: cfg.text }} />}
-                                                    <span className="text-[6px] font-semibold" style={{ color: cfg.text }}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+                                                  <div className="flex flex-col items-center justify-center gap-1">
+                                                    <IsoBedSVG status={bed.status} w={48} h={34} />
+                                                    <span className="text-[7px] font-bold" style={{ color: cfg.text }}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
                                                   </div>
                                                 )}
                                               </button>
                                               {hasBooking && (
-                                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap iso-guest-label" style={{ pointerEvents: "none" }}>
-                                                  <div className="px-1.5 py-0.5 rounded text-[6px] font-bold" style={{ background: `${cfg.dotColor}cc`, color: "white", boxShadow: `0 2px 8px ${cfg.dotColor}60` }}>
+                                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 iso-guest-label" style={{ pointerEvents: "none" }}>
+                                                  <div className="px-1.5 py-0.5 rounded-md text-[7px] font-bold" style={{ background: `${cfg.dotColor}dd`, color: "white", boxShadow: `0 2px 10px ${cfg.dotColor}50` }}>
                                                     {(getGuestName(bed) || "Guest").split(" ")[0].slice(0, 8)}
                                                   </div>
                                                 </div>
@@ -601,7 +628,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                             </div>
                                           );
                                         })}
-                                        {beds.length > 12 && <span className="text-[8px] text-slate-500 self-center ml-1">+{beds.length - 12}</span>}
+                                        {beds.length > 16 && <span className="text-[9px] text-slate-500 self-center ml-1">+{beds.length - 16}</span>}
                                       </div>
                                     </div>
                                   );
@@ -609,38 +636,34 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                               </div>
                             </div>
 
-                            <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: "linear-gradient(90deg, transparent, rgba(100,140,200,0.2), transparent)" }} />
+                            <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: "linear-gradient(90deg, transparent, rgba(100,140,200,0.25), transparent)" }} />
                           </div>
-
-                          <div className="absolute top-0 rounded-r-lg" style={{ left: "100%", width: "10px", height: "100%", background: "linear-gradient(180deg, rgba(14,22,40,0.7), rgba(8,14,28,0.9))", borderRight: "1px solid rgba(100,140,200,0.06)", transform: "rotateY(90deg)", transformOrigin: "left" }} />
-                          <div className="absolute bottom-0 left-0 right-0 h-[10px] rounded-b-lg" style={{ background: "linear-gradient(135deg, rgba(14,22,40,0.7), rgba(8,14,28,0.9))", borderBottom: "1px solid rgba(100,140,200,0.06)", transform: "rotateX(90deg)", transformOrigin: "bottom" }} />
                         </div>
                       );
-                    })}
+                    });
+                  })()}
 
-                    <div className="absolute" style={{ transform: `translateZ(${sortedFloors.length * 110 + 12}px)`, transformStyle: "preserve-3d" }}>
-                      <div className="relative" style={{ width: "380px" }}>
-                        <div className="rounded-t-xl overflow-hidden" style={{ height: "60px", background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(251,191,36,0.2)", borderBottom: "none" }}>
-                          <div className="absolute top-0 left-0 right-0 h-[6px]" style={{ background: "linear-gradient(90deg, #166534, #15803d, #22c55e, #15803d, #166534)" }} />
-                          <div className="flex items-center justify-center h-full gap-3 px-5 pt-1">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 iso-logo-pulse">
-                              <span className="text-xs font-black text-white">H²</span>
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-white tracking-wider uppercase">{propertyName.length > 20 ? propertyName.slice(0, 20) + "…" : propertyName}</p>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-5 h-[2px] bg-gradient-to-r from-amber-500 to-transparent" />
-                                <span className="text-[7px] text-amber-400/50 uppercase tracking-[0.2em]">Roof Garden</span>
-                              </div>
-                            </div>
+                  <div className="absolute" style={{ left: "70px", top: `${totalH - floorHeights.reduce((s, h) => s + h + SLAB_H, 0) - ROOF_H - 20}px`, width: `${FLOOR_W}px` }}>
+                    <div className="rounded-t-2xl overflow-hidden" style={{ height: `${ROOF_H}px`, background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(251,191,36,0.25)", borderBottom: "none" }}>
+                      <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-2xl" style={{ background: "linear-gradient(90deg, #166534, #15803d, #22c55e, #4ade80, #22c55e, #15803d, #166534)" }} />
+                      <div className="flex items-center justify-center h-full gap-4 px-5 pt-1">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-xl shadow-amber-500/30 iso-logo-pulse">
+                          <span className="text-sm font-black text-white">H²</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white tracking-wider uppercase">{propertyName.length > 22 ? propertyName.slice(0, 22) + "…" : propertyName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <div className="w-8 h-[2px] bg-gradient-to-r from-amber-500 to-transparent" />
+                            <span className="text-[8px] text-amber-400/60 uppercase tracking-[0.2em] font-semibold">Roof Garden</span>
                           </div>
                         </div>
-                        <div className="h-[2px] iso-neon-line" />
                       </div>
                     </div>
+                    <div className="h-[3px] iso-neon-line" />
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {drillLevel === "floor" && activeFloor && (
                 <div className="iso-drill-enter w-full" style={{ maxWidth: "900px", margin: "0 auto" }}>
