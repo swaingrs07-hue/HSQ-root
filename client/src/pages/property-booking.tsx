@@ -99,6 +99,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   };
 
   const handlePrev = () => {
+    if (images.length === 0) return;
     if (currentIndex === 0) {
       const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
       for (let i = TOUR_ROOMS.length - 1; i >= 0; i--) {
@@ -118,6 +119,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   };
 
   const handleNext = () => {
+    if (images.length === 0) return;
     if (currentIndex === images.length - 1) {
       const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
       for (let i = 1; i <= TOUR_ROOMS.length; i++) {

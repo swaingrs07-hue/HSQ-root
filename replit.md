@@ -101,6 +101,9 @@ Preferred communication style: Simple, everyday language.
   - `POST /api/admin/properties/:id/auto-generate-floors` (admin, auto-generate)
   - `POST /api/admin/properties/:id/floors` (admin, create floor)
   - `PATCH /api/admin/beds/:id` (admin, update bed status)
+  - `POST /api/admin/import-tour-images` (admin, import images from external URLs to object storage)
+  - `POST /api/admin/import-image-from-url` (admin, import single image from URL)
+- **Image Import Security**: Domain allowlist (Unsplash, Google, Imgur, Wikimedia), HTTPS-only, content-type validation, 20MB size limit, 15s timeout, max 20 URLs per batch
 - **Navigation**: Property cards on home page and property listing link to `/properties/:id`; "Virtual Tour" hero button navigates to `/properties`
 
 ### Instagram Live Feed

@@ -5778,5 +5778,156 @@ export async function registerRoutes(
     }
   });
 
+  const ALLOWED_IMAGE_DOMAINS = [
+    "images.unsplash.com",
+    "unsplash.com",
+    "lh3.googleusercontent.com",
+    "drive.google.com",
+    "i.imgur.com",
+    "upload.wikimedia.org",
+  ];
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
+  const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
+  const MAX_IMPORT_URLS = 20;
+  const FETCH_TIMEOUT_MS = 15000;
+
+  function validateImageUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:") return false;
+      return ALLOWED_IMAGE_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`));
+    } catch { return false; }
+  }
+
+  async function fetchImageSafely(url: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+    if (!validateImageUrl(url)) return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const contentType = response.headers.get("content-type")?.split(";")[0].trim() || "";
+      if (!ALLOWED_IMAGE_TYPES.includes(contentType)) return null;
+      const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+      if (contentLength > MAX_IMAGE_SIZE) return null;
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > MAX_IMAGE_SIZE) return null;
+      return { buffer, contentType };
+    } catch { return null; } finally { clearTimeout(timeout); }
+  }
+
+  app.post("/api/admin/import-image-from-url", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { url } = req.body;
+      if (!url || typeof url !== "string") {
+        return res.status(400).json({ error: "URL is required" });
+      }
+      if (!validateImageUrl(url)) {
+        return res.status(400).json({ error: "URL domain not allowed. Allowed: " + ALLOWED_IMAGE_DOMAINS.join(", ") });
+      }
+
+      const result = await fetchImageSafely(url);
+      if (!result) {
+        return res.status(400).json({ error: "Failed to fetch image or invalid content type" });
+      }
+
+      const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const objectService = new ObjectStorageService();
+      const uploadURL = await objectService.getObjectEntityUploadURL();
+
+      const uploadResponse = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": result.contentType },
+        body: result.buffer,
+      });
+
+      if (!uploadResponse.ok) {
+        return res.status(500).json({ error: "Failed to upload to object storage" });
+      }
+
+      const objectPath = objectService.normalizeObjectEntityPath(uploadURL);
+      res.json({ objectPath, contentType: result.contentType, size: result.buffer.length });
+    } catch (error: any) {
+      console.error("Error importing image:", error);
+      res.status(500).json({ error: error.message || "Failed to import image" });
+    }
+  });
+
+  app.post("/api/admin/import-tour-images", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { propertyId, category, urls } = req.body;
+      if (!propertyId || !category || !Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ error: "propertyId, category, and urls array are required" });
+      }
+      if (urls.length > MAX_IMPORT_URLS) {
+        return res.status(400).json({ error: `Maximum ${MAX_IMPORT_URLS} URLs allowed per import` });
+      }
+
+      const validCategories = ["overview", "rooms", "amenities", "location"];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+
+      const invalidUrls = urls.filter((u: string) => !validateImageUrl(u));
+      if (invalidUrls.length > 0) {
+        return res.status(400).json({ error: "Some URLs have disallowed domains. Allowed: " + ALLOWED_IMAGE_DOMAINS.join(", ") });
+      }
+
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const objectService = new ObjectStorageService();
+      const importedPaths: string[] = [];
+
+      for (const url of urls) {
+        try {
+          const result = await fetchImageSafely(url);
+          if (!result) continue;
+
+          const uploadURL = await objectService.getObjectEntityUploadURL();
+          const uploadResponse = await fetch(uploadURL, {
+            method: "PUT",
+            headers: { "Content-Type": result.contentType },
+            body: result.buffer,
+          });
+
+          if (uploadResponse.ok) {
+            const objectPath = objectService.normalizeObjectEntityPath(uploadURL);
+            importedPaths.push(objectPath);
+          }
+        } catch (err) {
+          console.error(`Failed to import ${url}:`, err);
+        }
+      }
+
+      const columnMap: Record<string, string> = {
+        overview: "tourOverviewImages",
+        rooms: "tourRoomsImages",
+        amenities: "tourAmenitiesImages",
+        location: "tourLocationImages",
+      };
+
+      const updates = { [columnMap[category]]: JSON.stringify(importedPaths) };
+      const updatedProperty = await storage.updateProperty(propertyId, updates);
+
+      res.json({
+        imported: importedPaths.length,
+        total: urls.length,
+        paths: importedPaths,
+        property: updatedProperty,
+      });
+    } catch (error: any) {
+      console.error("Error importing tour images:", error);
+      res.status(500).json({ error: error.message || "Failed to import tour images" });
+    }
+  });
+
   return httpServer;
 }
