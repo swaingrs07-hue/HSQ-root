@@ -470,7 +470,7 @@ export default function AdminFloorsBeds() {
                   <Label>Room Typology (Bed Configuration)</Label>
                   <Select value={newRoom.typology} onValueChange={(val) => setNewRoom(prev => ({ ...prev, typology: val }))}>
                     <SelectTrigger data-testid="select-typology"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {TYPOLOGY_OPTIONS.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                       ))}
