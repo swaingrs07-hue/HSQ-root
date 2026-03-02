@@ -23,7 +23,6 @@ function getAuthToken(): string {
   }
 }
 
-interface Property { id: string; name: string; }
 interface Bed {
   id: string; propertyId: string; floorId: string; roomId?: string | null;
   roomTypeId: string; bedNumber: string;
@@ -51,6 +50,7 @@ interface RoomType {
   id: string; name: string; customName?: string | null;
   propertyId: string; occupancy?: number; basePrice?: number;
 }
+interface Property { id: string; name: string; roomTypes?: RoomType[]; }
 
 const STATUS_COLORS: Record<string, string> = {
   available: "bg-emerald-500",
@@ -128,15 +128,7 @@ export default function AdminFloorsBeds() {
     enabled: !!selectedPropertyId,
   });
 
-  const { data: roomTypes } = useQuery<RoomType[]>({
-    queryKey: ["/api/properties", selectedPropertyId, "room-types"],
-    queryFn: async () => {
-      const res = await fetch(`/api/properties/${selectedPropertyId}/room-types`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!selectedPropertyId,
-  });
+  const roomTypes = (properties || []).find(p => p.id === selectedPropertyId)?.roomTypes as RoomType[] | undefined;
 
   const floors = floorsData || [];
 
