@@ -28,6 +28,7 @@ import {
   chatbotMessages,
   chatbotEvents,
   floors,
+  rooms,
   beds,
   type User,
   type InsertUser,
@@ -73,6 +74,8 @@ import {
   type FooterSettings,
   type Floor,
   type InsertFloor,
+  type Room,
+  type InsertRoom,
   type Bed,
   type InsertBed,
 } from "@shared/schema";
@@ -1843,12 +1846,46 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFloor(id: string): Promise<void> {
     await db.delete(beds).where(eq(beds.floorId, id));
+    await db.delete(rooms).where(eq(rooms.floorId, id));
     await db.delete(floors).where(eq(floors.id, id));
+  }
+
+  // Rooms
+  async getRoomsByFloor(floorId: string): Promise<Room[]> {
+    return await db.select().from(rooms).where(eq(rooms.floorId, floorId)).orderBy(asc(rooms.roomNumber));
+  }
+
+  async getRoomsByProperty(propertyId: string): Promise<Room[]> {
+    return await db.select().from(rooms).where(eq(rooms.propertyId, propertyId)).orderBy(asc(rooms.roomNumber));
+  }
+
+  async createRoom(room: InsertRoom): Promise<Room> {
+    const [created] = await db.insert(rooms).values(room).returning();
+    return created;
+  }
+
+  async createRooms(roomData: InsertRoom[]): Promise<Room[]> {
+    if (roomData.length === 0) return [];
+    return await db.insert(rooms).values(roomData).returning();
+  }
+
+  async updateRoom(id: string, data: Partial<InsertRoom>): Promise<Room | undefined> {
+    const [updated] = await db.update(rooms).set(data as any).where(eq(rooms.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteRoom(id: string): Promise<void> {
+    await db.delete(beds).where(eq(beds.roomId, id));
+    await db.delete(rooms).where(eq(rooms.id, id));
   }
 
   // Beds
   async getBedsByFloor(floorId: string): Promise<Bed[]> {
     return await db.select().from(beds).where(eq(beds.floorId, floorId)).orderBy(asc(beds.bedNumber));
+  }
+
+  async getBedsByRoom(roomId: string): Promise<Bed[]> {
+    return await db.select().from(beds).where(eq(beds.roomId, roomId)).orderBy(asc(beds.bedNumber));
   }
 
   async getBedsByProperty(propertyId: string): Promise<Bed[]> {

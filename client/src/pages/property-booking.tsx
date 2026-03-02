@@ -570,7 +570,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   );
 }
 
-function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBed: (bed: any, floor: any) => void }) {
+function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void }) {
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
 
@@ -609,6 +609,40 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
     maintenance: { bg: "bg-stone-300/70", border: "border-stone-400/50", label: "Maintenance", cursor: "cursor-not-allowed" },
   };
 
+  const renderBedButton = (bed: any, floor: any, room?: any) => {
+    const isSelected = selectedBedId === bed.id;
+    const isAvailable = bed.status === "available";
+    const config = statusConfig[bed.status] || statusConfig.maintenance;
+    return (
+      <motion.button
+        key={bed.id}
+        whileHover={isAvailable ? { scale: 1.08, y: -2 } : {}}
+        whileTap={isAvailable ? { scale: 0.95 } : {}}
+        onClick={() => {
+          if (!isAvailable) return;
+          setSelectedBedId(bed.id);
+          onSelectBed(bed, floor, room);
+        }}
+        className={cn(
+          "relative p-1.5 border-2 rounded-lg text-center transition-all",
+          config.bg, config.border, config.cursor,
+          !isAvailable && "opacity-50",
+          isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-1 shadow-lg shadow-amber-500/30"
+        )}
+        title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        data-testid={`bed-${bed.id}`}
+      >
+        <Bed className="w-3.5 h-3.5 mx-auto text-white" />
+        <span className="text-[9px] font-bold block text-white mt-0.5 truncate">{bed.bedNumber}</span>
+        {isSelected && (
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow">
+            <Check className="w-3 h-3 text-amber-600" />
+          </motion.div>
+        )}
+      </motion.button>
+    );
+  };
+
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
       <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs text-stone-500 bg-stone-50 p-3 border border-stone-200">
@@ -623,9 +657,11 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
       {floorsData.map((floor: any, fi: number) => {
         const isExpanded = expandedFloor === floor.id;
         const beds = floor.beds || [];
+        const rooms = floor.rooms || [];
         const availBeds = beds.filter((b: any) => b.status === "available").length;
         const totalBeds = beds.length;
-        const occupancyPct = totalBeds > 0 ? ((totalBeds - availBeds) / totalBeds) * 100 : 0;
+        const hasRooms = rooms.length > 0;
+        const orphanBeds = beds.filter((b: any) => !b.roomId);
 
         return (
           <motion.div
@@ -644,33 +680,21 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
                 <div className="relative w-12 h-12">
                   <svg viewBox="0 0 48 48" className="w-full h-full">
                     <circle cx="24" cy="24" r="20" fill="none" stroke="#e7e5e4" strokeWidth="3" />
-                    <circle
-                      cx="24" cy="24" r="20" fill="none"
-                      stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"}
-                      strokeWidth="3"
-                      strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`}
-                      strokeLinecap="round"
-                      transform="rotate(-90 24 24)"
-                    />
+                    <circle cx="24" cy="24" r="20" fill="none" stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"} strokeWidth="3" strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`} strokeLinecap="round" transform="rotate(-90 24 24)" />
                   </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">
-                    {floor.floorNumber}
-                  </span>
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">{floor.floorNumber}</span>
                 </div>
                 <div className="text-left">
                   <h4 className="font-heading font-bold text-gray-900">{floor.name}</h4>
                   <p className="text-xs text-stone-400 mt-0.5">
+                    {hasRooms && <><span className="text-indigo-600">{rooms.length} rooms</span> · </>}
                     <span className="text-emerald-600 font-semibold">{availBeds}</span> of {totalBeds} beds available
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {availBeds > 0 && (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">{availBeds} open</Badge>
-                )}
-                {availBeds === 0 && totalBeds > 0 && (
-                  <Badge className="bg-red-50 text-red-600 border-red-200 text-xs">Full</Badge>
-                )}
+                {availBeds > 0 && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">{availBeds} open</Badge>}
+                {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-50 text-red-600 border-red-200 text-xs">Full</Badge>}
                 <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                   <ChevronDown className="w-5 h-5 text-stone-400" />
                 </motion.div>
@@ -678,56 +702,71 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
             </button>
 
             <AnimatePresence>
-              {isExpanded && beds.length > 0 && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4 border-t border-stone-100">
-                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 mt-3">
-                      {beds.map((bed: any) => {
-                        const isSelected = selectedBedId === bed.id;
-                        const isAvailable = bed.status === "available";
-                        const config = statusConfig[bed.status] || statusConfig.maintenance;
-                        return (
-                          <motion.button
-                            key={bed.id}
-                            whileHover={isAvailable ? { scale: 1.08, y: -2 } : {}}
-                            whileTap={isAvailable ? { scale: 0.95 } : {}}
-                            onClick={() => {
-                              if (!isAvailable) return;
-                              setSelectedBedId(bed.id);
-                              onSelectBed(bed, floor);
-                            }}
-                            className={cn(
-                              "relative p-1.5 border-2 rounded-lg text-center transition-all",
-                              config.bg, config.border, config.cursor,
-                              !isAvailable && "opacity-50",
-                              isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-1 shadow-lg shadow-amber-500/30"
-                            )}
-                            title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}`}
-                            data-testid={`bed-${bed.id}`}
-                          >
-                            <Bed className="w-3.5 h-3.5 mx-auto text-white" />
-                            <span className="text-[9px] font-bold block text-white mt-0.5 truncate">
-                              {bed.bedNumber}
-                            </span>
-                            {isSelected && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow"
-                              >
-                                <Check className="w-3 h-3 text-amber-600" />
-                              </motion.div>
-                            )}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
+              {isExpanded && (beds.length > 0 || rooms.length > 0) && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                  <div className="px-4 pb-4 border-t border-stone-100 mt-1">
+                    {hasRooms ? (
+                      <div className="space-y-2 mt-3">
+                        {rooms.map((room: any) => {
+                          const roomBeds = room.beds || [];
+                          const isCombo = room.typology?.includes("+");
+                          const roomAvail = roomBeds.filter((b: any) => b.status === "available").length;
+                          const allOccupied = roomBeds.length > 0 && roomAvail === 0;
+
+                          const sections = isCombo ? room.typology.split("+").map((p: string, i: number) => ({
+                            label: String.fromCharCode(65 + i),
+                            bedCount: parseInt(p),
+                            beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
+                          })) : null;
+
+                          return (
+                            <div key={room.id} className={cn(
+                              "border rounded-lg p-2.5 transition-colors",
+                              allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200" : "border-stone-200"
+                            )} data-testid={`room-${room.id}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-semibold text-stone-700">Room {room.roomNumber}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
+                                {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600">Shared WC</Badge>}
+                                {room.monthlyPrice && <span className="text-[10px] text-stone-400 ml-auto">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
+                              </div>
+
+                              {isCombo && sections ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  {sections.map((section: any) => (
+                                    <div key={section.label} className="bg-stone-50/80 rounded border border-stone-100 p-2">
+                                      <p className="text-[10px] font-medium text-stone-500 mb-1">
+                                        {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
+                                      </p>
+                                      <div className="flex gap-1 flex-wrap">
+                                        {section.beds.map((bed: any) => renderBedButton(bed, floor, room))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {roomBeds.map((bed: any) => renderBedButton(bed, floor, room))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {orphanBeds.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-[10px] text-stone-400 mb-1">Other beds</p>
+                            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
+                              {orphanBeds.map((bed: any) => renderBedButton(bed, floor))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 mt-3">
+                        {beds.map((bed: any) => renderBedButton(bed, floor))}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}

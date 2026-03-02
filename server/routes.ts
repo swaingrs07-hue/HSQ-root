@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertBedSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
@@ -5717,19 +5717,27 @@ export async function registerRoutes(
     try {
       const propertyId = req.params.id;
       const floorsList = await storage.getFloorsByProperty(propertyId);
-      const floorsWithBeds = await Promise.all(
+      const floorsWithData = await Promise.all(
         floorsList.map(async (floor) => {
           const floorBeds = await storage.getBedsByFloor(floor.id);
+          const floorRooms = await storage.getRoomsByFloor(floor.id);
+          const roomsWithBeds = await Promise.all(
+            floorRooms.map(async (room) => {
+              const roomBeds = await storage.getBedsByRoom(room.id);
+              return { ...room, beds: roomBeds };
+            })
+          );
           const availableBeds = floorBeds.filter(b => b.status === "available").length;
           return {
             ...floor,
             totalBeds: floorBeds.length,
             availableBeds,
             beds: floorBeds,
+            rooms: roomsWithBeds,
           };
         })
       );
-      res.json(floorsWithBeds);
+      res.json(floorsWithData);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch floors" });
     }
@@ -5741,6 +5749,140 @@ export async function registerRoutes(
       res.json(bedsList);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch beds" });
+    }
+  });
+
+  app.get("/api/properties/:id/rooms", async (req, res) => {
+    try {
+      const roomsList = await storage.getRoomsByProperty(req.params.id);
+      const roomsWithBeds = await Promise.all(
+        roomsList.map(async (room) => {
+          const roomBeds = await storage.getBedsByRoom(room.id);
+          return { ...room, beds: roomBeds };
+        })
+      );
+      res.json(roomsWithBeds);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch rooms" });
+    }
+  });
+
+  app.get("/api/floors/:floorId/rooms", async (req, res) => {
+    try {
+      const roomsList = await storage.getRoomsByFloor(req.params.floorId);
+      const roomsWithBeds = await Promise.all(
+        roomsList.map(async (room) => {
+          const roomBeds = await storage.getBedsByRoom(room.id);
+          return { ...room, beds: roomBeds };
+        })
+      );
+      res.json(roomsWithBeds);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch rooms" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/floors/:floorId/rooms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { roomNumber, roomTypeId, typology, hasSharedWashroom, monthlyPrice } = req.body;
+      if (!roomNumber || !roomTypeId || !typology) {
+        return res.status(400).json({ error: "roomNumber, roomTypeId, and typology are required" });
+      }
+
+      const room = await storage.createRoom({
+        propertyId: req.params.id,
+        floorId: req.params.floorId,
+        roomTypeId,
+        roomNumber,
+        typology,
+        hasSharedWashroom: hasSharedWashroom || false,
+        totalBeds: 0,
+        status: "available",
+        monthlyPrice: monthlyPrice || null,
+      });
+
+      const bedsToCreate: any[] = [];
+      const normalizedTypology = typology.replace(/\s*bed\s*/gi, "").trim();
+      const parts = normalizedTypology.split("+").map((p: string) => parseInt(p.trim()));
+      if (parts.length === 1 && !isNaN(parts[0])) {
+        for (let i = 0; i < parts[0]; i++) {
+          bedsToCreate.push({
+            propertyId: req.params.id,
+            floorId: req.params.floorId,
+            roomId: room.id,
+            roomTypeId,
+            bedNumber: parts[0] === 1 ? roomNumber : `${roomNumber}-${String.fromCharCode(65 + i)}`,
+            status: "available" as const,
+            monthlyPrice: monthlyPrice || null,
+          });
+        }
+      } else if (parts.length > 1) {
+        let bedIdx = 0;
+        for (let section = 0; section < parts.length; section++) {
+          const sectionLabel = String.fromCharCode(65 + section);
+          const bedCount = parts[section];
+          if (isNaN(bedCount)) continue;
+          for (let b = 0; b < bedCount; b++) {
+            bedsToCreate.push({
+              propertyId: req.params.id,
+              floorId: req.params.floorId,
+              roomId: room.id,
+              roomTypeId,
+              bedNumber: `${roomNumber}${sectionLabel}${bedCount > 1 ? `-${b + 1}` : ""}`,
+              status: "available" as const,
+              monthlyPrice: monthlyPrice || null,
+            });
+            bedIdx++;
+          }
+        }
+      }
+
+      let createdBeds: any[] = [];
+      if (bedsToCreate.length > 0) {
+        createdBeds = await storage.createBeds(bedsToCreate);
+        await storage.updateRoom(room.id, { totalBeds: createdBeds.length } as any);
+      }
+
+      const allFloorBeds = await storage.getBedsByFloor(req.params.floorId);
+      const availCount = allFloorBeds.filter(b => b.status === "available").length;
+      await db.update(schema.floors).set({ totalBeds: allFloorBeds.length, availableBeds: availCount }).where(eq(schema.floors.id, req.params.floorId));
+
+      res.status(201).json({ ...room, totalBeds: createdBeds.length, beds: createdBeds });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create room" });
+    }
+  });
+
+  app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { status, roomNumber, typology, hasSharedWashroom, monthlyPrice } = req.body;
+      const updateData: any = {};
+      if (status) updateData.status = status;
+      if (roomNumber) updateData.roomNumber = roomNumber;
+      if (typology !== undefined) updateData.typology = typology;
+      if (hasSharedWashroom !== undefined) updateData.hasSharedWashroom = hasSharedWashroom;
+      if (monthlyPrice !== undefined) updateData.monthlyPrice = monthlyPrice;
+      const updated = await storage.updateRoom(req.params.id, updateData);
+      if (!updated) return res.status(404).json({ error: "Room not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update room" });
+    }
+  });
+
+  app.delete("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const roomsList = await db.select().from(schema.rooms).where(eq(schema.rooms.id, req.params.id));
+      const room = roomsList[0];
+      await storage.deleteRoom(req.params.id);
+      if (room) {
+        const allFloorBeds = await storage.getBedsByFloor(room.floorId);
+        const availCount = allFloorBeds.filter(b => b.status === "available").length;
+        await db.update(schema.floors).set({ totalBeds: allFloorBeds.length, availableBeds: availCount }).where(eq(schema.floors.id, room.floorId));
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete room" });
     }
   });
 
@@ -5842,25 +5984,53 @@ export async function registerRoutes(
           availableBeds: 0,
         });
 
-        const bedsToCreate: any[] = [];
+        const allBedsForFloor: any[] = [];
+        const allRoomsForFloor: any[] = [];
+        let roomCounter = 1;
+
         for (const rt of roomTypesList) {
           const bedsPerFloor = Math.ceil(rt.totalBeds / floorCount);
-          for (let b = 0; b < bedsPerFloor; b++) {
-            const bedNum = `${(i * 100) + b + 1}-${rt.name?.charAt(0) || "R"}`;
-            bedsToCreate.push({
+          const occupancy = rt.occupancy || 1;
+          const roomsNeeded = Math.ceil(bedsPerFloor / occupancy);
+
+          for (let r = 0; r < roomsNeeded; r++) {
+            const roomNum = `${(i + 1) * 100 + roomCounter}`;
+            const typology = `${occupancy}`;
+            
+            const room = await storage.createRoom({
               propertyId,
               floorId: floor.id,
               roomTypeId: rt.id,
-              bedNumber: bedNum,
-              status: "available" as const,
+              roomNumber: roomNum,
+              typology: `${occupancy} Bed`,
+              hasSharedWashroom: false,
+              totalBeds: occupancy,
+              status: "available",
               monthlyPrice: rt.basePrice,
             });
+
+            const bedsForRoom: any[] = [];
+            for (let b = 0; b < occupancy; b++) {
+              bedsForRoom.push({
+                propertyId,
+                floorId: floor.id,
+                roomId: room.id,
+                roomTypeId: rt.id,
+                bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
+                status: "available" as const,
+                monthlyPrice: rt.basePrice,
+              });
+            }
+
+            const createdBeds = await storage.createBeds(bedsForRoom);
+            allBedsForFloor.push(...createdBeds);
+            allRoomsForFloor.push({ ...room, beds: createdBeds });
+            roomCounter++;
           }
         }
 
-        const createdBeds = await storage.createBeds(bedsToCreate);
-        await db.update(schema.floors).set({ totalBeds: createdBeds.length, availableBeds: createdBeds.length }).where(eq(schema.floors.id, floor.id));
-        createdFloors.push({ ...floor, totalBeds: createdBeds.length, availableBeds: createdBeds.length, beds: createdBeds });
+        await db.update(schema.floors).set({ totalBeds: allBedsForFloor.length, availableBeds: allBedsForFloor.length }).where(eq(schema.floors.id, floor.id));
+        createdFloors.push({ ...floor, totalBeds: allBedsForFloor.length, availableBeds: allBedsForFloor.length, beds: allBedsForFloor, rooms: allRoomsForFloor });
       }
 
       res.status(201).json(createdFloors);

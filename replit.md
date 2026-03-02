@@ -89,19 +89,35 @@ Preferred communication style: Simple, everyday language.
   - Lost Status: Score reset to 0
 - **Admin Dashboard**: Lead Scoring Dashboard with priority distribution, averages, and top property analysis
 
-### Virtual Property Tour & Floor/Bed Booking
+### Virtual Property Tour & Floor/Room/Bed Booking
 - **Route**: `/properties/:id` — dedicated property detail page with integrated tour + booking
 - **Tour Gallery**: Categorized image viewer (Overview/Rooms/Amenities/Location) with Ken Burns effect, auto-play, fullscreen, swipe support, keyboard navigation, thumbnail filmstrip
-- **Floor & Bed Selection**: Interactive floor picker with expandable cards showing bed grids; color-coded beds (green=available, red=occupied, yellow=reserved, gray=maintenance); click to select and see booking summary
-- **Booking Summary Panel**: Sticky sidebar showing selected property, floor, bed, room type, and price; "Proceed to Book" navigates to student registration
-- **Admin Floor Management** (`/admin/floors-beds`): Property selector, auto-generate floors/beds from room types, visual floor/bed grid, status management
+- **Floor → Room → Bed Hierarchy**: Three-level structure: floors contain rooms, rooms contain beds
+- **Room Typology System**: Each room has a typology string defining bed configuration:
+  - Simple: "1 Bed", "2 Bed", "3 Bed", "4 Bed", "5 Bed", "6 Bed"
+  - Combo: "1+2", "2+1", "1+3", "2+2", "1+1+2" — creates sections (A, B, C) with separate bed groups
+  - Combo rooms have shared washroom option
+  - Bed naming: simple rooms use `roomNumber` or `roomNumber-A/B/C`; combo rooms use `roomNumber + sectionLetter + optional -index`
+- **Floor & Bed Selection (Public)**: Interactive floor picker with expandable cards showing rooms grouped by typology; color-coded beds (green=available, red=occupied, yellow=reserved, gray=maintenance); combo rooms show sections; click available bed to select and see booking summary
+- **Booking Summary Panel**: Sticky sidebar showing selected property, floor, room, bed, room type, and price; "Proceed to Book" navigates to student registration
+- **Admin Floor Management** (`/admin/floors-beds`): Property selector, auto-generate floors/rooms/beds from room types, visual floor → room cards → bed cells, room typology badges, shared WC indicators, status management; stats show floors/rooms/beds/available/occupied counts
 - **Admin 3D Virtual Tour** (`/admin/virtual-tour-uploads`): Tour provider selection (Matterport, Kuula, CloudPano, etc.), embed URL input, iframe preview, image upload with compression; stores virtualTourUrl/virtualTourProvider per property
-- **Schema Tables**: `floors` (propertyId, floorNumber, name, totalBeds, availableBeds, layoutImage), `beds` (propertyId, floorId, roomTypeId, bedNumber, status enum, monthlyPrice, position jsonb)
+- **Schema Tables**: 
+  - `floors` (propertyId, floorNumber, name, totalBeds, availableBeds, layoutImage)
+  - `rooms` (propertyId, floorId, roomTypeId, roomNumber, typology, hasSharedWashroom, totalBeds, status, monthlyPrice)
+  - `beds` (propertyId, floorId, roomId, roomTypeId, bedNumber, status enum, monthlyPrice, position jsonb)
 - **API Endpoints**: 
-  - `GET /api/properties/:id/floors` (public, floors with beds)
-  - `POST /api/admin/properties/:id/auto-generate-floors` (admin, auto-generate)
+  - `GET /api/properties/:id/floors` (public, floors with rooms and beds)
+  - `GET /api/properties/:id/rooms` (public, all rooms with beds)
+  - `GET /api/floors/:floorId/rooms` (public, rooms for a floor)
+  - `POST /api/admin/properties/:id/auto-generate-floors` (admin, auto-generate floors/rooms/beds)
   - `POST /api/admin/properties/:id/floors` (admin, create floor)
+  - `POST /api/admin/properties/:id/floors/:floorId/rooms` (admin, create room with auto-bed generation)
+  - `PATCH /api/admin/rooms/:id` (admin, update room)
+  - `DELETE /api/admin/rooms/:id` (admin, delete room + beds, updates floor totals)
   - `PATCH /api/admin/beds/:id` (admin, update bed status)
+  - `DELETE /api/admin/beds/:id` (admin, delete bed)
+  - `DELETE /api/admin/floors/:id` (admin, delete floor + rooms + beds)
   - `PATCH /api/admin/properties/:id/tour-images` (admin, save tour images per category)
   - `POST /api/admin/import-tour-images` (admin, import images from external URLs to object storage)
   - `POST /api/admin/import-image-from-url` (admin, import single image from URL)

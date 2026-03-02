@@ -1024,11 +1024,27 @@ export const floors = pgTable("floors", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Rooms table (room-level grouping between floors and beds)
+export const rooms = pgTable("rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  floorId: varchar("floor_id").references(() => floors.id).notNull(),
+  roomTypeId: varchar("room_type_id").references(() => roomTypes.id).notNull(),
+  roomNumber: text("room_number").notNull(),
+  typology: text("typology").notNull().default("1 Bed"),
+  hasSharedWashroom: boolean("has_shared_washroom").default(false).notNull(),
+  totalBeds: integer("total_beds").default(1).notNull(),
+  status: bedStatusEnum("status").default("available").notNull(),
+  monthlyPrice: integer("monthly_price"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Beds table (individual bed tracking)
 export const beds = pgTable("beds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   propertyId: varchar("property_id").references(() => properties.id).notNull(),
   floorId: varchar("floor_id").references(() => floors.id).notNull(),
+  roomId: varchar("room_id").references(() => rooms.id),
   roomTypeId: varchar("room_type_id").references(() => roomTypes.id).notNull(),
   bedNumber: text("bed_number").notNull(),
   status: bedStatusEnum("status").default("available").notNull(),
@@ -1039,18 +1055,31 @@ export const beds = pgTable("beds", {
 
 export const floorsRelations = relations(floors, ({ one, many }) => ({
   property: one(properties, { fields: [floors.propertyId], references: [properties.id] }),
+  rooms: many(rooms),
+  beds: many(beds),
+}));
+
+export const roomsRelations = relations(rooms, ({ one, many }) => ({
+  property: one(properties, { fields: [rooms.propertyId], references: [properties.id] }),
+  floor: one(floors, { fields: [rooms.floorId], references: [floors.id] }),
+  roomType: one(roomTypes, { fields: [rooms.roomTypeId], references: [roomTypes.id] }),
   beds: many(beds),
 }));
 
 export const bedsRelations = relations(beds, ({ one }) => ({
   property: one(properties, { fields: [beds.propertyId], references: [properties.id] }),
   floor: one(floors, { fields: [beds.floorId], references: [floors.id] }),
+  room: one(rooms, { fields: [beds.roomId], references: [rooms.id] }),
   roomType: one(roomTypes, { fields: [beds.roomTypeId], references: [roomTypes.id] }),
 }));
 
 export const insertFloorSchema = createInsertSchema(floors).omit({ id: true, createdAt: true });
 export type Floor = typeof floors.$inferSelect;
 export type InsertFloor = z.infer<typeof insertFloorSchema>;
+
+export const insertRoomSchema = createInsertSchema(rooms).omit({ id: true, createdAt: true });
+export type Room = typeof rooms.$inferSelect;
+export type InsertRoom = z.infer<typeof insertRoomSchema>;
 
 export const insertBedSchema = createInsertSchema(beds).omit({ id: true, createdAt: true });
 export type Bed = typeof beds.$inferSelect;
