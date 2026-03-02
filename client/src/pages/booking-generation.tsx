@@ -45,6 +45,12 @@ import {
   Upload,
   X,
   Heart,
+  ChevronDown,
+  ChevronUp,
+  DoorOpen,
+  Bath,
+  Ban,
+  Layers,
 } from "lucide-react";
 
 interface Property {
@@ -126,6 +132,7 @@ export default function BookingGeneration() {
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [selectedBedId, setSelectedBedId] = useState("");
   const [selectedBedInfo, setSelectedBedInfo] = useState<any>(null);
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     customerType: "walk_in",
@@ -308,6 +315,7 @@ export default function BookingGeneration() {
     setSelectedRoomId("");
     setSelectedBedId("");
     setSelectedBedInfo(null);
+    setExpandedFloors(new Set());
     setFloors([]);
     if (propertyId) {
       setFloorsLoading(true);
@@ -324,6 +332,7 @@ export default function BookingGeneration() {
     setSelectedRoomId("");
     setSelectedBedId("");
     setSelectedBedInfo(null);
+    setExpandedFloors(new Set());
   };
 
   const fetchRegisteredStudents = async (search?: string) => {
@@ -1042,192 +1051,213 @@ export default function BookingGeneration() {
                   {formData.propertyId && formData.roomTypeId && floors.length > 0 && (
                     <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 rounded-xl border border-indigo-100">
                       <div className="flex items-center gap-2">
-                        <BedDouble className="h-5 w-5 text-indigo-500" />
+                        <Layers className="h-5 w-5 text-indigo-500" />
                         <Label className="text-sm font-semibold text-slate-700">Select Floor, Room & Bed <span className="text-slate-400 font-normal">(optional)</span></Label>
                       </div>
-                      <p className="text-xs text-slate-500 -mt-2">Assign a specific bed to this booking, or leave blank to auto-assign later.</p>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs text-slate-600">Floor</Label>
-                        <Select value={selectedFloorId} onValueChange={(val) => {
-                          setSelectedFloorId(val);
-                          setSelectedRoomId("");
-                          setSelectedBedId("");
-                          setSelectedBedInfo(null);
-                        }}>
-                          <SelectTrigger className="bg-white h-10" data-testid="select-floor">
-                            <SelectValue placeholder="Choose floor..." />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60 overflow-y-auto">
-                            {floors.map((floor: any) => {
-                              const floorBeds = (floor.beds || []).concat(
-                                (floor.rooms || []).flatMap((r: any) => r.beds || [])
-                              );
-                              const matchingBeds = floorBeds.filter((b: any) => b.roomTypeId === formData.roomTypeId && b.status === "available");
-                              return (
-                                <SelectItem key={floor.id} value={floor.id}>
-                                  <span className="font-medium">{floor.name || `Floor ${floor.floorNumber}`}</span>
-                                  <span className="text-xs text-slate-400 ml-2">{matchingBeds.length} available beds</span>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {selectedFloorId && (() => {
-                        const floor = floors.find((f: any) => f.id === selectedFloorId);
-                        if (!floor) return null;
-                        const floorRooms = (floor.rooms || []).filter((r: any) =>
-                          (r.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId)
-                        );
-                        const orphanBeds = (floor.beds || []).filter((b: any) =>
-                          b.roomTypeId === formData.roomTypeId && !b.roomId
-                        );
-                        const hasRooms = floorRooms.length > 0;
-
-                        if (hasRooms) {
-                          return (
-                            <div className="space-y-2">
-                              <Label className="text-xs text-slate-600">Room</Label>
-                              <Select value={selectedRoomId} onValueChange={(val) => {
-                                setSelectedRoomId(val);
-                                setSelectedBedId("");
-                                setSelectedBedInfo(null);
-                              }}>
-                                <SelectTrigger className="bg-white h-10" data-testid="select-room">
-                                  <SelectValue placeholder="Choose room..." />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60 overflow-y-auto">
-                                  {floorRooms.map((room: any) => {
-                                    const availBeds = (room.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && b.status === "available");
-                                    return (
-                                      <SelectItem key={room.id} value={room.id} disabled={availBeds.length === 0}>
-                                        <span className="font-medium">Room {room.roomNumber}</span>
-                                        <span className="text-xs text-slate-400 ml-2">{room.typology} · {availBeds.length} available</span>
-                                      </SelectItem>
-                                    );
-                                  })}
-                                  {orphanBeds.length > 0 && (
-                                    <SelectItem value="__unassigned__">
-                                      <span className="font-medium">Unassigned Beds</span>
-                                      <span className="text-xs text-slate-400 ml-2">{orphanBeds.filter((b: any) => b.status === "available").length} available</span>
-                                    </SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-
-                              {selectedRoomId && (() => {
-                                let bedsToShow: any[] = [];
-                                if (selectedRoomId === "__unassigned__") {
-                                  bedsToShow = orphanBeds;
-                                } else {
-                                  const room = floorRooms.find((r: any) => r.id === selectedRoomId);
-                                  bedsToShow = (room?.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId);
-                                }
-                                return (
-                                  <div className="space-y-2 mt-2">
-                                    <Label className="text-xs text-slate-600">Bed</Label>
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                      {bedsToShow.map((bed: any) => {
-                                        const isAvail = bed.status === "available";
-                                        const isSelected = selectedBedId === bed.id;
-                                        return (
-                                          <button
-                                            key={bed.id}
-                                            type="button"
-                                            disabled={!isAvail}
-                                            onClick={() => {
-                                              if (!isAvail) return;
-                                              setSelectedBedId(bed.id);
-                                              setSelectedBedInfo(bed);
-                                              setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
-                                            }}
-                                            className={`p-2 rounded-lg border-2 text-center text-xs font-medium transition-all ${
-                                              !isAvail
-                                                ? "opacity-40 cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                                                : isSelected
-                                                  ? "border-indigo-500 bg-indigo-100 text-indigo-700 shadow-sm ring-2 ring-indigo-200"
-                                                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50"
-                                            }`}
-                                            data-testid={`bed-select-${bed.id}`}
-                                          >
-                                            <BedDouble className={`h-4 w-4 mx-auto mb-1 ${isSelected ? "text-indigo-600" : isAvail ? "text-slate-400" : "text-slate-300"}`} />
-                                            <span className="block truncate">{bed.bedNumber}</span>
-                                            <span className={`text-[10px] block ${isAvail ? "text-emerald-600" : bed.status === "blocked" ? "text-red-500" : "text-red-400"}`}>
-                                              {bed.status === "available" ? "Open" : bed.status === "blocked" ? "Blocked" : bed.status}
-                                            </span>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          );
-                        } else {
-                          const allBeds = orphanBeds;
-                          return (
-                            <div className="space-y-2">
-                              <Label className="text-xs text-slate-600">Bed</Label>
-                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                {allBeds.map((bed: any) => {
-                                  const isAvail = bed.status === "available";
-                                  const isSelected = selectedBedId === bed.id;
-                                  return (
-                                    <button
-                                      key={bed.id}
-                                      type="button"
-                                      disabled={!isAvail}
-                                      onClick={() => {
-                                        if (!isAvail) return;
-                                        setSelectedBedId(bed.id);
-                                        setSelectedBedInfo(bed);
-                                        setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
-                                      }}
-                                      className={`p-2 rounded-lg border-2 text-center text-xs font-medium transition-all ${
-                                        !isAvail
-                                          ? "opacity-40 cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                                          : isSelected
-                                            ? "border-indigo-500 bg-indigo-100 text-indigo-700 shadow-sm ring-2 ring-indigo-200"
-                                            : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50"
-                                      }`}
-                                      data-testid={`bed-select-${bed.id}`}
-                                    >
-                                      <BedDouble className={`h-4 w-4 mx-auto mb-1 ${isSelected ? "text-indigo-600" : isAvail ? "text-slate-400" : "text-slate-300"}`} />
-                                      <span className="block truncate">{bed.bedNumber}</span>
-                                      <span className={`text-[10px] block ${isAvail ? "text-emerald-600" : "text-red-400"}`}>
-                                        {bed.status === "available" ? "Open" : bed.status}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        }
-                      })()}
+                      <p className="text-xs text-slate-500 -mt-2">Click a floor to expand it, then select an available bed.</p>
 
                       {selectedBedInfo && (
-                        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-indigo-200">
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-indigo-300 shadow-sm">
                           <CheckCircle className="h-5 w-5 text-indigo-600 shrink-0" />
                           <div>
                             <p className="text-sm font-medium text-slate-800">Bed {selectedBedInfo.bedNumber} selected</p>
                             <p className="text-xs text-slate-500">
-                              {floors.find((f: any) => f.id === selectedFloorId)?.name || "Floor"} · 
+                              {floors.find((f: any) => f.id === selectedFloorId)?.name || "Floor"} ·
                               {selectedBedInfo.monthlyPrice ? ` ₹${selectedBedInfo.monthlyPrice.toLocaleString()}/mo` : ""}
                             </p>
                           </div>
                           <button
                             type="button"
-                            onClick={() => { setSelectedBedId(""); setSelectedBedInfo(null); setFormData(prev => ({ ...prev, residentRoomNo: "" })); }}
+                            onClick={() => { setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId(""); setFormData(prev => ({ ...prev, residentRoomNo: "" })); }}
                             className="ml-auto text-xs text-slate-400 hover:text-red-500"
+                            data-testid="button-clear-bed"
                           >
                             <X className="h-4 w-4" />
                           </button>
                         </div>
                       )}
+
+                      <div className="space-y-3">
+                        {floors.map((floor: any) => {
+                          const floorRooms = (floor.rooms || []).filter((r: any) =>
+                            (r.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId)
+                          );
+                          const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId))
+                            .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !b.roomId));
+                          const availBedCount = allFloorBeds.filter((b: any) => b.status === "available").length;
+                          const totalBedCount = allFloorBeds.length;
+                          if (totalBedCount === 0) return null;
+                          const isExpanded = expandedFloors.has(floor.id);
+                          const orphanBeds = (floor.beds || []).filter((b: any) => !b.roomId && b.roomTypeId === formData.roomTypeId);
+
+                          return (
+                            <div key={floor.id} className="border-2 border-slate-200 rounded-xl overflow-hidden bg-white" data-testid={`booking-floor-${floor.id}`}>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 transition-colors"
+                                onClick={() => {
+                                  setExpandedFloors(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(floor.id)) next.delete(floor.id);
+                                    else next.add(floor.id);
+                                    return next;
+                                  });
+                                }}
+                                data-testid={`button-expand-floor-${floor.id}`}
+                              >
+                                <div className="w-10 h-10 rounded-full border-2 border-amber-400 flex items-center justify-center text-sm font-bold text-slate-700">
+                                  {floor.floorNumber}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm text-slate-800">{floor.name}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {floorRooms.length} room{floorRooms.length !== 1 ? "s" : ""} · <span className="font-semibold text-emerald-600">{availBedCount}</span> of {totalBedCount} beds available
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className={`text-xs px-2.5 py-1 ${availBedCount > 0 ? "border-emerald-300 text-emerald-700 bg-emerald-50" : "border-slate-300 text-slate-500"}`}>
+                                  {availBedCount} open
+                                </Badge>
+                                {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                              </button>
+
+                              {isExpanded && (
+                                <div className="px-4 pb-4 space-y-3">
+                                  {floorRooms.length === 0 && orphanBeds.length === 0 && (
+                                    <div className="text-center py-4 text-slate-400 text-sm border-2 border-dashed rounded-lg">
+                                      No rooms on this floor
+                                    </div>
+                                  )}
+
+                                  {floorRooms.map((room: any) => {
+                                    const roomBeds = (room.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId);
+                                    if (roomBeds.length === 0) return null;
+                                    const isCombo = room.typology?.includes("+");
+                                    const allAvail = roomBeds.every((b: any) => b.status === "available");
+                                    const allOccupied = roomBeds.every((b: any) => b.status === "occupied");
+                                    const roomBorderColor = allOccupied ? "border-rose-200 bg-rose-50/30" : allAvail ? "border-emerald-200 bg-emerald-50/20" : "border-amber-200 bg-amber-50/20";
+
+                                    const sections = isCombo ? room.typology.split("+").map((p: string, i: number) => ({
+                                      label: String.fromCharCode(65 + i),
+                                      bedCount: parseInt(p),
+                                      beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
+                                    })) : null;
+
+                                    const renderBedCell = (bed: any) => {
+                                      const isAvail = bed.status === "available";
+                                      const isSelected = selectedBedId === bed.id;
+                                      const isBlocked = bed.status === "blocked";
+                                      const statusColor = isSelected
+                                        ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
+                                        : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
+                                        : bed.status === "occupied" ? "bg-rose-500"
+                                        : bed.status === "reserved" ? "bg-amber-400"
+                                        : isBlocked ? "bg-red-700"
+                                        : "bg-slate-400";
+
+                                      return (
+                                        <button
+                                          key={bed.id}
+                                          type="button"
+                                          disabled={!isAvail && !isSelected}
+                                          onClick={() => {
+                                            if (isSelected) {
+                                              setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
+                                              setFormData(prev => ({ ...prev, residentRoomNo: "" }));
+                                            } else if (isAvail) {
+                                              setSelectedBedId(bed.id); setSelectedBedInfo(bed);
+                                              setSelectedFloorId(floor.id); setSelectedRoomId(room.id);
+                                              setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
+                                            }
+                                          }}
+                                          className={`rounded-lg w-14 h-14 flex flex-col items-center justify-center text-white text-xs font-medium transition-all ${statusColor} ${!isAvail && !isSelected ? "opacity-60 cursor-not-allowed" : ""}`}
+                                          data-testid={`bed-select-${bed.id}`}
+                                        >
+                                          {isBlocked ? <Ban className="w-4 h-4 mb-0.5" /> : <BedDouble className="w-4 h-4 mb-0.5" />}
+                                          <span className="text-[9px] leading-tight truncate max-w-full px-0.5">{bed.bedNumber}</span>
+                                        </button>
+                                      );
+                                    };
+
+                                    return (
+                                      <div key={room.id} className={`border rounded-lg p-3 transition-colors ${roomBorderColor}`} data-testid={`booking-room-${room.id}`}>
+                                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                          <DoorOpen className="w-4 h-4 text-indigo-600" />
+                                          <span className="font-semibold text-sm text-slate-800">Room {room.roomNumber}</span>
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
+                                          {room.hasSharedWashroom && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 gap-0.5">
+                                              <Bath className="w-2.5 h-2.5" />Shared WC
+                                            </Badge>
+                                          )}
+                                        </div>
+
+                                        {isCombo && sections ? (
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {sections.map((section: any) => (
+                                              <div key={section.label} className="bg-white/80 rounded border border-slate-200 p-2">
+                                                <p className="text-[10px] font-medium text-slate-500 mb-1.5">
+                                                  {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
+                                                </p>
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                  {section.beds.map(renderBedCell)}
+                                                  {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div className="flex gap-1.5 flex-wrap">
+                                            {roomBeds.map(renderBedCell)}
+                                            {roomBeds.length === 0 && <span className="text-xs text-slate-400 py-2">No beds</span>}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {orphanBeds.length > 0 && (
+                                    <div className="border border-slate-200 rounded-lg p-3">
+                                      <p className="text-xs font-medium text-slate-500 mb-2">Unassigned Beds ({orphanBeds.length})</p>
+                                      <div className="flex gap-1.5 flex-wrap">
+                                        {orphanBeds.map((bed: any) => {
+                                          const isAvail = bed.status === "available";
+                                          const isSelected = selectedBedId === bed.id;
+                                          const statusColor = isSelected
+                                            ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
+                                            : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
+                                            : "bg-slate-400";
+                                          return (
+                                            <button
+                                              key={bed.id}
+                                              type="button"
+                                              disabled={!isAvail && !isSelected}
+                                              onClick={() => {
+                                                if (isSelected) {
+                                                  setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
+                                                  setFormData(prev => ({ ...prev, residentRoomNo: "" }));
+                                                } else if (isAvail) {
+                                                  setSelectedBedId(bed.id); setSelectedBedInfo(bed);
+                                                  setSelectedFloorId(floor.id); setSelectedRoomId("");
+                                                  setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
+                                                }
+                                              }}
+                                              className={`rounded-lg w-14 h-14 flex flex-col items-center justify-center text-white text-xs font-medium transition-all ${statusColor} ${!isAvail && !isSelected ? "opacity-60 cursor-not-allowed" : ""}`}
+                                              data-testid={`bed-select-${bed.id}`}
+                                            >
+                                              <BedDouble className="w-4 h-4 mb-0.5" />
+                                              <span className="text-[9px] leading-tight truncate max-w-full px-0.5">{bed.bedNumber}</span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
