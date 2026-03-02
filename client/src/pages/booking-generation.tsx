@@ -1526,8 +1526,18 @@ export default function BookingGeneration() {
                             <Input value={formData.residentName} onChange={(e) => setFormData(prev => ({ ...prev, residentName: e.target.value }))} placeholder="Resident full name" className="bg-white" data-testid="input-resident-name" />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium text-slate-700">Room Number</Label>
-                            <Input value={formData.residentRoomNo} onChange={(e) => setFormData(prev => ({ ...prev, residentRoomNo: e.target.value }))} placeholder="e.g. A-101" className="bg-white" data-testid="input-resident-room" />
+                            <Label className="text-sm font-medium text-slate-700">Room No</Label>
+                            <div className="relative">
+                              <DoorOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input value={selectedRoomId ? (floors.flatMap((f: any) => f.rooms || []).find((r: any) => r.id === selectedRoomId)?.roomNumber || "") : formData.residentRoomNo} readOnly={!!selectedRoomId} className={`pl-10 bg-white ${selectedRoomId ? "bg-slate-50 text-slate-600" : ""}`} placeholder="Auto-filled from selection" data-testid="input-resident-room" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">Bed No</Label>
+                            <div className="relative">
+                              <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input value={formData.residentRoomNo} readOnly={!!selectedBedId} className={`pl-10 bg-white ${selectedBedId ? "bg-slate-50 text-slate-600" : ""}`} placeholder="Auto-filled from selection" data-testid="input-resident-bed" />
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-slate-700">Phone Number <span className="text-red-500">*</span></Label>
