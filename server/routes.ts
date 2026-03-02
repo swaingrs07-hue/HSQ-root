@@ -3125,6 +3125,97 @@ export async function registerRoutes(
     }
   });
 
+  // Admin edit booking
+  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const allowedFields = [
+        "customerName", "customerPhone", "customerEmail",
+        "baseFee", "discount", "discountReason", "totalFee", "deposit",
+        "status", "stayPlanType", "academicYearPeriod",
+        "checkInDate", "checkOutDate", "durationMonths",
+        "paymentType", "tokenAmount", "numberOfInstallments",
+      ];
+
+      const updates: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+
+      if (updates.baseFee !== undefined || updates.discount !== undefined) {
+        const base = updates.baseFee ?? booking.baseFee;
+        const disc = updates.discount ?? booking.discount;
+        updates.totalFee = base - disc;
+      }
+
+      const updated = await storage.updateBooking(req.params.id, updates);
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "EDIT_BOOKING",
+        entityType: "booking",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, changes: Object.keys(updates) }),
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error editing booking:", error);
+      res.status(500).json({ error: error.message || "Failed to edit booking" });
+    }
+  });
+
+  // Admin mark payment done
+  app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const { paymentMethod, transactionId, notes, amount } = req.body;
+
+      const paymentAmount = amount || booking.totalFee;
+
+      const payment = await storage.createPayment({
+        bookingId: booking.id,
+        amount: paymentAmount,
+        method: paymentMethod || "cash",
+        transactionId: transactionId || `MANUAL-${Date.now()}`,
+        status: "completed",
+        notes: notes || "Payment marked as done by admin",
+      });
+
+      const updated = await storage.updateBooking(req.params.id, {
+        status: "confirmed",
+      });
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "MARK_PAYMENT_DONE",
+        entityType: "booking",
+        entityId: req.params.id,
+        details: JSON.stringify({
+          bookingCode: booking.bookingCode,
+          amount: paymentAmount,
+          method: paymentMethod || "cash",
+          transactionId: transactionId || `MANUAL-${Date.now()}`,
+        }),
+      });
+
+      res.json({ booking: updated, payment });
+    } catch (error: any) {
+      console.error("Error marking payment done:", error);
+      res.status(500).json({ error: error.message || "Failed to mark payment done" });
+    }
+  });
+
   // ============ AGREEMENT ============
   
   // Generate agreement (mark as generated)

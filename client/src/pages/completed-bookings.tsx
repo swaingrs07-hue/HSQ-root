@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +30,11 @@ import {
   ArrowUpDown,
   Trash2,
   AlertTriangle,
+  Pencil,
+  Save,
+  X,
+  Banknote,
+  Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -100,6 +107,98 @@ export default function CompletedBookings() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [deleteBooking, setDeleteBooking] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [saving, setSaving] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: 0,
+    paymentMethod: "cash",
+    transactionId: "",
+    notes: "",
+  });
+  const [markingPayment, setMarkingPayment] = useState(false);
+
+  const startEditing = (booking: any) => {
+    setEditForm({
+      customerName: booking.customerName || "",
+      customerPhone: booking.customerPhone || "",
+      customerEmail: booking.customerEmail || "",
+      baseFee: booking.baseFee || 0,
+      discount: booking.discount || 0,
+      status: booking.status || "draft",
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm({});
+  };
+
+  const saveEdits = async () => {
+    if (!selectedBooking) return;
+    setSaving(true);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save changes");
+      }
+      const updated = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated });
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Booking updated successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPaymentDialog = (booking: any) => {
+    setPaymentForm({
+      amount: booking.totalFee || 0,
+      paymentMethod: "cash",
+      transactionId: "",
+      notes: "",
+    });
+    setShowPaymentDialog(true);
+  };
+
+  const markPaymentDone = async () => {
+    if (!selectedBooking) return;
+    setMarkingPayment(true);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/mark-payment-done`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(paymentForm),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to mark payment");
+      }
+      const { booking: updated } = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated, status: "confirmed" });
+      setShowPaymentDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Payment marked as done", description: "Booking status updated to Confirmed" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setMarkingPayment(false);
+    }
+  };
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["/api/bookings/completed"],
@@ -362,15 +461,29 @@ export default function CompletedBookings() {
         </div>
       )}
 
-      <Dialog open={!!selectedBooking} onOpenChange={() => setSelectedBooking(null)}>
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-indigo-500" />
-              Booking Details
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5 text-indigo-500" />
+                {isEditing ? "Edit Booking" : "Booking Details"}
+              </span>
+              {isAdmin && selectedBooking && !isEditing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  onClick={() => startEditing(selectedBooking)}
+                  data-testid="button-edit-booking"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
-          {selectedBooking && (
+          {selectedBooking && !isEditing && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -484,7 +597,18 @@ export default function CompletedBookings() {
               )}
 
               {isAdmin && (
-                <div className="pt-3 border-t border-slate-200">
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  {(selectedBooking.status === "pending_payment" || selectedBooking.status === "draft") && (
+                    <Button
+                      size="sm"
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => openPaymentDialog(selectedBooking)}
+                      data-testid="button-mark-payment"
+                    >
+                      <Banknote className="h-4 w-4" />
+                      Mark Payment Done
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
                     size="sm"
@@ -501,6 +625,186 @@ export default function CompletedBookings() {
               )}
             </div>
           )}
+
+          {selectedBooking && isEditing && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-medium text-slate-500">Customer Name</Label>
+                  <Input
+                    value={editForm.customerName}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, customerName: e.target.value }))}
+                    data-testid="input-edit-name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Phone</Label>
+                    <Input
+                      value={editForm.customerPhone}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                      data-testid="input-edit-phone"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Email</Label>
+                    <Input
+                      value={editForm.customerEmail}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                      data-testid="input-edit-email"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Base Fee (₹)</Label>
+                    <Input
+                      type="number"
+                      value={editForm.baseFee}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, baseFee: parseInt(e.target.value) || 0 }))}
+                      data-testid="input-edit-basefee"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Discount (₹)</Label>
+                    <Input
+                      type="number"
+                      value={editForm.discount}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, discount: parseInt(e.target.value) || 0 }))}
+                      data-testid="input-edit-discount"
+                    />
+                  </div>
+                </div>
+                <div className="p-3 bg-indigo-50 rounded-lg">
+                  <p className="text-xs text-slate-500">Calculated Total</p>
+                  <p className="text-lg font-bold text-indigo-700">₹{((editForm.baseFee || 0) - (editForm.discount || 0)).toLocaleString("en-IN")}</p>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-500">Status</Label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    data-testid="select-edit-status"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="pending_payment">Pending Payment</option>
+                    <option value="pending_approval">Pending Approval</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={cancelEditing}
+                  disabled={saving}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+                  onClick={saveEdits}
+                  disabled={saving}
+                  data-testid="button-save-edit"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="h-5 w-5 text-emerald-600" />
+              Mark Payment Done
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+              <p className="text-xs text-slate-500">Booking</p>
+              <p className="font-semibold text-slate-800">{selectedBooking?.customerName}</p>
+              <p className="text-xs text-slate-400">{selectedBooking?.bookingCode}</p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">Amount (₹)</Label>
+              <Input
+                type="number"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: parseInt(e.target.value) || 0 }))}
+                data-testid="input-payment-amount"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">Payment Method</Label>
+              <select
+                value={paymentForm.paymentMethod}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                data-testid="select-payment-method"
+              >
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank_transfer">Bank Transfer / NEFT / RTGS</option>
+                <option value="cheque">Cheque</option>
+                <option value="card">Card (Debit/Credit)</option>
+                <option value="online">Online Payment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">Transaction ID / Reference</Label>
+              <Input
+                placeholder="e.g., UPI ref, cheque number, receipt ID"
+                value={paymentForm.transactionId}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, transactionId: e.target.value }))}
+                data-testid="input-transaction-id"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">Notes (Optional)</Label>
+              <Textarea
+                placeholder="Any additional notes about this payment..."
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, notes: e.target.value }))}
+                rows={2}
+                data-testid="input-payment-notes"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setShowPaymentDialog(false)}
+                disabled={markingPayment}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                onClick={markPaymentDone}
+                disabled={markingPayment}
+                data-testid="button-confirm-payment"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {markingPayment ? "Processing..." : "Confirm Payment"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
