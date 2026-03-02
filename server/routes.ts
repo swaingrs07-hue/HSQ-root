@@ -2756,7 +2756,7 @@ export async function registerRoutes(
 
   app.get("/api/my-bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const bookings = await storage.getBookingsByCreator(userId);
       const enriched = await Promise.all(bookings.map(async (b) => {
         const [property, roomType, installments, payments] = await Promise.all([
@@ -5981,7 +5981,7 @@ export async function registerRoutes(
         req.params.id,
         reason.trim(),
         category || null,
-        req.user!.id,
+        req.user!.userId,
         req.user!.email
       );
 
@@ -6011,7 +6011,7 @@ export async function registerRoutes(
       const updated = await storage.unblockBed(
         req.params.id,
         note || null,
-        req.user!.id,
+        req.user!.userId,
         req.user!.email
       );
 
