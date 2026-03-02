@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,10 @@ import {
   CheckCircle2,
   Loader2,
   Info,
+  Upload,
+  ImagePlus,
+  X,
+  GripVertical,
 } from "lucide-react";
 
 const TOUR_PROVIDERS = [
@@ -28,12 +32,39 @@ const TOUR_PROVIDERS = [
   { value: "custom", label: "Custom / Other", placeholder: "https://your-3d-tour-provider.com/..." },
 ];
 
+function compressImage(file: File, maxWidth = 1920, quality = 0.8): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const canvas = document.createElement("canvas");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob!], file.name.replace(/\.\w+$/, ".webp"), { type: "image/webp" }));
+        }, "image/webp", quality);
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminVirtualTour() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Record<string, { url: string; provider: string }>>({});
+  const [tourImages, setTourImages] = useState<Record<string, string[]>>({});
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [savingImagesId, setSavingImagesId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["/api/properties"],
@@ -52,6 +83,14 @@ export default function AdminVirtualTour() {
     };
   };
 
+  const getTourImages = (property: any): string[] => {
+    if (tourImages[property.id]) return tourImages[property.id];
+    try {
+      const imgs = property.tourOverviewImages ? JSON.parse(property.tourOverviewImages) : [];
+      return Array.isArray(imgs) ? imgs : [];
+    } catch { return []; }
+  };
+
   const updateEditData = (propertyId: string, field: string, value: string) => {
     setEditData(prev => ({
       ...prev,
@@ -60,6 +99,79 @@ export default function AdminVirtualTour() {
         [field]: value,
       },
     }));
+  };
+
+  const uploadImage = async (propertyId: string, file: File) => {
+    setUploadingId(propertyId);
+    try {
+      const compressed = await compressImage(file);
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: compressed.name, size: compressed.size, contentType: compressed.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": compressed.type },
+        body: compressed,
+      });
+      if (!uploadRes.ok) throw new Error("Failed to upload image");
+
+      const property = properties.find((p: any) => p.id === propertyId);
+      const current = getTourImages(property);
+      const updated = [...current, objectPath];
+      setTourImages(prev => ({ ...prev, [propertyId]: updated }));
+
+      toast({ title: "Image uploaded", description: "Click 'Save Images' to persist changes" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleFileSelect = (propertyId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (file.type.startsWith("image/")) {
+        uploadImage(propertyId, file);
+      }
+    });
+    e.target.value = "";
+  };
+
+  const removeImage = (propertyId: string, index: number) => {
+    const property = properties.find((p: any) => p.id === propertyId);
+    const current = getTourImages(property);
+    const updated = current.filter((_: string, i: number) => i !== index);
+    setTourImages(prev => ({ ...prev, [propertyId]: updated }));
+  };
+
+  const saveTourImages = async (propertyId: string) => {
+    const property = properties.find((p: any) => p.id === propertyId);
+    const images = getTourImages(property);
+    setSavingImagesId(propertyId);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const res = await fetch(`/api/admin/properties/${propertyId}/tour-images`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ category: "overview", images }),
+      });
+      if (!res.ok) throw new Error("Failed to save images");
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      setTourImages(prev => { const n = { ...prev }; delete n[propertyId]; return n; });
+      toast({ title: "Tour images saved successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingImagesId(null);
+    }
   };
 
   const saveTour = async (propertyId: string) => {
@@ -71,22 +183,12 @@ export default function AdminVirtualTour() {
       const res = await fetch(`/api/admin/properties/${propertyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          virtualTourUrl: data.url || null,
-          virtualTourProvider: data.provider || null,
-        }),
+        body: JSON.stringify({ virtualTourUrl: data.url || null, virtualTourProvider: data.provider || null }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed to save"); }
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
-      toast({ title: "3D Tour saved successfully" });
-      setEditData(prev => {
-        const next = { ...prev };
-        delete next[propertyId];
-        return next;
-      });
+      toast({ title: "3D Tour link saved successfully" });
+      setEditData(prev => { const n = { ...prev }; delete n[propertyId]; return n; });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -107,11 +209,7 @@ export default function AdminVirtualTour() {
       if (!res.ok) throw new Error("Failed to remove tour");
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
       toast({ title: "3D Tour removed" });
-      setEditData(prev => {
-        const next = { ...prev };
-        delete next[propertyId];
-        return next;
-      });
+      setEditData(prev => { const n = { ...prev }; delete n[propertyId]; return n; });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -136,7 +234,7 @@ export default function AdminVirtualTour() {
             3D Virtual Tour Uploads
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Add 3D virtual tour links for each property (Matterport, Kuula, Google Street View, etc.)
+            Add 3D virtual tour links and upload tour images for each property
           </p>
         </div>
       </div>
@@ -149,7 +247,7 @@ export default function AdminVirtualTour() {
             <li>Create your 3D tour on a platform like Matterport, Kuula, or CloudPano</li>
             <li>Get the embed/share link from your tour provider</li>
             <li>Paste the link below and select the provider</li>
-            <li>The tour will be embedded on your property's detail page</li>
+            <li>Upload tour images (360° panoramas, room photos, etc.) for the gallery</li>
           </ol>
         </div>
       </div>
@@ -167,13 +265,14 @@ export default function AdminVirtualTour() {
           {properties.map((property: any) => {
             const data = getEditData(property);
             const hasTour = !!property.virtualTourUrl;
-            const hasChanges = editData[property.id] !== undefined;
             const providerInfo = TOUR_PROVIDERS.find(p => p.value === data.provider) || TOUR_PROVIDERS[0];
+            const images = getTourImages(property);
+            const hasImageChanges = tourImages[property.id] !== undefined;
 
             return (
               <Card key={property.id} className="overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="p-5 border-b border-slate-100">
+                  <div className="p-5">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -184,13 +283,20 @@ export default function AdminVirtualTour() {
                           <p className="text-xs text-slate-400">{property.location || property.city}</p>
                         </div>
                       </div>
-                      {hasTour ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Tour Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-slate-500">No Tour</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {images.length > 0 && (
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 gap-1">
+                            <ImagePlus className="h-3 w-3" /> {images.length} Images
+                          </Badge>
+                        )}
+                        {hasTour ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Tour Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-slate-500">No Tour</Badge>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -233,7 +339,7 @@ export default function AdminVirtualTour() {
                         data-testid={`button-save-tour-${property.id}`}
                       >
                         {savingId === property.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                        Save Tour
+                        Save Tour Link
                       </Button>
                       {data.url && (
                         <Button
@@ -248,14 +354,8 @@ export default function AdminVirtualTour() {
                         </Button>
                       )}
                       {data.url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => window.open(data.url, "_blank")}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Open
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(data.url, "_blank")}>
+                          <ExternalLink className="h-3.5 w-3.5" /> Open
                         </Button>
                       )}
                       {hasTour && (
@@ -267,15 +367,14 @@ export default function AdminVirtualTour() {
                           disabled={savingId === property.id}
                           data-testid={`button-remove-tour-${property.id}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Remove
+                          <Trash2 className="h-3.5 w-3.5" /> Remove Link
                         </Button>
                       )}
                     </div>
                   </div>
 
                   {previewId === property.id && data.url && (
-                    <div className="bg-slate-950 p-4">
+                    <div className="bg-slate-950 p-4 border-t border-slate-200">
                       <div className="aspect-video rounded-lg overflow-hidden border border-slate-700">
                         <iframe
                           src={getEmbedUrl(data.url, data.provider)}
@@ -291,6 +390,102 @@ export default function AdminVirtualTour() {
                       </p>
                     </div>
                   )}
+
+                  <div className="p-5 border-t border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                          <ImagePlus className="h-4 w-4 text-indigo-500" />
+                          Tour Images
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Upload 360° panoramas, room photos, and property shots for the virtual tour gallery
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {hasImageChanges && (
+                          <Button
+                            size="sm"
+                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => saveTourImages(property.id)}
+                            disabled={savingImagesId === property.id}
+                            data-testid={`button-save-images-${property.id}`}
+                          >
+                            {savingImagesId === property.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                            Save Images
+                          </Button>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          ref={(el) => { fileInputRefs.current[property.id] = el; }}
+                          onChange={(e) => handleFileSelect(property.id, e)}
+                          data-testid={`input-file-${property.id}`}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => fileInputRefs.current[property.id]?.click()}
+                          disabled={uploadingId === property.id}
+                          data-testid={`button-upload-images-${property.id}`}
+                        >
+                          {uploadingId === property.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                          {uploadingId === property.id ? "Uploading..." : "Upload Images"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {images.length === 0 ? (
+                      <div
+                        className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                        onClick={() => fileInputRefs.current[property.id]?.click()}
+                        data-testid={`dropzone-${property.id}`}
+                      >
+                        <ImagePlus className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-sm text-slate-500">Click to upload tour images</p>
+                        <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP up to 20MB each</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {images.map((img: string, idx: number) => (
+                          <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white">
+                            <img
+                              src={img}
+                              alt={`Tour image ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              data-testid={`img-tour-${property.id}-${idx}`}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                              <button
+                                onClick={() => removeImage(property.id, idx)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 text-white p-1.5 rounded-full hover:bg-red-700"
+                                data-testid={`button-remove-image-${property.id}-${idx}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                              {idx + 1}
+                            </div>
+                          </div>
+                        ))}
+                        <div
+                          className="aspect-square rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                          onClick={() => fileInputRefs.current[property.id]?.click()}
+                        >
+                          <ImagePlus className="h-6 w-6 text-slate-300" />
+                          <span className="text-[10px] text-slate-400 mt-1">Add More</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );

@@ -95,16 +95,19 @@ Preferred communication style: Simple, everyday language.
 - **Floor & Bed Selection**: Interactive floor picker with expandable cards showing bed grids; color-coded beds (green=available, red=occupied, yellow=reserved, gray=maintenance); click to select and see booking summary
 - **Booking Summary Panel**: Sticky sidebar showing selected property, floor, bed, room type, and price; "Proceed to Book" navigates to student registration
 - **Admin Floor Management** (`/admin/floors-beds`): Property selector, auto-generate floors/beds from room types, visual floor/bed grid, status management
+- **Admin 3D Virtual Tour** (`/admin/virtual-tour-uploads`): Tour provider selection (Matterport, Kuula, CloudPano, etc.), embed URL input, iframe preview, image upload with compression; stores virtualTourUrl/virtualTourProvider per property
 - **Schema Tables**: `floors` (propertyId, floorNumber, name, totalBeds, availableBeds, layoutImage), `beds` (propertyId, floorId, roomTypeId, bedNumber, status enum, monthlyPrice, position jsonb)
 - **API Endpoints**: 
   - `GET /api/properties/:id/floors` (public, floors with beds)
   - `POST /api/admin/properties/:id/auto-generate-floors` (admin, auto-generate)
   - `POST /api/admin/properties/:id/floors` (admin, create floor)
   - `PATCH /api/admin/beds/:id` (admin, update bed status)
+  - `PATCH /api/admin/properties/:id/tour-images` (admin, save tour images per category)
   - `POST /api/admin/import-tour-images` (admin, import images from external URLs to object storage)
   - `POST /api/admin/import-image-from-url` (admin, import single image from URL)
+- **Image Upload**: Admin virtual tour page supports direct file upload with WebP compression (1920px max width, 0.8 quality), stored via object storage; tour images displayed in grid with remove/reorder capabilities
 - **Image Import Security**: Domain allowlist (Unsplash, Google, Imgur, Wikimedia), HTTPS-only, content-type validation, 20MB size limit, 15s timeout, max 20 URLs per batch
-- **Navigation**: Property cards on home page and property listing link to `/properties/:id`; "Virtual Tour" hero button navigates to `/properties`
+- **Navigation**: Property cards on home page and property listing link to `/properties/:id`; "Virtual Tour" hero button navigates to `/properties`; `/properties/:id` accessible from both admin and public layouts
 
 ### Instagram Live Feed
 - **API**: Instagram Graph API integration with daily caching

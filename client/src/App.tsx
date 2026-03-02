@@ -89,6 +89,7 @@ function AppContent() {
               <Route path="/sales/bookings/completed" component={CompletedBookings} />
               <Route path="/booking/generate" component={BookingGeneration} />
               <Route path="/properties" component={PropertySelection} />
+              <Route path="/properties/:id" component={PropertyBooking} />
               <Route component={NotFound} />
             </Switch>
           </AdminLayout>
