@@ -978,9 +978,9 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         @keyframes drillEnter { from { opacity: 0; transform: scale(0.92) translateY(24px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
         .iso-drill-enter { animation: drillEnter 0.6s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
         @keyframes roomEnter { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .iso-room-enter { animation: roomEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards; opacity: 0; }
-        @keyframes bedEnter { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        .iso-bed-enter { animation: bedEnter 0.4s cubic-bezier(0.25,0.46,0.45,0.94) forwards; opacity: 0; }
+        .iso-room-enter { animation: roomEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+        @keyframes bedEnter { from { opacity: 0.2; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .iso-bed-enter { animation: bedEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both; }
         @keyframes hoverEnter { from { opacity: 0; transform: translateY(8px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .iso-hover-enter { animation: hoverEnter 0.2s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
         @keyframes floatLabel { 0%, 100% { transform: rotateZ(45deg) rotateX(-55deg) translateY(0); } 50% { transform: rotateZ(45deg) rotateX(-55deg) translateY(-2px); } }
@@ -1018,7 +1018,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         .iso-room-cutaway {
           position: relative;
           border-radius: 20px;
-          overflow: hidden;
+          overflow: visible;
           background: linear-gradient(160deg, rgba(16,26,52,0.98), rgba(10,18,36,0.96));
           border: 2px solid rgba(60,90,150,0.2);
           box-shadow:
@@ -1115,14 +1115,14 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
           z-index: 10;
           animation: statusDot 2s ease-in-out infinite;
         }
-        @keyframes bedSceneFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-        .iso-bed-scene-wrap { animation: bedSceneFloat 5s ease-in-out infinite; }
+        @keyframes bedSceneFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        .iso-bed-platform { animation: bedSceneFloat 6s ease-in-out infinite; }
 
         @media (prefers-reduced-motion: reduce) {
           .iso-char-breathe, .iso-char-idle, .iso-arm-phone, .iso-arm-r, .iso-arm-l,
           .iso-phone-glow, .iso-bed-cell, .iso-guest-label, .iso-bed-card-float,
           .iso-ambient-orb, .iso-logo-pulse, .iso-status-dot, .iso-float-label,
-          .iso-neon-line, .iso-bed-scene-wrap, .iso-bed-halo { animation: none !important; }
+          .iso-neon-line, .iso-bed-scene-wrap, .iso-bed-halo, .iso-bed-platform { animation: none !important; }
           .iso-floor-hover:hover, .iso-bed-scene:hover, .iso-room-cutaway:hover { transform: none; }
         }
       `}</style>
