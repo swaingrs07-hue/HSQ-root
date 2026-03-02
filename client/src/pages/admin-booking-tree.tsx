@@ -81,55 +81,163 @@ function getCheckoutDate(bed: any): string {
   } catch { return d; }
 }
 
-const IsoBedSVG = React.memo(function IsoBedSVG({ status, w = 64, h = 44 }: { status: string; w?: number; h?: number }) {
+const IsoBedSVG = React.memo(function IsoBedSVG({ status, w = 100, h = 70 }: { status: string; w?: number; h?: number }) {
   const cfg = BED_STATUS_CFG[status] || BED_STATUS_CFG.maintenance;
+  const frameColor = "#1a2744";
+  const frameDark = "#111d33";
+  const mattressTop = cfg.bg;
+  const mattressShade = cfg.border;
   return (
-    <svg width={w} height={h} viewBox="0 0 64 44" fill="none" aria-hidden="true">
-      <rect x="2" y="14" width="60" height="24" rx="4" fill="#1e293b" stroke={cfg.border} strokeWidth="1.5" />
-      <rect x="4" y="4" width="24" height="14" rx="3" fill="#334155" />
-      <rect x="6" y="6" width="20" height="10" rx="2" fill={cfg.bg} stroke={cfg.border} strokeWidth="0.8" />
-      <rect x="4" y="16" width="56" height="18" rx="3" fill={cfg.bg} />
-      <rect x="6" y="20" width="52" height="2" rx="1" fill={cfg.border} opacity="0.3" />
-      <rect x="2" y="36" width="5" height="6" rx="1.5" fill="#475569" />
-      <rect x="57" y="36" width="5" height="6" rx="1.5" fill="#475569" />
-      <rect x="28" y="2" width="8" height="4" rx="2" fill={cfg.bg} opacity="0.5" />
+    <svg width={w} height={h} viewBox="0 0 100 70" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={`bedGrad-${status}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={mattressTop} />
+          <stop offset="100%" stopColor={mattressShade} stopOpacity="0.6" />
+        </linearGradient>
+        <filter id={`bedShadow-${status}`} x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor={cfg.dotColor} floodOpacity="0.25" />
+        </filter>
+      </defs>
+      <ellipse cx="50" cy="66" rx="42" ry="3" fill="rgba(0,0,0,0.2)" />
+      <rect x="4" y="56" width="6" height="10" rx="2" fill="#334155" />
+      <rect x="90" y="56" width="6" height="10" rx="2" fill="#334155" />
+      <rect x="4" y="52" width="6" height="10" rx="2" fill="#475569" />
+      <rect x="90" y="52" width="6" height="10" rx="2" fill="#475569" />
+      <rect x="2" y="24" width="96" height="34" rx="5" fill={frameColor} stroke={frameDark} strokeWidth="1" />
+      <rect x="4" y="26" width="92" height="30" rx="4" fill={frameDark} />
+      <rect x="6" y="28" width="88" height="26" rx="3" fill={`url(#bedGrad-${status})`} filter={`url(#bedShadow-${status})`} />
+      <path d="M10 42 Q50 38 90 42" stroke={mattressShade} strokeWidth="0.8" fill="none" opacity="0.4" />
+      <path d="M10 48 Q50 44 90 48" stroke={mattressShade} strokeWidth="0.5" fill="none" opacity="0.25" />
+      <rect x="2" y="8" width="96" height="20" rx="5" fill={frameColor} stroke={frameDark} strokeWidth="1" />
+      <rect x="4" y="10" width="44" height="16" rx="4" fill="#2a3a5c" />
+      <rect x="6" y="11" width="40" height="14" rx="3" fill={mattressTop} opacity="0.7" />
+      <path d="M10 14 Q26 12 42 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+      <path d="M10 20 Q26 18 42 20" stroke="rgba(255,255,255,0.08)" strokeWidth="1" fill="none" />
+      <rect x="52" y="10" width="44" height="16" rx="4" fill="#2a3a5c" />
+      <rect x="54" y="11" width="40" height="14" rx="3" fill={mattressTop} opacity="0.7" />
+      <path d="M58 14 Q74 12 90 14" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+      <rect x="2" y="6" width="96" height="5" rx="3" fill={frameColor} />
+      <rect x="4" y="4" width="92" height="5" rx="2" fill="#2a3a5c" />
+      <path d="M4 4 L96 4" stroke={cfg.border} strokeWidth="1.5" opacity="0.5" />
+      <rect x="8" y="30" width="84" height="22" rx="2" fill={mattressTop} opacity="0.1" />
     </svg>
   );
 });
 
-const IsoCharacter = React.memo(function IsoCharacter({ gender, size = 32 }: { gender: "male" | "female"; size?: number }) {
+const IsoCharacter = React.memo(function IsoCharacter({ gender, size = 32, pose = "standing" }: { gender: "male" | "female"; size?: number; pose?: "standing" | "sitting" }) {
   const isMale = gender === "male";
-  const skin = "#D4A574";
+  const skin = isMale ? "#D4A574" : "#E8C4A0";
+  const skinShade = isMale ? "#C49564" : "#D4A882";
   const hair = isMale ? "#2D1B0E" : "#1A0A00";
+  const hairHl = isMale ? "#4A3520" : "#3D2816";
   const shirt = isMale ? "#3B82F6" : "#A855F7";
   const shirtDark = isMale ? "#2563EB" : "#9333EA";
+  const shirtLight = isMale ? "#60A5FA" : "#C084FC";
   const pants = isMale ? "#1E293B" : "#374151";
-  const r = size / 40;
+  const pantsDark = isMale ? "#0F172A" : "#1F2937";
+  const shoes = isMale ? "#1E293B" : "#7C3AED";
+
+  if (pose === "sitting") {
+    return (
+      <svg width={size} height={size * 1.1} viewBox="0 0 48 54" fill="none" className="iso-char-breathe" aria-hidden="true">
+        <ellipse cx="24" cy="51" rx="14" ry="2.5" fill="rgba(0,0,0,0.2)" />
+        <g className="iso-char-idle">
+          <rect x="14" y="38" width="8" height="8" rx="3" fill={pants} />
+          <rect x="26" y="38" width="8" height="8" rx="3" fill={pants} />
+          <rect x="14" y="44" width="8" height="4" rx="2" fill={pantsDark} />
+          <rect x="26" y="44" width="8" height="4" rx="2" fill={pantsDark} />
+          <ellipse cx="18" cy="48" rx="4" ry="2" fill={shoes} />
+          <ellipse cx="30" cy="48" rx="4" ry="2" fill={shoes} />
+          <rect x="12" y="22" width="24" height="18" rx="5" fill={shirt} />
+          <rect x="12" y="30" width="24" height="10" rx="4" fill={shirtDark} opacity="0.4" />
+          <path d="M18 28 L18 36" stroke={shirtLight} strokeWidth="0.6" opacity="0.3" />
+          <path d="M24 26 L24 38" stroke={shirtLight} strokeWidth="0.4" opacity="0.2" />
+          <path d="M30 28 L30 36" stroke={shirtLight} strokeWidth="0.6" opacity="0.3" />
+          <rect x="6" y="25" width="7" height="13" rx="3" fill={shirt} className="iso-arm-l" />
+          <rect x="35" y="25" width="7" height="13" rx="3" fill={shirt} className="iso-arm-r" />
+          <ellipse cx="8" cy="38" rx="3" ry="2.5" fill={skin} />
+          <ellipse cx="40" cy="38" rx="3" ry="2.5" fill={skin} />
+          {!isMale && <rect x="6" y="37" width="5" height="7" rx="2" fill="#1F2937" className="iso-phone-glow" />}
+          <circle cx="24" cy="14" r="8" fill={skin} />
+          <ellipse cx="24" cy="16" rx="6.5" ry="5" fill={skin} />
+          <circle cx="24" cy="14.5" r="7.5" fill={skin} />
+          <circle cx="21" cy="14" r="1" fill="#1A0A00" />
+          <circle cx="27" cy="14" r="1" fill="#1A0A00" />
+          <circle cx="21.2" cy="13.6" r="0.3" fill="white" />
+          <circle cx="27.2" cy="13.6" r="0.3" fill="white" />
+          <path d="M22 12 Q23 11.5 24 12" stroke={hair} strokeWidth="0.5" fill="none" />
+          <path d="M25 12 Q26 11.5 27 12" stroke={hair} strokeWidth="0.5" fill="none" />
+          <ellipse cx="24" cy="17" rx="1.8" ry="0.8" fill={skinShade} />
+          <path d="M22.5 17 Q24 18.5 25.5 17" stroke={skinShade} strokeWidth="0.5" fill="none" />
+          <ellipse cx="18" cy="15.5" rx="1" ry="0.5" fill="#E8A0A0" opacity="0.3" />
+          <ellipse cx="30" cy="15.5" rx="1" ry="0.5" fill="#E8A0A0" opacity="0.3" />
+          {isMale ? (
+            <>
+              <path d="M16 12 Q16 5 24 4 Q32 5 32 12 L30.5 9 Q29 6.5 24 6 Q19 6.5 17.5 9 Z" fill={hair} />
+              <path d="M18 8 Q24 6 30 8" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.5" />
+            </>
+          ) : (
+            <>
+              <path d="M15.5 12.5 Q15.5 5 24 3.5 Q32.5 5 32.5 12.5 L31 9 Q29.5 6 24 5.5 Q18.5 6 17 9 Z" fill={hair} />
+              <path d="M15.5 12.5 Q14.5 18 14.5 24 L16.5 24 Q16.5 18 17 12.5 Z" fill={hair} />
+              <path d="M32.5 12.5 Q33.5 18 33.5 24 L31.5 24 Q31.5 18 31 12.5 Z" fill={hair} />
+              <path d="M18 6 Q24 4 30 6" stroke={hairHl} strokeWidth="0.8" fill="none" opacity="0.4" />
+            </>
+          )}
+          <rect x="16" y="20" width="16" height="3" rx="1.5" fill={shirt} />
+        </g>
+      </svg>
+    );
+  }
 
   return (
-    <svg width={size} height={size * 1.3} viewBox="0 0 40 52" fill="none" className="iso-char-breathe" aria-hidden="true">
-      <ellipse cx="20" cy="49" rx="10" ry="2.5" fill="rgba(0,0,0,0.25)" />
+    <svg width={size} height={size * 1.4} viewBox="0 0 48 68" fill="none" className="iso-char-breathe" aria-hidden="true">
+      <ellipse cx="24" cy="65" rx="12" ry="2.5" fill="rgba(0,0,0,0.25)" />
       <g className="iso-char-idle">
-        <rect x="13" y="34" width="6" height="12" rx="2.5" fill={pants} />
-        <rect x="21" y="34" width="6" height="12" rx="2.5" fill={pants} />
-        <rect x="10" y="20" width="20" height="16" rx="4" fill={shirt} />
-        <rect x="10" y="26" width="20" height="10" rx="3" fill={shirtDark} opacity="0.5" />
-        <rect x="6" y="22" width="5" height="11" rx="2.5" fill={shirt} className={isMale ? "iso-arm-l" : "iso-arm-phone"} />
-        <rect x="29" y="22" width="5" height="11" rx="2.5" fill={shirt} className="iso-arm-r" />
-        {!isMale && <rect x="6.5" y="32" width="4" height="5.5" rx="1.5" fill="#1F2937" className="iso-phone-glow" />}
-        <circle cx="20" cy="14" r="6.5" fill={skin} />
-        <circle cx="17.5" cy="13.5" r="0.7" fill="#1A0A00" />
-        <circle cx="22.5" cy="13.5" r="0.7" fill="#1A0A00" />
-        <ellipse cx="20" cy="16" rx="1.2" ry="0.5" fill="#C49564" />
+        <rect x="15" y="44" width="7" height="16" rx="3" fill={pants} />
+        <rect x="26" y="44" width="7" height="16" rx="3" fill={pants} />
+        <rect x="15" y="52" width="7" height="8" rx="2.5" fill={pantsDark} opacity="0.5" />
+        <rect x="26" y="52" width="7" height="8" rx="2.5" fill={pantsDark} opacity="0.5" />
+        <ellipse cx="18.5" cy="61" rx="4.5" ry="2.5" fill={shoes} />
+        <ellipse cx="29.5" cy="61" rx="4.5" ry="2.5" fill={shoes} />
+        <rect x="11" y="24" width="26" height="22" rx="6" fill={shirt} />
+        <rect x="11" y="34" width="26" height="12" rx="4" fill={shirtDark} opacity="0.4" />
+        <path d="M19 30 L19 42" stroke={shirtLight} strokeWidth="0.6" opacity="0.25" />
+        <path d="M24 28 L24 44" stroke={shirtLight} strokeWidth="0.4" opacity="0.15" />
+        <path d="M29 30 L29 42" stroke={shirtLight} strokeWidth="0.6" opacity="0.25" />
+        <rect x="5" y="27" width="7" height="14" rx="3.5" fill={shirt} className={isMale ? "iso-arm-l" : "iso-arm-phone"} />
+        <rect x="36" y="27" width="7" height="14" rx="3.5" fill={shirt} className="iso-arm-r" />
+        <ellipse cx="7.5" cy="42" rx="3.5" ry="3" fill={skin} />
+        <ellipse cx="40.5" cy="42" rx="3.5" ry="3" fill={skin} />
+        {!isMale && <rect x="5" y="40" width="5.5" height="7" rx="2" fill="#1F2937" className="iso-phone-glow" />}
+        <circle cx="24" cy="14" r="9" fill={skin} />
+        <circle cx="24" cy="15" r="8.5" fill={skin} />
+        <circle cx="20.5" cy="14.5" r="1.1" fill="#1A0A00" />
+        <circle cx="27.5" cy="14.5" r="1.1" fill="#1A0A00" />
+        <circle cx="20.8" cy="14" r="0.35" fill="white" />
+        <circle cx="27.8" cy="14" r="0.35" fill="white" />
+        <path d="M22.5 12.5 Q23.5 12 24.5 12.5" stroke={hair} strokeWidth="0.6" fill="none" />
+        <path d="M25.5 12.5 Q26.5 12 27.5 12.5" stroke={hair} strokeWidth="0.6" fill="none" />
+        <ellipse cx="24" cy="18" rx="2" ry="0.9" fill={skinShade} />
+        <path d="M22.5 18 Q24 19.5 25.5 18" stroke={skinShade} strokeWidth="0.6" fill="none" />
+        <ellipse cx="18" cy="16" rx="1.2" ry="0.6" fill="#E8A0A0" opacity="0.3" />
+        <ellipse cx="30" cy="16" rx="1.2" ry="0.6" fill="#E8A0A0" opacity="0.3" />
         {isMale ? (
-          <path d="M13.5 12 Q13.5 7.5 20 6.5 Q26.5 7.5 26.5 12 L25.5 10.5 Q24.5 8 20 7.5 Q15.5 8 14.5 10.5 Z" fill={hair} />
+          <>
+            <path d="M15 13 Q15 4.5 24 3 Q33 4.5 33 13 L31.5 10 Q30 7 24 6 Q18 7 16.5 10 Z" fill={hair} />
+            <path d="M17 7.5 Q24 5.5 31 7.5" stroke={hairHl} strokeWidth="1" fill="none" opacity="0.4" />
+            <path d="M15 13 L16 11 Q16 13 15 14 Z" fill={hair} opacity="0.6" />
+            <path d="M33 13 L32 11 Q32 13 33 14 Z" fill={hair} opacity="0.6" />
+          </>
         ) : (
           <>
-            <path d="M13 12.5 Q13 7 20 6 Q27 7 27 12.5 L26 10 Q25 7.5 20 7 Q15 7.5 14 10 Z" fill={hair} />
-            <path d="M13 12.5 Q12 16 12 20 L13.5 20 Q13.5 16 14 12.5 Z" fill={hair} />
-            <path d="M27 12.5 Q28 16 28 20 L26.5 20 Q26.5 16 26 12.5 Z" fill={hair} />
+            <path d="M14.5 13 Q14.5 4 24 2.5 Q33.5 4 33.5 13 L32 9.5 Q30 6 24 5 Q18 6 16 9.5 Z" fill={hair} />
+            <path d="M14.5 13 Q13.5 20 13.5 28 L16 28 Q16 20 16.5 13 Z" fill={hair} />
+            <path d="M33.5 13 Q34.5 20 34.5 28 L32 28 Q32 20 31.5 13 Z" fill={hair} />
+            <path d="M17 6 Q24 3.5 31 6" stroke={hairHl} strokeWidth="1" fill="none" opacity="0.35" />
           </>
         )}
+        <rect x="16" y="22" width="16" height="4" rx="2" fill={shirt} />
       </g>
     </svg>
   );
@@ -666,8 +774,8 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
               })()}
 
               {drillLevel === "floor" && activeFloor && (
-                <div className="iso-drill-enter w-full" style={{ maxWidth: "900px", margin: "0 auto" }}>
-                  <div className="flex items-center justify-between mb-6">
+                <div className="iso-drill-enter w-full" style={{ maxWidth: "1100px", margin: "0 auto" }}>
+                  <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05))", border: "1px solid rgba(251,191,36,0.3)" }}>
                         <span className="text-lg font-black text-amber-400">F{activeFloor.floorNumber}</span>
@@ -688,50 +796,67 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                     </div>
                   </div>
 
-                  <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(160deg, rgba(18,28,55,0.95), rgba(12,20,42,0.98))", border: "1px solid rgba(100,140,200,0.15)", boxShadow: "0 8px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)", perspective: "800px" }}>
-                    <div className="absolute left-0 top-0 bottom-0 w-[4px]" style={{ background: "linear-gradient(to bottom, rgba(100,140,200,0.5), rgba(100,140,200,0.1))" }} />
-                    <div className="absolute right-0 top-0 bottom-0 w-[4px]" style={{ background: "linear-gradient(to bottom, rgba(100,140,200,0.3), rgba(100,140,200,0.05))" }} />
-
-                    <div className="p-5 sm:p-6">
-                      {(activeFloor.rooms || []).length === 0 && (activeFloor.beds || []).length > 0 && (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                  {(activeFloor.rooms || []).length === 0 && (activeFloor.beds || []).length > 0 && (
+                    <div className="iso-room-cutaway iso-room-enter p-6 rounded-2xl" style={{ background: "linear-gradient(160deg, rgba(20,32,60,0.97), rgba(14,22,42,0.95))", border: "1px solid rgba(100,140,200,0.18)", boxShadow: "0 12px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+                      <div className="iso-room-wall-left" />
+                      <div className="iso-room-wall-back" />
+                      <div className="iso-room-floor-shine" />
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-4">
+                          <DoorOpen className="w-4 h-4 text-indigo-400/60" />
+                          <span className="text-sm font-semibold text-white/80">All Beds</span>
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", color: "#34d399" }}>
+                            {(activeFloor.beds || []).filter((b: any) => b.status === "available").length} available
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
                           {(activeFloor.beds || []).map((bed: any, bIdx: number) => (
-                            <FloorBedCard key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
+                            <IsoBedScene key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
                           ))}
                         </div>
-                      )}
+                      </div>
+                    </div>
+                  )}
 
-                      {(activeFloor.rooms || []).length > 0 && (
-                        <div className="space-y-5">
-                          {(activeFloor.rooms || []).map((room: any, rIdx: number) => {
-                            const roomBeds = room.beds || [];
-                            return (
-                              <div key={room.id} className="iso-room-enter" style={{ animationDelay: `${rIdx * 100}ms` }}>
-                                <div className="rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(100,140,200,0.1)" }}>
-                                  <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid rgba(100,140,200,0.08)" }}>
-                                    <DoorOpen className="w-4 h-4 text-indigo-400/80" />
-                                    <span className="text-sm font-semibold text-white/90">Room {room.roomNumber}</span>
-                                    {room.typology && <span className="text-[9px] px-2 py-0.5 rounded-md font-medium" style={{ background: "rgba(99,102,241,0.1)", color: "rgba(129,140,248,0.8)", border: "1px solid rgba(99,102,241,0.2)" }}>{room.typology}</span>}
-                                    {room.hasSharedWashroom && <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20">Shared WC</span>}
-                                    <div className="flex-1" />
-                                    <span className="text-[10px] text-emerald-400/70 font-medium">{roomBeds.filter((b: any) => b.status === "available").length} avail</span>
-                                    <span className="text-[10px] text-blue-400/70 font-medium">{roomBeds.filter((b: any) => b.status === "occupied" || b.status === "reserved").length} booked</span>
+                  {(activeFloor.rooms || []).length > 0 && (
+                    <div className="iso-floor-grid">
+                      {(activeFloor.rooms || []).map((room: any, rIdx: number) => {
+                        const roomBeds = room.beds || [];
+                        const availCount = roomBeds.filter((b: any) => b.status === "available").length;
+                        const bookedCount = roomBeds.filter((b: any) => b.status === "occupied" || b.status === "reserved").length;
+                        return (
+                          <div key={room.id} className="iso-room-cutaway iso-room-enter" style={{ animationDelay: `${rIdx * 120}ms` }}>
+                            <div className="iso-room-wall-left" />
+                            <div className="iso-room-wall-back" />
+                            <div className="iso-room-floor-shine" />
+
+                            <div className="relative z-10 p-5">
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="iso-room-label">
+                                    <DoorOpen className="w-3.5 h-3.5" />
+                                    <span>Room {room.roomNumber}</span>
                                   </div>
-                                  <div className="p-4">
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                      {roomBeds.map((bed: any, bIdx: number) => (
-                                        <FloorBedCard key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
-                                      ))}
-                                    </div>
-                                  </div>
+                                  {room.typology && <span className="text-[9px] px-2 py-0.5 rounded-md font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "rgba(129,140,248,0.85)", border: "1px solid rgba(99,102,241,0.25)" }}>{room.typology}</span>}
+                                  {room.hasSharedWashroom && <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20">WC</span>}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-semibold" style={{ color: "#34d399" }}>{availCount} avail</span>
+                                  <span className="text-[10px] font-semibold" style={{ color: "#60a5fa" }}>{bookedCount} booked</span>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                                {roomBeds.map((bed: any, bIdx: number) => (
+                                  <IsoBedScene key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -882,14 +1007,249 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         @keyframes floatLabelSimple { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-1px); } }
         @keyframes bedCardFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
         .iso-bed-card-float { animation: bedCardFloat 4s ease-in-out infinite; }
+
+        .iso-floor-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+          gap: 20px;
+        }
+        @media (max-width: 640px) { .iso-floor-grid { grid-template-columns: 1fr; } }
+
+        .iso-room-cutaway {
+          position: relative;
+          border-radius: 20px;
+          overflow: hidden;
+          background: linear-gradient(160deg, rgba(16,26,52,0.98), rgba(10,18,36,0.96));
+          border: 2px solid rgba(60,90,150,0.2);
+          box-shadow:
+            0 16px 60px rgba(0,0,0,0.7),
+            0 0 0 1px rgba(60,90,150,0.08),
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            inset -8px 0 30px rgba(0,0,0,0.15),
+            inset 0 -8px 30px rgba(0,0,0,0.1);
+          transform: perspective(1200px) rotateY(-1.5deg) rotateX(1.5deg);
+          transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.5s ease;
+        }
+        .iso-room-cutaway:hover {
+          transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-4px);
+          box-shadow:
+            0 24px 80px rgba(0,0,0,0.8),
+            0 0 0 1px rgba(80,120,180,0.15),
+            inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .iso-room-wall-left {
+          position: absolute; left: 0; top: 0; bottom: 0; width: 10px; z-index: 2;
+          background: linear-gradient(to bottom, rgba(80,120,180,0.5), rgba(40,65,110,0.15));
+          border-radius: 20px 0 0 20px;
+          box-shadow: inset -3px 0 8px rgba(0,0,0,0.3);
+        }
+        .iso-room-wall-back {
+          position: absolute; left: 0; right: 0; top: 0; height: 10px; z-index: 2;
+          background: linear-gradient(to right, rgba(80,120,180,0.5), rgba(40,65,110,0.15));
+          border-radius: 20px 20px 0 0;
+          box-shadow: inset 0 -3px 8px rgba(0,0,0,0.3);
+        }
+        .iso-room-wall-left::after {
+          content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
+          background: linear-gradient(to bottom, rgba(120,160,220,0.3), transparent);
+        }
+        .iso-room-wall-back::after {
+          content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+          background: linear-gradient(to right, rgba(120,160,220,0.3), transparent);
+        }
+        .iso-room-floor-shine {
+          position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+          background: linear-gradient(to top, rgba(80,120,180,0.05), transparent);
+          pointer-events: none;
+        }
+        .iso-room-floor-shine::before {
+          content: ''; position: absolute; bottom: 10px; left: 15%; right: 15%; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(120,160,220,0.1), transparent);
+        }
+        .iso-room-label {
+          display: flex; align-items: center; gap: 6px;
+          padding: 5px 14px; border-radius: 12px;
+          background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05));
+          border: 1px solid rgba(99,102,241,0.3);
+          color: rgba(129,140,248,0.95);
+          font-size: 13px; font-weight: 800;
+          box-shadow: 0 2px 12px rgba(99,102,241,0.1);
+        }
+
+        .iso-bed-scene-wrap { perspective: 600px; }
+        .iso-bed-scene {
+          position: relative;
+          border: none; background: none; outline: none; padding: 0;
+          transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+        }
+        .iso-bed-scene:hover { transform: translateY(-6px) scale(1.03); }
+        .iso-bed-halo {
+          position: absolute; inset: -10px; border-radius: 50%;
+          pointer-events: none; z-index: 0;
+          animation: haloGlow 3s ease-in-out infinite;
+        }
+        @keyframes haloGlow { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
+        .iso-bed-platform {
+          position: relative; z-index: 1;
+          background: linear-gradient(160deg, rgba(18,28,55,0.95), rgba(12,20,42,0.98));
+          border: 1px solid; border-radius: 16px;
+          backdrop-filter: blur(8px);
+          overflow: hidden;
+        }
+        .iso-bed-name-tag {
+          display: inline-block;
+          padding: 2px 10px; border-radius: 8px;
+          font-size: 10px; font-weight: 800; color: white;
+          letter-spacing: 0.05em;
+        }
+        .iso-guest-info-card {
+          padding: 4px 8px; border-radius: 8px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          backdrop-filter: blur(4px);
+          text-align: center;
+        }
+        .iso-bed-status-dot {
+          position: absolute; top: 8px; right: 8px;
+          width: 8px; height: 8px; border-radius: 50%;
+          z-index: 10;
+          animation: statusDot 2s ease-in-out infinite;
+        }
+        @keyframes bedSceneFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        .iso-bed-scene-wrap { animation: bedSceneFloat 5s ease-in-out infinite; }
+
         @media (prefers-reduced-motion: reduce) {
           .iso-char-breathe, .iso-char-idle, .iso-arm-phone, .iso-arm-r, .iso-arm-l,
           .iso-phone-glow, .iso-bed-cell, .iso-guest-label, .iso-bed-card-float,
           .iso-ambient-orb, .iso-logo-pulse, .iso-status-dot, .iso-float-label,
-          .iso-neon-line { animation: none !important; }
-          .iso-floor-hover:hover { transform: none; }
+          .iso-neon-line, .iso-bed-scene-wrap, .iso-bed-halo { animation: none !important; }
+          .iso-floor-hover:hover, .iso-bed-scene:hover, .iso-room-cutaway:hover { transform: none; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, onLeave }: {
+  bed: any; idx: number;
+  onBedClick: (bedId: string) => void; onAllocate: (bedId: string) => void; onDeallocate: (bedId: string) => void;
+  onHover: (bed: any, e: React.MouseEvent) => void; onLeave: () => void;
+}) {
+  const cfg = BED_STATUS_CFG[bed.status] || BED_STATUS_CFG.maintenance;
+  const hasBooking = !!bed.currentBooking;
+  const showChar = hasBooking && (bed.status === "occupied" || bed.status === "reserved");
+  const guestName = getGuestName(bed);
+  const checkoutDate = getCheckoutDate(bed);
+  const isAvailable = bed.status === "available";
+  const isOccupied = bed.status === "occupied";
+
+  return (
+    <div className="iso-bed-enter iso-bed-scene-wrap relative group/bed" style={{ animationDelay: `${Math.min(idx, 20) * 60}ms` }}>
+      <button
+        onClick={() => onBedClick(bed.id)}
+        onMouseEnter={(e) => onHover(bed, e)}
+        onMouseLeave={onLeave}
+        className="iso-bed-scene w-full cursor-pointer"
+        data-testid={`iso-bed-${bed.id}`}
+      >
+        <div className="iso-bed-halo" style={{ background: `radial-gradient(ellipse at center, ${cfg.dotColor}30 0%, ${cfg.dotColor}08 50%, transparent 70%)`, boxShadow: `0 0 40px ${cfg.dotColor}20, inset 0 0 20px ${cfg.dotColor}10` }} />
+
+        <div className="iso-bed-platform" style={{ borderColor: `${cfg.border}60`, boxShadow: `0 4px 24px ${cfg.dotColor}25, 0 0 1px ${cfg.border}` }}>
+          <div className="relative flex flex-col items-center justify-center py-4 px-3 min-h-[180px]">
+            {showChar && (
+              <>
+                <div className="relative">
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20">
+                    <IsoCharacter gender={getGender(bed)} size={48} pose="sitting" />
+                  </div>
+                  <div className="relative z-10 mt-8">
+                    <IsoBedSVG status={bed.status} w={110} h={70} />
+                  </div>
+                </div>
+                <div className="mt-2.5 text-center">
+                  <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}dd`, boxShadow: `0 2px 12px ${cfg.dotColor}50` }}>
+                    {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
+                  </div>
+                  {guestName && (
+                    <div className="iso-guest-info-card mt-2">
+                      <p className="text-[11px] font-bold text-white/90">{guestName.split(" ").slice(0, 2).join(" ")}</p>
+                      {bed.currentBooking?.bookingCode && <p className="text-[9px] text-amber-400/80 font-mono mt-0.5">{bed.currentBooking.bookingCode}</p>}
+                      {checkoutDate && <p className="text-[8px] text-white/40 mt-0.5">Check-out: {checkoutDate}</p>}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {isAvailable && (
+              <div className="flex flex-col items-center gap-3">
+                <div style={{ filter: `drop-shadow(0 0 12px ${cfg.dotColor}50)` }}>
+                  <IsoBedSVG status="available" w={120} h={78} />
+                </div>
+                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc`, boxShadow: `0 2px 10px ${cfg.dotColor}40` }}>
+                  {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
+                </div>
+                <span className="text-[10px] font-bold px-4 py-1.5 rounded-full" style={{ background: `${cfg.dotColor}15`, color: cfg.text, border: `1px solid ${cfg.dotColor}30` }}>Available</span>
+              </div>
+            )}
+
+            {bed.status === "reserved" && !showChar && (
+              <div className="flex flex-col items-center gap-3">
+                <div style={{ filter: `drop-shadow(0 0 10px ${cfg.dotColor}40)` }}>
+                  <IsoBedSVG status="reserved" w={120} h={78} />
+                </div>
+                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc` }}>
+                  {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
+                </div>
+                <span className="text-[10px] font-bold px-4 py-1.5 rounded-full" style={{ background: `${cfg.dotColor}15`, color: cfg.text }}>Reserved</span>
+              </div>
+            )}
+
+            {bed.status === "blocked" && (
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <IsoBedSVG status="blocked" w={110} h={70} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Ban className="w-10 h-10 text-red-400/60" />
+                  </div>
+                </div>
+                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc` }}>
+                  {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
+                </div>
+                <span className="text-[9px] font-bold px-3 py-1 rounded uppercase" style={{ background: "rgba(220,38,38,0.15)", color: "#f87171" }}>Blocked</span>
+              </div>
+            )}
+
+            {bed.status === "maintenance" && (
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <IsoBedSVG status="maintenance" w={110} h={70} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <AlertTriangle className="w-10 h-10 text-slate-400/60" />
+                  </div>
+                </div>
+                <div className="iso-bed-name-tag" style={{ background: `${cfg.dotColor}cc` }}>
+                  {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
+                </div>
+                <span className="text-[9px] text-slate-400">Maintenance</span>
+              </div>
+            )}
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 h-[4px] rounded-b-2xl" style={{ background: `linear-gradient(90deg, transparent, ${cfg.dotColor}60, transparent)` }} />
+        </div>
+
+        <div className="iso-bed-status-dot" style={{ background: cfg.dotColor, boxShadow: `0 0 8px ${cfg.dotColor}80` }} />
+      </button>
+
+      <div className="absolute -top-2 -right-2 opacity-0 group-hover/bed:opacity-100 transition-all duration-300 flex gap-1 z-30">
+        {isAvailable && !hasBooking && (
+          <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-6 h-6 rounded-full bg-blue-500/90 hover:bg-blue-500 flex items-center justify-center shadow-lg border border-blue-400/30" aria-label="Allocate booking"><Link2 className="w-3.5 h-3.5 text-white" /></button>
+        )}
+        {isOccupied && hasBooking && (
+          <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-6 h-6 rounded-full bg-orange-500/90 hover:bg-orange-500 flex items-center justify-center shadow-lg border border-orange-400/30" aria-label="Deallocate booking"><Unlock className="w-3.5 h-3.5 text-white" /></button>
+        )}
+      </div>
     </div>
   );
 }
@@ -915,7 +1275,7 @@ function FloorBedCard({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover,
         onMouseLeave={onLeave}
         className="w-full rounded-xl overflow-hidden border transition-all duration-300 hover:scale-[1.04] hover:-translate-y-1 cursor-pointer iso-bed-card-float"
         style={{ borderColor: cfg.border, background: `linear-gradient(160deg, ${cfg.bg}, rgba(15,23,42,0.6))`, boxShadow: cfg.glow, minHeight: "110px", animationDelay: `${idx * 200}ms` }}
-        data-testid={`iso-bed-${bed.id}`}
+        data-testid={`iso-bed-card-${bed.id}`}
       >
         <div className="p-2.5 flex flex-col items-center justify-center h-full min-h-[110px] relative">
           {showChar && (
