@@ -1139,5 +1139,115 @@ export const insertBedBlockLogSchema = createInsertSchema(bedBlockLogs).omit({ i
 export type BedBlockLog = typeof bedBlockLogs.$inferSelect;
 export type InsertBedBlockLog = z.infer<typeof insertBedBlockLogSchema>;
 
+// ============ PACKAGE MANAGEMENT SYSTEM ============
+
+export const packagePriceTypeEnum = pgEnum("package_price_type", ["ONE_TIME", "PER_DAY", "PER_MONTH"]);
+export const packageStatusEnum = pgEnum("package_status", ["active", "inactive"]);
+export const bookingPackageStatusEnum = pgEnum("booking_package_status", ["ACTIVE", "ENDED"]);
+
+export const packages = pgTable("packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  priceType: packagePriceTypeEnum("price_type").notNull().default("PER_MONTH"),
+  basePrice: integer("base_price").notNull().default(0),
+  currency: text("currency").notNull().default("INR"),
+  taxPercent: decimal("tax_percent", { precision: 5, scale: 2 }),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const packageItems = pgTable("package_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packageId: varchar("package_id").references(() => packages.id, { onDelete: "cascade" }).notNull(),
+  type: text("type").notNull(),
+  label: text("label").notNull(),
+  includedQty: integer("included_qty").notNull().default(0),
+  unit: text("unit").notNull().default("unit"),
+  extraUnitPrice: integer("extra_unit_price").notNull().default(0),
+  rules: jsonb("rules"),
+  isOptional: boolean("is_optional").notNull().default(false),
+  maxQty: integer("max_qty"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const bookingPackages = pgTable("booking_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
+  packageId: varchar("package_id").references(() => packages.id).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  status: bookingPackageStatusEnum("status").notNull().default("ACTIVE"),
+  priceSnapshot: jsonb("price_snapshot"),
+  selectedItems: jsonb("selected_items"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const packageUsage = pgTable("package_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingPackageId: varchar("booking_package_id").references(() => bookingPackages.id, { onDelete: "cascade" }).notNull(),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  itemType: text("item_type").notNull(),
+  qtyUsed: integer("qty_used").notNull().default(1),
+  amountCharged: integer("amount_charged").notNull().default(0),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const walletLedger = pgTable("wallet_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
+  credit: integer("credit").notNull().default(0),
+  debit: integer("debit").notNull().default(0),
+  refType: text("ref_type"),
+  refId: varchar("ref_id"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const packagesRelations = relations(packages, ({ many }) => ({
+  items: many(packageItems),
+  bookingPackages: many(bookingPackages),
+}));
+
+export const packageItemsRelations = relations(packageItems, ({ one }) => ({
+  package: one(packages, { fields: [packageItems.packageId], references: [packages.id] }),
+}));
+
+export const bookingPackagesRelations = relations(bookingPackages, ({ one, many }) => ({
+  booking: one(bookings, { fields: [bookingPackages.bookingId], references: [bookings.id] }),
+  package: one(packages, { fields: [bookingPackages.packageId], references: [packages.id] }),
+  usage: many(packageUsage),
+}));
+
+export const packageUsageRelations = relations(packageUsage, ({ one }) => ({
+  bookingPackage: one(bookingPackages, { fields: [packageUsage.bookingPackageId], references: [bookingPackages.id] }),
+  booking: one(bookings, { fields: [packageUsage.bookingId], references: [bookings.id] }),
+}));
+
+export const insertPackageSchema = createInsertSchema(packages).omit({ id: true, createdAt: true, updatedAt: true });
+export type Package = typeof packages.$inferSelect;
+export type InsertPackage = z.infer<typeof insertPackageSchema>;
+
+export const insertPackageItemSchema = createInsertSchema(packageItems).omit({ id: true, createdAt: true });
+export type PackageItem = typeof packageItems.$inferSelect;
+export type InsertPackageItem = z.infer<typeof insertPackageItemSchema>;
+
+export const insertBookingPackageSchema = createInsertSchema(bookingPackages).omit({ id: true, createdAt: true });
+export type BookingPackage = typeof bookingPackages.$inferSelect;
+export type InsertBookingPackage = z.infer<typeof insertBookingPackageSchema>;
+
+export const insertPackageUsageSchema = createInsertSchema(packageUsage).omit({ id: true, createdAt: true });
+export type PackageUsageRecord = typeof packageUsage.$inferSelect;
+export type InsertPackageUsage = z.infer<typeof insertPackageUsageSchema>;
+
+export const insertWalletLedgerSchema = createInsertSchema(walletLedger).omit({ id: true, createdAt: true });
+export type WalletLedgerEntry = typeof walletLedger.$inferSelect;
+export type InsertWalletLedger = z.infer<typeof insertWalletLedgerSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

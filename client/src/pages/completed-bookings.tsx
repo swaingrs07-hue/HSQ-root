@@ -36,6 +36,14 @@ import {
   X,
   Banknote,
   Check,
+  Package,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Wallet,
+  UtensilsCrossed,
+  Shirt,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -119,6 +127,110 @@ export default function CompletedBookings() {
     notes: "",
   });
   const [markingPayment, setMarkingPayment] = useState(false);
+  const [bookingPackages, setBookingPackages] = useState<any>(null);
+  const [loadingPackages, setLoadingPackages] = useState(false);
+  const [showPackages, setShowPackages] = useState(false);
+  const [allPackages, setAllPackages] = useState<any[]>([]);
+  const [attachDialog, setAttachDialog] = useState(false);
+  const [attachForm, setAttachForm] = useState({ packageId: "", startDate: "", endDate: "" });
+  const [usageDialog, setUsageDialog] = useState<any>(null);
+  const [usageForm, setUsageForm] = useState({ itemType: "", qtyUsed: 1, note: "" });
+  const [walletDialog, setWalletDialog] = useState(false);
+  const [walletForm, setWalletForm] = useState({ type: "topup" as "topup" | "debit", amount: 0, note: "" });
+
+  const getAuthToken = () => {
+    const authData = localStorage.getItem("hsquare_auth");
+    return authData ? JSON.parse(authData)?.token : null;
+  };
+
+  const fetchBookingPackages = async (bookingId: string) => {
+    setLoadingPackages(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${bookingId}/packages`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setBookingPackages(await res.json());
+    } catch { }
+    setLoadingPackages(false);
+  };
+
+  const fetchAllPackages = async () => {
+    try {
+      const token = getAuthToken();
+      const res = await fetch("/api/admin/packages", { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setAllPackages(await res.json());
+    } catch { }
+  };
+
+  const attachPackage = async () => {
+    if (!selectedBooking || !attachForm.packageId || !attachForm.startDate) return;
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/packages/attach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(attachForm),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Package attached" });
+      setAttachDialog(false);
+      fetchBookingPackages(selectedBooking.id);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const detachPackage = async (bpId: string) => {
+    if (!selectedBooking) return;
+    try {
+      const token = getAuthToken();
+      await fetch(`/api/admin/bookings/${selectedBooking.id}/packages/detach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bookingPackageId: bpId }),
+      });
+      toast({ title: "Package ended" });
+      fetchBookingPackages(selectedBooking.id);
+    } catch { }
+  };
+
+  const recordUsage = async () => {
+    if (!selectedBooking || !usageDialog || !usageForm.itemType) return;
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/packages/usage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bookingPackageId: usageDialog.id, ...usageForm }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Usage recorded" });
+      setUsageDialog(null);
+      setUsageForm({ itemType: "", qtyUsed: 1, note: "" });
+      fetchBookingPackages(selectedBooking.id);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleWallet = async () => {
+    if (!selectedBooking || walletForm.amount <= 0) return;
+    try {
+      const token = getAuthToken();
+      const endpoint = walletForm.type === "topup" ? "topup" : "debit";
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/wallet/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: walletForm.amount, note: walletForm.note }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: walletForm.type === "topup" ? "Wallet topped up" : "Wallet debited" });
+      setWalletDialog(false);
+      setWalletForm({ type: "topup", amount: 0, note: "" });
+      fetchBookingPackages(selectedBooking.id);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
 
   const startEditing = (booking: any) => {
     setEditForm({
@@ -633,7 +745,7 @@ export default function CompletedBookings() {
         </div>
       )}
 
-      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); } }}>
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -816,6 +928,111 @@ export default function CompletedBookings() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {isAdmin && (
+                <div className="border border-indigo-100 rounded-xl overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    onClick={() => {
+                      if (!showPackages) {
+                        fetchBookingPackages(selectedBooking.id);
+                        fetchAllPackages();
+                      }
+                      setShowPackages(!showPackages);
+                    }}
+                    data-testid="toggle-booking-packages"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
+                      <Package className="h-4 w-4" /> Packages & Services
+                    </span>
+                    {showPackages ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-indigo-500" />}
+                  </button>
+
+                  {showPackages && (
+                    <div className="p-3 space-y-3 bg-white">
+                      {loadingPackages ? (
+                        <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>
+                      ) : (
+                        <>
+                          {bookingPackages?.bookingPackages?.length > 0 ? (
+                            <div className="space-y-2">
+                              {bookingPackages.bookingPackages.map((bp: any) => {
+                                const pkg = bp.package;
+                                const usageByType: Record<string, number> = {};
+                                (bp.usage || []).forEach((u: any) => { usageByType[u.itemType] = (usageByType[u.itemType] || 0) + u.qtyUsed; });
+                                return (
+                                  <div key={bp.id} className={`border rounded-lg p-3 ${bp.status === "ACTIVE" ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50 opacity-70"}`} data-testid={`booking-package-${bp.id}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div>
+                                        <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
+                                        <p className="text-[10px] text-slate-500">
+                                          {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Badge className={bp.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700 border-0 text-[10px]" : "bg-slate-100 text-slate-500 border-0 text-[10px]"}>
+                                          {bp.status}
+                                        </Badge>
+                                        {bp.status === "ACTIVE" && (
+                                          <>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp); setUsageForm({ itemType: pkg?.items?.[0]?.type || "", qtyUsed: 1, note: "" }); }} data-testid={`usage-${bp.id}`}>
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}>
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {pkg?.items?.map((item: any, idx: number) => {
+                                      const used = usageByType[item.type] || 0;
+                                      const included = item.includedQty || 0;
+                                      const pct = included > 0 ? Math.min(100, (used / included) * 100) : 0;
+                                      return (
+                                        <div key={idx} className="mb-1.5">
+                                          <div className="flex items-center justify-between text-[11px]">
+                                            <span className="text-slate-600">{item.label}</span>
+                                            <span className="text-slate-500">{used}/{included} {item.unit}</span>
+                                          </div>
+                                          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-0.5">
+                                            <div className={`h-1.5 rounded-full transition-all ${pct >= 100 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 text-center py-2">No packages attached</p>
+                          )}
+
+                          {bookingPackages?.wallet && (
+                            <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+                              <div className="flex items-center gap-2">
+                                <Wallet className="h-4 w-4 text-amber-600" />
+                                <span className="text-xs font-medium text-amber-800">Wallet Balance</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-amber-700">₹{(bookingPackages.wallet.balance || 0).toLocaleString("en-IN")}</span>
+                                <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true); setWalletForm({ type: "topup", amount: 0, note: "" }); }} data-testid="button-wallet">
+                                  Manage
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          <Button size="sm" variant="outline" className="w-full gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: new Date().toISOString().slice(0, 10), endDate: "" }); }} data-testid="button-attach-package">
+                            <Plus className="h-3 w-3" /> Attach Package
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1092,6 +1309,87 @@ export default function CompletedBookings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={attachDialog} onOpenChange={setAttachDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" /> Attach Package</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Package</Label>
+              <Select value={attachForm.packageId} onValueChange={v => setAttachForm(p => ({ ...p, packageId: v }))}>
+                <SelectTrigger data-testid="select-attach-package"><SelectValue placeholder="Select package" /></SelectTrigger>
+                <SelectContent>
+                  {allPackages.filter(p => p.isActive).map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name} — ₹{Number(p.basePrice).toLocaleString("en-IN")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Start Date</Label>
+                <Input type="date" value={attachForm.startDate} onChange={e => setAttachForm(p => ({ ...p, startDate: e.target.value }))} data-testid="input-attach-start" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">End Date</Label>
+                <Input type="date" value={attachForm.endDate} onChange={e => setAttachForm(p => ({ ...p, endDate: e.target.value }))} data-testid="input-attach-end" />
+              </div>
+            </div>
+            <Button className="w-full bg-indigo-600" onClick={attachPackage} data-testid="button-confirm-attach">Attach Package</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!usageDialog} onOpenChange={() => setUsageDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-indigo-600" /> Record Usage</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Service Type</Label>
+              <Select value={usageForm.itemType} onValueChange={v => setUsageForm(p => ({ ...p, itemType: v }))}>
+                <SelectTrigger data-testid="select-usage-type"><SelectValue placeholder="Select service" /></SelectTrigger>
+                <SelectContent>
+                  {usageDialog?.package?.items?.map((item: any) => (
+                    <SelectItem key={item.type} value={item.type}>{item.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Quantity Used</Label>
+              <Input type="number" value={usageForm.qtyUsed} onChange={e => setUsageForm(p => ({ ...p, qtyUsed: Number(e.target.value) }))} min={1} data-testid="input-usage-qty" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Note (optional)</Label>
+              <Input value={usageForm.note} onChange={e => setUsageForm(p => ({ ...p, note: e.target.value }))} placeholder="e.g. 3 shirts" data-testid="input-usage-note" />
+            </div>
+            <Button className="w-full bg-indigo-600" onClick={recordUsage} data-testid="button-confirm-usage">Record Usage</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={walletDialog} onOpenChange={setWalletDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-amber-600" /> Manage Wallet</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Button size="sm" variant={walletForm.type === "topup" ? "default" : "outline"} className={walletForm.type === "topup" ? "bg-emerald-600 flex-1" : "flex-1"} onClick={() => setWalletForm(p => ({ ...p, type: "topup" }))} data-testid="button-wallet-topup">Top Up</Button>
+              <Button size="sm" variant={walletForm.type === "debit" ? "default" : "outline"} className={walletForm.type === "debit" ? "bg-red-600 flex-1" : "flex-1"} onClick={() => setWalletForm(p => ({ ...p, type: "debit" }))} data-testid="button-wallet-debit">Debit</Button>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Amount (₹)</Label>
+              <Input type="number" value={walletForm.amount} onChange={e => setWalletForm(p => ({ ...p, amount: Number(e.target.value) }))} min={1} data-testid="input-wallet-amount" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Note</Label>
+              <Input value={walletForm.note} onChange={e => setWalletForm(p => ({ ...p, note: e.target.value }))} placeholder="Reason" data-testid="input-wallet-note" />
+            </div>
+            <Button className={`w-full ${walletForm.type === "topup" ? "bg-emerald-600" : "bg-red-600"}`} onClick={handleWallet} data-testid="button-confirm-wallet">
+              {walletForm.type === "topup" ? "Add Credit" : "Debit Amount"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -6717,5 +6717,335 @@ export async function registerRoutes(
     }
   });
 
+  // ============ PACKAGE MANAGEMENT ============
+
+  app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const allPackages = await db.select().from(schema.packages).orderBy(sql`${schema.packages.createdAt} DESC`);
+      const result = [];
+      for (const pkg of allPackages) {
+        const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
+        result.push({ ...pkg, items });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch packages" });
+    }
+  });
+
+  app.get("/api/admin/packages/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, req.params.id));
+      if (!pkg) return res.status(404).json({ error: "Package not found" });
+      const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
+      res.json({ ...pkg, items });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch package" });
+    }
+  });
+
+  app.post("/api/admin/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { items, ...packageData } = req.body;
+      const [pkg] = await db.insert(schema.packages).values({
+        name: packageData.name,
+        description: packageData.description || null,
+        priceType: packageData.priceType || "PER_MONTH",
+        basePrice: packageData.basePrice || 0,
+        currency: packageData.currency || "INR",
+        taxPercent: packageData.taxPercent || null,
+        validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
+        validTo: packageData.validTo ? new Date(packageData.validTo) : null,
+        isActive: packageData.isActive !== false,
+      }).returning();
+
+      if (items && Array.isArray(items)) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          await db.insert(schema.packageItems).values({
+            packageId: pkg.id,
+            type: item.type,
+            label: item.label,
+            includedQty: item.includedQty || 0,
+            unit: item.unit || "unit",
+            extraUnitPrice: item.extraUnitPrice || 0,
+            rules: item.rules || null,
+            isOptional: item.isOptional || false,
+            maxQty: item.maxQty || null,
+            sortOrder: i,
+          });
+        }
+      }
+
+      const savedItems = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
+      res.status(201).json({ ...pkg, items: savedItems });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create package" });
+    }
+  });
+
+  app.put("/api/admin/packages/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { items, ...packageData } = req.body;
+      const [existing] = await db.select().from(schema.packages).where(eq(schema.packages.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Package not found" });
+
+      const [pkg] = await db.update(schema.packages).set({
+        name: packageData.name,
+        description: packageData.description || null,
+        priceType: packageData.priceType || existing.priceType,
+        basePrice: packageData.basePrice ?? existing.basePrice,
+        currency: packageData.currency || existing.currency,
+        taxPercent: packageData.taxPercent ?? existing.taxPercent,
+        validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
+        validTo: packageData.validTo ? new Date(packageData.validTo) : null,
+        isActive: packageData.isActive ?? existing.isActive,
+        updatedAt: new Date(),
+      }).where(eq(schema.packages.id, req.params.id)).returning();
+
+      if (items && Array.isArray(items)) {
+        await db.delete(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id));
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          await db.insert(schema.packageItems).values({
+            packageId: pkg.id,
+            type: item.type,
+            label: item.label,
+            includedQty: item.includedQty || 0,
+            unit: item.unit || "unit",
+            extraUnitPrice: item.extraUnitPrice || 0,
+            rules: item.rules || null,
+            isOptional: item.isOptional || false,
+            maxQty: item.maxQty || null,
+            sortOrder: i,
+          });
+        }
+      }
+
+      const savedItems = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
+      res.json({ ...pkg, items: savedItems });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update package" });
+    }
+  });
+
+  app.delete("/api/admin/packages/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const attached = await db.select().from(schema.bookingPackages).where(and(eq(schema.bookingPackages.packageId, req.params.id), eq(schema.bookingPackages.status, "ACTIVE")));
+      if (attached.length > 0) return res.status(400).json({ error: "Cannot delete package with active booking attachments" });
+      await db.delete(schema.packages).where(eq(schema.packages.id, req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete package" });
+    }
+  });
+
+  app.post("/api/admin/packages/:id/duplicate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [original] = await db.select().from(schema.packages).where(eq(schema.packages.id, req.params.id));
+      if (!original) return res.status(404).json({ error: "Package not found" });
+      const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, original.id)).orderBy(schema.packageItems.sortOrder);
+
+      const [newPkg] = await db.insert(schema.packages).values({
+        name: `${original.name} (Copy)`,
+        description: original.description,
+        priceType: original.priceType,
+        basePrice: original.basePrice,
+        currency: original.currency,
+        taxPercent: original.taxPercent,
+        validFrom: original.validFrom,
+        validTo: original.validTo,
+        isActive: false,
+      }).returning();
+
+      for (let i = 0; i < items.length; i++) {
+        await db.insert(schema.packageItems).values({
+          packageId: newPkg.id,
+          type: items[i].type,
+          label: items[i].label,
+          includedQty: items[i].includedQty,
+          unit: items[i].unit,
+          extraUnitPrice: items[i].extraUnitPrice,
+          rules: items[i].rules,
+          isOptional: items[i].isOptional,
+          maxQty: items[i].maxQty,
+          sortOrder: i,
+        });
+      }
+
+      const newItems = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, newPkg.id)).orderBy(schema.packageItems.sortOrder);
+      res.status(201).json({ ...newPkg, items: newItems });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to duplicate package" });
+    }
+  });
+
+  app.post("/api/admin/packages/:id/toggle", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, req.params.id));
+      if (!pkg) return res.status(404).json({ error: "Package not found" });
+      const [updated] = await db.update(schema.packages).set({ isActive: !pkg.isActive, updatedAt: new Date() }).where(eq(schema.packages.id, req.params.id)).returning();
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to toggle package" });
+    }
+  });
+
+  app.get("/api/admin/bookings/:bookingId/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const bps = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, req.params.bookingId)).orderBy(sql`${schema.bookingPackages.createdAt} DESC`);
+      const result = [];
+      for (const bp of bps) {
+        const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
+        const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, bp.packageId)).orderBy(schema.packageItems.sortOrder);
+        const usage = await db.select().from(schema.packageUsage).where(eq(schema.packageUsage.bookingPackageId, bp.id)).orderBy(sql`${schema.packageUsage.createdAt} DESC`);
+        result.push({ ...bp, package: pkg ? { ...pkg, items } : null, usage });
+      }
+
+      const walletEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
+      const walletBalance = walletEntries.reduce((acc, e) => acc + e.credit - e.debit, 0);
+
+      res.json({ bookingPackages: result, wallet: { balance: walletBalance, entries: walletEntries } });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch booking packages" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/packages/attach", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { packageId, startDate, endDate, selectedItems } = req.body;
+      if (!packageId || !startDate) return res.status(400).json({ error: "packageId and startDate are required" });
+
+      const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, packageId));
+      if (!pkg) return res.status(404).json({ error: "Package not found" });
+      if (!pkg.isActive) return res.status(400).json({ error: "Cannot attach an inactive package" });
+
+      const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, packageId)).orderBy(schema.packageItems.sortOrder);
+      const priceSnapshot = { name: pkg.name, basePrice: pkg.basePrice, priceType: pkg.priceType, taxPercent: pkg.taxPercent, items: items.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice })) };
+
+      const [bp] = await db.insert(schema.bookingPackages).values({
+        bookingId: req.params.bookingId,
+        packageId,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        status: "ACTIVE",
+        priceSnapshot,
+        selectedItems: selectedItems || null,
+      }).returning();
+
+      const alacartItem = items.find(i => i.type === "ala_cart_credit");
+      if (alacartItem && alacartItem.includedQty > 0) {
+        await db.insert(schema.walletLedger).values({
+          bookingId: req.params.bookingId,
+          credit: alacartItem.includedQty,
+          debit: 0,
+          refType: "package_credit",
+          refId: bp.id,
+          note: `Initial credit from package "${pkg.name}"`,
+        });
+      }
+
+      res.status(201).json(bp);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to attach package" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/packages/detach", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { bookingPackageId } = req.body;
+      if (!bookingPackageId) return res.status(400).json({ error: "bookingPackageId is required" });
+      const [bp] = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
+      if (!bp) return res.status(404).json({ error: "Booking package not found" });
+      if (bp.bookingId !== req.params.bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
+      if (bp.status !== "ACTIVE") return res.status(400).json({ error: "Package is already ended" });
+      const [updated] = await db.update(schema.bookingPackages).set({ status: "ENDED", endDate: new Date() }).where(eq(schema.bookingPackages.id, bookingPackageId)).returning();
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to detach package" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/packages/usage", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { bookingPackageId, itemType, qtyUsed, note } = req.body;
+      if (!bookingPackageId || !itemType) return res.status(400).json({ error: "bookingPackageId and itemType are required" });
+
+      const [bp] = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
+      if (!bp) return res.status(404).json({ error: "Booking package not found" });
+      if (bp.bookingId !== req.params.bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
+      if (bp.status !== "ACTIVE") return res.status(400).json({ error: "Cannot record usage on an ended package" });
+
+      const items = await db.select().from(schema.packageItems).where(and(eq(schema.packageItems.packageId, bp.packageId), eq(schema.packageItems.type, itemType)));
+      const item = items[0];
+      if (!item) return res.status(400).json({ error: `Invalid item type "${itemType}" for this package` });
+
+      const existingUsage = await db.select().from(schema.packageUsage).where(and(eq(schema.packageUsage.bookingPackageId, bookingPackageId), eq(schema.packageUsage.itemType, itemType)));
+      const totalUsed = existingUsage.reduce((s, u) => s + u.qtyUsed, 0);
+      const qty = qtyUsed || 1;
+      let amountCharged = 0;
+
+      if (item) {
+        const includedQty = item.includedQty || 0;
+        const excessQty = Math.max(0, (totalUsed + qty) - includedQty);
+        const prevExcess = Math.max(0, totalUsed - includedQty);
+        const newChargeableQty = excessQty - prevExcess;
+        if (newChargeableQty > 0) {
+          amountCharged = newChargeableQty * (item.extraUnitPrice || 0);
+        }
+      }
+
+      const [usageRecord] = await db.insert(schema.packageUsage).values({
+        bookingPackageId,
+        bookingId: req.params.bookingId,
+        itemType,
+        qtyUsed: qty,
+        amountCharged,
+        note: note || null,
+      }).returning();
+
+      res.status(201).json(usageRecord);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to record usage" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/wallet/topup", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { amount, note } = req.body;
+      if (!amount || amount <= 0) return res.status(400).json({ error: "Valid amount required" });
+      const [entry] = await db.insert(schema.walletLedger).values({
+        bookingId: req.params.bookingId,
+        credit: amount,
+        debit: 0,
+        refType: "manual_topup",
+        note: note || "Manual top-up",
+      }).returning();
+      res.status(201).json(entry);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to top up wallet" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/wallet/debit", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { amount, note } = req.body;
+      if (!amount || amount <= 0) return res.status(400).json({ error: "Valid amount required" });
+      const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId));
+      const balance = entries.reduce((acc, e) => acc + e.credit - e.debit, 0);
+      if (amount > balance) return res.status(400).json({ error: "Insufficient wallet balance" });
+      const [entry] = await db.insert(schema.walletLedger).values({
+        bookingId: req.params.bookingId,
+        credit: 0,
+        debit: amount,
+        refType: "manual_debit",
+        note: note || "Manual debit",
+      }).returning();
+      res.status(201).json(entry);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to debit wallet" });
+    }
+  });
+
   return httpServer;
 }
