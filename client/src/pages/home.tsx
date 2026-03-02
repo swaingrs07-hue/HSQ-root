@@ -324,25 +324,16 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="bg-black/60 backdrop-blur-xl border-t border-white/10">
-            <div className="container mx-auto px-4 py-3">
-              <div className="flex flex-col md:flex-row items-center gap-3">
-                <div className="flex-1 w-full md:w-auto">
-                  <SmartSearch
-                    onSearchResults={handleSearchResults}
-                    placeholder="Search properties, locations, or ask AI..."
-                    className="[&_input]:bg-white/10 [&_input]:text-white [&_input]:placeholder-white/50 [&_input]:border-white/20 [&_input]:focus:border-amber-400/50 [&_input]:rounded-none [&_input]:h-12"
-                  />
-                </div>
-                <Link href="/properties">
-                  <Button
-                    className="bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 px-8 font-semibold tracking-wider uppercase text-sm whitespace-nowrap"
-                    data-testid="button-book-now-hero"
-                  >
-                    Book Now
-                  </Button>
-                </Link>
-              </div>
+          <div className="bg-black/40 backdrop-blur-sm border-t border-white/10">
+            <div className="container mx-auto px-4 py-3 flex justify-center">
+              <Link href="/properties">
+                <Button
+                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 px-10 font-semibold tracking-wider uppercase text-sm whitespace-nowrap"
+                  data-testid="button-book-now-hero"
+                >
+                  Book Now
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

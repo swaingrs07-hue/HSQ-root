@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo.jpg";
 import { ProfileDropdown } from "./profile-dropdown";
+import { SmartSearch } from "./smart-search";
 
 interface FooterLink { label: string; href: string; }
 interface FooterData {
@@ -37,6 +38,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [, setNav] = useLocation();
   const { user, logout, isAdmin } = useAuth();
 
   const isHomePage = location === "/";
@@ -48,6 +52,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isHomePage]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [searchOpen]);
+
+  const handleSearchResults = (results: any) => {
+    if (results.totalResults > 0 || results.interpretation) {
+      sessionStorage.setItem("searchResults", JSON.stringify(results));
+      setSearchOpen(false);
+      setNav("/properties");
+    }
+  };
 
   const { data: footer = DEFAULT_FOOTER } = useQuery<FooterData>({
     queryKey: ["/api/footer-settings"],
@@ -120,18 +150,43 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {item.name}
               </Link>
             ))}
+            <button
+              onClick={() => setSearchOpen(!searchOpen)}
+              className={cn(
+                "p-2 rounded-full transition-all duration-200",
+                searchOpen
+                  ? "bg-amber-600 text-white"
+                  : headerTransparent
+                    ? "text-white/80 hover:text-white hover:bg-white/10"
+                    : "text-muted-foreground hover:text-primary hover:bg-muted"
+              )}
+              data-testid="button-search-toggle"
+              aria-label="Search"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             <div className={cn("pl-4 border-l", headerTransparent ? "border-white/20" : "")}>
               <ProfileDropdown />
             </div>
           </nav>
 
-          <button
-            className={cn("md:hidden p-2", headerTransparent ? "text-white" : "text-foreground")}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            data-testid="button-mobile-menu"
-          >
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </button>
+          <div className="md:hidden flex items-center gap-1">
+            <button
+              className={cn("p-2 rounded-full transition-colors", headerTransparent ? "text-white hover:bg-white/10" : "text-foreground hover:bg-muted")}
+              onClick={() => { setSearchOpen(!searchOpen); setMobileMenuOpen(false); }}
+              data-testid="button-search-toggle-mobile"
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            <button
+              className={cn("p-2", headerTransparent ? "text-white" : "text-foreground")}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              data-testid="button-mobile-menu"
+            >
+              {mobileMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (
@@ -152,6 +207,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {item.name}
               </Link>
             ))}
+            <div className="border-t pt-3">
+              <SmartSearch
+                onSearchResults={handleSearchResults}
+                placeholder="Search properties, locations..."
+                className="[&_input]:h-10"
+              />
+            </div>
+          </div>
+        )}
+
+        {searchOpen && (
+          <div
+            ref={searchRef}
+            className="absolute top-full left-0 right-0 bg-background/98 backdrop-blur-xl border-b border-border shadow-xl animate-in slide-in-from-top-2 duration-200 z-50"
+            data-testid="search-panel"
+          >
+            <div className="container mx-auto px-4 py-4">
+              <div className="max-w-2xl mx-auto">
+                <SmartSearch
+                  onSearchResults={handleSearchResults}
+                  placeholder="Search properties, locations, or ask AI..."
+                  className="[&_input]:h-12 [&_input]:text-base [&_input]:rounded-lg [&_input]:border-amber-200 [&_input]:focus:border-amber-500 [&_input]:focus:ring-amber-500/20"
+                />
+                <p className="text-xs text-muted-foreground mt-2 text-center">Press Escape to close</p>
+              </div>
+            </div>
           </div>
         )}
       </header>

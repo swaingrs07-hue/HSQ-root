@@ -1,0 +1,132 @@
+Add an admin feature to block/unblock a bed with a mandatory valid reason, so blocked beds cannot be booked and show clearly in UI.
+
+1) Database / Data Model
+
+Add a bed status system:
+
+status: "AVAILABLE" | "BOOKED" | "BLOCKED"
+
+blockedReason: string (required when status = BLOCKED)
+
+blockedAt: datetime
+
+blockedBy: admin user id/email
+
+unblockedAt: datetime (optional)
+
+unblockedBy: admin user id/email (optional)
+
+If you already have a beds table/collection, extend it. Otherwise create one.
+
+2) Backend API (Admin Protected)
+
+Create these endpoints (must be admin-only with auth middleware):
+
+POST /api/admin/beds/:bedId/block
+
+body: { "reason": "text" }
+
+validations:
+
+reason is required, min 5 chars
+
+if bed is BOOKED → return error: “Cannot block a booked bed”
+
+action:
+
+set status = BLOCKED
+
+save reason, blockedAt, blockedBy
+
+response: updated bed object
+
+POST /api/admin/beds/:bedId/unblock
+
+body: { "note": "optional" }
+
+validations:
+
+only if status = BLOCKED
+
+action:
+
+set status = AVAILABLE
+
+clear blockedReason (or keep in history)
+
+set unblockedAt, unblockedBy
+
+response: updated bed object
+
+Update booking logic:
+
+On booking creation, reject if bed status != AVAILABLE
+
+Specifically if BLOCKED → show message: “Bed is blocked by admin: <reason>”
+
+3) Admin UI
+
+In the admin dashboard where beds are listed / floor-wise view:
+
+Add a “Block Bed” button/icon on each AVAILABLE bed
+
+Clicking opens a modal:
+
+Title: “Block Bed”
+
+Dropdown Reason Category (optional):
+
+Maintenance, Deep Cleaning, Reserved for VIP, Renovation, Payment Issue, Other
+
+Textarea “Reason” (mandatory)
+
+Confirm button: “Block Now”
+
+If bed is BLOCKED:
+
+show red badge: “Blocked”
+
+show tooltip / small text: blockedReason
+
+replace button with “Unblock” (confirmation modal)
+
+4) Resident/User Side UI
+
+In bed selection / availability screens:
+
+BLOCKED beds must show as disabled with label “Blocked”
+
+Don’t allow selection / booking
+
+Optional: don’t show reason to residents (use a setting), but at least show “Unavailable”
+
+5) Audit Log (Recommended)
+
+Create bed_block_logs table/collection:
+
+id, bedId, action(BLOCK/UNBLOCK), reason, note, adminId, timestamp
+Every block/unblock must create a log entry.
+
+6) Realtime Sync (If you use sockets)
+
+When bed status changes, broadcast event:
+
+bed_status_updated with bedId + new status
+
+Ensure all open admin/resident screens update instantly.
+
+7) Testing Checklist
+
+Block available bed → becomes blocked everywhere
+
+Blocked bed cannot be booked
+
+Cannot block booked bed
+
+Unblock bed → becomes available
+
+Reason validation works
+
+Logs are saved correctly
+
+Important: Keep code clean, don’t break existing booking flow, and add clear error messages + toasts.
