@@ -130,9 +130,10 @@ export default function BookingGeneration() {
     propertyId: "",
     roomTypeId: "",
     stayPlanType: "academic_year",
+    academicYearPeriod: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     checkInDate: "",
     checkOutDate: "",
-    durationMonths: 12,
+    durationMonths: 11,
     baseFee: 0,
     deposit: 0,
     discount: 0,
@@ -475,6 +476,7 @@ export default function BookingGeneration() {
           propertyId: formData.propertyId,
           roomTypeId: formData.roomTypeId,
           stayPlanType: formData.stayPlanType,
+          academicYearPeriod: formData.stayPlanType === "academic_year" ? formData.academicYearPeriod : null,
           checkInDate: formData.checkInDate || null,
           checkOutDate: formData.checkOutDate || null,
           durationMonths: formData.durationMonths,
@@ -1044,6 +1046,27 @@ export default function BookingGeneration() {
                         ))}
                       </div>
 
+                      {formData.stayPlanType === "academic_year" && (
+                        <div className="mt-3">
+                          <Label className="text-sm text-slate-600">Academic Year</Label>
+                          <select
+                            value={formData.academicYearPeriod}
+                            onChange={(e) => setFormData(prev => ({ ...prev, academicYearPeriod: e.target.value }))}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            data-testid="select-academic-year"
+                          >
+                            {(() => {
+                              const currentYear = new Date().getFullYear();
+                              return [0, 1, 2].map(offset => {
+                                const startYear = currentYear + offset;
+                                const label = `${startYear}-${startYear + 1}`;
+                                return <option key={label} value={label}>{label}</option>;
+                              });
+                            })()}
+                          </select>
+                        </div>
+                      )}
+
                       {formData.stayPlanType === "monthly" && (
                         <div className="grid grid-cols-3 gap-4 mt-3">
                           <div className="space-y-2">
@@ -1591,7 +1614,7 @@ export default function BookingGeneration() {
                       <p className="text-sm text-slate-500 mt-1">{getSelectedRoomType()?.customName || getSelectedRoomType()?.name} · {getSelectedRoomType()?.occupancy}-sharing</p>
                       <div className="mt-2 flex items-center gap-1 text-sm text-indigo-600">
                         <Calendar className="h-3.5 w-3.5" />
-                        {formData.stayPlanType === "monthly" ? `${formData.durationMonths} months` : "Full Academic Year"}
+                        {formData.stayPlanType === "monthly" ? `${formData.durationMonths} months` : `Academic Year ${formData.academicYearPeriod}`}
                       </div>
                     </div>
                   </div>

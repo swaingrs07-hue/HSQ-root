@@ -181,6 +181,7 @@ export const bookings = pgTable("bookings", {
   
   // Stay plan
   stayPlanType: stayPlanTypeEnum("stay_plan_type").default("monthly").notNull(),
+  academicYearPeriod: text("academic_year_period"),
   checkInDate: text("check_in_date"),
   checkOutDate: text("check_out_date"),
   durationMonths: integer("duration_months"),
@@ -664,6 +665,7 @@ export const createBookingSchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   roomTypeId: z.string().min(1, "Room type is required"),
   stayPlanType: z.enum(["academic_year", "monthly", "custom"]),
+  academicYearPeriod: z.string().optional(),
   checkInDate: z.string().optional(),
   checkOutDate: z.string().optional(),
   durationMonths: z.number().min(1).optional(),
