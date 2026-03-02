@@ -693,9 +693,11 @@ export default function PropertyBooking() {
     enabled: !!propertyId,
   });
 
-  const handleSelectBed = (bed: any, floor: any) => {
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const handleSelectBed = (bed: any, floor: any, room?: any) => {
     setSelectedBed(bed);
     setSelectedFloor(floor);
+    if (room) setSelectedRoom(room);
   };
 
   const scrollToFloors = () => {
@@ -714,6 +716,8 @@ export default function PropertyBooking() {
       deposit,
       bedId: selectedBed?.id,
       bedNumber: selectedBed?.bedNumber,
+      roomNumber: selectedRoom?.roomNumber || "",
+      roomId: selectedRoom?.id || "",
       floorId: selectedFloor?.id,
       floorName: selectedFloor?.name,
     }));

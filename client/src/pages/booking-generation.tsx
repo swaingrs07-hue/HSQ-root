@@ -158,6 +158,7 @@ export default function BookingGeneration() {
     numberOfInstallments: 2,
     residentName: "",
     residentRoomNo: "",
+    residentBedNo: "",
     residentPhone: "",
     residentEmail: "",
     residentDietaryPreference: "",
@@ -261,6 +262,16 @@ export default function BookingGeneration() {
               }
               if (data.floorId) {
                 setSelectedFloorId(data.floorId);
+              }
+              if (data.roomId) {
+                setSelectedRoomId(data.roomId);
+              }
+              if (data.roomNumber || data.bedNumber) {
+                setFormData(prev => ({
+                  ...prev,
+                  residentRoomNo: data.roomNumber || prev.residentRoomNo,
+                  residentBedNo: data.bedNumber || prev.residentBedNo,
+                }));
               }
             }
           }
@@ -610,7 +621,8 @@ export default function BookingGeneration() {
           paymentPlanId: formData.paymentPlanId || null,
           residentDetails: {
             name: formData.residentName,
-            roomNo: formData.residentRoomNo,
+            roomNo: selectedRoomId ? (floors.flatMap((f: any) => f.rooms || []).find((r: any) => r.id === selectedRoomId)?.roomNumber || formData.residentRoomNo) : formData.residentRoomNo,
+            bedNo: formData.residentBedNo,
             phone: formData.residentPhone,
             email: formData.residentEmail,
             dietaryPreference: formData.residentDietaryPreference,
@@ -1238,7 +1250,7 @@ export default function BookingGeneration() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => { setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId(""); setFormData(prev => ({ ...prev, residentRoomNo: "" })); }}
+                            onClick={() => { setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId(""); setFormData(prev => ({ ...prev, residentRoomNo: "", residentBedNo: "" })); }}
                             className="ml-auto text-xs text-slate-400 hover:text-red-500"
                             data-testid="button-clear-bed"
                           >
@@ -1332,11 +1344,11 @@ export default function BookingGeneration() {
                                           onClick={() => {
                                             if (isSelected) {
                                               setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
-                                              setFormData(prev => ({ ...prev, residentRoomNo: "" }));
+                                              setFormData(prev => ({ ...prev, residentRoomNo: "", residentBedNo: "" }));
                                             } else if (isAvail) {
                                               setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                               setSelectedFloorId(floor.id); setSelectedRoomId(room.id);
-                                              setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
+                                              setFormData(prev => ({ ...prev, residentRoomNo: room.roomNumber, residentBedNo: bed.bedNumber }));
                                             }
                                           }}
                                           className={`rounded-lg w-14 h-14 flex flex-col items-center justify-center text-white text-xs font-medium transition-all ${statusColor} ${!isAvail && !isSelected ? "opacity-60 cursor-not-allowed" : ""}`}
@@ -1585,7 +1597,7 @@ export default function BookingGeneration() {
                             <Label className="text-sm font-medium text-slate-700">Bed No</Label>
                             <div className="relative">
                               <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input value={formData.residentRoomNo} readOnly={!!selectedBedId} className={`pl-10 bg-white ${selectedBedId ? "bg-slate-50 text-slate-600" : ""}`} placeholder="Auto-filled from selection" data-testid="input-resident-bed" />
+                              <Input value={formData.residentBedNo} readOnly={!!selectedBedId} className={`pl-10 bg-white ${selectedBedId ? "bg-slate-50 text-slate-600" : ""}`} placeholder="Auto-filled from selection" data-testid="input-resident-bed" />
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -1755,6 +1767,7 @@ export default function BookingGeneration() {
                         <div className="space-y-1.5 text-xs text-slate-600">
                           {formData.residentName && <p><span className="font-medium">Name:</span> {formData.residentName}</p>}
                           {formData.residentRoomNo && <p><span className="font-medium">Room:</span> {formData.residentRoomNo}</p>}
+                          {formData.residentBedNo && <p><span className="font-medium">Bed:</span> {formData.residentBedNo}</p>}
                           {formData.residentGender && <p><span className="font-medium">Gender:</span> {formData.residentGender}</p>}
                           {formData.residentInstitute && <p><span className="font-medium">Institute:</span> {formData.residentInstitute}</p>}
                           {formData.residentMoveInDate && <p><span className="font-medium">Move-in:</span> {formData.residentMoveInDate}</p>}
@@ -2103,6 +2116,7 @@ export default function BookingGeneration() {
                         <div className="space-y-1 text-sm">
                           <p className="font-bold text-slate-800">{formData.residentName}</p>
                           {formData.residentRoomNo && <p className="text-slate-500">Room: {formData.residentRoomNo}</p>}
+                          {formData.residentBedNo && <p className="text-slate-500">Bed: {formData.residentBedNo}</p>}
                           {formData.residentGender && <p className="text-slate-500 capitalize">Gender: {formData.residentGender}</p>}
                           {formData.residentInstitute && <p className="text-slate-500">{formData.residentInstitute}</p>}
                           {formData.residentMoveInDate && <p className="text-slate-500">Move-in: {formData.residentMoveInDate}</p>}
