@@ -9,9 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Building2, MapPin, Bed, ChevronLeft, ChevronRight, Camera,
-  Sparkles, Check, Phone, Mail, Star, ArrowRight, Users,
-  IndianRupee, Layers, Clock, Shield, X, Play, Pause,
-  ChevronDown, Maximize2, Home,
+  Sparkles, Check, Phone, Mail, ArrowRight, Users,
+  Layers, Clock, Shield, X, Play, Pause,
+  ChevronDown, Maximize2, Home, Grid3X3, Eye, Volume2, VolumeX,
+  ZoomIn, RotateCcw, Share2, Heart, Navigation, Compass,
 } from "lucide-react";
 
 function parseImages(json: string | null | undefined): string[] {
@@ -24,117 +25,357 @@ function parseImages(json: string | null | undefined): string[] {
   }
 }
 
-const TOUR_CATEGORIES = [
-  { id: "overview", label: "Overview", icon: Building2 },
-  { id: "rooms", label: "Rooms", icon: Bed },
-  { id: "amenities", label: "Amenities", icon: Sparkles },
-  { id: "location", label: "Location", icon: MapPin },
+const TOUR_ROOMS = [
+  { id: "overview", label: "Overview", icon: Compass, description: "Exterior & Common Areas" },
+  { id: "rooms", label: "Rooms", icon: Bed, description: "Living Spaces" },
+  { id: "amenities", label: "Amenities", icon: Sparkles, description: "Facilities & Services" },
+  { id: "location", label: "Location", icon: Navigation, description: "Surroundings & Area" },
 ] as const;
 
-type CategoryId = typeof TOUR_CATEGORIES[number]["id"];
+type RoomId = typeof TOUR_ROOMS[number]["id"];
 
-function TourGallery({ property }: { property: any }) {
-  const [activeCategory, setActiveCategory] = useState<CategoryId>("overview");
+function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBooking: () => void }) {
+  const [activeRoom, setActiveRoom] = useState<RoomId>("overview");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showRoomNav, setShowRoomNav] = useState(true);
+  const [cursorPos, setCursorPos] = useState({ x: 50, y: 50 });
+  const [isZoomed, setIsZoomed] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
 
-  const getImages = useCallback((): string[] => {
+  const getImages = useCallback((room: RoomId): string[] => {
     if (!property) return [];
-    switch (activeCategory) {
+    switch (room) {
       case "overview": return parseImages(property.tourOverviewImages);
       case "rooms": return parseImages(property.tourRoomsImages);
       case "amenities": return parseImages(property.tourAmenitiesImages);
       case "location": return parseImages(property.tourLocationImages);
       default: return [];
     }
-  }, [property, activeCategory]);
+  }, [property]);
 
-  const images = getImages();
-  const allImages = [
-    ...parseImages(property?.tourOverviewImages),
-    ...parseImages(property?.tourRoomsImages),
-    ...parseImages(property?.tourAmenitiesImages),
-    ...parseImages(property?.tourLocationImages),
-  ];
-
-  useEffect(() => { setCurrentIndex(0); }, [activeCategory]);
+  const images = getImages(activeRoom);
+  const allImages = TOUR_ROOMS.flatMap(r => getImages(r.id));
 
   useEffect(() => {
-    if (isAutoPlaying && images.length > 1) {
+    setCurrentIndex(0);
+    setIsTransitioning(true);
+    setTimeout(() => setIsTransitioning(false), 600);
+  }, [activeRoom]);
+
+  useEffect(() => {
+    if (autoPlayRef.current) { clearInterval(autoPlayRef.current); autoPlayRef.current = null; }
+    if (isPlaying && images.length > 1 && !isFullscreen) {
       autoPlayRef.current = setInterval(() => {
-        setCurrentIndex(prev => (prev + 1) % images.length);
-      }, 4000);
+        setCurrentIndex(prev => {
+          const next = (prev + 1) % images.length;
+          if (next === 0) {
+            const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
+            for (let i = 1; i <= TOUR_ROOMS.length; i++) {
+              const checkIdx = (roomIdx + i) % TOUR_ROOMS.length;
+              if (checkIdx !== roomIdx && getImages(TOUR_ROOMS[checkIdx].id).length > 0) {
+                setActiveRoom(TOUR_ROOMS[checkIdx].id);
+                return 0;
+              }
+            }
+          }
+          return next;
+        });
+      }, 5000);
     }
-    return () => { if (autoPlayRef.current) clearInterval(autoPlayRef.current); };
-  }, [isAutoPlaying, images.length, activeCategory]);
+    return () => { if (autoPlayRef.current) { clearInterval(autoPlayRef.current); autoPlayRef.current = null; } };
+  }, [isPlaying, images.length, activeRoom, isFullscreen, getImages]);
 
-  const handlePrev = () => { setCurrentIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); setIsAutoPlaying(false); };
-  const handleNext = () => { setCurrentIndex(prev => (prev + 1) % images.length); setIsAutoPlaying(false); };
+  const goTo = (index: number) => {
+    setCurrentIndex(index);
+    setIsPlaying(false);
+  };
 
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handlePrev = () => {
+    if (currentIndex === 0) {
+      const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
+      for (let i = TOUR_ROOMS.length - 1; i >= 0; i--) {
+        const checkIdx = (roomIdx - 1 + TOUR_ROOMS.length + i) % TOUR_ROOMS.length;
+        if (checkIdx !== roomIdx) {
+          const prevImages = getImages(TOUR_ROOMS[checkIdx].id);
+          if (prevImages.length > 0) {
+            setActiveRoom(TOUR_ROOMS[checkIdx].id);
+            setCurrentIndex(prevImages.length - 1);
+            setIsPlaying(false);
+            return;
+          }
+        }
+      }
+    }
+    goTo(currentIndex === 0 ? images.length - 1 : currentIndex - 1);
+  };
+
+  const handleNext = () => {
+    if (currentIndex === images.length - 1) {
+      const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
+      for (let i = 1; i <= TOUR_ROOMS.length; i++) {
+        const checkIdx = (roomIdx + i) % TOUR_ROOMS.length;
+        if (checkIdx !== roomIdx && getImages(TOUR_ROOMS[checkIdx].id).length > 0) {
+          setActiveRoom(TOUR_ROOMS[checkIdx].id);
+          setCurrentIndex(0);
+          setIsPlaying(false);
+          return;
+        }
+      }
+    }
+    goTo((currentIndex + 1) % images.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartX.current) return;
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) { diff > 0 ? handleNext() : handlePrev(); }
+    if (!touchStartX.current || !touchStartY.current) return;
+    const dx = touchStartX.current - e.changedTouches[0].clientX;
+    const dy = touchStartY.current - e.changedTouches[0].clientY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      dx > 0 ? handleNext() : handlePrev();
+    }
     touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!containerRef.current || !isZoomed) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setCursorPos({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    });
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") handlePrev();
       else if (e.key === "ArrowRight") handleNext();
-      else if (e.key === "Escape" && isFullscreen) setIsFullscreen(false);
+      else if (e.key === "Escape") { setIsFullscreen(false); setShowGrid(false); }
+      else if (e.key === " ") { e.preventDefault(); setIsPlaying(!isPlaying); }
+      else if (e.key === "f") setIsFullscreen(!isFullscreen);
+      else if (e.key === "g") setShowGrid(!showGrid);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [images.length, isFullscreen]);
+  }, [images.length, isFullscreen, isPlaying, showGrid, currentIndex]);
+
+  const globalIndex = TOUR_ROOMS.slice(0, TOUR_ROOMS.findIndex(r => r.id === activeRoom))
+    .reduce((s, r) => s + getImages(r.id).length, 0) + currentIndex;
+  const currentRoom = TOUR_ROOMS.find(r => r.id === activeRoom)!;
+  const progress = allImages.length > 0 ? ((globalIndex + 1) / allImages.length) * 100 : 0;
+
+  if (showGrid) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={cn("bg-black/95 z-50", isFullscreen ? "fixed inset-0" : "relative")}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <Grid3X3 className="w-5 h-5 text-amber-500" />
+            <h3 className="text-white font-heading font-bold tracking-wider uppercase text-sm">All Tour Photos</h3>
+            <span className="text-white/40 text-sm">{allImages.length} images</span>
+          </div>
+          <button onClick={() => setShowGrid(false)} className="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all" data-testid="button-close-grid">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto" style={{ maxHeight: isFullscreen ? "calc(100vh - 60px)" : "600px" }}>
+          {TOUR_ROOMS.map(room => {
+            const roomImages = getImages(room.id);
+            if (roomImages.length === 0) return null;
+            return (
+              <div key={room.id} className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <room.icon className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-white/80 text-sm font-medium uppercase tracking-wider">{room.label}</h4>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                  {roomImages.map((img, i) => (
+                    <motion.button
+                      key={i}
+                      whileHover={{ scale: 1.03 }}
+                      onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }}
+                      className="relative aspect-[4/3] overflow-hidden group"
+                      data-testid={`grid-image-${room.id}-${i}`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    );
+  }
 
   if (isFullscreen) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+        className="fixed inset-0 z-50 bg-black"
       >
-        <Button
-          variant="ghost" size="icon"
-          onClick={() => setIsFullscreen(false)}
-          className="absolute top-4 right-4 z-10 text-white bg-white/10 hover:bg-white/20 rounded-full"
-          data-testid="button-close-fullscreen"
-        >
-          <X className="w-6 h-6" />
-        </Button>
-        <div className="w-full h-full flex items-center justify-center" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <div className="absolute inset-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onMouseMove={handleMouseMove} ref={containerRef}>
           <AnimatePresence mode="wait">
-            <motion.img
-              key={`fs-${currentIndex}`}
-              src={images[currentIndex]}
-              alt=""
-              initial={{ opacity: 0, scale: 1.05 }}
+            <motion.div
+              key={`fs-${activeRoom}-${currentIndex}`}
+              initial={{ opacity: 0, scale: 1.02 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.5 }}
-              className="max-w-full max-h-full object-contain"
-            />
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+              className="absolute inset-0"
+            >
+              <motion.img
+                src={images[currentIndex]}
+                alt=""
+                className="w-full h-full object-cover"
+                style={isZoomed ? {
+                  transform: `scale(2)`,
+                  transformOrigin: `${cursorPos.x}% ${cursorPos.y}%`,
+                } : {}}
+                initial={{ scale: 1.08 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 12, ease: "linear" }}
+              />
+            </motion.div>
           </AnimatePresence>
-          {images.length > 1 && (
-            <>
-              <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition-all">
-                <ChevronLeft className="w-6 h-6" />
+
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
+        </div>
+
+        <div className="absolute top-0 left-0 right-0 z-10">
+          <div className="h-[3px] bg-white/10">
+            <motion.div
+              className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setIsFullscreen(false)} className="flex items-center gap-2 text-white/60 hover:text-white transition-all group" data-testid="button-exit-fullscreen">
+                <X className="w-5 h-5" />
+                <span className="text-sm font-medium hidden sm:inline group-hover:underline">Exit Tour</span>
               </button>
-              <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition-all">
-                <ChevronRight className="w-6 h-6" />
+              <div className="h-5 w-px bg-white/20" />
+              <div>
+                <p className="text-white font-heading font-bold text-sm tracking-wider uppercase">{property.displayName || property.name}</p>
+                <p className="text-white/40 text-xs">{currentRoom.description}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setIsZoomed(!isZoomed)} className={cn("p-2.5 rounded-full transition-all", isZoomed ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")}>
+                <ZoomIn className="w-4 h-4" />
               </button>
-            </>
-          )}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {images.map((_, i) => (
-              <button key={i} onClick={() => setCurrentIndex(i)} className={cn("w-2 h-2 rounded-full transition-all", i === currentIndex ? "bg-white w-6" : "bg-white/40 hover:bg-white/60")} />
-            ))}
+              <button onClick={() => setIsPlaying(!isPlaying)} className={cn("p-2.5 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")}>
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </button>
+              <button onClick={() => setShowGrid(true)} className="p-2.5 rounded-full bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-all">
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={handlePrev}
+              aria-label="Previous image"
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group"
+              data-testid="button-fs-prev"
+            >
+              <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+            </button>
+            <button
+              onClick={handleNext}
+              aria-label="Next image"
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group"
+              data-testid="button-fs-next"
+            >
+              <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </>
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 z-10">
+          <div className="flex items-end justify-between px-6 pb-4">
+            <div className="flex gap-1.5 bg-black/30 backdrop-blur-xl rounded-full p-1.5 border border-white/10">
+              {TOUR_ROOMS.map(room => {
+                const hasImages = getImages(room.id).length > 0;
+                if (!hasImages) return null;
+                return (
+                  <button
+                    key={room.id}
+                    onClick={() => setActiveRoom(room.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all",
+                      activeRoom === room.id
+                        ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/30"
+                        : "text-white/50 hover:text-white hover:bg-white/10"
+                    )}
+                    data-testid={`fs-tab-${room.id}`}
+                  >
+                    <room.icon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{room.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-white/40 text-xs font-mono">
+                {String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}
+              </span>
+              <Button
+                onClick={() => { setIsFullscreen(false); onStartBooking(); }}
+                className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-6 h-10 text-xs tracking-wider uppercase shadow-lg shadow-amber-500/30"
+                data-testid="button-fs-book"
+              >
+                Book Now <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6">
+            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20">
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => goTo(i)}
+                  className={cn(
+                    "flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2",
+                    i === currentIndex
+                      ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20"
+                      : "w-16 border-transparent opacity-40 hover:opacity-70"
+                  )}
+                  data-testid={`fs-thumb-${i}`}
+                >
+                  <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -142,94 +383,96 @@ function TourGallery({ property }: { property: any }) {
   }
 
   return (
-    <div className="space-y-4" data-testid="tour-gallery">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Camera className="w-5 h-5 text-amber-600" />
-          <h2 className="text-xl font-heading font-bold text-gray-900 tracking-wide uppercase">Virtual Tour</h2>
-          {allImages.length > 0 && (
-            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">{allImages.length} photos</Badge>
-          )}
-        </div>
-        {images.length > 1 && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setIsAutoPlaying(!isAutoPlaying)} className="p-2 rounded-full hover:bg-gray-100 transition-colors" data-testid="button-autoplay-toggle">
-              {isAutoPlaying ? <Pause className="w-4 h-4 text-gray-500" /> : <Play className="w-4 h-4 text-gray-500" />}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-1 bg-stone-100 p-1 rounded-none">
-        {TOUR_CATEGORIES.map((cat) => {
-          const catImages = cat.id === "overview" ? parseImages(property?.tourOverviewImages) :
-            cat.id === "rooms" ? parseImages(property?.tourRoomsImages) :
-            cat.id === "amenities" ? parseImages(property?.tourAmenitiesImages) :
-            parseImages(property?.tourLocationImages);
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              data-testid={`tab-tour-${cat.id}`}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all flex-1 justify-center",
-                activeCategory === cat.id
-                  ? "bg-amber-600 text-white shadow-lg"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-stone-200"
-              )}
-            >
-              <cat.icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{cat.label}</span>
-              {catImages.length > 0 && (
-                <span className={cn("text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center", activeCategory === cat.id ? "bg-white/20" : "bg-stone-300/50")}>{catImages.length}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
+    <div className="space-y-0" data-testid="tour-gallery">
       <div
-        className="relative aspect-[16/9] bg-stone-900 overflow-hidden group cursor-pointer"
+        ref={containerRef}
+        className="relative aspect-[16/10] md:aspect-[2/1] bg-stone-950 overflow-hidden group cursor-pointer"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={() => images.length > 0 && setIsFullscreen(true)}
+        onMouseEnter={() => setShowRoomNav(true)}
       >
         {images.length > 0 ? (
           <>
             <AnimatePresence mode="wait">
               <motion.div
-                key={`${activeCategory}-${currentIndex}`}
+                key={`tour-${activeRoom}-${currentIndex}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.6 }}
+                transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
                 className="absolute inset-0"
               >
                 <motion.img
                   src={images[currentIndex]}
                   alt=""
                   className="w-full h-full object-cover"
-                  initial={{ scale: 1 }}
-                  animate={{ scale: 1.05 }}
-                  transition={{ duration: 8, ease: "linear" }}
+                  initial={{ scale: 1.05 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 10, ease: "linear" }}
                 />
               </motion.div>
             </AnimatePresence>
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-black/40 pointer-events-none" />
+
+            <div className="absolute top-0 left-0 right-0 z-10">
+              <div className="h-[2px] bg-white/10">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+            </div>
+
+            <div className="absolute top-4 left-4 right-4 z-10 flex items-start justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl px-4 py-2.5 border border-white/10">
+                <div className="flex items-center gap-2">
+                  <currentRoom.icon className="w-4 h-4 text-amber-400" />
+                  <div>
+                    <p className="text-white text-xs font-bold tracking-wider uppercase">{currentRoom.label}</p>
+                    <p className="text-white/40 text-[10px]">{currentRoom.description}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }}
+                  className={cn("p-2 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400 border border-amber-500/30" : "bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10")}
+                  data-testid="button-autoplay-toggle"
+                >
+                  {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowGrid(true); }}
+                  className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all"
+                  data-testid="button-show-grid"
+                >
+                  <Grid3X3 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
+                  className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all"
+                  data-testid="button-fullscreen"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
             {images.length > 1 && (
               <>
                 <button
                   onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md hover:bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
                   data-testid="button-prev-image"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md hover:bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
                   data-testid="button-next-image"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -237,55 +480,90 @@ function TourGallery({ property }: { property: any }) {
               </>
             )}
 
-            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex gap-1">
-                {images.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); setIsAutoPlaying(false); }}
-                    className={cn("h-1 rounded-full transition-all", i === currentIndex ? "bg-white w-8" : "bg-white/40 w-4 hover:bg-white/60")}
-                  />
-                ))}
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
-                className="p-2 rounded-full bg-black/30 backdrop-blur-md text-white hover:bg-black/50 transition-all"
-                data-testid="button-fullscreen"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </div>
+            <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
+              <div className="flex items-end justify-between">
+                <div className="flex gap-1 bg-black/30 backdrop-blur-xl rounded-full p-1 border border-white/10">
+                  {TOUR_ROOMS.map(room => {
+                    const hasImages = getImages(room.id).length > 0;
+                    if (!hasImages) return null;
+                    return (
+                      <button
+                        key={room.id}
+                        onClick={(e) => { e.stopPropagation(); setActiveRoom(room.id); }}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all tracking-wider uppercase",
+                          activeRoom === room.id
+                            ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/20"
+                            : "text-white/40 hover:text-white/70 hover:bg-white/10"
+                        )}
+                        data-testid={`tab-tour-${room.id}`}
+                      >
+                        <room.icon className="w-3 h-3" />
+                        <span className="hidden sm:inline">{room.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-full font-medium">
-              {currentIndex + 1} / {images.length}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/30 text-xs font-mono tracking-wider">
+                    {String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}
+                  </span>
+                </div>
+              </div>
+
+              {images.length > 4 && (
+                <div className="flex gap-1 mt-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20">
+                  {images.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => { e.stopPropagation(); goTo(i); }}
+                      className={cn(
+                        "flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border",
+                        i === currentIndex
+                          ? "w-20 border-amber-500 opacity-100"
+                          : "w-12 border-white/10 opacity-30 hover:opacity-60"
+                      )}
+                      data-testid={`thumbnail-${i}`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
-            <Camera className="w-16 h-16 mb-3 opacity-40" />
-            <p className="text-lg font-medium">Tour images coming soon</p>
-            <p className="text-sm mt-1">Upload images from the admin panel</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-stone-900 to-stone-950">
+            <div className="relative">
+              <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-3xl" />
+              <Camera className="w-20 h-20 text-stone-600 relative" />
+            </div>
+            <p className="text-stone-400 font-heading font-bold text-lg mt-4 tracking-wider uppercase">Tour Coming Soon</p>
+            <p className="text-stone-600 text-sm mt-2">Images will be uploaded by the property manager</p>
           </div>
         )}
       </div>
 
-      {images.length > 4 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {images.map((img, i) => (
-            <button
-              key={i}
-              onClick={() => { setCurrentIndex(i); setIsAutoPlaying(false); }}
-              data-testid={`thumbnail-${i}`}
-              className={cn(
-                "flex-shrink-0 w-20 h-14 overflow-hidden transition-all border-2",
-                i === currentIndex ? "border-amber-600 ring-2 ring-amber-600/30" : "border-transparent opacity-60 hover:opacity-100"
-              )}
-            >
-              <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
-            </button>
-          ))}
+      <div className="bg-stone-900 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Camera className="w-4 h-4 text-amber-500" />
+          <span className="text-white/80 text-sm font-medium tracking-wide">Virtual Tour</span>
+          <span className="text-white/30 text-xs">{allImages.length} photos across {TOUR_ROOMS.filter(r => getImages(r.id).length > 0).length} categories</span>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          {allImages.length > 0 && (
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 text-xs font-semibold tracking-wider uppercase transition-colors"
+              data-testid="button-launch-tour"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              Full Experience
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -314,68 +592,91 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
 
   if (floorsData.length === 0) {
     return (
-      <div className="text-center py-12 border-2 border-dashed border-stone-200">
+      <div className="text-center py-12 border-2 border-dashed border-stone-200 bg-stone-50">
         <Layers className="w-12 h-12 text-stone-300 mx-auto mb-3" />
         <p className="text-stone-500 font-medium">Floor plan not configured yet</p>
-        <p className="text-sm text-stone-400 mt-1">Please use room selection below to book</p>
+        <p className="text-sm text-stone-400 mt-1">Please select a room type below to book</p>
       </div>
     );
   }
 
-  const statusColors: Record<string, string> = {
-    available: "bg-emerald-500 border-emerald-600 hover:bg-emerald-400 cursor-pointer",
-    occupied: "bg-red-400 border-red-500 cursor-not-allowed opacity-60",
-    reserved: "bg-amber-400 border-amber-500 cursor-not-allowed opacity-60",
-    maintenance: "bg-stone-300 border-stone-400 cursor-not-allowed opacity-40",
-  };
-
-  const statusLabels: Record<string, string> = {
-    available: "Available", occupied: "Occupied", reserved: "Reserved", maintenance: "Under Maintenance",
+  const statusConfig: Record<string, { bg: string; border: string; label: string; cursor: string }> = {
+    available: { bg: "bg-emerald-500 hover:bg-emerald-400", border: "border-emerald-600", label: "Available", cursor: "cursor-pointer" },
+    occupied: { bg: "bg-red-400/70", border: "border-red-500/50", label: "Occupied", cursor: "cursor-not-allowed" },
+    reserved: { bg: "bg-amber-400/70", border: "border-amber-500/50", label: "Reserved", cursor: "cursor-not-allowed" },
+    maintenance: { bg: "bg-stone-300/70", border: "border-stone-400/50", label: "Maintenance", cursor: "cursor-not-allowed" },
   };
 
   return (
-    <div className="space-y-3" data-testid="floor-bed-selector">
-      <div className="flex items-center gap-4 text-xs text-stone-500">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500" /> Available</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-400" /> Occupied</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-400" /> Reserved</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-stone-300" /> Maintenance</span>
+    <div className="space-y-4" data-testid="floor-bed-selector">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs text-stone-500 bg-stone-50 p-3 border border-stone-200">
+        {Object.entries(statusConfig).map(([key, config]) => (
+          <span key={key} className="flex items-center gap-1.5">
+            <span className={cn("w-3 h-3 rounded-sm", config.bg.split(" ")[0])} />
+            {config.label}
+          </span>
+        ))}
       </div>
 
-      {floorsData.map((floor: any) => {
+      {floorsData.map((floor: any, fi: number) => {
         const isExpanded = expandedFloor === floor.id;
-        const availBeds = floor.beds?.filter((b: any) => b.status === "available").length || 0;
-        const totalBeds = floor.beds?.length || 0;
+        const beds = floor.beds || [];
+        const availBeds = beds.filter((b: any) => b.status === "available").length;
+        const totalBeds = beds.length;
+        const occupancyPct = totalBeds > 0 ? ((totalBeds - availBeds) / totalBeds) * 100 : 0;
 
         return (
           <motion.div
             key={floor.id}
-            className="border border-stone-200 overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: fi * 0.05 }}
+            className={cn("border overflow-hidden transition-colors", isExpanded ? "border-amber-300 shadow-lg shadow-amber-500/5" : "border-stone-200 hover:border-stone-300")}
             data-testid={`floor-card-${floor.id}`}
           >
             <button
               onClick={() => setExpandedFloor(isExpanded ? null : floor.id)}
-              className="w-full flex items-center justify-between p-4 hover:bg-stone-50 transition-colors"
+              className="w-full flex items-center justify-between p-4 hover:bg-stone-50/80 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold text-lg">
-                  {floor.floorNumber}
+              <div className="flex items-center gap-4">
+                <div className="relative w-12 h-12">
+                  <svg viewBox="0 0 48 48" className="w-full h-full">
+                    <circle cx="24" cy="24" r="20" fill="none" stroke="#e7e5e4" strokeWidth="3" />
+                    <circle
+                      cx="24" cy="24" r="20" fill="none"
+                      stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"}
+                      strokeWidth="3"
+                      strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`}
+                      strokeLinecap="round"
+                      transform="rotate(-90 24 24)"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">
+                    {floor.floorNumber}
+                  </span>
                 </div>
                 <div className="text-left">
-                  <h4 className="font-semibold text-gray-900">{floor.name}</h4>
-                  <p className="text-xs text-stone-500">{availBeds} of {totalBeds} beds available</p>
+                  <h4 className="font-heading font-bold text-gray-900">{floor.name}</h4>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    <span className="text-emerald-600 font-semibold">{availBeds}</span> of {totalBeds} beds available
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {availBeds > 0 && (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">{availBeds} open</Badge>
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">{availBeds} open</Badge>
                 )}
-                <ChevronDown className={cn("w-5 h-5 text-stone-400 transition-transform", isExpanded && "rotate-180")} />
+                {availBeds === 0 && totalBeds > 0 && (
+                  <Badge className="bg-red-50 text-red-600 border-red-200 text-xs">Full</Badge>
+                )}
+                <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="w-5 h-5 text-stone-400" />
+                </motion.div>
               </div>
             </button>
 
             <AnimatePresence>
-              {isExpanded && floor.beds && (
+              {isExpanded && beds.length > 0 && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
@@ -383,15 +684,16 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-4 pt-0 border-t border-stone-100">
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 mt-3">
-                      {floor.beds.map((bed: any) => {
+                  <div className="px-4 pb-4 border-t border-stone-100">
+                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 mt-3">
+                      {beds.map((bed: any) => {
                         const isSelected = selectedBedId === bed.id;
                         const isAvailable = bed.status === "available";
+                        const config = statusConfig[bed.status] || statusConfig.maintenance;
                         return (
                           <motion.button
                             key={bed.id}
-                            whileHover={isAvailable ? { scale: 1.05 } : {}}
+                            whileHover={isAvailable ? { scale: 1.08, y: -2 } : {}}
                             whileTap={isAvailable ? { scale: 0.95 } : {}}
                             onClick={() => {
                               if (!isAvailable) return;
@@ -399,17 +701,27 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
                               onSelectBed(bed, floor);
                             }}
                             className={cn(
-                              "relative p-2 border-2 rounded-lg text-center transition-all",
-                              statusColors[bed.status],
-                              isSelected && "ring-2 ring-amber-500 ring-offset-2 border-amber-500 bg-amber-500"
+                              "relative p-1.5 border-2 rounded-lg text-center transition-all",
+                              config.bg, config.border, config.cursor,
+                              !isAvailable && "opacity-50",
+                              isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-1 shadow-lg shadow-amber-500/30"
                             )}
-                            title={`${bed.bedNumber} - ${statusLabels[bed.status]}`}
+                            title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}`}
                             data-testid={`bed-${bed.id}`}
                           >
-                            <Bed className={cn("w-4 h-4 mx-auto mb-0.5", isSelected || isAvailable ? "text-white" : "text-white/70")} />
-                            <span className={cn("text-[10px] font-medium block", isSelected || isAvailable ? "text-white" : "text-white/70")}>
+                            <Bed className="w-3.5 h-3.5 mx-auto text-white" />
+                            <span className="text-[9px] font-bold block text-white mt-0.5 truncate">
                               {bed.bedNumber}
                             </span>
+                            {isSelected && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow"
+                              >
+                                <Check className="w-3 h-3 text-amber-600" />
+                              </motion.div>
+                            )}
                           </motion.button>
                         );
                       })}
@@ -432,6 +744,7 @@ export default function PropertyBooking() {
   const propertyId = params?.id;
   const [selectedBed, setSelectedBed] = useState<any>(null);
   const [selectedFloor, setSelectedFloor] = useState<any>(null);
+  const floorSectionRef = useRef<HTMLDivElement>(null);
 
   const { data: property, isLoading } = useQuery({
     queryKey: [`/api/properties/${propertyId}`],
@@ -446,6 +759,10 @@ export default function PropertyBooking() {
   const handleSelectBed = (bed: any, floor: any) => {
     setSelectedBed(bed);
     setSelectedFloor(floor);
+  };
+
+  const scrollToFloors = () => {
+    floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
@@ -482,11 +799,22 @@ export default function PropertyBooking() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <Skeleton className="h-12 w-64 mb-4" />
-        <Skeleton className="h-[400px] w-full mb-6" />
-        <div className="grid grid-cols-3 gap-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-40" />)}
+      <div className="min-h-screen bg-stone-50">
+        <Skeleton className="h-[400px] w-full" />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-8 w-48" />
+              <div className="grid grid-cols-3 gap-3">
+                {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
+              </div>
+            </div>
+            <div>
+              <Skeleton className="h-[300px] w-full" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -494,13 +822,15 @@ export default function PropertyBooking() {
 
   if (!property) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <Building2 className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-stone-700">Property not found</h2>
-        <p className="text-stone-500 mt-2">The property you're looking for doesn't exist or has been removed.</p>
-        <Button onClick={() => navigate("/properties")} className="mt-6 bg-amber-600 hover:bg-amber-700 rounded-none">
-          Browse Properties
-        </Button>
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-center">
+          <Building2 className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+          <h2 className="text-2xl font-heading font-bold text-stone-700">Property not found</h2>
+          <p className="text-stone-500 mt-2">The property you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => navigate("/properties")} className="mt-6 bg-amber-600 hover:bg-amber-700 rounded-none" data-testid="button-browse">
+            Browse Properties
+          </Button>
+        </div>
       </div>
     );
   }
@@ -508,54 +838,47 @@ export default function PropertyBooking() {
   const totalBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.totalBeds || 0), 0) || 0;
   const availableBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.availableBeds || 0), 0) || 0;
   const selectedRoomType = selectedBed ? property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId) : null;
+  const lowestPrice = property.roomTypes?.reduce((min: number, r: any) => Math.min(min, r.basePrice || Infinity), Infinity) || 0;
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <div className="relative h-[300px] md:h-[400px] overflow-hidden bg-stone-900">
-        {parseImages(property.tourOverviewImages).length > 0 ? (
-          <motion.img
-            src={parseImages(property.tourOverviewImages)[0]}
-            alt={property.name}
-            className="w-full h-full object-cover opacity-60"
-            initial={{ scale: 1.1 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 1.5 }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-stone-800 to-stone-900" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      <div className="relative">
+        <ImmersiveTour property={property} onStartBooking={scrollToFloors} />
+      </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
-          <div className="max-w-7xl mx-auto">
-            <button onClick={() => navigate("/properties")} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm mb-4 transition-colors" data-testid="button-back">
-              <ChevronLeft className="w-4 h-4" />
-              All Properties
-            </button>
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl md:text-4xl font-heading font-bold text-white tracking-wide" data-testid="text-property-name">
-                    {property.displayName || property.name}
-                  </h1>
-                  <Badge className="bg-amber-600/80 text-white border-0 uppercase text-[10px] tracking-widest">
-                    {property.category}
-                  </Badge>
-                </div>
-                <p className="text-white/70 flex items-center gap-1.5 text-sm">
-                  <MapPin className="w-4 h-4" />
-                  {property.location}
-                </p>
+      <div className="bg-white border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <button onClick={() => navigate("/properties")} className="flex items-center gap-1.5 text-stone-400 hover:text-amber-600 text-xs mb-2 transition-colors uppercase tracking-wider font-medium" data-testid="button-back">
+                <ChevronLeft className="w-3.5 h-3.5" />
+                All Properties
+              </button>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl md:text-3xl font-heading font-bold text-gray-900 tracking-tight" data-testid="text-property-name">
+                  {property.displayName || property.name}
+                </h1>
+                <Badge className="bg-amber-50 text-amber-700 border-amber-200 uppercase text-[10px] tracking-widest font-bold">
+                  {property.category}
+                </Badge>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-center px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20">
-                  <p className="text-2xl font-bold text-white">{availableBeds}</p>
-                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Beds Available</p>
-                </div>
-                <div className="text-center px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20">
-                  <p className="text-2xl font-bold text-white">{property.roomTypes?.length || 0}</p>
-                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Room Types</p>
-                </div>
+              <p className="text-stone-500 flex items-center gap-1.5 text-sm mt-1">
+                <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                {property.location}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+                <p className="text-xl font-bold text-amber-600">₹{lowestPrice.toLocaleString()}</p>
+                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Starting from/mo</p>
+              </div>
+              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+                <p className="text-xl font-bold text-emerald-600">{availableBeds}</p>
+                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Beds Available</p>
+              </div>
+              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+                <p className="text-xl font-bold text-stone-700">{property.roomTypes?.length || 0}</p>
+                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Types</p>
               </div>
             </div>
           </div>
@@ -565,24 +888,25 @@ export default function PropertyBooking() {
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-10">
-            <TourGallery property={property} />
-
             {property.amenities?.length > 0 && (
               <div>
-                <h2 className="text-xl font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-amber-600" />
-                  Amenities
+                  Amenities & Facilities
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {property.amenities.map((am: string, i: number) => (
                     <motion.div
                       key={am}
                       initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="flex items-center gap-2 px-3 py-2.5 bg-white border border-stone-200 text-sm text-gray-700 hover:border-amber-300 transition-colors"
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.02 }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-stone-200 text-sm text-gray-700 hover:border-amber-300 hover:shadow-sm transition-all group"
                     >
-                      <Check className="w-4 h-4 text-amber-600 shrink-0" />
+                      <div className="w-6 h-6 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                        <Check className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
                       {am}
                     </motion.div>
                   ))}
@@ -590,8 +914,8 @@ export default function PropertyBooking() {
               </div>
             )}
 
-            <div>
-              <h2 className="text-xl font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+            <div ref={floorSectionRef}>
+              <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
               </h2>
@@ -599,7 +923,7 @@ export default function PropertyBooking() {
             </div>
 
             <div>
-              <h2 className="text-xl font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Bed className="w-5 h-5 text-amber-600" />
                 Room Types & Pricing
               </h2>
@@ -608,8 +932,9 @@ export default function PropertyBooking() {
                   <motion.div
                     key={room.id}
                     initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
                     className="bg-white border border-stone-200 p-5 hover:border-amber-300 hover:shadow-md transition-all group"
                     data-testid={`room-card-${room.id}`}
                   >
@@ -662,7 +987,7 @@ export default function PropertyBooking() {
 
             {property.rules && (
               <div>
-                <h2 className="text-xl font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-amber-600" />
                   Rules & Policies
                 </h2>
@@ -675,93 +1000,117 @@ export default function PropertyBooking() {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
-              <div className="bg-white border border-stone-200 shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-4">
-                  <h3 className="text-white font-heading font-bold tracking-wide uppercase text-sm">Booking Summary</h3>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white border border-stone-200 shadow-xl shadow-stone-200/50 overflow-hidden"
+              >
+                <div className="bg-gradient-to-r from-stone-900 to-stone-800 p-4 flex items-center justify-between">
+                  <h3 className="text-white font-heading font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
+                  {selectedBed && (
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">Selected</Badge>
+                  )}
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-amber-600" />
+                    <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                      <Building2 className="w-5 h-5 text-amber-600" />
+                    </div>
                     <div>
-                      <p className="text-xs text-stone-400 uppercase tracking-wider">Property</p>
-                      <p className="font-semibold text-gray-900">{property.displayName || property.name}</p>
+                      <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Property</p>
+                      <p className="font-semibold text-gray-900 text-sm">{property.displayName || property.name}</p>
                     </div>
                   </div>
 
                   {selectedBed && selectedFloor && (
-                    <>
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="space-y-3"
+                    >
                       <div className="border-t border-stone-100 pt-3 flex items-center gap-3">
-                        <Layers className="w-5 h-5 text-amber-600" />
+                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                          <Layers className="w-5 h-5 text-amber-600" />
+                        </div>
                         <div>
-                          <p className="text-xs text-stone-400 uppercase tracking-wider">Floor</p>
-                          <p className="font-semibold text-gray-900">{selectedFloor.name}</p>
+                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Floor</p>
+                          <p className="font-semibold text-gray-900 text-sm">{selectedFloor.name}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Bed className="w-5 h-5 text-amber-600" />
+                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                          <Bed className="w-5 h-5 text-amber-600" />
+                        </div>
                         <div>
-                          <p className="text-xs text-stone-400 uppercase tracking-wider">Bed</p>
-                          <p className="font-semibold text-gray-900">#{selectedBed.bedNumber}</p>
+                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Bed</p>
+                          <p className="font-semibold text-gray-900 text-sm">#{selectedBed.bedNumber}</p>
                         </div>
                       </div>
                       {selectedRoomType && (
                         <>
                           <div className="flex items-center gap-3">
-                            <Home className="w-5 h-5 text-amber-600" />
+                            <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                              <Home className="w-5 h-5 text-amber-600" />
+                            </div>
                             <div>
-                              <p className="text-xs text-stone-400 uppercase tracking-wider">Room Type</p>
-                              <p className="font-semibold text-gray-900">{selectedRoomType.customName || selectedRoomType.name}</p>
+                              <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Type</p>
+                              <p className="font-semibold text-gray-900 text-sm">{selectedRoomType.customName || selectedRoomType.name}</p>
                             </div>
                           </div>
-                          <div className="border-t border-stone-100 pt-3">
-                            <div className="flex justify-between items-center">
-                              <span className="text-stone-500">Price</span>
-                              <span className="text-2xl font-bold text-amber-600">
-                                ₹{property.bookingMode === "academic_year"
-                                  ? (selectedRoomType.academicYearPrice || selectedRoomType.basePrice * 12).toLocaleString()
-                                  : selectedRoomType.basePrice.toLocaleString()}
-                              </span>
+                          <div className="border-t border-stone-100 pt-4 bg-stone-50 -mx-5 px-5 pb-0 -mb-1">
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-stone-500 text-sm">Total Price</span>
+                              <div className="text-right">
+                                <span className="text-3xl font-bold text-amber-600">
+                                  ₹{property.bookingMode === "academic_year"
+                                    ? (selectedRoomType.academicYearPrice || selectedRoomType.basePrice * 12).toLocaleString()
+                                    : selectedRoomType.basePrice.toLocaleString()}
+                                </span>
+                                <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
+                                  {property.bookingMode === "academic_year" ? "per year" : "per month"}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-xs text-stone-400 text-right uppercase tracking-wider">
-                              {property.bookingMode === "academic_year" ? "per year" : "per month"}
-                            </p>
                           </div>
                         </>
                       )}
                       <Button
                         onClick={handleBookSelectedBed}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 font-semibold tracking-wider uppercase"
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20"
                         data-testid="button-proceed-booking"
                       >
                         Proceed to Book
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
-                    </>
+                    </motion.div>
                   )}
 
                   {!selectedBed && (
-                    <div className="text-center py-6 border-t border-stone-100">
-                      <Bed className="w-8 h-8 text-stone-300 mx-auto mb-2" />
-                      <p className="text-sm text-stone-400">Select a floor & bed above, or choose a room type to proceed</p>
+                    <div className="text-center py-8 border-t border-stone-100">
+                      <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Bed className="w-7 h-7 text-stone-300" />
+                      </div>
+                      <p className="text-sm text-stone-400 font-medium">No bed selected</p>
+                      <p className="text-xs text-stone-300 mt-1">Select a floor & bed, or choose a room type below</p>
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
 
               <div className="bg-white border border-stone-200 p-5 space-y-3">
-                <h4 className="font-heading font-bold text-sm tracking-wide uppercase text-gray-900">Contact</h4>
+                <h4 className="font-heading font-bold text-xs tracking-wider uppercase text-gray-900">Contact Property</h4>
                 {property.phone && (
-                  <a href={`tel:${property.phone}`} className="flex items-center gap-2 text-sm text-stone-600 hover:text-amber-600 transition-colors">
+                  <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-stone-600 hover:text-amber-600 transition-colors">
                     <Phone className="w-4 h-4" /> {property.phone}
                   </a>
                 )}
                 {property.email && (
-                  <a href={`mailto:${property.email}`} className="flex items-center gap-2 text-sm text-stone-600 hover:text-amber-600 transition-colors">
+                  <a href={`mailto:${property.email}`} className="flex items-center gap-2.5 text-sm text-stone-600 hover:text-amber-600 transition-colors">
                     <Mail className="w-4 h-4" /> {property.email}
                   </a>
                 )}
                 {property.mapsUrl && (
-                  <a href={property.mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors">
+                  <a href={property.mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors">
                     <MapPin className="w-4 h-4" /> View on Google Maps
                   </a>
                 )}
