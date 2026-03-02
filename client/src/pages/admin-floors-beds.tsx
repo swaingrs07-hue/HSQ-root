@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -25,8 +27,14 @@ interface Property { id: string; name: string; }
 interface Bed {
   id: string; propertyId: string; floorId: string; roomId?: string | null;
   roomTypeId: string; bedNumber: string;
-  status: "available" | "occupied" | "reserved" | "maintenance";
+  status: "available" | "occupied" | "reserved" | "maintenance" | "blocked";
   monthlyPrice?: number | null;
+  blockedReason?: string | null;
+  blockedCategory?: string | null;
+  blockedAt?: string | null;
+  blockedBy?: string | null;
+  unblockedAt?: string | null;
+  unblockedBy?: string | null;
 }
 interface Room {
   id: string; propertyId: string; floorId: string; roomTypeId: string;
@@ -49,10 +57,20 @@ const STATUS_COLORS: Record<string, string> = {
   occupied: "bg-rose-500",
   reserved: "bg-amber-400",
   maintenance: "bg-slate-400",
+  blocked: "bg-red-700",
 };
 const STATUS_LABELS: Record<string, string> = {
-  available: "Available", occupied: "Occupied", reserved: "Reserved", maintenance: "Maintenance",
+  available: "Available", occupied: "Occupied", reserved: "Reserved", maintenance: "Maintenance", blocked: "Blocked",
 };
+
+const BLOCK_CATEGORIES = [
+  "Maintenance",
+  "Deep Cleaning",
+  "Reserved for VIP",
+  "Renovation",
+  "Payment Issue",
+  "Other",
+];
 
 const TYPOLOGY_OPTIONS = [
   { value: "1 Bed", label: "1 Bed (Single)" },
@@ -163,6 +181,20 @@ export default function AdminFloorsBeds() {
   const deleteBedMutation = useMutation({
     mutationFn: (bedId: string) => apiFetch(`/api/admin/beds/${bedId}`, { method: "DELETE" }),
     onSuccess: () => { invalidateFloors(); toast({ title: "Bed Removed" }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const blockBedMutation = useMutation({
+    mutationFn: ({ bedId, reason, category }: { bedId: string; reason: string; category: string }) =>
+      apiFetch(`/api/admin/beds/${bedId}/block`, { method: "POST", body: JSON.stringify({ reason, category }) }),
+    onSuccess: () => { invalidateFloors(); toast({ title: "Bed Blocked", description: "Bed has been blocked and is no longer bookable." }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const unblockBedMutation = useMutation({
+    mutationFn: ({ bedId, note }: { bedId: string; note?: string }) =>
+      apiFetch(`/api/admin/beds/${bedId}/unblock`, { method: "POST", body: JSON.stringify({ note }) }),
+    onSuccess: () => { invalidateFloors(); toast({ title: "Bed Unblocked", description: "Bed is now available for booking." }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -338,6 +370,8 @@ export default function AdminFloorsBeds() {
                                 onDeleteRoom={() => { if (confirm(`Delete room ${room.roomNumber} and all its beds?`)) deleteRoomMutation.mutate(room.id); }}
                                 onUpdateBed={(bedId, status) => updateBedMutation.mutate({ bedId, status })}
                                 onDeleteBed={(bedId) => { if (confirm("Remove this bed?")) deleteBedMutation.mutate(bedId); }}
+                                onBlockBed={(bedId, reason, category) => blockBedMutation.mutate({ bedId, reason, category })}
+                                onUnblockBed={(bedId, note) => unblockBedMutation.mutate({ bedId, note })}
                               />
                             ))}
                             {orphanBeds.length > 0 && (
@@ -348,6 +382,8 @@ export default function AdminFloorsBeds() {
                                     <BedCell key={bed.id} bed={bed}
                                       onUpdateStatus={(status) => updateBedMutation.mutate({ bedId: bed.id, status })}
                                       onDelete={() => { if (confirm(`Remove bed ${bed.bedNumber}?`)) deleteBedMutation.mutate(bed.id); }}
+                                      onBlock={(reason, category) => blockBedMutation.mutate({ bedId: bed.id, reason, category })}
+                                      onUnblock={(note) => unblockBedMutation.mutate({ bedId: bed.id, note })}
                                     />
                                   ))}
                                 </div>
@@ -449,11 +485,13 @@ export default function AdminFloorsBeds() {
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed }: {
+function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onUpdateBed: (bedId: string, status: string) => void;
   onDeleteBed: (bedId: string) => void;
+  onBlockBed: (bedId: string, reason: string, category: string) => void;
+  onUnblockBed: (bedId: string, note?: string) => void;
 }) {
   const rt = roomTypes.find(r => r.id === room.roomTypeId);
   const isCombo = room.typology.includes("+");
@@ -499,6 +537,8 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed }: {
                   <BedCell key={bed.id} bed={bed} compact
                     onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
                     onDelete={() => onDeleteBed(bed.id)}
+                    onBlock={(reason, category) => onBlockBed(bed.id, reason, category)}
+                    onUnblock={(note) => onUnblockBed(bed.id, note)}
                   />
                 ))}
                 {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
@@ -512,6 +552,8 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed }: {
             <BedCell key={bed.id} bed={bed}
               onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
               onDelete={() => onDeleteBed(bed.id)}
+              onBlock={(reason, category) => onBlockBed(bed.id, reason, category)}
+              onUnblock={(note) => onUnblockBed(bed.id, note)}
             />
           ))}
           {room.beds.length === 0 && <span className="text-xs text-slate-400 py-2">No beds in this room</span>}
@@ -521,34 +563,184 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed }: {
   );
 }
 
-function BedCell({ bed, compact, onUpdateStatus, onDelete }: {
+function BedCell({ bed, compact, onUpdateStatus, onDelete, onBlock, onUnblock }: {
   bed: Bed; compact?: boolean;
   onUpdateStatus: (status: string) => void;
   onDelete: () => void;
+  onBlock?: (reason: string, category: string) => void;
+  onUnblock?: (note?: string) => void;
 }) {
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [unblockOpen, setUnblockOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState("");
+  const [blockCategory, setBlockCategory] = useState("Other");
+  const [unblockNote, setUnblockNote] = useState("");
+
+  const isBlocked = bed.status === "blocked";
+
+  const bedContent = (
+    <div className={cn(
+      "rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium transition-all hover:scale-105 relative",
+      compact ? "w-12 h-12" : "w-14 h-14",
+      STATUS_COLORS[bed.status]
+    )}>
+      {isBlocked && <Ban className={cn("mb-0.5", compact ? "w-3 h-3" : "w-4 h-4")} />}
+      {!isBlocked && <BedDouble className={cn("mb-0.5", compact ? "w-3 h-3" : "w-4 h-4")} />}
+      <span className="text-[9px] leading-tight truncate max-w-full px-0.5">{bed.bedNumber}</span>
+      {isBlocked && (
+        <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-red-800 text-[7px] text-white px-1 rounded whitespace-nowrap">BLOCKED</span>
+      )}
+    </div>
+  );
+
   return (
     <div className="relative group" data-testid={`bed-${bed.id}`}>
-      <div className={cn(
-        "rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium transition-all hover:scale-105",
-        compact ? "w-12 h-12" : "w-14 h-14",
-        STATUS_COLORS[bed.status]
-      )}>
-        <BedDouble className={cn("mb-0.5", compact ? "w-3 h-3" : "w-4 h-4")} />
-        <span className="text-[9px] leading-tight truncate max-w-full px-0.5">{bed.bedNumber}</span>
-      </div>
-      <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>{bedContent}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-52">
+            <p className="font-semibold">{bed.bedNumber} — {STATUS_LABELS[bed.status]}</p>
+            {isBlocked && bed.blockedReason && (
+              <p className="text-xs mt-1"><span className="font-medium">Reason:</span> {bed.blockedReason}</p>
+            )}
+            {isBlocked && bed.blockedCategory && (
+              <p className="text-xs"><span className="font-medium">Category:</span> {bed.blockedCategory}</p>
+            )}
+            {isBlocked && bed.blockedBy && (
+              <p className="text-xs"><span className="font-medium">By:</span> {bed.blockedBy}</p>
+            )}
+            {bed.monthlyPrice && <p className="text-xs">₹{bed.monthlyPrice.toLocaleString()}/mo</p>}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-0.5">
+        {!isBlocked && bed.status !== "occupied" && onBlock && (
+          <button
+            className="bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center hover:bg-red-800"
+            onClick={() => setBlockOpen(true)}
+            title="Block Bed"
+            data-testid={`button-block-bed-${bed.id}`}
+          ><Ban className="w-2.5 h-2.5" /></button>
+        )}
+        {isBlocked && onUnblock && (
+          <button
+            className="bg-emerald-600 text-white rounded-full w-4 h-4 flex items-center justify-center hover:bg-emerald-700"
+            onClick={() => setUnblockOpen(true)}
+            title="Unblock Bed"
+            data-testid={`button-unblock-bed-${bed.id}`}
+          ><Unlock className="w-2.5 h-2.5" /></button>
+        )}
         <button className="bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] hover:bg-rose-600" onClick={onDelete} data-testid={`button-delete-bed-${bed.id}`}>×</button>
       </div>
-      <Select value={bed.status} onValueChange={onUpdateStatus}>
-        <SelectTrigger className="h-5 text-[9px] mt-0.5 px-1 border-slate-200" data-testid={`select-bed-status-${bed.id}`}><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value} className="text-xs">
-              <div className="flex items-center gap-1"><span className={cn("w-2 h-2 rounded-full", STATUS_COLORS[value])} />{label}</div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+
+      {!isBlocked && (
+        <Select value={bed.status} onValueChange={onUpdateStatus}>
+          <SelectTrigger className="h-5 text-[9px] mt-0.5 px-1 border-slate-200" data-testid={`select-bed-status-${bed.id}`}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(STATUS_LABELS).filter(([k]) => k !== "blocked").map(([value, label]) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                <div className="flex items-center gap-1"><span className={cn("w-2 h-2 rounded-full", STATUS_COLORS[value])} />{label}</div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {isBlocked && (
+        <div className="text-[8px] text-red-700 font-medium text-center mt-0.5 truncate max-w-14">{bed.blockedCategory || "Blocked"}</div>
+      )}
+
+      <Dialog open={blockOpen} onOpenChange={setBlockOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-600" />Block Bed {bed.bedNumber}</DialogTitle>
+            <DialogDescription>This bed will be unavailable for booking until unblocked.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason Category</Label>
+              <Select value={blockCategory} onValueChange={setBlockCategory}>
+                <SelectTrigger data-testid="select-block-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BLOCK_CATEGORIES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (required, min 5 characters)</Label>
+              <Textarea
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="Describe why this bed is being blocked..."
+                rows={3}
+                data-testid="input-block-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBlockOpen(false); setBlockReason(""); }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (blockReason.trim().length < 5) return;
+                onBlock?.(blockReason.trim(), blockCategory);
+                setBlockOpen(false);
+                setBlockReason("");
+                setBlockCategory("Other");
+              }}
+              disabled={blockReason.trim().length < 5}
+              data-testid="button-confirm-block"
+            >
+              <Ban className="w-4 h-4 mr-2" />Block Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unblockOpen} onOpenChange={setUnblockOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Unlock className="w-5 h-5 text-emerald-600" />Unblock Bed {bed.bedNumber}</DialogTitle>
+            <DialogDescription>This will make the bed available for booking again.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {bed.blockedReason && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-xs font-medium text-red-700">Blocked Reason:</p>
+                <p className="text-sm text-red-600 mt-1">{bed.blockedReason}</p>
+                {bed.blockedCategory && <Badge variant="outline" className="mt-1 text-[10px] border-red-300 text-red-600">{bed.blockedCategory}</Badge>}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Note (optional)</Label>
+              <Textarea
+                value={unblockNote}
+                onChange={(e) => setUnblockNote(e.target.value)}
+                placeholder="Add a note about why this bed is being unblocked..."
+                rows={2}
+                data-testid="input-unblock-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setUnblockOpen(false); setUnblockNote(""); }}>Cancel</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => {
+                onUnblock?.(unblockNote.trim() || undefined);
+                setUnblockOpen(false);
+                setUnblockNote("");
+              }}
+              data-testid="button-confirm-unblock"
+            >
+              <Unlock className="w-4 h-4 mr-2" />Unblock
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

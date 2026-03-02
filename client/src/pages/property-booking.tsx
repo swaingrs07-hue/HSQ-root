@@ -607,6 +607,7 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
     occupied: { bg: "bg-red-400/70", border: "border-red-500/50", label: "Occupied", cursor: "cursor-not-allowed" },
     reserved: { bg: "bg-amber-400/70", border: "border-amber-500/50", label: "Reserved", cursor: "cursor-not-allowed" },
     maintenance: { bg: "bg-stone-300/70", border: "border-stone-400/50", label: "Maintenance", cursor: "cursor-not-allowed" },
+    blocked: { bg: "bg-red-700/70", border: "border-red-800/50", label: "Blocked", cursor: "cursor-not-allowed" },
   };
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {

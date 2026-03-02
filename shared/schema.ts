@@ -1010,7 +1010,7 @@ export type FooterSettings = typeof footerSettings.$inferSelect;
 export type InsertFooterSettings = z.infer<typeof insertFooterSettingsSchema>;
 
 // Bed status enum
-export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "reserved", "maintenance"]);
+export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "reserved", "maintenance", "blocked"]);
 
 // Floors table (for floor-wise property management)
 export const floors = pgTable("floors", {
@@ -1050,6 +1050,28 @@ export const beds = pgTable("beds", {
   status: bedStatusEnum("status").default("available").notNull(),
   monthlyPrice: integer("monthly_price"),
   position: jsonb("position"),
+  blockedReason: text("blocked_reason"),
+  blockedCategory: text("blocked_category"),
+  blockedAt: timestamp("blocked_at"),
+  blockedBy: varchar("blocked_by"),
+  unblockedAt: timestamp("unblocked_at"),
+  unblockedBy: varchar("unblocked_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bed block action enum
+export const bedBlockActionEnum = pgEnum("bed_block_action", ["block", "unblock"]);
+
+// Bed block logs table (audit trail)
+export const bedBlockLogs = pgTable("bed_block_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bedId: varchar("bed_id").references(() => beds.id).notNull(),
+  action: bedBlockActionEnum("action").notNull(),
+  reason: text("reason"),
+  category: text("category"),
+  note: text("note"),
+  adminId: varchar("admin_id"),
+  adminEmail: text("admin_email"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1084,6 +1106,10 @@ export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export const insertBedSchema = createInsertSchema(beds).omit({ id: true, createdAt: true });
 export type Bed = typeof beds.$inferSelect;
 export type InsertBed = z.infer<typeof insertBedSchema>;
+
+export const insertBedBlockLogSchema = createInsertSchema(bedBlockLogs).omit({ id: true, createdAt: true });
+export type BedBlockLog = typeof bedBlockLogs.$inferSelect;
+export type InsertBedBlockLog = z.infer<typeof insertBedBlockLogSchema>;
 
 // Re-export chat models for AI integrations
 export * from "./models/chat";

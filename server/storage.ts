@@ -30,6 +30,7 @@ import {
   floors,
   rooms,
   beds,
+  bedBlockLogs,
   type User,
   type InsertUser,
   type Student,
@@ -77,6 +78,8 @@ import {
   type Room,
   type InsertRoom,
   type Bed,
+  type BedBlockLog,
+  type InsertBedBlockLog,
   type InsertBed,
 } from "@shared/schema";
 import { db } from "./db";
@@ -1909,6 +1912,58 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBed(id: string): Promise<void> {
     await db.delete(beds).where(eq(beds.id, id));
+  }
+
+  async getBed(id: string): Promise<Bed | undefined> {
+    const [bed] = await db.select().from(beds).where(eq(beds.id, id));
+    return bed || undefined;
+  }
+
+  async blockBed(bedId: string, reason: string, category: string | null, adminId: string, adminEmail: string): Promise<Bed | undefined> {
+    const [updated] = await db.update(beds).set({
+      status: "blocked" as any,
+      blockedReason: reason,
+      blockedCategory: category,
+      blockedAt: new Date(),
+      blockedBy: adminEmail,
+      unblockedAt: null,
+      unblockedBy: null,
+    }).where(eq(beds.id, bedId)).returning();
+
+    await db.insert(bedBlockLogs).values({
+      bedId,
+      action: "block",
+      reason,
+      category,
+      adminId,
+      adminEmail,
+    });
+
+    return updated || undefined;
+  }
+
+  async unblockBed(bedId: string, note: string | null, adminId: string, adminEmail: string): Promise<Bed | undefined> {
+    const [updated] = await db.update(beds).set({
+      status: "available" as any,
+      blockedReason: null,
+      blockedCategory: null,
+      unblockedAt: new Date(),
+      unblockedBy: adminEmail,
+    }).where(eq(beds.id, bedId)).returning();
+
+    await db.insert(bedBlockLogs).values({
+      bedId,
+      action: "unblock",
+      note,
+      adminId,
+      adminEmail,
+    });
+
+    return updated || undefined;
+  }
+
+  async getBedBlockLogs(bedId: string): Promise<BedBlockLog[]> {
+    return await db.select().from(bedBlockLogs).where(eq(bedBlockLogs.bedId, bedId)).orderBy(desc(bedBlockLogs.createdAt));
   }
 }
 

@@ -5928,14 +5928,90 @@ export async function registerRoutes(
   app.patch("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { status } = req.body;
-      if (!status || !["available", "occupied", "reserved", "maintenance"].includes(status)) {
-        return res.status(400).json({ error: "Invalid status. Must be one of: available, occupied, reserved, maintenance" });
+      if (!status || !["available", "occupied", "reserved", "maintenance", "blocked"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be one of: available, occupied, reserved, maintenance, blocked" });
       }
       const updated = await storage.updateBedStatus(req.params.id, status);
       if (!updated) return res.status(404).json({ error: "Bed not found" });
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to update bed" });
+    }
+  });
+
+  app.post("/api/admin/beds/:id/block", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { reason, category } = req.body;
+      if (!reason || reason.trim().length < 5) {
+        return res.status(400).json({ error: "Reason is required and must be at least 5 characters" });
+      }
+
+      const bed = await storage.getBed(req.params.id);
+      if (!bed) return res.status(404).json({ error: "Bed not found" });
+
+      if (bed.status === "occupied") {
+        return res.status(400).json({ error: "Cannot block an occupied bed. Please unassign the resident first." });
+      }
+      if (bed.status === "blocked") {
+        return res.status(400).json({ error: "Bed is already blocked" });
+      }
+
+      const updated = await storage.blockBed(
+        req.params.id,
+        reason.trim(),
+        category || null,
+        req.user!.id,
+        req.user!.email
+      );
+
+      if (bed.floorId) {
+        const allFloorBeds = await storage.getBedsByFloor(bed.floorId);
+        const availCount = allFloorBeds.filter(b => b.status === "available").length;
+        await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, bed.floorId));
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to block bed" });
+    }
+  });
+
+  app.post("/api/admin/beds/:id/unblock", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { note } = req.body || {};
+
+      const bed = await storage.getBed(req.params.id);
+      if (!bed) return res.status(404).json({ error: "Bed not found" });
+
+      if (bed.status !== "blocked") {
+        return res.status(400).json({ error: "Bed is not blocked" });
+      }
+
+      const updated = await storage.unblockBed(
+        req.params.id,
+        note || null,
+        req.user!.id,
+        req.user!.email
+      );
+
+      if (bed.floorId) {
+        const allFloorBeds = await storage.getBedsByFloor(bed.floorId);
+        const availCount = allFloorBeds.filter(b => b.status === "available").length;
+        await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, bed.floorId));
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to unblock bed" });
+    }
+  });
+
+  app.get("/api/admin/beds/:id/block-logs", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const logs = await storage.getBedBlockLogs(req.params.id);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch block logs" });
     }
   });
 
