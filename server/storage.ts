@@ -640,8 +640,17 @@ export class DatabaseStorage implements IStorage {
     const booking = await this.getBooking(id);
     if (!booking) return undefined;
     
-    // If bed was allocated, release it
-    if (booking.bedAllocated) {
+    // Release the bed if one was assigned
+    if (booking.bedId) {
+      await this.updateBedStatus(booking.bedId, "available");
+      await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
+
+      if (booking.floorId) {
+        const floorBeds = await this.getBedsByFloor(booking.floorId);
+        const availCount = floorBeds.filter(b => b.status === "available").length;
+        await db.update(floors).set({ availableBeds: availCount }).where(eq(floors.id, booking.floorId));
+      }
+    } else if (booking.bedAllocated) {
       await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
     }
     
@@ -649,6 +658,9 @@ export class DatabaseStorage implements IStorage {
       .update(bookings)
       .set({
         status: "cancelled",
+        bedId: null,
+        floorId: null,
+        roomId: null,
         rejectionReason: reason,
         updatedAt: new Date(),
       })

@@ -2844,6 +2844,8 @@ export async function registerRoutes(
         walkInEmail,
         propertyId,
         roomTypeId,
+        bedId,
+        floorId,
         stayPlanType,
         checkInDate,
         checkOutDate,
@@ -2865,6 +2867,23 @@ export async function registerRoutes(
       const roomType = await storage.getRoomType(roomTypeId);
       if (!roomType || roomType.availableBeds <= 0) {
         return res.status(400).json({ error: "No beds available for this room type" });
+      }
+
+      // Validate bed availability if bedId provided
+      let resolvedBedId: string | null = bedId || null;
+      let resolvedFloorId: string | null = floorId || null;
+      let resolvedRoomId: string | null = null;
+
+      if (resolvedBedId) {
+        const bed = await storage.getBed(resolvedBedId);
+        if (!bed) {
+          return res.status(400).json({ error: "Selected bed not found" });
+        }
+        if (bed.status !== "available") {
+          return res.status(400).json({ error: "Selected bed is no longer available. Please choose another bed." });
+        }
+        resolvedFloorId = bed.floorId || resolvedFloorId;
+        resolvedRoomId = bed.roomId || null;
       }
 
       // Calculate total fee
@@ -2901,6 +2920,9 @@ export async function registerRoutes(
         walkInEmail: walkInEmail || null,
         propertyId,
         roomTypeId,
+        bedId: resolvedBedId,
+        floorId: resolvedFloorId,
+        roomId: resolvedRoomId,
         stayPlanType: stayPlanType || "academic_year",
         checkInDate: checkInDate || null,
         checkOutDate: checkOutDate || null,
@@ -2923,6 +2945,18 @@ export async function registerRoutes(
         signatureData: null,
         residentDetails: residentDetails || null,
       });
+
+      // Mark the bed as reserved and update availability counts
+      if (resolvedBedId) {
+        await storage.updateBedStatus(resolvedBedId, "reserved");
+        await storage.updateRoomTypeAvailability(roomTypeId, -1);
+
+        if (resolvedFloorId) {
+          const floorBeds = await storage.getBedsByFloor(resolvedFloorId);
+          const availCount = floorBeds.filter(b => b.status === "available").length;
+          await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, resolvedFloorId));
+        }
+      }
 
       // Create installment records based on payment type
       const installmentRecords: any[] = [];
