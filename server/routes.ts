@@ -7089,5 +7089,514 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SEASON / BATCH MANAGEMENT ============
+
+  const insertSeasonBodySchema = z.object({
+    name: z.string().min(1),
+    startDate: z.string(),
+    endDate: z.string(),
+    graceDays: z.number().int().min(0).optional().default(30),
+    status: z.enum(["UPCOMING", "ACTIVE", "ENDED"]).optional().default("UPCOMING"),
+    nextSeasonId: z.string().nullable().optional(),
+  });
+
+  app.get("/api/admin/seasons", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const allSeasons = await db.select().from(schema.seasons).orderBy(sql`${schema.seasons.startDate} DESC`);
+      res.json(allSeasons);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch seasons" });
+    }
+  });
+
+  app.post("/api/admin/seasons", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const parsed = insertSeasonBodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid season data", details: parsed.error.format() });
+
+      const { name, startDate, endDate, graceDays, status, nextSeasonId } = parsed.data;
+
+      if (new Date(startDate) >= new Date(endDate)) {
+        return res.status(400).json({ error: "Start date must be before end date" });
+      }
+
+      if (status === "ACTIVE") {
+        const existing = await db.select().from(schema.seasons).where(eq(schema.seasons.status, "ACTIVE"));
+        if (existing.length > 0) {
+          return res.status(400).json({ error: "Only one season can be ACTIVE at a time. End the current active season first." });
+        }
+      }
+
+      const [season] = await db.insert(schema.seasons).values({
+        name,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        graceDays: graceDays ?? 30,
+        status: status ?? "UPCOMING",
+        nextSeasonId: nextSeasonId ?? null,
+      }).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "CREATE",
+        entityType: "BOOKING",
+        entityId: season.id,
+        entityLabel: `Season: ${season.name}`,
+        metadata: { seasonName: season.name, status: season.status },
+      });
+
+      res.status(201).json(season);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create season" });
+    }
+  });
+
+  app.put("/api/admin/seasons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [existing] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Season not found" });
+
+      const updateData: any = { updatedAt: new Date() };
+      if (req.body.name !== undefined) updateData.name = req.body.name;
+      if (req.body.startDate !== undefined) updateData.startDate = new Date(req.body.startDate);
+      if (req.body.endDate !== undefined) updateData.endDate = new Date(req.body.endDate);
+      if (req.body.graceDays !== undefined) updateData.graceDays = req.body.graceDays;
+      if (req.body.nextSeasonId !== undefined) updateData.nextSeasonId = req.body.nextSeasonId;
+
+      const [updated] = await db.update(schema.seasons).set(updateData).where(eq(schema.seasons.id, req.params.id)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: updated.id,
+        entityLabel: `Season: ${updated.name}`,
+        metadata: { changes: Object.keys(updateData) },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update season" });
+    }
+  });
+
+  app.delete("/api/admin/seasons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [existing] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Season not found" });
+      if (existing.status !== "UPCOMING") return res.status(400).json({ error: "Only UPCOMING seasons can be deleted" });
+
+      const jobs = await db.select().from(schema.seasonCloseJobs).where(eq(schema.seasonCloseJobs.seasonId, req.params.id));
+      if (jobs.length > 0) return res.status(400).json({ error: "Cannot delete season with existing close jobs" });
+
+      await db.delete(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "DELETE",
+        entityType: "BOOKING",
+        entityId: existing.id,
+        entityLabel: `Season: ${existing.name}`,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete season" });
+    }
+  });
+
+  app.post("/api/admin/seasons/:id/activate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [existing] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Season not found" });
+
+      const activeSeasons = await db.select().from(schema.seasons).where(eq(schema.seasons.status, "ACTIVE"));
+      for (const active of activeSeasons) {
+        await db.update(schema.seasons).set({ status: "ENDED", updatedAt: new Date() }).where(eq(schema.seasons.id, active.id));
+      }
+
+      const [activated] = await db.update(schema.seasons).set({ status: "ACTIVE", updatedAt: new Date() }).where(eq(schema.seasons.id, req.params.id)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "STATUS_CHANGE",
+        entityType: "BOOKING",
+        entityId: activated.id,
+        entityLabel: `Season: ${activated.name}`,
+        metadata: { from: existing.status, to: "ACTIVE", endedSeasons: activeSeasons.map(s => s.name) },
+      });
+
+      res.json(activated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to activate season" });
+    }
+  });
+
+  app.post("/api/admin/seasons/:id/end", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [existing] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Season not found" });
+
+      const [ended] = await db.update(schema.seasons).set({ status: "ENDED", updatedAt: new Date() }).where(eq(schema.seasons.id, req.params.id)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "STATUS_CHANGE",
+        entityType: "BOOKING",
+        entityId: ended.id,
+        entityLabel: `Season: ${ended.name}`,
+        metadata: { from: existing.status, to: "ENDED" },
+      });
+
+      res.json(ended);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to end season" });
+    }
+  });
+
+  app.get("/api/admin/seasons/:id/residents", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const residents = await db.select({
+        id: schema.residentSeasonStatus.id,
+        bookingId: schema.residentSeasonStatus.bookingId,
+        seasonId: schema.residentSeasonStatus.seasonId,
+        status: schema.residentSeasonStatus.status,
+        graceUntil: schema.residentSeasonStatus.graceUntil,
+        decisionReason: schema.residentSeasonStatus.decisionReason,
+        updatedBy: schema.residentSeasonStatus.updatedBy,
+        createdAt: schema.residentSeasonStatus.createdAt,
+        updatedAt: schema.residentSeasonStatus.updatedAt,
+        bookingCode: schema.bookings.bookingCode,
+        walkInName: schema.bookings.walkInName,
+        walkInPhone: schema.bookings.walkInPhone,
+        propertyId: schema.bookings.propertyId,
+        roomTypeId: schema.bookings.roomTypeId,
+        bookingStatus: schema.bookings.status,
+        bedId: schema.bookings.bedId,
+        floorId: schema.bookings.floorId,
+        roomId: schema.bookings.roomId,
+        residentDetails: schema.bookings.residentDetails,
+      })
+      .from(schema.residentSeasonStatus)
+      .innerJoin(schema.bookings, eq(schema.residentSeasonStatus.bookingId, schema.bookings.id))
+      .where(eq(schema.residentSeasonStatus.seasonId, req.params.id))
+      .orderBy(schema.residentSeasonStatus.createdAt);
+
+      res.json(residents);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch residents" });
+    }
+  });
+
+  app.put("/api/admin/seasons/residents/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [existing] = await db.select().from(schema.residentSeasonStatus).where(eq(schema.residentSeasonStatus.id, req.params.id));
+      if (!existing) return res.status(404).json({ error: "Resident season status not found" });
+
+      const updateData: any = { updatedAt: new Date(), updatedBy: req.user!.userId };
+      if (req.body.status !== undefined) updateData.status = req.body.status;
+      if (req.body.decisionReason !== undefined) updateData.decisionReason = req.body.decisionReason;
+      if (req.body.graceUntil !== undefined) updateData.graceUntil = req.body.graceUntil ? new Date(req.body.graceUntil) : null;
+
+      const [updated] = await db.update(schema.residentSeasonStatus).set(updateData).where(eq(schema.residentSeasonStatus.id, req.params.id)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: updated.id,
+        entityLabel: `Resident Status for booking ${existing.bookingId}`,
+        metadata: { previousStatus: existing.status, newStatus: updated.status },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update resident status" });
+    }
+  });
+
+  app.post("/api/admin/seasons/:id/bulk-update-residents", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { residentIds, status, decisionReason } = req.body;
+      if (!Array.isArray(residentIds) || residentIds.length === 0) {
+        return res.status(400).json({ error: "residentIds must be a non-empty array" });
+      }
+      if (!status || !["RETAINED", "NOT_RETAINED", "PENDING"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const updated = await db.update(schema.residentSeasonStatus)
+        .set({
+          status,
+          decisionReason: decisionReason || null,
+          updatedBy: req.user!.userId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          inArray(schema.residentSeasonStatus.id, residentIds),
+          eq(schema.residentSeasonStatus.seasonId, req.params.id)
+        ))
+        .returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: req.params.id,
+        entityLabel: `Bulk resident update for season`,
+        metadata: { count: updated.length, newStatus: status },
+      });
+
+      res.json({ updated: updated.length, records: updated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to bulk update residents" });
+    }
+  });
+
+  app.post("/api/admin/seasons/:id/generate-close-job", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!season) return res.status(404).json({ error: "Season not found" });
+
+      const activeBookings = await db.select().from(schema.bookings)
+        .where(and(
+          inArray(schema.bookings.status, ["active", "confirmed"]),
+        ));
+
+      const residentStatuses = await db.select().from(schema.residentSeasonStatus)
+        .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
+
+      const statusMap = new Map(residentStatuses.map(rs => [rs.bookingId, rs]));
+
+      const [job] = await db.insert(schema.seasonCloseJobs).values({
+        seasonId: req.params.id,
+        nextSeasonId: season.nextSeasonId || null,
+        status: "PREVIEW",
+        generatedAt: new Date(),
+        syncStatus: "pending",
+      }).returning();
+
+      const jobItems = [];
+      for (const booking of activeBookings) {
+        const rs = statusMap.get(booking.id);
+        const residentName = booking.walkInName || (booking.residentDetails as any)?.name || booking.bookingCode || "Unknown";
+        const roomInfo = [booking.floorId, booking.roomId, booking.bedId].filter(Boolean).join(" / ") || "Unassigned";
+
+        const [item] = await db.insert(schema.seasonCloseJobItems).values({
+          jobId: job.id,
+          bookingId: booking.id,
+          residentName,
+          roomInfo,
+          finalStatus: rs?.status || "PENDING",
+          graceUntil: rs?.graceUntil || null,
+          note: rs?.decisionReason || null,
+        }).returning();
+
+        jobItems.push(item);
+      }
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "CREATE",
+        entityType: "BOOKING",
+        entityId: job.id,
+        entityLabel: `Season Close Job for ${season.name}`,
+        metadata: { seasonId: season.id, itemCount: jobItems.length },
+      });
+
+      res.status(201).json({ job, items: jobItems });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to generate close job" });
+    }
+  });
+
+  app.get("/api/admin/seasons/close-jobs/:jobId", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [job] = await db.select().from(schema.seasonCloseJobs).where(eq(schema.seasonCloseJobs.id, req.params.jobId));
+      if (!job) return res.status(404).json({ error: "Close job not found" });
+
+      const items = await db.select().from(schema.seasonCloseJobItems)
+        .where(eq(schema.seasonCloseJobItems.jobId, req.params.jobId))
+        .orderBy(schema.seasonCloseJobItems.finalStatus);
+
+      const grouped: Record<string, typeof items> = { RETAINED: [], NOT_RETAINED: [], PENDING: [] };
+      for (const item of items) {
+        const key = item.finalStatus || "PENDING";
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(item);
+      }
+
+      res.json({ job, items, grouped });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch close job" });
+    }
+  });
+
+  app.post("/api/admin/seasons/close-jobs/:jobId/apply", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [job] = await db.select().from(schema.seasonCloseJobs).where(eq(schema.seasonCloseJobs.id, req.params.jobId));
+      if (!job) return res.status(404).json({ error: "Close job not found" });
+      if (job.status === "APPLIED") return res.status(400).json({ error: "Job already applied" });
+
+      const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, job.seasonId));
+
+      const syncPayload = {
+        eventId: `season-close-${job.id}`,
+        jobId: job.id,
+        seasonId: job.seasonId,
+        nextSeasonId: job.nextSeasonId,
+        generatedAt: job.generatedAt,
+      };
+
+      let syncResponse: any = null;
+      let syncStatus = "pending";
+      let errorMessage: string | null = null;
+
+      try {
+        const protocol = req.protocol;
+        const host = req.get("host");
+        const syncResult = await fetch(`${protocol}://${host}/api/sync/season-close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Internal-Token": "hsquare-internal-sync" },
+          body: JSON.stringify(syncPayload),
+        });
+        syncResponse = await syncResult.json();
+        syncStatus = syncResult.ok ? "synced" : "failed";
+        if (!syncResult.ok) errorMessage = syncResponse.error || "Sync failed";
+      } catch (syncError: any) {
+        syncStatus = "failed";
+        errorMessage = syncError.message || "Sync request failed";
+      }
+
+      const [updated] = await db.update(schema.seasonCloseJobs).set({
+        status: syncStatus === "synced" ? "APPLIED" : "FAILED",
+        appliedAt: new Date(),
+        appliedBy: req.user!.userId,
+        syncPayload,
+        syncResponse,
+        syncStatus,
+        errorMessage,
+      }).where(eq(schema.seasonCloseJobs.id, req.params.jobId)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "STATUS_CHANGE",
+        entityType: "BOOKING",
+        entityId: job.id,
+        entityLabel: `Season Close Job Applied for ${season?.name || job.seasonId}`,
+        metadata: { syncStatus, errorMessage },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to apply close job" });
+    }
+  });
+
+  app.post("/api/admin/seasons/close-jobs/:jobId/retry-sync", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [job] = await db.select().from(schema.seasonCloseJobs).where(eq(schema.seasonCloseJobs.id, req.params.jobId));
+      if (!job) return res.status(404).json({ error: "Close job not found" });
+      if (job.syncStatus !== "failed") return res.status(400).json({ error: "Only failed syncs can be retried" });
+
+      const syncPayload = job.syncPayload || {
+        eventId: `season-close-${job.id}`,
+        jobId: job.id,
+        seasonId: job.seasonId,
+        nextSeasonId: job.nextSeasonId,
+        generatedAt: job.generatedAt,
+      };
+
+      let syncResponse: any = null;
+      let syncStatus = "pending";
+      let errorMessage: string | null = null;
+
+      try {
+        const protocol = req.protocol;
+        const host = req.get("host");
+        const syncResult = await fetch(`${protocol}://${host}/api/sync/season-close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Internal-Token": "hsquare-internal-sync" },
+          body: JSON.stringify(syncPayload),
+        });
+        syncResponse = await syncResult.json();
+        syncStatus = syncResult.ok ? "synced" : "failed";
+        if (!syncResult.ok) errorMessage = syncResponse.error || "Sync failed";
+      } catch (syncError: any) {
+        syncStatus = "failed";
+        errorMessage = syncError.message || "Sync request failed";
+      }
+
+      const [updated] = await db.update(schema.seasonCloseJobs).set({
+        status: syncStatus === "synced" ? "APPLIED" : "FAILED",
+        syncPayload,
+        syncResponse,
+        syncStatus,
+        syncRetries: (job.syncRetries || 0) + 1,
+        errorMessage,
+      }).where(eq(schema.seasonCloseJobs.id, req.params.jobId)).returning();
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: job.id,
+        entityLabel: `Season Close Job Retry Sync`,
+        metadata: { syncStatus, retryCount: updated.syncRetries, errorMessage },
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to retry sync" });
+    }
+  });
+
+  app.get("/api/admin/seasons/:id/close-jobs", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const jobs = await db.select().from(schema.seasonCloseJobs)
+        .where(eq(schema.seasonCloseJobs.seasonId, req.params.id))
+        .orderBy(sql`${schema.seasonCloseJobs.generatedAt} DESC`);
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch close jobs" });
+    }
+  });
+
+  app.post("/api/sync/season-close", async (req: Request, res: Response) => {
+    try {
+      const internalToken = req.headers["x-internal-token"];
+      if (internalToken !== "hsquare-internal-sync") {
+        return res.status(403).json({ error: "Forbidden: internal endpoint" });
+      }
+      const { eventId, jobId, seasonId, nextSeasonId } = req.body;
+      if (!jobId || !seasonId) {
+        return res.status(400).json({ error: "jobId and seasonId are required" });
+      }
+
+      const items = await db.select().from(schema.seasonCloseJobItems)
+        .where(eq(schema.seasonCloseJobItems.jobId, jobId));
+
+      let processedCount = 0;
+      for (const item of items) {
+        if (item.finalStatus === "NOT_RETAINED") {
+          await db.update(schema.bookings)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(eq(schema.bookings.id, item.bookingId));
+          processedCount++;
+        }
+      }
+
+      res.json({
+        success: true,
+        eventId,
+        processedCount,
+        totalItems: items.length,
+        message: `Processed ${processedCount} bookings for season close`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Sync processing failed" });
+    }
+  });
+
   return httpServer;
 }

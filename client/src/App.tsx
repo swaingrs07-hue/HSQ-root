@@ -43,6 +43,7 @@ import AdminFloorsBeds from "@/pages/admin-floors-beds";
 import AdminVirtualTour from "@/pages/admin-virtual-tour";
 import AdminBookingTree from "@/pages/admin-booking-tree";
 import AdminPackages from "@/pages/admin-packages";
+import AdminSeasons from "@/pages/admin-seasons";
 import PropertyBooking from "@/pages/property-booking";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
@@ -84,6 +85,7 @@ function AppContent() {
               <Route path="/admin/booking-tree" component={AdminBookingTree} />
               <Route path="/admin/virtual-tour-uploads" component={AdminVirtualTour} />
               <Route path="/admin/packages" component={AdminPackages} />
+              <Route path="/admin/seasons" component={AdminSeasons} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />

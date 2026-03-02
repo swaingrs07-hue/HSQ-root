@@ -80,6 +80,16 @@ Preferred communication style: Simple, everyday language.
 - **Public API**: `GET /api/properties/:propertyId/plans` returns active plans with features
 - **Booking Integration**: Attach/detach plans to bookings, track usage with progress bars, calculate extra charges, and manage an Ala Carte wallet
 
+#### Season/Batch CRM Module
+- **Admin Route**: `/admin/seasons` — manage academic seasons/batches as CRM source-of-truth
+- **Schema**: `seasons` table (name, startDate, endDate, graceDays, status: UPCOMING/ACTIVE/ENDED, nextSeasonId), `resident_season_status` (bookingId, seasonId, status: RETAINED/NOT_RETAINED/PENDING, graceUntil, decisionReason), `season_close_jobs` + `season_close_job_items` for End Season flow
+- **Season CRUD**: Create, update, delete, activate (auto-ends previous ACTIVE), end seasons; only one ACTIVE allowed
+- **Resident Tracking**: Per-season resident status management with bulk update, individual status changes, grace period tracking
+- **End Season Flow**: Generate Close Report (snapshots all active bookings into job items) → Preview (grouped by RETAINED/NOT_RETAINED/PENDING) → Apply & Sync (calls internal `/api/sync/season-close` endpoint to process bookings) → Retry on failure
+- **HMS Sync**: Internal endpoint processes season close by completing NOT_RETAINED bookings; secured with internal token
+- **Audit Logging**: All season operations logged via `logActivity`
+- **API Endpoints**: ~15 endpoints under `/api/admin/seasons/` for full lifecycle management
+
 #### Instagram Live Feed
 - **Integration**: Instagram Graph API for displaying recent posts.
 - **Caching**: Daily caching of posts in the database for performance.

@@ -1256,5 +1256,99 @@ export const insertWalletLedgerSchema = createInsertSchema(walletLedger).omit({ 
 export type WalletLedgerEntry = typeof walletLedger.$inferSelect;
 export type InsertWalletLedger = z.infer<typeof insertWalletLedgerSchema>;
 
+// ============ SEASON / BATCH MANAGEMENT ============
+
+export const seasonStatusEnum = pgEnum("season_status", ["UPCOMING", "ACTIVE", "ENDED"]);
+export const residentSeasonStatusEnum = pgEnum("resident_season_status_enum", ["RETAINED", "NOT_RETAINED", "PENDING"]);
+export const seasonCloseJobStatusEnum = pgEnum("season_close_job_status", ["PREVIEW", "APPLIED", "FAILED"]);
+
+export const seasons = pgTable("seasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  graceDays: integer("grace_days").notNull().default(30),
+  status: seasonStatusEnum("status").notNull().default("UPCOMING"),
+  nextSeasonId: varchar("next_season_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const residentSeasonStatus = pgTable("resident_season_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
+  seasonId: varchar("season_id").references(() => seasons.id, { onDelete: "cascade" }).notNull(),
+  status: residentSeasonStatusEnum("status").notNull().default("PENDING"),
+  graceUntil: timestamp("grace_until"),
+  decisionReason: text("decision_reason"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const seasonCloseJobs = pgTable("season_close_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  seasonId: varchar("season_id").references(() => seasons.id, { onDelete: "cascade" }).notNull(),
+  nextSeasonId: varchar("next_season_id").references(() => seasons.id),
+  status: seasonCloseJobStatusEnum("status").notNull().default("PREVIEW"),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  appliedAt: timestamp("applied_at"),
+  appliedBy: varchar("applied_by").references(() => users.id),
+  syncPayload: jsonb("sync_payload"),
+  syncResponse: jsonb("sync_response"),
+  syncRetries: integer("sync_retries").notNull().default(0),
+  syncStatus: text("sync_status"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const seasonCloseJobItems = pgTable("season_close_job_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").references(() => seasonCloseJobs.id, { onDelete: "cascade" }).notNull(),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  residentName: text("resident_name").notNull(),
+  roomInfo: text("room_info"),
+  finalStatus: residentSeasonStatusEnum("final_status").notNull().default("PENDING"),
+  graceUntil: timestamp("grace_until"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const seasonsRelations = relations(seasons, ({ many }) => ({
+  residentStatuses: many(residentSeasonStatus),
+  closeJobs: many(seasonCloseJobs),
+}));
+
+export const residentSeasonStatusRelations = relations(residentSeasonStatus, ({ one }) => ({
+  booking: one(bookings, { fields: [residentSeasonStatus.bookingId], references: [bookings.id] }),
+  season: one(seasons, { fields: [residentSeasonStatus.seasonId], references: [seasons.id] }),
+}));
+
+export const seasonCloseJobsRelations = relations(seasonCloseJobs, ({ one, many }) => ({
+  season: one(seasons, { fields: [seasonCloseJobs.seasonId], references: [seasons.id] }),
+  items: many(seasonCloseJobItems),
+}));
+
+export const seasonCloseJobItemsRelations = relations(seasonCloseJobItems, ({ one }) => ({
+  job: one(seasonCloseJobs, { fields: [seasonCloseJobItems.jobId], references: [seasonCloseJobs.id] }),
+  booking: one(bookings, { fields: [seasonCloseJobItems.bookingId], references: [bookings.id] }),
+}));
+
+export const insertSeasonSchema = createInsertSchema(seasons).omit({ id: true, createdAt: true, updatedAt: true });
+export type Season = typeof seasons.$inferSelect;
+export type InsertSeason = z.infer<typeof insertSeasonSchema>;
+
+export const insertResidentSeasonStatusSchema = createInsertSchema(residentSeasonStatus).omit({ id: true, createdAt: true, updatedAt: true });
+export type ResidentSeasonStatusRecord = typeof residentSeasonStatus.$inferSelect;
+export type InsertResidentSeasonStatus = z.infer<typeof insertResidentSeasonStatusSchema>;
+
+export const insertSeasonCloseJobSchema = createInsertSchema(seasonCloseJobs).omit({ id: true, createdAt: true });
+export type SeasonCloseJob = typeof seasonCloseJobs.$inferSelect;
+export type InsertSeasonCloseJob = z.infer<typeof insertSeasonCloseJobSchema>;
+
+export const insertSeasonCloseJobItemSchema = createInsertSchema(seasonCloseJobItems).omit({ id: true, createdAt: true });
+export type SeasonCloseJobItem = typeof seasonCloseJobItems.$inferSelect;
+export type InsertSeasonCloseJobItem = z.infer<typeof insertSeasonCloseJobItemSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

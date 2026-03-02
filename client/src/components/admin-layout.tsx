@@ -95,6 +95,7 @@ const adminNavItems: NavItem[] = [
   { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
   { name: "Housing Plans", href: "/admin/packages", icon: Package },
+  { name: "Seasons", href: "/admin/seasons", icon: Calendar },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
