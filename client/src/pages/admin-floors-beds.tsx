@@ -500,26 +500,35 @@ export default function AdminFloorsBeds() {
                   <Switch checked={newRoom.hasSharedWashroom} onCheckedChange={(v) => setNewRoom(prev => ({ ...prev, hasSharedWashroom: v }))} data-testid="switch-shared-washroom" />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Monthly Price (per bed, optional)</Label>
-                  <Input type="number" placeholder="Auto from room type" value={newRoom.monthlyPrice} onChange={(e) => setNewRoom(prev => ({ ...prev, monthlyPrice: e.target.value }))} data-testid="input-room-price" />
-                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAddRoomOpen(false)}>Cancel</Button>
                 <Button
                   onClick={() => {
-                    if (!newRoom.roomNumber || !newRoom.roomTypeId) {
-                      toast({ title: "Please fill room number and type", variant: "destructive" });
+                    if (!newRoom.roomNumber) {
+                      toast({ title: "Please fill room number", variant: "destructive" });
+                      return;
+                    }
+                    let resolvedTypeId = newRoom.roomTypeId;
+                    if (!resolvedTypeId && roomTypeSearch.trim()) {
+                      const match = (roomTypes || []).find(rt =>
+                        (rt.customName || rt.name).toLowerCase() === roomTypeSearch.trim().toLowerCase()
+                      );
+                      if (match) {
+                        resolvedTypeId = match.id;
+                      }
+                    }
+                    if (!resolvedTypeId) {
+                      toast({ title: "Please select a valid room type from the list", description: roomTypeSearch ? `"${roomTypeSearch}" doesn't match any room type. Click an option from the dropdown.` : "Click the Room Type field and pick one.", variant: "destructive" });
                       return;
                     }
                     createRoomMutation.mutate({
                       floorId: selectedFloorId,
                       roomNumber: newRoom.roomNumber,
-                      roomTypeId: newRoom.roomTypeId,
+                      roomTypeId: resolvedTypeId,
                       typology: newRoom.typology,
                       hasSharedWashroom: newRoom.hasSharedWashroom,
-                      monthlyPrice: newRoom.monthlyPrice ? parseInt(newRoom.monthlyPrice) : null,
+                      monthlyPrice: null,
                     });
                   }}
                   disabled={createRoomMutation.isPending}
