@@ -434,15 +434,18 @@ export default function AdminFloorsBeds() {
                         >×</button>
                       )}
                     </div>
-                    {roomTypeDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                        {(roomTypes || [])
-                          .filter(rt => {
-                            if (!roomTypeSearch) return true;
-                            const label = (rt.customName || rt.name).toLowerCase();
-                            return label.includes(roomTypeSearch.toLowerCase());
-                          })
-                          .map(rt => (
+                    {roomTypeDropdownOpen && (() => {
+                      const q = roomTypeSearch.toLowerCase().trim();
+                      const filtered = (roomTypes || []).filter(rt => {
+                        if (!q) return true;
+                        const name = rt.name.toLowerCase();
+                        const custom = (rt.customName || "").toLowerCase();
+                        return name.includes(q) || custom.includes(q);
+                      });
+                      const rtLabel = (rt: RoomType) => rt.customName ? `${rt.name} — ${rt.customName}` : rt.name;
+                      return (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {filtered.map(rt => (
                             <button
                               key={rt.id}
                               type="button"
@@ -453,23 +456,21 @@ export default function AdminFloorsBeds() {
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 setNewRoom(prev => ({ ...prev, roomTypeId: rt.id }));
-                                setRoomTypeSearch(rt.customName || rt.name);
+                                setRoomTypeSearch(rtLabel(rt));
                                 setRoomTypeDropdownOpen(false);
                               }}
                               data-testid={`option-room-type-${rt.id}`}
                             >
-                              <span>{rt.customName || rt.name}</span>
+                              <span>{rtLabel(rt)}</span>
                               <span className="text-xs text-slate-400 ml-2">₹{rt.basePrice?.toLocaleString()}/mo · {rt.occupancy} occ</span>
                             </button>
                           ))}
-                        {(roomTypes || []).filter(rt => {
-                          if (!roomTypeSearch) return true;
-                          return (rt.customName || rt.name).toLowerCase().includes(roomTypeSearch.toLowerCase());
-                        }).length === 0 && (
-                          <p className="px-3 py-2 text-sm text-slate-400">No matching room types</p>
-                        )}
-                      </div>
-                    )}
+                          {filtered.length === 0 && (
+                            <p className="px-3 py-2 text-sm text-slate-400">No matching room types</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -511,15 +512,18 @@ export default function AdminFloorsBeds() {
                     }
                     let resolvedTypeId = newRoom.roomTypeId;
                     if (!resolvedTypeId && roomTypeSearch.trim()) {
-                      const match = (roomTypes || []).find(rt =>
-                        (rt.customName || rt.name).toLowerCase() === roomTypeSearch.trim().toLowerCase()
-                      );
-                      if (match) {
-                        resolvedTypeId = match.id;
-                      }
+                      const q = roomTypeSearch.trim().toLowerCase();
+                      const match = (roomTypes || []).find(rt => {
+                        const name = rt.name.toLowerCase();
+                        const custom = (rt.customName || "").toLowerCase();
+                        const fullLabel = rt.customName ? `${rt.name} — ${rt.customName}`.toLowerCase() : name;
+                        return name === q || custom === q || fullLabel === q;
+                      });
+                      if (match) resolvedTypeId = match.id;
                     }
                     if (!resolvedTypeId) {
-                      toast({ title: "Please select a valid room type from the list", description: roomTypeSearch ? `"${roomTypeSearch}" doesn't match any room type. Click an option from the dropdown.` : "Click the Room Type field and pick one.", variant: "destructive" });
+                      const available = (roomTypes || []).map(rt => rt.customName ? `${rt.name} — ${rt.customName}` : rt.name).join(", ");
+                      toast({ title: "Please select a valid room type", description: roomTypeSearch ? `"${roomTypeSearch}" doesn't match. Available: ${available}` : "Click the Room Type field and pick one.", variant: "destructive" });
                       return;
                     }
                     createRoomMutation.mutate({
