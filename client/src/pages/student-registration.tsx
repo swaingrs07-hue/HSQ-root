@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Check, ChevronRight, User, MapPin, Phone, Upload, CheckCircle } from "lucide-react";
+import { Check, ChevronRight, User, MapPin, Phone, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { registerStudent } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -19,7 +19,6 @@ const registrationSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  otp: z.string().optional(),
   
   address: z.string().min(10, "Address is too short"),
   city: z.string().min(2, "City is required"),
@@ -37,8 +36,6 @@ const registrationSchema = z.object({
 
 export default function StudentRegistration() {
   const [step, setStep] = useState(1);
-  const [otpSent, setOtpSent] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -81,32 +78,9 @@ export default function StudentRegistration() {
       form.setValue("email", user.email || "");
       if (user.phone) {
         form.setValue("phone", user.phone);
-        if (user.phoneVerified) {
-          setPhoneVerified(true);
-        }
       }
     }
   }, [user, form]);
-
-  const sendOtp = () => {
-    const phone = form.getValues("phone");
-    if (phone.length < 10) {
-      toast({ title: "Error", description: "Please enter a valid phone number first", variant: "destructive" });
-      return;
-    }
-    setOtpSent(true);
-    toast({ title: "OTP Sent", description: "Your OTP is 1234 (Demo mode)" });
-  };
-
-  const verifyOtp = () => {
-    if (form.getValues("otp") === "1234") {
-      setPhoneVerified(true);
-      toast({ title: "Verified", description: "Phone number verified successfully" });
-      return true;
-    }
-    toast({ title: "Error", description: "Invalid OTP", variant: "destructive" });
-    return false;
-  };
 
   const onSubmit = async (data: z.infer<typeof registrationSchema>) => {
     try {
@@ -147,17 +121,6 @@ export default function StudentRegistration() {
       
     const isValid = await form.trigger(fields as any);
     if (isValid) {
-      if (step === 1) {
-        if (!phoneVerified) {
-          if (!otpSent) {
-            toast({ title: "Verify Phone", description: "Please verify your phone number first", variant: "destructive" });
-            return;
-          }
-          if (!verifyOtp()) {
-            return;
-          }
-        }
-      }
       setStep(step + 1);
     }
   };
@@ -223,47 +186,19 @@ export default function StudentRegistration() {
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <div className="flex gap-4 items-end">
-                      <FormField control={form.control} name="phone" render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Mobile Number</FormLabel>
-                          <div className="relative">
-                            <FormControl>
-                              <Input 
-                                placeholder="9876543210" 
-                                {...field} 
-                                readOnly={phoneVerified} 
-                                className={phoneVerified ? "bg-green-50 border-green-500 pr-10" : ""} 
-                                data-testid="input-phone" 
-                              />
-                            </FormControl>
-                            {phoneVerified && (
-                              <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
-                            )}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      {!phoneVerified && (
-                        <Button type="button" onClick={sendOtp} variant="outline" disabled={otpSent} data-testid="button-send-otp">
-                          {otpSent ? "Resend OTP" : "Send OTP"}
-                        </Button>
-                      )}
-                    </div>
-                    {phoneVerified && (
-                      <p className="text-sm text-green-600 flex items-center gap-1">
-                        <CheckCircle className="w-4 h-4" /> Mobile number verified
-                      </p>
-                    )}
-                    {otpSent && !phoneVerified && (
-                      <FormField control={form.control} name="otp" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Enter OTP</FormLabel>
-                          <FormControl><Input placeholder="1234" {...field} data-testid="input-otp" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    )}
+                    <FormField control={form.control} name="phone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mobile Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="9876543210" 
+                            {...field} 
+                            data-testid="input-phone" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   </div>
                 )}
 
