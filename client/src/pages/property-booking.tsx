@@ -11,8 +11,8 @@ import {
   Building2, MapPin, Bed, ChevronLeft, ChevronRight, Camera,
   Sparkles, Check, Phone, Mail, ArrowRight, Users,
   Layers, Clock, Shield, X, Play, Pause,
-  ChevronDown, Maximize2, Home, Grid3X3, Eye, Volume2, VolumeX,
-  ZoomIn, RotateCcw, Share2, Heart, Navigation, Compass,
+  ChevronDown, Maximize2, Home, Grid3X3, Eye,
+  ZoomIn, Navigation, Compass, Star, Wifi, Coffee,
 } from "lucide-react";
 
 function parseImages(json: string | null | undefined): string[] {
@@ -48,7 +48,6 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   const touchStartY = useRef<number | null>(null);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
 
   const getImages = useCallback((room: RoomId): string[] => {
     if (!property) return [];
@@ -179,22 +178,17 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
   if (showGrid) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={cn("bg-black/95 z-50", isFullscreen ? "fixed inset-0" : "relative")}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("bg-black/98 z-50", isFullscreen ? "fixed inset-0" : "relative")}>
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Grid3X3 className="w-5 h-5 text-amber-500" />
-            <h3 className="text-white font-heading font-bold tracking-wider uppercase text-sm">All Tour Photos</h3>
-            <span className="text-white/40 text-sm">{allImages.length} images</span>
+            <h3 className="text-white font-bold tracking-wider uppercase text-sm">All Tour Photos</h3>
+            <span className="text-white/30 text-sm">{allImages.length} images</span>
           </div>
-          <button onClick={() => setShowGrid(false)} className="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all" data-testid="button-close-grid">
+          <button onClick={() => setShowGrid(false)} className="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all" data-testid="button-close-grid" aria-label="Close photo grid">
             <X className="w-5 h-5" />
           </button>
         </div>
-
         <div className="p-4 overflow-y-auto" style={{ maxHeight: isFullscreen ? "calc(100vh - 60px)" : "600px" }}>
           {TOUR_ROOMS.map(room => {
             const roomImages = getImages(room.id);
@@ -208,13 +202,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 </div>
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {roomImages.map((img, i) => (
-                    <motion.button
-                      key={i}
-                      whileHover={{ scale: 1.03 }}
-                      onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }}
-                      className="relative aspect-[4/3] overflow-hidden group"
-                      data-testid={`grid-image-${room.id}-${i}`}
-                    >
+                    <motion.button key={i} whileHover={{ scale: 1.03 }} onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }} className="relative aspect-[4/3] overflow-hidden group rounded-lg" data-testid={`grid-image-${room.id}-${i}`}>
                       <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                         <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -232,47 +220,19 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
   if (isFullscreen) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="fixed inset-0 z-50 bg-black"
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 bg-black">
         <div className="absolute inset-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onMouseMove={handleMouseMove} ref={containerRef}>
           <AnimatePresence mode="wait">
-            <motion.div
-              key={`fs-${activeRoom}-${currentIndex}`}
-              initial={{ opacity: 0, scale: 1.02 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-              className="absolute inset-0"
-            >
-              <motion.img
-                src={images[currentIndex]}
-                alt=""
-                className="w-full h-full object-cover"
-                style={isZoomed ? {
-                  transform: `scale(2)`,
-                  transformOrigin: `${cursorPos.x}% ${cursorPos.y}%`,
-                } : {}}
-                initial={{ scale: 1.08 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 12, ease: "linear" }}
-              />
+            <motion.div key={`fs-${activeRoom}-${currentIndex}`} initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }} className="absolute inset-0">
+              <motion.img src={images[currentIndex]} alt="" className="w-full h-full object-cover" style={isZoomed ? { transform: "scale(2)", transformOrigin: `${cursorPos.x}% ${cursorPos.y}%` } : {}} initial={{ scale: 1.08 }} animate={{ scale: 1 }} transition={{ duration: 12, ease: "linear" }} />
             </motion.div>
           </AnimatePresence>
-
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
         </div>
 
         <div className="absolute top-0 left-0 right-0 z-10">
           <div className="h-[3px] bg-white/10">
-            <motion.div
-              className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-            />
+            <motion.div className="h-full bg-gradient-to-r from-amber-500 to-amber-400" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
           </div>
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
@@ -282,18 +242,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               </button>
               <div className="h-5 w-px bg-white/20" />
               <div>
-                <p className="text-white font-heading font-bold text-sm tracking-wider uppercase">{property.displayName || property.name}</p>
+                <p className="text-white font-bold text-sm tracking-wider uppercase">{property.displayName || property.name}</p>
                 <p className="text-white/40 text-xs">{currentRoom.description}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setIsZoomed(!isZoomed)} className={cn("p-2.5 rounded-full transition-all", isZoomed ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")}>
+              <button onClick={() => setIsZoomed(!isZoomed)} className={cn("p-2.5 rounded-full transition-all", isZoomed ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")} aria-label={isZoomed ? "Disable zoom" : "Enable zoom"}>
                 <ZoomIn className="w-4 h-4" />
               </button>
-              <button onClick={() => setIsPlaying(!isPlaying)} className={cn("p-2.5 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")}>
+              <button onClick={() => setIsPlaying(!isPlaying)} className={cn("p-2.5 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400" : "bg-white/10 text-white/60 hover:text-white hover:bg-white/20")} aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}>
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               </button>
-              <button onClick={() => setShowGrid(true)} className="p-2.5 rounded-full bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-all">
+              <button onClick={() => setShowGrid(true)} className="p-2.5 rounded-full bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-all" aria-label="Show photo grid">
                 <Grid3X3 className="w-4 h-4" />
               </button>
             </div>
@@ -302,20 +262,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
         {images.length > 1 && (
           <>
-            <button
-              onClick={handlePrev}
-              aria-label="Previous image"
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group"
-              data-testid="button-fs-prev"
-            >
+            <button onClick={handlePrev} aria-label="Previous image" className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-prev">
               <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
             </button>
-            <button
-              onClick={handleNext}
-              aria-label="Next image"
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group"
-              data-testid="button-fs-next"
-            >
+            <button onClick={handleNext} aria-label="Next image" className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-next">
               <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </>
@@ -328,52 +278,24 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 const hasImages = getImages(room.id).length > 0;
                 if (!hasImages) return null;
                 return (
-                  <button
-                    key={room.id}
-                    onClick={() => setActiveRoom(room.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all",
-                      activeRoom === room.id
-                        ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/30"
-                        : "text-white/50 hover:text-white hover:bg-white/10"
-                    )}
-                    data-testid={`fs-tab-${room.id}`}
-                  >
+                  <button key={room.id} onClick={() => setActiveRoom(room.id)} className={cn("flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/30" : "text-white/50 hover:text-white hover:bg-white/10")} data-testid={`fs-tab-${room.id}`}>
                     <room.icon className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">{room.label}</span>
                   </button>
                 );
               })}
             </div>
-
             <div className="flex items-center gap-3">
-              <span className="text-white/40 text-xs font-mono">
-                {String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}
-              </span>
-              <Button
-                onClick={() => { setIsFullscreen(false); onStartBooking(); }}
-                className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-6 h-10 text-xs tracking-wider uppercase shadow-lg shadow-amber-500/30"
-                data-testid="button-fs-book"
-              >
+              <span className="text-white/40 text-xs font-mono">{String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}</span>
+              <Button onClick={() => { setIsFullscreen(false); onStartBooking(); }} className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-6 h-10 text-xs tracking-wider uppercase shadow-lg shadow-amber-500/30" data-testid="button-fs-book">
                 Book Now <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Button>
             </div>
           </div>
-
           <div className="px-6 pb-6">
             <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20">
               {images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => goTo(i)}
-                  className={cn(
-                    "flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2",
-                    i === currentIndex
-                      ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20"
-                      : "w-16 border-transparent opacity-40 hover:opacity-70"
-                  )}
-                  data-testid={`fs-thumb-${i}`}
-                >
+                <button key={i} onClick={() => goTo(i)} className={cn("flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2 rounded-lg", i === currentIndex ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20" : "w-16 border-transparent opacity-40 hover:opacity-70")} data-testid={`fs-thumb-${i}`}>
                   <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                 </button>
               ))}
@@ -388,7 +310,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     <div className="space-y-0" data-testid="tour-gallery">
       <div
         ref={containerRef}
-        className="relative aspect-[16/10] md:aspect-[2/1] bg-stone-950 overflow-hidden group cursor-pointer"
+        className="relative aspect-[16/10] md:aspect-[21/9] bg-stone-950 overflow-hidden group cursor-pointer"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={() => images.length > 0 && setIsFullscreen(true)}
@@ -416,20 +338,16 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               </motion.div>
             </AnimatePresence>
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-black/40 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/50 pointer-events-none" />
 
             <div className="absolute top-0 left-0 right-0 z-10">
               <div className="h-[2px] bg-white/10">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.4 }}
-                />
+                <motion.div className="h-full bg-gradient-to-r from-amber-500 to-amber-400" animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
               </div>
             </div>
 
             <div className="absolute top-4 left-4 right-4 z-10 flex items-start justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="bg-black/30 backdrop-blur-xl rounded-2xl px-4 py-2.5 border border-white/10">
+              <div className="bg-black/30 backdrop-blur-2xl rounded-2xl px-4 py-2.5 border border-white/10">
                 <div className="flex items-center gap-2">
                   <currentRoom.icon className="w-4 h-4 text-amber-400" />
                   <div>
@@ -439,25 +357,13 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }}
-                  className={cn("p-2 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400 border border-amber-500/30" : "bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10")}
-                  data-testid="button-autoplay-toggle"
-                >
+                <button onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }} className={cn("p-2 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400 border border-amber-500/30" : "bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10")} data-testid="button-autoplay-toggle" aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}>
                   {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowGrid(true); }}
-                  className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all"
-                  data-testid="button-show-grid"
-                >
+                <button onClick={(e) => { e.stopPropagation(); setShowGrid(true); }} className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-show-grid" aria-label="Show photo grid">
                   <Grid3X3 className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
-                  className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all"
-                  data-testid="button-fullscreen"
-                >
+                <button onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }} className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-fullscreen" aria-label="Enter fullscreen">
                   <Maximize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -465,18 +371,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
             {images.length > 1 && (
               <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
-                  data-testid="button-prev-image"
-                >
+                <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-prev-image" aria-label="Previous image">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
-                  data-testid="button-next-image"
-                >
+                <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-next-image" aria-label="Next image">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </>
@@ -484,50 +382,27 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
             <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
               <div className="flex items-end justify-between">
-                <div className="flex gap-1 bg-black/30 backdrop-blur-xl rounded-full p-1 border border-white/10">
+                <div className="flex gap-1 bg-black/30 backdrop-blur-2xl rounded-full p-1 border border-white/10">
                   {TOUR_ROOMS.map(room => {
                     const hasImages = getImages(room.id).length > 0;
                     if (!hasImages) return null;
                     return (
-                      <button
-                        key={room.id}
-                        onClick={(e) => { e.stopPropagation(); setActiveRoom(room.id); }}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all tracking-wider uppercase",
-                          activeRoom === room.id
-                            ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/20"
-                            : "text-white/40 hover:text-white/70 hover:bg-white/10"
-                        )}
-                        data-testid={`tab-tour-${room.id}`}
-                      >
+                      <button key={room.id} onClick={(e) => { e.stopPropagation(); setActiveRoom(room.id); }} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all tracking-wider uppercase", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/20" : "text-white/40 hover:text-white/70 hover:bg-white/10")} data-testid={`tab-tour-${room.id}`}>
                         <room.icon className="w-3 h-3" />
                         <span className="hidden sm:inline">{room.label}</span>
                       </button>
                     );
                   })}
                 </div>
-
                 <div className="flex items-center gap-3">
-                  <span className="text-white/30 text-xs font-mono tracking-wider">
-                    {String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}
-                  </span>
+                  <span className="text-white/30 text-xs font-mono tracking-wider">{String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}</span>
                 </div>
               </div>
 
               {images.length > 4 && (
                 <div className="flex gap-1 mt-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20">
                   {images.map((img, i) => (
-                    <button
-                      key={i}
-                      onClick={(e) => { e.stopPropagation(); goTo(i); }}
-                      className={cn(
-                        "flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border",
-                        i === currentIndex
-                          ? "w-20 border-amber-500 opacity-100"
-                          : "w-12 border-white/10 opacity-30 hover:opacity-60"
-                      )}
-                      data-testid={`thumbnail-${i}`}
-                    >
+                    <button key={i} onClick={(e) => { e.stopPropagation(); goTo(i); }} className={cn("flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border rounded-md", i === currentIndex ? "w-20 border-amber-500 opacity-100" : "w-12 border-white/10 opacity-30 hover:opacity-60")} data-testid={`thumbnail-${i}`}>
                       <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                     </button>
                   ))}
@@ -541,29 +416,28 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-3xl" />
               <Camera className="w-20 h-20 text-stone-600 relative" />
             </div>
-            <p className="text-stone-400 font-heading font-bold text-lg mt-4 tracking-wider uppercase">Tour Coming Soon</p>
+            <p className="text-stone-400 font-bold text-lg mt-4 tracking-wider uppercase">Tour Coming Soon</p>
             <p className="text-stone-600 text-sm mt-2">Images will be uploaded by the property manager</p>
           </div>
         )}
       </div>
 
-      <div className="bg-stone-900 px-4 py-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-stone-900 via-stone-900 to-stone-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Camera className="w-4 h-4 text-amber-500" />
           <span className="text-white/80 text-sm font-medium tracking-wide">Virtual Tour</span>
           <span className="text-white/30 text-xs">{allImages.length} photos across {TOUR_ROOMS.filter(r => getImages(r.id).length > 0).length} categories</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {allImages.length > 0 && (
-            <button
-              onClick={() => setIsFullscreen(true)}
-              className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 text-xs font-semibold tracking-wider uppercase transition-colors"
-              data-testid="button-launch-tour"
-            >
+            <button onClick={() => setIsFullscreen(true)} className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 text-xs font-semibold tracking-wider uppercase transition-colors" data-testid="button-launch-tour">
               <Maximize2 className="w-3.5 h-3.5" />
               Full Experience
             </button>
           )}
+          <Button onClick={onStartBooking} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-4 h-8 text-[11px] tracking-wider uppercase" data-testid="button-tour-book-now">
+            Book Now <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
         </div>
       </div>
     </div>
@@ -587,27 +461,27 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
       </div>
     );
   }
 
   if (floorsData.length === 0) {
     return (
-      <div className="text-center py-12 border-2 border-dashed border-stone-200 bg-stone-50">
-        <Layers className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-        <p className="text-stone-500 font-medium">Floor plan not configured yet</p>
+      <div className="text-center py-16 rounded-2xl border-2 border-dashed border-stone-200 bg-gradient-to-b from-stone-50 to-white">
+        <Layers className="w-14 h-14 text-stone-300 mx-auto mb-3" />
+        <p className="text-stone-500 font-semibold text-lg">Floor plan not configured yet</p>
         <p className="text-sm text-stone-400 mt-1">Please select a room type below to book</p>
       </div>
     );
   }
 
-  const statusConfig: Record<string, { bg: string; border: string; label: string; cursor: string }> = {
-    available: { bg: "bg-emerald-500 hover:bg-emerald-400", border: "border-emerald-600", label: "Available", cursor: "cursor-pointer" },
-    occupied: { bg: "bg-red-400/70", border: "border-red-500/50", label: "Occupied", cursor: "cursor-not-allowed" },
-    reserved: { bg: "bg-amber-400/70", border: "border-amber-500/50", label: "Reserved", cursor: "cursor-not-allowed" },
-    maintenance: { bg: "bg-stone-300/70", border: "border-stone-400/50", label: "Maintenance", cursor: "cursor-not-allowed" },
-    blocked: { bg: "bg-red-700/70", border: "border-red-800/50", label: "Blocked", cursor: "cursor-not-allowed" },
+  const statusConfig: Record<string, { bg: string; border: string; label: string; cursor: string; dot: string }> = {
+    available: { bg: "bg-emerald-500 hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-500/30", border: "border-emerald-600", label: "Available", cursor: "cursor-pointer", dot: "bg-emerald-500" },
+    occupied: { bg: "bg-red-400/60", border: "border-red-500/40", label: "Occupied", cursor: "cursor-not-allowed", dot: "bg-red-400" },
+    reserved: { bg: "bg-amber-400/60", border: "border-amber-500/40", label: "Reserved", cursor: "cursor-not-allowed", dot: "bg-amber-400" },
+    maintenance: { bg: "bg-stone-300/60", border: "border-stone-400/40", label: "Maintenance", cursor: "cursor-not-allowed", dot: "bg-stone-400" },
+    blocked: { bg: "bg-red-700/60", border: "border-red-800/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
   };
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {
@@ -617,7 +491,7 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
     return (
       <motion.button
         key={bed.id}
-        whileHover={isAvailable ? { scale: 1.08, y: -2 } : {}}
+        whileHover={isAvailable ? { scale: 1.1, y: -3 } : {}}
         whileTap={isAvailable ? { scale: 0.95 } : {}}
         onClick={() => {
           if (!isAvailable) return;
@@ -625,156 +499,177 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
           onSelectBed(bed, floor, room);
         }}
         className={cn(
-          "relative p-1.5 border-2 rounded-lg text-center transition-all",
+          "relative p-2 border-2 rounded-xl text-center transition-all",
           config.bg, config.border, config.cursor,
-          !isAvailable && "opacity-50",
-          isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-1 shadow-lg shadow-amber-500/30"
+          !isAvailable && "opacity-40",
+          isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/30"
         )}
         title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
-        <Bed className="w-3.5 h-3.5 mx-auto text-white" />
+        <Bed className="w-4 h-4 mx-auto text-white" />
         <span className="text-[9px] font-bold block text-white mt-0.5 truncate">{bed.bedNumber}</span>
         {isSelected && (
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow">
-            <Check className="w-3 h-3 text-amber-600" />
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
+            <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
         )}
       </motion.button>
     );
   };
 
+  const totalAll = floorsData.reduce((s: number, f: any) => s + (f.beds?.length || 0), 0);
+  const availAll = floorsData.reduce((s: number, f: any) => s + (f.beds?.filter((b: any) => b.status === "available").length || 0), 0);
+
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
-      <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs text-stone-500 bg-stone-50 p-3 border border-stone-200">
-        {Object.entries(statusConfig).map(([key, config]) => (
-          <span key={key} className="flex items-center gap-1.5">
-            <span className={cn("w-3 h-3 rounded-sm", config.bg.split(" ")[0])} />
-            {config.label}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-stone-50 to-amber-50/50 p-4 rounded-xl border border-stone-200">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-stone-500">
+          {Object.entries(statusConfig).map(([key, config]) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <span className={cn("w-3 h-3 rounded-full", config.dot)} />
+              {config.label}
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold">{availAll} available</Badge>
+          <span className="text-stone-400 text-xs">of {totalAll} total beds</span>
+        </div>
       </div>
 
-      {floorsData.map((floor: any, fi: number) => {
-        const isExpanded = expandedFloor === floor.id;
-        const beds = floor.beds || [];
-        const rooms = floor.rooms || [];
-        const availBeds = beds.filter((b: any) => b.status === "available").length;
-        const totalBeds = beds.length;
-        const hasRooms = rooms.length > 0;
-        const orphanBeds = beds.filter((b: any) => !b.roomId);
+      <div className="relative">
+        <div className="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-amber-300 via-amber-200 to-transparent" />
 
-        return (
-          <motion.div
-            key={floor.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: fi * 0.05 }}
-            className={cn("border overflow-hidden transition-colors", isExpanded ? "border-amber-300 shadow-lg shadow-amber-500/5" : "border-stone-200 hover:border-stone-300")}
-            data-testid={`floor-card-${floor.id}`}
-          >
-            <button
-              onClick={() => setExpandedFloor(isExpanded ? null : floor.id)}
-              className="w-full flex items-center justify-between p-4 hover:bg-stone-50/80 transition-colors"
+        {floorsData.map((floor: any, fi: number) => {
+          const isExpanded = expandedFloor === floor.id;
+          const beds = floor.beds || [];
+          const rooms = floor.rooms || [];
+          const availBeds = beds.filter((b: any) => b.status === "available").length;
+          const totalBeds = beds.length;
+          const hasRooms = rooms.length > 0;
+          const orphanBeds = beds.filter((b: any) => !b.roomId);
+          const occupancyPct = totalBeds > 0 ? Math.round((availBeds / totalBeds) * 100) : 0;
+
+          return (
+            <motion.div
+              key={floor.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: fi * 0.05 }}
+              className="relative pl-10 mb-3"
+              data-testid={`floor-card-${floor.id}`}
             >
-              <div className="flex items-center gap-4">
-                <div className="relative w-12 h-12">
-                  <svg viewBox="0 0 48 48" className="w-full h-full">
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="#e7e5e4" strokeWidth="3" />
-                    <circle cx="24" cy="24" r="20" fill="none" stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"} strokeWidth="3" strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`} strokeLinecap="round" transform="rotate(-90 24 24)" />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">{floor.floorNumber}</span>
-                </div>
-                <div className="text-left">
-                  <h4 className="font-heading font-bold text-gray-900">{floor.name}</h4>
-                  <p className="text-xs text-stone-400 mt-0.5">
-                    {hasRooms && <><span className="text-indigo-600">{rooms.length} rooms</span> · </>}
-                    <span className="text-emerald-600 font-semibold">{availBeds}</span> of {totalBeds} beds available
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {availBeds > 0 && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">{availBeds} open</Badge>}
-                {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-50 text-red-600 border-red-200 text-xs">Full</Badge>}
-                <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                  <ChevronDown className="w-5 h-5 text-stone-400" />
-                </motion.div>
-              </div>
-            </button>
+              <div className={cn("absolute left-5 top-5 w-5 h-5 rounded-full border-2 z-10", availBeds > 0 ? "bg-amber-500 border-amber-400" : "bg-stone-300 border-stone-200")} />
 
-            <AnimatePresence>
-              {isExpanded && (beds.length > 0 || rooms.length > 0) && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-                  <div className="px-4 pb-4 border-t border-stone-100 mt-1">
-                    {hasRooms ? (
-                      <div className="space-y-2 mt-3">
-                        {rooms.map((room: any) => {
-                          const roomBeds = room.beds || [];
-                          const isCombo = room.typology?.includes("+");
-                          const roomAvail = roomBeds.filter((b: any) => b.status === "available").length;
-                          const allOccupied = roomBeds.length > 0 && roomAvail === 0;
+              <div className={cn("rounded-xl border overflow-hidden transition-all duration-200", isExpanded ? "border-amber-300 shadow-xl shadow-amber-500/10 bg-white" : "border-stone-200 hover:border-stone-300 bg-white hover:shadow-md")}>
+                <button
+                  onClick={() => setExpandedFloor(isExpanded ? null : floor.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-stone-50/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-12 h-12">
+                      <svg viewBox="0 0 48 48" className="w-full h-full">
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="#f5f5f4" strokeWidth="3" />
+                        <circle cx="24" cy="24" r="20" fill="none" stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"} strokeWidth="3" strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`} strokeLinecap="round" transform="rotate(-90 24 24)" className="transition-all duration-700" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">{floor.floorNumber}</span>
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-bold text-gray-900">{floor.name}</h4>
+                      <p className="text-xs text-stone-400 mt-0.5">
+                        {hasRooms && <><span className="text-indigo-600 font-medium">{rooms.length} rooms</span> · </>}
+                        <span className="text-emerald-600 font-semibold">{availBeds}</span> of {totalBeds} beds available
+                        <span className="text-stone-300 ml-2">({occupancyPct}% open)</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {availBeds > 0 && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold">{availBeds} open</Badge>}
+                    {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-50 text-red-600 border-red-200 text-xs font-bold">Full</Badge>}
+                    <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown className="w-5 h-5 text-stone-400" />
+                    </motion.div>
+                  </div>
+                </button>
 
-                          const sections = isCombo ? room.typology.split("+").map((p: string, i: number) => ({
-                            label: String.fromCharCode(65 + i),
-                            bedCount: parseInt(p),
-                            beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
-                          })) : null;
+                <AnimatePresence>
+                  {isExpanded && (beds.length > 0 || rooms.length > 0) && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                      <div className="px-4 pb-4 border-t border-stone-100 mt-1">
+                        {hasRooms ? (
+                          <div className="space-y-3 mt-3">
+                            {rooms.map((room: any) => {
+                              const roomBeds = room.beds || [];
+                              const isCombo = room.typology?.includes("+");
+                              const roomAvail = roomBeds.filter((b: any) => b.status === "available").length;
+                              const allOccupied = roomBeds.length > 0 && roomAvail === 0;
 
-                          return (
-                            <div key={room.id} className={cn(
-                              "border rounded-lg p-2.5 transition-colors",
-                              allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200" : "border-stone-200"
-                            )} data-testid={`room-${room.id}`}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-xs font-semibold text-stone-700">Room {room.roomNumber}</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
-                                {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600">Shared WC</Badge>}
-                                {room.monthlyPrice && <span className="text-[10px] text-stone-400 ml-auto">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
-                              </div>
+                              const sections = isCombo ? room.typology.split("+").map((p: string, i: number) => ({
+                                label: String.fromCharCode(65 + i),
+                                bedCount: parseInt(p),
+                                beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
+                              })) : null;
 
-                              {isCombo && sections ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                  {sections.map((section: any) => (
-                                    <div key={section.label} className="bg-stone-50/80 rounded border border-stone-100 p-2">
-                                      <p className="text-[10px] font-medium text-stone-500 mb-1">
-                                        {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
-                                      </p>
-                                      <div className="flex gap-1 flex-wrap">
-                                        {section.beds.map((bed: any) => renderBedButton(bed, floor, room))}
-                                      </div>
+                              return (
+                                <div key={room.id} className={cn(
+                                  "border rounded-xl p-3 transition-all",
+                                  allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
+                                )} data-testid={`room-${room.id}`}>
+                                  <div className="flex items-center gap-2 mb-2.5">
+                                    <span className="text-xs font-bold text-stone-700">Room {room.roomNumber}</span>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
+                                    {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">Shared WC</Badge>}
+                                    <div className="flex-1" />
+                                    {room.monthlyPrice && <span className="text-[10px] text-stone-400 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
+                                    <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200")}>{roomAvail} open</Badge>
+                                  </div>
+
+                                  {isCombo && sections ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {sections.map((section: any) => (
+                                        <div key={section.label} className="bg-white rounded-lg border border-stone-100 p-2.5">
+                                          <p className="text-[10px] font-semibold text-stone-500 mb-1.5 uppercase tracking-wider">
+                                            Section {section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
+                                          </p>
+                                          <div className="flex gap-1.5 flex-wrap">
+                                            {section.beds.map((bed: any) => renderBedButton(bed, floor, room))}
+                                          </div>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  ) : (
+                                    <div className="flex gap-1.5 flex-wrap">
+                                      {roomBeds.map((bed: any) => renderBedButton(bed, floor, room))}
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="flex gap-1.5 flex-wrap">
-                                  {roomBeds.map((bed: any) => renderBedButton(bed, floor, room))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
 
-                        {orphanBeds.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-[10px] text-stone-400 mb-1">Other beds</p>
-                            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
-                              {orphanBeds.map((bed: any) => renderBedButton(bed, floor))}
-                            </div>
+                            {orphanBeds.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-[10px] text-stone-400 mb-1.5 font-medium uppercase tracking-wider">Other beds</p>
+                                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
+                                  {orphanBeds.map((bed: any) => renderBedButton(bed, floor))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 mt-3">
+                            {beds.map((bed: any) => renderBedButton(bed, floor))}
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 mt-3">
-                        {beds.map((bed: any) => renderBedButton(bed, floor))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        );
-      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -847,15 +742,11 @@ export default function PropertyBooking() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[300px] w-full rounded-xl" />
               <Skeleton className="h-8 w-48" />
-              <div className="grid grid-cols-3 gap-3">
-                {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
-              </div>
+              <div className="grid grid-cols-3 gap-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
             </div>
-            <div>
-              <Skeleton className="h-[300px] w-full" />
-            </div>
+            <div><Skeleton className="h-[300px] w-full rounded-xl" /></div>
           </div>
         </div>
       </div>
@@ -867,11 +758,9 @@ export default function PropertyBooking() {
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <div className="text-center">
           <Building2 className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-heading font-bold text-stone-700">Property not found</h2>
+          <h2 className="text-2xl font-bold text-stone-700">Property not found</h2>
           <p className="text-stone-500 mt-2">The property you're looking for doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate("/properties")} className="mt-6 bg-amber-600 hover:bg-amber-700 rounded-none" data-testid="button-browse">
-            Browse Properties
-          </Button>
+          <Button onClick={() => navigate("/properties")} className="mt-6 bg-amber-600 hover:bg-amber-700 rounded-xl" data-testid="button-browse">Browse Properties</Button>
         </div>
       </div>
     );
@@ -888,37 +777,36 @@ export default function PropertyBooking() {
         <ImmersiveTour property={property} onStartBooking={scrollToFloors} />
       </div>
 
-      <div className="bg-white border-b border-stone-200">
+      <div className="bg-white border-b border-stone-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <button onClick={() => navigate("/properties")} className="flex items-center gap-1.5 text-stone-400 hover:text-amber-600 text-xs mb-2 transition-colors uppercase tracking-wider font-medium" data-testid="button-back">
-                <ChevronLeft className="w-3.5 h-3.5" />
-                All Properties
+                <ChevronLeft className="w-3.5 h-3.5" /> All Properties
               </button>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-3xl font-heading font-bold text-gray-900 tracking-tight" data-testid="text-property-name">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight" data-testid="text-property-name">
                   {property.displayName || property.name}
                 </h1>
-                <Badge className="bg-amber-50 text-amber-700 border-amber-200 uppercase text-[10px] tracking-widest font-bold">
+                <Badge className="bg-amber-50 text-amber-700 border-amber-200 uppercase text-[10px] tracking-widest font-bold rounded-md">
                   {property.category}
                 </Badge>
               </div>
-              <p className="text-stone-500 flex items-center gap-1.5 text-sm mt-1">
+              <p className="text-stone-500 flex items-center gap-1.5 text-sm mt-1.5">
                 <MapPin className="w-3.5 h-3.5 text-amber-600" />
                 {property.location}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+              <div className="text-center px-5 py-3 bg-gradient-to-b from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl">
                 <p className="text-xl font-bold text-amber-600">₹{lowestPrice.toLocaleString()}</p>
                 <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Starting from/mo</p>
               </div>
-              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+              <div className="text-center px-5 py-3 bg-gradient-to-b from-emerald-50 to-emerald-100/50 border border-emerald-200 rounded-xl">
                 <p className="text-xl font-bold text-emerald-600">{availableBeds}</p>
                 <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Beds Available</p>
               </div>
-              <div className="text-center px-5 py-3 bg-stone-50 border border-stone-200">
+              <div className="text-center px-5 py-3 bg-gradient-to-b from-stone-50 to-stone-100/50 border border-stone-200 rounded-xl">
                 <p className="text-xl font-bold text-stone-700">{property.roomTypes?.length || 0}</p>
                 <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Types</p>
               </div>
@@ -932,7 +820,7 @@ export default function PropertyBooking() {
           <div className="lg:col-span-2 space-y-10">
             {property.amenities?.length > 0 && (
               <div>
-                <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-amber-600" />
                   Amenities & Facilities
                 </h2>
@@ -944,9 +832,9 @@ export default function PropertyBooking() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.02 }}
-                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-stone-200 text-sm text-gray-700 hover:border-amber-300 hover:shadow-sm transition-all group"
+                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-gray-700 hover:border-amber-300 hover:shadow-sm transition-all group"
                     >
-                      <div className="w-6 h-6 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                      <div className="w-6 h-6 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
                         <Check className="w-3.5 h-3.5 text-amber-600" />
                       </div>
                       {am}
@@ -957,7 +845,7 @@ export default function PropertyBooking() {
             )}
 
             <div ref={floorSectionRef}>
-              <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
               </h2>
@@ -965,7 +853,7 @@ export default function PropertyBooking() {
             </div>
 
             <div>
-              <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Bed className="w-5 h-5 text-amber-600" />
                 Room Types & Pricing
               </h2>
@@ -977,21 +865,21 @@ export default function PropertyBooking() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white border border-stone-200 p-5 hover:border-amber-300 hover:shadow-md transition-all group"
+                    className="bg-white border border-stone-200 rounded-xl p-5 hover:border-amber-300 hover:shadow-lg hover:shadow-amber-500/5 transition-all group"
                     data-testid={`room-card-${room.id}`}
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-heading font-bold text-lg">{room.customName || room.name}</h4>
-                          {room.size && <span className="text-xs bg-stone-100 border border-stone-200 px-2 py-0.5">{room.size}</span>}
+                          <h4 className="font-bold text-lg">{room.customName || room.name}</h4>
+                          {room.size && <span className="text-xs bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-md">{room.size}</span>}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-stone-500">
                           <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-600" /> {room.occupancy || 1}-sharing</span>
                           <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-600" /> {room.availableBeds}/{room.totalBeds} available</span>
                         </div>
                         {room.availableBeds > 0 && room.availableBeds < 5 && (
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 border border-red-200 text-xs text-red-600 font-medium">
+                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 border border-red-200 text-xs text-red-600 font-medium rounded-md">
                             <Clock className="w-3 h-3" /> Only {room.availableBeds} left
                           </div>
                         )}
@@ -1008,14 +896,9 @@ export default function PropertyBooking() {
                           </div>
                         </div>
                         <Button
-                          onClick={() => handleBookRoom(
-                            room.id,
-                            room.customName || room.name,
-                            property.bookingMode === "academic_year" ? (room.academicYearPrice || room.basePrice * 11) : room.basePrice,
-                            room.deposit || 0
-                          )}
+                          onClick={() => handleBookRoom(room.id, room.customName || room.name, property.bookingMode === "academic_year" ? (room.academicYearPrice || room.basePrice * 11) : room.basePrice, room.deposit || 0)}
                           disabled={room.availableBeds === 0}
-                          className="bg-amber-600 hover:bg-amber-700 text-white rounded-none px-6 h-11 font-semibold tracking-wider uppercase text-sm"
+                          className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"
                           data-testid={`button-book-room-${room.id}`}
                         >
                           {room.availableBeds === 0 ? "Sold Out" : "Book Now"}
@@ -1029,11 +912,11 @@ export default function PropertyBooking() {
 
             {property.rules && (
               <div>
-                <h2 className="text-lg font-heading font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-amber-600" />
                   Rules & Policies
                 </h2>
-                <div className="bg-white border border-stone-200 p-5">
+                <div className="bg-white border border-stone-200 rounded-xl p-5">
                   <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{property.rules}</p>
                 </div>
               </div>
@@ -1045,17 +928,17 @@ export default function PropertyBooking() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-stone-200 shadow-xl shadow-stone-200/50 overflow-hidden"
+                className="bg-white border border-stone-200 shadow-xl shadow-stone-200/50 overflow-hidden rounded-xl"
               >
                 <div className="bg-gradient-to-r from-stone-900 to-stone-800 p-4 flex items-center justify-between">
-                  <h3 className="text-white font-heading font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
+                  <h3 className="text-white font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
                   {selectedBed && (
-                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">Selected</Badge>
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] rounded-md">Selected</Badge>
                   )}
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
                       <Building2 className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
@@ -1065,13 +948,9 @@ export default function PropertyBooking() {
                   </div>
 
                   {selectedBed && selectedFloor && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="space-y-3"
-                    >
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-3">
                       <div className="border-t border-stone-100 pt-3 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
                           <Layers className="w-5 h-5 text-amber-600" />
                         </div>
                         <div>
@@ -1080,7 +959,7 @@ export default function PropertyBooking() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
                           <Bed className="w-5 h-5 text-amber-600" />
                         </div>
                         <div>
@@ -1091,7 +970,7 @@ export default function PropertyBooking() {
                       {selectedRoomType && (
                         <>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
                               <Home className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
@@ -1099,7 +978,7 @@ export default function PropertyBooking() {
                               <p className="font-semibold text-gray-900 text-sm">{selectedRoomType.customName || selectedRoomType.name}</p>
                             </div>
                           </div>
-                          <div className="border-t border-stone-100 pt-4 bg-stone-50 -mx-5 px-5 pb-0 -mb-1">
+                          <div className="border-t border-stone-100 pt-4 bg-gradient-to-b from-amber-50/50 to-stone-50 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl">
                             <div className="flex justify-between items-baseline">
                               <span className="text-stone-500 text-sm">Total Price</span>
                               <div className="text-right">
@@ -1116,13 +995,8 @@ export default function PropertyBooking() {
                           </div>
                         </>
                       )}
-                      <Button
-                        onClick={handleBookSelectedBed}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20"
-                        data-testid="button-proceed-booking"
-                      >
-                        Proceed to Book
-                        <ArrowRight className="w-4 h-4 ml-2" />
+                      <Button onClick={handleBookSelectedBed} className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20" data-testid="button-proceed-booking">
+                        Proceed to Book <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </motion.div>
                   )}
@@ -1139,8 +1013,8 @@ export default function PropertyBooking() {
                 </div>
               </motion.div>
 
-              <div className="bg-white border border-stone-200 p-5 space-y-3">
-                <h4 className="font-heading font-bold text-xs tracking-wider uppercase text-gray-900">Contact Property</h4>
+              <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
+                <h4 className="font-bold text-xs tracking-wider uppercase text-gray-900">Contact Property</h4>
                 {property.phone && (
                   <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-stone-600 hover:text-amber-600 transition-colors">
                     <Phone className="w-4 h-4" /> {property.phone}

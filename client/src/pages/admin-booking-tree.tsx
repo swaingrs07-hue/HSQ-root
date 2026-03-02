@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,175 @@ const ISO_BED_GLOW: Record<string, { bg: string; glow: string; border: string; t
   maintenance: { bg: "from-slate-500/80 to-slate-600/80", glow: "shadow-[0_0_15px_rgba(100,116,139,0.4)]", border: "border-slate-400/60", text: "text-slate-200", label: "Maintenance" },
   blocked: { bg: "from-red-600/80 to-red-700/80", glow: "shadow-[0_0_20px_rgba(220,38,38,0.6)]", border: "border-red-400/60", text: "text-red-100", label: "Blocked" },
 };
+
+function getGender(bed: any): "male" | "female" {
+  const g = bed.currentBooking?.residentDetails?.gender || bed.currentBooking?.gender || "";
+  return g.toLowerCase() === "female" ? "female" : "male";
+}
+
+function SharedCharDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: "absolute" }}>
+      <defs>
+        <linearGradient id="iso-shirt-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3B82F6" /><stop offset="100%" stopColor="#2563EB" /></linearGradient>
+        <linearGradient id="iso-shirt-f" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#A855F7" /><stop offset="100%" stopColor="#9333EA" /></linearGradient>
+        <filter id="iso-char-shadow"><feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="rgba(0,0,0,0.4)" /></filter>
+      </defs>
+    </svg>
+  );
+}
+
+const BedCharacter3D = React.memo(function BedCharacter3D({ gender, status, size = "md" }: { gender: "male" | "female"; status: string; size?: "sm" | "md" | "lg" }) {
+  const isMale = gender === "male";
+  const skinTone = "#D4A574";
+  const skinShadow = "#C49564";
+  const hairColor = isMale ? "#2D1B0E" : "#1A0A00";
+  const pantsColor = isMale ? "#1E293B" : "#374151";
+  const auraColor = status === "reserved" ? "rgba(245,158,11,0.25)" : "rgba(59,130,246,0.2)";
+  const shirtRef = isMale ? "url(#iso-shirt-m)" : "url(#iso-shirt-f)";
+  const dims = size === "sm" ? { w: 22, h: 28 } : size === "md" ? { w: 32, h: 40 } : { w: 44, h: 56 };
+
+  return (
+    <div className="iso-character-container" style={{ width: dims.w, height: dims.h }} role="img" aria-label={`${gender} guest character`}>
+      <svg viewBox="0 0 44 56" width={dims.w} height={dims.h} className="iso-character-breathe" aria-hidden="true">
+        <ellipse cx="22" cy="52" rx="14" ry="3" fill={auraColor} className="iso-aura-pulse" />
+        <g filter="url(#iso-char-shadow)" className="iso-character-idle">
+          <rect x="14" y="36" width="7" height="14" rx="3" fill={pantsColor} className="iso-leg-left" />
+          <rect x="23" y="36" width="7" height="14" rx="3" fill={pantsColor} className="iso-leg-right" />
+          <rect x="12" y="22" width="20" height="16" rx="4" fill={shirtRef} />
+          {isMale ? (
+            <rect x="8" y="24" width="5" height="12" rx="2.5" fill={shirtRef} className="iso-arm-left" />
+          ) : (
+            <rect x="7" y="24" width="5" height="11" rx="2.5" fill={shirtRef} className="iso-arm-left-phone" />
+          )}
+          <rect x="31" y="24" width="5" height="12" rx="2.5" fill={shirtRef} className="iso-arm-right" />
+          {!isMale && <rect x="8" y="34" width="4" height="6" rx="1.5" fill="#1F2937" className="iso-phone" />}
+          <circle cx="22" cy="16" r="7" fill={skinTone} />
+          <ellipse cx="22" cy="15.5" rx="7" ry="6.5" fill={skinTone} />
+          <circle cx="19" cy="15" r="0.8" fill="#1A0A00" />
+          <circle cx="25" cy="15" r="0.8" fill="#1A0A00" />
+          <ellipse cx="22" cy="17.5" rx="1.5" ry="0.6" fill={skinShadow} />
+          {isMale ? (
+            <>
+              <path d="M15 13 Q15 8 22 7 Q29 8 29 13 L28 12 Q27 9 22 8.5 Q17 9 16 12 Z" fill={hairColor} />
+              <rect x="14.5" y="11" width="1.5" height="4" rx="0.75" fill={hairColor} />
+              <rect x="28" y="11" width="1.5" height="4" rx="0.75" fill={hairColor} />
+            </>
+          ) : (
+            <>
+              <path d="M14 14 Q14 7 22 6 Q30 7 30 14 L29 11 Q28 8 22 7.5 Q16 8 15 11 Z" fill={hairColor} />
+              <path d="M14 14 Q13 18 13 22 L14.5 22 Q14.5 18 15 14 Z" fill={hairColor} />
+              <path d="M30 14 Q31 18 31 22 L29.5 22 Q29.5 18 29 14 Z" fill={hairColor} />
+            </>
+          )}
+          <circle cx="22" cy="19.5" r="0.5" fill={skinShadow} opacity="0.3" />
+        </g>
+      </svg>
+    </div>
+  );
+});
+
+function BedScene3D({ bed, onClick, onHover, onLeave, onAllocate, onDeallocate, size = "md" }: {
+  bed: any; onClick: () => void; onHover: (e: React.MouseEvent) => void; onLeave: () => void;
+  onAllocate: () => void; onDeallocate: () => void; size?: "sm" | "md" | "lg";
+}) {
+  const bStyle = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
+  const hasBooking = !!bed.currentBooking;
+  const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
+  const gender = getGender(bed);
+  const isAvailable = bed.status === "available";
+  const isOccupied = bed.status === "occupied";
+  const isReserved = bed.status === "reserved";
+  const isBlocked = bed.status === "blocked";
+  const showChar = hasBooking && (isOccupied || isReserved);
+
+  const bedW = size === "sm" ? "w-[60px]" : size === "md" ? "w-[80px]" : "w-[100px]";
+  const bedH = size === "sm" ? "h-[70px]" : size === "md" ? "h-[100px]" : "h-[130px]";
+
+  return (
+    <div className="relative group/bed3d">
+      <button
+        onClick={onClick}
+        onMouseEnter={onHover}
+        onMouseLeave={onLeave}
+        className={cn("iso-bed-scene relative rounded-xl transition-all duration-500 cursor-pointer border overflow-hidden", bedW, bedH,
+          bStyle.border,
+          isAvailable && "iso-bed-avail-glow",
+          isOccupied && "iso-bed-booked-scene",
+          isReserved && "iso-bed-checkin-scene",
+          isBlocked && "iso-bed-blocked-scene"
+        )}
+        data-testid={`iso-bed-${bed.id}`}
+      >
+        <div className="absolute inset-0" style={{
+          background: isAvailable
+            ? "linear-gradient(145deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 50%, rgba(6,78,59,0.08) 100%)"
+            : isOccupied
+            ? "linear-gradient(145deg, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.04) 50%, rgba(30,58,138,0.08) 100%)"
+            : isReserved
+            ? "linear-gradient(145deg, rgba(245,158,11,0.15) 0%, rgba(245,158,11,0.05) 50%, rgba(120,53,15,0.08) 100%)"
+            : isBlocked
+            ? "linear-gradient(145deg, rgba(220,38,38,0.12) 0%, rgba(220,38,38,0.04) 50%, rgba(127,29,29,0.08) 100%)"
+            : "linear-gradient(145deg, rgba(100,116,139,0.1) 0%, rgba(100,116,139,0.04) 100%)"
+        }} />
+
+        {isAvailable && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-10">
+            <div className="iso-empty-bed-icon">
+              <BedDouble className={cn("text-emerald-400/60", size === "sm" ? "w-4 h-4" : "w-6 h-6")} />
+            </div>
+            <span className={cn("font-bold text-emerald-400/80", size === "sm" ? "text-[7px]" : "text-[9px]")}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+          </div>
+        )}
+
+        {isBlocked && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-10">
+            <div className="iso-blocked-pulse">
+              <Ban className={cn("text-red-400/70", size === "sm" ? "w-4 h-4" : "w-5 h-5")} />
+            </div>
+            <span className={cn("font-bold text-red-400/70", size === "sm" ? "text-[7px]" : "text-[9px]")}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+          </div>
+        )}
+
+        {bed.status === "maintenance" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-10">
+            <AlertTriangle className={cn("text-slate-400/60", size === "sm" ? "w-4 h-4" : "w-5 h-5")} />
+            <span className={cn("font-bold text-slate-400/70", size === "sm" ? "text-[7px]" : "text-[9px]")}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+          </div>
+        )}
+
+        {showChar && (
+          <div className="absolute inset-0 flex flex-col items-center z-10" style={{ paddingTop: size === "sm" ? "2px" : "4px" }}>
+            <BedCharacter3D gender={gender} status={bed.status} size={size} />
+            <div className="mt-auto mb-1 px-1 w-full text-center">
+              <span className={cn("font-bold truncate block", size === "sm" ? "text-[6px] text-white/70" : "text-[8px] text-white/80")}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+              {guestName && size !== "sm" && (
+                <span className="text-[7px] text-white/50 truncate block">{guestName.split(" ")[0].slice(0, 8)}</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showChar && (
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] rounded-b-xl" style={{
+            background: isReserved
+              ? "linear-gradient(90deg, transparent, rgba(245,158,11,0.6), transparent)"
+              : "linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)"
+          }} />
+        )}
+      </button>
+
+      <div className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/bed3d:opacity-100 transition-all duration-300 flex gap-0.5 z-30">
+        {isAvailable && !hasBooking && (
+          <button onClick={(e) => { e.stopPropagation(); onAllocate(); }} className="w-5 h-5 rounded-full bg-blue-500/90 hover:bg-blue-500 flex items-center justify-center shadow-lg backdrop-blur border border-blue-400/30" title="Allocate"><Link2 className="w-3 h-3 text-white" /></button>
+        )}
+        {isOccupied && hasBooking && (
+          <button onClick={(e) => { e.stopPropagation(); onDeallocate(); }} className="w-5 h-5 rounded-full bg-orange-500/90 hover:bg-orange-500 flex items-center justify-center shadow-lg backdrop-blur border border-orange-400/30" title="Deallocate"><Unlock className="w-3 h-3 text-white" /></button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface Property {
   id: string;
@@ -585,6 +754,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
   return (
     <div ref={outerRef} className={cn("relative rounded-2xl overflow-hidden transition-all duration-500", isFullscreen && "rounded-none")} style={{ background: "linear-gradient(135deg, #060a14 0%, #0c1222 30%, #0a0f1e 60%, #080d18 100%)" }} data-testid="iso-3d-container">
+      <SharedCharDefs />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="iso-ambient-orb absolute top-[15%] left-[8%] w-[500px] h-[500px] bg-cyan-500/[0.04] rounded-full blur-[100px]" />
         <div className="iso-ambient-orb absolute bottom-[5%] right-[12%] w-[400px] h-[400px] bg-indigo-500/[0.04] rounded-full blur-[100px]" style={{ animationDelay: "3s" }} />
@@ -620,22 +790,22 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
           <div className="flex items-center gap-1.5">
             {drillLevel !== "building" && (
-              <button onClick={navigateBack} className="iso-ctrl-btn" data-testid="btn-back">
+              <button onClick={navigateBack} className="iso-ctrl-btn" data-testid="btn-back" aria-label="Go back">
                 <ChevronLeft className="w-4 h-4" />
               </button>
             )}
             {drillLevel !== "building" && (
-              <button onClick={navigateHome} className="iso-ctrl-btn" data-testid="btn-home">
+              <button onClick={navigateHome} className="iso-ctrl-btn" data-testid="btn-home" aria-label="Go to building view">
                 <Home className="w-4 h-4" />
               </button>
             )}
             <div className="w-px h-5 bg-white/10 mx-1" />
-            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-out"><ZoomOut className="w-4 h-4" /></button>
+            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-out" aria-label="Zoom out"><ZoomOut className="w-4 h-4" /></button>
             <span className="text-[10px] text-white/30 font-mono min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2.0, z + 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-in"><ZoomIn className="w-4 h-4" /></button>
-            <button onClick={() => { setZoom(drillLevel === "building" ? 0.85 : drillLevel === "floor" ? 1.1 : 1.3); }} className="iso-ctrl-btn" data-testid="btn-zoom-reset"><RotateCcw className="w-4 h-4" /></button>
+            <button onClick={() => setZoom(z => Math.min(2.0, z + 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-in" aria-label="Zoom in"><ZoomIn className="w-4 h-4" /></button>
+            <button onClick={() => { setZoom(drillLevel === "building" ? 0.85 : drillLevel === "floor" ? 1.1 : 1.3); }} className="iso-ctrl-btn" data-testid="btn-zoom-reset" aria-label="Reset zoom"><RotateCcw className="w-4 h-4" /></button>
             <div className="w-px h-5 bg-white/10 mx-1" />
-            <button onClick={toggleFullscreen} className="iso-ctrl-btn" data-testid="btn-fullscreen">
+            <button onClick={toggleFullscreen} className="iso-ctrl-btn" data-testid="btn-fullscreen" aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
@@ -645,61 +815,80 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
           <div ref={containerRef} className="relative flex items-center justify-center overflow-hidden" style={{ minHeight: isFullscreen ? "calc(100vh - 140px)" : "600px" }} onMouseMove={handleMouseMove} onMouseLeave={() => setParallax({ x: 0, y: 0 })}>
 
             {hoveredBed && (
-              <div className="absolute z-[100] pointer-events-none iso-hover-card-enter" style={{ left: Math.min(hoveredPos.x + 16, (containerRef.current?.clientWidth || 400) - 220), top: Math.max(hoveredPos.y - 80, 10) }}>
-                <div className="iso-glass-card p-3 min-w-[200px]">
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <div className={cn("w-3 h-3 rounded-full iso-status-dot", STATUS_COLORS[hoveredBed.status])} />
-                    <span className="text-white font-bold text-sm tracking-tight">{hoveredBed.bedNumber}</span>
-                    <span className={cn("text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider",
-                      hoveredBed.status === "available" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" :
-                      hoveredBed.status === "occupied" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
-                      hoveredBed.status === "reserved" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" :
-                      "bg-red-500/15 text-red-400 border border-red-500/30"
-                    )}>{ISO_BED_GLOW[hoveredBed.status]?.label || hoveredBed.status}</span>
-                  </div>
-                  {hoveredBed.currentBooking && (
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center gap-2">
-                        <User className="w-3 h-3 text-slate-500" />
-                        <span className="text-white/90 font-medium">{hoveredBed.currentBooking.walkInName || hoveredBed.currentBooking.residentDetails?.residentName || "Guest"}</span>
+              <div className="absolute z-[100] pointer-events-none iso-hover-card-enter" style={{ left: Math.min(hoveredPos.x + 16, (containerRef.current?.clientWidth || 400) - 260), top: Math.max(hoveredPos.y - 100, 10) }}>
+                <div className="relative overflow-hidden rounded-xl border border-white/10" style={{ background: "linear-gradient(145deg, rgba(15,23,42,0.95) 0%, rgba(8,12,24,0.98) 100%)", backdropFilter: "blur(24px)", minWidth: "240px" }}>
+                  <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: hoveredBed.status === "available" ? "linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent)" : hoveredBed.status === "occupied" ? "linear-gradient(90deg, transparent, rgba(59,130,246,0.6), transparent)" : hoveredBed.status === "reserved" ? "linear-gradient(90deg, transparent, rgba(245,158,11,0.6), transparent)" : "linear-gradient(90deg, transparent, rgba(220,38,38,0.6), transparent)" }} />
+                  <div className="p-3.5">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      {hoveredBed.currentBooking && (hoveredBed.status === "occupied" || hoveredBed.status === "reserved") && (
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          <BedCharacter3D gender={getGender(hoveredBed)} status={hoveredBed.status} size="sm" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-bold text-sm tracking-tight">{hoveredBed.bedNumber}</span>
+                          <span className={cn("text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider",
+                            hoveredBed.status === "available" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" :
+                            hoveredBed.status === "occupied" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+                            hoveredBed.status === "reserved" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" :
+                            "bg-red-500/15 text-red-400 border border-red-500/30"
+                          )}>{ISO_BED_GLOW[hoveredBed.status]?.label || hoveredBed.status}</span>
+                        </div>
                       </div>
-                      {hoveredBed.currentBooking.bookingCode && (
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3 h-3 text-slate-500" />
-                          <span className="text-white/70 font-mono text-[10px]">{hoveredBed.currentBooking.bookingCode}</span>
-                        </div>
-                      )}
-                      {hoveredBed.currentBooking.checkInDate && (
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3 h-3 text-emerald-500/70" />
-                          <span className="text-white/60 text-[10px]">In: {hoveredBed.currentBooking.checkInDate}</span>
-                        </div>
-                      )}
-                      {hoveredBed.currentBooking.checkOutDate && (
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3 h-3 text-rose-500/70" />
-                          <span className="text-white/60 text-[10px]">Out: {hoveredBed.currentBooking.checkOutDate}</span>
-                        </div>
-                      )}
-                      {hoveredBed.currentBooking.totalFee && (
-                        <div className="mt-2 pt-2 border-t border-white/5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-500">Payment</span>
-                            <span className={cn("text-[10px] font-semibold", hoveredBed.currentBooking.status === "confirmed" ? "text-emerald-400" : "text-amber-400")}>
-                              {hoveredBed.currentBooking.status === "confirmed" ? "Paid" : "Pending"}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all" style={{ width: hoveredBed.currentBooking.status === "confirmed" ? "100%" : "40%" }} />
-                          </div>
-                        </div>
-                      )}
+                      <div className={cn("w-2.5 h-2.5 rounded-full iso-status-dot", STATUS_COLORS[hoveredBed.status])} />
                     </div>
-                  )}
-                  {hoveredBed.status === "blocked" && hoveredBed.blockedReason && (
-                    <p className="text-[10px] text-red-400/80 mt-1.5 flex items-center gap-1"><Ban className="w-3 h-3" /> {hoveredBed.blockedReason}</p>
-                  )}
-                  <p className="text-[9px] text-slate-600 mt-2.5 flex items-center gap-1"><Eye className="w-3 h-3" /> Click for full details</p>
+                    {hoveredBed.currentBooking && (
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex items-center gap-2">
+                          <User className="w-3 h-3 text-slate-500" />
+                          <span className="text-white/90 font-medium">{hoveredBed.currentBooking.walkInName || hoveredBed.currentBooking.residentDetails?.residentName || "Guest"}</span>
+                          {(hoveredBed.currentBooking.residentDetails?.gender || hoveredBed.currentBooking.gender) && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/5 uppercase font-semibold">
+                              {(hoveredBed.currentBooking.residentDetails?.gender || hoveredBed.currentBooking.gender || "").slice(0, 1)}
+                            </span>
+                          )}
+                        </div>
+                        {hoveredBed.currentBooking.bookingCode && (
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3 h-3 text-slate-500" />
+                            <span className="text-white/70 font-mono text-[10px]">{hoveredBed.currentBooking.bookingCode}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3">
+                          {hoveredBed.currentBooking.checkInDate && (
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-emerald-500/70" />
+                              <span className="text-white/60 text-[10px]">{hoveredBed.currentBooking.checkInDate}</span>
+                            </div>
+                          )}
+                          {hoveredBed.currentBooking.checkOutDate && (
+                            <div className="flex items-center gap-1.5">
+                              <ArrowRight className="w-2.5 h-2.5 text-slate-600" />
+                              <span className="text-white/60 text-[10px]">{hoveredBed.currentBooking.checkOutDate}</span>
+                            </div>
+                          )}
+                        </div>
+                        {hoveredBed.currentBooking.totalFee && (
+                          <div className="mt-2 pt-2 border-t border-white/5">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-slate-500">Payment</span>
+                              <span className={cn("text-[10px] font-semibold", hoveredBed.currentBooking.status === "confirmed" ? "text-emerald-400" : "text-amber-400")}>
+                                {hoveredBed.currentBooking.status === "confirmed" ? "Paid" : "Pending"}
+                              </span>
+                            </div>
+                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: hoveredBed.currentBooking.status === "confirmed" ? "100%" : "40%", background: "linear-gradient(90deg, rgba(16,185,129,0.8), rgba(6,182,212,0.8))" }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {hoveredBed.status === "blocked" && hoveredBed.blockedReason && (
+                      <p className="text-[10px] text-red-400/80 mt-1.5 flex items-center gap-1"><Ban className="w-3 h-3" /> {hoveredBed.blockedReason}</p>
+                    )}
+                    <p className="text-[8px] text-slate-600 mt-2.5 flex items-center gap-1"><Eye className="w-2.5 h-2.5" /> Click for details</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -766,52 +955,40 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                       <span className="text-[10px] font-medium text-slate-300">{room.roomNumber}</span>
                                       {room.typology && <span className="text-[8px] px-1 py-0.5 rounded bg-indigo-500/10 text-indigo-400/80 border border-indigo-500/20">{room.typology}</span>}
                                     </div>
-                                    <div className="flex gap-1 flex-wrap">
+                                    <div className="flex gap-1.5 flex-wrap">
                                       {roomBeds.map((bed: any) => {
                                         const bGlow = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
                                         const hasBooking = !!bed.currentBooking;
-                                        const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
-                                        const shortName = guestName ? guestName.split(" ")[0].slice(0, 5) : "";
+                                        const showChar = hasBooking && (bed.status === "occupied" || bed.status === "reserved");
+                                        const gender = getGender(bed);
                                         return (
                                           <div key={bed.id} className="relative group/bed">
                                             <button
                                               onClick={(e) => { e.stopPropagation(); onBedClick(bed.id); }}
                                               onMouseEnter={(e) => handleBedHover(bed, e)}
                                               onMouseLeave={() => setHoveredBed(null)}
-                                              className={cn("relative rounded-md transition-all duration-300 cursor-pointer border hover:scale-110 hover:z-10", bGlow.border, hasBooking && "iso-bed-glow-active")}
+                                              className={cn("relative rounded-lg transition-all duration-300 cursor-pointer border hover:scale-110 hover:z-10 overflow-hidden", bGlow.border, hasBooking && "iso-bed-glow-active")}
                                               style={{
-                                                width: "48px", height: "34px",
-                                                background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.25), rgba(16,185,129,0.12)" : bed.status === "occupied" ? "rgba(59,130,246,0.25), rgba(59,130,246,0.12)" : bed.status === "reserved" ? "rgba(245,158,11,0.25), rgba(245,158,11,0.12)" : bed.status === "blocked" ? "rgba(220,38,38,0.25), rgba(220,38,38,0.12)" : "rgba(100,116,139,0.25), rgba(100,116,139,0.12)"})`
+                                                width: "52px", height: "46px",
+                                                background: `linear-gradient(145deg, ${bed.status === "available" ? "rgba(16,185,129,0.15), rgba(16,185,129,0.06)" : bed.status === "occupied" ? "rgba(59,130,246,0.15), rgba(59,130,246,0.06)" : bed.status === "reserved" ? "rgba(245,158,11,0.15), rgba(245,158,11,0.06)" : bed.status === "blocked" ? "rgba(220,38,38,0.15), rgba(220,38,38,0.06)" : "rgba(100,116,139,0.15), rgba(100,116,139,0.06)"})`
                                               }}
                                               data-testid={`iso-bed-${bed.id}`}
                                             >
-                                              <div className="flex flex-col items-center justify-center h-full px-0.5">
-                                                <BedDouble className={cn("w-3 h-3", bGlow.text)} />
-                                                <span className={cn("text-[6px] font-semibold leading-tight truncate max-w-full", bGlow.text)}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
-                                              </div>
-                                              {hasBooking && shortName && (
-                                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 iso-float-label pointer-events-none z-20">
-                                                  <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded px-1 py-0.5 whitespace-nowrap">
-                                                    <span className="text-[6px] font-medium text-white/90">{shortName}</span>
-                                                  </div>
+                                              {showChar ? (
+                                                <div className="flex flex-col items-center justify-center h-full">
+                                                  <BedCharacter3D gender={gender} status={bed.status} size="sm" />
+                                                  <span className={cn("text-[5px] font-bold leading-none mt-[-2px]", bGlow.text)}>{bed.bedNumber.length > 5 ? bed.bedNumber.slice(-4) : bed.bedNumber}</span>
+                                                </div>
+                                              ) : (
+                                                <div className="flex flex-col items-center justify-center h-full px-0.5">
+                                                  {bed.status === "blocked" ? <Ban className="w-3 h-3 text-red-400/60 iso-blocked-pulse" /> : bed.status === "available" ? <BedDouble className="w-3.5 h-3.5 text-emerald-400/50" /> : <BedDouble className={cn("w-3 h-3", bGlow.text)} />}
+                                                  <span className={cn("text-[6px] font-semibold leading-tight truncate max-w-full mt-0.5", bGlow.text)}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
                                                 </div>
                                               )}
-                                              {bed.status === "blocked" && (
-                                                <div className="absolute -top-1 -right-1 z-20">
-                                                  <div className="w-3 h-3 rounded-full bg-red-600 border border-red-400/50 flex items-center justify-center">
-                                                    <Ban className="w-1.5 h-1.5 text-white" />
-                                                  </div>
-                                                </div>
+                                              {showChar && (
+                                                <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: bed.status === "reserved" ? "linear-gradient(90deg, transparent, rgba(245,158,11,0.6), transparent)" : "linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)" }} />
                                               )}
                                             </button>
-                                            <div className="absolute -top-1 -right-1 opacity-0 group-hover/bed:opacity-100 transition-opacity flex gap-0.5 z-30">
-                                              {bed.status === "available" && !hasBooking && (
-                                                <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-4 h-4 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center shadow-lg" title="Allocate"><Link2 className="w-2.5 h-2.5 text-white" /></button>
-                                              )}
-                                              {bed.status === "occupied" && hasBooking && (
-                                                <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-4 h-4 rounded-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center shadow-lg" title="Deallocate"><Unlock className="w-2.5 h-2.5 text-white" /></button>
-                                              )}
-                                            </div>
                                           </div>
                                         );
                                       })}
@@ -868,42 +1045,19 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                   </div>
 
                   {(activeFloor.rooms || []).length === 0 && (activeFloor.beds || []).length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {(activeFloor.beds || []).map((bed: any, bIdx: number) => {
-                        const bStyle = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
-                        const hasBooking = !!bed.currentBooking;
-                        const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
-                        const isAvailable = bed.status === "available";
-                        const isOccupied = bed.status === "occupied";
-                        return (
-                          <div key={bed.id} className="iso-bed-card-enter" style={{ animationDelay: `${bIdx * 30}ms` }}>
-                            <button onClick={() => onBedClick(bed.id)} onMouseEnter={(e) => handleBedHover(bed, e)} onMouseLeave={() => setHoveredBed(null)} className={cn("iso-glass-card p-3 w-full text-left relative group cursor-pointer", hasBooking && `iso-bed-glow-${bed.status}`)} data-testid={`iso-bed-${bed.id}`}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={cn("w-3 h-3 rounded-full", STATUS_COLORS[bed.status], bed.status === "available" && "iso-pulse-green", bed.status === "occupied" && "iso-glow-blue")} />
-                                <span className="text-xs font-bold text-white/90">{bed.bedNumber}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <BedDouble className={cn("w-4 h-4", bStyle.text)} />
-                                <span className={cn("text-[9px] font-semibold uppercase tracking-wider", bStyle.text)}>{bStyle.label}</span>
-                              </div>
-                              {hasBooking && guestName && (
-                                <div className="mt-2 pt-2 border-t border-white/5">
-                                  <p className="text-[10px] text-white/70 truncate">{guestName}</p>
-                                </div>
-                              )}
-                              {bed.status === "blocked" && <div className="absolute top-2 right-2"><Ban className="w-3.5 h-3.5 text-red-400/60" /></div>}
-                              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 z-30">
-                                {isAvailable && !hasBooking && (
-                                  <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-5 h-5 rounded-full bg-blue-500/80 hover:bg-blue-500 flex items-center justify-center shadow-lg backdrop-blur" title="Allocate"><Link2 className="w-3 h-3 text-white" /></button>
-                                )}
-                                {isOccupied && hasBooking && (
-                                  <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-5 h-5 rounded-full bg-orange-500/80 hover:bg-orange-500 flex items-center justify-center shadow-lg backdrop-blur" title="Deallocate"><Unlock className="w-3 h-3 text-white" /></button>
-                                )}
-                              </div>
-                            </button>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                      {(activeFloor.beds || []).map((bed: any, bIdx: number) => (
+                          <div key={bed.id} className="iso-bed-card-enter" style={{ animationDelay: `${Math.min(bIdx, 20) * 30}ms` }}>
+                            <BedScene3D
+                              bed={bed} size="md"
+                              onClick={() => onBedClick(bed.id)}
+                              onHover={(e) => handleBedHover(bed, e)}
+                              onLeave={() => setHoveredBed(null)}
+                              onAllocate={() => onAllocate(bed.id)}
+                              onDeallocate={() => onDeallocate(bed.id)}
+                            />
                           </div>
-                        );
-                      })}
+                      ))}
                     </div>
                   )}
 
@@ -958,48 +1112,18 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {(activeRoom.beds || []).map((bed: any, bIdx: number) => {
-                      const bStyle = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
-                      const hasBooking = !!bed.currentBooking;
-                      const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
-                      const isAvailable = bed.status === "available";
-                      const isOccupied = bed.status === "occupied";
-                      return (
+                    {(activeRoom.beds || []).map((bed: any, bIdx: number) => (
                         <div key={bed.id} className="iso-bed-card-enter" style={{ animationDelay: `${bIdx * 60}ms` }}>
-                          <button
+                          <BedScene3D
+                            bed={bed} size="lg"
                             onClick={() => onBedClick(bed.id)}
-                            onMouseEnter={(e) => handleBedHover(bed, e)}
-                            onMouseLeave={() => setHoveredBed(null)}
-                            className={cn("iso-glass-card p-3 w-full text-left relative group cursor-pointer", hasBooking && `iso-bed-glow-${bed.status}`)}
-                            data-testid={`iso-bed-${bed.id}`}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className={cn("w-3 h-3 rounded-full", STATUS_COLORS[bed.status], bed.status === "available" && "iso-pulse-green", bed.status === "occupied" && "iso-glow-blue", bed.status === "reserved" && "iso-shine-gold", bed.status === "blocked" && "iso-warn-red")} />
-                              <span className="text-xs font-bold text-white/90">{bed.bedNumber}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <BedDouble className={cn("w-5 h-5", bStyle.text)} />
-                              <span className={cn("text-[9px] font-semibold uppercase tracking-wider", bStyle.text)}>{bStyle.label}</span>
-                            </div>
-                            {hasBooking && guestName && (
-                              <div className="mt-2 pt-2 border-t border-white/5">
-                                <p className="text-[10px] text-white/70 truncate">{guestName}</p>
-                                {bed.currentBooking.checkOutDate && <p className="text-[9px] text-slate-500">Out: {bed.currentBooking.checkOutDate}</p>}
-                              </div>
-                            )}
-                            {bed.status === "blocked" && <div className="absolute top-2 right-2"><Ban className="w-3.5 h-3.5 text-red-400/60" /></div>}
-                            <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 z-30">
-                              {isAvailable && !hasBooking && (
-                                <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-5 h-5 rounded-full bg-blue-500/80 hover:bg-blue-500 flex items-center justify-center shadow-lg backdrop-blur" title="Allocate"><Link2 className="w-3 h-3 text-white" /></button>
-                              )}
-                              {isOccupied && hasBooking && (
-                                <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-5 h-5 rounded-full bg-orange-500/80 hover:bg-orange-500 flex items-center justify-center shadow-lg backdrop-blur" title="Deallocate"><Unlock className="w-3 h-3 text-white" /></button>
-                              )}
-                            </div>
-                          </button>
+                            onHover={(e) => handleBedHover(bed, e)}
+                            onLeave={() => setHoveredBed(null)}
+                            onAllocate={() => onAllocate(bed.id)}
+                            onDeallocate={() => onDeallocate(bed.id)}
+                          />
                         </div>
-                      );
-                    })}
+                    ))}
                   </div>
                 </div>
               )}
@@ -1050,11 +1174,24 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
             <div className="iso-glass-card p-4">
               <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-cyan-400/70" /> Status Legend</h3>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {Object.entries(ISO_BED_GLOW).map(([status, style]) => (
                   <div key={status} className="flex items-center gap-2.5">
-                    <div className={cn("w-3.5 h-3.5 rounded-md border", style.border, status === "available" && "iso-pulse-green", status === "occupied" && "iso-glow-blue", status === "reserved" && "iso-shine-gold", status === "blocked" && "iso-warn-red")} style={{ background: `linear-gradient(135deg, ${status === "available" ? "rgba(16,185,129,0.4), rgba(16,185,129,0.2)" : status === "occupied" ? "rgba(59,130,246,0.4), rgba(59,130,246,0.2)" : status === "reserved" ? "rgba(245,158,11,0.4), rgba(245,158,11,0.2)" : status === "blocked" ? "rgba(220,38,38,0.4), rgba(220,38,38,0.2)" : "rgba(100,116,139,0.4), rgba(100,116,139,0.2)"})` }} />
-                    <span className="text-[10px] text-slate-400 font-medium">{style.label}</span>
+                    {(status === "occupied" || status === "reserved") ? (
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <BedCharacter3D gender={status === "occupied" ? "male" : "female"} status={status} size="sm" />
+                      </div>
+                    ) : (
+                      <div className={cn("w-7 h-7 rounded-lg border flex items-center justify-center", style.border, status === "available" && "iso-pulse-green", status === "blocked" && "iso-warn-red")} style={{ background: `linear-gradient(135deg, ${status === "available" ? "rgba(16,185,129,0.2), rgba(16,185,129,0.08)" : status === "blocked" ? "rgba(220,38,38,0.2), rgba(220,38,38,0.08)" : "rgba(100,116,139,0.2), rgba(100,116,139,0.08)"})` }}>
+                        {status === "available" && <BedDouble className="w-3.5 h-3.5 text-emerald-400/60" />}
+                        {status === "blocked" && <Ban className="w-3.5 h-3.5 text-red-400/60" />}
+                        {status === "maintenance" && <AlertTriangle className="w-3.5 h-3.5 text-slate-400/60" />}
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[10px] text-slate-300 font-medium block">{style.label}</span>
+                      <span className="text-[8px] text-slate-600">{status === "available" ? "Empty bed, green glow" : status === "occupied" ? "Character + blue light" : status === "reserved" ? "Character + gold aura" : status === "blocked" ? "Red warning" : "Under repair"}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1172,6 +1309,103 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
         .iso-bed-mini { transition: all 0.3s; }
         .iso-bed-mini:hover { transform: scale(1.3); }
+
+        /* 3D Character Animations */
+        .iso-character-container { position: relative; display: flex; align-items: center; justify-content: center; }
+
+        @keyframes charBreathe {
+          0%, 100% { transform: scaleY(1) translateY(0); }
+          40% { transform: scaleY(1.015) translateY(-0.3px); }
+          70% { transform: scaleY(0.99) translateY(0.2px); }
+        }
+        .iso-character-breathe { animation: charBreathe 4s ease-in-out infinite; transform-origin: bottom center; }
+
+        @keyframes charIdle {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          25% { transform: translateX(0.3px) rotate(0.3deg); }
+          50% { transform: translateX(-0.2px) rotate(-0.2deg); }
+          75% { transform: translateX(0.4px) rotate(0.15deg); }
+        }
+        .iso-character-idle { animation: charIdle 6s ease-in-out infinite; transform-origin: bottom center; }
+
+        @keyframes auraPulse {
+          0%, 100% { opacity: 0.4; rx: 14; ry: 3; }
+          50% { opacity: 0.8; rx: 16; ry: 3.5; }
+        }
+        .iso-aura-pulse { animation: auraPulse 3s ease-in-out infinite; }
+
+        @keyframes armPhoneMove {
+          0%, 100% { transform: rotate(0deg); }
+          30% { transform: rotate(-3deg); }
+          60% { transform: rotate(2deg); }
+        }
+        .iso-arm-left-phone { animation: armPhoneMove 5s ease-in-out infinite; transform-origin: top center; }
+
+        @keyframes armRelax {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(0.5px); }
+        }
+        .iso-arm-right { animation: armRelax 4.5s ease-in-out infinite; }
+        .iso-arm-left { animation: armRelax 5s ease-in-out infinite 0.5s; }
+
+        @keyframes legShift {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(1deg); }
+        }
+        .iso-leg-right { animation: legShift 7s ease-in-out infinite; transform-origin: top center; }
+
+        @keyframes phoneGlow {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; filter: brightness(1.3); }
+        }
+        .iso-phone { animation: phoneGlow 3s ease-in-out infinite; }
+
+        /* Bed Scene Styles */
+        .iso-bed-scene { transition: all 0.4s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .iso-bed-scene:hover { transform: translateY(-3px) scale(1.03); }
+
+        @keyframes availGlow {
+          0%, 100% { box-shadow: 0 0 8px rgba(16,185,129,0.15), inset 0 0 12px rgba(16,185,129,0.05); }
+          50% { box-shadow: 0 0 16px rgba(16,185,129,0.3), inset 0 0 20px rgba(16,185,129,0.1); }
+        }
+        .iso-bed-avail-glow { animation: availGlow 3s ease-in-out infinite; }
+
+        @keyframes bookedScene {
+          0%, 100% { box-shadow: 0 0 10px rgba(59,130,246,0.15), 0 4px 20px rgba(59,130,246,0.08); }
+          50% { box-shadow: 0 0 18px rgba(59,130,246,0.25), 0 4px 28px rgba(59,130,246,0.12); }
+        }
+        .iso-bed-booked-scene { animation: bookedScene 4s ease-in-out infinite; }
+
+        @keyframes checkinScene {
+          0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.15), 0 4px 20px rgba(245,158,11,0.08); }
+          50% { box-shadow: 0 0 20px rgba(245,158,11,0.3), 0 4px 30px rgba(245,158,11,0.15); }
+        }
+        .iso-bed-checkin-scene { animation: checkinScene 3.5s ease-in-out infinite; }
+
+        @keyframes blockedPulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        .iso-blocked-pulse { animation: blockedPulse 2s ease-in-out infinite; }
+
+        .iso-bed-blocked-scene { box-shadow: 0 0 12px rgba(220,38,38,0.15); }
+        .iso-bed-blocked-scene:hover { box-shadow: 0 0 20px rgba(220,38,38,0.25); }
+
+        @keyframes emptyBedFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+        .iso-empty-bed-icon { animation: emptyBedFloat 4s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .iso-character-breathe, .iso-character-idle, .iso-aura-pulse,
+          .iso-arm-left-phone, .iso-arm-right, .iso-arm-left, .iso-leg-right,
+          .iso-phone, .iso-bed-avail-glow, .iso-bed-booked-scene,
+          .iso-bed-checkin-scene, .iso-blocked-pulse, .iso-empty-bed-icon,
+          .iso-ambient-orb, .iso-scanline { animation: none !important; }
+          .iso-bed-scene:hover { transform: none; }
+          .iso-bed-mini:hover { transform: none; }
+        }
       `}</style>
     </div>
   );
@@ -1286,7 +1520,7 @@ function BedCellTree({ bed, onBedClick, onAllocate, onDeallocate }: {
               {isAvailable && !hasBooking && (
                 <button onClick={(e) => { e.stopPropagation(); onAllocate(); }}
                   className="w-4 h-4 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center"
-                  title="Allocate booking"
+                  title="Allocate booking" aria-label="Allocate booking to this bed"
                 >
                   <Link2 className="w-2.5 h-2.5 text-white" />
                 </button>
@@ -1294,7 +1528,7 @@ function BedCellTree({ bed, onBedClick, onAllocate, onDeallocate }: {
               {isOccupied && hasBooking && (
                 <button onClick={(e) => { e.stopPropagation(); onDeallocate(); }}
                   className="w-4 h-4 rounded-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center"
-                  title="Deallocate"
+                  title="Deallocate" aria-label="Deallocate booking from this bed"
                 >
                   <Unlock className="w-2.5 h-2.5 text-white" />
                 </button>
