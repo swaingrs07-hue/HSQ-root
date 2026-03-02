@@ -218,6 +218,7 @@ export default function BookingGeneration() {
                 ...prev,
                 propertyId: data.propertyId,
                 roomTypeId: data.roomTypeId || "",
+                stayPlanType: (matchedProp as any).bookingMode === "monthly" ? "monthly" : "academic_year",
               }));
               if (data.bedId) {
                 setSelectedBedId(data.bedId);
@@ -251,7 +252,7 @@ export default function BookingGeneration() {
       fetchAvailability(formData.roomTypeId);
       calculateFee();
     }
-  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths]);
+  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes]);
 
   const fetchProperties = async () => {
     try {
