@@ -110,6 +110,8 @@ export default function AdminFloorsBeds() {
   const [selectedFloorId, setSelectedFloorId] = useState<string>("");
   const [newFloor, setNewFloor] = useState({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0 });
   const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+  const [roomTypeSearch, setRoomTypeSearch] = useState("");
+  const [roomTypeDropdownOpen, setRoomTypeDropdownOpen] = useState(false);
   const [autoGen, setAutoGen] = useState({ numberOfFloors: 3, bedsPerFloor: 10 });
 
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({ queryKey: ["/api/properties"] });
@@ -161,6 +163,7 @@ export default function AdminFloorsBeds() {
       toast({ title: "Room Created", description: "Room and beds have been generated." });
       setAddRoomOpen(false);
       setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+      setRoomTypeSearch("");
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -408,16 +411,65 @@ export default function AdminFloorsBeds() {
                     <Label>Room Number</Label>
                     <Input placeholder="e.g., 101, 210" value={newRoom.roomNumber} onChange={(e) => setNewRoom(prev => ({ ...prev, roomNumber: e.target.value }))} data-testid="input-room-number" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
                     <Label>Room Type</Label>
-                    <Select value={newRoom.roomTypeId} onValueChange={(val) => setNewRoom(prev => ({ ...prev, roomTypeId: val }))}>
-                      <SelectTrigger data-testid="select-room-type"><SelectValue placeholder="Select type" /></SelectTrigger>
-                      <SelectContent>
-                        {roomTypes?.map((rt) => (
-                          <SelectItem key={rt.id} value={rt.id}>{rt.customName || rt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative">
+                      <Input
+                        placeholder="Type to search or select..."
+                        value={roomTypeSearch}
+                        onChange={(e) => {
+                          setRoomTypeSearch(e.target.value);
+                          setRoomTypeDropdownOpen(true);
+                          if (!e.target.value) setNewRoom(prev => ({ ...prev, roomTypeId: "" }));
+                        }}
+                        onFocus={() => setRoomTypeDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setRoomTypeDropdownOpen(false), 200)}
+                        data-testid="input-room-type"
+                      />
+                      {newRoom.roomTypeId && (
+                        <button
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                          onClick={() => { setNewRoom(prev => ({ ...prev, roomTypeId: "" })); setRoomTypeSearch(""); }}
+                          type="button"
+                        >×</button>
+                      )}
+                    </div>
+                    {roomTypeDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                        {(roomTypes || [])
+                          .filter(rt => {
+                            if (!roomTypeSearch) return true;
+                            const label = (rt.customName || rt.name).toLowerCase();
+                            return label.includes(roomTypeSearch.toLowerCase());
+                          })
+                          .map(rt => (
+                            <button
+                              key={rt.id}
+                              type="button"
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-sm hover:bg-amber-50 transition-colors",
+                                newRoom.roomTypeId === rt.id && "bg-amber-50 font-medium text-amber-700"
+                              )}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setNewRoom(prev => ({ ...prev, roomTypeId: rt.id }));
+                                setRoomTypeSearch(rt.customName || rt.name);
+                                setRoomTypeDropdownOpen(false);
+                              }}
+                              data-testid={`option-room-type-${rt.id}`}
+                            >
+                              <span>{rt.customName || rt.name}</span>
+                              <span className="text-xs text-slate-400 ml-2">₹{rt.basePrice?.toLocaleString()}/mo · {rt.occupancy} occ</span>
+                            </button>
+                          ))}
+                        {(roomTypes || []).filter(rt => {
+                          if (!roomTypeSearch) return true;
+                          return (rt.customName || rt.name).toLowerCase().includes(roomTypeSearch.toLowerCase());
+                        }).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-slate-400">No matching room types</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
