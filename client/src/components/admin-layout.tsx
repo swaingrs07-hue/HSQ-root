@@ -94,7 +94,7 @@ const adminNavItems: NavItem[] = [
   { name: "3D Virtual Tour", href: "/admin/virtual-tour-uploads", icon: Globe },
   { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
-  { name: "Packages", href: "/admin/packages", icon: Package },
+  { name: "Housing Plans", href: "/admin/packages", icon: Package },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },

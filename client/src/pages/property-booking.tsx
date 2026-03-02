@@ -13,6 +13,7 @@ import {
   Layers, Clock, Shield, X, Play, Pause,
   ChevronDown, Maximize2, Home, Grid3X3, Eye,
   ZoomIn, Navigation, Compass, Star, Wifi, Coffee,
+  Crown, IndianRupee, CheckCircle2,
 } from "lucide-react";
 
 function parseImages(json: string | null | undefined): string[] {
@@ -674,6 +675,189 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
   );
 }
 
+function HousingPlans({ propertyId }: { propertyId: string }) {
+  const { data: plans = [], isLoading } = useQuery({
+    queryKey: [`/api/properties/${propertyId}/plans`],
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${propertyId}/plans`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!propertyId,
+  });
+
+  if (isLoading || plans.length === 0) return null;
+
+  const allFeatureLabels: string[] = [];
+  for (const plan of plans) {
+    for (const item of plan.items || []) {
+      if (!allFeatureLabels.includes(item.label)) {
+        allFeatureLabels.push(item.label);
+      }
+    }
+  }
+
+  const getFeatureValue = (plan: any, label: string) => {
+    const item = plan.items?.find((i: any) => i.label === label);
+    if (!item) return null;
+    return item.featureValue || (item.includedQty > 0 ? `${item.includedQty} ${item.unit}` : "Included");
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      data-testid="housing-plans-section"
+    >
+      <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
+        <Crown className="w-5 h-5 text-amber-600" />
+        Housing Plans & Features
+      </h2>
+
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gradient-to-r from-stone-900 to-stone-800">
+              <th className="text-left py-4 px-5 text-stone-300 uppercase text-xs tracking-wider font-semibold min-w-[180px]">
+                Lifestyle Features
+              </th>
+              {plans.map((plan: any) => (
+                <th key={plan.id} className={`text-center py-4 px-4 min-w-[160px] relative ${plan.isHighlighted ? "bg-amber-600/20" : ""}`}>
+                  {plan.isHighlighted && (
+                    <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-0.5 rounded-b-lg tracking-wider">
+                      Most Popular
+                    </div>
+                  )}
+                  <div className="text-white font-bold text-sm tracking-wide">{plan.name}</div>
+                  {plan.tagline && <div className="text-stone-400 text-[10px] mt-0.5 font-medium">{plan.tagline}</div>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-stone-100 bg-amber-50/50">
+              <td className="py-3.5 px-5 font-semibold text-stone-700">Annual Fee (Standard)</td>
+              {plans.map((plan: any) => (
+                <td key={plan.id} className={`text-center py-3.5 px-4 ${plan.isHighlighted ? "bg-amber-50" : ""}`}>
+                  <span className="text-lg font-bold text-amber-700">₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                </td>
+              ))}
+            </tr>
+            {plans.some((p: any) => p.occupancy) && (
+              <tr className="border-b border-stone-100">
+                <td className="py-3 px-5 font-medium text-stone-600">Occupancy</td>
+                {plans.map((plan: any) => (
+                  <td key={plan.id} className={`text-center py-3 px-4 text-stone-700 font-medium ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
+                    {plan.occupancy || "—"}
+                  </td>
+                ))}
+              </tr>
+            )}
+            {plans.some((p: any) => p.locationInfo) && (
+              <tr className="border-b border-stone-100">
+                <td className="py-3 px-5 font-medium text-stone-600">Location</td>
+                {plans.map((plan: any) => (
+                  <td key={plan.id} className={`text-center py-3 px-4 text-stone-700 font-medium ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
+                    {plan.locationInfo || "—"}
+                  </td>
+                ))}
+              </tr>
+            )}
+            {plans.some((p: any) => p.tagline) && (
+              <tr className="border-b border-stone-100 bg-stone-50/50">
+                <td className="py-3 px-5 font-medium text-stone-600">The "Vibe"</td>
+                {plans.map((plan: any) => (
+                  <td key={plan.id} className={`text-center py-3 px-4 font-bold ${plan.isHighlighted ? "text-amber-700 bg-amber-50/30" : "text-stone-800"}`}>
+                    {plan.tagline || "—"}
+                  </td>
+                ))}
+              </tr>
+            )}
+            {allFeatureLabels.map((label, idx) => (
+              <tr key={label} className={`border-b border-stone-100 ${idx % 2 === 1 ? "bg-stone-50/40" : ""}`}>
+                <td className="py-3 px-5 font-medium text-stone-600">{label}</td>
+                {plans.map((plan: any) => {
+                  const val = getFeatureValue(plan, label);
+                  const isPaid = val && (val.toLowerCase().includes("paid") || val.toLowerCase().includes("pay-per"));
+                  const isUnlimited = val && val.toLowerCase().includes("unlimited");
+                  const isCredit = val && val.includes("Credit");
+                  return (
+                    <td key={plan.id} className={`text-center py-3 px-4 ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
+                      {val ? (
+                        <span className={cn(
+                          "font-medium",
+                          isPaid ? "text-stone-400" : "",
+                          isUnlimited ? "font-bold text-amber-700" : "",
+                          isCredit ? "text-emerald-700 font-semibold" : "",
+                          !isPaid && !isUnlimited && !isCredit ? "text-stone-700" : ""
+                        )}>
+                          {val}
+                        </span>
+                      ) : (
+                        <span className="text-stone-300">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="md:hidden space-y-4">
+        {plans.map((plan: any) => (
+          <motion.div
+            key={plan.id}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className={cn(
+              "rounded-2xl border overflow-hidden bg-white",
+              plan.isHighlighted ? "border-2 border-amber-400 shadow-lg shadow-amber-100" : "border-stone-200"
+            )}
+            data-testid={`plan-card-${plan.id}`}
+          >
+            {plan.isHighlighted && (
+              <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5">
+                <Star className="h-3 w-3 inline mr-1" /> Most Popular
+              </div>
+            )}
+            <div className="p-5">
+              <h3 className="font-bold text-lg text-stone-900">{plan.name}</h3>
+              {plan.tagline && <p className="text-sm text-amber-600 font-medium">{plan.tagline}</p>}
+              <div className="flex items-baseline gap-1 mt-2 mb-4">
+                <span className="text-2xl font-bold text-amber-700">₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                <span className="text-xs text-stone-400">/ year</span>
+              </div>
+              {plan.occupancy && (
+                <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                  <span className="text-stone-500">Occupancy</span>
+                  <span className="font-medium text-stone-700">{plan.occupancy}</span>
+                </div>
+              )}
+              {plan.locationInfo && (
+                <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                  <span className="text-stone-500">Location</span>
+                  <span className="font-medium text-stone-700">{plan.locationInfo}</span>
+                </div>
+              )}
+              {(plan.items || []).map((item: any) => (
+                <div key={item.id} className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                  <span className="text-stone-500">{item.label}</span>
+                  <span className="font-medium text-stone-700">{item.featureValue || `${item.includedQty} ${item.unit}`}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function PropertyBooking() {
   const [, params] = useRoute("/properties/:id");
   const [, navigate] = useLocation();
@@ -914,6 +1098,8 @@ export default function PropertyBooking() {
                 ))}
               </div>
             </div>
+
+            <HousingPlans propertyId={property.id} />
 
             {property.rules && (
               <div>

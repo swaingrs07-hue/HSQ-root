@@ -72,10 +72,13 @@ Preferred communication style: Simple, everyday language.
 - **Allocation System**: Admin ability to allocate/deallocate bookings to beds, preventing overlaps.
 - **Stats**: Real-time counts for Total, Available, Occupied, Reserved, Blocked, With Booking.
 
-#### Package Management System
-- **Admin Features**: Create, edit, delete, activate/deactivate service packages with various service items (Laundry, Meals Plan, etc.).
-- **Pricing**: Flexible price types (ONE_TIME, PER_DAY, PER_MONTH) with tax.
-- **Booking Integration**: Attach/detach packages to bookings, track usage with progress bars, calculate extra charges, and manage an Ala Carte wallet.
+#### Housing Plans (Property Service Tiers)
+- **Admin Route**: `/admin/packages` — manage property-specific housing plans (tiers)
+- **User-facing**: Comparison table on `/properties/:id` showing active plans for that property
+- **Concept**: Each property has multiple service tiers (e.g., THE HIGHLANDER, THE STERLING, THE ROYAL) with different pricing and lifestyle features displayed as a side-by-side comparison table
+- **Schema**: `packages` table has `propertyId`, `tagline`, `tierLevel`, `isHighlighted`, `occupancy`, `locationInfo`; `package_items` has `featureValue` for display text
+- **Public API**: `GET /api/properties/:propertyId/plans` returns active plans with features
+- **Booking Integration**: Attach/detach plans to bookings, track usage with progress bars, calculate extra charges, and manage an Ala Carte wallet
 
 #### Instagram Live Feed
 - **Integration**: Instagram Graph API for displaying recent posts.

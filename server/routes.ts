@@ -6748,12 +6748,18 @@ export async function registerRoutes(
     try {
       const { items, ...packageData } = req.body;
       const [pkg] = await db.insert(schema.packages).values({
+        propertyId: packageData.propertyId || null,
         name: packageData.name,
         description: packageData.description || null,
+        tagline: packageData.tagline || null,
         priceType: packageData.priceType || "PER_MONTH",
         basePrice: packageData.basePrice || 0,
         currency: packageData.currency || "INR",
         taxPercent: packageData.taxPercent || null,
+        tierLevel: packageData.tierLevel ?? 0,
+        isHighlighted: packageData.isHighlighted || false,
+        occupancy: packageData.occupancy || null,
+        locationInfo: packageData.locationInfo || null,
         validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
         validTo: packageData.validTo ? new Date(packageData.validTo) : null,
         isActive: packageData.isActive !== false,
@@ -6766,6 +6772,7 @@ export async function registerRoutes(
             packageId: pkg.id,
             type: item.type,
             label: item.label,
+            featureValue: item.featureValue || null,
             includedQty: item.includedQty || 0,
             unit: item.unit || "unit",
             extraUnitPrice: item.extraUnitPrice || 0,
@@ -6791,12 +6798,18 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ error: "Package not found" });
 
       const [pkg] = await db.update(schema.packages).set({
+        propertyId: packageData.propertyId ?? existing.propertyId,
         name: packageData.name,
         description: packageData.description || null,
+        tagline: packageData.tagline ?? existing.tagline,
         priceType: packageData.priceType || existing.priceType,
         basePrice: packageData.basePrice ?? existing.basePrice,
         currency: packageData.currency || existing.currency,
         taxPercent: packageData.taxPercent ?? existing.taxPercent,
+        tierLevel: packageData.tierLevel ?? existing.tierLevel,
+        isHighlighted: packageData.isHighlighted ?? existing.isHighlighted,
+        occupancy: packageData.occupancy ?? existing.occupancy,
+        locationInfo: packageData.locationInfo ?? existing.locationInfo,
         validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
         validTo: packageData.validTo ? new Date(packageData.validTo) : null,
         isActive: packageData.isActive ?? existing.isActive,
@@ -6811,6 +6824,7 @@ export async function registerRoutes(
             packageId: pkg.id,
             type: item.type,
             label: item.label,
+            featureValue: item.featureValue || null,
             includedQty: item.includedQty || 0,
             unit: item.unit || "unit",
             extraUnitPrice: item.extraUnitPrice || 0,
@@ -6847,12 +6861,18 @@ export async function registerRoutes(
       const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, original.id)).orderBy(schema.packageItems.sortOrder);
 
       const [newPkg] = await db.insert(schema.packages).values({
+        propertyId: original.propertyId,
         name: `${original.name} (Copy)`,
         description: original.description,
+        tagline: original.tagline,
         priceType: original.priceType,
         basePrice: original.basePrice,
         currency: original.currency,
         taxPercent: original.taxPercent,
+        tierLevel: original.tierLevel,
+        isHighlighted: false,
+        occupancy: original.occupancy,
+        locationInfo: original.locationInfo,
         validFrom: original.validFrom,
         validTo: original.validTo,
         isActive: false,
@@ -6863,6 +6883,7 @@ export async function registerRoutes(
           packageId: newPkg.id,
           type: items[i].type,
           label: items[i].label,
+          featureValue: items[i].featureValue,
           includedQty: items[i].includedQty,
           unit: items[i].unit,
           extraUnitPrice: items[i].extraUnitPrice,
@@ -6888,6 +6909,27 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to toggle package" });
+    }
+  });
+
+  app.get("/api/properties/:propertyId/plans", async (req, res) => {
+    try {
+      const plans = await db.select().from(schema.packages)
+        .where(and(
+          eq(schema.packages.propertyId, req.params.propertyId),
+          eq(schema.packages.isActive, true)
+        ))
+        .orderBy(schema.packages.tierLevel);
+      const result = [];
+      for (const plan of plans) {
+        const items = await db.select().from(schema.packageItems)
+          .where(eq(schema.packageItems.packageId, plan.id))
+          .orderBy(schema.packageItems.sortOrder);
+        result.push({ ...plan, items });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch property plans" });
     }
   });
 
