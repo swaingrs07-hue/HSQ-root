@@ -20,7 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STEP_LABELS = ["Customer", "Property", "Resident", "Pricing", "Review"];
 
 export default function MyBookings() {
-  const { user, getAuthToken } = useAuth();
+  const { user, token } = useAuth();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -28,7 +28,7 @@ export default function MyBookings() {
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    fetchBookings();
+    if (token) fetchBookings();
     try {
       const saved = localStorage.getItem("hsquare_booking_draft");
       if (saved) {
@@ -38,12 +38,12 @@ export default function MyBookings() {
         }
       }
     } catch (e) {}
-  }, []);
+  }, [token]);
 
   const fetchBookings = async () => {
     try {
       const res = await fetch("/api/my-bookings", {
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
