@@ -34,7 +34,8 @@ import {
   UserCog,
   Image as ImageIcon,
   PanelBottom,
-  CheckCircle2
+  CheckCircle2,
+  Globe
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -88,6 +89,7 @@ const adminNavItems: NavItem[] = [
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
   { name: "Tour Images", href: "/admin/property-tour-images", icon: Camera },
+  { name: "3D Virtual Tour", href: "/admin/virtual-tour-uploads", icon: Globe },
   { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },

@@ -87,6 +87,8 @@ export const properties = pgTable("properties", {
   tourRoomsImages: text("tour_rooms_images"),
   tourAmenitiesImages: text("tour_amenities_images"),
   tourLocationImages: text("tour_location_images"),
+  virtualTourUrl: text("virtual_tour_url"),
+  virtualTourProvider: text("virtual_tour_provider"),
   highlights: text("highlights").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
