@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Check, ChevronRight, User, MapPin, Phone, Upload } from "lucide-react";
+import { Check, ChevronRight, User, MapPin, Phone, Upload, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 import { registerStudent } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -126,10 +126,38 @@ export default function StudentRegistration() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="mb-8 text-center space-y-2">
-        <h1 className="text-3xl font-heading font-bold text-primary">Student Registration</h1>
-        <p className="text-muted-foreground">Join the community. It takes less than 5 minutes.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30 relative overflow-hidden">
+      <style>{`
+        @keyframes regFloat1 { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-18px) rotate(6deg); } }
+        @keyframes regFloat2 { 0%, 100% { transform: translateY(0) rotate(0deg) scale(1); } 50% { transform: translateY(-14px) rotate(-6deg) scale(1.04); } }
+        @keyframes regFloat3 { 0%, 100% { transform: translateY(-4px) rotate(2deg); } 50% { transform: translateY(-22px) rotate(-4deg); } }
+      `}</style>
+      <div className="absolute top-16 left-[6%] w-16 h-16 md:w-24 md:h-24 opacity-50 pointer-events-none" style={{ animation: "regFloat1 7s ease-in-out infinite" }}>
+        <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="rg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.35"/><stop offset="100%" stopColor="#f97316" stopOpacity="0.15"/></linearGradient></defs><path d="M50 5 L90 30 L90 70 L50 95 L10 70 L10 30 Z" fill="url(#rg1)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.25"/></svg>
+      </div>
+      <div className="absolute top-28 right-[7%] w-14 h-14 md:w-20 md:h-20 opacity-40 pointer-events-none" style={{ animation: "regFloat2 8s ease-in-out infinite 1s" }}>
+        <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="rg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0.12"/></linearGradient></defs><circle cx="50" cy="50" r="40" fill="url(#rg2)" stroke="#8b5cf6" strokeWidth="1" strokeOpacity="0.15"/></svg>
+      </div>
+      <div className="absolute bottom-20 left-[10%] w-12 h-12 md:w-16 md:h-16 opacity-35 pointer-events-none" style={{ animation: "regFloat3 9s ease-in-out infinite 0.5s" }}>
+        <svg viewBox="0 0 100 100" fill="none"><rect x="15" y="15" width="70" height="70" rx="18" fill="none" stroke="#ec4899" strokeWidth="2" strokeOpacity="0.2" transform="rotate(12 50 50)"/></svg>
+      </div>
+      <div className="absolute bottom-32 right-[8%] w-10 h-10 md:w-14 md:h-14 opacity-30 pointer-events-none" style={{ animation: "regFloat1 10s ease-in-out infinite 2s" }}>
+        <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="35" fill="none" stroke="#14b8a6" strokeWidth="2" strokeOpacity="0.2" strokeDasharray="8 6"/></svg>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12 max-w-3xl">
+      <div className="mb-8 text-center space-y-3">
+        <motion.span
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-700 text-sm font-semibold tracking-wider uppercase border border-amber-200/60"
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          Registration
+        </motion.span>
+        <h1 className="text-3xl md:text-4xl font-heading font-bold text-gray-900">Student Registration</h1>
+        <div className="w-12 h-1 bg-gradient-to-r from-amber-400 to-amber-600 mx-auto rounded-full" />
+        <p className="text-gray-500">Join the community. It takes less than 5 minutes.</p>
       </div>
 
       {/* Progress Steps */}
@@ -348,6 +376,7 @@ export default function StudentRegistration() {
           </form>
         </Form>
       </Card>
+    </div>
     </div>
   );
 }

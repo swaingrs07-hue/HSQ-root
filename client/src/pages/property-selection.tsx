@@ -325,20 +325,84 @@ export default function PropertySelection() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="bg-white border-b border-stone-200">
-        <div className="container mx-auto px-4 py-10 md:py-16">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30">
+      <style>{`
+        @keyframes float3d {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        @keyframes float3d2 {
+          0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+          50% { transform: translateY(-15px) rotate(-8deg) scale(1.05); }
+        }
+        @keyframes float3d3 {
+          0%, 100% { transform: translateY(-5px) rotate(3deg); }
+          50% { transform: translateY(-25px) rotate(-3deg); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .deco-shape { position: absolute; pointer-events: none; z-index: 0; }
+        .hero-card-glow {
+          background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255,255,255,0.8);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+        .prop-card-premium {
+          background: white;
+          border-radius: 20px;
+          overflow: hidden;
+          border: 1px solid rgba(0,0,0,0.06);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02);
+          transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .prop-card-premium:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.06);
+          border-color: rgba(217,119,6,0.2);
+        }
+      `}</style>
+
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-50/60 via-white to-rose-50/40" />
+        <div className="deco-shape top-10 left-[5%] w-20 h-20 md:w-28 md:h-28 opacity-60" style={{ animation: "float3d 6s ease-in-out infinite" }}>
+          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4"/><stop offset="100%" stopColor="#f97316" stopOpacity="0.2"/></linearGradient></defs><path d="M50 5 L90 30 L90 70 L50 95 L10 70 L10 30 Z" fill="url(#dg1)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.3"/></svg>
+        </div>
+        <div className="deco-shape top-20 right-[8%] w-16 h-16 md:w-24 md:h-24 opacity-50" style={{ animation: "float3d2 7s ease-in-out infinite 1s" }}>
+          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0.15"/></linearGradient></defs><circle cx="50" cy="50" r="42" fill="url(#dg2)" stroke="#8b5cf6" strokeWidth="1" strokeOpacity="0.2"/></svg>
+        </div>
+        <div className="deco-shape bottom-8 left-[12%] w-14 h-14 md:w-20 md:h-20 opacity-40" style={{ animation: "float3d3 8s ease-in-out infinite 0.5s" }}>
+          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ec4899" stopOpacity="0.25"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0.12"/></linearGradient></defs><rect x="15" y="15" width="70" height="70" rx="18" fill="url(#dg3)" stroke="#ec4899" strokeWidth="1" strokeOpacity="0.15" transform="rotate(15 50 50)"/></svg>
+        </div>
+        <div className="deco-shape bottom-16 right-[6%] w-12 h-12 md:w-16 md:h-16 opacity-50" style={{ animation: "float3d 9s ease-in-out infinite 2s" }}>
+          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#14b8a6" stopOpacity="0.3"/><stop offset="100%" stopColor="#06b6d4" stopOpacity="0.15"/></linearGradient></defs><polygon points="50,10 90,40 75,85 25,85 10,40" fill="url(#dg4)" stroke="#14b8a6" strokeWidth="1" strokeOpacity="0.2"/></svg>
+        </div>
+        <div className="deco-shape top-1/2 left-[45%] w-10 h-10 md:w-14 md:h-14 opacity-30" style={{ animation: "float3d2 10s ease-in-out infinite 3s" }}>
+          <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="35" fill="none" stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.2" strokeDasharray="8 6"/></svg>
+        </div>
+
+        <div className="relative z-10 container mx-auto px-4 py-14 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium mb-3">Our Properties</p>
-            <h1 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-4" data-testid="heading-properties">
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-700 text-sm font-semibold tracking-wider uppercase mb-5 border border-amber-200/60"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Our Properties
+            </motion.span>
+            <h1 className="text-4xl md:text-6xl font-heading font-bold text-gray-900 mb-5 leading-tight" data-testid="heading-properties">
               Find Your Perfect Stay
             </h1>
-            <div className="w-16 h-0.5 bg-amber-500 mx-auto mb-6" />
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto font-light">
+            <div className="w-16 h-1 bg-gradient-to-r from-amber-400 to-amber-600 mx-auto mb-6 rounded-full" />
+            <p className="text-gray-500 text-lg md:text-xl max-w-2xl mx-auto font-light leading-relaxed">
               Discover premium student accommodations with world-class amenities and thoughtfully designed living spaces.
             </p>
           </motion.div>
@@ -346,10 +410,10 @@ export default function PropertySelection() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-8 max-w-4xl mx-auto"
+            transition={{ delay: 0.15 }}
+            className="mt-10 max-w-4xl mx-auto"
           >
-            <div className="bg-stone-50 border border-stone-200 p-4 md:p-5">
+            <div className="hero-card-glow rounded-2xl p-5 md:p-6">
               <SmartSearch
                 onSearchResults={(results) => {
                   setNlpSearchResults(results);
@@ -446,7 +510,7 @@ export default function PropertySelection() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-10 md:py-16">
+      <div className="container mx-auto px-4 py-12 md:py-20">
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
@@ -488,11 +552,11 @@ export default function PropertySelection() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.08, duration: 0.5 }}
-                    className="group cursor-pointer"
+                    className="group cursor-pointer prop-card-premium"
                     onClick={() => handlePropertySelect(prop)}
                     data-testid={`property-card-${prop.id}`}
                   >
-                    <div className="relative overflow-hidden bg-white">
+                    <div className="relative overflow-hidden rounded-t-[20px]">
                       <div className="aspect-[4/3] overflow-hidden">
                         <img
                           src={prop.imageUrl || propertyExterior}
@@ -504,7 +568,7 @@ export default function PropertySelection() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                       <div className="absolute top-4 left-4">
-                        <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
                           prop.bookingMode === "academic_year"
                             ? "bg-purple-600/90 text-white backdrop-blur-sm"
                             : "bg-amber-600/90 text-white backdrop-blur-sm"
@@ -514,7 +578,7 @@ export default function PropertySelection() {
                       </div>
 
                       <div className="absolute top-4 right-4">
-                        <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
                           availability.available
                             ? availability.text.includes("Only") ? "bg-orange-500/90 text-white" : "bg-emerald-600/90 text-white"
                             : "bg-red-600/90 text-white"
@@ -524,19 +588,19 @@ export default function PropertySelection() {
                       </div>
                     </div>
 
-                    <div className="bg-white p-5 border-x border-b border-stone-200">
-                      <div className="flex items-start justify-between mb-2">
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-heading font-bold text-lg text-gray-900 group-hover:text-amber-600 transition-colors truncate">
                             {prop.name}
                           </h3>
-                          <p className="text-gray-500 text-sm flex items-center gap-1 mt-1">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                          <p className="text-gray-400 text-sm flex items-center gap-1.5 mt-1.5">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-amber-500/60" />
                             <span className="truncate">{prop.location}</span>
                           </p>
                         </div>
                         <div className="text-right ml-3 flex-shrink-0">
-                          <div className="text-xl font-bold text-amber-600">
+                          <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
                             ₹{lowestPrice.toLocaleString()}
                           </div>
                           <div className="text-xs text-gray-400">
@@ -549,26 +613,26 @@ export default function PropertySelection() {
                         {displayAmenities.map((am: string) => {
                           const Icon = amenityIcons[am] || Shield;
                           return (
-                            <span key={am} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-500 bg-stone-100 border border-stone-200">
-                              <Icon className="w-3 h-3" />
+                            <span key={am} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-500 bg-gray-50 rounded-full border border-gray-100">
+                              <Icon className="w-3 h-3 text-gray-400" />
                               {am}
                             </span>
                           );
                         })}
                         {prop.amenities?.length > 4 && (
-                          <span className="px-2 py-0.5 text-xs text-amber-600 bg-amber-50 border border-amber-200">
+                          <span className="px-2.5 py-1 text-xs text-amber-600 bg-amber-50 rounded-full border border-amber-100 font-medium">
                             +{prop.amenities.length - 4}
                           </span>
                         )}
                       </div>
 
-                      <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                      <div className="pt-4 border-t border-gray-100/80 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                           <Bed className="w-3.5 h-3.5" />
                           <span>{prop.roomTypes?.length || 0} room types</span>
                         </div>
-                        <span className="text-amber-600 text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                          View Details <ChevronRight className="w-4 h-4" />
+                        <span className="text-amber-600 text-sm font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                          Explore <ArrowRight className="w-4 h-4" />
                         </span>
                       </div>
                     </div>

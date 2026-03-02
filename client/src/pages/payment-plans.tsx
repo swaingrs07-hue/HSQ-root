@@ -102,10 +102,30 @@ export default function PaymentPlans() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-primary">Choose Payment Plan</h1>
-        <p className="text-muted-foreground">Flexible options designed for your convenience.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30 relative overflow-hidden">
+      <style>{`
+        @keyframes ppFloat1 { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-16px) rotate(4deg); } }
+        @keyframes ppFloat2 { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-12px) rotate(-5deg); } }
+      `}</style>
+      <div className="absolute top-12 right-[8%] w-16 h-16 md:w-24 md:h-24 opacity-40 pointer-events-none" style={{ animation: "ppFloat1 7s ease-in-out infinite" }}>
+        <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="pp1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.35"/><stop offset="100%" stopColor="#f97316" stopOpacity="0.15"/></linearGradient></defs><path d="M50 5 L90 30 L90 70 L50 95 L10 70 L10 30 Z" fill="url(#pp1)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.25"/></svg>
+      </div>
+      <div className="absolute bottom-20 left-[6%] w-14 h-14 md:w-20 md:h-20 opacity-35 pointer-events-none" style={{ animation: "ppFloat2 8s ease-in-out infinite 1s" }}>
+        <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeOpacity="0.15"/></svg>
+      </div>
+      <div className="absolute top-1/2 left-[45%] w-10 h-10 opacity-25 pointer-events-none" style={{ animation: "ppFloat1 10s ease-in-out infinite 2s" }}>
+        <svg viewBox="0 0 100 100" fill="none"><rect x="15" y="15" width="70" height="70" rx="18" fill="none" stroke="#ec4899" strokeWidth="2" strokeOpacity="0.15" transform="rotate(15 50 50)"/></svg>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12 max-w-5xl">
+      <div className="mb-8 text-center">
+        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-700 text-sm font-semibold tracking-wider uppercase mb-4 border border-amber-200/60">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Payment
+        </span>
+        <h1 className="text-3xl md:text-4xl font-heading font-bold text-gray-900">Choose Payment Plan</h1>
+        <div className="w-12 h-1 bg-gradient-to-r from-amber-400 to-amber-600 mx-auto mt-4 mb-3 rounded-full" />
+        <p className="text-gray-500">Flexible options designed for your convenience.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -223,6 +243,7 @@ export default function PaymentPlans() {
              </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
