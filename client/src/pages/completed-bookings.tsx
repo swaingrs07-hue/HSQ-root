@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { jsPDF } from "jspdf";
 import {
   Search,
   CheckCircle2,
@@ -198,6 +199,177 @@ export default function CompletedBookings() {
     } finally {
       setMarkingPayment(false);
     }
+  };
+
+  const fmtLabel = (s: string) => (s || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+  const downloadAdminReceipt = (booking: any) => {
+    const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const m = 18;
+    const cw = pw - m * 2;
+    let y = 20;
+
+    const checkPage = (needed: number) => {
+      if (y + needed > ph - 30) { doc.addPage(); y = 20; }
+    };
+
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 0, pw, 45, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("HSQUARELIVING", pw / 2, 20, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Pvt Ltd | Premium Student Accommodation", pw / 2, 28, { align: "center" });
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("BOOKING RECEIPT", pw / 2, 40, { align: "center" });
+
+    y = 58;
+    doc.setDrawColor(79, 70, 229);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(m, y - 6, cw, 26, 3, 3);
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("BOOKING CODE", m + 6, y);
+    doc.setTextColor(79, 70, 229);
+    doc.setFontSize(15);
+    doc.setFont("helvetica", "bold");
+    doc.text(booking.bookingCode || "N/A", m + 6, y + 12);
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("DATE", pw - m - 6, y, { align: "right" });
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(10);
+    const createdDate = booking.createdAt ? format(new Date(booking.createdAt), "dd MMMM yyyy") : "N/A";
+    doc.text(createdDate, pw - m - 6, y + 12, { align: "right" });
+
+    y += 36;
+
+    const drawHeader = (title: string) => {
+      checkPage(20);
+      doc.setFillColor(245, 245, 250);
+      doc.roundedRect(m, y - 4, cw, 10, 2, 2, "F");
+      doc.setTextColor(79, 70, 229);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, m + 5, y + 3);
+      y += 14;
+    };
+    const drawRow = (label: string, value: string, bold = false) => {
+      if (!value || value === "N/A" || value === "" || value === "undefined") return;
+      checkPage(12);
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, m + 5, y);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      const maxW = cw - 80;
+      const lines = doc.splitTextToSize(value, maxW);
+      doc.text(lines, pw - m - 5, y, { align: "right" });
+      y += 8 * Math.max(lines.length, 1);
+    };
+
+    drawHeader("BOOKING DETAILS");
+    drawRow("Status", fmtLabel(booking.status || "draft"), true);
+    drawRow("Customer", booking.customerName || "N/A");
+    drawRow("Property", booking.propertyName || "N/A");
+    drawRow("Room Type", `${booking.roomTypeName || "N/A"} · ${booking.occupancy || ""}-sharing`);
+
+    const rd = booking.residentDetails;
+    if (rd && (rd.name || rd.phone || rd.email)) {
+      y += 4;
+      drawHeader("RESIDENT DETAILS");
+      drawRow("Name", rd.name || "");
+      drawRow("Phone", rd.phone || "");
+      drawRow("Email", rd.email || "");
+      drawRow("Gender", fmtLabel(rd.gender || ""));
+      drawRow("Date of Birth", rd.dob || "");
+      drawRow("Room No.", rd.roomNo || "");
+      drawRow("Bed No.", rd.bedNo || "");
+      drawRow("Move-in Date", rd.moveInDate || "");
+      drawRow("Check-out Date", rd.checkOutDate || "");
+      drawRow("Accommodation", fmtLabel(rd.accommodationType || ""));
+      drawRow("Dietary Preference", fmtLabel(rd.dietaryPreference || ""));
+      drawRow("Institute", rd.institute || "");
+      drawRow("Course", rd.course || "");
+    }
+
+    if (rd && (rd.parentName || rd.parentPhone)) {
+      y += 4;
+      drawHeader("EMERGENCY CONTACT");
+      drawRow("Name", rd.parentName || "");
+      drawRow("Relation", fmtLabel(rd.parentRelation || ""));
+      drawRow("Phone", rd.parentPhone || "");
+      drawRow("Email", rd.parentEmail || "");
+    }
+
+    y += 4;
+    drawHeader("FEE BREAKDOWN");
+    drawRow("Base Fee", `Rs. ${(booking.baseFee || 0).toLocaleString("en-IN")}`);
+    if ((booking.discount || 0) > 0) drawRow("Discount", `- Rs. ${booking.discount.toLocaleString("en-IN")}`);
+    drawRow("Total Fee", `Rs. ${(booking.totalFee || 0).toLocaleString("en-IN")}`, true);
+
+    const totalPaid = (booking.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const balance = (booking.totalFee || 0) - totalPaid;
+    checkPage(20);
+    y += 4;
+    doc.setDrawColor(79, 70, 229);
+    doc.setLineWidth(0.8);
+    doc.line(m + 5, y, pw - m - 5, y);
+    y += 10;
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Amount Paid", m + 5, y);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`Rs. ${totalPaid.toLocaleString("en-IN")}`, pw - m - 5, y, { align: "right" });
+    if (balance > 0) {
+      y += 10;
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(11);
+      doc.text("Balance Due", m + 5, y);
+      doc.setTextColor(245, 158, 11);
+      doc.text(`Rs. ${balance.toLocaleString("en-IN")}`, pw - m - 5, y, { align: "right" });
+    }
+
+    if ((booking.installments || []).length > 0) {
+      y += 10;
+      drawHeader("INSTALLMENTS");
+      booking.installments.forEach((inst: any) => {
+        drawRow(inst.name, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+      });
+    }
+
+    if ((booking.payments || []).length > 0) {
+      y += 6;
+      drawHeader("PAYMENT HISTORY");
+      booking.payments.forEach((p: any) => {
+        const pDate = p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy") : "N/A";
+        drawRow(`${pDate} (${(p.status || "pending").toUpperCase()})`, `Rs. ${(p.amount || 0).toLocaleString("en-IN")}`);
+      });
+    }
+
+    checkPage(30);
+    y += 10;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(m, y, pw - m, y);
+    y += 10;
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Computer-generated receipt. No signature required.", pw / 2, y, { align: "center" });
+    y += 7;
+    doc.text("Thank you for choosing Hsquareliving!", pw / 2, y, { align: "center" });
+
+    doc.save(`receipt-${booking.bookingCode || "booking"}.pdf`);
   };
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -573,28 +745,90 @@ export default function CompletedBookings() {
                 )}
               </div>
 
-              {selectedBooking.residentDetails && (
+              {selectedBooking.residentDetails && (selectedBooking.residentDetails.name || selectedBooking.residentDetails.phone || selectedBooking.residentDetails.email) && (
                 <div className="p-4 bg-pink-50 rounded-xl border border-pink-100">
-                  <h4 className="text-xs font-semibold text-pink-600 uppercase mb-2">Resident Info</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {selectedBooking.residentDetails.name && (
-                      <div><span className="text-slate-500">Name:</span> <span className="font-medium">{selectedBooking.residentDetails.name}</span></div>
-                    )}
-                    {selectedBooking.residentDetails.phone && (
-                      <div><span className="text-slate-500">Phone:</span> <span className="font-medium">{selectedBooking.residentDetails.phone}</span></div>
-                    )}
-                    {selectedBooking.residentDetails.gender && (
-                      <div><span className="text-slate-500">Gender:</span> <span className="font-medium capitalize">{selectedBooking.residentDetails.gender}</span></div>
-                    )}
-                    {selectedBooking.residentDetails.institute && (
-                      <div><span className="text-slate-500">Institute:</span> <span className="font-medium">{selectedBooking.residentDetails.institute}</span></div>
-                    )}
-                    {selectedBooking.residentDetails.parentName && (
-                      <div className="col-span-2"><span className="text-slate-500">Parent:</span> <span className="font-medium">{selectedBooking.residentDetails.parentName} ({selectedBooking.residentDetails.parentRelation})</span></div>
-                    )}
+                  <h4 className="text-xs font-semibold text-pink-600 uppercase mb-3">Resident Details</h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <AdminDetailRow label="Name" value={selectedBooking.residentDetails.name} />
+                    <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.phone} />
+                    <AdminDetailRow label="Email" value={selectedBooking.residentDetails.email} />
+                    <AdminDetailRow label="Gender" value={selectedBooking.residentDetails.gender} capitalize />
+                    <AdminDetailRow label="Date of Birth" value={selectedBooking.residentDetails.dob} />
+                    <AdminDetailRow label="Room No." value={selectedBooking.residentDetails.roomNo} />
+                    <AdminDetailRow label="Bed No." value={selectedBooking.residentDetails.bedNo} />
+                    <AdminDetailRow label="Move-in Date" value={selectedBooking.residentDetails.moveInDate} />
+                    <AdminDetailRow label="Check-out" value={selectedBooking.residentDetails.checkOutDate} />
+                    <AdminDetailRow label="Accommodation" value={selectedBooking.residentDetails.accommodationType} capitalize />
+                    <AdminDetailRow label="Diet" value={selectedBooking.residentDetails.dietaryPreference} capitalize />
+                    <AdminDetailRow label="Institute" value={selectedBooking.residentDetails.institute} />
+                    <AdminDetailRow label="Course" value={selectedBooking.residentDetails.course} />
                   </div>
                 </div>
               )}
+
+              {selectedBooking.residentDetails && (selectedBooking.residentDetails.parentName || selectedBooking.residentDetails.parentPhone) && (
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <h4 className="text-xs font-semibold text-blue-600 uppercase mb-3">Emergency / Parent Contact</h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <AdminDetailRow label="Name" value={selectedBooking.residentDetails.parentName} />
+                    <AdminDetailRow label="Relation" value={selectedBooking.residentDetails.parentRelation} capitalize />
+                    <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.parentPhone} />
+                    <AdminDetailRow label="Email" value={selectedBooking.residentDetails.parentEmail} />
+                  </div>
+                </div>
+              )}
+
+              {(selectedBooking.installments || []).length > 0 && (
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                  <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
+                  <div className="space-y-2">
+                    {selectedBooking.installments.map((inst: any, idx: number) => (
+                      <div key={inst.id || idx} className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium text-slate-700">{inst.name}</p>
+                          <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                          <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
+                            {inst.paid ? "PAID" : "PENDING"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(selectedBooking.payments || []).length > 0 && (
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
+                  <div className="space-y-2">
+                    {selectedBooking.payments.map((p: any, idx: number) => (
+                      <div key={p.id || idx} className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
+                          <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                          {(p.status || "pending").toUpperCase()}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                onClick={() => downloadAdminReceipt(selectedBooking)}
+                data-testid="button-admin-download-pdf"
+              >
+                <Download className="h-4 w-4" />
+                Download Receipt (PDF)
+              </Button>
 
               {isAdmin && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">
@@ -858,6 +1092,16 @@ export default function CompletedBookings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function AdminDetailRow({ label, value, capitalize }: { label: string; value?: string; capitalize?: boolean }) {
+  if (!value) return null;
+  return (
+    <div>
+      <span className="text-slate-500">{label}:</span>{" "}
+      <span className={`font-medium ${capitalize ? "capitalize" : ""}`}>{value}</span>
     </div>
   );
 }

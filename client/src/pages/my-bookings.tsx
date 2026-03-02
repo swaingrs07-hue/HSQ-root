@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock } from "lucide-react";
+import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock, User, Phone, Mail, MapPin, Hash, Home, Layers } from "lucide-react";
 import { jsPDF } from "jspdf";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -18,6 +18,10 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STEP_LABELS = ["Customer", "Property", "Resident", "Pricing", "Review"];
+
+function formatLabel(s: string) {
+  return (s || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
 
 export default function MyBookings() {
   const { user, token } = useAuth();
@@ -59,101 +63,176 @@ export default function MyBookings() {
   const downloadReceipt = (b: any) => {
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
-    const m = 20;
+    const ph = doc.internal.pageSize.getHeight();
+    const m = 18;
     const cw = pw - m * 2;
     let y = 20;
 
-    doc.setFillColor(79, 70, 229);
-    doc.rect(0, 0, pw, 50, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("HSQUARELIVING", pw / 2, 22, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Pvt Ltd", pw / 2, 30, { align: "center" });
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("BOOKING RECEIPT", pw / 2, 42, { align: "center" });
+    const checkPage = (needed: number) => {
+      if (y + needed > ph - 30) {
+        doc.addPage();
+        y = 20;
+      }
+    };
 
-    y = 65;
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 0, pw, 45, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("HSQUARELIVING", pw / 2, 20, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Pvt Ltd | Premium Student Accommodation", pw / 2, 28, { align: "center" });
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("BOOKING RECEIPT", pw / 2, 40, { align: "center" });
+
+    y = 58;
     doc.setDrawColor(79, 70, 229);
     doc.setLineWidth(0.5);
-    doc.roundedRect(m, y - 8, cw, 30, 3, 3);
+    doc.roundedRect(m, y - 6, cw, 26, 3, 3);
     doc.setTextColor(100, 100, 100);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("BOOKING CODE", m + 8, y);
+    doc.text("BOOKING CODE", m + 6, y);
     doc.setTextColor(79, 70, 229);
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
-    doc.text(b.bookingCode || "N/A", m + 8, y + 12);
+    doc.text(b.bookingCode || "N/A", m + 6, y + 12);
     doc.setTextColor(100, 100, 100);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("DATE", pw - m - 8, y, { align: "right" });
+    doc.text("DATE", pw - m - 6, y, { align: "right" });
     doc.setTextColor(50, 50, 50);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     const createdDate = b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "N/A";
-    doc.text(createdDate, pw - m - 8, y + 12, { align: "right" });
+    doc.text(createdDate, pw - m - 6, y + 12, { align: "right" });
 
-    y += 42;
-    const drawHeader = (title: string, yPos: number) => {
+    y += 36;
+
+    const drawHeader = (title: string) => {
+      checkPage(20);
       doc.setFillColor(245, 245, 250);
-      doc.roundedRect(m, yPos - 5, cw, 10, 2, 2, "F");
+      doc.roundedRect(m, y - 4, cw, 10, 2, 2, "F");
       doc.setTextColor(79, 70, 229);
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text(title, m + 6, yPos + 2);
-      return yPos + 16;
+      doc.text(title, m + 5, y + 3);
+      y += 14;
     };
-    const drawRow = (label: string, value: string, yPos: number, bold = false) => {
+    const drawRow = (label: string, value: string, bold = false) => {
+      if (!value || value === "N/A" || value === "") return;
+      checkPage(12);
       doc.setTextColor(120, 120, 120);
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(label, m + 6, yPos);
+      doc.text(label, m + 5, y);
       doc.setTextColor(30, 30, 30);
       doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.text(value, pw - m - 6, yPos, { align: "right" });
-      return yPos + 10;
+      const maxW = cw - 80;
+      const lines = doc.splitTextToSize(value, maxW);
+      doc.text(lines, pw - m - 5, y, { align: "right" });
+      y += 8 * Math.max(lines.length, 1);
     };
 
-    y = drawHeader("BOOKING DETAILS", y);
-    y = drawRow("Property", b.property?.name || "N/A", y);
-    y = drawRow("Room Type", b.roomType?.name || "N/A", y);
-    y = drawRow("Stay Plan", (b.stayPlanType || "academic_year").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()), y);
-    y = drawRow("Status", (b.status || "draft").replace(/_/g, " ").toUpperCase(), y, true);
+    drawHeader("BOOKING DETAILS");
+    drawRow("Status", formatLabel(b.status || "draft"), true);
+    drawRow("Property", b.property?.name || "N/A");
+    drawRow("Location", b.property?.location || "");
+    drawRow("Room Type", `${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`);
+    drawRow("Stay Plan", formatLabel(b.stayPlanType || "academic_year"));
+    drawRow("Duration", b.durationMonths ? `${b.durationMonths} months` : "");
+    drawRow("Check-in", b.checkInDate ? new Date(b.checkInDate).toLocaleDateString("en-IN") : "");
+    drawRow("Check-out", b.checkOutDate ? new Date(b.checkOutDate).toLocaleDateString("en-IN") : "");
 
-    y += 6;
-    y = drawHeader("FEE BREAKDOWN", y);
-    y = drawRow("Total Fee", `Rs. ${(b.totalFee || 0).toLocaleString("en-IN")}`, y);
-    if ((b.deposit || 0) > 0) y = drawRow("Security Deposit", `Rs. ${b.deposit.toLocaleString("en-IN")}`, y);
-    if ((b.discount || 0) > 0) y = drawRow("Discount", `- Rs. ${b.discount.toLocaleString("en-IN")}`, y);
+    const rd = b.residentDetails;
+    if (rd && (rd.name || rd.phone || rd.email)) {
+      y += 4;
+      drawHeader("RESIDENT DETAILS");
+      drawRow("Name", rd.name || "");
+      drawRow("Phone", rd.phone || "");
+      drawRow("Email", rd.email || "");
+      drawRow("Gender", formatLabel(rd.gender || ""));
+      drawRow("Date of Birth", rd.dob || "");
+      drawRow("Room No.", rd.roomNo || "");
+      drawRow("Bed No.", rd.bedNo || "");
+      drawRow("Move-in Date", rd.moveInDate || "");
+      drawRow("Check-out Date", rd.checkOutDate || "");
+      drawRow("Accommodation", formatLabel(rd.accommodationType || ""));
+      drawRow("Dietary Preference", formatLabel(rd.dietaryPreference || ""));
+      drawRow("Institute", rd.institute || "");
+      drawRow("Course", rd.course || "");
+    }
+
+    if (rd && (rd.parentName || rd.parentPhone)) {
+      y += 4;
+      drawHeader("EMERGENCY CONTACT");
+      drawRow("Name", rd.parentName || "");
+      drawRow("Relation", formatLabel(rd.parentRelation || ""));
+      drawRow("Phone", rd.parentPhone || "");
+      drawRow("Email", rd.parentEmail || "");
+    }
+
+    y += 4;
+    drawHeader("FEE BREAKDOWN");
+    drawRow("Base Fee", `Rs. ${(b.baseFee || 0).toLocaleString("en-IN")}`);
+    if ((b.deposit || 0) > 0) drawRow("Security Deposit", `Rs. ${b.deposit.toLocaleString("en-IN")}`);
+    if ((b.discount || 0) > 0) drawRow("Discount", `- Rs. ${b.discount.toLocaleString("en-IN")}`);
+    drawRow("Total Fee", `Rs. ${(b.totalFee || 0).toLocaleString("en-IN")}`, true);
 
     const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const balance = (b.totalFee || 0) - totalPaid;
+
+    checkPage(30);
     y += 4;
     doc.setDrawColor(79, 70, 229);
     doc.setLineWidth(0.8);
-    doc.line(m + 6, y, pw - m - 6, y);
+    doc.line(m + 5, y, pw - m - 5, y);
     y += 10;
     doc.setTextColor(30, 30, 30);
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Amount Paid", m + 6, y);
-    doc.setTextColor(79, 70, 229);
-    doc.setFontSize(14);
-    doc.text(`Rs. ${totalPaid.toLocaleString("en-IN")}`, pw - m - 6, y, { align: "right" });
+    doc.text("Amount Paid", m + 5, y);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`Rs. ${totalPaid.toLocaleString("en-IN")}`, pw - m - 5, y, { align: "right" });
+    if (balance > 0) {
+      y += 10;
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(11);
+      doc.text("Balance Due", m + 5, y);
+      doc.setTextColor(245, 158, 11);
+      doc.text(`Rs. ${balance.toLocaleString("en-IN")}`, pw - m - 5, y, { align: "right" });
+    }
 
-    y += 20;
+    if ((b.installments || []).length > 0) {
+      y += 10;
+      drawHeader("INSTALLMENTS");
+      b.installments.forEach((inst: any) => {
+        drawRow(inst.name, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+      });
+    }
+
+    if ((b.payments || []).length > 0) {
+      y += 6;
+      drawHeader("PAYMENT HISTORY");
+      b.payments.forEach((p: any) => {
+        const pDate = p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A";
+        drawRow(`${pDate} (${(p.status || "pending").toUpperCase()})`, `Rs. ${(p.amount || 0).toLocaleString("en-IN")}`);
+      });
+    }
+
+    y += 16;
+    checkPage(20);
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
     doc.line(m, y, pw - m, y);
-    y += 12;
+    y += 10;
     doc.setTextColor(150, 150, 150);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Computer-generated receipt. No signature required.", pw / 2, y, { align: "center" });
-    y += 8;
+    y += 7;
     doc.text("Thank you for choosing Hsquareliving!", pw / 2, y, { align: "center" });
 
     doc.save(`receipt-${b.bookingCode || "booking"}.pdf`);
@@ -171,6 +250,7 @@ export default function MyBookings() {
     const b = selectedBooking;
     const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
     const balance = (b.totalFee || 0) - totalPaid;
+    const rd = b.residentDetails || {};
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
@@ -187,40 +267,58 @@ export default function MyBookings() {
                   <p className="text-2xl font-bold font-mono mt-1" data-testid="text-detail-code">{b.bookingCode}</p>
                 </div>
                 <Badge className={`${STATUS_COLORS[b.status] || "bg-slate-100 text-slate-700"} text-xs px-3 py-1 capitalize`} data-testid="text-detail-status">
-                  {(b.status || "draft").replace(/_/g, " ")}
+                  {formatLabel(b.status || "draft")}
                 </Badge>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
-                    <Building2 className="h-3.5 w-3.5" /> Property
-                  </div>
-                  <p className="font-semibold text-slate-800" data-testid="text-detail-property">{b.property?.name || "N/A"}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{b.property?.location || ""}</p>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
-                    <BedDouble className="h-3.5 w-3.5" /> Room Type
-                  </div>
-                  <p className="font-semibold text-slate-800" data-testid="text-detail-room">{b.roomType?.name || "N/A"}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{(b.stayPlanType || "academic_year").replace(/_/g, " ")}</p>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
-                    <Calendar className="h-3.5 w-3.5" /> Created
-                  </div>
-                  <p className="font-semibold text-slate-800">{b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl">
-                  <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
-                    <CreditCard className="h-3.5 w-3.5" /> Payment
-                  </div>
-                  <p className="font-semibold text-slate-800">{(b.paymentType || "full").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
-                </div>
+                <InfoCard icon={<Building2 className="h-3.5 w-3.5" />} label="Property" value={b.property?.name || "N/A"} sub={b.property?.location || ""} testId="text-detail-property" />
+                <InfoCard icon={<BedDouble className="h-3.5 w-3.5" />} label="Room Type" value={`${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`} sub={`${b.roomType?.size || ""} • ${b.roomType?.occupancy || ""}${b.roomType?.occupancy === 1 ? " person" : " persons"}`} testId="text-detail-room" />
+                <InfoCard icon={<Layers className="h-3.5 w-3.5" />} label="Stay Plan" value={formatLabel(b.stayPlanType || "academic_year")} sub={b.durationMonths ? `${b.durationMonths} months` : ""} />
+                <InfoCard icon={<CreditCard className="h-3.5 w-3.5" />} label="Payment Plan" value={formatLabel(b.paymentType || "full")} sub={b.paymentPlanId && b.paymentPlanId !== "custom" ? b.paymentPlanId : ""} />
+                {(b.checkInDate || rd.moveInDate) && (
+                  <InfoCard icon={<Calendar className="h-3.5 w-3.5" />} label="Check-in Date" value={b.checkInDate ? new Date(b.checkInDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : rd.moveInDate || "Not set"} />
+                )}
+                {(b.checkOutDate || rd.checkOutDate) && (
+                  <InfoCard icon={<Calendar className="h-3.5 w-3.5" />} label="Check-out Date" value={b.checkOutDate ? new Date(b.checkOutDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : rd.checkOutDate || "Not set"} />
+                )}
+                <InfoCard icon={<Calendar className="h-3.5 w-3.5" />} label="Booking Date" value={b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"} />
+                {(rd.roomNo || rd.bedNo) && (
+                  <InfoCard icon={<Hash className="h-3.5 w-3.5" />} label="Room / Bed" value={`${rd.roomNo || "—"} / ${rd.bedNo || "—"}`} />
+                )}
               </div>
+
+              {(rd.name || rd.phone || rd.email) && (
+                <DetailSection title="Resident Details" icon={<User className="h-4 w-4 text-indigo-500" />}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <DetailRow label="Full Name" value={rd.name} />
+                    <DetailRow label="Phone" value={rd.phone} />
+                    <DetailRow label="Email" value={rd.email} />
+                    <DetailRow label="Gender" value={formatLabel(rd.gender || "")} />
+                    <DetailRow label="Date of Birth" value={rd.dob} />
+                    <DetailRow label="Accommodation" value={formatLabel(rd.accommodationType || "")} />
+                    <DetailRow label="Dietary Preference" value={formatLabel(rd.dietaryPreference || "")} />
+                    <DetailRow label="Move-in Date" value={rd.moveInDate} />
+                    <DetailRow label="Room No." value={rd.roomNo} />
+                    <DetailRow label="Bed No." value={rd.bedNo} />
+                    {rd.institute && <DetailRow label="Institute" value={rd.institute} />}
+                    {rd.course && <DetailRow label="Course" value={rd.course} />}
+                  </div>
+                </DetailSection>
+              )}
+
+              {(rd.parentName || rd.parentPhone) && (
+                <DetailSection title="Emergency / Parent Contact" icon={<Phone className="h-4 w-4 text-indigo-500" />}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <DetailRow label="Name" value={rd.parentName} />
+                    <DetailRow label="Relation" value={formatLabel(rd.parentRelation || "")} />
+                    <DetailRow label="Phone" value={rd.parentPhone} />
+                    <DetailRow label="Email" value={rd.parentEmail} />
+                  </div>
+                </DetailSection>
+              )}
 
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
@@ -230,12 +328,12 @@ export default function MyBookings() {
                 </div>
                 <div className="p-4 space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Total Fee</span>
-                    <span className="text-slate-800">₹{(b.totalFee || 0).toLocaleString("en-IN")}</span>
+                    <span className="text-slate-500">Base Fee</span>
+                    <span className="text-slate-800">₹{(b.baseFee || 0).toLocaleString("en-IN")}</span>
                   </div>
                   {(b.deposit || 0) > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Deposit</span>
+                      <span className="text-slate-500">Security Deposit</span>
                       <span className="text-slate-800">₹{b.deposit.toLocaleString("en-IN")}</span>
                     </div>
                   )}
@@ -246,6 +344,10 @@ export default function MyBookings() {
                     </div>
                   )}
                   <div className="border-t border-slate-200 pt-3 flex justify-between">
+                    <span className="font-semibold text-slate-700">Total Fee</span>
+                    <span className="font-bold text-slate-800">₹{(b.totalFee || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="font-semibold text-slate-700">Amount Paid</span>
                     <span className="font-bold text-emerald-600">₹{totalPaid.toLocaleString("en-IN")}</span>
                   </div>
@@ -272,10 +374,31 @@ export default function MyBookings() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                          <Badge variant="outline" className={`text-[10px] ${inst.status === "paid" ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
-                            {(inst.status || "pending").toUpperCase()}
+                          <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
+                            {inst.paid ? "PAID" : "PENDING"}
                           </Badge>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(b.payments || []).length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                    <h4 className="font-semibold text-sm text-slate-700">Payment History</h4>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {b.payments.map((p: any, idx: number) => (
+                      <div key={p.id || idx} className="px-4 py-3 flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
+                          <p className="text-xs text-slate-500">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                          {(p.status || "pending").toUpperCase()}
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -370,6 +493,7 @@ export default function MyBookings() {
           <div className="space-y-4">
             {bookings.map((b: any) => {
               const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+              const rd = b.residentDetails || {};
               return (
                 <button
                   key={b.id}
@@ -382,14 +506,18 @@ export default function MyBookings() {
                       <div className="flex items-center gap-3 mb-2">
                         <span className="font-mono font-bold text-indigo-600 text-sm" data-testid={`text-code-${b.id}`}>{b.bookingCode}</span>
                         <Badge className={`${STATUS_COLORS[b.status] || "bg-slate-100 text-slate-700"} text-[10px] px-2 py-0.5 capitalize`}>
-                          {(b.status || "draft").replace(/_/g, " ")}
+                          {formatLabel(b.status || "draft")}
                         </Badge>
                       </div>
                       <p className="font-semibold text-slate-800 truncate">{b.property?.name || "Property"}</p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                         <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {b.roomType?.name || "Room"}</span>
+                        {rd.roomNo && <span className="flex items-center gap-1"><Hash className="h-3 w-3" /> {rd.roomNo}</span>}
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : ""}</span>
                       </div>
+                      {rd.name && (
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><User className="h-3 w-3" /> {rd.name}</p>
+                      )}
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-bold text-slate-800">₹{(b.totalFee || 0).toLocaleString("en-IN")}</p>
@@ -403,6 +531,41 @@ export default function MyBookings() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function InfoCard({ icon, label, value, sub, testId }: { icon: React.ReactNode; label: string; value: string; sub?: string; testId?: string }) {
+  return (
+    <div className="p-4 bg-slate-50 rounded-xl">
+      <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+        {icon} {label}
+      </div>
+      <p className="font-semibold text-slate-800" data-testid={testId}>{value}</p>
+      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function DetailSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+        <h4 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+          {icon} {title}
+        </h4>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between py-1">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-slate-800 font-medium text-right">{value}</span>
     </div>
   );
 }

@@ -2612,9 +2612,11 @@ export async function registerRoutes(
       }
       
       const enriched = await Promise.all(filtered.map(async (booking: any) => {
-        const [property, roomType] = await Promise.all([
+        const [property, roomType, installments, payments] = await Promise.all([
           storage.getProperty(booking.propertyId),
           storage.getRoomType(booking.roomTypeId),
+          storage.getInstallmentsByBooking(booking.id),
+          storage.getPaymentsByBooking(booking.id),
         ]);
         
         let customerName = booking.walkInName || "Unknown";
@@ -2646,12 +2648,16 @@ export async function registerRoutes(
         return {
           ...booking,
           propertyName: property?.name || "Unknown",
+          propertyLocation: property?.location || "",
           roomTypeName: roomType?.customName || roomType?.name || "Unknown",
+          roomTypeSize: roomType?.size || "",
           occupancy: roomType?.occupancy || 0,
           customerName,
           customerPhone,
           customerEmail,
           salesExecName,
+          installments,
+          payments,
         };
       }));
       
