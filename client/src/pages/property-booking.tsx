@@ -716,7 +716,7 @@ export default function PropertyBooking() {
       bedNumber: selectedBed?.bedNumber,
       floorName: selectedFloor?.name,
     }));
-    navigate("/booking/generate");
+    navigate("/student/register");
   };
 
   const handleBookSelectedBed = () => {
