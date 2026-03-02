@@ -141,10 +141,12 @@ export default function MyBookings() {
     drawRow("Property", b.property?.name || "N/A");
     drawRow("Location", b.property?.location || "");
     drawRow("Room Type", `${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`);
-    drawRow("Stay Plan", formatLabel(b.stayPlanType || "academic_year"));
+    drawRow("Stay Plan", b.stayPlanType === "academic_year" ? "Academic Year" : b.stayPlanType === "monthly" ? "Monthly" : b.stayPlanType ? formatLabel(b.stayPlanType) : "");
+    if (b.academicYearPeriod) drawRow("Period", b.academicYearPeriod);
     drawRow("Duration", b.durationMonths ? `${b.durationMonths} months` : "");
     drawRow("Check-in", b.checkInDate ? new Date(b.checkInDate).toLocaleDateString("en-IN") : "");
     drawRow("Check-out", b.checkOutDate ? new Date(b.checkOutDate).toLocaleDateString("en-IN") : "");
+    drawRow("Deposit", b.deposit ? `Rs. ${Number(b.deposit).toLocaleString("en-IN")}` : "");
 
     const rd = b.residentDetails;
     if (rd && (rd.name || rd.phone || rd.email)) {

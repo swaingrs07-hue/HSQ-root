@@ -392,7 +392,14 @@ export default function CompletedBookings() {
     drawRow("Status", fmtLabel(booking.status || "draft"), true);
     drawRow("Customer", booking.customerName || "N/A");
     drawRow("Property", booking.propertyName || "N/A");
+    if (booking.propertyLocation) drawRow("Location", booking.propertyLocation);
     drawRow("Room Type", `${booking.roomTypeName || "N/A"} · ${booking.occupancy || ""}-sharing`);
+    drawRow("Stay Plan", booking.stayPlanType === "academic_year" ? "Academic Year" : booking.stayPlanType === "monthly" ? "Monthly" : booking.stayPlanType ? fmtLabel(booking.stayPlanType) : "");
+    if (booking.academicYearPeriod) drawRow("Period", booking.academicYearPeriod);
+    drawRow("Duration", booking.durationMonths ? `${booking.durationMonths} months` : "");
+    drawRow("Check-in", booking.checkInDate ? format(new Date(booking.checkInDate), "dd MMM yyyy") : "");
+    drawRow("Check-out", booking.checkOutDate ? format(new Date(booking.checkOutDate), "dd MMM yyyy") : "");
+    drawRow("Deposit", booking.deposit ? `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}` : "");
 
     const rd = booking.residentDetails;
     if (rd && (rd.name || rd.phone || rd.email)) {
@@ -821,6 +828,22 @@ export default function CompletedBookings() {
                   </div>
                 )}
               </div>
+
+              {(selectedBooking.stayPlanType || selectedBooking.durationMonths || selectedBooking.checkInDate || selectedBooking.checkOutDate || selectedBooking.deposit) && (
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3 flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" /> Stay Plan Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <AdminDetailRow label="Stay Plan" value={selectedBooking.stayPlanType === "academic_year" ? "Academic Year" : selectedBooking.stayPlanType === "monthly" ? "Monthly" : selectedBooking.stayPlanType} capitalize />
+                    {selectedBooking.academicYearPeriod && <AdminDetailRow label="Period" value={selectedBooking.academicYearPeriod} />}
+                    <AdminDetailRow label="Duration" value={selectedBooking.durationMonths ? `${selectedBooking.durationMonths} months` : undefined} />
+                    <AdminDetailRow label="Check-in" value={selectedBooking.checkInDate ? format(new Date(selectedBooking.checkInDate), "dd MMM yyyy") : undefined} />
+                    <AdminDetailRow label="Check-out" value={selectedBooking.checkOutDate ? format(new Date(selectedBooking.checkOutDate), "dd MMM yyyy") : undefined} />
+                    <AdminDetailRow label="Deposit" value={selectedBooking.deposit ? `₹${Number(selectedBooking.deposit).toLocaleString("en-IN")}` : undefined} />
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
                 <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
