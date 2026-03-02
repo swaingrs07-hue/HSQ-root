@@ -708,46 +708,131 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
               {drillLevel === "building" && (
                 <div className="relative iso-building-enter" style={{ transform: "rotateX(55deg) rotateZ(-45deg)", transformStyle: "preserve-3d" }}>
-                  <div className="absolute rounded-xl" style={{ width: `${Math.max(sortedFloors.length * 50 + 380, 420)}px`, height: `${Math.max(sortedFloors.length * 50 + 380, 420)}px`, background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.2) 100%)", border: "1px solid rgba(255,255,255,0.04)", transform: "translateZ(-8px)", left: "-50px", top: "-30px", boxShadow: "0 0 80px rgba(0,0,0,0.6), inset 0 0 60px rgba(6,10,20,0.5)" }} />
+                  <div className="absolute rounded-xl" style={{ width: `${Math.max(sortedFloors.length * 80 + 400, 440)}px`, height: `${Math.max(sortedFloors.length * 80 + 400, 440)}px`, background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.2) 100%)", border: "1px solid rgba(255,255,255,0.04)", transform: "translateZ(-8px)", left: "-60px", top: "-40px", boxShadow: "0 0 80px rgba(0,0,0,0.6), inset 0 0 60px rgba(6,10,20,0.5)" }} />
 
                   {sortedFloors.map((floor, floorIdx) => {
                     const floorRooms = floor.rooms || [];
                     const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
                     const availCount = allBeds.filter(b => b.status === "available").length;
-                    const occupiedCount = allBeds.filter(b => b.status === "occupied" || b.status === "reserved").length;
-                    const blockedCount = allBeds.filter(b => b.status === "blocked").length;
-                    const floorHeight = floorIdx * 100;
+                    const floorHeight = floorIdx * 120;
 
                     return (
                       <div key={floor.id} className="absolute iso-floor-enter cursor-pointer" style={{ transform: `translateZ(${floorHeight}px)`, transformStyle: "preserve-3d", animationDelay: `${floorIdx * 150}ms` }} onClick={() => drillToFloor(floorIdx)}>
-                        <div className="relative rounded-xl overflow-hidden group iso-floor-hover" style={{ width: "340px", height: "90px", background: "linear-gradient(135deg, rgba(20,30,52,0.95) 0%, rgba(12,18,34,0.92) 100%)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(20px)" }}>
-                          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl iso-floor-edge" style={{ background: `linear-gradient(to bottom, ${availCount > occupiedCount ? "rgba(16,185,129,0.8)" : blockedCount > 0 ? "rgba(220,38,38,0.6)" : "rgba(59,130,246,0.7)"}, transparent)` }} />
-                          <div className="flex items-center h-full px-4 gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/25 flex items-center justify-center group-hover:from-amber-500/25 group-hover:to-amber-600/15 transition-all duration-500">
-                              <span className="text-base font-black text-amber-400">F{floor.floorNumber}</span>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-white/90">{floor.name}</p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">{floorRooms.length} rooms · {allBeds.length} beds</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1.5">
-                              <div className="flex gap-1.5">
-                                <span className="iso-mini-badge bg-emerald-500/15 text-emerald-400 border-emerald-500/20">{availCount}</span>
-                                <span className="iso-mini-badge bg-blue-500/15 text-blue-400 border-blue-500/20">{occupiedCount}</span>
-                                {blockedCount > 0 && <span className="iso-mini-badge bg-red-500/15 text-red-400 border-red-500/20">{blockedCount}</span>}
+                        <div className="relative rounded-xl overflow-hidden group iso-floor-hover" style={{ width: "360px", minHeight: "100px", background: "linear-gradient(135deg, rgba(20,30,52,0.95) 0%, rgba(12,18,34,0.92) 100%)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(20px)" }}>
+                          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl iso-floor-edge" style={{ background: `linear-gradient(to bottom, rgba(251,191,36,0.8), rgba(251,191,36,0))` }} />
+
+                          <div className="p-3">
+                            <div className="flex items-center justify-between mb-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/25 flex items-center justify-center group-hover:from-amber-500/25 group-hover:to-amber-600/15 transition-all duration-500">
+                                  <span className="text-xs font-black text-amber-400">F{floor.floorNumber}</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-white/90 leading-tight">{floor.name}</p>
+                                  <p className="text-[9px] text-slate-500">{floorRooms.length} rooms · {allBeds.length} beds</p>
+                                </div>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">{availCount} open</span>
+                                <ChevronRight className="w-3.5 h-3.5 text-white/15 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-[200px] overflow-y-auto iso-scrollbar pr-1">
+                              {(floor.beds || []).length > 0 && floorRooms.length === 0 && (
+                                <div className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <BedDouble className="w-3 h-3 text-cyan-400/70" />
+                                    <span className="text-[10px] font-medium text-slate-300">All Beds</span>
+                                    <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-500/10 text-cyan-400/80 border border-cyan-500/20">{(floor.beds || []).length} beds</span>
+                                  </div>
+                                  <div className="flex gap-1 flex-wrap">
+                                    {(floor.beds || []).slice(0, 24).map((bed: any) => {
+                                      const bGlow = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
+                                      return (
+                                        <div key={bed.id} className={cn("w-4 h-4 rounded-sm border", bGlow.border, bed.status === "available" && "iso-pulse-green", bed.status === "occupied" && "iso-glow-blue")} style={{ background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.35), rgba(16,185,129,0.15)" : bed.status === "occupied" ? "rgba(59,130,246,0.35), rgba(59,130,246,0.15)" : bed.status === "reserved" ? "rgba(245,158,11,0.35), rgba(245,158,11,0.15)" : bed.status === "blocked" ? "rgba(220,38,38,0.35), rgba(220,38,38,0.15)" : "rgba(100,116,139,0.35), rgba(100,116,139,0.15)"})` }} />
+                                      );
+                                    })}
+                                    {(floor.beds || []).length > 24 && <span className="text-[8px] text-slate-500 self-center ml-1">+{(floor.beds || []).length - 24}</span>}
+                                  </div>
+                                </div>
+                              )}
+                              {floorRooms.map((room: any) => {
+                                const roomBeds = room.beds || [];
+                                return (
+                                  <div key={room.id} className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                      <DoorOpen className="w-3 h-3 text-indigo-400/70" />
+                                      <span className="text-[10px] font-medium text-slate-300">{room.roomNumber}</span>
+                                      {room.typology && <span className="text-[8px] px-1 py-0.5 rounded bg-indigo-500/10 text-indigo-400/80 border border-indigo-500/20">{room.typology}</span>}
+                                    </div>
+                                    <div className="flex gap-1 flex-wrap">
+                                      {roomBeds.map((bed: any) => {
+                                        const bGlow = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
+                                        const hasBooking = !!bed.currentBooking;
+                                        const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
+                                        const shortName = guestName ? guestName.split(" ")[0].slice(0, 5) : "";
+                                        return (
+                                          <div key={bed.id} className="relative group/bed">
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); onBedClick(bed.id); }}
+                                              onMouseEnter={(e) => handleBedHover(bed, e)}
+                                              onMouseLeave={() => setHoveredBed(null)}
+                                              className={cn("relative rounded-md transition-all duration-300 cursor-pointer border hover:scale-110 hover:z-10", bGlow.border, hasBooking && "iso-bed-glow-active")}
+                                              style={{
+                                                width: "48px", height: "34px",
+                                                background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.25), rgba(16,185,129,0.12)" : bed.status === "occupied" ? "rgba(59,130,246,0.25), rgba(59,130,246,0.12)" : bed.status === "reserved" ? "rgba(245,158,11,0.25), rgba(245,158,11,0.12)" : bed.status === "blocked" ? "rgba(220,38,38,0.25), rgba(220,38,38,0.12)" : "rgba(100,116,139,0.25), rgba(100,116,139,0.12)"})`
+                                              }}
+                                              data-testid={`iso-bed-${bed.id}`}
+                                            >
+                                              <div className="flex flex-col items-center justify-center h-full px-0.5">
+                                                <BedDouble className={cn("w-3 h-3", bGlow.text)} />
+                                                <span className={cn("text-[6px] font-semibold leading-tight truncate max-w-full", bGlow.text)}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+                                              </div>
+                                              {hasBooking && shortName && (
+                                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 iso-float-label pointer-events-none z-20">
+                                                  <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded px-1 py-0.5 whitespace-nowrap">
+                                                    <span className="text-[6px] font-medium text-white/90">{shortName}</span>
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {bed.status === "blocked" && (
+                                                <div className="absolute -top-1 -right-1 z-20">
+                                                  <div className="w-3 h-3 rounded-full bg-red-600 border border-red-400/50 flex items-center justify-center">
+                                                    <Ban className="w-1.5 h-1.5 text-white" />
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </button>
+                                            <div className="absolute -top-1 -right-1 opacity-0 group-hover/bed:opacity-100 transition-opacity flex gap-0.5 z-30">
+                                              {bed.status === "available" && !hasBooking && (
+                                                <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-4 h-4 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center shadow-lg" title="Allocate"><Link2 className="w-2.5 h-2.5 text-white" /></button>
+                                              )}
+                                              {bed.status === "occupied" && hasBooking && (
+                                                <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-4 h-4 rounded-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center shadow-lg" title="Deallocate"><Unlock className="w-2.5 h-2.5 text-white" /></button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
+
+                          <div className="absolute bottom-0 left-0 right-0 h-[4px]" style={{ background: "linear-gradient(90deg, rgba(251,191,36,0.3), rgba(251,191,36,0.08), rgba(251,191,36,0.3))" }} />
                         </div>
-                        <div className="absolute top-0 rounded-r-lg" style={{ left: "100%", width: "8px", height: "90px", background: "linear-gradient(180deg, rgba(20,30,52,0.6) 0%, rgba(10,15,28,0.8) 100%)", borderRight: "1px solid rgba(255,255,255,0.03)", transform: "rotateY(90deg)", transformOrigin: "left" }} />
+
+                        <div className="absolute top-0 rounded-r-lg" style={{ left: "100%", width: "8px", height: "100%", background: "linear-gradient(180deg, rgba(20,30,52,0.6) 0%, rgba(10,15,28,0.8) 100%)", borderRight: "1px solid rgba(255,255,255,0.03)", transform: "rotateY(90deg)", transformOrigin: "left" }} />
                         <div className="absolute bottom-0 left-0 right-0 h-[8px] rounded-b-lg" style={{ background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(10,15,28,0.8) 100%)", borderBottom: "1px solid rgba(255,255,255,0.03)", transform: "rotateX(90deg)", transformOrigin: "bottom" }} />
                       </div>
                     );
                   })}
 
-                  <div className="absolute" style={{ transform: `translateZ(${sortedFloors.length * 100 + 10}px)`, transformStyle: "preserve-3d" }}>
-                    <div className="relative" style={{ width: "340px" }}>
+                  <div className="absolute" style={{ transform: `translateZ(${sortedFloors.length * 120 + 15}px)`, transformStyle: "preserve-3d" }}>
+                    <div className="relative" style={{ width: "360px" }}>
                       <div className="rounded-t-xl overflow-hidden" style={{ height: "55px", background: "linear-gradient(135deg, rgba(20,30,52,0.95) 0%, rgba(12,18,34,0.92) 100%)", border: "1px solid rgba(251,191,36,0.25)", borderBottom: "none" }}>
                         <div className="flex items-center justify-center h-full gap-3 px-5">
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 iso-logo-pulse">
@@ -776,40 +861,84 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">{activeFloor.name}</h3>
-                      <p className="text-[10px] text-slate-500">{(activeFloor.rooms || []).length} rooms · Click a room to expand beds</p>
+                      <p className="text-[10px] text-slate-500">
+                        {(activeFloor.rooms || []).length > 0 ? `${(activeFloor.rooms || []).length} rooms · Click a room to expand beds` : `${(activeFloor.beds || []).length} beds · Click a bed for details`}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(activeFloor.rooms || []).map((room: any, rIdx: number) => {
-                      const roomBeds = room.beds || [];
-                      const avail = roomBeds.filter((b: any) => b.status === "available").length;
-                      const occ = roomBeds.filter((b: any) => b.status === "occupied" || b.status === "reserved").length;
-                      return (
-                        <button key={room.id} onClick={() => drillToRoom(room.id)} className="iso-glass-card p-4 text-left group cursor-pointer iso-room-enter" style={{ animationDelay: `${rIdx * 80}ms` }} data-testid={`iso-room-card-${room.id}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <DoorOpen className="w-4 h-4 text-indigo-400/80" />
-                              <span className="text-sm font-semibold text-white/90">Room {room.roomNumber}</span>
-                              {room.typology && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400/70 border border-indigo-500/20 font-medium">{room.typology}</span>}
+                  {(activeFloor.rooms || []).length === 0 && (activeFloor.beds || []).length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {(activeFloor.beds || []).map((bed: any, bIdx: number) => {
+                        const bStyle = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
+                        const hasBooking = !!bed.currentBooking;
+                        const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
+                        const isAvailable = bed.status === "available";
+                        const isOccupied = bed.status === "occupied";
+                        return (
+                          <div key={bed.id} className="iso-bed-card-enter" style={{ animationDelay: `${bIdx * 30}ms` }}>
+                            <button onClick={() => onBedClick(bed.id)} onMouseEnter={(e) => handleBedHover(bed, e)} onMouseLeave={() => setHoveredBed(null)} className={cn("iso-glass-card p-3 w-full text-left relative group cursor-pointer", hasBooking && `iso-bed-glow-${bed.status}`)} data-testid={`iso-bed-${bed.id}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={cn("w-3 h-3 rounded-full", STATUS_COLORS[bed.status], bed.status === "available" && "iso-pulse-green", bed.status === "occupied" && "iso-glow-blue")} />
+                                <span className="text-xs font-bold text-white/90">{bed.bedNumber}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <BedDouble className={cn("w-4 h-4", bStyle.text)} />
+                                <span className={cn("text-[9px] font-semibold uppercase tracking-wider", bStyle.text)}>{bStyle.label}</span>
+                              </div>
+                              {hasBooking && guestName && (
+                                <div className="mt-2 pt-2 border-t border-white/5">
+                                  <p className="text-[10px] text-white/70 truncate">{guestName}</p>
+                                </div>
+                              )}
+                              {bed.status === "blocked" && <div className="absolute top-2 right-2"><Ban className="w-3.5 h-3.5 text-red-400/60" /></div>}
+                              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 z-30">
+                                {isAvailable && !hasBooking && (
+                                  <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-5 h-5 rounded-full bg-blue-500/80 hover:bg-blue-500 flex items-center justify-center shadow-lg backdrop-blur" title="Allocate"><Link2 className="w-3 h-3 text-white" /></button>
+                                )}
+                                {isOccupied && hasBooking && (
+                                  <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-5 h-5 rounded-full bg-orange-500/80 hover:bg-orange-500 flex items-center justify-center shadow-lg backdrop-blur" title="Deallocate"><Unlock className="w-3 h-3 text-white" /></button>
+                                )}
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {(activeFloor.rooms || []).length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(activeFloor.rooms || []).map((room: any, rIdx: number) => {
+                        const roomBeds = room.beds || [];
+                        const avail = roomBeds.filter((b: any) => b.status === "available").length;
+                        const occ = roomBeds.filter((b: any) => b.status === "occupied" || b.status === "reserved").length;
+                        return (
+                          <button key={room.id} onClick={() => drillToRoom(room.id)} className="iso-glass-card p-4 text-left group cursor-pointer iso-room-enter" style={{ animationDelay: `${rIdx * 80}ms` }} data-testid={`iso-room-card-${room.id}`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <DoorOpen className="w-4 h-4 text-indigo-400/80" />
+                                <span className="text-sm font-semibold text-white/90">Room {room.roomNumber}</span>
+                                {room.typology && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400/70 border border-indigo-500/20 font-medium">{room.typology}</span>}
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
                             </div>
-                            <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
-                          </div>
-                          <div className="flex gap-1.5 flex-wrap mb-3">
-                            {roomBeds.slice(0, 8).map((bed: any) => (
-                              <div key={bed.id} className={cn("w-5 h-5 rounded-md border iso-bed-mini", ISO_BED_GLOW[bed.status]?.border || "border-slate-500/30")} style={{ background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.3), rgba(16,185,129,0.15)" : bed.status === "occupied" ? "rgba(59,130,246,0.3), rgba(59,130,246,0.15)" : bed.status === "reserved" ? "rgba(245,158,11,0.3), rgba(245,158,11,0.15)" : bed.status === "blocked" ? "rgba(220,38,38,0.3), rgba(220,38,38,0.15)" : "rgba(100,116,139,0.3), rgba(100,116,139,0.15)"})` }} />
-                            ))}
-                            {roomBeds.length > 8 && <span className="text-[9px] text-slate-500 self-center">+{roomBeds.length - 8}</span>}
-                          </div>
-                          <div className="flex gap-2">
-                            <span className="text-[9px] text-emerald-400/80 font-medium">{avail} available</span>
-                            <span className="text-[9px] text-slate-600">·</span>
-                            <span className="text-[9px] text-blue-400/80 font-medium">{occ} booked</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                            <div className="flex gap-1.5 flex-wrap mb-3">
+                              {roomBeds.slice(0, 8).map((bed: any) => (
+                                <div key={bed.id} className={cn("w-5 h-5 rounded-md border iso-bed-mini", ISO_BED_GLOW[bed.status]?.border || "border-slate-500/30")} style={{ background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.3), rgba(16,185,129,0.15)" : bed.status === "occupied" ? "rgba(59,130,246,0.3), rgba(59,130,246,0.15)" : bed.status === "reserved" ? "rgba(245,158,11,0.3), rgba(245,158,11,0.15)" : bed.status === "blocked" ? "rgba(220,38,38,0.3), rgba(220,38,38,0.15)" : "rgba(100,116,139,0.3), rgba(100,116,139,0.15)"})` }} />
+                              ))}
+                              {roomBeds.length > 8 && <span className="text-[9px] text-slate-500 self-center">+{roomBeds.length - 8}</span>}
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-[9px] text-emerald-400/80 font-medium">{avail} available</span>
+                              <span className="text-[9px] text-slate-600">·</span>
+                              <span className="text-[9px] text-blue-400/80 font-medium">{occ} booked</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1020,6 +1149,12 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
         @keyframes warnRed { 0%, 100% { box-shadow: 0 0 4px rgba(220,38,38,0.3); } 50% { box-shadow: 0 0 10px rgba(220,38,38,0.5); } }
         .iso-warn-red { animation: warnRed 2s ease-in-out infinite; }
+
+        @keyframes floatLabel { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        .iso-float-label { animation: floatLabel 4s ease-in-out infinite; }
+
+        @keyframes bedGlowPulse { 0%, 100% { box-shadow: 0 0 6px var(--bed-glow, rgba(59,130,246,0.2)); } 50% { box-shadow: 0 0 14px var(--bed-glow, rgba(59,130,246,0.4)); } }
+        .iso-bed-glow-active { animation: bedGlowPulse 3s ease-in-out infinite; }
 
         .iso-bed-glow-occupied { box-shadow: 0 0 16px rgba(59,130,246,0.15); }
         .iso-bed-glow-reserved { box-shadow: 0 0 16px rgba(245,158,11,0.15); }
