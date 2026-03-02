@@ -760,7 +760,7 @@ export default function BookingGeneration() {
                           <SelectTrigger className="bg-white border-slate-300" data-testid="select-lead">
                             <SelectValue placeholder="Search and select a lead..." />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {leads.length === 0 ? (
                               <div className="p-3 text-sm text-slate-500 text-center">No active leads available</div>
                             ) : (
