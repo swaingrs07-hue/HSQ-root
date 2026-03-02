@@ -52,6 +52,18 @@ interface ResidentStatus {
   floorId: string | null;
   roomId: string | null;
   residentDetails: any;
+  studentId: string | null;
+  studentFullName: string | null;
+  studentPhone: string | null;
+  studentCollege: string | null;
+  studentCourse: string | null;
+  studentYear: string | null;
+  studentAddress: string | null;
+  studentCity: string | null;
+  studentEmergencyName: string | null;
+  studentEmergencyPhone: string | null;
+  studentEmergencyRelation: string | null;
+  propertyName: string | null;
 }
 
 interface CloseJob {
@@ -354,6 +366,7 @@ export default function AdminSeasons() {
   };
 
   const getResidentName = (r: ResidentStatus) => {
+    if (r.studentFullName) return r.studentFullName;
     const details = r.residentDetails as any;
     if (details?.fullName) return details.fullName;
     if (details?.name) return details.name;
@@ -362,13 +375,28 @@ export default function AdminSeasons() {
     return "Unknown";
   };
 
+  const getResidentPhone = (r: ResidentStatus) => {
+    if (r.studentPhone) return r.studentPhone;
+    const details = r.residentDetails as any;
+    if (details?.phone) return details.phone;
+    if (r.walkInPhone) return r.walkInPhone;
+    return null;
+  };
+
+  const getResidentCollege = (r: ResidentStatus) => {
+    if (r.studentCollege) return r.studentCollege;
+    const details = r.residentDetails as any;
+    if (details?.institute) return details.institute;
+    return null;
+  };
+
   const getRoomInfo = (r: ResidentStatus) => {
     const details = r.residentDetails as any;
     const parts: string[] = [];
+    if (r.propertyName) parts.push(r.propertyName);
     if (details?.roomNo) parts.push(`Room ${details.roomNo}`);
     if (details?.bedNo) parts.push(`Bed ${details.bedNo}`);
     else if (r.bedId) parts.push(`Bed allocated`);
-    if (r.bookingCode) parts.push(r.bookingCode);
     return parts.join(" • ") || "N/A";
   };
 
@@ -508,9 +536,26 @@ export default function AdminSeasons() {
                       {showEndFlow !== season.id ? (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between flex-wrap gap-3">
-                            <h4 className="font-semibold text-slate-800 flex items-center gap-2">
-                              <Users className="h-4 w-4" /> Resident Status
-                            </h4>
+                            <div className="flex items-center gap-3">
+                              <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+                                <Users className="h-4 w-4" /> Resident Status
+                              </h4>
+                              <Button size="sm" variant="outline" data-testid={`button-sync-residents-${season.id}`}
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/api/admin/seasons/${season.id}/sync-residents`, { method: "POST", headers });
+                                    if (!res.ok) throw new Error("Failed");
+                                    const data = await res.json();
+                                    toast({ title: `Synced residents`, description: `${data.added} new residents linked, ${data.total} total` });
+                                    fetchResidents(season.id);
+                                  } catch (e: any) {
+                                    toast({ title: "Error", description: e.message, variant: "destructive" });
+                                  }
+                                }}
+                              >
+                                <RefreshCw className="h-3.5 w-3.5 mr-1" /> Sync Residents
+                              </Button>
+                            </div>
                             {selectedResidents.size > 0 && (
                               <div className="flex items-center gap-2" data-testid="bulk-actions">
                                 <span className="text-sm text-slate-500">{selectedResidents.size} selected</span>
@@ -577,11 +622,14 @@ export default function AdminSeasons() {
                                           data-testid={`checkbox-resident-${r.id}`}
                                         />
                                       </TableCell>
-                                      <TableCell className="font-medium" data-testid={`text-resident-name-${r.id}`}>
-                                        {getResidentName(r)}
+                                      <TableCell data-testid={`text-resident-name-${r.id}`}>
+                                        <div className="font-medium">{getResidentName(r)}</div>
+                                        {getResidentPhone(r) && <div className="text-xs text-slate-400">{getResidentPhone(r)}</div>}
+                                        {getResidentCollege(r) && <div className="text-xs text-slate-400">{getResidentCollege(r)}</div>}
                                       </TableCell>
                                       <TableCell className="text-sm text-slate-500" data-testid={`text-room-info-${r.id}`}>
-                                        {getRoomInfo(r)}
+                                        <div>{getRoomInfo(r)}</div>
+                                        {r.bookingCode && <div className="text-xs text-slate-400">{r.bookingCode}</div>}
                                       </TableCell>
                                       <TableCell>
                                         <Select

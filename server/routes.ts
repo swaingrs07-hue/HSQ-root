@@ -7217,16 +7217,39 @@ export async function registerRoutes(
 
       const [activated] = await db.update(schema.seasons).set({ status: "ACTIVE", updatedAt: new Date() }).where(eq(schema.seasons.id, req.params.id)).returning();
 
+      const activeBookings = await db.select().from(schema.bookings)
+        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
+
+      const existingStatuses = await db.select().from(schema.residentSeasonStatus)
+        .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
+      const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
+
+      let autoLinked = 0;
+      for (const booking of activeBookings) {
+        if (!existingBookingIds.has(booking.id)) {
+          const graceDays = activated.graceDays || 30;
+          const graceUntil = new Date(activated.endDate);
+          graceUntil.setDate(graceUntil.getDate() + graceDays);
+          await db.insert(schema.residentSeasonStatus).values({
+            bookingId: booking.id,
+            seasonId: req.params.id,
+            status: "PENDING",
+            graceUntil,
+          });
+          autoLinked++;
+        }
+      }
+
       await logActivity({
         actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
         actionType: "STATUS_CHANGE",
         entityType: "BOOKING",
         entityId: activated.id,
         entityLabel: `Season: ${activated.name}`,
-        metadata: { from: existing.status, to: "ACTIVE", endedSeasons: activeSeasons.map(s => s.name) },
+        metadata: { from: existing.status, to: "ACTIVE", endedSeasons: activeSeasons.map(s => s.name), autoLinkedResidents: autoLinked },
       });
 
-      res.json(activated);
+      res.json({ ...activated, autoLinkedResidents: autoLinked });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to activate season" });
     }
@@ -7254,6 +7277,49 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/seasons/:id/sync-residents", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!season) return res.status(404).json({ error: "Season not found" });
+
+      const activeBookings = await db.select().from(schema.bookings)
+        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
+
+      const existingStatuses = await db.select().from(schema.residentSeasonStatus)
+        .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
+      const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
+
+      let added = 0;
+      for (const booking of activeBookings) {
+        if (!existingBookingIds.has(booking.id)) {
+          const graceDays = season.graceDays || 30;
+          const graceUntil = new Date(season.endDate);
+          graceUntil.setDate(graceUntil.getDate() + graceDays);
+          await db.insert(schema.residentSeasonStatus).values({
+            bookingId: booking.id,
+            seasonId: req.params.id,
+            status: "PENDING",
+            graceUntil,
+          });
+          added++;
+        }
+      }
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: season.id,
+        entityLabel: `Sync residents for ${season.name}`,
+        metadata: { seasonId: season.id, addedResidents: added, totalBookings: activeBookings.length },
+      });
+
+      res.json({ success: true, added, total: existingStatuses.length + added });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync residents" });
+    }
+  });
+
   app.get("/api/admin/seasons/:id/residents", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const residents = await db.select({
@@ -7276,9 +7342,23 @@ export async function registerRoutes(
         floorId: schema.bookings.floorId,
         roomId: schema.bookings.roomId,
         residentDetails: schema.bookings.residentDetails,
+        studentId: schema.bookings.studentId,
+        studentFullName: schema.students.fullName,
+        studentPhone: schema.students.phone,
+        studentCollege: schema.students.collegeName,
+        studentCourse: schema.students.course,
+        studentYear: schema.students.year,
+        studentAddress: schema.students.address,
+        studentCity: schema.students.city,
+        studentEmergencyName: schema.students.emergencyName,
+        studentEmergencyPhone: schema.students.emergencyPhone,
+        studentEmergencyRelation: schema.students.emergencyRelation,
+        propertyName: schema.properties.name,
       })
       .from(schema.residentSeasonStatus)
       .innerJoin(schema.bookings, eq(schema.residentSeasonStatus.bookingId, schema.bookings.id))
+      .leftJoin(schema.students, eq(schema.bookings.studentId, schema.students.id))
+      .leftJoin(schema.properties, eq(schema.bookings.propertyId, schema.properties.id))
       .where(eq(schema.residentSeasonStatus.seasonId, req.params.id))
       .orderBy(schema.residentSeasonStatus.createdAt);
 
@@ -7358,10 +7438,25 @@ export async function registerRoutes(
       const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!season) return res.status(404).json({ error: "Season not found" });
 
-      const activeBookings = await db.select().from(schema.bookings)
-        .where(and(
-          inArray(schema.bookings.status, ["active", "confirmed"]),
-        ));
+      const activeBookings = await db.select({
+        id: schema.bookings.id,
+        bookingCode: schema.bookings.bookingCode,
+        walkInName: schema.bookings.walkInName,
+        studentId: schema.bookings.studentId,
+        residentDetails: schema.bookings.residentDetails,
+        floorId: schema.bookings.floorId,
+        roomId: schema.bookings.roomId,
+        bedId: schema.bookings.bedId,
+        status: schema.bookings.status,
+        studentFullName: schema.students.fullName,
+        studentPhone: schema.students.phone,
+        studentCollege: schema.students.collegeName,
+        propertyName: schema.properties.name,
+      })
+        .from(schema.bookings)
+        .leftJoin(schema.students, eq(schema.bookings.studentId, schema.students.id))
+        .leftJoin(schema.properties, eq(schema.bookings.propertyId, schema.properties.id))
+        .where(inArray(schema.bookings.status, ["active", "confirmed"]));
 
       const residentStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
@@ -7379,8 +7474,13 @@ export async function registerRoutes(
       const jobItems = [];
       for (const booking of activeBookings) {
         const rs = statusMap.get(booking.id);
-        const residentName = booking.walkInName || (booking.residentDetails as any)?.name || booking.bookingCode || "Unknown";
-        const roomInfo = [booking.floorId, booking.roomId, booking.bedId].filter(Boolean).join(" / ") || "Unassigned";
+        const rd = booking.residentDetails as any;
+        const residentName = booking.studentFullName || rd?.fullName || rd?.name || booking.walkInName || booking.bookingCode || "Unknown";
+        const roomParts: string[] = [];
+        if (booking.propertyName) roomParts.push(booking.propertyName);
+        if (rd?.roomNo) roomParts.push(`Room ${rd.roomNo}`);
+        if (rd?.bedNo) roomParts.push(`Bed ${rd.bedNo}`);
+        const roomInfo = roomParts.join(" • ") || "Unassigned";
 
         const [item] = await db.insert(schema.seasonCloseJobItems).values({
           jobId: job.id,
