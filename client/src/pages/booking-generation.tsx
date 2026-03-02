@@ -526,7 +526,7 @@ export default function BookingGeneration() {
       const res = await fetch("/api/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
-        body: JSON.stringify({ contentType: file.type }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!res.ok) throw new Error("Failed to get upload URL");
       const { uploadURL, objectPath } = await res.json();
