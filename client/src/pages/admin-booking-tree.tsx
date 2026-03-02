@@ -15,7 +15,8 @@ import {
   User, Phone, Mail, Calendar, IndianRupee, CreditCard, CheckCircle, AlertTriangle,
   Clock, Eye, Loader2, X, FileText, Shield, ArrowRight, History, Activity,
   Unlock, Link2, GraduationCap, MapPin, ChevronRight, Sparkles,
-  LayoutGrid, Box, ZoomIn, ZoomOut, RotateCcw, Maximize2, List
+  LayoutGrid, Box, ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, List,
+  ChevronLeft, Home
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -474,11 +475,19 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
   onDeallocate: (bedId: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(0.85);
   const [hoveredBed, setHoveredBed] = useState<any>(null);
   const [hoveredPos, setHoveredPos] = useState({ x: 0, y: 0 });
-  const [selectedFloorIdx, setSelectedFloorIdx] = useState<number | null>(null);
+  const [drillLevel, setDrillLevel] = useState<"building" | "floor" | "room">("building");
+  const [activeFloorIdx, setActiveFloorIdx] = useState<number | null>(null);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const [mounted, setMounted] = useState(false);
   const [activityLog, setActivityLog] = useState<any[]>([]);
+
+  useEffect(() => { setTimeout(() => setMounted(true), 100); }, []);
 
   useEffect(() => {
     const logs: any[] = [];
@@ -500,407 +509,440 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
   }, [floors]);
 
   const sortedFloors = useMemo(() =>
-    [...floors].sort((a, b) => a.floorNumber - b.floorNumber),
-    [floors]
+    [...floors].sort((a, b) => a.floorNumber - b.floorNumber), [floors]
   );
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) / rect.width - 0.5;
+    const cy = (e.clientY - rect.top) / rect.height - 0.5;
+    setParallax({ x: cx * 8, y: cy * 5 });
+  }, []);
 
   const handleBedHover = useCallback((bed: any, e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      setHoveredPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    }
+    if (rect) { setHoveredPos({ x: e.clientX - rect.left, y: e.clientY - rect.top }); }
     setHoveredBed(bed);
   }, []);
 
+  const drillToFloor = (idx: number) => {
+    setActiveFloorIdx(idx);
+    setActiveRoomId(null);
+    setDrillLevel("floor");
+    setZoom(1.1);
+  };
+
+  const drillToRoom = (roomId: string) => {
+    setActiveRoomId(roomId);
+    setDrillLevel("room");
+    setZoom(1.3);
+  };
+
+  const navigateBack = () => {
+    if (drillLevel === "room") {
+      setActiveRoomId(null);
+      setDrillLevel("floor");
+      setZoom(1.1);
+    } else if (drillLevel === "floor") {
+      setActiveFloorIdx(null);
+      setDrillLevel("building");
+      setZoom(0.85);
+    }
+  };
+
+  const navigateHome = () => {
+    setActiveFloorIdx(null);
+    setActiveRoomId(null);
+    setDrillLevel("building");
+    setZoom(0.85);
+  };
+
+  const toggleFullscreen = useCallback(() => {
+    if (!outerRef.current) return;
+    if (!document.fullscreenElement) {
+      outerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const activeFloor = activeFloorIdx !== null ? sortedFloors[activeFloorIdx] : null;
+  const activeRoom = activeFloor?.rooms?.find((r: any) => r.id === activeRoomId) || null;
+
+  const breadcrumbs = useMemo(() => {
+    const bc: { label: string; action: () => void }[] = [{ label: propertyName, action: navigateHome }];
+    if (activeFloor) bc.push({ label: activeFloor.name || `Floor ${activeFloor.floorNumber}`, action: () => { setActiveRoomId(null); setDrillLevel("floor"); setZoom(1.1); } });
+    if (activeRoom) bc.push({ label: `Room ${activeRoom.roomNumber}`, action: () => {} });
+    return bc;
+  }, [propertyName, activeFloor, activeRoom]);
+
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0a0e1a 0%, #111827 40%, #0f172a 100%)" }}>
+    <div ref={outerRef} className={cn("relative rounded-2xl overflow-hidden transition-all duration-500", isFullscreen && "rounded-none")} style={{ background: "linear-gradient(135deg, #060a14 0%, #0c1222 30%, #0a0f1e 60%, #080d18 100%)" }} data-testid="iso-3d-container">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[20%] left-[10%] w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-[10%] right-[15%] w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-[40%] right-[30%] w-64 h-64 bg-amber-500/3 rounded-full blur-3xl" />
-        <div className="absolute inset-0" style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)",
-          backgroundSize: "40px 40px"
-        }} />
+        <div className="iso-ambient-orb absolute top-[15%] left-[8%] w-[500px] h-[500px] bg-cyan-500/[0.04] rounded-full blur-[100px]" />
+        <div className="iso-ambient-orb absolute bottom-[5%] right-[12%] w-[400px] h-[400px] bg-indigo-500/[0.04] rounded-full blur-[100px]" style={{ animationDelay: "3s" }} />
+        <div className="iso-ambient-orb absolute top-[50%] left-[50%] w-[300px] h-[300px] bg-amber-500/[0.03] rounded-full blur-[80px]" style={{ animationDelay: "6s" }} />
+        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0)", backgroundSize: "48px 48px" }} />
+        <div className="iso-scanline absolute inset-0 pointer-events-none" />
       </div>
 
-      <div className="relative p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+      <div className="relative p-4 sm:p-6" style={{ minHeight: isFullscreen ? "100vh" : "700px" }}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                <Building2 className="w-6 h-6 text-white" />
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/25 iso-logo-pulse">
+                <span className="text-sm font-black text-white">H²</span>
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#111827] animate-pulse" />
+              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0c1222] iso-status-dot" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">{propertyName}</h2>
-              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                Status: Active · Real-time Monitoring
+              <div className="flex items-center gap-2 flex-wrap">
+                {breadcrumbs.map((bc, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    {i > 0 && <ChevronRight className="w-3 h-3 text-white/20" />}
+                    <button onClick={bc.action} className={cn("text-sm font-semibold transition-colors", i === breadcrumbs.length - 1 ? "text-white cursor-default" : "text-white/50 hover:text-white/80")}>{bc.label}</button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 font-medium tracking-wide uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block iso-status-dot" />
+                Live · {stats.totalBeds || 0} beds monitored
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.15))}
-              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
-              data-testid="btn-zoom-out"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <span className="text-xs text-white/40 font-mono min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(1.8, z + 0.15))}
-              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
-              data-testid="btn-zoom-in"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button onClick={() => setZoom(1)}
-              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
-              data-testid="btn-zoom-reset"
-            >
-              <RotateCcw className="w-4 h-4" />
+          <div className="flex items-center gap-1.5">
+            {drillLevel !== "building" && (
+              <button onClick={navigateBack} className="iso-ctrl-btn" data-testid="btn-back">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+            {drillLevel !== "building" && (
+              <button onClick={navigateHome} className="iso-ctrl-btn" data-testid="btn-home">
+                <Home className="w-4 h-4" />
+              </button>
+            )}
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-out"><ZoomOut className="w-4 h-4" /></button>
+            <span className="text-[10px] text-white/30 font-mono min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(2.0, z + 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-in"><ZoomIn className="w-4 h-4" /></button>
+            <button onClick={() => { setZoom(drillLevel === "building" ? 0.85 : drillLevel === "floor" ? 1.1 : 1.3); }} className="iso-ctrl-btn" data-testid="btn-zoom-reset"><RotateCcw className="w-4 h-4" /></button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button onClick={toggleFullscreen} className="iso-ctrl-btn" data-testid="btn-fullscreen">
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-          <div ref={containerRef} className="relative min-h-[600px] flex items-center justify-center overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5">
+          <div ref={containerRef} className="relative flex items-center justify-center overflow-hidden" style={{ minHeight: isFullscreen ? "calc(100vh - 140px)" : "600px" }} onMouseMove={handleMouseMove} onMouseLeave={() => setParallax({ x: 0, y: 0 })}>
+
             {hoveredBed && (
-              <div
-                className="absolute z-[100] pointer-events-none"
-                style={{ left: hoveredPos.x + 16, top: hoveredPos.y - 10 }}
-              >
-                <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-2xl min-w-[180px]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={cn("w-2.5 h-2.5 rounded-full", STATUS_COLORS[hoveredBed.status])} />
-                    <span className="text-white font-semibold text-sm">{hoveredBed.bedNumber}</span>
-                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                      hoveredBed.status === "available" ? "bg-emerald-500/20 text-emerald-400" :
-                      hoveredBed.status === "occupied" ? "bg-blue-500/20 text-blue-400" :
-                      hoveredBed.status === "reserved" ? "bg-amber-500/20 text-amber-400" :
-                      "bg-red-500/20 text-red-400"
+              <div className="absolute z-[100] pointer-events-none iso-hover-card-enter" style={{ left: Math.min(hoveredPos.x + 16, (containerRef.current?.clientWidth || 400) - 220), top: Math.max(hoveredPos.y - 80, 10) }}>
+                <div className="iso-glass-card p-3 min-w-[200px]">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className={cn("w-3 h-3 rounded-full iso-status-dot", STATUS_COLORS[hoveredBed.status])} />
+                    <span className="text-white font-bold text-sm tracking-tight">{hoveredBed.bedNumber}</span>
+                    <span className={cn("text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider",
+                      hoveredBed.status === "available" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" :
+                      hoveredBed.status === "occupied" ? "bg-blue-500/15 text-blue-400 border border-blue-500/30" :
+                      hoveredBed.status === "reserved" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" :
+                      "bg-red-500/15 text-red-400 border border-red-500/30"
                     )}>{ISO_BED_GLOW[hoveredBed.status]?.label || hoveredBed.status}</span>
                   </div>
                   {hoveredBed.currentBooking && (
-                    <div className="space-y-1 text-xs">
-                      <p className="text-slate-300"><span className="text-slate-500">Guest:</span> {hoveredBed.currentBooking.walkInName || hoveredBed.currentBooking.residentDetails?.residentName || "Guest"}</p>
-                      {hoveredBed.currentBooking.checkOutDate && (
-                        <p className="text-slate-300"><span className="text-slate-500">Out:</span> {hoveredBed.currentBooking.checkOutDate}</p>
-                      )}
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center gap-2">
+                        <User className="w-3 h-3 text-slate-500" />
+                        <span className="text-white/90 font-medium">{hoveredBed.currentBooking.walkInName || hoveredBed.currentBooking.residentDetails?.residentName || "Guest"}</span>
+                      </div>
                       {hoveredBed.currentBooking.bookingCode && (
-                        <p className="text-slate-300"><span className="text-slate-500">Code:</span> {hoveredBed.currentBooking.bookingCode}</p>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-3 h-3 text-slate-500" />
+                          <span className="text-white/70 font-mono text-[10px]">{hoveredBed.currentBooking.bookingCode}</span>
+                        </div>
+                      )}
+                      {hoveredBed.currentBooking.checkInDate && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-3 h-3 text-emerald-500/70" />
+                          <span className="text-white/60 text-[10px]">In: {hoveredBed.currentBooking.checkInDate}</span>
+                        </div>
+                      )}
+                      {hoveredBed.currentBooking.checkOutDate && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-3 h-3 text-rose-500/70" />
+                          <span className="text-white/60 text-[10px]">Out: {hoveredBed.currentBooking.checkOutDate}</span>
+                        </div>
+                      )}
+                      {hoveredBed.currentBooking.totalFee && (
+                        <div className="mt-2 pt-2 border-t border-white/5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-500">Payment</span>
+                            <span className={cn("text-[10px] font-semibold", hoveredBed.currentBooking.status === "confirmed" ? "text-emerald-400" : "text-amber-400")}>
+                              {hoveredBed.currentBooking.status === "confirmed" ? "Paid" : "Pending"}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all" style={{ width: hoveredBed.currentBooking.status === "confirmed" ? "100%" : "40%" }} />
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
                   {hoveredBed.status === "blocked" && hoveredBed.blockedReason && (
-                    <p className="text-xs text-red-400 mt-1">{hoveredBed.blockedReason}</p>
+                    <p className="text-[10px] text-red-400/80 mt-1.5 flex items-center gap-1"><Ban className="w-3 h-3" /> {hoveredBed.blockedReason}</p>
                   )}
-                  <p className="text-[10px] text-slate-600 mt-2">Click to view details</p>
+                  <p className="text-[9px] text-slate-600 mt-2.5 flex items-center gap-1"><Eye className="w-3 h-3" /> Click for full details</p>
                 </div>
               </div>
             )}
 
-            <div
-              className="transition-transform duration-500 ease-out"
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "center center",
-              }}
-            >
-              <div
-                className="relative"
-                style={{
-                  transform: "rotateX(55deg) rotateZ(-45deg)",
-                  transformStyle: "preserve-3d",
-                  perspective: "1200px",
-                }}
-              >
-                <div
-                  className="absolute rounded-xl"
-                  style={{
-                    width: `${Math.max(sortedFloors.length * 60 + 360, 400)}px`,
-                    height: `${Math.max(sortedFloors.length * 60 + 360, 400)}px`,
-                    background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.4) 100%)",
-                    border: "1px solid rgba(255,255,255,0.05)",
-                    transform: "translateZ(-5px)",
-                    left: "-40px",
-                    top: "-20px",
-                    boxShadow: "0 0 60px rgba(0,0,0,0.5)",
-                  }}
-                />
+            <div className="transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]" style={{ transform: `scale(${zoom}) translate(${parallax.x}px, ${parallax.y}px)`, transformOrigin: "center center", opacity: mounted ? 1 : 0 }}>
 
-                {sortedFloors.map((floor, floorIdx) => {
-                  const floorRooms = floor.rooms || [];
-                  const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
-                  const isHighlighted = selectedFloorIdx === null || selectedFloorIdx === floorIdx;
-                  const floorHeight = floorIdx * 110;
+              {drillLevel === "building" && (
+                <div className="relative iso-building-enter" style={{ transform: "rotateX(55deg) rotateZ(-45deg)", transformStyle: "preserve-3d" }}>
+                  <div className="absolute rounded-xl" style={{ width: `${Math.max(sortedFloors.length * 50 + 380, 420)}px`, height: `${Math.max(sortedFloors.length * 50 + 380, 420)}px`, background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(30,41,59,0.2) 100%)", border: "1px solid rgba(255,255,255,0.04)", transform: "translateZ(-8px)", left: "-50px", top: "-30px", boxShadow: "0 0 80px rgba(0,0,0,0.6), inset 0 0 60px rgba(6,10,20,0.5)" }} />
 
-                  return (
-                    <div
-                      key={floor.id}
-                      className="absolute transition-all duration-700 ease-out cursor-pointer"
-                      style={{
-                        transform: `translateZ(${floorHeight}px)`,
-                        transformStyle: "preserve-3d",
-                        opacity: isHighlighted ? 1 : 0.3,
-                        filter: isHighlighted ? "none" : "blur(1px)",
-                      }}
-                      onClick={() => setSelectedFloorIdx(prev => prev === floorIdx ? null : floorIdx)}
-                    >
-                      <div
-                        className="relative rounded-xl overflow-hidden"
-                        style={{
-                          width: "320px",
-                          height: "260px",
-                          background: "linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.9) 100%)",
-                          border: `1px solid ${isHighlighted ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.08)"}`,
-                          boxShadow: isHighlighted
-                            ? "0 4px 30px rgba(251,191,36,0.15), inset 0 1px 0 rgba(255,255,255,0.05)"
-                            : "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)",
-                          backdropFilter: "blur(20px)",
-                        }}
-                      >
-                        <div className="absolute -left-[2px] top-0 bottom-0 w-[3px] rounded-full" style={{
-                          background: `linear-gradient(to bottom, rgba(251,191,36,${isHighlighted ? 0.8 : 0.2}), rgba(251,191,36,0))`,
-                        }} />
+                  {sortedFloors.map((floor, floorIdx) => {
+                    const floorRooms = floor.rooms || [];
+                    const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
+                    const availCount = allBeds.filter(b => b.status === "available").length;
+                    const occupiedCount = allBeds.filter(b => b.status === "occupied" || b.status === "reserved").length;
+                    const blockedCount = allBeds.filter(b => b.status === "blocked").length;
+                    const floorHeight = floorIdx * 100;
 
-                        <div className="p-3">
+                    return (
+                      <div key={floor.id} className="absolute iso-floor-enter cursor-pointer" style={{ transform: `translateZ(${floorHeight}px)`, transformStyle: "preserve-3d", animationDelay: `${floorIdx * 150}ms` }} onClick={() => drillToFloor(floorIdx)}>
+                        <div className="relative rounded-xl overflow-hidden group iso-floor-hover" style={{ width: "340px", height: "90px", background: "linear-gradient(135deg, rgba(20,30,52,0.95) 0%, rgba(12,18,34,0.92) 100%)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.04)", backdropFilter: "blur(20px)" }}>
+                          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl iso-floor-edge" style={{ background: `linear-gradient(to bottom, ${availCount > occupiedCount ? "rgba(16,185,129,0.8)" : blockedCount > 0 ? "rgba(220,38,38,0.6)" : "rgba(59,130,246,0.7)"}, transparent)` }} />
+                          <div className="flex items-center h-full px-4 gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/25 flex items-center justify-center group-hover:from-amber-500/25 group-hover:to-amber-600/15 transition-all duration-500">
+                              <span className="text-base font-black text-amber-400">F{floor.floorNumber}</span>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-white/90">{floor.name}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">{floorRooms.length} rooms · {allBeds.length} beds</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1.5">
+                              <div className="flex gap-1.5">
+                                <span className="iso-mini-badge bg-emerald-500/15 text-emerald-400 border-emerald-500/20">{availCount}</span>
+                                <span className="iso-mini-badge bg-blue-500/15 text-blue-400 border-blue-500/20">{occupiedCount}</span>
+                                {blockedCount > 0 && <span className="iso-mini-badge bg-red-500/15 text-red-400 border-red-500/20">{blockedCount}</span>}
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="absolute top-0 rounded-r-lg" style={{ left: "100%", width: "8px", height: "90px", background: "linear-gradient(180deg, rgba(20,30,52,0.6) 0%, rgba(10,15,28,0.8) 100%)", borderRight: "1px solid rgba(255,255,255,0.03)", transform: "rotateY(90deg)", transformOrigin: "left" }} />
+                        <div className="absolute bottom-0 left-0 right-0 h-[8px] rounded-b-lg" style={{ background: "linear-gradient(135deg, rgba(15,23,42,0.6) 0%, rgba(10,15,28,0.8) 100%)", borderBottom: "1px solid rgba(255,255,255,0.03)", transform: "rotateX(90deg)", transformOrigin: "bottom" }} />
+                      </div>
+                    );
+                  })}
+
+                  <div className="absolute" style={{ transform: `translateZ(${sortedFloors.length * 100 + 10}px)`, transformStyle: "preserve-3d" }}>
+                    <div className="relative" style={{ width: "340px" }}>
+                      <div className="rounded-t-xl overflow-hidden" style={{ height: "55px", background: "linear-gradient(135deg, rgba(20,30,52,0.95) 0%, rgba(12,18,34,0.92) 100%)", border: "1px solid rgba(251,191,36,0.25)", borderBottom: "none" }}>
+                        <div className="flex items-center justify-center h-full gap-3 px-5">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 iso-logo-pulse">
+                            <span className="text-[11px] font-black text-white">H²</span>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-white tracking-wider uppercase">{propertyName.length > 22 ? propertyName.slice(0, 22) + "…" : propertyName}</p>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-[2px] bg-gradient-to-r from-amber-500 to-transparent" />
+                              <span className="text-[7px] text-amber-400/50 uppercase tracking-[0.2em]">Roof Garden</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="h-[2px] iso-neon-line" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {drillLevel === "floor" && activeFloor && (
+                <div className="iso-drill-enter w-full max-w-3xl mx-auto">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30 flex items-center justify-center">
+                      <span className="text-sm font-black text-amber-400">F{activeFloor.floorNumber}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{activeFloor.name}</h3>
+                      <p className="text-[10px] text-slate-500">{(activeFloor.rooms || []).length} rooms · Click a room to expand beds</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(activeFloor.rooms || []).map((room: any, rIdx: number) => {
+                      const roomBeds = room.beds || [];
+                      const avail = roomBeds.filter((b: any) => b.status === "available").length;
+                      const occ = roomBeds.filter((b: any) => b.status === "occupied" || b.status === "reserved").length;
+                      return (
+                        <button key={room.id} onClick={() => drillToRoom(room.id)} className="iso-glass-card p-4 text-left group cursor-pointer iso-room-enter" style={{ animationDelay: `${rIdx * 80}ms` }} data-testid={`iso-room-card-${room.id}`}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30 flex items-center justify-center">
-                                <span className="text-xs font-bold text-amber-400">F{floor.floorNumber}</span>
-                              </div>
-                              <div>
-                                <p className="text-xs font-semibold text-white/90 leading-tight">{floor.name}</p>
-                                <p className="text-[9px] text-slate-500">{floorRooms.length} rooms · {allBeds.length} beds</p>
-                              </div>
+                              <DoorOpen className="w-4 h-4 text-indigo-400/80" />
+                              <span className="text-sm font-semibold text-white/90">Room {room.roomNumber}</span>
+                              {room.typology && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400/70 border border-indigo-500/20 font-medium">{room.typology}</span>}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                                {allBeds.filter(b => b.status === "available").length} open
-                              </span>
-                            </div>
+                            <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-amber-400/60 group-hover:translate-x-0.5 transition-all duration-300" />
                           </div>
-
-                          <div className="space-y-2 max-h-[195px] overflow-y-auto custom-scrollbar pr-1">
-                            {floorRooms.map((room: any) => {
-                              const roomBeds = room.beds || [];
-                              return (
-                                <div key={room.id} className="rounded-lg p-2" style={{
-                                  background: "rgba(255,255,255,0.03)",
-                                  border: "1px solid rgba(255,255,255,0.06)",
-                                }}>
-                                  <div className="flex items-center gap-1.5 mb-1.5">
-                                    <DoorOpen className="w-3 h-3 text-indigo-400/70" />
-                                    <span className="text-[10px] font-medium text-slate-300">{room.roomNumber}</span>
-                                    {room.typology && (
-                                      <span className="text-[8px] px-1 py-0.5 rounded bg-indigo-500/10 text-indigo-400/80 border border-indigo-500/20">{room.typology}</span>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-1.5 flex-wrap">
-                                    {roomBeds.map((bed: any) => (
-                                      <IsometricBed
-                                        key={bed.id}
-                                        bed={bed}
-                                        onClick={() => onBedClick(bed.id)}
-                                        onHover={(e) => handleBedHover(bed, e)}
-                                        onLeave={() => setHoveredBed(null)}
-                                        onAllocate={() => onAllocate(bed.id)}
-                                        onDeallocate={() => onDeallocate(bed.id)}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                          <div className="flex gap-1.5 flex-wrap mb-3">
+                            {roomBeds.slice(0, 8).map((bed: any) => (
+                              <div key={bed.id} className={cn("w-5 h-5 rounded-md border iso-bed-mini", ISO_BED_GLOW[bed.status]?.border || "border-slate-500/30")} style={{ background: `linear-gradient(135deg, ${bed.status === "available" ? "rgba(16,185,129,0.3), rgba(16,185,129,0.15)" : bed.status === "occupied" ? "rgba(59,130,246,0.3), rgba(59,130,246,0.15)" : bed.status === "reserved" ? "rgba(245,158,11,0.3), rgba(245,158,11,0.15)" : bed.status === "blocked" ? "rgba(220,38,38,0.3), rgba(220,38,38,0.15)" : "rgba(100,116,139,0.3), rgba(100,116,139,0.15)"})` }} />
+                            ))}
+                            {roomBeds.length > 8 && <span className="text-[9px] text-slate-500 self-center">+{roomBeds.length - 8}</span>}
                           </div>
-                        </div>
+                          <div className="flex gap-2">
+                            <span className="text-[9px] text-emerald-400/80 font-medium">{avail} available</span>
+                            <span className="text-[9px] text-slate-600">·</span>
+                            <span className="text-[9px] text-blue-400/80 font-medium">{occ} booked</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-                        <div className="absolute bottom-0 left-0 right-0 h-[6px]" style={{
-                          background: "linear-gradient(90deg, rgba(251,191,36,0.4), rgba(251,191,36,0.1), rgba(251,191,36,0.4))",
-                          transform: "translateZ(-2px)",
-                        }} />
-                      </div>
-
-                      <div
-                        className="absolute top-0 rounded-r-lg"
-                        style={{
-                          left: "100%",
-                          width: "6px",
-                          height: "260px",
-                          background: "linear-gradient(180deg, rgba(30,41,59,0.7) 0%, rgba(15,23,42,0.9) 100%)",
-                          borderRight: "1px solid rgba(255,255,255,0.05)",
-                          borderTop: "1px solid rgba(255,255,255,0.05)",
-                          transform: "rotateY(90deg)",
-                          transformOrigin: "left",
-                        }}
-                      />
+              {drillLevel === "room" && activeRoom && (
+                <div className="iso-drill-enter w-full max-w-3xl mx-auto">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 border border-indigo-500/30 flex items-center justify-center">
+                      <DoorOpen className="w-5 h-5 text-indigo-400" />
                     </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        Room {activeRoom.roomNumber}
+                        {activeRoom.typology && <span className="text-xs px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400/80 border border-indigo-500/20 font-semibold">{activeRoom.typology}</span>}
+                      </h3>
+                      <p className="text-[10px] text-slate-500">{(activeRoom.beds || []).length} beds · {activeFloor?.name}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {(activeRoom.beds || []).map((bed: any, bIdx: number) => {
+                      const bStyle = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
+                      const hasBooking = !!bed.currentBooking;
+                      const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
+                      const isAvailable = bed.status === "available";
+                      const isOccupied = bed.status === "occupied";
+                      return (
+                        <div key={bed.id} className="iso-bed-card-enter" style={{ animationDelay: `${bIdx * 60}ms` }}>
+                          <button
+                            onClick={() => onBedClick(bed.id)}
+                            onMouseEnter={(e) => handleBedHover(bed, e)}
+                            onMouseLeave={() => setHoveredBed(null)}
+                            className={cn("iso-glass-card p-3 w-full text-left relative group cursor-pointer", hasBooking && `iso-bed-glow-${bed.status}`)}
+                            data-testid={`iso-bed-${bed.id}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={cn("w-3 h-3 rounded-full", STATUS_COLORS[bed.status], bed.status === "available" && "iso-pulse-green", bed.status === "occupied" && "iso-glow-blue", bed.status === "reserved" && "iso-shine-gold", bed.status === "blocked" && "iso-warn-red")} />
+                              <span className="text-xs font-bold text-white/90">{bed.bedNumber}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <BedDouble className={cn("w-5 h-5", bStyle.text)} />
+                              <span className={cn("text-[9px] font-semibold uppercase tracking-wider", bStyle.text)}>{bStyle.label}</span>
+                            </div>
+                            {hasBooking && guestName && (
+                              <div className="mt-2 pt-2 border-t border-white/5">
+                                <p className="text-[10px] text-white/70 truncate">{guestName}</p>
+                                {bed.currentBooking.checkOutDate && <p className="text-[9px] text-slate-500">Out: {bed.currentBooking.checkOutDate}</p>}
+                              </div>
+                            )}
+                            {bed.status === "blocked" && <div className="absolute top-2 right-2"><Ban className="w-3.5 h-3.5 text-red-400/60" /></div>}
+                            <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 z-30">
+                              {isAvailable && !hasBooking && (
+                                <button onClick={(e) => { e.stopPropagation(); onAllocate(bed.id); }} className="w-5 h-5 rounded-full bg-blue-500/80 hover:bg-blue-500 flex items-center justify-center shadow-lg backdrop-blur" title="Allocate"><Link2 className="w-3 h-3 text-white" /></button>
+                              )}
+                              {isOccupied && hasBooking && (
+                                <button onClick={(e) => { e.stopPropagation(); onDeallocate(bed.id); }} className="w-5 h-5 rounded-full bg-orange-500/80 hover:bg-orange-500 flex items-center justify-center shadow-lg backdrop-blur" title="Deallocate"><Unlock className="w-3 h-3 text-white" /></button>
+                              )}
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {drillLevel === "building" && (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 space-y-1.5">
+                {sortedFloors.map((floor, idx) => {
+                  const floorRooms = floor.rooms || [];
+                  const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
+                  const pct = allBeds.length ? Math.round((allBeds.filter(b => b.status === "available").length / allBeds.length) * 100) : 0;
+                  return (
+                    <button key={floor.id} onClick={() => drillToFloor(idx)} className="iso-glass-card flex items-center gap-2 px-2.5 py-1.5 min-w-[130px] text-left group" data-testid={`iso-floor-btn-${floor.id}`}>
+                      <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-slate-400 group-hover:text-amber-400 group-hover:bg-amber-500/10 transition-all">F{floor.floorNumber}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-medium text-white/70 truncate">{floor.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <div className="flex-1 h-[3px] bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-700" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[7px] text-slate-600 font-mono">{pct}%</span>
+                        </div>
+                      </div>
+                    </button>
                   );
                 })}
-
-                <div
-                  className="absolute"
-                  style={{
-                    transform: `translateZ(${sortedFloors.length * 110 + 15}px)`,
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  <div className="relative" style={{ width: "320px" }}>
-                    <div className="rounded-t-xl overflow-hidden" style={{
-                      height: "50px",
-                      background: "linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.9) 100%)",
-                      border: "1px solid rgba(251,191,36,0.3)",
-                      borderBottom: "none",
-                    }}>
-                      <div className="flex items-center justify-center h-full gap-3 px-4">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
-                          <span className="text-[10px] font-black text-white">H²</span>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-white tracking-wide uppercase">{propertyName.length > 20 ? propertyName.slice(0, 20) + "..." : propertyName}</p>
-                          <div className="flex items-center gap-1">
-                            <div className="w-4 h-[2px] bg-gradient-to-r from-amber-500 to-transparent" />
-                            <span className="text-[7px] text-amber-400/60 uppercase tracking-widest">Roof Garden</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="h-[3px]" style={{ background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)" }} />
-                  </div>
-                </div>
-
-                <div className="absolute" style={{
-                  transform: `translateZ(${sortedFloors.length * 110 + 70}px)`,
-                  width: "320px",
-                }}>
-                  <div className="flex items-center justify-center gap-4">
-                    {[
-                      { icon: "📡", label: "Antenna" },
-                      { icon: "🌿", label: "Garden" },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-full" style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                      }}>
-                        <span className="text-xs">{item.icon}</span>
-                        <span className="text-[8px] text-slate-500">{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
-            </div>
-
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 space-y-2">
-              {sortedFloors.map((floor, idx) => {
-                const floorRooms = floor.rooms || [];
-                const allBeds = [...(floor.beds || []), ...floorRooms.flatMap((r: any) => r.beds || [])];
-                const availCount = allBeds.filter(b => b.status === "available").length;
-                const totalBedCount = allBeds.length;
-                const pct = totalBedCount ? Math.round((availCount / totalBedCount) * 100) : 0;
-
-                return (
-                  <button
-                    key={floor.id}
-                    onClick={() => setSelectedFloorIdx(prev => prev === idx ? null : idx)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all min-w-[140px]",
-                      selectedFloorIdx === idx
-                        ? "bg-amber-500/10 border border-amber-500/30"
-                        : "bg-white/5 border border-white/10 hover:bg-white/8 hover:border-white/15"
-                    )}
-                    data-testid={`iso-floor-btn-${floor.id}`}
-                  >
-                    <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold",
-                      selectedFloorIdx === idx ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-slate-400"
-                    )}>
-                      F{floor.floorNumber}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-medium text-white/80 truncate">{floor.name}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-[8px] text-slate-500">{pct}%</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            )}
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-xl p-4" style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              backdropFilter: "blur(20px)",
-            }}>
-              <h3 className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <LayoutGrid className="w-3.5 h-3.5 text-amber-400" /> Overview
-              </h3>
+          <div className="space-y-3">
+            <div className="iso-glass-card p-4">
+              <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><LayoutGrid className="w-3.5 h-3.5 text-amber-400/70" /> Overview</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "Total Beds", value: stats.totalBeds || 0, color: "text-white", bg: "from-slate-500/20 to-slate-600/10", border: "border-slate-500/20" },
-                  { label: "Available", value: stats.available || 0, color: "text-emerald-400", bg: "from-emerald-500/20 to-emerald-600/10", border: "border-emerald-500/20" },
-                  { label: "Booked", value: stats.occupied || 0, color: "text-blue-400", bg: "from-blue-500/20 to-blue-600/10", border: "border-blue-500/20" },
-                  { label: "Blocked", value: stats.blocked || 0, color: "text-red-400", bg: "from-red-500/20 to-red-600/10", border: "border-red-500/20" },
+                  { label: "Total", value: stats.totalBeds || 0, color: "text-white", glow: "from-slate-500/10 to-slate-600/5", border: "border-slate-500/15" },
+                  { label: "Open", value: stats.available || 0, color: "text-emerald-400", glow: "from-emerald-500/10 to-emerald-600/5", border: "border-emerald-500/15" },
+                  { label: "Booked", value: stats.occupied || 0, color: "text-blue-400", glow: "from-blue-500/10 to-blue-600/5", border: "border-blue-500/15" },
+                  { label: "Blocked", value: stats.blocked || 0, color: "text-red-400", glow: "from-red-500/10 to-red-600/5", border: "border-red-500/15" },
                 ].map(item => (
-                  <div key={item.label} className={cn("rounded-lg p-2.5 bg-gradient-to-br border", item.bg, item.border)}>
-                    <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.label}</p>
-                    <p className={cn("text-lg font-bold", item.color)}>{item.value}</p>
+                  <div key={item.label} className={cn("rounded-lg p-2 bg-gradient-to-br border", item.glow, item.border)}>
+                    <p className="text-[8px] text-slate-500 uppercase tracking-wider">{item.label}</p>
+                    <p className={cn("text-xl font-black", item.color)}>{item.value}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl p-4" style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              backdropFilter: "blur(20px)",
-            }}>
-              <h3 className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Legend
-              </h3>
+            <div className="iso-glass-card p-4">
+              <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-cyan-400/70" /> Status Legend</h3>
               <div className="space-y-2">
                 {Object.entries(ISO_BED_GLOW).map(([status, style]) => (
                   <div key={status} className="flex items-center gap-2.5">
-                    <div className={cn("w-4 h-4 rounded-md bg-gradient-to-br border", style.bg, style.border, style.glow)} style={{ boxShadow: undefined }} />
-                    <span className="text-xs text-slate-300 capitalize">{style.label}</span>
+                    <div className={cn("w-3.5 h-3.5 rounded-md border", style.border, status === "available" && "iso-pulse-green", status === "occupied" && "iso-glow-blue", status === "reserved" && "iso-shine-gold", status === "blocked" && "iso-warn-red")} style={{ background: `linear-gradient(135deg, ${status === "available" ? "rgba(16,185,129,0.4), rgba(16,185,129,0.2)" : status === "occupied" ? "rgba(59,130,246,0.4), rgba(59,130,246,0.2)" : status === "reserved" ? "rgba(245,158,11,0.4), rgba(245,158,11,0.2)" : status === "blocked" ? "rgba(220,38,38,0.4), rgba(220,38,38,0.2)" : "rgba(100,116,139,0.4), rgba(100,116,139,0.2)"})` }} />
+                    <span className="text-[10px] text-slate-400 font-medium">{style.label}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl p-4" style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              backdropFilter: "blur(20px)",
-            }}>
-              <h3 className="text-xs font-semibold text-white/70 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Activity className="w-3.5 h-3.5 text-indigo-400" /> Real-time Activity
-              </h3>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+            <div className="iso-glass-card p-4">
+              <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-indigo-400/70" /> Activity</h3>
+              <div className="space-y-1.5 max-h-[180px] overflow-y-auto iso-scrollbar">
                 {activityLog.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-4">No recent activity</p>
+                  <p className="text-[10px] text-slate-600 text-center py-4">No recent activity</p>
                 ) : (
                   activityLog.map((log, i) => (
-                    <div key={i} className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
-                      <div className={cn("w-2 h-2 rounded-full mt-1 shrink-0",
-                        log.status === "available" ? "bg-emerald-500" :
-                        log.status === "occupied" ? "bg-blue-500" :
-                        log.status === "reserved" ? "bg-amber-500" : "bg-red-500"
-                      )} />
+                    <div key={i} className="flex items-start gap-2 py-1 border-b border-white/[0.03] last:border-0">
+                      <div className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", log.status === "available" ? "bg-emerald-500" : log.status === "occupied" ? "bg-blue-500" : log.status === "reserved" ? "bg-amber-500" : "bg-red-500")} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-white/80 font-medium truncate">
-                          <span className="text-amber-400/80">{log.bedNumber}</span> · {log.guest}
-                        </p>
-                        <p className="text-[9px] text-slate-500">{log.floor} · {log.time}</p>
+                        <p className="text-[9px] text-white/70 font-medium truncate"><span className="text-amber-400/70">{log.bedNumber}</span> · {log.guest}</p>
+                        <p className="text-[8px] text-slate-600">{log.floor} · {log.time}</p>
                       </div>
                     </div>
                   ))
@@ -912,137 +954,90 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
       </div>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 3px;
+        .iso-ctrl-btn {
+          width: 32px; height: 32px; border-radius: 10px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+          display: flex; align-items: center; justify-content: center;
+          color: rgba(255,255,255,0.4); transition: all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.02);
-          border-radius: 10px;
+        .iso-ctrl-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.15); transform: translateY(-1px); }
+
+        .iso-glass-card {
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px; backdrop-filter: blur(20px);
+          transition: all 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.1);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.2);
+        .iso-glass-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+
+        .iso-mini-badge {
+          font-size: 9px; padding: 1px 6px; border-radius: 6px; font-weight: 700;
+          border: 1px solid; line-height: 1.4;
         }
 
-        @keyframes bedPulse {
-          0%, 100% { box-shadow: 0 0 8px var(--glow-color); }
-          50% { box-shadow: 0 0 16px var(--glow-color); }
+        .iso-neon-line {
+          background: linear-gradient(90deg, transparent 0%, rgba(251,191,36,0.5) 30%, rgba(6,182,212,0.4) 70%, transparent 100%);
+          animation: neonSweep 4s ease-in-out infinite;
         }
-        .bed-glow {
-          animation: bedPulse 3s ease-in-out infinite;
+        @keyframes neonSweep {
+          0%, 100% { opacity: 0.5; } 50% { opacity: 1; }
         }
 
-        @keyframes floatLabel {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-2px); }
-        }
-        .float-label {
-          animation: floatLabel 4s ease-in-out infinite;
-        }
+        @keyframes ambientFloat { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(20px, -15px) scale(1.05); } }
+        .iso-ambient-orb { animation: ambientFloat 12s ease-in-out infinite; }
+
+        .iso-scanline { background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.003) 2px, rgba(255,255,255,0.003) 4px); }
+
+        @keyframes buildingEnter { from { opacity: 0; transform: rotateX(55deg) rotateZ(-45deg) scale(0.85) translateY(40px); } to { opacity: 1; transform: rotateX(55deg) rotateZ(-45deg) scale(1) translateY(0); } }
+        .iso-building-enter { animation: buildingEnter 0.8s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+
+        @keyframes floorEnter { from { opacity: 0; transform: translateZ(var(--tz, 0)) translateY(20px); } to { opacity: 1; transform: translateZ(var(--tz, 0)) translateY(0); } }
+        .iso-floor-enter { animation: floorEnter 0.6s cubic-bezier(0.25,0.46,0.45,0.94) forwards; opacity: 0; }
+        .iso-floor-hover { transition: all 0.4s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .iso-floor-hover:hover { box-shadow: 0 8px 40px rgba(251,191,36,0.15), 0 0 1px rgba(251,191,36,0.3), inset 0 1px 0 rgba(255,255,255,0.06) !important; border-color: rgba(251,191,36,0.25) !important; transform: translateY(-2px); }
+        .iso-floor-edge { transition: all 0.4s; }
+        .iso-floor-hover:hover .iso-floor-edge { box-shadow: 0 0 12px rgba(251,191,36,0.3); }
+
+        @keyframes drillEnter { from { opacity: 0; transform: scale(0.92) translateY(24px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+        .iso-drill-enter { animation: drillEnter 0.6s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+
+        @keyframes roomEnter { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .iso-room-enter { animation: roomEnter 0.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards; opacity: 0; }
+
+        @keyframes bedCardEnter { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .iso-bed-card-enter { animation: bedCardEnter 0.4s cubic-bezier(0.25,0.46,0.45,0.94) forwards; opacity: 0; }
+
+        @keyframes hoverCardEnter { from { opacity: 0; transform: translateY(8px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .iso-hover-card-enter { animation: hoverCardEnter 0.2s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+
+        @keyframes pulseGreen { 0%, 100% { box-shadow: 0 0 4px rgba(16,185,129,0.3); } 50% { box-shadow: 0 0 12px rgba(16,185,129,0.6); } }
+        .iso-pulse-green { animation: pulseGreen 2.5s ease-in-out infinite; }
+
+        @keyframes glowBlue { 0%, 100% { box-shadow: 0 0 6px rgba(59,130,246,0.4); } }
+        .iso-glow-blue { box-shadow: 0 0 8px rgba(59,130,246,0.5); }
+
+        @keyframes shineGold { 0% { box-shadow: 0 0 4px rgba(245,158,11,0.3); } 50% { box-shadow: 0 0 14px rgba(245,158,11,0.6); } 100% { box-shadow: 0 0 4px rgba(245,158,11,0.3); } }
+        .iso-shine-gold { animation: shineGold 3s ease-in-out infinite; }
+
+        @keyframes warnRed { 0%, 100% { box-shadow: 0 0 4px rgba(220,38,38,0.3); } 50% { box-shadow: 0 0 10px rgba(220,38,38,0.5); } }
+        .iso-warn-red { animation: warnRed 2s ease-in-out infinite; }
+
+        .iso-bed-glow-occupied { box-shadow: 0 0 16px rgba(59,130,246,0.15); }
+        .iso-bed-glow-reserved { box-shadow: 0 0 16px rgba(245,158,11,0.15); }
+        .iso-bed-glow-blocked { box-shadow: 0 0 16px rgba(220,38,38,0.15); }
+
+        @keyframes logoPulse { 0%, 100% { box-shadow: 0 0 15px rgba(251,191,36,0.2); } 50% { box-shadow: 0 0 25px rgba(251,191,36,0.4); } }
+        .iso-logo-pulse { animation: logoPulse 4s ease-in-out infinite; }
+
+        @keyframes statusDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .iso-status-dot { animation: statusDot 2s ease-in-out infinite; }
+
+        .iso-scrollbar::-webkit-scrollbar { width: 2px; }
+        .iso-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.01); }
+        .iso-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+
+        .iso-bed-mini { transition: all 0.3s; }
+        .iso-bed-mini:hover { transform: scale(1.3); }
       `}</style>
-    </div>
-  );
-}
-
-function IsometricBed({ bed, onClick, onHover, onLeave, onAllocate, onDeallocate }: {
-  bed: any;
-  onClick: () => void;
-  onHover: (e: React.MouseEvent) => void;
-  onLeave: () => void;
-  onAllocate: () => void;
-  onDeallocate: () => void;
-}) {
-  const style = ISO_BED_GLOW[bed.status] || ISO_BED_GLOW.maintenance;
-  const hasBooking = !!bed.currentBooking;
-  const isAvailable = bed.status === "available";
-  const isOccupied = bed.status === "occupied";
-  const guestName = bed.currentBooking?.walkInName || bed.currentBooking?.residentDetails?.residentName || "";
-  const shortName = guestName ? (guestName.split(" ")[0].slice(0, 6) + (guestName.split(" ")[1] ? " " + guestName.split(" ")[1][0] + "." : "")) : "";
-  const checkOut = bed.currentBooking?.checkOutDate || "";
-  const shortCheckout = checkOut ? `Out: ${checkOut.split("-").slice(1).reverse().join("/")}` : "";
-
-  return (
-    <div className="relative group" style={{ transform: "translateZ(0)" }}>
-      <button
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        onMouseEnter={onHover}
-        onMouseLeave={onLeave}
-        className={cn(
-          "relative rounded-lg transition-all duration-300 cursor-pointer border",
-          "hover:scale-110 hover:z-10",
-          style.border,
-          hasBooking ? "bed-glow" : ""
-        )}
-        style={{
-          width: "52px",
-          height: "38px",
-          background: `linear-gradient(135deg, ${
-            bed.status === "available" ? "rgba(16,185,129,0.25), rgba(16,185,129,0.15)" :
-            bed.status === "occupied" ? "rgba(59,130,246,0.25), rgba(59,130,246,0.15)" :
-            bed.status === "reserved" ? "rgba(245,158,11,0.25), rgba(245,158,11,0.15)" :
-            bed.status === "blocked" ? "rgba(220,38,38,0.25), rgba(220,38,38,0.15)" :
-            "rgba(100,116,139,0.25), rgba(100,116,139,0.15)"
-          })`,
-          ["--glow-color" as any]:
-            bed.status === "available" ? "rgba(16,185,129,0.3)" :
-            bed.status === "occupied" ? "rgba(59,130,246,0.3)" :
-            bed.status === "reserved" ? "rgba(245,158,11,0.3)" :
-            bed.status === "blocked" ? "rgba(220,38,38,0.3)" :
-            "rgba(100,116,139,0.2)",
-        }}
-        data-testid={`iso-bed-${bed.id}`}
-      >
-        <div className="flex flex-col items-center justify-center h-full px-1">
-          <BedDouble className={cn("w-3 h-3", style.text)} />
-          <span className={cn("text-[7px] font-semibold leading-tight truncate max-w-full", style.text)}>
-            {bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}
-          </span>
-        </div>
-
-        {hasBooking && shortName && (
-          <div className="absolute -top-5 left-1/2 -translate-x-1/2 float-label pointer-events-none z-20">
-            <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded px-1.5 py-0.5 whitespace-nowrap">
-              <span className="text-[7px] font-medium text-white/90">{shortName}</span>
-            </div>
-          </div>
-        )}
-
-        {hasBooking && shortCheckout && (
-          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-20">
-            <span className="text-[6px] text-slate-500 whitespace-nowrap">{shortCheckout}</span>
-          </div>
-        )}
-
-        {bed.status === "blocked" && (
-          <div className="absolute -top-1.5 -right-1.5 z-20">
-            <div className="w-3.5 h-3.5 rounded-full bg-red-600 border border-red-400/50 flex items-center justify-center">
-              <Ban className="w-2 h-2 text-white" />
-            </div>
-          </div>
-        )}
-      </button>
-
-      <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 z-30" style={{ transform: "translateZ(2px)" }}>
-        {isAvailable && !hasBooking && (
-          <button onClick={(e) => { e.stopPropagation(); onAllocate(); }}
-            className="w-4 h-4 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center shadow-lg"
-            title="Allocate booking"
-          >
-            <Link2 className="w-2.5 h-2.5 text-white" />
-          </button>
-        )}
-        {isOccupied && hasBooking && (
-          <button onClick={(e) => { e.stopPropagation(); onDeallocate(); }}
-            className="w-4 h-4 rounded-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center shadow-lg"
-            title="Deallocate"
-          >
-            <Unlock className="w-2.5 h-2.5 text-white" />
-          </button>
-        )}
-      </div>
     </div>
   );
 }
