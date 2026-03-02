@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { createPayment, getPayment } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 
 type PaymentMethod = "razorpay" | "pay_at_property" | null;
 
@@ -81,43 +82,129 @@ export default function PaymentGateway() {
   };
 
   const handleDownloadReceipt = () => {
-    const receiptContent = `
-========================================
-       HSQUARELIVING PVT LTD
-         BOOKING RECEIPT
-========================================
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
+    let y = 20;
 
-Booking Code: ${booking?.bookingCode || "N/A"}
-Date: ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 0, pageWidth, 50, "F");
 
-Property: ${booking?.propertyId ? "Hsquare Property" : "N/A"}
-Room Type: ${booking?.roomTypeId || "N/A"}
-Stay Plan: ${(booking?.stayPlanType || "academic_year").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("HSQUARELIVING", pageWidth / 2, 22, { align: "center" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Pvt Ltd", pageWidth / 2, 30, { align: "center" });
 
-----------------------------------------
-PAYMENT DETAILS
-----------------------------------------
-Payment Method: ${paymentMethod === "razorpay" ? "Razorpay Online" : "Pay at Property"}
-${paymentId ? `Transaction ID: #${paymentId.slice(0, 12)}` : ""}
-Amount: ₹${amountPaid.toLocaleString("en-IN")}
-Status: ${paymentMethod === "razorpay" ? "PAID" : "PENDING (Pay at Property)"}
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("BOOKING RECEIPT", pageWidth / 2, 42, { align: "center" });
 
-----------------------------------------
-Total Fee: ₹${(booking?.totalFee || 0).toLocaleString("en-IN")}
-Deposit: ₹${(booking?.deposit || 0).toLocaleString("en-IN")}
-Discount: ₹${(booking?.discount || 0).toLocaleString("en-IN")}
-========================================
-        Thank you for choosing
-         Hsquareliving!
-========================================
-    `;
-    const blob = new Blob([receiptContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `receipt-${booking?.bookingCode || "booking"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    y = 65;
+
+    doc.setDrawColor(79, 70, 229);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y - 8, contentWidth, 30, 3, 3);
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("BOOKING CODE", margin + 8, y);
+    doc.setTextColor(79, 70, 229);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(booking?.bookingCode || "N/A", margin + 8, y + 12);
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("DATE", pageWidth - margin - 8, y, { align: "right" });
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(11);
+    doc.text(new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }), pageWidth - margin - 8, y + 12, { align: "right" });
+
+    y += 42;
+
+    const drawSectionHeader = (title: string, yPos: number) => {
+      doc.setFillColor(245, 245, 250);
+      doc.roundedRect(margin, yPos - 5, contentWidth, 10, 2, 2, "F");
+      doc.setTextColor(79, 70, 229);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, margin + 6, yPos + 2);
+      return yPos + 16;
+    };
+
+    const drawRow = (label: string, value: string, yPos: number, bold = false) => {
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, margin + 6, yPos);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.text(value, pageWidth - margin - 6, yPos, { align: "right" });
+      return yPos + 10;
+    };
+
+    y = drawSectionHeader("BOOKING DETAILS", y);
+    const stayPlan = (booking?.stayPlanType || "academic_year").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+    y = drawRow("Stay Plan", stayPlan, y);
+    if (booking?.checkInDate) {
+      y = drawRow("Check-in Date", booking.checkInDate, y);
+    }
+    if (booking?.durationMonths) {
+      y = drawRow("Duration", `${booking.durationMonths} months`, y);
+    }
+
+    y += 6;
+    y = drawSectionHeader("PAYMENT INFORMATION", y);
+    y = drawRow("Payment Method", paymentMethod === "razorpay" ? "Razorpay Online" : "Pay at Property", y);
+    if (paymentId) {
+      y = drawRow("Transaction ID", `#${paymentId.slice(0, 12)}`, y);
+    }
+    y = drawRow("Payment Status", paymentMethod === "razorpay" ? "PAID" : "PENDING", y, true);
+
+    y += 6;
+    y = drawSectionHeader("FEE BREAKDOWN", y);
+    y = drawRow("Base Fee / Total Fee", `Rs. ${(booking?.totalFee || 0).toLocaleString("en-IN")}`, y);
+    if ((booking?.deposit || 0) > 0) {
+      y = drawRow("Security Deposit", `Rs. ${(booking.deposit).toLocaleString("en-IN")}`, y);
+    }
+    if ((booking?.discount || 0) > 0) {
+      y = drawRow("Discount", `- Rs. ${(booking.discount).toLocaleString("en-IN")}`, y);
+    }
+
+    y += 4;
+    doc.setDrawColor(79, 70, 229);
+    doc.setLineWidth(0.8);
+    doc.line(margin + 6, y, pageWidth - margin - 6, y);
+    y += 10;
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(paymentMethod === "razorpay" ? "Amount Paid" : "Amount Due", margin + 6, y);
+    doc.setTextColor(79, 70, 229);
+    doc.setFontSize(14);
+    doc.text(`Rs. ${amountPaid.toLocaleString("en-IN")}`, pageWidth - margin - 6, y, { align: "right" });
+
+    y += 20;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 12;
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("This is a computer-generated receipt and does not require a signature.", pageWidth / 2, y, { align: "center" });
+    y += 8;
+    doc.text("Thank you for choosing Hsquareliving!", pageWidth / 2, y, { align: "center" });
+    y += 8;
+    doc.setTextColor(79, 70, 229);
+    doc.setFontSize(8);
+    doc.text("www.hsquareliving.com | support@hsquareliving.com", pageWidth / 2, y, { align: "center" });
+
+    doc.save(`receipt-${booking?.bookingCode || "booking"}.pdf`);
   };
 
   return (
