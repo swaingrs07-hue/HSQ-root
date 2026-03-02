@@ -363,7 +363,7 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={() => setSelectedBooking(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-indigo-500" />
