@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,17 +73,22 @@ const BLOCK_CATEGORIES = [
 ];
 
 const TYPOLOGY_OPTIONS = [
-  { value: "1 Bed", label: "1 Bed (Single)" },
-  { value: "2 Bed", label: "2 Bed (Double)" },
-  { value: "3 Bed", label: "3 Bed (Triple)" },
-  { value: "1+2", label: "1+2 Combo (3 beds, 2 sections)" },
-  { value: "2+1", label: "2+1 Combo (3 beds, 2 sections)" },
-  { value: "1+3", label: "1+3 Combo (4 beds, 2 sections)" },
-  { value: "2+2", label: "2+2 Combo (4 beds, 2 sections)" },
-  { value: "1+1+2", label: "1+1+2 Combo (4 beds, 3 sections)" },
-  { value: "4 Bed", label: "4 Bed (Quad)" },
-  { value: "5 Bed", label: "5 Bed" },
-  { value: "6 Bed", label: "6 Bed" },
+  { value: "1 Bed", label: "1 Bed (Single)", group: "standard" },
+  { value: "2 Bed", label: "2 Bed (Double)", group: "standard" },
+  { value: "3 Bed", label: "3 Bed (Triple)", group: "standard" },
+  { value: "4 Bed", label: "4 Bed (Quad)", group: "standard" },
+  { value: "5 Bed", label: "5 Bed", group: "standard" },
+  { value: "6 Bed", label: "6 Bed", group: "standard" },
+  { value: "1+2", label: "1+2 Combo (3 beds, 2 sections)", group: "combo" },
+  { value: "2+1", label: "2+1 Combo (3 beds, 2 sections)", group: "combo" },
+  { value: "1+3", label: "1+3 Combo (4 beds, 2 sections)", group: "combo" },
+  { value: "2+2", label: "2+2 Combo (4 beds, 2 sections)", group: "combo" },
+  { value: "2+3", label: "2+3 Combo (5 beds, 2 sections)", group: "combo" },
+  { value: "3+2", label: "3+2 Combo (5 beds, 2 sections)", group: "combo" },
+  { value: "1+1+2", label: "1+1+2 Combo (4 beds, 3 sections)", group: "combo" },
+  { value: "1+2+2", label: "1+2+2 Combo (5 beds, 3 sections)", group: "combo" },
+  { value: "2+2+2", label: "2+2+2 Combo (6 beds, 3 sections)", group: "combo" },
+  { value: "custom", label: "Custom Configuration...", group: "custom" },
 ];
 
 async function apiFetch(url: string, options?: RequestInit) {
@@ -110,6 +115,8 @@ export default function AdminFloorsBeds() {
   const [selectedFloorId, setSelectedFloorId] = useState<string>("");
   const [newFloor, setNewFloor] = useState({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0 });
   const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+  const [customTypology, setCustomTypology] = useState("");
+  const [isCustomTypology, setIsCustomTypology] = useState(false);
   const [roomTypeSearch, setRoomTypeSearch] = useState("");
   const [roomTypeDropdownOpen, setRoomTypeDropdownOpen] = useState(false);
   const [autoGen, setAutoGen] = useState({ numberOfFloors: 3, bedsPerFloor: 10 });
@@ -155,6 +162,8 @@ export default function AdminFloorsBeds() {
       toast({ title: "Room Created", description: "Room and beds have been generated." });
       setAddRoomOpen(false);
       setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+      setCustomTypology("");
+      setIsCustomTypology(false);
       setRoomTypeSearch("");
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -468,21 +477,87 @@ export default function AdminFloorsBeds() {
 
                 <div className="space-y-2">
                   <Label>Room Typology (Bed Configuration)</Label>
-                  <Select value={newRoom.typology} onValueChange={(val) => setNewRoom(prev => ({ ...prev, typology: val }))}>
-                    <SelectTrigger data-testid="select-typology"><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-60 overflow-y-auto">
-                      {TYPOLOGY_OPTIONS.map(t => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
+                  <Select
+                    value={isCustomTypology ? "custom" : newRoom.typology}
+                    onValueChange={(val) => {
+                      if (val === "custom") {
+                        setIsCustomTypology(true);
+                        setCustomTypology("");
+                      } else {
+                        setIsCustomTypology(false);
+                        setCustomTypology("");
+                        setNewRoom(prev => ({ ...prev, typology: val }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-typology">
+                      <SelectValue placeholder="Select configuration">
+                        {isCustomTypology
+                          ? (customTypology ? `Custom: ${customTypology}` : "Custom Configuration...")
+                          : TYPOLOGY_OPTIONS.find(t => t.value === newRoom.typology)?.label || newRoom.typology}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72 overflow-y-auto">
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Standard Rooms</SelectLabel>
+                        {TYPOLOGY_OPTIONS.filter(t => t.group === "standard").map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mt-1">Combo Rooms (Sections)</SelectLabel>
+                        {TYPOLOGY_OPTIONS.filter(t => t.group === "combo").map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mt-1">Advanced</SelectLabel>
+                        <SelectItem value="custom">Custom Configuration...</SelectItem>
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-400">
-                    {newRoom.typology.includes("+") ? (
-                      <>Combo room: sections {newRoom.typology.split("+").map((p, i) => `${newRoom.roomNumber || "XXX"}${String.fromCharCode(65+i)} (${p} bed${parseInt(p)>1?"s":""})`).join(", ")} with shared washroom</>
-                    ) : (
-                      <>Room {newRoom.roomNumber || "XXX"} will have {parseInt(newRoom.typology) || 1} bed{(parseInt(newRoom.typology) || 1) > 1 ? "s" : ""}</>
-                    )}
-                  </p>
+
+                  {isCustomTypology && (
+                    <div className="space-y-1.5 pl-3 border-l-2 border-amber-400">
+                      <Label className="text-xs">Custom Typology Pattern</Label>
+                      <Input
+                        placeholder="e.g. 3+3 or 1+2+3 or 7 Bed"
+                        value={customTypology}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomTypology(val);
+                          if (val.trim()) {
+                            setNewRoom(prev => ({ ...prev, typology: val.trim() }));
+                          }
+                        }}
+                        data-testid="input-custom-typology"
+                        className="h-9"
+                      />
+                      <p className="text-[11px] text-slate-400">
+                        Use <code className="bg-slate-100 px-1 rounded text-[10px]">N+N</code> for combo (e.g. <code className="bg-slate-100 px-1 rounded text-[10px]">3+3</code> = 6 beds, 2 sections) or <code className="bg-slate-100 px-1 rounded text-[10px]">N Bed</code> for simple (e.g. <code className="bg-slate-100 px-1 rounded text-[10px]">8 Bed</code>).
+                      </p>
+                    </div>
+                  )}
+
+                  {!isCustomTypology && (
+                    <p className="text-xs text-slate-400">
+                      {newRoom.typology.includes("+") ? (
+                        <>Combo room: sections {newRoom.typology.split("+").map((p, i) => `${newRoom.roomNumber || "XXX"}${String.fromCharCode(65+i)} (${p} bed${parseInt(p)>1?"s":""})`).join(", ")} with shared washroom</>
+                      ) : (
+                        <>Room {newRoom.roomNumber || "XXX"} will have {parseInt(newRoom.typology) || 1} bed{(parseInt(newRoom.typology) || 1) > 1 ? "s" : ""}</>
+                      )}
+                    </p>
+                  )}
+
+                  {isCustomTypology && customTypology.trim() && (
+                    <p className="text-xs text-slate-400">
+                      {customTypology.includes("+") ? (
+                        <>Combo room: sections {customTypology.split("+").map((p, i) => `${newRoom.roomNumber || "XXX"}${String.fromCharCode(65+i)} (${p.trim()} bed${parseInt(p.trim())>1?"s":""})`).join(", ")} with shared washroom</>
+                      ) : (
+                        <>Room {newRoom.roomNumber || "XXX"} will have {parseInt(customTypology) || customTypology} bed{(parseInt(customTypology) || 0) > 1 ? "s" : ""}</>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -500,6 +575,10 @@ export default function AdminFloorsBeds() {
                   onClick={() => {
                     if (!newRoom.roomNumber) {
                       toast({ title: "Please fill room number", variant: "destructive" });
+                      return;
+                    }
+                    if (isCustomTypology && !customTypology.trim()) {
+                      toast({ title: "Please enter custom typology", description: "e.g. 3+3 or 1+2+3 or 7 Bed", variant: "destructive" });
                       return;
                     }
                     let resolvedTypeId = newRoom.roomTypeId;
