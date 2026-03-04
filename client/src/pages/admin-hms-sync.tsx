@@ -138,7 +138,7 @@ export default function AdminHmsSync() {
   const handleVerify = async (property: Property) => {
     setActionLoading(`verify-${property.id}`);
     try {
-      const res = await fetch(`/api/admin/properties/${property.id}/verify-hms`, { headers });
+      const res = await fetch(`/api/admin/properties/${property.id}/verify-hms`, { method: "POST", headers });
       if (res.ok) {
         const data = await res.json();
         setVerifyResults(prev => ({ ...prev, [property.id]: data }));
