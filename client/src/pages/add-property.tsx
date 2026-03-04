@@ -488,10 +488,15 @@ export default function AddProperty() {
     form.setValue("images", images);
   }, [uploadedImages, form]);
 
-  // Sync when images change
   useEffect(() => {
     syncImagesToForm();
   }, [uploadedImages, syncImagesToForm]);
+
+  useEffect(() => {
+    if (currentStep === 6) {
+      runValidationCheck();
+    }
+  }, [currentStep]);
 
   const createProperty = useMutation({
     mutationFn: async (data: PropertyFormData & { status: "draft" | "published" }) => {
@@ -568,6 +573,7 @@ export default function AddProperty() {
   const fieldStepMap: Record<string, { step: number; stepName: string; label: string }> = {
     name: { step: 1, stepName: "Basic Details", label: "Property Name" },
     propertyCode: { step: 1, stepName: "Basic Details", label: "Property Code" },
+    description: { step: 1, stepName: "Basic Details", label: "Description" },
     category: { step: 1, stepName: "Basic Details", label: "Category" },
     bookingMode: { step: 1, stepName: "Basic Details", label: "Booking Mode" },
     address: { step: 2, stepName: "Location", label: "Address" },
@@ -575,7 +581,10 @@ export default function AddProperty() {
     state: { step: 2, stepName: "Location", label: "State" },
     pincode: { step: 2, stepName: "Location", label: "Pincode" },
     googleMapsUrl: { step: 2, stepName: "Location", label: "Google Maps URL" },
+    nearbyLocations: { step: 2, stepName: "Location", label: "Nearby Locations" },
     roomTypes: { step: 3, stepName: "Room Types", label: "Room Types" },
+    amenities: { step: 3, stepName: "Room Types", label: "Amenities" },
+    rules: { step: 3, stepName: "Room Types", label: "Rules" },
     tariffs: { step: 4, stepName: "Pricing & Tariffs", label: "Tariffs" },
     images: { step: 5, stepName: "Images", label: "Images" },
   };
@@ -586,12 +595,21 @@ export default function AddProperty() {
     const errors = form.formState.errors;
     const collected: Array<{ field: string; message: string; step: number; stepName: string }> = [];
 
-    for (const [key, error] of Object.entries(errors)) {
-      if (!error) continue;
+    const processError = (key: string, error: any, parentLabel?: string) => {
+      if (!error) return;
       const mapping = fieldStepMap[key];
       const stepNum = mapping?.step || 1;
       const stepName = mapping?.stepName || "Basic Details";
-      const label = mapping?.label || key;
+      const label = parentLabel || mapping?.label || key;
+
+      if (error.root && typeof error.root === "object" && "message" in error.root) {
+        collected.push({
+          field: label,
+          message: error.root.message as string,
+          step: stepNum,
+          stepName,
+        });
+      }
 
       if (Array.isArray(error)) {
         error.forEach((itemErr: any, index: number) => {
@@ -608,44 +626,84 @@ export default function AddProperty() {
             }
           }
         });
-      } else if (typeof error === "object" && "message" in error) {
+      } else if (typeof error === "object" && "message" in error && error.message) {
         collected.push({
           field: label,
           message: error.message as string,
           step: stepNum,
           stepName,
         });
+      } else if (typeof error === "object" && !("message" in error) && !("root" in error)) {
+        for (const [subKey, subErr] of Object.entries(error)) {
+          if (subErr && typeof subErr === "object" && "message" in (subErr as any)) {
+            collected.push({
+              field: `${label} → ${subKey}`,
+              message: (subErr as any).message,
+              step: stepNum,
+              stepName,
+            });
+          }
+        }
       }
+    };
+
+    for (const [key, error] of Object.entries(errors)) {
+      processError(key, error);
     }
+
     return collected;
   };
 
-  const handleSubmit = async (status: "draft" | "published") => {
-    const isValid = await form.trigger();
-    if (!isValid && status === "published") {
-      const errors = collectValidationErrors();
-      setValidationErrors(errors);
+  const getStepsWithErrors = (): Set<number> => {
+    return new Set(validationErrors.map(e => e.step));
+  };
 
+  const runValidationCheck = async () => {
+    const isValid = await form.trigger();
+    if (!isValid) {
+      const errors = collectValidationErrors();
+      if (errors.length === 0) {
+        const rawErrors = form.formState.errors;
+        const fallbackKeys = Object.keys(rawErrors);
+        fallbackKeys.forEach(key => {
+          const mapping = fieldStepMap[key];
+          errors.push({
+            field: mapping?.label || key,
+            message: "This field is required",
+            step: mapping?.step || 1,
+            stepName: mapping?.stepName || "Basic Details",
+          });
+        });
+      }
+      setValidationErrors(errors);
+      return { isValid: false, errors };
+    }
+    setValidationErrors([]);
+    return { isValid: true, errors: [] };
+  };
+
+  const handleSubmit = async (status: "draft" | "published") => {
+    const { isValid, errors } = await runValidationCheck();
+    if (!isValid && status === "published") {
       if (errors.length > 0) {
         const stepsWithErrors = [...new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`))];
-        const fieldList = errors.slice(0, 3).map(e => e.field).join(", ");
-        const moreCount = errors.length > 3 ? ` and ${errors.length - 3} more` : "";
+        const fieldList = errors.slice(0, 5).map(e => e.field).join(", ");
+        const moreCount = errors.length > 5 ? ` and ${errors.length - 5} more` : "";
 
         toast({
-          title: "Validation Error",
-          description: `Missing: ${fieldList}${moreCount}. Check ${stepsWithErrors.join(", ")}.`,
+          title: `${errors.length} Validation ${errors.length === 1 ? "Error" : "Errors"}`,
+          description: `Fix: ${fieldList}${moreCount}. Go to ${stepsWithErrors.join(", ")}.`,
           variant: "destructive",
         });
       } else {
         toast({
           title: "Validation Error",
-          description: "Please fill in all required fields before publishing.",
+          description: "Please review all steps — some required fields are missing.",
           variant: "destructive",
         });
       }
       return;
     }
-    setValidationErrors([]);
 
     // Check for at least one image on publish
     const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
@@ -687,8 +745,7 @@ export default function AddProperty() {
     setIsSubmitting(false);
   };
 
-  const nextStep = () => {
-    // Validate images step
+  const nextStep = async () => {
     if (currentStep === 5) {
       const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
       if (validImages.length === 0) {
@@ -745,25 +802,39 @@ export default function AddProperty() {
             const Icon = step.icon;
             const isActive = step.id === currentStep;
             const isCompleted = step.id < currentStep;
+            const stepsWithErrors = getStepsWithErrors();
+            const hasError = stepsWithErrors.has(step.id);
+            const errorCount = validationErrors.filter(e => e.step === step.id).length;
             return (
               <button
                 key={step.id}
                 onClick={() => setCurrentStep(step.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
                   isActive
                     ? "bg-[hsl(345,72%,41%)] text-white"
+                    : hasError
+                    ? "bg-red-50 text-red-700 border border-red-300"
                     : isCompleted
                     ? "bg-green-100 text-green-700 border border-green-300"
                     : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
                 data-testid={`step-${step.id}`}
               >
-                {isCompleted ? (
+                {hasError && !isActive ? (
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                ) : isCompleted && !hasError ? (
                   <Check className="w-4 h-4" />
                 ) : (
                   <Icon className="w-4 h-4" />
                 )}
                 <span className="font-medium">{step.title}</span>
+                {hasError && errorCount > 0 && (
+                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold rounded-full px-1 ${
+                    isActive ? "bg-white text-red-600" : "bg-red-500 text-white"
+                  }`} data-testid={`step-error-badge-${step.id}`}>
+                    {errorCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1631,12 +1702,29 @@ export default function AddProperty() {
                     <h2 className="text-xl font-semibold">Review & Publish</h2>
 
                     {validationErrors.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid="validation-error-summary">
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-5" data-testid="validation-error-summary">
                         <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+                          <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                          </div>
                           <div className="flex-1">
-                            <h3 className="font-semibold text-red-800 mb-2">Please fix the following errors before publishing:</h3>
-                            <div className="space-y-2">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-semibold text-red-800">
+                                {validationErrors.length} {validationErrors.length === 1 ? "issue" : "issues"} to fix before publishing
+                              </h3>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => runValidationCheck()}
+                                className="text-xs border-red-200 text-red-700 hover:bg-red-100"
+                                data-testid="button-revalidate"
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                Re-check
+                              </Button>
+                            </div>
+                            <div className="space-y-3">
                               {Object.entries(
                                 validationErrors.reduce((acc, err) => {
                                   const key = `Step ${err.step}: ${err.stepName}`;
@@ -1645,22 +1733,42 @@ export default function AddProperty() {
                                   return acc;
                                 }, {} as Record<string, { step: number; errors: typeof validationErrors }>)
                               ).map(([stepLabel, { step, errors }]) => (
-                                <div key={stepLabel} className="flex items-start gap-2">
+                                <div key={stepLabel} className="bg-white/60 rounded-lg p-3 border border-red-100">
                                   <button
                                     type="button"
                                     onClick={() => setCurrentStep(step)}
-                                    className="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900 underline underline-offset-2 shrink-0"
+                                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-700 hover:text-red-900 mb-1.5"
                                     data-testid={`link-goto-step-${step}`}
                                   >
                                     <ArrowLeft className="h-3 w-3" />
                                     {stepLabel}
+                                    <span className="text-[10px] font-normal text-red-400 ml-1">(click to go)</span>
                                   </button>
-                                  <span className="text-sm text-red-600">
-                                    — {errors.map(e => `${e.field}: ${e.message}`).join("; ")}
-                                  </span>
+                                  <ul className="space-y-1 ml-5">
+                                    {errors.map((e, i) => (
+                                      <li key={i} className="text-sm text-red-600 flex items-start gap-1.5">
+                                        <X className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <span><strong>{e.field}</strong>: {e.message}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {validationErrors.length === 0 && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-5" data-testid="validation-success">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                            <Check className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-green-800">All validations passed</h3>
+                            <p className="text-sm text-green-600 mt-0.5">Your property is ready to publish or save as draft.</p>
                           </div>
                         </div>
                       </div>

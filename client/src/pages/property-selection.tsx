@@ -601,7 +601,7 @@ export default function PropertySelection() {
                         </div>
                         <div className="text-right ml-3 flex-shrink-0">
                           <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
-                            ₹{lowestPrice.toLocaleString()}
+                            {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString("en-IN")}` : "₹ ∞"}
                           </div>
                           <div className="text-xs text-gray-400">
                             {prop.bookingMode === "academic_year" ? "per year" : "per month"}
@@ -861,30 +861,49 @@ export default function PropertySelection() {
 
                                   <div className="flex items-center gap-6 md:flex-col md:items-end md:gap-3">
                                     <div className="text-right">
-                                      <div className="text-2xl md:text-3xl font-bold text-amber-600">
-                                        ₹{selectedProperty.bookingMode === "academic_year"
-                                          ? (room.academicYearPrice || room.basePrice * 11).toLocaleString()
-                                          : room.basePrice.toLocaleString()}
-                                      </div>
-                                      <div className="text-xs text-gray-400 uppercase tracking-wider">
-                                        {selectedProperty.bookingMode === "academic_year" ? "per year" : "per month"}
-                                      </div>
+                                      {(() => {
+                                        const isAcademic = selectedProperty.bookingMode === "academic_year";
+                                        const annualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
+                                        const monthlyPrice = isAcademic
+                                          ? (room.academicYearPrice ? Math.round(room.academicYearPrice / 11) : room.basePrice || 0)
+                                          : (room.basePrice || 0);
+                                        const displayPrice = isAcademic ? annualPrice : monthlyPrice;
+                                        return (
+                                          <>
+                                            <div className="text-2xl md:text-3xl font-bold text-amber-600">
+                                              {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "₹ ∞"}
+                                            </div>
+                                            <div className="text-xs text-gray-400 uppercase tracking-wider">
+                                              {isAcademic ? "per year" : "per month"}
+                                            </div>
+                                            {isAcademic && monthlyPrice > 0 && (
+                                              <div className="text-xs text-gray-400 mt-0.5">
+                                                ≈ ₹{monthlyPrice.toLocaleString("en-IN")}/mo
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
                                       {room.deposit > 0 && (
                                         <div className="text-xs text-gray-400 mt-1">+ ₹{room.deposit.toLocaleString()} deposit</div>
                                       )}
                                     </div>
                                     <Button
-                                      onClick={() => handleSelectRoom(
-                                        selectedProperty.id,
-                                        room.id,
-                                        selectedProperty.bookingMode === "academic_year"
-                                          ? (room.academicYearPrice || room.basePrice * 11)
-                                          : room.basePrice,
-                                        room.name,
-                                        selectedProperty.name,
-                                        selectedProperty.bookingMode || "monthly",
-                                        room.deposit || 0
-                                      )}
+                                      onClick={() => {
+                                        const isAcademic = selectedProperty.bookingMode === "academic_year";
+                                        const price = isAcademic
+                                          ? (room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0))
+                                          : (room.basePrice || 0);
+                                        handleSelectRoom(
+                                          selectedProperty.id,
+                                          room.id,
+                                          price,
+                                          room.name,
+                                          selectedProperty.name,
+                                          selectedProperty.bookingMode || "monthly",
+                                          room.deposit || 0,
+                                        );
+                                      }}
                                       disabled={room.availableBeds === 0}
                                       className="bg-amber-600 hover:bg-amber-700 text-white rounded-none px-8 h-11 font-semibold tracking-wider uppercase text-sm"
                                       data-testid={`button-book-room-${room.id}`}
