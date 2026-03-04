@@ -39,6 +39,7 @@ import {
   Star,
   GripVertical,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
 const STEPS = [
@@ -564,16 +565,87 @@ export default function AddProperty() {
     },
   });
 
+  const fieldStepMap: Record<string, { step: number; stepName: string; label: string }> = {
+    name: { step: 1, stepName: "Basic Details", label: "Property Name" },
+    propertyCode: { step: 1, stepName: "Basic Details", label: "Property Code" },
+    category: { step: 1, stepName: "Basic Details", label: "Category" },
+    bookingMode: { step: 1, stepName: "Basic Details", label: "Booking Mode" },
+    address: { step: 2, stepName: "Location", label: "Address" },
+    city: { step: 2, stepName: "Location", label: "City" },
+    state: { step: 2, stepName: "Location", label: "State" },
+    pincode: { step: 2, stepName: "Location", label: "Pincode" },
+    googleMapsUrl: { step: 2, stepName: "Location", label: "Google Maps URL" },
+    roomTypes: { step: 3, stepName: "Room Types", label: "Room Types" },
+    tariffs: { step: 4, stepName: "Pricing & Tariffs", label: "Tariffs" },
+    images: { step: 5, stepName: "Images", label: "Images" },
+  };
+
+  const [validationErrors, setValidationErrors] = useState<Array<{ field: string; message: string; step: number; stepName: string }>>([]);
+
+  const collectValidationErrors = () => {
+    const errors = form.formState.errors;
+    const collected: Array<{ field: string; message: string; step: number; stepName: string }> = [];
+
+    for (const [key, error] of Object.entries(errors)) {
+      if (!error) continue;
+      const mapping = fieldStepMap[key];
+      const stepNum = mapping?.step || 1;
+      const stepName = mapping?.stepName || "Basic Details";
+      const label = mapping?.label || key;
+
+      if (Array.isArray(error)) {
+        error.forEach((itemErr: any, index: number) => {
+          if (itemErr) {
+            for (const [subKey, subErr] of Object.entries(itemErr)) {
+              if (subErr && typeof subErr === "object" && "message" in (subErr as any)) {
+                collected.push({
+                  field: `${label} #${index + 1} → ${subKey}`,
+                  message: (subErr as any).message,
+                  step: stepNum,
+                  stepName,
+                });
+              }
+            }
+          }
+        });
+      } else if (typeof error === "object" && "message" in error) {
+        collected.push({
+          field: label,
+          message: error.message as string,
+          step: stepNum,
+          stepName,
+        });
+      }
+    }
+    return collected;
+  };
+
   const handleSubmit = async (status: "draft" | "published") => {
     const isValid = await form.trigger();
     if (!isValid && status === "published") {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields before publishing.",
-        variant: "destructive",
-      });
+      const errors = collectValidationErrors();
+      setValidationErrors(errors);
+
+      if (errors.length > 0) {
+        const stepsWithErrors = [...new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`))];
+        const fieldList = errors.slice(0, 3).map(e => e.field).join(", ");
+        const moreCount = errors.length > 3 ? ` and ${errors.length - 3} more` : "";
+
+        toast({
+          title: "Validation Error",
+          description: `Missing: ${fieldList}${moreCount}. Check ${stepsWithErrors.join(", ")}.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields before publishing.",
+          variant: "destructive",
+        });
+      }
       return;
     }
+    setValidationErrors([]);
 
     // Check for at least one image on publish
     const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
@@ -1557,6 +1629,42 @@ export default function AddProperty() {
                 {currentStep === 6 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Review & Publish</h2>
+
+                    {validationErrors.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid="validation-error-summary">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-red-800 mb-2">Please fix the following errors before publishing:</h3>
+                            <div className="space-y-2">
+                              {Object.entries(
+                                validationErrors.reduce((acc, err) => {
+                                  const key = `Step ${err.step}: ${err.stepName}`;
+                                  if (!acc[key]) acc[key] = { step: err.step, errors: [] };
+                                  acc[key].errors.push(err);
+                                  return acc;
+                                }, {} as Record<string, { step: number; errors: typeof validationErrors }>)
+                              ).map(([stepLabel, { step, errors }]) => (
+                                <div key={stepLabel} className="flex items-start gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCurrentStep(step)}
+                                    className="inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900 underline underline-offset-2 shrink-0"
+                                    data-testid={`link-goto-step-${step}`}
+                                  >
+                                    <ArrowLeft className="h-3 w-3" />
+                                    {stepLabel}
+                                  </button>
+                                  <span className="text-sm text-red-600">
+                                    — {errors.map(e => `${e.field}: ${e.message}`).join("; ")}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <Card>
