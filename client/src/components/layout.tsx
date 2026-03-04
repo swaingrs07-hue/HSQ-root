@@ -260,12 +260,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
             <div className="md:col-span-4 space-y-5">
-              <div className="flex items-center gap-3">
-                <img src={activeFooterLogo} alt="Hsquare Living" className="h-12 w-auto object-contain brightness-0 invert" />
-              </div>
               <p className="text-sm text-stone-400 leading-relaxed max-w-xs">
                 {footer.companyDescription}
               </p>
+              <div className="flex items-center gap-3">
+                <img src={activeFooterLogo} alt="Hsquare Living" className="h-12 w-auto object-contain brightness-0 invert" />
+              </div>
               <div className="flex gap-3 pt-1">
                 {footer.socialInstagram && (
                   <a href={footer.socialInstagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-stone-800 hover:bg-amber-600 flex items-center justify-center transition-all duration-200 group" data-testid="link-social-instagram">
