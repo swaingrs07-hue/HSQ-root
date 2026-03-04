@@ -50,6 +50,7 @@ export function ProfileDropdown() {
   const [, setLocation] = useLocation();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const { openAuthModal } = useAuthGuard();
+  const [avatarError, setAvatarError] = useState(false);
 
   // Show Sign In button for guests
   if (!user) {
@@ -100,19 +101,19 @@ export function ProfileDropdown() {
           className="flex items-center gap-2 px-2 py-1.5 h-auto hover:bg-slate-100 rounded-full transition-all duration-200"
           data-testid="button-profile-dropdown"
         >
-          {user?.avatarUrl ? (
-            <img 
-              src={user.avatarUrl} 
-              alt={user?.name} 
-              className="h-8 w-8 rounded-full border-2 border-white shadow-sm object-cover"
-            />
-          ) : (
-            <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
-              <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-xs font-semibold">
-                {userInitials}
-              </AvatarFallback>
-            </Avatar>
-          )}
+          <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
+            {user?.avatarUrl && !avatarError ? (
+              <AvatarImage 
+                src={user.avatarUrl} 
+                alt={user?.name}
+                className="object-cover"
+                onError={() => setAvatarError(true)}
+              />
+            ) : null}
+            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-xs font-semibold">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
           <div className="hidden lg:flex flex-col items-start">
             <span className="text-sm font-medium text-foreground leading-tight">
               {user?.name}
@@ -136,19 +137,19 @@ export function ProfileDropdown() {
         >
           <div className="p-4 bg-gradient-to-br from-slate-50 to-white border-b">
             <div className="flex items-center gap-3">
-              {user?.avatarUrl ? (
-                <img 
-                  src={user.avatarUrl} 
-                  alt={user?.name} 
-                  className="h-12 w-12 rounded-full border-2 border-white shadow-md object-cover"
-                />
-              ) : (
-                <Avatar className="h-12 w-12 border-2 border-white shadow-md">
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white font-semibold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              )}
+              <Avatar className="h-12 w-12 border-2 border-white shadow-md">
+                {user?.avatarUrl && !avatarError ? (
+                  <AvatarImage 
+                    src={user.avatarUrl} 
+                    alt={user?.name}
+                    className="object-cover"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : null}
+                <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white font-semibold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate">
                   {user?.name}
@@ -211,38 +212,38 @@ export function ProfileDropdown() {
         onClick={() => setMobileSheetOpen(true)}
         data-testid="button-profile-mobile"
       >
-        {user?.avatarUrl ? (
-          <img 
-            src={user.avatarUrl} 
-            alt={user?.name} 
-            className="h-8 w-8 rounded-full border-2 border-white shadow-sm object-cover"
-          />
-        ) : (
-          <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
-            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-xs font-semibold">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
-        )}
+        <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
+          {user?.avatarUrl && !avatarError ? (
+            <AvatarImage 
+              src={user.avatarUrl} 
+              alt={user?.name}
+              className="object-cover"
+              onError={() => setAvatarError(true)}
+            />
+          ) : null}
+          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-xs font-semibold">
+            {userInitials}
+          </AvatarFallback>
+        </Avatar>
       </Button>
 
       <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
         <SheetContent side="bottom" className="rounded-t-3xl px-0 pb-8">
           <SheetHeader className="px-6 pb-4 border-b">
             <div className="flex items-center gap-3">
-              {user?.avatarUrl ? (
-                <img 
-                  src={user.avatarUrl} 
-                  alt={user?.name} 
-                  className="h-14 w-14 rounded-full border-2 border-white shadow-md object-cover"
-                />
-              ) : (
-                <Avatar className="h-14 w-14 border-2 border-white shadow-md">
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-lg font-semibold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              )}
+              <Avatar className="h-14 w-14 border-2 border-white shadow-md">
+                {user?.avatarUrl && !avatarError ? (
+                  <AvatarImage 
+                    src={user.avatarUrl} 
+                    alt={user?.name}
+                    className="object-cover"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : null}
+                <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-lg font-semibold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 text-left">
                 <SheetTitle className="text-lg">{user?.name}</SheetTitle>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
