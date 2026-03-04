@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -483,17 +483,23 @@ export default function AdminDashboard() {
 
   const [editProperty, setEditProperty] = useState<any>(null);
   const [editForm, setEditForm] = useState({
-    name: "", displayName: "", category: "hostel", bookingMode: "monthly",
+    name: "", displayName: "", propertyCode: "", category: "hostel", bookingMode: "monthly",
     location: "", address: "", city: "", phone: "", email: "",
     amenities: "" as string, rules: "", mapsUrl: "", status: "draft",
+    virtualTourUrl: "", virtualTourProvider: "", highlights: "",
   });
+  const [editPropertyImages, setEditPropertyImages] = useState<any[]>([]);
+  const [editImagesLoading, setEditImagesLoading] = useState(false);
+  const [editTab, setEditTab] = useState("basic");
   const [isSaving, setIsSaving] = useState(false);
 
-  const openEditDialog = (property: any) => {
+  const openEditDialog = async (property: any) => {
     setEditProperty(property);
+    setEditTab("basic");
     setEditForm({
       name: property.name || "",
       displayName: property.displayName || "",
+      propertyCode: property.propertyCode || "",
       category: property.category || "hostel",
       bookingMode: property.bookingMode || "monthly",
       location: property.location || "",
@@ -505,7 +511,34 @@ export default function AdminDashboard() {
       rules: property.rules || "",
       mapsUrl: property.mapsUrl || "",
       status: property.status || "draft",
+      virtualTourUrl: property.virtualTourUrl || "",
+      virtualTourProvider: property.virtualTourProvider || "",
+      highlights: (property.highlights || []).join(", "),
     });
+    setEditImagesLoading(true);
+    try {
+      const res = await fetch(`/api/properties/${property.id}/images`);
+      if (res.ok) {
+        const imgs = await res.json();
+        setEditPropertyImages(imgs);
+      } else {
+        let fallbackImages: any[] = [];
+        if (property.tourOverviewImages) {
+          try {
+            const urls = JSON.parse(property.tourOverviewImages);
+            fallbackImages = urls.map((url: string, i: number) => ({ id: `tour-${i}`, imageUrl: url, caption: "", isPrimary: i === 0 }));
+          } catch {}
+        }
+        if (fallbackImages.length === 0 && property.imageUrl) {
+          fallbackImages = [{ id: "main", imageUrl: property.imageUrl, caption: "", isPrimary: true }];
+        }
+        setEditPropertyImages(fallbackImages);
+      }
+    } catch {
+      setEditPropertyImages([]);
+    } finally {
+      setEditImagesLoading(false);
+    }
   };
 
   const handleEditProperty = async () => {
@@ -516,6 +549,7 @@ export default function AdminDashboard() {
       const payload = {
         ...editForm,
         amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
+        highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
       };
       const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
         method: "PATCH",
@@ -1388,6 +1422,17 @@ export default function AdminDashboard() {
                             data-testid={`property-admin-card-${property.id}`}
                           >
                             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                              {(() => {
+                                let thumbUrl = property.imageUrl;
+                                if (!thumbUrl && property.tourOverviewImages) {
+                                  try { thumbUrl = JSON.parse(property.tourOverviewImages)[0]; } catch {}
+                                }
+                                return thumbUrl ? (
+                                  <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 shrink-0 hidden md:block">
+                                    <img src={thumbUrl} alt={property.name} className="w-full h-full object-cover" />
+                                  </div>
+                                ) : null;
+                              })()}
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                                   <h3 className="text-xl font-bold">{property.name}</h3>
@@ -1504,128 +1549,154 @@ export default function AdminDashboard() {
         )}
 
       <Dialog open={!!editProperty} onOpenChange={(open) => { if (!open) setEditProperty(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5 text-indigo-500" />
               Edit Property
             </DialogTitle>
             <DialogDescription>
-              Update property details for {editProperty?.name}
+              Update all details for {editProperty?.name}
             </DialogDescription>
           </DialogHeader>
           {editProperty && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <Tabs value={editTab} onValueChange={setEditTab}>
+              <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsTrigger value="basic" className="text-xs gap-1" data-testid="edit-tab-basic">
+                  <Building2 className="h-3 w-3" /> Basic
+                </TabsTrigger>
+                <TabsTrigger value="location" className="text-xs gap-1" data-testid="edit-tab-location">
+                  <MapPin className="h-3 w-3" /> Location
+                </TabsTrigger>
+                <TabsTrigger value="features" className="text-xs gap-1" data-testid="edit-tab-features">
+                  <Star className="h-3 w-3" /> Features
+                </TabsTrigger>
+                <TabsTrigger value="images" className="text-xs gap-1" data-testid="edit-tab-images">
+                  <ImageIcon className="h-3 w-3" /> Images
+                  {editPropertyImages.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editPropertyImages.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4 mt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Property Name *</Label>
+                    <Input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
+                      data-testid="input-edit-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Display Name</Label>
+                    <Input
+                      value={editForm.displayName}
+                      onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                      placeholder="Optional display name"
+                      data-testid="input-edit-display-name"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Property Code</Label>
+                    <Input
+                      value={editForm.propertyCode}
+                      onChange={(e) => setEditForm(f => ({ ...f, propertyCode: e.target.value }))}
+                      placeholder="e.g. JUHU-01"
+                      data-testid="input-edit-property-code"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={editForm.category} onValueChange={(v) => setEditForm(f => ({ ...f, category: v }))}>
+                      <SelectTrigger data-testid="select-edit-category"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hostel">Hostel</SelectItem>
+                        <SelectItem value="hotel">Hotel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Booking Mode</Label>
+                    <Select value={editForm.bookingMode} onValueChange={(v) => setEditForm(f => ({ ...f, bookingMode: v }))}>
+                      <SelectTrigger data-testid="select-edit-booking-mode"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="academic_year">Academic Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                      data-testid="input-edit-phone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={editForm.email}
+                      onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                      type="email"
+                      data-testid="input-edit-email"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                      <SelectTrigger data-testid="select-edit-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="location" className="space-y-4 mt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Location *</Label>
+                    <Input
+                      value={editForm.location}
+                      onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))}
+                      placeholder="Mumbai, Maharashtra"
+                      data-testid="input-edit-location"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>City</Label>
+                    <Input
+                      value={editForm.city}
+                      onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))}
+                      data-testid="input-edit-city"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label>Property Name *</Label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
-                    data-testid="input-edit-name"
+                  <Label>Full Address</Label>
+                  <Textarea
+                    value={editForm.address}
+                    onChange={(e) => setEditForm(f => ({ ...f, address: e.target.value }))}
+                    rows={3}
+                    placeholder="Complete address with pincode"
+                    data-testid="input-edit-address"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Display Name</Label>
-                  <Input
-                    value={editForm.displayName}
-                    onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
-                    placeholder="Optional display name"
-                    data-testid="input-edit-display-name"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={editForm.category} onValueChange={(v) => setEditForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger data-testid="select-edit-category"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hostel">Hostel</SelectItem>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Booking Mode</Label>
-                  <Select value={editForm.bookingMode} onValueChange={(v) => setEditForm(f => ({ ...f, bookingMode: v }))}>
-                    <SelectTrigger data-testid="select-edit-booking-mode"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="academic_year">Academic Year</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Location *</Label>
-                  <Input
-                    value={editForm.location}
-                    onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))}
-                    data-testid="input-edit-location"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input
-                    value={editForm.city}
-                    onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))}
-                    data-testid="input-edit-city"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <Textarea
-                  value={editForm.address}
-                  onChange={(e) => setEditForm(f => ({ ...f, address: e.target.value }))}
-                  rows={2}
-                  data-testid="input-edit-address"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                    data-testid="input-edit-phone"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    value={editForm.email}
-                    onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
-                    type="email"
-                    data-testid="input-edit-email"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Amenities (comma-separated)</Label>
-                <Textarea
-                  value={editForm.amenities}
-                  onChange={(e) => setEditForm(f => ({ ...f, amenities: e.target.value }))}
-                  rows={2}
-                  placeholder="Free Wifi, AC, 24X7 Security"
-                  data-testid="input-edit-amenities"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Rules</Label>
-                <Textarea
-                  value={editForm.rules}
-                  onChange={(e) => setEditForm(f => ({ ...f, rules: e.target.value }))}
-                  rows={2}
-                  placeholder="Check-in: 12:00 PM | Check-out: 11:00 AM"
-                  data-testid="input-edit-rules"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Google Maps URL</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5" /> Google Maps URL
+                  </Label>
                   <Input
                     value={editForm.mapsUrl}
                     onChange={(e) => setEditForm(f => ({ ...f, mapsUrl: e.target.value }))}
@@ -1633,18 +1704,112 @@ export default function AdminDashboard() {
                     data-testid="input-edit-maps-url"
                   />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="features" className="space-y-4 mt-0">
                 <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
-                    <SelectTrigger data-testid="select-edit-status"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Amenities (comma-separated)</Label>
+                  <Textarea
+                    value={editForm.amenities}
+                    onChange={(e) => setEditForm(f => ({ ...f, amenities: e.target.value }))}
+                    rows={3}
+                    placeholder="Free Wifi, AC, 24X7 Security, Power Backup"
+                    data-testid="input-edit-amenities"
+                  />
+                  {editForm.amenities && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {editForm.amenities.split(",").map((a, i) => a.trim()).filter(Boolean).map((a, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{a}</Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label>Highlights (comma-separated)</Label>
+                  <Textarea
+                    value={editForm.highlights}
+                    onChange={(e) => setEditForm(f => ({ ...f, highlights: e.target.value }))}
+                    rows={2}
+                    placeholder="Premium Location, Near Metro, Fully Furnished"
+                    data-testid="input-edit-highlights"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rules</Label>
+                  <Textarea
+                    value={editForm.rules}
+                    onChange={(e) => setEditForm(f => ({ ...f, rules: e.target.value }))}
+                    rows={3}
+                    placeholder="Check-in: 12:00 PM | Check-out: 11:00 AM"
+                    data-testid="input-edit-rules"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Virtual Tour URL</Label>
+                    <Input
+                      value={editForm.virtualTourUrl}
+                      onChange={(e) => setEditForm(f => ({ ...f, virtualTourUrl: e.target.value }))}
+                      placeholder="https://my.matterport.com/show/..."
+                      data-testid="input-edit-virtual-tour-url"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tour Provider</Label>
+                    <Select value={editForm.virtualTourProvider || ""} onValueChange={(v) => setEditForm(f => ({ ...f, virtualTourProvider: v }))}>
+                      <SelectTrigger data-testid="select-edit-tour-provider"><SelectValue placeholder="Select provider" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="matterport">Matterport</SelectItem>
+                        <SelectItem value="kuula">Kuula</SelectItem>
+                        <SelectItem value="cloudpano">CloudPano</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="images" className="space-y-4 mt-0">
+                {editImagesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading images...</span>
+                  </div>
+                ) : editPropertyImages.length > 0 ? (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-3">{editPropertyImages.length} image{editPropertyImages.length !== 1 ? "s" : ""} uploaded for this property</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      {editPropertyImages.map((img: any, idx: number) => (
+                        <div key={img.id || idx} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border" data-testid={`edit-property-image-${idx}`}>
+                          <img
+                            src={img.imageUrl}
+                            alt={img.caption || `Property image ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {img.isPrimary && (
+                            <div className="absolute top-1.5 left-1.5 bg-yellow-400 rounded-full p-1 shadow">
+                              <Star className="w-3 h-3 text-yellow-800 fill-yellow-800" />
+                            </div>
+                          )}
+                          {img.caption && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
+                              <span className="text-white text-[10px] line-clamp-1">{img.caption}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">To manage images (add, remove, reorder), use the Tour Images section in the admin sidebar.</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No images uploaded for this property.</p>
+                    <p className="text-xs mt-1">Use the Tour Images section in the admin sidebar to add images.</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setEditProperty(null)} disabled={isSaving}>

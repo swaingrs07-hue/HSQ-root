@@ -2001,35 +2001,6 @@ export async function registerRoutes(
     }
   });
 
-  // Update property (Admin only)
-  app.patch("/api/admin/properties/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
-    try {
-      const id = req.params.id as string;
-      const updates = req.body;
-      
-      const property = await storage.getProperty(id);
-      if (!property) {
-        return res.status(404).json({ error: "Property not found" });
-      }
-
-      const updatedProperty = await storage.updateProperty(id, updates);
-      
-      // Log the action
-      await storage.createAuditLog({
-        adminId: (req as AuthRequest).user!.userId,
-        action: "UPDATE_PROPERTY",
-        entityType: "property",
-        entityId: id,
-        details: JSON.stringify({ name: property.name, changes: updates }),
-      });
-
-      res.json(updatedProperty);
-    } catch (error) {
-      console.error("Error updating property:", error);
-      res.status(500).json({ error: "Failed to update property" });
-    }
-  });
-
   // Update property tour images (Admin only)
   app.patch("/api/admin/properties/:id/tour-images", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
