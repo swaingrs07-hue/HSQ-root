@@ -673,12 +673,15 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {properties.slice(0, 3).map((property: any, i: number) => {
-                const lowestPrice = property.roomTypes?.length > 0
-                  ? Math.min(...property.roomTypes.map((r: any) =>
-                      property.bookingMode === "academic_year" ? (r.academicYearPrice || r.basePrice * 11) : r.basePrice
-                    ).filter((p: number) => p > 0))
-                  : 0;
+                const prices = property.roomTypes?.map((r: any) =>
+                  property.bookingMode === "academic_year" ? (r.academicYearPrice || r.basePrice * 11) : r.basePrice
+                ).filter((p: number) => p > 0) || [];
+                const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
                 const totalBeds = property.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0;
+                let propertyImage = property.imageUrl;
+                if (!propertyImage) {
+                  try { const imgs = JSON.parse(property.tourOverviewImages || "[]"); propertyImage = imgs[0]; } catch {}
+                }
 
                 return (
                   <motion.div
@@ -694,7 +697,7 @@ export default function Home() {
                       <div className="relative overflow-hidden cursor-pointer">
                         <div className="aspect-[4/3] overflow-hidden bg-gray-100">
                           <img
-                            src={property.imageUrl || heroStudentLiving}
+                            src={propertyImage || heroStudentLiving}
                             alt={property.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           />

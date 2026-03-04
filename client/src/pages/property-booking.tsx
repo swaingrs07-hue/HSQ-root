@@ -1085,7 +1085,7 @@ export default function PropertyBooking() {
                             return (
                               <>
                                 <div className="text-2xl font-bold text-amber-600">
-                                  {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "₹ ∞"}
+                                  {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                 </div>
                                 <div className="text-xs text-stone-400 uppercase tracking-wider">
                                   {isAcademic ? "per year" : "per month"}
@@ -1204,7 +1204,7 @@ export default function PropertyBooking() {
                                   return (
                                     <>
                                       <span className="text-3xl font-bold text-amber-600">
-                                        {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "₹ ∞"}
+                                        {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                       </span>
                                       <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
                                         {isAcademic ? "per year" : "per month"}

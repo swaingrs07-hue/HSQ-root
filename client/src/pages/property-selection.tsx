@@ -300,7 +300,8 @@ export default function PropertySelection() {
       const prices = roomTypes.map((r) => r.academicYearPrice || r.basePrice * 11).filter((p) => p > 0);
       return prices.length > 0 ? Math.min(...prices) : 0;
     }
-    return Math.min(...roomTypes.map((r) => r.basePrice).filter((p) => p > 0));
+    const monthlyPrices = roomTypes.map((r) => r.basePrice).filter((p) => p > 0);
+    return monthlyPrices.length > 0 ? Math.min(...monthlyPrices) : 0;
   };
 
   const clearFilters = () => {
@@ -545,6 +546,10 @@ export default function PropertySelection() {
                 const availability = getAvailabilityStatus(prop.roomTypes);
                 const lowestPrice = getLowestPrice(prop.roomTypes, prop.bookingMode);
                 const displayAmenities = prop.amenities?.slice(0, 4) || [];
+                let cardImage = prop.imageUrl;
+                if (!cardImage) {
+                  try { const imgs = JSON.parse(prop.tourOverviewImages || "[]"); cardImage = imgs[0]; } catch {}
+                }
 
                 return (
                   <motion.div
@@ -559,7 +564,7 @@ export default function PropertySelection() {
                     <div className="relative overflow-hidden rounded-t-[20px]">
                       <div className="aspect-[4/3] overflow-hidden">
                         <img
-                          src={prop.imageUrl || propertyExterior}
+                          src={cardImage || propertyExterior}
                           alt={prop.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                           loading="lazy"
@@ -601,7 +606,7 @@ export default function PropertySelection() {
                         </div>
                         <div className="text-right ml-3 flex-shrink-0">
                           <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
-                            {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString("en-IN")}` : "₹ ∞"}
+                            {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}
                           </div>
                           <div className="text-xs text-gray-400">
                             {prop.bookingMode === "academic_year" ? "per year" : "per month"}
@@ -871,7 +876,7 @@ export default function PropertySelection() {
                                         return (
                                           <>
                                             <div className="text-2xl md:text-3xl font-bold text-amber-600">
-                                              {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "₹ ∞"}
+                                              {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                             </div>
                                             <div className="text-xs text-gray-400 uppercase tracking-wider">
                                               {isAcademic ? "per year" : "per month"}
