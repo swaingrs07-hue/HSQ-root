@@ -1019,6 +1019,22 @@ export const insertFooterSettingsSchema = createInsertSchema(footerSettings).omi
 export type FooterSettings = typeof footerSettings.$inferSelect;
 export type InsertFooterSettings = z.infer<typeof insertFooterSettingsSchema>;
 
+export const homepageAmenities = pgTable("homepage_amenities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url").notNull(),
+  icon: text("icon").notNull().default("Star"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertHomepageAmenitySchema = createInsertSchema(homepageAmenities).omit({ id: true, createdAt: true, updatedAt: true });
+export type HomepageAmenity = typeof homepageAmenities.$inferSelect;
+export type InsertHomepageAmenity = z.infer<typeof insertHomepageAmenitySchema>;
+
 // Bed allocation action enum
 export const bedAllocationActionEnum = pgEnum("bed_allocation_action", ["allocate", "deallocate", "transfer"]);
 

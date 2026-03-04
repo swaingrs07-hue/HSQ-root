@@ -53,6 +53,11 @@ const KEN_BURNS_VARIANTS = [
   { initial: { scale: 1.1, x: "-1%", y: "0%" }, animate: { scale: 1.0, x: "1%", y: "-1%" } },
 ];
 
+const ICON_MAP: Record<string, any> = {
+  Star, Wifi, Shield, Coffee, Users, Dumbbell, BookOpen, Heart, Utensils,
+  Award, Clock, MapPin, Building2, Sparkles, Calendar, Phone,
+};
+
 const AMENITY_SHOWCASE = [
   { image: amenityGym, title: "Fitness Center", desc: "State-of-the-art equipment for your wellness journey", icon: Dumbbell },
   { image: amenityStudy, title: "Study Lounge", desc: "Quiet, modern spaces designed for academic excellence", icon: BookOpen },
@@ -78,6 +83,8 @@ export default function Home() {
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
   const [igCurrentSlide, setIgCurrentSlide] = useState(0);
   const [igAutoPlaying, setIgAutoPlaying] = useState(true);
+  const [footerPhone, setFooterPhone] = useState("+91 6372294625");
+  const [dynamicAmenities, setDynamicAmenities] = useState<any[]>([]);
   const igInterval = useRef<NodeJS.Timeout | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
@@ -109,6 +116,21 @@ export default function Home() {
       setProperties(data);
       setPropertiesLoading(false);
     }).catch(() => setPropertiesLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/footer-settings")
+      .then(res => res.ok ? res.json() : null)
+      .then((data: any) => {
+        if (data?.phone) setFooterPhone(data.phone);
+      })
+      .catch(() => {});
+    fetch("/api/homepage-amenities")
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => {
+        if (data.length > 0) setDynamicAmenities(data.filter((a: any) => a.isActive));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -425,7 +447,15 @@ export default function Home() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {AMENITY_SHOWCASE.map((amenity, i) => (
+            {(dynamicAmenities.length > 0
+              ? dynamicAmenities.map(a => ({
+                  image: a.imageUrl,
+                  title: a.title,
+                  desc: a.description,
+                  icon: ICON_MAP[a.icon] || Star,
+                }))
+              : AMENITY_SHOWCASE
+            ).map((amenity, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 40 }}
@@ -746,7 +776,7 @@ export default function Home() {
             Your Premium Living<br />Experience Awaits
           </h2>
           <p className="text-white/60 text-lg max-w-2xl mx-auto mb-10 font-light">
-            Secure your spot in minutes. Premium accommodation with flexible payment plans, starting from ₹4,000/month.
+            Secure your spot in minutes. Premium accommodation with flexible payment plans, starting from ₹18,000/-.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/properties">
@@ -762,7 +792,7 @@ export default function Home() {
               size="lg"
               variant="outline"
               className="border-2 border-white/30 text-white hover:bg-white/10 rounded-none h-14 px-10 font-semibold tracking-wider uppercase text-sm bg-transparent"
-              onClick={() => window.open("tel:+919876543210")}
+              onClick={() => window.open(`tel:${footerPhone.replace(/\s/g, "")}`)}
               data-testid="button-cta-call"
             >
               <Phone className="w-4 h-4 mr-2" />

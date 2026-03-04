@@ -386,6 +386,57 @@ export async function registerRoutes(
     }
   });
 
+  // ============ HOMEPAGE AMENITIES ============
+
+  app.get("/api/homepage-amenities", async (req, res) => {
+    try {
+      const amenities = await storage.getHomepageAmenities();
+      res.json(amenities);
+    } catch (error) {
+      res.json([]);
+    }
+  });
+
+  const amenitySchema = z.object({
+    title: z.string().min(1),
+    description: z.string().default(""),
+    imageUrl: z.string().min(1),
+    icon: z.string().default("Star"),
+    sortOrder: z.number().int().default(0),
+    isActive: z.boolean().default(true),
+  });
+
+  app.post("/api/admin/homepage-amenities", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const parsed = amenitySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid data", details: parsed.error.flatten() });
+      const amenity = await storage.createHomepageAmenity(parsed.data);
+      res.json(amenity);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create amenity" });
+    }
+  });
+
+  app.put("/api/admin/homepage-amenities/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const parsed = amenitySchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid data", details: parsed.error.flatten() });
+      const amenity = await storage.updateHomepageAmenity(req.params.id, parsed.data);
+      res.json(amenity);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update amenity" });
+    }
+  });
+
+  app.delete("/api/admin/homepage-amenities/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteHomepageAmenity(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete amenity" });
+    }
+  });
+
   // ============ INSTAGRAM LIVE FEED ============
 
   async function fetchInstagramPosts(): Promise<any[]> {

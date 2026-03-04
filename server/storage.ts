@@ -22,6 +22,7 @@ import {
   instagramPosts,
   instagramSyncLog,
   footerSettings,
+  homepageAmenities,
   chatbotSettings,
   chatbotKnowledge,
   chatbotConversations,
@@ -81,6 +82,8 @@ import {
   type BedBlockLog,
   type InsertBedBlockLog,
   type InsertBed,
+  type HomepageAmenity,
+  type InsertHomepageAmenity,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -321,6 +324,12 @@ export interface IStorage {
   // Footer Settings
   getFooterSettings(): Promise<FooterSettings | null>;
   upsertFooterSettings(data: Partial<FooterSettings>): Promise<FooterSettings>;
+
+  // Homepage Amenities
+  getHomepageAmenities(): Promise<HomepageAmenity[]>;
+  createHomepageAmenity(data: InsertHomepageAmenity): Promise<HomepageAmenity>;
+  updateHomepageAmenity(id: string, data: Partial<InsertHomepageAmenity>): Promise<HomepageAmenity>;
+  deleteHomepageAmenity(id: string): Promise<void>;
 
   // Instagram
   getInstagramPosts(): Promise<InstagramPost[]>;
@@ -1976,6 +1985,24 @@ export class DatabaseStorage implements IStorage {
 
   async getBedBlockLogs(bedId: string): Promise<BedBlockLog[]> {
     return await db.select().from(bedBlockLogs).where(eq(bedBlockLogs.bedId, bedId)).orderBy(desc(bedBlockLogs.createdAt));
+  }
+
+  async getHomepageAmenities(): Promise<HomepageAmenity[]> {
+    return await db.select().from(homepageAmenities).orderBy(asc(homepageAmenities.sortOrder));
+  }
+
+  async createHomepageAmenity(data: InsertHomepageAmenity): Promise<HomepageAmenity> {
+    const [created] = await db.insert(homepageAmenities).values(data).returning();
+    return created;
+  }
+
+  async updateHomepageAmenity(id: string, data: Partial<InsertHomepageAmenity>): Promise<HomepageAmenity> {
+    const [updated] = await db.update(homepageAmenities).set({ ...data, updatedAt: new Date() }).where(eq(homepageAmenities.id, id)).returning();
+    return updated;
+  }
+
+  async deleteHomepageAmenity(id: string): Promise<void> {
+    await db.delete(homepageAmenities).where(eq(homepageAmenities.id, id));
   }
 }
 

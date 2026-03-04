@@ -99,6 +99,20 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: `GET /api/admin/hms/properties`, `POST /api/admin/properties/:id/link-hms`, `POST .../unlink-hms`, `GET .../verify-hms`
 - **Property Code**: Optional field in Add Property form (Basic Details step) for HMS identification
 
+#### Homepage Amenities & Facilities Control
+- **Admin Route**: `/admin/amenities` — manage amenities shown on homepage "Amenities & Facilities" section
+- **Schema**: `homepage_amenities` table (title, description, imageUrl, icon, sortOrder, isActive)
+- **Public API**: `GET /api/homepage-amenities` returns active amenities for homepage rendering
+- **Admin API**: CRUD at `/api/admin/homepage-amenities` with Zod validation
+- **Homepage**: Dynamically loads amenities from DB; falls back to hardcoded defaults if none exist
+- **Icons**: Configurable from 16 Lucide icon options (Star, Dumbbell, BookOpen, Utensils, etc.)
+
+#### Logo Control Panel
+- **Admin Route**: `/admin/logo-control` — upload custom header, footer, and admin sidebar logos
+- **Access**: Main admin only (gyan@hsquareliving.com)
+- **Storage**: Logo URLs stored in `footer_settings` table (headerLogo, footerLogo, adminLogo columns)
+- **Dynamic Loading**: Public site and admin layouts fetch logos from `/api/logo-settings`, falling back to built-in PNG
+
 #### Instagram Live Feed
 - **Integration**: Instagram Graph API for displaying recent posts.
 - **Caching**: Daily caching of posts in the database for performance.
