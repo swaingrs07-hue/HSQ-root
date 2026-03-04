@@ -191,6 +191,7 @@ export default function AddProperty() {
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
   const [newAmenityName, setNewAmenityName] = useState("");
   const [newAmenityIcon, setNewAmenityIcon] = useState("");
+  const [newAmenityType, setNewAmenityType] = useState<"amenity" | "facility">("amenity");
   const [isCreatingAmenity, setIsCreatingAmenity] = useState(false);
   
   // Image upload state
@@ -311,6 +312,7 @@ export default function AddProperty() {
         body: JSON.stringify({
           name: newAmenityName.trim(),
           icon: newAmenityIcon || "✓",
+          type: newAmenityType,
         }),
       });
 
@@ -327,6 +329,7 @@ export default function AddProperty() {
       
       setNewAmenityName("");
       setNewAmenityIcon("");
+      setNewAmenityType("amenity");
       setShowAddAmenityModal(false);
       
       toast({
@@ -616,6 +619,8 @@ export default function AddProperty() {
     description: { step: 1, stepName: "Basic Details", label: "Description" },
     category: { step: 1, stepName: "Basic Details", label: "Category" },
     bookingMode: { step: 1, stepName: "Basic Details", label: "Booking Mode" },
+    amenities: { step: 1, stepName: "Basic Details", label: "Amenities" },
+    rules: { step: 1, stepName: "Basic Details", label: "Rules" },
     address: { step: 2, stepName: "Location", label: "Address" },
     city: { step: 2, stepName: "Location", label: "City" },
     state: { step: 2, stepName: "Location", label: "State" },
@@ -623,8 +628,6 @@ export default function AddProperty() {
     googleMapsUrl: { step: 2, stepName: "Location", label: "Google Maps URL" },
     nearbyLocations: { step: 2, stepName: "Location", label: "Nearby Locations" },
     roomTypes: { step: 3, stepName: "Room Types", label: "Room Types" },
-    amenities: { step: 3, stepName: "Room Types", label: "Amenities" },
-    rules: { step: 3, stepName: "Room Types", label: "Rules" },
     images: { step: 4, stepName: "Images", label: "Images" },
   };
 
@@ -699,87 +702,90 @@ export default function AddProperty() {
 
   const runValidationCheck = async () => {
     const isValid = await form.trigger();
+    const errors: Array<{ field: string; message: string; step: number; stepName: string }> = [];
+
     if (!isValid) {
-      const errors = collectValidationErrors();
-      if (errors.length === 0) {
+      const collected = collectValidationErrors();
+      if (collected.length > 0) {
+        errors.push(...collected);
+      } else {
         const rawErrors = form.formState.errors;
         const fallbackKeys = Object.keys(rawErrors);
         fallbackKeys.forEach(key => {
           const mapping = fieldStepMap[key];
           errors.push({
             field: mapping?.label || key,
-            message: "This field is required",
+            message: (rawErrors as any)[key]?.message || "This field is required",
             step: mapping?.step || 1,
             stepName: mapping?.stepName || "Basic Details",
           });
         });
       }
-      setValidationErrors(errors);
-      return { isValid: false, errors };
     }
-    setValidationErrors([]);
-    return { isValid: true, errors: [] };
+
+    const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
+    if (validImages.length === 0) {
+      errors.push({
+        field: "Images",
+        message: "Upload at least one image before publishing",
+        step: 4,
+        stepName: "Images",
+      });
+    }
+
+    const data = form.getValues();
+    const bookingMode = data.bookingMode;
+    const invalidRooms = data.roomTypes.filter(room => {
+      if (bookingMode === "academic_year") {
+        return !room.academicYearPrice || room.academicYearPrice <= 0;
+      }
+      return !room.basePrice || room.basePrice <= 0;
+    });
+    if (invalidRooms.length > 0) {
+      errors.push({
+        field: "Room Pricing",
+        message: bookingMode === "academic_year"
+          ? "Set Academic Year Price for all room types"
+          : "Set Base Price (₹/month) for all room types",
+        step: 3,
+        stepName: "Room Types",
+      });
+    }
+
+    setValidationErrors(errors);
+    return { isValid: errors.length === 0, errors };
   };
 
   const handleSubmit = async (status: "draft" | "published") => {
     const { isValid, errors } = await runValidationCheck();
     if (!isValid && status === "published") {
-      if (errors.length > 0) {
-        const stepsWithErrors = [...new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`))];
-        const fieldList = errors.slice(0, 5).map(e => e.field).join(", ");
-        const moreCount = errors.length > 5 ? ` and ${errors.length - 5} more` : "";
+      const stepsWithErrors = [...new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`))];
+      const fieldList = errors.slice(0, 5).map(e => e.field).join(", ");
+      const moreCount = errors.length > 5 ? ` and ${errors.length - 5} more` : "";
 
+      if (errors.length > 0) {
         toast({
           title: `${errors.length} Validation ${errors.length === 1 ? "Error" : "Errors"}`,
-          description: `Fix: ${fieldList}${moreCount}. Go to ${stepsWithErrors.join(", ")}.`,
+          description: `Fix: ${fieldList}${moreCount}. Check ${stepsWithErrors.join(", ")}.`,
           variant: "destructive",
         });
       } else {
+        const rawErrors = form.formState.errors;
+        const rawKeys = Object.keys(rawErrors);
         toast({
           title: "Validation Error",
-          description: "Please review all steps — some required fields are missing.",
+          description: rawKeys.length > 0
+            ? `Please fix: ${rawKeys.join(", ")}. Check the Review step for details.`
+            : "Some required fields are missing. Go to the Review step to see details.",
           variant: "destructive",
         });
       }
+      setCurrentStep(5);
       return;
-    }
-
-    // Check for at least one image on publish
-    const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
-    if (status === "published" && validImages.length === 0) {
-      toast({
-        title: "Images Required",
-        description: "Please upload at least one image before publishing.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate pricing based on booking mode
-    const data = form.getValues();
-    if (status === "published") {
-      const bookingMode = data.bookingMode;
-      const invalidRooms = data.roomTypes.filter(room => {
-        if (bookingMode === "academic_year") {
-          return !room.academicYearPrice || room.academicYearPrice <= 0;
-        } else {
-          return !room.basePrice || room.basePrice <= 0;
-        }
-      });
-      
-      if (invalidRooms.length > 0) {
-        toast({
-          title: "Pricing Required",
-          description: bookingMode === "academic_year" 
-            ? "Please set Academic Year Price for all room types before publishing."
-            : "Please set Base Price (₹/month) for all room types before publishing.",
-          variant: "destructive",
-        });
-        return;
-      }
     }
 
     setIsSubmitting(true);
+    const data = form.getValues();
     createProperty.mutate({ ...data, status });
     setIsSubmitting(false);
   };
@@ -1023,9 +1029,11 @@ export default function AddProperty() {
                           data-testid="tab-amenities"
                         >
                           Amenities
-                          {amenityFields.length > 0 && (
-                            <span className="ml-1.5 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] text-xs px-1.5 py-0.5 rounded-full">{amenityFields.length}</span>
-                          )}
+                          {(() => {
+                            const amenityIds = new Set(globalAmenities.filter((a: any) => (a.type || "amenity") === "amenity").map((a: any) => a.id));
+                            const count = amenityFields.filter(f => amenityIds.has(f.amenityId)).length;
+                            return count > 0 ? <span className="ml-1.5 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] text-xs px-1.5 py-0.5 rounded-full">{count}</span> : null;
+                          })()}
                         </button>
                         <button
                           type="button"
@@ -1038,9 +1046,12 @@ export default function AddProperty() {
                           data-testid="tab-facilities"
                         >
                           Facilities & Rules
-                          {ruleFields.length > 0 && (
-                            <span className="ml-1.5 bg-gray-100 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{ruleFields.length}</span>
-                          )}
+                          {(() => {
+                            const facilityIds = new Set(globalAmenities.filter((a: any) => a.type === "facility").map((a: any) => a.id));
+                            const facilityCount = amenityFields.filter(f => facilityIds.has(f.amenityId)).length;
+                            const totalCount = facilityCount + ruleFields.length;
+                            return totalCount > 0 ? <span className="ml-1.5 bg-gray-100 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{totalCount}</span> : null;
+                          })()}
                         </button>
                       </div>
 
@@ -1069,7 +1080,7 @@ export default function AddProperty() {
                             <DropdownMenuContent className="w-80" align="start">
                               <ScrollArea className="h-[300px] p-2">
                                 {(() => {
-                                  const availableAmenities = globalAmenities.filter((a: any) => !amenityFields.some(f => f.amenityId === a.id));
+                                  const availableAmenities = globalAmenities.filter((a: any) => (a.type || "amenity") === "amenity" && !amenityFields.some(f => f.amenityId === a.id));
                                   const categories = Array.from(new Set(availableAmenities.map((a: any) => a.category || "Other"))) as string[];
                                   if (availableAmenities.length === 0) {
                                     return <p className="text-sm text-muted-foreground p-2">All amenities selected</p>;
@@ -1101,66 +1112,159 @@ export default function AddProperty() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                           <div className="flex flex-wrap gap-2 mt-4">
-                            {amenityFields.length === 0 ? (
-                              <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>
-                            ) : (
-                              amenityFields.map((field, index) => (
-                                <div
-                                  key={field.id}
-                                  className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1.5 rounded-full border border-[hsl(345,72%,41%)]/20"
-                                >
-                                  <span className="text-sm font-medium">{field.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeAmenity(index)}
-                                    className="hover:text-red-600 transition-colors"
-                                    data-testid={`button-remove-amenity-${index}`}
+                            {(() => {
+                              const amenityTypeIds = new Set(globalAmenities.filter((a: any) => (a.type || "amenity") === "amenity").map((a: any) => a.id));
+                              const filtered = amenityFields.filter(f => amenityTypeIds.has(f.amenityId));
+                              if (filtered.length === 0) {
+                                return <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>;
+                              }
+                              return filtered.map((field) => {
+                                const idx = amenityFields.findIndex(f => f.id === field.id);
+                                return (
+                                  <div
+                                    key={field.id}
+                                    className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1.5 rounded-full border border-[hsl(345,72%,41%)]/20"
                                   >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))
-                            )}
+                                    <span className="text-sm font-medium">{field.name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeAmenity(idx)}
+                                      className="hover:text-red-600 transition-colors"
+                                      data-testid={`button-remove-amenity-${idx}`}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                );
+                              });
+                            })()}
                           </div>
                         </div>
                       )}
 
                       {basicDetailsTab === "facilities" && (
-                        <div>
-                          <p className="text-sm text-gray-500 mb-4">Add rules and facility guidelines for this property</p>
-                          <div className="flex gap-2 mb-4">
-                            <Input
-                              value={newRule}
-                              onChange={(e) => setNewRule(e.target.value)}
-                              placeholder="e.g., No smoking on premises"
-                              onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddRule())}
-                              data-testid="input-new-rule"
-                            />
-                            <Button type="button" onClick={handleAddRule} className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" data-testid="button-add-rule">
-                              <Plus className="w-4 h-4" />
-                            </Button>
+                        <div className="space-y-6">
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm text-gray-500">Select facilities available at this property</p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setNewAmenityType("facility"); setShowAddAmenityModal(true); }}
+                                data-testid="button-open-add-facility-modal"
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add New Facility
+                              </Button>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between" data-testid="button-select-facilities">
+                                  <span className="text-muted-foreground">Click to select facilities</span>
+                                  <Check className="w-4 h-4 ml-2" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-80" align="start">
+                                <ScrollArea className="h-[300px] p-2">
+                                  {(() => {
+                                    const availableFacilities = globalAmenities.filter((a: any) => a.type === "facility" && !amenityFields.some(f => f.amenityId === a.id));
+                                    const categories = Array.from(new Set(availableFacilities.map((a: any) => a.category || "Other"))) as string[];
+                                    if (availableFacilities.length === 0) {
+                                      return <p className="text-sm text-muted-foreground p-2">All facilities selected</p>;
+                                    }
+                                    return categories.map((category: string) => (
+                                      <div key={category} className="mb-3">
+                                        <p className="font-semibold text-primary text-sm mb-2 px-2">{category}</p>
+                                        {availableFacilities
+                                          .filter((a: any) => (a.category || "Other") === category)
+                                          .map((facility: any) => (
+                                            <div
+                                              key={facility.id}
+                                              className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                                              onClick={() => {
+                                                appendAmenity({ amenityId: facility.id, name: facility.name });
+                                              }}
+                                              data-testid={`checkbox-facility-${facility.id}`}
+                                            >
+                                              <div className="w-4 h-4 border rounded flex items-center justify-center">
+                                                <Plus className="w-3 h-3 text-muted-foreground" />
+                                              </div>
+                                              <span className="text-sm">{facility.icon} {facility.name}</span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    ));
+                                  })()}
+                                </ScrollArea>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {(() => {
+                                const facilityTypeIds = new Set(globalAmenities.filter((a: any) => a.type === "facility").map((a: any) => a.id));
+                                const filtered = amenityFields.filter(f => facilityTypeIds.has(f.amenityId));
+                                if (filtered.length === 0) {
+                                  return <p className="text-gray-400 text-sm">No facilities selected. Select from dropdown or add new.</p>;
+                                }
+                                return filtered.map((field) => {
+                                  const idx = amenityFields.findIndex(f => f.id === field.id);
+                                  return (
+                                    <div
+                                      key={field.id}
+                                      className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200"
+                                    >
+                                      <span className="text-sm font-medium">{field.name}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeAmenity(idx)}
+                                        className="hover:text-red-600 transition-colors"
+                                        data-testid={`button-remove-facility-${idx}`}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {ruleFields.length === 0 ? (
-                              <p className="text-gray-400 text-sm">No rules added yet. Type a rule above and click + to add.</p>
-                            ) : (
-                              ruleFields.map((field, index) => (
-                                <div
-                                  key={field.id}
-                                  className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
-                                >
-                                  <span className="text-sm">{form.watch(`rules.${index}.rule`)}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeRule(index)}
-                                    className="text-gray-500 hover:text-red-500"
-                                    data-testid={`button-remove-rule-${index}`}
+
+                          <div className="border-t pt-4">
+                            <h4 className="font-medium text-sm mb-3">Property Rules</h4>
+                            <div className="flex gap-2 mb-4">
+                              <Input
+                                value={newRule}
+                                onChange={(e) => setNewRule(e.target.value)}
+                                placeholder="e.g., No smoking on premises"
+                                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddRule())}
+                                data-testid="input-new-rule"
+                              />
+                              <Button type="button" onClick={handleAddRule} className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" data-testid="button-add-rule">
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {ruleFields.length === 0 ? (
+                                <p className="text-gray-400 text-sm">No rules added yet. Type a rule above and click + to add.</p>
+                              ) : (
+                                ruleFields.map((field, index) => (
+                                  <div
+                                    key={field.id}
+                                    className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
                                   >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))
-                            )}
+                                    <span className="text-sm">{form.watch(`rules.${index}.rule`)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeRule(index)}
+                                      className="text-gray-500 hover:text-red-500"
+                                      data-testid={`button-remove-rule-${index}`}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1934,22 +2038,47 @@ export default function AddProperty() {
       </div>
 
       {/* Add New Amenity Modal */}
-      <Dialog open={showAddAmenityModal} onOpenChange={setShowAddAmenityModal}>
+      <Dialog open={showAddAmenityModal} onOpenChange={(open) => { setShowAddAmenityModal(open); if (!open) setNewAmenityType(basicDetailsTab === "facilities" ? "facility" : "amenity"); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New Amenity</DialogTitle>
+            <DialogTitle>Add New {basicDetailsTab === "facilities" ? "Facility" : "Amenity"}</DialogTitle>
             <DialogDescription>
-              Create a new amenity that will be available for all properties.
+              Create a new {basicDetailsTab === "facilities" ? "facility" : "amenity"} that will be available for all properties.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="amenity-name">Amenity Name *</Label>
+              <Label>Type</Label>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  type="button"
+                  variant={newAmenityType === "amenity" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewAmenityType("amenity")}
+                  className={newAmenityType === "amenity" ? "bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" : ""}
+                  data-testid="button-type-amenity"
+                >
+                  Amenity
+                </Button>
+                <Button
+                  type="button"
+                  variant={newAmenityType === "facility" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewAmenityType("facility")}
+                  className={newAmenityType === "facility" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  data-testid="button-type-facility"
+                >
+                  Facility
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="amenity-name">{newAmenityType === "facility" ? "Facility" : "Amenity"} Name *</Label>
               <Input
                 id="amenity-name"
                 value={newAmenityName}
                 onChange={(e) => setNewAmenityName(e.target.value)}
-                placeholder="e.g., Swimming Pool"
+                placeholder={newAmenityType === "facility" ? "e.g., Fire Extinguishers" : "e.g., Swimming Pool"}
                 className="mt-1"
                 data-testid="input-new-amenity-name"
               />

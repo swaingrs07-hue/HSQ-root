@@ -104,6 +104,7 @@ export const globalAmenities = pgTable("global_amenities", {
   name: text("name").notNull().unique(),
   icon: text("icon"),
   category: text("category"),
+  type: text("type").default("amenity"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
