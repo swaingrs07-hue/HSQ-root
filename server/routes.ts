@@ -2812,6 +2812,41 @@ export async function registerRoutes(
     }
   });
 
+  // Get pending approval bookings (admin only) — must be before /:id route
+  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const bookings = await storage.getPendingApprovalBookings();
+      
+      const enrichedBookings = [];
+      for (const booking of bookings) {
+        try {
+          const property = booking.propertyId ? await storage.getProperty(booking.propertyId) : null;
+          const roomType = booking.roomTypeId ? await storage.getRoomType(booking.roomTypeId) : null;
+          const createdByUser = booking.createdBy ? await storage.getUser(booking.createdBy) : null;
+          
+          enrichedBookings.push({
+            ...booking,
+            propertyName: property?.name || "Unknown Property",
+            roomTypeName: roomType?.customName || roomType?.name || "Unknown Room",
+            createdByName: createdByUser?.name || "Unknown",
+          });
+        } catch (enrichErr) {
+          enrichedBookings.push({
+            ...booking,
+            propertyName: "Unknown Property",
+            roomTypeName: "Unknown Room",
+            createdByName: "Unknown",
+          });
+        }
+      }
+      
+      res.json(enrichedBookings);
+    } catch (error) {
+      console.error("Error fetching pending approval bookings:", error);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
   // Get booking by ID with details
   app.get("/api/bookings/:id", async (req, res) => {
     try {
@@ -2931,42 +2966,6 @@ export async function registerRoutes(
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching user bookings:", error);
-      res.status(500).json({ error: "Failed to fetch bookings" });
-    }
-  });
-
-  // Get pending approval bookings (admin only)
-  app.get("/api/bookings/pending-approval", async (req, res) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-
-      const bookings = await storage.getPendingApprovalBookings();
-      
-      const enrichedBookings = await Promise.all(
-        bookings.map(async (booking) => {
-          const property = await storage.getProperty(booking.propertyId);
-          const roomType = await storage.getRoomType(booking.roomTypeId);
-          const createdByUser = booking.createdBy ? await storage.getUser(booking.createdBy) : null;
-          
-          return {
-            ...booking,
-            propertyName: property?.name || "Unknown Property",
-            roomTypeName: roomType?.name || "Unknown Room",
-            createdByName: createdByUser?.name || "Unknown",
-          };
-        })
-      );
-      
-      res.json(enrichedBookings);
-    } catch (error) {
-      console.error("Error fetching pending approval bookings:", error);
       res.status(500).json({ error: "Failed to fetch bookings" });
     }
   });
