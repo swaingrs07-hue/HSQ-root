@@ -915,11 +915,16 @@ export default function PropertyBooking() {
       toast({ title: "Room type not found", variant: "destructive" });
       return;
     }
+    const occupancy = roomType.occupancy || 1;
+    const fullPrice = property.bookingMode === "academic_year"
+      ? (roomType.academicYearPrice || roomType.basePrice * 11)
+      : roomType.basePrice;
+    const perBedPrice = Math.round(fullPrice / occupancy);
     handleBookRoom(
       roomType.id,
       roomType.customName || roomType.name,
-      property.bookingMode === "academic_year" ? (roomType.academicYearPrice || roomType.basePrice * 11) : roomType.basePrice,
-      roomType.deposit || 0
+      perBedPrice,
+      roomType.deposit ? Math.round(roomType.deposit / occupancy) : 0
     );
   };
 
@@ -1083,18 +1088,22 @@ export default function PropertyBooking() {
                         <div className="text-right">
                           {(() => {
                             const isAcademic = property.bookingMode === "academic_year";
-                            const annualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
+                            const occupancy = room.occupancy || 1;
+                            const fullAnnualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
+                            const fullMonthlyBase = room.basePrice || 0;
+                            const perBedAnnual = Math.round(fullAnnualPrice / occupancy);
+                            const perBedMonthly = Math.round(fullMonthlyBase / occupancy);
                             const monthlyPrice = isAcademic
-                              ? (room.academicYearPrice ? Math.round(room.academicYearPrice / 11) : room.basePrice || 0)
-                              : (room.basePrice || 0);
-                            const displayPrice = isAcademic ? annualPrice : monthlyPrice;
+                              ? (perBedAnnual ? Math.round(perBedAnnual / 11) : perBedMonthly)
+                              : perBedMonthly;
+                            const displayPrice = isAcademic ? perBedAnnual : monthlyPrice;
                             return (
                               <>
                                 <div className="text-2xl font-bold text-amber-600">
                                   {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                 </div>
                                 <div className="text-xs text-stone-400 uppercase tracking-wider">
-                                  {isAcademic ? "per year" : "per month"}
+                                  {isAcademic ? "per bed / year" : "per bed / month"}
                                 </div>
                                 {isAcademic && monthlyPrice > 0 && (
                                   <div className="text-xs text-stone-400 mt-0.5">
@@ -1108,10 +1117,12 @@ export default function PropertyBooking() {
                         <Button
                           onClick={() => {
                             const isAcademic = property.bookingMode === "academic_year";
-                            const price = isAcademic
+                            const occupancy = room.occupancy || 1;
+                            const fullPrice = isAcademic
                               ? (room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0))
                               : (room.basePrice || 0);
-                            handleBookRoom(room.id, room.customName || room.name, price, room.deposit || 0);
+                            const perBedPrice = Math.round(fullPrice / occupancy);
+                            handleBookRoom(room.id, room.customName || room.name, perBedPrice, room.deposit ? Math.round(room.deposit / occupancy) : 0);
                           }}
                           disabled={room.availableBeds === 0}
                           className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"
@@ -1202,10 +1213,15 @@ export default function PropertyBooking() {
                               <div className="text-right">
                                 {(() => {
                                   const isAcademic = property.bookingMode === "academic_year";
-                                  const annualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
+                                  const occupancy = selectedRoomType.occupancy || 1;
+                                  const fullAnnualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
+                                  const fullMonthlyPrice = selectedRoomType.basePrice || 0;
+                                  const perBedAnnual = Math.round(fullAnnualPrice / occupancy);
+                                  const perBedMonthly = Math.round(fullMonthlyPrice / occupancy);
+                                  const annualPrice = perBedAnnual;
                                   const monthlyPrice = isAcademic
-                                    ? (selectedRoomType.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType.basePrice || 0)
-                                    : (selectedRoomType.basePrice || 0);
+                                    ? (perBedAnnual ? Math.round(perBedAnnual / 11) : perBedMonthly)
+                                    : perBedMonthly;
                                   const displayPrice = isAcademic ? annualPrice : monthlyPrice;
                                   return (
                                     <>
@@ -1213,7 +1229,7 @@ export default function PropertyBooking() {
                                         {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                       </span>
                                       <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
-                                        {isAcademic ? "per year" : "per month"}
+                                        {isAcademic ? "per bed / year" : "per bed / month"}
                                       </p>
                                       {isAcademic && monthlyPrice > 0 && (
                                         <p className="text-[10px] text-stone-400">
