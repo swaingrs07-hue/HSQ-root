@@ -2198,6 +2198,18 @@ export async function registerRoutes(
     }
   });
 
+  // Delete room type (Admin only)
+  app.delete("/api/admin/room-types/:id", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      await storage.deleteRoomType(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting room type:", error);
+      res.status(500).json({ error: "Failed to delete room type" });
+    }
+  });
+
   // ============ GLOBAL AMENITIES ============
 
   // Get all global amenities

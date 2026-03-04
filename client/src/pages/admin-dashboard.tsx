@@ -657,22 +657,52 @@ export default function AdminDashboard() {
     try {
       const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
       const errors: string[] = [];
-      for (const rt of editRoomTypes) {
-        const res = await fetch(`/api/admin/room-types/${rt.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify({
-            basePrice: rt.basePrice,
-            academicYearPrice: rt.academicYearPrice || null,
-            deposit: rt.deposit || 0,
-          }),
+      const originalIds = (editProperty.roomTypes || []).map((rt: any) => rt.id);
+      const currentIds = editRoomTypes.filter(rt => !rt.isNew).map(rt => rt.id);
+      const deletedIds = originalIds.filter((id: string) => !currentIds.includes(id));
+
+      for (const id of deletedIds) {
+        const res = await fetch(`/api/admin/room-types/${id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` },
         });
-        if (!res.ok) errors.push(rt.customName || rt.name);
+        if (!res.ok) errors.push(`Delete failed for room type`);
+      }
+
+      for (const rt of editRoomTypes) {
+        const payload = {
+          name: rt.name,
+          customName: rt.name === "Custom" ? rt.customName : null,
+          occupancy: rt.occupancy,
+          totalRooms: rt.totalRooms,
+          totalBeds: rt.totalBeds,
+          availableBeds: rt.availableBeds,
+          basePrice: rt.basePrice,
+          academicYearPrice: rt.academicYearPrice || null,
+          deposit: rt.deposit || 0,
+          size: rt.size || null,
+        };
+
+        if (rt.isNew) {
+          const res = await fetch(`/api/admin/properties/${editProperty.id}/room-types`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) errors.push(rt.customName || rt.name);
+        } else {
+          const res = await fetch(`/api/admin/room-types/${rt.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) errors.push(rt.customName || rt.name);
+        }
       }
       if (errors.length > 0) {
-        toast({ title: "Some room types failed to update", description: errors.join(", "), variant: "destructive" });
+        toast({ title: "Some room types failed to save", description: errors.join(", "), variant: "destructive" });
       } else {
-        toast({ title: "Room type prices updated successfully" });
+        toast({ title: "Room types saved successfully" });
       }
       loadProperties();
     } catch (error: any) {
@@ -1966,49 +1996,126 @@ export default function AdminDashboard() {
               </TabsContent>
 
               <TabsContent value="rooms" className="space-y-4 mt-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-rose-700">Room Types</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditRoomTypes(prev => [...prev, {
+                      id: `new-${Date.now()}`,
+                      isNew: true,
+                      name: "Single",
+                      customName: "",
+                      occupancy: 1,
+                      totalRooms: 1,
+                      totalBeds: 1,
+                      availableBeds: 1,
+                      basePrice: 0,
+                      academicYearPrice: null,
+                      deposit: 0,
+                      size: "",
+                    }])}
+                    data-testid="button-add-room-type"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Room Type
+                  </Button>
+                </div>
                 {editRoomTypes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No room types found for this property.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">No room types. Click "Add Room Type" to create one.</p>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">Update pricing for each room type. Changes are saved when you click "Save Room Prices".</p>
+                  <div className="space-y-4">
                     {editRoomTypes.map((rt: any, idx: number) => (
                       <div key={rt.id} className="border rounded-lg p-4 space-y-3" data-testid={`edit-room-type-${rt.id}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-semibold">{rt.customName || rt.name}</span>
-                            <span className="text-xs text-muted-foreground ml-2">{rt.occupancy}-sharing</span>
-                            {rt.size && <span className="text-xs text-muted-foreground ml-2">• {rt.size}</span>}
-                          </div>
-                          <Badge variant="outline">{rt.availableBeds}/{rt.totalBeds} beds</Badge>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-sm">Room Type {idx + 1}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 h-7 px-2"
+                            onClick={() => setEditRoomTypes(prev => prev.filter((_, i) => i !== idx))}
+                            data-testid={`button-remove-room-${rt.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove
+                          </Button>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-4 gap-3">
                           <div className="space-y-1">
-                            <Label className="text-xs">Monthly Price (₹)</Label>
+                            <Label className="text-xs">Type *</Label>
+                            <Select
+                              value={rt.name}
+                              onValueChange={(v) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, name: v, customName: v === "Custom" ? (r.customName || "") : "" } : r))}
+                            >
+                              <SelectTrigger className="h-9" data-testid={`select-room-type-${rt.id}`}><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Single">Single</SelectItem>
+                                <SelectItem value="Double">Double</SelectItem>
+                                <SelectItem value="Triple">Triple</SelectItem>
+                                <SelectItem value="Custom">Custom</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Occupancy *</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={rt.occupancy || ""}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, occupancy: Number(e.target.value) || 1 } : r))}
+                              data-testid={`input-room-occupancy-${rt.id}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Total Rooms *</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={rt.totalRooms || ""}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, totalRooms: Number(e.target.value) || 1 } : r))}
+                              data-testid={`input-room-total-rooms-${rt.id}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Total Beds *</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={rt.totalBeds || ""}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, totalBeds: Number(e.target.value) || 1 } : r))}
+                              data-testid={`input-room-total-beds-${rt.id}`}
+                            />
+                          </div>
+                        </div>
+                        {rt.name === "Custom" && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Custom Name *</Label>
+                            <Input
+                              value={rt.customName || ""}
+                              placeholder="e.g. QUAD, Double(2+2)"
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, customName: e.target.value } : r))}
+                              data-testid={`input-room-custom-name-${rt.id}`}
+                            />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Available Beds *</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={rt.availableBeds ?? ""}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, availableBeds: Number(e.target.value) || 0 } : r))}
+                              data-testid={`input-room-available-beds-${rt.id}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Base Price (₹/month) *</Label>
                             <Input
                               type="number"
                               min={0}
                               value={rt.basePrice || ""}
-                              onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
-                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, basePrice: val } : r));
-                              }}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, basePrice: Number(e.target.value) || 0 } : r))}
                               data-testid={`input-room-price-${rt.id}`}
                             />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Academic Year Price (₹)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={rt.academicYearPrice || ""}
-                              placeholder={rt.basePrice ? `${rt.basePrice * 11}` : ""}
-                              onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
-                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, academicYearPrice: val || null } : r));
-                              }}
-                              data-testid={`input-room-annual-price-${rt.id}`}
-                            />
-                            <p className="text-[10px] text-muted-foreground">Leave empty = monthly × 11</p>
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Deposit (₹)</Label>
@@ -2016,12 +2123,32 @@ export default function AdminDashboard() {
                               type="number"
                               min={0}
                               value={rt.deposit || ""}
-                              onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
-                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, deposit: val } : r));
-                              }}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, deposit: Number(e.target.value) || 0 } : r))}
                               data-testid={`input-room-deposit-${rt.id}`}
                             />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Room Size</Label>
+                            <Input
+                              value={rt.size || ""}
+                              placeholder="e.g. 150 sq ft"
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, size: e.target.value } : r))}
+                              data-testid={`input-room-size-${rt.id}`}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Academic Year Price (₹)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={rt.academicYearPrice || ""}
+                              placeholder={rt.basePrice ? `${rt.basePrice * 11}` : ""}
+                              onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, academicYearPrice: Number(e.target.value) || null } : r))}
+                              data-testid={`input-room-annual-price-${rt.id}`}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Leave empty = monthly × 11</p>
                           </div>
                         </div>
                       </div>
@@ -2032,7 +2159,7 @@ export default function AdminDashboard() {
                       className="w-full"
                       data-testid="button-save-room-prices"
                     >
-                      {savingRoomTypes ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Room Prices</>}
+                      {savingRoomTypes ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Room Types</>}
                     </Button>
                   </div>
                 )}

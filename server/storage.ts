@@ -119,6 +119,7 @@ export interface IStorage {
   createRoomType(roomType: InsertRoomType): Promise<RoomType>;
   updateRoomTypeAvailability(id: string, change: number): Promise<RoomType | undefined>;
   updateRoomType(id: string, data: Partial<RoomType>): Promise<RoomType | undefined>;
+  deleteRoomType(id: string): Promise<void>;
   
   // Bookings
   getBooking(id: string): Promise<Booking | undefined>;
@@ -513,6 +514,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(roomTypes.id, id))
       .returning();
     return roomType || undefined;
+  }
+
+  async deleteRoomType(id: string): Promise<void> {
+    await db.delete(roomTypes).where(eq(roomTypes.id, id));
   }
 
   // Bookings
