@@ -9,8 +9,10 @@ export async function seedDatabase() {
     await ensureSalesExecutives();
     console.log("Sales executives verified.");
     
-    await ensureTestLeads();
-    console.log("Test leads verified.");
+    if (process.env.NODE_ENV !== "production") {
+      await ensureTestLeads();
+      console.log("Test leads verified.");
+    }
   } catch (error) {
     console.error("Error in seed database:", error);
   }

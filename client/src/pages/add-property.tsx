@@ -763,23 +763,13 @@ export default function AddProperty() {
       const fieldList = errors.slice(0, 5).map(e => e.field).join(", ");
       const moreCount = errors.length > 5 ? ` and ${errors.length - 5} more` : "";
 
-      if (errors.length > 0) {
-        toast({
-          title: `${errors.length} Validation ${errors.length === 1 ? "Error" : "Errors"}`,
-          description: `Fix: ${fieldList}${moreCount}. Check ${stepsWithErrors.join(", ")}.`,
-          variant: "destructive",
-        });
-      } else {
-        const rawErrors = form.formState.errors;
-        const rawKeys = Object.keys(rawErrors);
-        toast({
-          title: "Validation Error",
-          description: rawKeys.length > 0
-            ? `Please fix: ${rawKeys.join(", ")}. Check the Review step for details.`
-            : "Some required fields are missing. Go to the Review step to see details.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: `${errors.length} Validation ${errors.length === 1 ? "Error" : "Errors"}`,
+        description: errors.length > 0
+          ? `Fix: ${fieldList}${moreCount}. Check ${stepsWithErrors.join(", ")}.`
+          : "Please fill in all required fields. See the Review step for details.",
+        variant: "destructive",
+      });
       setCurrentStep(5);
       return;
     }
