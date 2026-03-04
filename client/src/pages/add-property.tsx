@@ -559,6 +559,7 @@ export default function AddProperty() {
         displayName: data.name,
         category: data.category,
         bookingMode: data.bookingMode,
+        propertyCode: data.propertyCode || null,
         location: `${data.city}, ${data.state}`,
         address: `${data.address}, ${data.city}, ${data.state} - ${data.pincode}`,
         city: data.city,
