@@ -409,8 +409,13 @@ export default function AdminFloorsBeds() {
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Room Number</Label>
-                    <Input placeholder="e.g., 101, 210" value={newRoom.roomNumber} onChange={(e) => setNewRoom(prev => ({ ...prev, roomNumber: e.target.value }))} data-testid="input-room-number" />
+                    <Label>Room Number(s)</Label>
+                    <Input placeholder="e.g., 101 or 201,202,203" value={newRoom.roomNumber} onChange={(e) => setNewRoom(prev => ({ ...prev, roomNumber: e.target.value }))} data-testid="input-room-number" />
+                    {newRoom.roomNumber.includes(",") && (
+                      <p className="text-xs text-emerald-600 mt-1">
+                        Will create {newRoom.roomNumber.split(",").filter(s => s.trim()).length} separate rooms with the same configuration
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2 relative">
                     <Label>Room Type</Label>

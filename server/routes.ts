@@ -6154,65 +6154,73 @@ export async function registerRoutes(
         return res.status(400).json({ error: "roomNumber, roomTypeId, and typology are required" });
       }
 
-      const room = await storage.createRoom({
-        propertyId: req.params.id,
-        floorId: req.params.floorId,
-        roomTypeId,
-        roomNumber,
-        typology,
-        hasSharedWashroom: hasSharedWashroom || false,
-        totalBeds: 0,
-        status: "available",
-        monthlyPrice: monthlyPrice || null,
-      });
+      const roomNumbers = roomNumber.includes(",")
+        ? roomNumber.split(",").map((s: string) => s.trim()).filter((s: string) => s)
+        : [roomNumber.trim()];
 
-      const bedsToCreate: any[] = [];
-      const normalizedTypology = typology.replace(/\s*bed\s*/gi, "").trim();
-      const parts = normalizedTypology.split("+").map((p: string) => parseInt(p.trim()));
-      if (parts.length === 1 && !isNaN(parts[0])) {
-        for (let i = 0; i < parts[0]; i++) {
-          bedsToCreate.push({
-            propertyId: req.params.id,
-            floorId: req.params.floorId,
-            roomId: room.id,
-            roomTypeId,
-            bedNumber: parts[0] === 1 ? roomNumber : `${roomNumber}-${String.fromCharCode(65 + i)}`,
-            status: "available" as const,
-            monthlyPrice: monthlyPrice || null,
-          });
-        }
-      } else if (parts.length > 1) {
-        let bedIdx = 0;
-        for (let section = 0; section < parts.length; section++) {
-          const sectionLabel = String.fromCharCode(65 + section);
-          const bedCount = parts[section];
-          if (isNaN(bedCount)) continue;
-          for (let b = 0; b < bedCount; b++) {
+      const createdRooms: any[] = [];
+
+      for (const singleRoomNumber of roomNumbers) {
+        const room = await storage.createRoom({
+          propertyId: req.params.id,
+          floorId: req.params.floorId,
+          roomTypeId,
+          roomNumber: singleRoomNumber,
+          typology,
+          hasSharedWashroom: hasSharedWashroom || false,
+          totalBeds: 0,
+          status: "available",
+          monthlyPrice: monthlyPrice || null,
+        });
+
+        const bedsToCreate: any[] = [];
+        const normalizedTypology = typology.replace(/\s*bed\s*/gi, "").trim();
+        const parts = normalizedTypology.split("+").map((p: string) => parseInt(p.trim()));
+        if (parts.length === 1 && !isNaN(parts[0])) {
+          for (let i = 0; i < parts[0]; i++) {
             bedsToCreate.push({
               propertyId: req.params.id,
               floorId: req.params.floorId,
               roomId: room.id,
               roomTypeId,
-              bedNumber: `${roomNumber}${sectionLabel}${bedCount > 1 ? `-${b + 1}` : ""}`,
+              bedNumber: parts[0] === 1 ? singleRoomNumber : `${singleRoomNumber}-${String.fromCharCode(65 + i)}`,
               status: "available" as const,
               monthlyPrice: monthlyPrice || null,
             });
-            bedIdx++;
+          }
+        } else if (parts.length > 1) {
+          for (let section = 0; section < parts.length; section++) {
+            const sectionLabel = String.fromCharCode(65 + section);
+            const bedCount = parts[section];
+            if (isNaN(bedCount)) continue;
+            for (let b = 0; b < bedCount; b++) {
+              bedsToCreate.push({
+                propertyId: req.params.id,
+                floorId: req.params.floorId,
+                roomId: room.id,
+                roomTypeId,
+                bedNumber: `${singleRoomNumber}${sectionLabel}${bedCount > 1 ? `-${b + 1}` : ""}`,
+                status: "available" as const,
+                monthlyPrice: monthlyPrice || null,
+              });
+            }
           }
         }
-      }
 
-      let createdBeds: any[] = [];
-      if (bedsToCreate.length > 0) {
-        createdBeds = await storage.createBeds(bedsToCreate);
-        await storage.updateRoom(room.id, { totalBeds: createdBeds.length } as any);
+        let createdBeds: any[] = [];
+        if (bedsToCreate.length > 0) {
+          createdBeds = await storage.createBeds(bedsToCreate);
+          await storage.updateRoom(room.id, { totalBeds: createdBeds.length } as any);
+        }
+
+        createdRooms.push({ ...room, totalBeds: createdBeds.length, beds: createdBeds });
       }
 
       const allFloorBeds = await storage.getBedsByFloor(req.params.floorId);
       const availCount = allFloorBeds.filter(b => b.status === "available").length;
       await db.update(schema.floors).set({ totalBeds: allFloorBeds.length, availableBeds: availCount }).where(eq(schema.floors.id, req.params.floorId));
 
-      res.status(201).json({ ...room, totalBeds: createdBeds.length, beds: createdBeds });
+      res.status(201).json(createdRooms.length === 1 ? createdRooms[0] : createdRooms);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to create room" });
     }
