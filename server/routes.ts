@@ -1902,13 +1902,33 @@ export async function registerRoutes(
   // ============ PROPERTIES ============
   
   // Get all properties with room types
+  const enrichPropertyWithImages = async (property: any) => {
+    let enriched = { ...property };
+    if (!enriched.tourOverviewImages && !enriched.imageUrl) {
+      const images = await storage.getImagesByProperty(property.id);
+      if (images.length > 0) {
+        const urls = images.map(img => img.imageUrl);
+        enriched.tourOverviewImages = JSON.stringify(urls);
+        enriched.imageUrl = urls[0];
+        storage.updateProperty(property.id, {
+          tourOverviewImages: JSON.stringify(urls),
+          imageUrl: urls[0],
+        }).catch(() => {});
+      }
+    }
+    return enriched;
+  };
+
   app.get("/api/properties", async (req, res) => {
     try {
       const properties = await storage.getAllProperties();
       const propertiesWithRooms = await Promise.all(
         properties.map(async (property) => {
-          const roomTypes = await storage.getRoomTypesByProperty(property.id);
-          return { ...property, roomTypes };
+          const [roomTypes, enriched] = await Promise.all([
+            storage.getRoomTypesByProperty(property.id),
+            enrichPropertyWithImages(property),
+          ]);
+          return { ...enriched, roomTypes };
         })
       );
       res.json(propertiesWithRooms);
@@ -1925,8 +1945,11 @@ export async function registerRoutes(
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const roomTypes = await storage.getRoomTypesByProperty(property.id);
-      res.json({ ...property, roomTypes });
+      const [roomTypes, enriched] = await Promise.all([
+        storage.getRoomTypesByProperty(property.id),
+        enrichPropertyWithImages(property),
+      ]);
+      res.json({ ...enriched, roomTypes });
     } catch (error) {
       console.error("Error fetching property:", error);
       res.status(500).json({ error: "Failed to fetch property" });
