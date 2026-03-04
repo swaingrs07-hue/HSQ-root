@@ -1051,14 +1051,6 @@ export default function AdminDashboard() {
                                     {rec.suggestedAction}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className="text-[11px] text-slate-500 font-medium">{rec.leadName}</span>
-                                  <Link href="/admin/leads">
-                                    <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      View Lead
-                                    </Button>
-                                  </Link>
-                                </div>
                               </div>
                             </motion.div>
                           );
