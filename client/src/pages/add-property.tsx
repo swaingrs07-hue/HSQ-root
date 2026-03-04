@@ -140,6 +140,53 @@ const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGES = 10;
 
+async function compressImage(file: File, maxSizeBytes: number = MAX_FILE_SIZE, maxDimension: number = 3840): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        const ratio = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not supported")); return; }
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const supportsWebp = canvas.toDataURL("image/webp").startsWith("data:image/webp");
+      const outputMime = supportsWebp ? "image/webp" : "image/jpeg";
+      const outputExt = supportsWebp ? ".webp" : ".jpg";
+
+      const tryQuality = (quality: number) => {
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error("Compression failed")); return; }
+          if (blob.size <= maxSizeBytes || quality <= 0.5) {
+            if (blob.size > maxSizeBytes) {
+              reject(new Error(`Image still ${(blob.size / 1024 / 1024).toFixed(1)}MB after max compression`));
+              return;
+            }
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+            resolve(new File([blob], `${baseName}${outputExt}`, { type: outputMime, lastModified: Date.now() }));
+          } else {
+            tryQuality(quality - 0.05);
+          }
+        }, outputMime, quality);
+      };
+      tryQuality(0.92);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
+    img.src = url;
+  });
+}
+
 export default function AddProperty() {
   const [, setLocation] = useLocation();
   const { user, token } = useAuth();
@@ -369,23 +416,30 @@ export default function AddProperty() {
         continue;
       }
 
-      // Validate file size
+      let processedFile = file;
       if (file.size > MAX_FILE_SIZE) {
-        toast({
-          title: "File Too Large",
-          description: `${file.name} exceeds 10MB limit.`,
-          variant: "destructive",
-        });
-        continue;
+        try {
+          toast({
+            title: "Compressing Image",
+            description: `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB — auto-resizing to high quality...`,
+          });
+          processedFile = await compressImage(file);
+        } catch {
+          toast({
+            title: "Compression Failed",
+            description: `Could not auto-resize ${file.name}. Try a smaller file.`,
+            variant: "destructive",
+          });
+          continue;
+        }
       }
 
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const isPrimary = uploadedImages.length === 0;
 
-      // Add placeholder with loading state
       setUploadedImages(prev => [...prev, {
         id: tempId,
-        url: URL.createObjectURL(file),
+        url: URL.createObjectURL(processedFile),
         caption: file.name.replace(/\.[^/.]+$/, ""),
         isPrimary,
         order: prev.length,
@@ -394,7 +448,7 @@ export default function AddProperty() {
       }]);
 
       try {
-        const objectPath = await uploadFile(file);
+        const objectPath = await uploadFile(processedFile);
         
         // Update with actual URL
         setUploadedImages(prev => prev.map(img => 
@@ -1578,7 +1632,7 @@ export default function AddProperty() {
                         Browse Images
                       </Button>
                       <p className="text-xs text-gray-400 mt-3">
-                        Supported: JPG, PNG, WEBP (max 10MB each)
+                        Supported: JPG, PNG, WEBP (large files auto-resized)
                       </p>
                     </div>
 
