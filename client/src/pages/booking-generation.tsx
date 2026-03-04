@@ -1486,6 +1486,34 @@ export default function BookingGeneration() {
                     </div>
                   )}
 
+                  {getSelectedProperty()?.bookingMode === "academic_year" && formData.roomTypeId && (
+                    <div className="space-y-4 p-5 bg-purple-50 rounded-xl border border-purple-200">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-purple-600" />
+                        <Label className="text-sm font-medium text-purple-700">Academic Year Booking</Label>
+                      </div>
+                      <p className="text-xs text-purple-600">This property uses fixed annual pricing (11 months).</p>
+                      <div>
+                        <Label className="text-sm text-slate-600">Academic Year Period</Label>
+                        <select
+                          value={formData.academicYearPeriod}
+                          onChange={(e) => setFormData(prev => ({ ...prev, academicYearPeriod: e.target.value }))}
+                          className="mt-1 w-full rounded-lg border border-purple-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                          data-testid="select-academic-year-fixed"
+                        >
+                          {(() => {
+                            const currentYear = new Date().getFullYear();
+                            return [0, 1, 2].map(offset => {
+                              const startYear = currentYear + offset;
+                              const label = `${startYear}-${startYear + 1}`;
+                              return <option key={label} value={label}>{label}</option>;
+                            });
+                          })()}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
                   {getSelectedProperty()?.bookingMode === "monthly" && formData.roomTypeId && (
                     <div className="space-y-4 p-5 bg-slate-50 rounded-xl border border-slate-200">
                       <Label className="text-sm font-medium text-slate-700">Stay Plan</Label>
