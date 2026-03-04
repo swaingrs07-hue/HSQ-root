@@ -884,6 +884,23 @@ export default function PropertyBooking() {
     if (room) setSelectedRoom(room);
   };
 
+  const getBedSharingRoomType = (bed: any, room: any) => {
+    if (!bed || !room || !property?.roomTypes) return null;
+    const typology = room.typology || "";
+    const isCombo = typology.includes("+");
+    if (!isCombo) {
+      return property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
+    }
+    const parts = typology.split("+").map((p: string) => parseInt(p.trim()));
+    const bedNumber = bed.bedNumber || "";
+    const sectionMatch = bedNumber.match(/\d+([A-Z])/);
+    const sectionLetter = sectionMatch ? sectionMatch[1] : "A";
+    const sectionIndex = sectionLetter.charCodeAt(0) - 65;
+    const sectionBedCount = parts[sectionIndex] || parts[0] || 1;
+    const matchingRt = property.roomTypes.find((r: any) => (r.occupancy || 1) === sectionBedCount);
+    return matchingRt || property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
+  };
+
   const scrollToFloors = () => {
     floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -910,21 +927,20 @@ export default function PropertyBooking() {
 
   const handleBookSelectedBed = () => {
     if (!selectedBed || !property) return;
-    const roomType = property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId);
-    if (!roomType) {
+    const effectiveRoomType = getBedSharingRoomType(selectedBed, selectedRoom) 
+      || property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId);
+    if (!effectiveRoomType) {
       toast({ title: "Room type not found", variant: "destructive" });
       return;
     }
-    const occupancy = roomType.occupancy || 1;
-    const fullPrice = property.bookingMode === "academic_year"
-      ? (roomType.academicYearPrice || roomType.basePrice * 11)
-      : roomType.basePrice;
-    const perBedPrice = Math.round(fullPrice / occupancy);
+    const price = property.bookingMode === "academic_year"
+      ? (effectiveRoomType.academicYearPrice || effectiveRoomType.basePrice * 11)
+      : effectiveRoomType.basePrice;
     handleBookRoom(
-      roomType.id,
-      roomType.customName || roomType.name,
-      perBedPrice,
-      roomType.deposit ? Math.round(roomType.deposit / occupancy) : 0
+      effectiveRoomType.id,
+      effectiveRoomType.customName || effectiveRoomType.name,
+      price,
+      effectiveRoomType.deposit || 0
     );
   };
 
@@ -962,7 +978,9 @@ export default function PropertyBooking() {
 
   const totalBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.totalBeds || 0), 0) || 0;
   const availableBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.availableBeds || 0), 0) || 0;
-  const selectedRoomType = selectedBed ? property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId) : null;
+  const selectedRoomType = selectedBed 
+    ? (getBedSharingRoomType(selectedBed, selectedRoom) || property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId))
+    : null;
   const lowestPrice = property.roomTypes?.reduce((min: number, r: any) => {
     const isAcademic = property.bookingMode === "academic_year";
     const price = isAcademic
@@ -1088,22 +1106,18 @@ export default function PropertyBooking() {
                         <div className="text-right">
                           {(() => {
                             const isAcademic = property.bookingMode === "academic_year";
-                            const occupancy = room.occupancy || 1;
-                            const fullAnnualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
-                            const fullMonthlyBase = room.basePrice || 0;
-                            const perBedAnnual = Math.round(fullAnnualPrice / occupancy);
-                            const perBedMonthly = Math.round(fullMonthlyBase / occupancy);
+                            const annualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
                             const monthlyPrice = isAcademic
-                              ? (perBedAnnual ? Math.round(perBedAnnual / 11) : perBedMonthly)
-                              : perBedMonthly;
-                            const displayPrice = isAcademic ? perBedAnnual : monthlyPrice;
+                              ? (room.academicYearPrice ? Math.round(room.academicYearPrice / 11) : room.basePrice || 0)
+                              : (room.basePrice || 0);
+                            const displayPrice = isAcademic ? annualPrice : monthlyPrice;
                             return (
                               <>
                                 <div className="text-2xl font-bold text-amber-600">
                                   {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                 </div>
                                 <div className="text-xs text-stone-400 uppercase tracking-wider">
-                                  {isAcademic ? "per bed / year" : "per bed / month"}
+                                  {isAcademic ? "per year" : "per month"}
                                 </div>
                                 {isAcademic && monthlyPrice > 0 && (
                                   <div className="text-xs text-stone-400 mt-0.5">
@@ -1117,12 +1131,10 @@ export default function PropertyBooking() {
                         <Button
                           onClick={() => {
                             const isAcademic = property.bookingMode === "academic_year";
-                            const occupancy = room.occupancy || 1;
-                            const fullPrice = isAcademic
+                            const price = isAcademic
                               ? (room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0))
                               : (room.basePrice || 0);
-                            const perBedPrice = Math.round(fullPrice / occupancy);
-                            handleBookRoom(room.id, room.customName || room.name, perBedPrice, room.deposit ? Math.round(room.deposit / occupancy) : 0);
+                            handleBookRoom(room.id, room.customName || room.name, price, room.deposit || 0);
                           }}
                           disabled={room.availableBeds === 0}
                           className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"
@@ -1213,15 +1225,10 @@ export default function PropertyBooking() {
                               <div className="text-right">
                                 {(() => {
                                   const isAcademic = property.bookingMode === "academic_year";
-                                  const occupancy = selectedRoomType.occupancy || 1;
-                                  const fullAnnualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
-                                  const fullMonthlyPrice = selectedRoomType.basePrice || 0;
-                                  const perBedAnnual = Math.round(fullAnnualPrice / occupancy);
-                                  const perBedMonthly = Math.round(fullMonthlyPrice / occupancy);
-                                  const annualPrice = perBedAnnual;
+                                  const annualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
                                   const monthlyPrice = isAcademic
-                                    ? (perBedAnnual ? Math.round(perBedAnnual / 11) : perBedMonthly)
-                                    : perBedMonthly;
+                                    ? (selectedRoomType.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType.basePrice || 0)
+                                    : (selectedRoomType.basePrice || 0);
                                   const displayPrice = isAcademic ? annualPrice : monthlyPrice;
                                   return (
                                     <>
@@ -1229,7 +1236,7 @@ export default function PropertyBooking() {
                                         {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                       </span>
                                       <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
-                                        {isAcademic ? "per bed / year" : "per bed / month"}
+                                        {isAcademic ? "per year" : "per month"}
                                       </p>
                                       {isAcademic && monthlyPrice > 0 && (
                                         <p className="text-[10px] text-stone-400">
