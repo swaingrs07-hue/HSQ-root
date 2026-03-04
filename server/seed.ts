@@ -1,5 +1,8 @@
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
+import { db } from "./db";
+import { properties } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export async function seedDatabase() {
   try {
@@ -13,8 +16,24 @@ export async function seedDatabase() {
       await ensureTestLeads();
       console.log("Test leads verified.");
     }
+
+    await fixBookingModes();
   } catch (error) {
     console.error("Error in seed database:", error);
+  }
+}
+
+async function fixBookingModes() {
+  const allProperties = await db.select({ id: properties.id, name: properties.name, bookingMode: properties.bookingMode }).from(properties);
+  let fixed = 0;
+  for (const prop of allProperties) {
+    if (prop.bookingMode !== "academic_year") {
+      await db.update(properties).set({ bookingMode: "academic_year" }).where(eq(properties.id, prop.id));
+      fixed++;
+    }
+  }
+  if (fixed > 0) {
+    console.log(`Fixed booking mode to academic_year for ${fixed} properties.`);
   }
 }
 
