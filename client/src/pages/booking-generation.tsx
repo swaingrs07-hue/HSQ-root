@@ -1215,14 +1215,37 @@ export default function BookingGeneration() {
                                   {soldOut ? "Sold Out" : `${room.availableBeds} beds left`}
                                 </Badge>
                               </div>
-                              <p className="text-lg font-bold text-indigo-600 mt-2">
-                                ₹{(room.academicYearPrice || room.basePrice * 11).toLocaleString()}<span className="text-xs font-normal text-slate-400">/year</span>
-                              </p>
-                              {room.basePrice > 0 && (
-                                <p className="text-xs text-slate-500">
-                                  or ₹{room.basePrice.toLocaleString()}/month
-                                </p>
-                              )}
+                              {(() => {
+                                const prop = getSelectedProperty();
+                                const isAcademic = prop?.bookingMode === "academic_year";
+                                if (isAcademic) {
+                                  const annualPrice = room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0);
+                                  return (
+                                    <>
+                                      <p className="text-lg font-bold text-indigo-600 mt-2">
+                                        {annualPrice > 0 ? `₹${annualPrice.toLocaleString("en-IN")}` : "—"}<span className="text-xs font-normal text-slate-400">/year</span>
+                                      </p>
+                                      {room.basePrice > 0 && (
+                                        <p className="text-xs text-slate-500">
+                                          ≈ ₹{(room.academicYearPrice ? Math.round(room.academicYearPrice / 11) : room.basePrice).toLocaleString("en-IN")}/month
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <>
+                                    <p className="text-lg font-bold text-indigo-600 mt-2">
+                                      {room.basePrice > 0 ? `₹${room.basePrice.toLocaleString("en-IN")}` : "—"}<span className="text-xs font-normal text-slate-400">/month</span>
+                                    </p>
+                                    {room.academicYearPrice && room.academicYearPrice > 0 && (
+                                      <p className="text-xs text-slate-500">
+                                        ₹{room.academicYearPrice.toLocaleString("en-IN")}/year
+                                      </p>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </button>
                           );
                         })}
