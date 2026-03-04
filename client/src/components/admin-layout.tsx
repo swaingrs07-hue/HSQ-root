@@ -350,10 +350,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Center: Property Switcher */}
-          <div className="flex-1 flex justify-center max-w-md mx-4">
-            <PropertySwitcher />
-          </div>
+          {/* Center: Property Switcher (hidden on pages where it's not needed) */}
+          {!location.startsWith("/admin/add-property") && (
+            <div className="flex-1 flex justify-center max-w-md mx-4">
+              <PropertySwitcher />
+            </div>
+          )}
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3">

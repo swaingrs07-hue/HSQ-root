@@ -27,7 +27,6 @@ import {
   Building2,
   MapPin,
   Bed,
-  IndianRupee,
   Image as ImageIcon,
   FileCheck,
   Check,
@@ -46,9 +45,8 @@ const STEPS = [
   { id: 1, title: "Basic Details", icon: Building2 },
   { id: 2, title: "Location", icon: MapPin },
   { id: 3, title: "Room Types", icon: Bed },
-  { id: 4, title: "Pricing & Tariffs", icon: IndianRupee },
-  { id: 5, title: "Images", icon: ImageIcon },
-  { id: 6, title: "Review & Publish", icon: FileCheck },
+  { id: 4, title: "Images", icon: ImageIcon },
+  { id: 5, title: "Review & Publish", icon: FileCheck },
 ];
 
 const propertyFormSchema = z.object({
@@ -86,13 +84,6 @@ const propertyFormSchema = z.object({
     deposit: z.number().min(0).optional(),
     size: z.string().optional(),
   })).min(1, "At least one room type is required"),
-  tariffs: z.array(z.object({
-    academicYear: z.string().min(1, "Academic year required"),
-    monthlyPrice: z.number().min(0),
-    deposit: z.number().min(0),
-    discount: z.number().min(0).max(100).optional(),
-    discountLabel: z.string().optional(),
-  })).optional(),
   images: z.array(z.object({
     imageUrl: z.string().min(1, "Image URL required"),
     caption: z.string().optional(),
@@ -243,7 +234,6 @@ export default function AddProperty() {
         deposit: 0,
         size: "",
       }],
-      tariffs: [],
       images: [],
     },
     mode: "onChange",
@@ -269,10 +259,6 @@ export default function AddProperty() {
     name: "roomTypes",
   });
 
-  const { fields: tariffFields, append: appendTariff, remove: removeTariff } = useFieldArray({
-    control: form.control,
-    name: "tariffs",
-  });
 
   const handleAddRule = () => {
     if (newRule.trim()) {
@@ -547,7 +533,7 @@ export default function AddProperty() {
   }, [uploadedImages, syncImagesToForm]);
 
   useEffect(() => {
-    if (currentStep === 6) {
+    if (currentStep === 5) {
       runValidationCheck();
     }
   }, [currentStep]);
@@ -587,7 +573,6 @@ export default function AddProperty() {
           basePrice: rt.basePrice,
           size: rt.size || null,
         })),
-        tariffs: data.tariffs || [],
         images: images,
       };
 
@@ -639,8 +624,7 @@ export default function AddProperty() {
     roomTypes: { step: 3, stepName: "Room Types", label: "Room Types" },
     amenities: { step: 3, stepName: "Room Types", label: "Amenities" },
     rules: { step: 3, stepName: "Room Types", label: "Rules" },
-    tariffs: { step: 4, stepName: "Pricing & Tariffs", label: "Tariffs" },
-    images: { step: 5, stepName: "Images", label: "Images" },
+    images: { step: 4, stepName: "Images", label: "Images" },
   };
 
   const [validationErrors, setValidationErrors] = useState<Array<{ field: string; message: string; step: number; stepName: string }>>([]);
@@ -800,7 +784,7 @@ export default function AddProperty() {
   };
 
   const nextStep = async () => {
-    if (currentStep === 5) {
+    if (currentStep === 4) {
       const validImages = uploadedImages.filter(img => !img.uploading && !img.error);
       if (validImages.length === 0) {
         toast({
@@ -823,7 +807,7 @@ export default function AddProperty() {
   };
 
   // Check if Next should be disabled on Images step
-  const isNextDisabled = currentStep === 5 && uploadedImages.filter(img => !img.uploading && !img.error).length === 0;
+  const isNextDisabled = currentStep === 4 && uploadedImages.filter(img => !img.uploading && !img.error).length === 0;
 
   if (!user || user.role !== "admin") {
     return (
@@ -1478,107 +1462,6 @@ export default function AddProperty() {
                 {currentStep === 4 && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-semibold">Pricing & Tariffs</h2>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => appendTariff({
-                          academicYear: "",
-                          monthlyPrice: 0,
-                          deposit: 0,
-                          discount: 0,
-                          discountLabel: "",
-                        })}
-                        data-testid="button-add-tariff"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Tariff
-                      </Button>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-700">
-                        <strong>Tip:</strong> Add different tariffs for different academic years or seasons. 
-                        The default booking amount is ₹1,00,000.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {tariffFields.map((field, index) => (
-                        <Card key={field.id}>
-                          <CardContent className="pt-6">
-                            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
-                              <div className="md:col-span-2">
-                                <Label>Academic Year *</Label>
-                                <Input
-                                  {...form.register(`tariffs.${index}.academicYear`)}
-                                  placeholder="e.g., 2024-25"
-                                  className="mt-1"
-                                  data-testid={`input-academic-year-${index}`}
-                                />
-                              </div>
-                              <div>
-                                <Label>Monthly Price (₹)</Label>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  {...form.register(`tariffs.${index}.monthlyPrice`, { valueAsNumber: true })}
-                                  className="mt-1"
-                                  data-testid={`input-monthly-price-${index}`}
-                                />
-                              </div>
-                              <div>
-                                <Label>Deposit (₹)</Label>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  {...form.register(`tariffs.${index}.deposit`, { valueAsNumber: true })}
-                                  className="mt-1"
-                                  data-testid={`input-deposit-${index}`}
-                                />
-                              </div>
-                              <div>
-                                <Label>Discount (%)</Label>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  {...form.register(`tariffs.${index}.discount`, { valueAsNumber: true })}
-                                  className="mt-1"
-                                  data-testid={`input-discount-${index}`}
-                                />
-                              </div>
-                              <div className="flex items-end">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="text-red-500 hover:text-red-700 mt-6"
-                                  onClick={() => removeTariff(index)}
-                                  data-testid={`button-remove-tariff-${index}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-
-                      {tariffFields.length === 0 && (
-                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed">
-                          <IndianRupee className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                          <p className="text-gray-500 text-sm">No tariffs added yet.</p>
-                          <p className="text-gray-400 text-xs">Add pricing for different academic years.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Enhanced Images Step */}
-                {currentStep === 5 && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
                       <h2 className="text-xl font-semibold">Property Images</h2>
                       <span className="text-sm text-gray-500">
                         {uploadedImages.filter(img => !img.uploading && !img.error).length} / {MAX_IMAGES} images
@@ -1751,7 +1634,7 @@ export default function AddProperty() {
                   </div>
                 )}
 
-                {currentStep === 6 && (
+                {currentStep === 5 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold">Review & Publish</h2>
 
@@ -1857,7 +1740,6 @@ export default function AddProperty() {
                           <p><strong>Rules:</strong> {ruleFields.length}</p>
                           <p><strong>Nearby Locations:</strong> {nearbyFields.length}</p>
                           <p><strong>Images:</strong> {uploadedImages.filter(i => !i.uploading && !i.error).length}</p>
-                          <p><strong>Tariffs:</strong> {tariffFields.length}</p>
                         </CardContent>
                       </Card>
                     </div>
