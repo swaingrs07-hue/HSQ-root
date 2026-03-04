@@ -499,7 +499,7 @@ export default function AdminDashboard() {
 
   const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
-  const MAX_IMAGES = 10;
+  const MAX_IMAGES = 50;
 
   const compressImage = (file: File, maxSizeBytes = MAX_FILE_SIZE, maxDimension = 3840): Promise<File> => {
     return new Promise((resolve, reject) => {
