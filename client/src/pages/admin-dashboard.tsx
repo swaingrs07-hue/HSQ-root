@@ -491,6 +491,8 @@ export default function AdminDashboard() {
   const [editPropertyImages, setEditPropertyImages] = useState<any[]>([]);
   const [editImagesLoading, setEditImagesLoading] = useState(false);
   const [editTab, setEditTab] = useState("basic");
+  const [editRoomTypes, setEditRoomTypes] = useState<any[]>([]);
+  const [savingRoomTypes, setSavingRoomTypes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editImageUploading, setEditImageUploading] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -649,9 +651,41 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveRoomTypes = async () => {
+    if (!editProperty) return;
+    setSavingRoomTypes(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const errors: string[] = [];
+      for (const rt of editRoomTypes) {
+        const res = await fetch(`/api/admin/room-types/${rt.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({
+            basePrice: rt.basePrice,
+            academicYearPrice: rt.academicYearPrice || null,
+            deposit: rt.deposit || 0,
+          }),
+        });
+        if (!res.ok) errors.push(rt.customName || rt.name);
+      }
+      if (errors.length > 0) {
+        toast({ title: "Some room types failed to update", description: errors.join(", "), variant: "destructive" });
+      } else {
+        toast({ title: "Room type prices updated successfully" });
+      }
+      loadProperties();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingRoomTypes(false);
+    }
+  };
+
   const openEditDialog = async (property: any) => {
     setEditProperty(property);
     setEditTab("basic");
+    setEditRoomTypes((property.roomTypes || []).map((rt: any) => ({ ...rt })));
     setEditForm({
       name: property.name || "",
       displayName: property.displayName || "",
@@ -1717,7 +1751,7 @@ export default function AdminDashboard() {
           </DialogHeader>
           {editProperty && (
             <Tabs value={editTab} onValueChange={setEditTab}>
-              <TabsList className="grid w-full grid-cols-4 mb-4">
+              <TabsList className="grid w-full grid-cols-5 mb-4">
                 <TabsTrigger value="basic" className="text-xs gap-1" data-testid="edit-tab-basic">
                   <Building2 className="h-3 w-3" /> Basic
                 </TabsTrigger>
@@ -1726,6 +1760,12 @@ export default function AdminDashboard() {
                 </TabsTrigger>
                 <TabsTrigger value="features" className="text-xs gap-1" data-testid="edit-tab-features">
                   <Star className="h-3 w-3" /> Features
+                </TabsTrigger>
+                <TabsTrigger value="rooms" className="text-xs gap-1" data-testid="edit-tab-rooms">
+                  <Bed className="h-3 w-3" /> Rooms
+                  {editRoomTypes.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editRoomTypes.length}</Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="images" className="text-xs gap-1" data-testid="edit-tab-images">
                   <ImageIcon className="h-3 w-3" /> Images
@@ -1923,6 +1963,79 @@ export default function AdminDashboard() {
                     </Select>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="rooms" className="space-y-4 mt-0">
+                {editRoomTypes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No room types found for this property.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">Update pricing for each room type. Changes are saved when you click "Save Room Prices".</p>
+                    {editRoomTypes.map((rt: any, idx: number) => (
+                      <div key={rt.id} className="border rounded-lg p-4 space-y-3" data-testid={`edit-room-type-${rt.id}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-semibold">{rt.customName || rt.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{rt.occupancy}-sharing</span>
+                            {rt.size && <span className="text-xs text-muted-foreground ml-2">• {rt.size}</span>}
+                          </div>
+                          <Badge variant="outline">{rt.availableBeds}/{rt.totalBeds} beds</Badge>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Monthly Price (₹)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={rt.basePrice || ""}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, basePrice: val } : r));
+                              }}
+                              data-testid={`input-room-price-${rt.id}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Academic Year Price (₹)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={rt.academicYearPrice || ""}
+                              placeholder={rt.basePrice ? `${rt.basePrice * 11}` : ""}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, academicYearPrice: val || null } : r));
+                              }}
+                              data-testid={`input-room-annual-price-${rt.id}`}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Leave empty = monthly × 11</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Deposit (₹)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={rt.deposit || ""}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, deposit: val } : r));
+                              }}
+                              data-testid={`input-room-deposit-${rt.id}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      onClick={handleSaveRoomTypes}
+                      disabled={savingRoomTypes}
+                      className="w-full"
+                      data-testid="button-save-room-prices"
+                    >
+                      {savingRoomTypes ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save Room Prices</>}
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="images" className="space-y-4 mt-0">

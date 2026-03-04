@@ -958,7 +958,13 @@ export default function PropertyBooking() {
   const totalBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.totalBeds || 0), 0) || 0;
   const availableBeds = property.roomTypes?.reduce((s: number, r: any) => s + (r.availableBeds || 0), 0) || 0;
   const selectedRoomType = selectedBed ? property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId) : null;
-  const lowestPrice = property.roomTypes?.reduce((min: number, r: any) => Math.min(min, r.basePrice || Infinity), Infinity) || 0;
+  const lowestPrice = property.roomTypes?.reduce((min: number, r: any) => {
+    const isAcademic = property.bookingMode === "academic_year";
+    const price = isAcademic
+      ? (r.academicYearPrice || (r.basePrice ? r.basePrice * 11 : 0))
+      : (r.basePrice || 0);
+    return price > 0 ? Math.min(min, price) : min;
+  }, Infinity) || 0;
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -988,8 +994,8 @@ export default function PropertyBooking() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-center px-5 py-3 bg-gradient-to-b from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl">
-                <p className="text-xl font-bold text-amber-600">₹{lowestPrice.toLocaleString()}</p>
-                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Starting from/mo</p>
+                <p className="text-xl font-bold text-amber-600">{lowestPrice > 0 && lowestPrice < Infinity ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}</p>
+                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Starting {property.bookingMode === "academic_year" ? "per year" : "per month"}</p>
               </div>
               <div className="text-center px-5 py-3 bg-gradient-to-b from-emerald-50 to-emerald-100/50 border border-emerald-200 rounded-xl">
                 <p className="text-xl font-bold text-emerald-600">{availableBeds}</p>
