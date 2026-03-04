@@ -577,6 +577,8 @@ export default function AddProperty() {
           totalBeds: rt.totalBeds,
           availableBeds: rt.availableBeds,
           basePrice: rt.basePrice,
+          academicYearPrice: rt.academicYearPrice || null,
+          deposit: rt.deposit || 0,
           size: rt.size || null,
         })),
         images: images,
@@ -738,17 +740,12 @@ export default function AddProperty() {
     const data = form.getValues();
     const bookingMode = data.bookingMode;
     const invalidRooms = data.roomTypes.filter(room => {
-      if (bookingMode === "academic_year") {
-        return !room.academicYearPrice || room.academicYearPrice <= 0;
-      }
       return !room.basePrice || room.basePrice <= 0;
     });
     if (invalidRooms.length > 0) {
       errors.push({
         field: "Room Pricing",
-        message: bookingMode === "academic_year"
-          ? "Set Academic Year Price for all room types"
-          : "Set Base Price (₹/month) for all room types",
+        message: "Set Base Price (₹/month) for all room types",
         step: 3,
         stepName: "Room Types",
       });
@@ -1544,29 +1541,16 @@ export default function AddProperty() {
                                 />
                               </div>
 
-                              {form.watch("bookingMode") === "monthly" ? (
-                                <div>
-                                  <Label>Base Price (₹/month) *</Label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
-                                    className="mt-1"
-                                    data-testid={`input-base-price-${index}`}
-                                  />
-                                </div>
-                              ) : (
-                                <div>
-                                  <Label>Academic Year Price (₹/year) *</Label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    {...form.register(`roomTypes.${index}.academicYearPrice`, { valueAsNumber: true })}
-                                    className="mt-1"
-                                    data-testid={`input-academic-price-${index}`}
-                                  />
-                                </div>
-                              )}
+                              <div>
+                                <Label>Base Price (₹/month) *</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  {...form.register(`roomTypes.${index}.basePrice`, { valueAsNumber: true })}
+                                  className="mt-1"
+                                  data-testid={`input-base-price-${index}`}
+                                />
+                              </div>
 
                               <div>
                                 <Label>Deposit (₹)</Label>
@@ -1911,9 +1895,7 @@ export default function AddProperty() {
                                       {form.watch(`roomTypes.${index}.availableBeds`)} / {form.watch(`roomTypes.${index}.totalBeds`)}
                                     </td>
                                     <td className="text-right py-2">
-                                      ₹{form.watch("bookingMode") === "monthly" 
-                                        ? form.watch(`roomTypes.${index}.basePrice`)?.toLocaleString()
-                                        : form.watch(`roomTypes.${index}.academicYearPrice`)?.toLocaleString()}
+                                      ₹{form.watch(`roomTypes.${index}.basePrice`)?.toLocaleString() || 0}/mo
                                     </td>
                                     <td className="text-right py-2">₹{form.watch(`roomTypes.${index}.deposit`)?.toLocaleString() || 0}</td>
                                   </tr>
