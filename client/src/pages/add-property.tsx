@@ -185,6 +185,7 @@ export default function AddProperty() {
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [basicDetailsTab, setBasicDetailsTab] = useState<"amenities" | "facilities">("amenities");
   const [newRule, setNewRule] = useState("");
   const [newAmenityId, setNewAmenityId] = useState("");
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
@@ -1010,119 +1011,159 @@ export default function AddProperty() {
                     </div>
 
                     <div className="border-t pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold">Property Rules</h3>
-                      </div>
-                      <div className="flex gap-2 mb-4">
-                        <Input
-                          value={newRule}
-                          onChange={(e) => setNewRule(e.target.value)}
-                          placeholder="e.g., No smoking on premises"
-                          onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddRule())}
-                          data-testid="input-new-rule"
-                        />
-                        <Button type="button" onClick={handleAddRule} className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" data-testid="button-add-rule">
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {ruleFields.map((field, index) => (
-                          <div
-                            key={field.id}
-                            className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
-                          >
-                            <span className="text-sm">{form.watch(`rules.${index}.rule`)}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeRule(index)}
-                              className="text-gray-500 hover:text-red-500"
-                              data-testid={`button-remove-rule-${index}`}
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Enhanced Amenities Section */}
-                    <div className="border-t pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold">Amenities</h3>
-                        <Button
+                      <div className="flex border-b mb-4">
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowAddAmenityModal(true)}
-                          data-testid="button-open-add-amenity-modal"
+                          onClick={() => setBasicDetailsTab("amenities")}
+                          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                            basicDetailsTab === "amenities"
+                              ? "border-[hsl(345,72%,41%)] text-[hsl(345,72%,41%)]"
+                              : "border-transparent text-gray-500 hover:text-gray-700"
+                          }`}
+                          data-testid="tab-amenities"
                         >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add New Amenity
-                        </Button>
+                          Amenities
+                          {amenityFields.length > 0 && (
+                            <span className="ml-1.5 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] text-xs px-1.5 py-0.5 rounded-full">{amenityFields.length}</span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBasicDetailsTab("facilities")}
+                          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                            basicDetailsTab === "facilities"
+                              ? "border-[hsl(345,72%,41%)] text-[hsl(345,72%,41%)]"
+                              : "border-transparent text-gray-500 hover:text-gray-700"
+                          }`}
+                          data-testid="tab-facilities"
+                        >
+                          Facilities & Rules
+                          {ruleFields.length > 0 && (
+                            <span className="ml-1.5 bg-gray-100 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{ruleFields.length}</span>
+                          )}
+                        </button>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between" data-testid="button-select-amenities">
-                            <span className="text-muted-foreground">Click to select amenities</span>
-                            <Check className="w-4 h-4 ml-2" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-80" align="start">
-                          <ScrollArea className="h-[300px] p-2">
-                            {(() => {
-                              const availableAmenities = globalAmenities.filter((a: any) => !amenityFields.some(f => f.amenityId === a.id));
-                              const categories = Array.from(new Set(availableAmenities.map((a: any) => a.category || "Other"))) as string[];
-                              if (availableAmenities.length === 0) {
-                                return <p className="text-sm text-muted-foreground p-2">All amenities selected</p>;
-                              }
-                              return categories.map((category: string) => (
-                                <div key={category} className="mb-3">
-                                  <p className="font-semibold text-primary text-sm mb-2 px-2">{category}</p>
-                                  {availableAmenities
-                                    .filter((a: any) => (a.category || "Other") === category)
-                                    .map((amenity: any) => (
-                                      <div
-                                        key={amenity.id}
-                                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
-                                        onClick={() => {
-                                          appendAmenity({ amenityId: amenity.id, name: amenity.name });
-                                        }}
-                                        data-testid={`checkbox-amenity-${amenity.id}`}
-                                      >
-                                        <div className="w-4 h-4 border rounded flex items-center justify-center">
-                                          <Plus className="w-3 h-3 text-muted-foreground" />
-                                        </div>
-                                        <span className="text-sm">{amenity.icon} {amenity.name}</span>
-                                      </div>
-                                    ))}
-                                </div>
-                              ));
-                            })()}
-                          </ScrollArea>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        {amenityFields.length === 0 ? (
-                          <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>
-                        ) : (
-                          amenityFields.map((field, index) => (
-                            <div
-                              key={field.id}
-                              className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1.5 rounded-full border border-[hsl(345,72%,41%)]/20"
+
+                      {basicDetailsTab === "amenities" && (
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm text-gray-500">Select amenities available at this property</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowAddAmenityModal(true)}
+                              data-testid="button-open-add-amenity-modal"
                             >
-                              <span className="text-sm font-medium">{field.name}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeAmenity(index)}
-                                className="hover:text-red-600 transition-colors"
-                                data-testid={`button-remove-amenity-${index}`}
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add New Amenity
+                            </Button>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" className="w-full justify-between" data-testid="button-select-amenities">
+                                <span className="text-muted-foreground">Click to select amenities</span>
+                                <Check className="w-4 h-4 ml-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-80" align="start">
+                              <ScrollArea className="h-[300px] p-2">
+                                {(() => {
+                                  const availableAmenities = globalAmenities.filter((a: any) => !amenityFields.some(f => f.amenityId === a.id));
+                                  const categories = Array.from(new Set(availableAmenities.map((a: any) => a.category || "Other"))) as string[];
+                                  if (availableAmenities.length === 0) {
+                                    return <p className="text-sm text-muted-foreground p-2">All amenities selected</p>;
+                                  }
+                                  return categories.map((category: string) => (
+                                    <div key={category} className="mb-3">
+                                      <p className="font-semibold text-primary text-sm mb-2 px-2">{category}</p>
+                                      {availableAmenities
+                                        .filter((a: any) => (a.category || "Other") === category)
+                                        .map((amenity: any) => (
+                                          <div
+                                            key={amenity.id}
+                                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                                            onClick={() => {
+                                              appendAmenity({ amenityId: amenity.id, name: amenity.name });
+                                            }}
+                                            data-testid={`checkbox-amenity-${amenity.id}`}
+                                          >
+                                            <div className="w-4 h-4 border rounded flex items-center justify-center">
+                                              <Plus className="w-3 h-3 text-muted-foreground" />
+                                            </div>
+                                            <span className="text-sm">{amenity.icon} {amenity.name}</span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  ));
+                                })()}
+                              </ScrollArea>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <div className="flex flex-wrap gap-2 mt-4">
+                            {amenityFields.length === 0 ? (
+                              <p className="text-gray-400 text-sm">No amenities selected. Select from dropdown or add new.</p>
+                            ) : (
+                              amenityFields.map((field, index) => (
+                                <div
+                                  key={field.id}
+                                  className="flex items-center gap-2 bg-[hsl(345,72%,41%)]/10 text-[hsl(345,72%,41%)] px-3 py-1.5 rounded-full border border-[hsl(345,72%,41%)]/20"
+                                >
+                                  <span className="text-sm font-medium">{field.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAmenity(index)}
+                                    className="hover:text-red-600 transition-colors"
+                                    data-testid={`button-remove-amenity-${index}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {basicDetailsTab === "facilities" && (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-4">Add rules and facility guidelines for this property</p>
+                          <div className="flex gap-2 mb-4">
+                            <Input
+                              value={newRule}
+                              onChange={(e) => setNewRule(e.target.value)}
+                              placeholder="e.g., No smoking on premises"
+                              onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddRule())}
+                              data-testid="input-new-rule"
+                            />
+                            <Button type="button" onClick={handleAddRule} className="bg-[hsl(345,72%,41%)] hover:bg-[hsl(345,72%,35%)]" data-testid="button-add-rule">
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {ruleFields.length === 0 ? (
+                              <p className="text-gray-400 text-sm">No rules added yet. Type a rule above and click + to add.</p>
+                            ) : (
+                              ruleFields.map((field, index) => (
+                                <div
+                                  key={field.id}
+                                  className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full"
+                                >
+                                  <span className="text-sm">{form.watch(`rules.${index}.rule`)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRule(index)}
+                                    className="text-gray-500 hover:text-red-500"
+                                    data-testid={`button-remove-rule-${index}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
