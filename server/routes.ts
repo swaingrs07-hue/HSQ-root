@@ -2430,6 +2430,31 @@ export async function registerRoutes(
         }
       }
 
+      // Create property images and auto-populate tour overview
+      const { images } = req.body;
+      const tourImageUrls: string[] = [];
+      if (images && Array.isArray(images)) {
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          await storage.createPropertyImage({
+            propertyId: property.id,
+            imageUrl: img.imageUrl,
+            caption: img.caption || null,
+            isPrimary: img.isPrimary || false,
+            sortOrder: img.order ?? i,
+            roomTypeId: null,
+          });
+          tourImageUrls.push(img.imageUrl);
+        }
+      }
+
+      if (tourImageUrls.length > 0) {
+        await storage.updateProperty(property.id, {
+          tourOverviewImages: JSON.stringify(tourImageUrls),
+          imageUrl: tourImageUrls[0],
+        });
+      }
+
       // Log the action
       await storage.createAuditLog({
         adminId: (req as AuthRequest).user!.userId,
@@ -2440,13 +2465,16 @@ export async function registerRoutes(
       });
 
       // Return property with all related data
+      const updatedProperty = tourImageUrls.length > 0 
+        ? await storage.getProperty(property.id) || property 
+        : property;
       const propertyRules = await storage.getRulesByProperty(property.id);
       const propertyNearby = await storage.getNearbyLocationsByProperty(property.id);
       const propertyTariffs = await storage.getTariffsByProperty(property.id);
       const propertyRoomTypes = await storage.getRoomTypesByProperty(property.id);
 
       res.status(201).json({
-        ...property,
+        ...updatedProperty,
         rules: propertyRules,
         nearbyLocations: propertyNearby,
         tariffs: propertyTariffs,
