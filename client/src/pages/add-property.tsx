@@ -558,6 +558,7 @@ export default function AddProperty() {
         name: data.name,
         displayName: data.name,
         category: data.category,
+        bookingMode: data.bookingMode,
         location: `${data.city}, ${data.state}`,
         address: `${data.address}, ${data.city}, ${data.state} - ${data.pincode}`,
         city: data.city,

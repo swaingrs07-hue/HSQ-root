@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -492,6 +492,162 @@ export default function AdminDashboard() {
   const [editImagesLoading, setEditImagesLoading] = useState(false);
   const [editTab, setEditTab] = useState("basic");
   const [isSaving, setIsSaving] = useState(false);
+  const [editImageUploading, setEditImageUploading] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const MAX_IMAGES = 10;
+
+  const compressImage = (file: File, maxSizeBytes = MAX_FILE_SIZE, maxDimension = 3840): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          const ratio = Math.min(maxDimension / width, maxDimension / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas not supported")); return; }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+        const supportsWebp = canvas.toDataURL("image/webp").startsWith("data:image/webp");
+        const outputMime = supportsWebp ? "image/webp" : "image/jpeg";
+        const outputExt = supportsWebp ? ".webp" : ".jpg";
+        const tryQuality = (quality: number) => {
+          canvas.toBlob((blob) => {
+            if (!blob) { reject(new Error("Compression failed")); return; }
+            if (blob.size <= maxSizeBytes || quality <= 0.5) {
+              if (blob.size > maxSizeBytes) {
+                reject(new Error(`Image still ${(blob.size / 1024 / 1024).toFixed(1)}MB after max compression`));
+                return;
+              }
+              const baseName = file.name.replace(/\.[^/.]+$/, "");
+              resolve(new File([blob], `${baseName}${outputExt}`, { type: outputMime, lastModified: Date.now() }));
+            } else {
+              tryQuality(quality - 0.05);
+            }
+          }, outputMime, quality);
+        };
+        tryQuality(0.92);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
+      img.src = url;
+    });
+  };
+
+  const uploadFileToStorage = async (file: File): Promise<string> => {
+    const urlRes = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!urlRes.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, objectPath } = await urlRes.json();
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    });
+    if (!uploadRes.ok) throw new Error("Failed to upload file");
+    return objectPath;
+  };
+
+  const handleEditImageUpload = async (files: FileList | null) => {
+    if (!files || !editProperty) return;
+    const currentCount = editPropertyImages.length;
+    const remainingSlots = MAX_IMAGES - currentCount;
+    if (remainingSlots <= 0) {
+      toast({ title: "Maximum Images", description: `You can only upload up to ${MAX_IMAGES} images.`, variant: "destructive" });
+      return;
+    }
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    setEditImageUploading(true);
+    const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+    const newImages: any[] = [];
+
+    for (const file of filesToUpload) {
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        toast({ title: "Invalid File Type", description: `${file.name} is not valid. Use JPG, PNG, or WEBP.`, variant: "destructive" });
+        continue;
+      }
+      let processedFile = file;
+      if (file.size > MAX_FILE_SIZE) {
+        try {
+          toast({ title: "Compressing Image", description: `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB — auto-resizing...` });
+          processedFile = await compressImage(file);
+        } catch {
+          toast({ title: "Compression Failed", description: `Could not auto-resize ${file.name}. Try a smaller file.`, variant: "destructive" });
+          continue;
+        }
+      }
+      try {
+        const objectPath = await uploadFileToStorage(processedFile);
+        const isPrimary = currentCount === 0 && newImages.length === 0;
+        const createRes = await fetch(`/api/admin/properties/${editProperty.id}/images`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ imageUrl: objectPath, caption: file.name.replace(/\.[^/.]+$/, ""), isPrimary, sortOrder: currentCount + newImages.length }),
+        });
+        if (createRes.ok) {
+          const created = await createRes.json();
+          newImages.push(created);
+        }
+      } catch (err) {
+        toast({ title: "Upload Failed", description: `Failed to upload ${file.name}`, variant: "destructive" });
+      }
+    }
+
+    if (newImages.length > 0) {
+      setEditPropertyImages(prev => [...prev, ...newImages]);
+      const allUrls = [...editPropertyImages, ...newImages].map((img: any) => img.imageUrl);
+      await fetch(`/api/admin/properties/${editProperty.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          tourOverviewImages: JSON.stringify(allUrls),
+          imageUrl: allUrls[0],
+        }),
+      }).catch(() => {});
+      toast({ title: "Images Uploaded", description: `${newImages.length} image${newImages.length !== 1 ? "s" : ""} added successfully.` });
+    }
+    setEditImageUploading(false);
+  };
+
+  const handleDeleteEditImage = async (imageId: string, index: number) => {
+    if (!editProperty) return;
+    const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+    try {
+      if (!imageId.startsWith("tour-") && imageId !== "main") {
+        await fetch(`/api/admin/images/${imageId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+      }
+      const updated = editPropertyImages.filter((_, i) => i !== index);
+      setEditPropertyImages(updated);
+      const allUrls = updated.map((img: any) => img.imageUrl);
+      await fetch(`/api/admin/properties/${editProperty.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          tourOverviewImages: allUrls.length > 0 ? JSON.stringify(allUrls) : null,
+          imageUrl: allUrls[0] || null,
+        }),
+      }).catch(() => {});
+      toast({ title: "Image removed" });
+    } catch {
+      toast({ title: "Error", description: "Failed to remove image", variant: "destructive" });
+    }
+  };
 
   const openEditDialog = async (property: any) => {
     setEditProperty(property);
@@ -1775,37 +1931,80 @@ export default function AdminDashboard() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     <span className="ml-2 text-sm text-muted-foreground">Loading images...</span>
                   </div>
-                ) : editPropertyImages.length > 0 ? (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-3">{editPropertyImages.length} image{editPropertyImages.length !== 1 ? "s" : ""} uploaded for this property</p>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                      {editPropertyImages.map((img: any, idx: number) => (
-                        <div key={img.id || idx} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border" data-testid={`edit-property-image-${idx}`}>
-                          <img
-                            src={img.imageUrl}
-                            alt={img.caption || `Property image ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          {img.isPrimary && (
-                            <div className="absolute top-1.5 left-1.5 bg-yellow-400 rounded-full p-1 shadow">
-                              <Star className="w-3 h-3 text-yellow-800 fill-yellow-800" />
-                            </div>
-                          )}
-                          {img.caption && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
-                              <span className="text-white text-[10px] line-clamp-1">{img.caption}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">To manage images (add, remove, reorder), use the Tour Images section in the admin sidebar.</p>
-                  </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">No images uploaded for this property.</p>
-                    <p className="text-xs mt-1">Use the Tour Images section in the admin sidebar to add images.</p>
+                  <div className="space-y-4">
+                    {editPropertyImages.length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-3">{editPropertyImages.length} / {MAX_IMAGES} image{editPropertyImages.length !== 1 ? "s" : ""}</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                          {editPropertyImages.map((img: any, idx: number) => (
+                            <div key={img.id || idx} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100 border" data-testid={`edit-property-image-${idx}`}>
+                              <img
+                                src={img.imageUrl}
+                                alt={img.caption || `Property image ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              {img.isPrimary && (
+                                <div className="absolute top-1.5 left-1.5 bg-yellow-400 rounded-full p-1 shadow">
+                                  <Star className="w-3 h-3 text-yellow-800 fill-yellow-800" />
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEditImage(img.id, idx)}
+                                className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                data-testid={`delete-edit-image-${idx}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                              {img.caption && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
+                                  <span className="text-white text-[10px] line-clamp-1">{img.caption}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {editPropertyImages.length < MAX_IMAGES && (
+                      <div
+                        className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-[hsl(345,72%,41%)] hover:bg-red-50/30 transition-all"
+                        onClick={() => !editImageUploading && editFileInputRef.current?.click()}
+                        data-testid="edit-image-upload-area"
+                      >
+                        <input
+                          ref={editFileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleEditImageUpload(e.target.files)}
+                          data-testid="edit-image-file-input"
+                        />
+                        {editImageUploading ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-[hsl(345,72%,41%)]" />
+                            <p className="text-sm font-medium text-gray-700">Uploading & compressing...</p>
+                            <p className="text-xs text-muted-foreground">Large images are auto-resized to high quality WebP</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                              <Upload className="h-6 w-6 text-gray-400" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-700">Click to upload images</p>
+                            <p className="text-xs text-muted-foreground">JPG, PNG, WebP up to 10MB each (auto-compressed)</p>
+                            <p className="text-xs text-muted-foreground">{MAX_IMAGES - editPropertyImages.length} slot{MAX_IMAGES - editPropertyImages.length !== 1 ? "s" : ""} remaining</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {editPropertyImages.length === 0 && !editImageUploading && (
+                      <p className="text-xs text-center text-muted-foreground">No images yet. Upload photos to showcase this property.</p>
+                    )}
                   </div>
                 )}
               </TabsContent>
