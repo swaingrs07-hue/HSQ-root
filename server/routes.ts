@@ -329,6 +329,63 @@ export async function registerRoutes(
     }
   });
 
+  // ============ LOGO SETTINGS ============
+
+  app.get("/api/logo-settings", async (req, res) => {
+    try {
+      const settings = await storage.getFooterSettings();
+      res.json({
+        headerLogo: settings?.headerLogo || null,
+        footerLogo: settings?.footerLogo || null,
+        adminLogo: settings?.adminLogo || null,
+      });
+    } catch (error) {
+      res.json({ headerLogo: null, footerLogo: null, adminLogo: null });
+    }
+  });
+
+  app.get("/api/admin/logo-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const settings = await storage.getFooterSettings();
+      res.json({
+        headerLogo: settings?.headerLogo || null,
+        footerLogo: settings?.footerLogo || null,
+        adminLogo: settings?.adminLogo || null,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch logo settings" });
+    }
+  });
+
+  const logoUpdateSchema = z.object({
+    headerLogo: z.string().nullable().optional(),
+    footerLogo: z.string().nullable().optional(),
+    adminLogo: z.string().nullable().optional(),
+  });
+
+  app.put("/api/admin/logo-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      if (req.user!.email !== "gyan@hsquareliving.com") {
+        return res.status(403).json({ error: "Only the main administrator can update logo settings" });
+      }
+      const parsed = logoUpdateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid logo data" });
+      const { headerLogo, footerLogo, adminLogo } = parsed.data;
+      const data: any = {};
+      if (headerLogo !== undefined) data.headerLogo = headerLogo;
+      if (footerLogo !== undefined) data.footerLogo = footerLogo;
+      if (adminLogo !== undefined) data.adminLogo = adminLogo;
+      const settings = await storage.upsertFooterSettings(data);
+      res.json({
+        headerLogo: settings.headerLogo || null,
+        footerLogo: settings.footerLogo || null,
+        adminLogo: settings.adminLogo || null,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update logo settings" });
+    }
+  });
+
   // ============ INSTAGRAM LIVE FEED ============
 
   async function fetchInstagramPosts(): Promise<any[]> {

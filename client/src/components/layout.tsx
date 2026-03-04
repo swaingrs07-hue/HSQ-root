@@ -5,7 +5,7 @@ import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, U
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import hsquareLogo from "@/assets/hsquare-logo.jpg";
+import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
 
@@ -89,6 +89,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
     staleTime: 60 * 1000,
   });
 
+  const { data: logoSettings } = useQuery<{ headerLogo?: string | null; footerLogo?: string | null }>({
+    queryKey: ["/api/logo-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/logo-settings");
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const activeLogo = logoSettings?.headerLogo || hsquareLogo;
+  const activeFooterLogo = logoSettings?.footerLogo || logoSettings?.headerLogo || hsquareLogo;
+
   const isSalesExec = user?.role === "sales_executive";
 
   const navItems = isAdmin 
@@ -129,7 +142,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}>
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <img src={hsquareLogo} alt="Hsquare" className="h-10 w-auto" />
+            <img src={activeLogo} alt="Hsquare Living" className="h-12 w-auto object-contain" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -248,8 +261,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
             <div className="md:col-span-4 space-y-5">
               <div className="flex items-center gap-3">
-                <img src={hsquareLogo} alt="Hsquare" className="h-11 w-auto rounded-md" />
-                <span className="font-heading font-bold text-white text-lg tracking-tight">Hsquareliving</span>
+                <img src={activeFooterLogo} alt="Hsquare Living" className="h-12 w-auto object-contain brightness-0 invert" />
               </div>
               <p className="text-sm text-stone-400 leading-relaxed max-w-xs">
                 {footer.companyDescription}

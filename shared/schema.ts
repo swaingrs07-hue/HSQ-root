@@ -1009,6 +1009,9 @@ export const footerSettings = pgTable("footer_settings", {
   socialFacebook: text("social_facebook"),
   socialTwitter: text("social_twitter"),
   socialLinkedin: text("social_linkedin"),
+  headerLogo: text("header_logo"),
+  footerLogo: text("footer_logo"),
+  adminLogo: text("admin_logo"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

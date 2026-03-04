@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import hsquareLogo from "@/assets/hsquare-logo.jpg";
+import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,10 +124,27 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   
   const isSalesExec = user?.role === "sales_executive";
-  const navItems = isAdmin ? adminNavItems : salesNavItems;
+  const isMainAdmin = user?.email === "gyan@hsquareliving.com";
+  const navItems = isAdmin
+    ? [
+        ...adminNavItems,
+        ...(isMainAdmin ? [{ name: "Logo Control", href: "/admin/logo-control", icon: ImageIcon }] : []),
+      ]
+    : salesNavItems;
   
   const userName = user?.name || "User";
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const { data: logoData } = useQuery<{ adminLogo?: string | null; headerLogo?: string | null }>({
+    queryKey: ["/api/logo-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/logo-settings");
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
+  const activeAdminLogo = logoData?.adminLogo || logoData?.headerLogo || hsquareLogo;
 
   // Fetch notifications
   const { data: notificationData } = useQuery<{ notifications: Notification[]; unreadCount: number }>({
@@ -212,14 +229,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           collapsed ? "justify-center" : "justify-between"
         )}>
           {!collapsed && (
-            <Link href="/" className="flex items-center gap-3">
-              <img src={hsquareLogo} alt="Hsquare" className="h-9 w-auto rounded-lg" />
-              <span className="font-bold text-lg text-slate-800 dark:text-white">Hsquare</span>
+            <Link href="/" className="flex items-center">
+              <img src={activeAdminLogo} alt="Hsquare Living" className="h-10 w-auto object-contain" />
             </Link>
           )}
           {collapsed && (
             <Link href="/">
-              <img src={hsquareLogo} alt="Hsquare" className="h-9 w-auto rounded-lg" />
+              <img src={activeAdminLogo} alt="Hsquare Living" className="h-8 w-auto object-contain" />
             </Link>
           )}
         </div>
@@ -297,9 +313,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="h-16 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4">
-          <Link href="/" className="flex items-center gap-3">
-            <img src={hsquareLogo} alt="Hsquare" className="h-9 w-auto rounded-lg" />
-            <span className="font-bold text-lg text-slate-800 dark:text-white">Hsquare</span>
+          <Link href="/" className="flex items-center">
+            <img src={activeAdminLogo} alt="Hsquare Living" className="h-10 w-auto object-contain" />
           </Link>
           <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-slate-500 hover:text-slate-700">
             <ChevronLeft className="w-5 h-5" />

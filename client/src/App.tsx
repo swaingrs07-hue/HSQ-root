@@ -45,6 +45,7 @@ import AdminBookingTree from "@/pages/admin-booking-tree";
 import AdminPackages from "@/pages/admin-packages";
 import AdminSeasons from "@/pages/admin-seasons";
 import AdminHmsSync from "@/pages/admin-hms-sync";
+import AdminLogoControl from "@/pages/admin-logo-control";
 import PropertyBooking from "@/pages/property-booking";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
@@ -88,6 +89,7 @@ function AppContent() {
               <Route path="/admin/packages" component={AdminPackages} />
               <Route path="/admin/seasons" component={AdminSeasons} />
               <Route path="/admin/hms-sync" component={AdminHmsSync} />
+              <Route path="/admin/logo-control" component={AdminLogoControl} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
