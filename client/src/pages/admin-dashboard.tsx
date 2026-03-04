@@ -1740,11 +1740,16 @@ export default function AdminDashboard() {
                               <div className="mt-4 pt-4 border-t">
                                 <h4 className="font-medium mb-3">Room Types</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  {property.roomTypes.map((room: any) => (
+                                  {property.roomTypes.map((room: any) => {
+                                    const isAcademic = property.bookingMode === "academic_year";
+                                    const displayPrice = isAcademic
+                                      ? (room.academicYearPrice || (room.basePrice ? room.basePrice * 11 : 0))
+                                      : (room.basePrice || 0);
+                                    return (
                                     <div key={room.id} className="bg-muted/50 rounded-lg p-3">
                                       <div className="flex justify-between items-start mb-1">
-                                        <span className="font-medium">{room.name}</span>
-                                        <span className="text-primary font-bold">₹{room.basePrice.toLocaleString()}</span>
+                                        <span className="font-medium">{room.customName || room.name}</span>
+                                        <span className="text-primary font-bold">₹{displayPrice.toLocaleString("en-IN")}</span>
                                       </div>
                                       <div className="text-sm text-muted-foreground">
                                         {room.availableBeds}/{room.totalBeds} beds available
@@ -1753,7 +1758,8 @@ export default function AdminDashboard() {
                                         <div className="text-xs text-muted-foreground mt-1">{room.size}</div>
                                       )}
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
