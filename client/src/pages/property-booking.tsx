@@ -445,7 +445,69 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   );
 }
 
-function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null }) {
+const PLAN_TIER_PALETTES = [
+  {
+    bg: "bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500",
+    border: "border-emerald-300",
+    shadow: "shadow-lg shadow-emerald-400/40",
+    ring: "ring-2 ring-emerald-300/60 ring-offset-1 ring-offset-white",
+    text: "text-emerald-900",
+    iconText: "text-emerald-900",
+    badgeBg: "bg-gradient-to-r from-emerald-500 to-teal-500",
+    badgeText: "text-white",
+    overlay: "rgba(16,185,129,0.3)",
+    label: "Essential",
+    crownColor: "from-emerald-500 to-teal-600",
+    bannerBg: "bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50",
+    bannerBorder: "border-emerald-300 shadow-emerald-200/30",
+    bannerSubText: "text-emerald-600",
+    roomBorder: "border-emerald-300 bg-emerald-50/40 shadow-md shadow-emerald-200/30",
+  },
+  {
+    bg: "bg-gradient-to-br from-violet-400 via-purple-400 to-violet-500",
+    border: "border-violet-300",
+    shadow: "shadow-lg shadow-violet-400/40",
+    ring: "ring-2 ring-violet-300/60 ring-offset-1 ring-offset-white",
+    text: "text-violet-900",
+    iconText: "text-violet-900",
+    badgeBg: "bg-gradient-to-r from-violet-500 to-purple-500",
+    badgeText: "text-white",
+    overlay: "rgba(139,92,246,0.3)",
+    label: "Popular",
+    crownColor: "from-violet-500 to-purple-600",
+    bannerBg: "bg-gradient-to-r from-violet-50 via-purple-50 to-violet-50",
+    bannerBorder: "border-violet-300 shadow-violet-200/30",
+    bannerSubText: "text-violet-600",
+    roomBorder: "border-violet-300 bg-violet-50/40 shadow-md shadow-violet-200/30",
+  },
+  {
+    bg: "bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500",
+    border: "border-amber-300",
+    shadow: "shadow-lg shadow-amber-400/40",
+    ring: "ring-2 ring-amber-300/60 ring-offset-1 ring-offset-white",
+    text: "text-amber-900",
+    iconText: "text-amber-900",
+    badgeBg: "bg-gradient-to-r from-amber-500 to-yellow-500",
+    badgeText: "text-white",
+    overlay: "rgba(251,191,36,0.3)",
+    label: "Premium",
+    crownColor: "from-amber-500 to-yellow-600",
+    bannerBg: "bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50",
+    bannerBorder: "border-amber-300 shadow-amber-200/30",
+    bannerSubText: "text-amber-600",
+    roomBorder: "border-amber-300 bg-amber-50/40 shadow-md shadow-amber-200/30",
+  },
+];
+
+function getBedTierColors(tierLevel: number, maxTier: number = 2) {
+  if (maxTier <= 0) maxTier = 2;
+  const idx = maxTier <= 2
+    ? tierLevel
+    : tierLevel >= maxTier ? 2 : tierLevel >= Math.floor(maxTier / 2) ? 1 : 0;
+  return PLAN_TIER_PALETTES[Math.min(Math.max(idx, 0), PLAN_TIER_PALETTES.length - 1)];
+}
+
+function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand, selectedPlan }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null; selectedPlan?: any }) {
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const prevAutoExpandRef = useRef<string | null>(null);
@@ -512,6 +574,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
     blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
   };
 
+  const tierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0) : null;
+
   const renderBedButton = (bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
     const isHeld = bed.held && !isSelected;
@@ -534,8 +598,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
         }}
         className={cn(
           "relative p-2 border-2 rounded-xl text-center transition-all duration-300",
-          isPlanHighlighted
-            ? "bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 border-amber-300 shadow-lg shadow-amber-400/40 ring-2 ring-amber-300/60 ring-offset-1 ring-offset-white"
+          isPlanHighlighted && tierColors
+            ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
             : isDimmedByPlan
               ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
               : cn(config.bg, config.border),
@@ -543,13 +607,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
           !isAvailable && !isDimmedByPlan && "opacity-40",
           isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/50"
         )}
-        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${selectedPlan && isPlanHighlighted ? ` — ${selectedPlan.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
-        {isPlanHighlighted && !isSelected && (
+        {isPlanHighlighted && !isSelected && tierColors && (
           <>
             <motion.div
-              className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/50 z-10 border border-white"
+              className={cn("absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-br rounded-full flex items-center justify-center shadow-lg z-10 border border-white", tierColors.crownColor)}
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
             >
@@ -559,15 +623,15 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
               className="absolute inset-0 rounded-[10px] pointer-events-none"
               animate={{ opacity: [0.3, 0.7, 0.3] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.3) 0%, rgba(245,158,11,0.1) 50%, rgba(251,191,36,0.3) 100%)" }}
+              style={{ background: `linear-gradient(135deg, ${tierColors.overlay} 0%, transparent 50%, ${tierColors.overlay} 100%)` }}
             />
           </>
         )}
         {isAvailable && !isSelected && !isPlanHighlighted && !isDimmedByPlan && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
         )}
-        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isPlanHighlighted ? "text-amber-900" : isSelected ? "text-white" : "text-white/90")} />
-        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isPlanHighlighted ? "text-amber-900" : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
+        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isPlanHighlighted && tierColors ? tierColors.iconText : isSelected ? "text-white" : "text-white/90")} />
+        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isPlanHighlighted && tierColors ? tierColors.text : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
@@ -590,26 +654,34 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
 
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
-      {filterRoomTypeId && (
+      {selectedPlan && tierColors && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="flex items-center gap-3 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 border-2 border-amber-300 rounded-xl p-3.5 shadow-md shadow-amber-200/30"
+          className={cn("flex items-center gap-3 rounded-xl p-3.5 shadow-md border-2", tierColors.bannerBg, tierColors.bannerBorder)}
         >
           <motion.div
-            className="w-9 h-9 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-400/40"
+            className={cn("w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg", tierColors.crownColor)}
             animate={{ rotate: [0, 5, -5, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <Crown className="w-5 h-5 text-white" />
           </motion.div>
           <div className="flex-1">
-            <p className="text-sm font-bold text-amber-800">Plan filter active</p>
-            <p className="text-xs text-amber-600">Gold beds match your plan. Grey beds are for other room types.</p>
+            <p className={cn("text-sm font-bold", tierColors.text)}>{selectedPlan.name}</p>
+            <p className={cn("text-xs", tierColors.bannerSubText)}>
+              {filterRoomTypeId 
+                ? `Highlighted beds belong to ${selectedPlan.roomTypeName || "this plan's room type"}. Select one to book.`
+                : "All beds are available for this plan. Select any bed to book."}
+            </p>
           </div>
           <div className="flex items-center gap-2 text-[10px]">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gradient-to-br from-amber-400 to-yellow-400 border border-amber-300" /> Plan beds</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-stone-300 opacity-40" /> Other</span>
+            {filterRoomTypeId && (
+              <>
+                <span className="flex items-center gap-1"><span className={cn("w-3 h-3 rounded", tierColors.bg, tierColors.border)} /> {selectedPlan.name}</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-stone-300 opacity-40" /> Other</span>
+              </>
+            )}
           </div>
         </motion.div>
       )}
@@ -701,15 +773,27 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand 
                                 beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
                               })) : null;
 
+                              const roomMatchesPlan = filterRoomTypeId && room.roomTypeId === filterRoomTypeId;
+                              const roomDimmedByPlan = filterRoomTypeId && room.roomTypeId !== filterRoomTypeId;
+
                               return (
                                 <div key={room.id} className={cn(
                                   "border rounded-xl p-3 transition-all",
-                                  allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
+                                  roomMatchesPlan && tierColors
+                                    ? cn("border-2", tierColors.roomBorder)
+                                    : roomDimmedByPlan
+                                      ? "border-stone-200 bg-stone-50/30 opacity-40"
+                                      : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
                                 )} data-testid={`room-${room.id}`}>
                                   <div className="flex items-center gap-2 mb-2.5">
                                     <span className="text-xs font-bold text-stone-700">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
                                     {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">Shared WC</Badge>}
+                                    {roomMatchesPlan && selectedPlan && tierColors && (
+                                      <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", tierColors.badgeBg, tierColors.badgeText)}>
+                                        <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
+                                      </Badge>
+                                    )}
                                     <div className="flex-1" />
                                     {room.monthlyPrice && <span className="text-[10px] text-stone-400 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
                                     <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200")}>{roomAvail} open</Badge>
@@ -1279,7 +1363,7 @@ export default function PropertyBooking() {
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
               </h2>
-              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} autoExpand={selectedPlan?.id || null} />
+              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
             </div>
 
             <div>
