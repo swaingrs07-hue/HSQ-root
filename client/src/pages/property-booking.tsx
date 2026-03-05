@@ -1203,10 +1203,26 @@ export default function PropertyBooking() {
 
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [autoDetectedPlan, setAutoDetectedPlan] = useState<any>(null);
+
+  const { data: propertyPlansParent = [] } = useQuery({
+    queryKey: [`/api/properties/${propertyId}/plans`],
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${propertyId}/plans`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!propertyId,
+  });
+
   const handleSelectBed = (bed: any, floor: any, room?: any) => {
     setSelectedBed(bed);
     setSelectedFloor(floor);
     if (room) setSelectedRoom(room);
+    if (!selectedPlan && bed.roomTypeId && propertyPlansParent.length > 0) {
+      const matchedPlan = propertyPlansParent.find((p: any) => p.roomTypeId === bed.roomTypeId);
+      setAutoDetectedPlan(matchedPlan || null);
+    }
   };
 
   const getBedSharingRoomType = (bed: any, room: any) => {
@@ -1232,12 +1248,15 @@ export default function PropertyBooking() {
 
   const handleSelectPlan = (plan: any) => {
     setSelectedPlan(plan);
+    setAutoDetectedPlan(null);
     toast({
       title: `${plan.name} selected`,
       description: "Now select a bed to complete your booking with this plan.",
     });
     scrollToFloors();
   };
+
+  const effectivePlan = selectedPlan || autoDetectedPlan;
 
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
     if (!property) return;
@@ -1256,8 +1275,8 @@ export default function PropertyBooking() {
       floorId: selectedFloor?.id,
       floorName: selectedFloor?.name,
       roomTypology: selectedRoom?.typology || "",
-      selectedPlanId: selectedPlan?.id || null,
-      selectedPlanName: selectedPlan?.name || null,
+      selectedPlanId: effectivePlan?.id || null,
+      selectedPlanName: effectivePlan?.name || null,
     }));
     navigate("/booking/generate");
   };
@@ -1270,9 +1289,11 @@ export default function PropertyBooking() {
       toast({ title: "Room type not found", variant: "destructive" });
       return;
     }
-    const price = property.bookingMode === "academic_year"
+    const planPrice = effectivePlan ? Number(effectivePlan.basePrice || 0) : 0;
+    const rtPrice = property.bookingMode === "academic_year"
       ? (effectiveRoomType.academicYearPrice || effectiveRoomType.basePrice * 11)
       : effectiveRoomType.basePrice;
+    const price = planPrice > 0 ? planPrice : rtPrice;
     handleBookRoom(
       effectiveRoomType.id,
       effectiveRoomType.customName || effectiveRoomType.name,
@@ -1556,28 +1577,93 @@ export default function PropertyBooking() {
                               <p className="font-semibold text-gray-900 text-sm">{(selectedRoomType.customName || selectedRoomType.name) + (selectedRoom?.typology && selectedRoom.typology !== "1 Bed" ? `(${selectedRoom.typology})` : "")}</p>
                             </div>
                           </div>
-                          <div className="border-t border-stone-100 pt-4 bg-gradient-to-b from-amber-50/50 to-stone-50 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl">
+
+                          {effectivePlan && (() => {
+                            const planTierColors = getBedTierColors(effectivePlan.tierLevel ?? 0);
+                            const planPrice = Number(effectivePlan.basePrice || 0);
+                            return (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={cn("border-2 rounded-xl p-3 relative overflow-hidden", planTierColors.roomBorder)}
+                                data-testid="summary-active-plan"
+                              >
+                                <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ background: `linear-gradient(135deg, ${planTierColors.overlay} 0%, transparent 60%)` }} />
+                                <div className="relative">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", planTierColors.badgeBg)}>
+                                      <Crown className={cn("w-4 h-4", planTierColors.badgeText)} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-[9px] text-stone-400 uppercase tracking-wider font-medium">Active Plan</p>
+                                      <p className={cn("font-bold text-sm", planTierColors.text)}>{effectivePlan.name}</p>
+                                    </div>
+                                    {selectedPlan && (
+                                      <button
+                                        onClick={() => { setSelectedPlan(null); setAutoDetectedPlan(null); }}
+                                        className="w-5 h-5 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors"
+                                        data-testid="button-clear-plan"
+                                      >
+                                        <X className="w-3 h-3 text-stone-500" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {effectivePlan.tagline && (
+                                    <p className="text-[10px] text-stone-500 italic mb-2">{effectivePlan.tagline}</p>
+                                  )}
+                                  {planPrice > 0 && (
+                                    <div className="flex items-baseline gap-1.5 mb-1">
+                                      <span className={cn("text-lg font-bold", planTierColors.text)}>₹{planPrice.toLocaleString("en-IN")}</span>
+                                      <span className="text-[10px] text-stone-400">/ year</span>
+                                    </div>
+                                  )}
+                                  {(effectivePlan.items || []).length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-stone-100 space-y-1">
+                                      {(effectivePlan.items || []).slice(0, 3).map((item: any) => (
+                                        <div key={item.id} className="flex items-center gap-1.5 text-[10px]">
+                                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                          <span className="text-stone-600">{item.label}: <span className="font-medium text-stone-800">{item.featureValue || `${item.includedQty} ${item.unit}`}</span></span>
+                                        </div>
+                                      ))}
+                                      {(effectivePlan.items || []).length > 3 && (
+                                        <p className="text-[9px] text-stone-400">+{(effectivePlan.items || []).length - 3} more features</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            );
+                          })()}
+
+                          <div className={cn(
+                            "border-t border-stone-100 pt-4 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl",
+                            effectivePlan ? "bg-gradient-to-b from-stone-50 to-white" : "bg-gradient-to-b from-amber-50/50 to-stone-50"
+                          )}>
                             <div className="flex justify-between items-baseline">
                               <span className="text-stone-500 text-sm">Total Price</span>
                               <div className="text-right">
                                 {(() => {
                                   const isAcademic = property.bookingMode === "academic_year";
-                                  const annualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
-                                  const monthlyPrice = isAcademic
+                                  const planPrice = effectivePlan ? Number(effectivePlan.basePrice || 0) : 0;
+                                  const rtAnnualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
+                                  const rtMonthlyPrice = isAcademic
                                     ? (selectedRoomType.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType.basePrice || 0)
                                     : (selectedRoomType.basePrice || 0);
-                                  const displayPrice = isAcademic ? annualPrice : monthlyPrice;
+                                  const showPlanPrice = effectivePlan && planPrice > 0;
+                                  const displayPrice = showPlanPrice ? planPrice : (isAcademic ? rtAnnualPrice : rtMonthlyPrice);
+                                  const priceLabel = showPlanPrice ? "per year" : (isAcademic ? "per year" : "per month");
+                                  const monthlyEquiv = showPlanPrice ? Math.round(planPrice / 12) : (isAcademic && rtMonthlyPrice > 0 ? rtMonthlyPrice : 0);
                                   return (
                                     <>
-                                      <span className="text-3xl font-bold text-amber-600">
+                                      <span className={cn("text-3xl font-bold", effectivePlan ? "text-stone-900" : "text-amber-600")}>
                                         {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                       </span>
                                       <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
-                                        {isAcademic ? "per year" : "per month"}
+                                        {priceLabel}
                                       </p>
-                                      {isAcademic && monthlyPrice > 0 && (
+                                      {monthlyEquiv > 0 && (
                                         <p className="text-[10px] text-stone-400">
-                                          ≈ ₹{monthlyPrice.toLocaleString("en-IN")}/mo
+                                          ≈ ₹{monthlyEquiv.toLocaleString("en-IN")}/mo
                                         </p>
                                       )}
                                     </>
@@ -1591,38 +1677,6 @@ export default function PropertyBooking() {
                       <Button onClick={handleBookSelectedBed} className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20" data-testid="button-proceed-booking">
                         Proceed to Book <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
-                    </motion.div>
-                  )}
-
-                  {selectedPlan && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="border-t border-stone-100 pt-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg flex items-center justify-center shrink-0">
-                          <Crown className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Selected Plan</p>
-                          <p className="font-semibold text-gray-900 text-sm">{selectedPlan.name}</p>
-                          {selectedPlan.roomTypeId ? (
-                            <p className="text-[10px] text-amber-600 mt-0.5">
-                              {selectedPlan.roomTypeName ? `${selectedPlan.roomTypeName} beds highlighted` : "Matching beds highlighted in gold"}
-                            </p>
-                          ) : (
-                            <p className="text-[10px] text-stone-400 mt-0.5">All beds available for this plan</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => setSelectedPlan(null)}
-                          className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors"
-                          data-testid="button-clear-plan"
-                        >
-                          <X className="w-3 h-3 text-stone-500" />
-                        </button>
-                      </div>
                     </motion.div>
                   )}
 

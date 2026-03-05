@@ -66,6 +66,7 @@ Preferred communication style: Simple, everyday language.
 - **Admin Management**: Tools for floor/room/bed auto-generation, visual management, status updates, and virtual tour image uploads (Matterport, Kuula, CloudPano integration).
 - **Plan Assignment on Floors & Beds**: Room cards on `/admin/floors-beds` show linked plan badges (violet) or "Assign Plan" button; clicking opens dialog to link/unlink housing plans to the room type. Plans linked to other room types shown as dimmed "In use".
 - **Tier-Specific Bed Highlighting**: Each plan tier has a distinct color palette on the booking page — tier 0 (base): emerald/teal, tier 1 (mid): violet/purple, tier 2 (premium): amber/gold. Plan banner, room card borders, plan badges, and bed glow effects all use the tier's palette. Non-matching rooms are dimmed. Plan name badge with crown icon shown on matching room cards.
+- **Auto Plan Detection in Booking Summary**: When a bed is selected from a plan-assigned room (even without clicking "Book Now" on a plan), the sidebar auto-detects and displays the plan with a rich "Active Plan" card showing tier-colored border, crown icon, plan name, tagline, price (₹/year), and top 3 features. Plan price is used as the Total Price and flows into the booking payload.
 - **Image Handling**: Direct file upload with WebP compression, object storage, secure image import from URLs.
 
 #### Booking Tree (Bed-wise Booking Details)
