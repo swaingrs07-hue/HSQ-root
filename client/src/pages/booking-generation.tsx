@@ -86,13 +86,33 @@ interface RegisteredStudent {
   fullName?: string;
   name?: string;
   email?: string;
+  studentEmail?: string;
+  registeredEmail?: string;
   phone?: string;
   collegeName?: string;
+  college?: string;
+  instituteName?: string;
   course?: string;
+  courseName?: string;
+  courseYear?: string;
   year?: string;
   city?: string;
+  room?: string;
   roomNumber?: string;
   propertyName?: string;
+  dietary?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  moveInDate?: string;
+  checkOutDate?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  parentRelation?: string;
+  homeAddress?: string;
+  accommodationType?: string;
+  photo?: string;
+  profileImageUrl?: string;
 }
 
 const STEP_CONFIG = [
@@ -564,20 +584,41 @@ export default function BookingGeneration() {
 
   const handleStudentSelect = (student: RegisteredStudent) => {
     const studentName = student.fullName || student.name || "";
+    const studentEmail = student.email || student.studentEmail || student.registeredEmail || "";
+    const studentCollege = student.collegeName || student.college || student.instituteName || "";
+    const studentCourse = student.course || student.courseName || "";
+    const studentRoom = student.roomNumber || student.room || "";
+    const genderMap: Record<string, string> = { male: "male", female: "female", Male: "male", Female: "female", other: "other", Other: "other" };
+    const dietaryMap: Record<string, string> = { Veg: "veg", "Non-Veg": "non_veg", Jain: "jain", Vegan: "vegan", veg: "veg", "non-veg": "non_veg", jain: "jain", vegan: "vegan" };
     setSelectedStudent(student);
     setFormData(prev => ({
       ...prev,
       studentId: student.id,
       walkInName: studentName,
       walkInPhone: student.phone || "",
-      walkInEmail: student.email || "",
+      walkInEmail: studentEmail,
       residentName: studentName,
       residentPhone: student.phone || "",
-      residentEmail: student.email || "",
-      residentRoomNo: student.roomNumber || "",
-      residentInstitute: student.collegeName || "",
-      residentCourse: student.course || "",
+      residentEmail: studentEmail,
+      residentRoomNo: studentRoom,
+      residentInstitute: studentCollege,
+      residentCourse: studentCourse,
+      residentGender: (student.gender ? genderMap[student.gender] || student.gender.toLowerCase() : "") || prev.residentGender,
+      residentDob: student.dateOfBirth || prev.residentDob,
+      residentDietaryPreference: (student.dietary ? dietaryMap[student.dietary] || student.dietary.toLowerCase() : "") || prev.residentDietaryPreference,
+      residentMoveInDate: student.moveInDate || prev.residentMoveInDate,
+      residentAccommodationType: student.accommodationType || prev.residentAccommodationType,
+      parentName: student.parentName || prev.parentName,
+      parentPhone: student.parentPhone || prev.parentPhone,
+      parentEmail: (student.parentEmail && student.parentEmail !== "null@gmail.com") ? student.parentEmail : prev.parentEmail,
+      parentRelation: student.parentRelation || prev.parentRelation,
     }));
+    if (student.profileImageUrl || student.photo) {
+      const imgUrl = student.profileImageUrl || student.photo || "";
+      if (imgUrl && !imgUrl.includes("ui-avatars.com")) {
+        setResidentPhotoUrl(imgUrl);
+      }
+    }
   };
 
   const handleLeadSelect = (leadId: string) => {
@@ -1194,9 +1235,9 @@ export default function BookingGeneration() {
                                         <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{student.email}</span>
                                       )}
                                     </div>
-                                    {(student.collegeName || student.course) && (
+                                    {(student.collegeName || student.college || student.instituteName || student.course || student.courseName) && (
                                       <p className="text-xs text-slate-400 mt-1 truncate">
-                                        {[student.collegeName, student.course, student.year].filter(Boolean).join(" · ")}
+                                        {[student.collegeName || student.college || student.instituteName, student.course || student.courseName, student.courseYear || student.year].filter(Boolean).join(" · ")}
                                       </p>
                                     )}
                                   </div>
@@ -1222,16 +1263,40 @@ export default function BookingGeneration() {
                               <span className="text-slate-400 text-xs">Phone</span>
                               <p className="font-medium text-slate-800">{selectedStudent.phone || "—"}</p>
                             </div>
-                            {selectedStudent.email && (
+                            {(selectedStudent.email || selectedStudent.studentEmail) && (
                               <div>
                                 <span className="text-slate-400 text-xs">Email</span>
-                                <p className="font-medium text-slate-800">{selectedStudent.email}</p>
+                                <p className="font-medium text-slate-800">{selectedStudent.email || selectedStudent.studentEmail}</p>
                               </div>
                             )}
-                            {selectedStudent.collegeName && (
+                            {(selectedStudent.collegeName || selectedStudent.college || selectedStudent.instituteName) && (
                               <div>
                                 <span className="text-slate-400 text-xs">College</span>
-                                <p className="font-medium text-slate-800">{selectedStudent.collegeName}</p>
+                                <p className="font-medium text-slate-800">{selectedStudent.collegeName || selectedStudent.college || selectedStudent.instituteName}</p>
+                              </div>
+                            )}
+                            {(selectedStudent.course || selectedStudent.courseName) && (
+                              <div>
+                                <span className="text-slate-400 text-xs">Course</span>
+                                <p className="font-medium text-slate-800">{[selectedStudent.course || selectedStudent.courseName, selectedStudent.courseYear || selectedStudent.year].filter(Boolean).join(" · ")}</p>
+                              </div>
+                            )}
+                            {selectedStudent.dietary && (
+                              <div>
+                                <span className="text-slate-400 text-xs">Dietary</span>
+                                <p className="font-medium text-slate-800">{selectedStudent.dietary}</p>
+                              </div>
+                            )}
+                            {selectedStudent.parentName && (
+                              <div>
+                                <span className="text-slate-400 text-xs">Parent</span>
+                                <p className="font-medium text-slate-800">{selectedStudent.parentName}{selectedStudent.parentPhone ? ` (${selectedStudent.parentPhone})` : ""}</p>
+                              </div>
+                            )}
+                            {selectedStudent.room && (
+                              <div>
+                                <span className="text-slate-400 text-xs">HMS Room</span>
+                                <p className="font-medium text-slate-800">{selectedStudent.room}</p>
                               </div>
                             )}
                           </div>
