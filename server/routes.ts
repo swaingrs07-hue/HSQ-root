@@ -7143,6 +7143,8 @@ export async function registerRoutes(
         isHighlighted: packageData.isHighlighted || false,
         occupancy: packageData.occupancy || null,
         locationInfo: packageData.locationInfo || null,
+        upgradeDescription: packageData.upgradeDescription || null,
+        upgradeFee: packageData.upgradeFee ?? null,
         validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
         validTo: packageData.validTo ? new Date(packageData.validTo) : null,
         isActive: packageData.isActive !== false,
@@ -7193,6 +7195,8 @@ export async function registerRoutes(
         isHighlighted: packageData.isHighlighted ?? existing.isHighlighted,
         occupancy: packageData.occupancy ?? existing.occupancy,
         locationInfo: packageData.locationInfo ?? existing.locationInfo,
+        upgradeDescription: packageData.upgradeDescription ?? existing.upgradeDescription,
+        upgradeFee: packageData.upgradeFee !== undefined ? packageData.upgradeFee : existing.upgradeFee,
         validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
         validTo: packageData.validTo ? new Date(packageData.validTo) : null,
         isActive: packageData.isActive ?? existing.isActive,
@@ -7469,6 +7473,63 @@ export async function registerRoutes(
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to debit wallet" });
+    }
+  });
+
+  // ============ PACKAGE UPGRADE ============
+
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-options", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const result = await storage.getPackageUpgradeOptions(req.params.bookingId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch upgrade options" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/packages/upgrade", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { targetPackageId, reason } = req.body;
+      if (!targetPackageId) return res.status(400).json({ error: "targetPackageId is required" });
+
+      const result = await storage.upgradeBookingPackage(
+        req.params.bookingId,
+        targetPackageId,
+        req.user!.id,
+        reason
+      );
+
+      await logActivity({
+        actor: {
+          id: req.user!.id,
+          name: req.user!.name || req.user!.email,
+          role: req.user!.role || "admin",
+        },
+        actionType: "UPDATE" as ActionType,
+        entityType: "BOOKING" as EntityType,
+        entityId: req.params.bookingId,
+        entityLabel: `Package upgrade: ${result.previousPackage.name} → ${result.newPackage.name}`,
+        metadata: {
+          upgradeType: "package_upgrade",
+          fromPackageId: result.previousPackage.id,
+          toPackageId: result.newPackage.id,
+          priceDifference: result.priceDifference,
+          reason: reason || null,
+        },
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Failed to upgrade package" });
+    }
+  });
+
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-history", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const history = await storage.getUpgradeHistory(req.params.bookingId);
+      res.json(history);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch upgrade history" });
     }
   });
 

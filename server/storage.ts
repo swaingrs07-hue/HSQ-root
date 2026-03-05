@@ -84,6 +84,12 @@ import {
   type InsertBed,
   type HomepageAmenity,
   type InsertHomepageAmenity,
+  packages,
+  packageItems,
+  bookingPackages,
+  packageUpgrades,
+  packageUsage,
+  walletLedger,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -351,6 +357,11 @@ export interface IStorage {
   createBed(bed: InsertBed): Promise<Bed>;
   createBeds(beds: InsertBed[]): Promise<Bed[]>;
   deleteBed(id: string): Promise<void>;
+
+  // Package Upgrades
+  getPackageUpgradeOptions(bookingId: string): Promise<any>;
+  upgradeBookingPackage(bookingId: string, targetPackageId: string, upgradedBy: string, reason?: string): Promise<any>;
+  getUpgradeHistory(bookingId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2008,6 +2019,183 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHomepageAmenity(id: string): Promise<void> {
     await db.delete(homepageAmenities).where(eq(homepageAmenities.id, id));
+  }
+
+  async getPackageUpgradeOptions(bookingId: string): Promise<any> {
+    const activeBPs = await db.select().from(bookingPackages)
+      .where(and(eq(bookingPackages.bookingId, bookingId), eq(bookingPackages.status, "ACTIVE")));
+
+    if (activeBPs.length === 0) {
+      return { currentPackage: null, options: [] };
+    }
+
+    const activeBP = activeBPs[0];
+    const [currentPkg] = await db.select().from(packages).where(eq(packages.id, activeBP.packageId));
+    if (!currentPkg) {
+      return { currentPackage: null, options: [] };
+    }
+
+    const currentItems = await db.select().from(packageItems)
+      .where(eq(packageItems.packageId, currentPkg.id))
+      .orderBy(packageItems.sortOrder);
+
+    const booking = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+    const propertyId = booking[0]?.propertyId;
+
+    let higherTierPackages;
+    if (propertyId) {
+      higherTierPackages = await db.select().from(packages)
+        .where(and(
+          eq(packages.propertyId, propertyId),
+          eq(packages.isActive, true),
+          sql`${packages.tierLevel} > ${currentPkg.tierLevel}`
+        ))
+        .orderBy(packages.tierLevel);
+    } else {
+      higherTierPackages = await db.select().from(packages)
+        .where(and(
+          eq(packages.isActive, true),
+          sql`${packages.tierLevel} > ${currentPkg.tierLevel}`
+        ))
+        .orderBy(packages.tierLevel);
+    }
+
+    const options = [];
+    for (const pkg of higherTierPackages) {
+      const items = await db.select().from(packageItems)
+        .where(eq(packageItems.packageId, pkg.id))
+        .orderBy(packageItems.sortOrder);
+
+      const priceDifference = pkg.upgradeFee !== null && pkg.upgradeFee !== undefined
+        ? pkg.upgradeFee
+        : pkg.basePrice - currentPkg.basePrice;
+
+      options.push({
+        ...pkg,
+        items,
+        priceDifference,
+        upgradeDescription: pkg.upgradeDescription,
+        isRecommended: pkg.isHighlighted,
+      });
+    }
+
+    return {
+      currentPackage: { ...currentPkg, items: currentItems, bookingPackageId: activeBP.id },
+      options,
+    };
+  }
+
+  async upgradeBookingPackage(bookingId: string, targetPackageId: string, upgradedBy: string, reason?: string): Promise<any> {
+    const activeBPs = await db.select().from(bookingPackages)
+      .where(and(eq(bookingPackages.bookingId, bookingId), eq(bookingPackages.status, "ACTIVE")));
+
+    if (activeBPs.length === 0) {
+      throw new Error("No active package found for this booking");
+    }
+
+    const activeBP = activeBPs[0];
+    const [currentPkg] = await db.select().from(packages).where(eq(packages.id, activeBP.packageId));
+    const [targetPkg] = await db.select().from(packages).where(eq(packages.id, targetPackageId));
+
+    if (!currentPkg) throw new Error("Current package not found");
+    if (!targetPkg) throw new Error("Target package not found");
+    if (!targetPkg.isActive) throw new Error("Target package is inactive");
+    if (targetPkg.tierLevel <= currentPkg.tierLevel) throw new Error("Can only upgrade to a higher tier package");
+
+    const priceDifference = targetPkg.upgradeFee !== null && targetPkg.upgradeFee !== undefined
+      ? targetPkg.upgradeFee
+      : Math.max(0, targetPkg.basePrice - currentPkg.basePrice);
+
+    const targetItems = await db.select().from(packageItems)
+      .where(eq(packageItems.packageId, targetPackageId))
+      .orderBy(packageItems.sortOrder);
+
+    const priceSnapshot = {
+      name: targetPkg.name,
+      basePrice: targetPkg.basePrice,
+      priceType: targetPkg.priceType,
+      taxPercent: targetPkg.taxPercent,
+      items: targetItems.map(i => ({
+        type: i.type,
+        label: i.label,
+        includedQty: i.includedQty,
+        unit: i.unit,
+        extraUnitPrice: i.extraUnitPrice,
+      })),
+    };
+
+    return await db.transaction(async (tx) => {
+      const [endedBP] = await tx.update(bookingPackages)
+        .set({ status: "ENDED", endDate: new Date() })
+        .where(eq(bookingPackages.id, activeBP.id))
+        .returning();
+
+      const [newBP] = await tx.insert(bookingPackages).values({
+        bookingId,
+        packageId: targetPackageId,
+        startDate: new Date(),
+        status: "ACTIVE",
+        priceSnapshot,
+        selectedItems: null,
+      }).returning();
+
+      const alacartItem = targetItems.find(i => i.type === "ala_cart_credit");
+      if (alacartItem && alacartItem.includedQty > 0) {
+        await tx.insert(walletLedger).values({
+          bookingId,
+          credit: alacartItem.includedQty,
+          debit: 0,
+          refType: "package_credit",
+          refId: newBP.id,
+          note: `Credit from upgrade to package "${targetPkg.name}"`,
+        });
+      }
+
+      const [upgradeRecord] = await tx.insert(packageUpgrades).values({
+        bookingId,
+        fromPackageId: currentPkg.id,
+        toPackageId: targetPkg.id,
+        fromBookingPackageId: activeBP.id,
+        toBookingPackageId: newBP.id,
+        priceDifference,
+        upgradeReason: reason || null,
+        upgradedBy,
+      }).returning();
+
+      return {
+        upgrade: upgradeRecord,
+        previousPackage: { ...currentPkg, bookingPackageId: activeBP.id },
+        newPackage: { ...targetPkg, items: targetItems, bookingPackageId: newBP.id },
+        priceDifference,
+      };
+    });
+  }
+
+  async getUpgradeHistory(bookingId: string): Promise<any[]> {
+    const upgrades = await db.select().from(packageUpgrades)
+      .where(eq(packageUpgrades.bookingId, bookingId))
+      .orderBy(desc(packageUpgrades.createdAt));
+
+    const result = [];
+    for (const upgrade of upgrades) {
+      const [fromPkg] = await db.select().from(packages).where(eq(packages.id, upgrade.fromPackageId));
+      const [toPkg] = await db.select().from(packages).where(eq(packages.id, upgrade.toPackageId));
+      const [upgrader] = upgrade.upgradedBy
+        ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, upgrade.upgradedBy))
+        : [null];
+
+      result.push({
+        ...upgrade,
+        fromPackageName: fromPkg?.name || "Unknown",
+        toPackageName: toPkg?.name || "Unknown",
+        fromPackage: fromPkg || null,
+        toPackage: toPkg || null,
+        upgradedByUser: upgrader || null,
+        upgradedByName: upgrader?.name || null,
+      });
+    }
+
+    return result;
   }
 }
 

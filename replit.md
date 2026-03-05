@@ -99,6 +99,16 @@ Preferred communication style: Simple, everyday language.
 - **API Endpoints**: `GET /api/admin/hms/properties`, `POST /api/admin/properties/:id/link-hms`, `POST .../unlink-hms`, `GET .../verify-hms`
 - **Property Code**: Optional field in Add Property form (Basic Details step) for HMS identification
 
+#### Package Upgrade System
+- **Purpose**: Admin can upgrade a booking's active package to a higher-tier package
+- **Schema**: `package_upgrades` table tracks upgrade history (fromPackageId, toPackageId, priceDifference, upgradeReason, upgradedBy); `packages` table has `upgradeDescription` and `upgradeFee` columns
+- **Upgrade Flow**: End current active package → Attach new higher-tier package → Record upgrade → Credit wallet (if ala carte)
+- **Price Calculation**: Uses `upgradeFee` override if set, otherwise auto-calculates as `targetBasePrice - currentBasePrice` (floor 0)
+- **Transaction Safety**: Upgrade operation is wrapped in a DB transaction for atomicity
+- **API**: `GET /api/admin/bookings/:id/packages/upgrade-options`, `POST .../upgrade`, `GET .../upgrade-history`
+- **Admin UI**: Upgrade dialog in completed-bookings page with comparison table (SERVICE TIER | UPGRADE FEE | KEY UPGRADES), recommended badge, upgrade history timeline
+- **Admin Package Editor**: `upgradeDescription` and `upgradeFee` fields in admin-packages.tsx create/edit form
+
 #### Homepage Amenities & Facilities Control
 - **Admin Route**: `/admin/amenities` — manage amenities shown on homepage "Amenities & Facilities" section
 - **Schema**: `homepage_amenities` table (title, description, imageUrl, icon, sortOrder, isActive)

@@ -44,6 +44,10 @@ import {
   Wallet,
   UtensilsCrossed,
   Shirt,
+  ArrowUpRight,
+  Star,
+  History,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -137,6 +141,14 @@ export default function CompletedBookings() {
   const [usageForm, setUsageForm] = useState({ itemType: "", qtyUsed: 1, note: "" });
   const [walletDialog, setWalletDialog] = useState(false);
   const [walletForm, setWalletForm] = useState({ type: "topup" as "topup" | "debit", amount: 0, note: "" });
+  const [upgradeDialog, setUpgradeDialog] = useState(false);
+  const [upgradeOptions, setUpgradeOptions] = useState<any>(null);
+  const [loadingUpgradeOptions, setLoadingUpgradeOptions] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [selectedUpgradeId, setSelectedUpgradeId] = useState<string | null>(null);
+  const [upgradeReason, setUpgradeReason] = useState("");
+  const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
+  const [showUpgradeHistory, setShowUpgradeHistory] = useState(false);
 
   const getAuthToken = () => {
     const authData = localStorage.getItem("hsquare_auth");
@@ -159,6 +171,55 @@ export default function CompletedBookings() {
       const res = await fetch("/api/admin/packages", { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setAllPackages(await res.json());
     } catch { }
+  };
+
+  const fetchUpgradeOptions = async (bookingId: string) => {
+    setLoadingUpgradeOptions(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${bookingId}/packages/upgrade-options`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setUpgradeOptions(data);
+      } else {
+        const err = await res.json();
+        toast({ title: "No upgrade options", description: err.error || "No active package to upgrade", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to load upgrade options", variant: "destructive" });
+    }
+    setLoadingUpgradeOptions(false);
+  };
+
+  const fetchUpgradeHistory = async (bookingId: string) => {
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${bookingId}/packages/upgrade-history`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setUpgradeHistory(await res.json());
+    } catch { }
+  };
+
+  const performUpgrade = async () => {
+    if (!selectedBooking || !selectedUpgradeId) return;
+    setUpgrading(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/packages/upgrade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetPackageId: selectedUpgradeId, reason: upgradeReason || undefined }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Package upgraded successfully" });
+      setUpgradeDialog(false);
+      setSelectedUpgradeId(null);
+      setUpgradeReason("");
+      fetchBookingPackages(selectedBooking.id);
+      fetchUpgradeHistory(selectedBooking.id);
+    } catch (error: any) {
+      toast({ title: "Upgrade failed", description: error.message, variant: "destructive" });
+    }
+    setUpgrading(false);
   };
 
   const attachPackage = async () => {
@@ -962,6 +1023,7 @@ export default function CompletedBookings() {
                       if (!showPackages) {
                         fetchBookingPackages(selectedBooking.id);
                         fetchAllPackages();
+                        fetchUpgradeHistory(selectedBooking.id);
                       }
                       setShowPackages(!showPackages);
                     }}
@@ -1000,6 +1062,9 @@ export default function CompletedBookings() {
                                         </Badge>
                                         {bp.status === "ACTIVE" && (
                                           <>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-indigo-500" title="Upgrade Plan" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid={`upgrade-${bp.id}`}>
+                                              <ArrowUpRight className="h-3 w-3" />
+                                            </Button>
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp); setUsageForm({ itemType: pkg?.items?.[0]?.type || "", qtyUsed: 1, note: "" }); }} data-testid={`usage-${bp.id}`}>
                                               <Plus className="h-3 w-3" />
                                             </Button>
@@ -1049,9 +1114,47 @@ export default function CompletedBookings() {
                             </div>
                           )}
 
-                          <Button size="sm" variant="outline" className="w-full gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: new Date().toISOString().slice(0, 10), endDate: "" }); }} data-testid="button-attach-package">
-                            <Plus className="h-3 w-3" /> Attach Package
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="flex-1 gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: new Date().toISOString().slice(0, 10), endDate: "" }); }} data-testid="button-attach-package">
+                              <Plus className="h-3 w-3" /> Attach Package
+                            </Button>
+                            {bookingPackages?.bookingPackages?.some((bp: any) => bp.status === "ACTIVE") && (
+                              <Button size="sm" variant="outline" className="flex-1 gap-1 text-emerald-600 border-emerald-200 text-xs" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid="button-upgrade-package">
+                                <ArrowUpRight className="h-3 w-3" /> Upgrade Plan
+                              </Button>
+                            )}
+                          </div>
+
+                          {upgradeHistory.length > 0 && (
+                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                              <button
+                                className="w-full flex items-center justify-between p-2 bg-slate-50 hover:bg-slate-100 transition-colors text-xs"
+                                onClick={() => setShowUpgradeHistory(!showUpgradeHistory)}
+                                data-testid="toggle-upgrade-history"
+                              >
+                                <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                                  <History className="h-3 w-3" /> Upgrade History ({upgradeHistory.length})
+                                </span>
+                                {showUpgradeHistory ? <ChevronUp className="h-3 w-3 text-slate-400" /> : <ChevronDown className="h-3 w-3 text-slate-400" />}
+                              </button>
+                              {showUpgradeHistory && (
+                                <div className="p-2 space-y-1.5">
+                                  {upgradeHistory.map((uh: any) => (
+                                    <div key={uh.id} className="flex items-center gap-2 text-[10px] p-1.5 bg-slate-50 rounded" data-testid={`upgrade-history-${uh.id}`}>
+                                      <ArrowUpRight className="h-3 w-3 text-emerald-500 shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="font-medium text-slate-700">{uh.fromPackageName}</span>
+                                        <span className="text-slate-400 mx-1">→</span>
+                                        <span className="font-medium text-emerald-700">{uh.toPackageName}</span>
+                                        <span className="text-slate-400 ml-1">+₹{Number(uh.priceDifference || 0).toLocaleString("en-IN")}</span>
+                                      </div>
+                                      <span className="text-slate-400 shrink-0">{uh.createdAt ? format(new Date(uh.createdAt), "dd MMM") : ""}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -1388,6 +1491,112 @@ export default function CompletedBookings() {
             </div>
             <Button className="w-full bg-indigo-600" onClick={recordUsage} data-testid="button-confirm-usage">Record Usage</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={upgradeDialog} onOpenChange={(open) => { setUpgradeDialog(open); if (!open) { setSelectedUpgradeId(null); setUpgradeReason(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-600" /> Upgrade Service Plan
+            </DialogTitle>
+          </DialogHeader>
+          {loadingUpgradeOptions ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-indigo-400" /></div>
+          ) : upgradeOptions ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-xs text-slate-500 mb-1">Current Plan</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800">{upgradeOptions.currentPackage?.name}</span>
+                  <span className="font-bold text-slate-700">₹{Number(upgradeOptions.currentPackage?.basePrice || 0).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              {upgradeOptions.options?.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Available Upgrades</p>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-0 bg-emerald-700 text-white text-xs font-semibold">
+                      <div className="p-2.5">SERVICE TIER</div>
+                      <div className="p-2.5 text-center border-x border-emerald-600">UPGRADE FEE</div>
+                      <div className="p-2.5">KEY UPGRADES</div>
+                    </div>
+                    {upgradeOptions.options.map((opt: any) => (
+                      <button
+                        key={opt.id}
+                        className={`w-full grid grid-cols-[1fr_auto_1fr] gap-0 border-t text-sm transition-colors ${
+                          selectedUpgradeId === opt.id
+                            ? "bg-emerald-50 border-emerald-200"
+                            : "bg-white hover:bg-slate-50 border-slate-200"
+                        }`}
+                        onClick={() => setSelectedUpgradeId(opt.id)}
+                        data-testid={`upgrade-option-${opt.id}`}
+                      >
+                        <div className="p-2.5 flex items-center gap-2 text-left">
+                          <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedUpgradeId === opt.id ? "border-emerald-500" : "border-slate-300"}`}>
+                            {selectedUpgradeId === opt.id && <div className="h-2 w-2 rounded-full bg-emerald-500" />}
+                          </div>
+                          <div>
+                            <span className="font-medium text-slate-800">{opt.name}</span>
+                            {opt.isHighlighted && (
+                              <Badge className="ml-1.5 bg-amber-100 text-amber-700 border-0 text-[9px] px-1.5 py-0">
+                                <Star className="h-2.5 w-2.5 mr-0.5 fill-amber-500" /> Recommended
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-2.5 text-center font-bold text-emerald-700 border-x border-slate-100 whitespace-nowrap">
+                          ₹{Number(opt.priceDifference || 0).toLocaleString("en-IN")}
+                        </div>
+                        <div className="p-2.5 text-left text-xs text-slate-600">
+                          {opt.isHighlighted && <span className="font-bold text-slate-800">Recommended: </span>}
+                          {opt.upgradeDescription || opt.tagline || "Premium tier with enhanced features"}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-sm">
+                  No higher-tier plans available for upgrade
+                </div>
+              )}
+
+              {selectedUpgradeId && (
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-emerald-800">Upgrade Fee</span>
+                      <span className="text-lg font-bold text-emerald-700">
+                        ₹{Number(upgradeOptions.options.find((o: any) => o.id === selectedUpgradeId)?.priceDifference || 0).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Upgrade Reason (optional)</Label>
+                    <Input
+                      value={upgradeReason}
+                      onChange={e => setUpgradeReason(e.target.value)}
+                      placeholder="e.g. Student requested better room view"
+                      data-testid="input-upgrade-reason"
+                    />
+                  </div>
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
+                    onClick={performUpgrade}
+                    disabled={upgrading}
+                    data-testid="button-confirm-upgrade"
+                  >
+                    {upgrading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                    {upgrading ? "Upgrading..." : "Confirm Upgrade"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-400 text-sm">No active package found to upgrade</div>
+          )}
         </DialogContent>
       </Dialog>
 

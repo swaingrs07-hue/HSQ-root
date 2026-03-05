@@ -52,6 +52,8 @@ interface PackageData {
   validFrom: string;
   validTo: string;
   isActive: boolean;
+  upgradeDescription: string;
+  upgradeFee: string;
   items: PackageItemData[];
 }
 
@@ -73,7 +75,8 @@ const UNIT_OPTIONS = ["unit", "items/week", "items/month", "meals/day", "credits
 const emptyPackage: PackageData = {
   propertyId: "", name: "", description: "", tagline: "", priceType: "PER_MONTH", basePrice: 0,
   currency: "INR", taxPercent: "", tierLevel: 0, isHighlighted: false,
-  occupancy: "", locationInfo: "", validFrom: "", validTo: "", isActive: true, items: [],
+  occupancy: "", locationInfo: "", validFrom: "", validTo: "", isActive: true,
+  upgradeDescription: "", upgradeFee: "", items: [],
 };
 
 export default function AdminPackages() {
@@ -138,7 +141,10 @@ export default function AdminPackages() {
       locationInfo: pkg.locationInfo || "",
       validFrom: pkg.validFrom ? new Date(pkg.validFrom).toISOString().slice(0, 10) : "",
       validTo: pkg.validTo ? new Date(pkg.validTo).toISOString().slice(0, 10) : "",
-      isActive: pkg.isActive, items: (pkg.items || []).map((it: any) => ({ ...it, featureValue: it.featureValue || "" })),
+      isActive: pkg.isActive,
+      upgradeDescription: pkg.upgradeDescription || "",
+      upgradeFee: pkg.upgradeFee != null ? String(pkg.upgradeFee) : "",
+      items: (pkg.items || []).map((it: any) => ({ ...it, featureValue: it.featureValue || "" })),
     });
     setEditId(pkg.id);
     setDialogOpen(true);
@@ -156,6 +162,8 @@ export default function AdminPackages() {
         tierLevel: Number(editingPkg.tierLevel) || 0,
         validFrom: editingPkg.validFrom || null,
         validTo: editingPkg.validTo || null,
+        upgradeDescription: editingPkg.upgradeDescription || null,
+        upgradeFee: editingPkg.upgradeFee ? Number(editingPkg.upgradeFee) : null,
       };
       const url = editId ? `/api/admin/packages/${editId}` : "/api/admin/packages";
       const method = editId ? "PUT" : "POST";
@@ -465,6 +473,22 @@ export default function AdminPackages() {
               <div className="space-y-2">
                 <Label>Currency</Label>
                 <Input value={editingPkg.currency} onChange={e => setEditingPkg(p => ({ ...p, currency: e.target.value }))} data-testid="input-currency" />
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+              <h3 className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-1.5"><Sparkles className="h-4 w-4" /> Upgrade Settings</h3>
+              <p className="text-xs text-amber-600 mb-3">Define what key upgrades this tier offers when upgrading from a lower tier. This is shown in the upgrade comparison table.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Upgrade Description</Label>
+                  <Textarea value={editingPkg.upgradeDescription} onChange={e => setEditingPkg(p => ({ ...p, upgradeDescription: e.target.value }))} placeholder="e.g. Runway View + 50% More Space + 2 AM Credits" rows={2} data-testid="input-upgrade-description" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Upgrade Fee Override (₹)</Label>
+                  <Input type="number" value={editingPkg.upgradeFee} onChange={e => setEditingPkg(p => ({ ...p, upgradeFee: e.target.value }))} placeholder="Leave blank to auto-calculate from price difference" data-testid="input-upgrade-fee" />
+                  <p className="text-xs text-slate-400">If blank, fee = target price − current price</p>
+                </div>
               </div>
             </div>
 

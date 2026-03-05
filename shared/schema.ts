@@ -1183,6 +1183,8 @@ export const packages = pgTable("packages", {
   isHighlighted: boolean("is_highlighted").notNull().default(false),
   occupancy: text("occupancy"),
   locationInfo: text("location_info"),
+  upgradeDescription: text("upgrade_description"),
+  upgradeFee: integer("upgrade_fee"),
   validFrom: timestamp("valid_from"),
   validTo: timestamp("valid_to"),
   isActive: boolean("is_active").notNull().default(true),
@@ -1240,6 +1242,19 @@ export const walletLedger = pgTable("wallet_ledger", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const packageUpgrades = pgTable("package_upgrades", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
+  fromPackageId: varchar("from_package_id").references(() => packages.id).notNull(),
+  toPackageId: varchar("to_package_id").references(() => packages.id).notNull(),
+  fromBookingPackageId: varchar("from_booking_package_id").references(() => bookingPackages.id),
+  toBookingPackageId: varchar("to_booking_package_id").references(() => bookingPackages.id),
+  priceDifference: integer("price_difference").notNull().default(0),
+  upgradeReason: text("upgrade_reason"),
+  upgradedBy: varchar("upgraded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const packagesRelations = relations(packages, ({ many }) => ({
   items: many(packageItems),
   bookingPackages: many(bookingPackages),
@@ -1279,6 +1294,10 @@ export type InsertPackageUsage = z.infer<typeof insertPackageUsageSchema>;
 export const insertWalletLedgerSchema = createInsertSchema(walletLedger).omit({ id: true, createdAt: true });
 export type WalletLedgerEntry = typeof walletLedger.$inferSelect;
 export type InsertWalletLedger = z.infer<typeof insertWalletLedgerSchema>;
+
+export const insertPackageUpgradeSchema = createInsertSchema(packageUpgrades).omit({ id: true, createdAt: true });
+export type PackageUpgrade = typeof packageUpgrades.$inferSelect;
+export type InsertPackageUpgrade = z.infer<typeof insertPackageUpgradeSchema>;
 
 // ============ SEASON / BATCH MANAGEMENT ============
 
