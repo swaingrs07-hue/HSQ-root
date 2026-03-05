@@ -2126,7 +2126,16 @@ export default function BookingGeneration() {
                               <button
                                 key={num}
                                 type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentDueDates: [] }))}
+                                onClick={() => {
+                                  const today = new Date().toISOString().split("T")[0];
+                                  const defaultDates = [today];
+                                  for (let j = 1; j < num; j++) {
+                                    const d = new Date();
+                                    d.setMonth(d.getMonth() + j);
+                                    defaultDates.push(d.toISOString().split("T")[0]);
+                                  }
+                                  setFormData(prev => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentDueDates: defaultDates }));
+                                }}
                                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                                   formData.numberOfInstallments === num
                                     ? "border-purple-500 bg-purple-100 text-purple-700"
