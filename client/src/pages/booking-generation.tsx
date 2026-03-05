@@ -1362,7 +1362,7 @@ export default function BookingGeneration() {
                           );
                           const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId))
                             .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !b.roomId));
-                          const availBedCount = allFloorBeds.filter((b: any) => b.status === "available").length;
+                          const availBedCount = allFloorBeds.filter((b: any) => b.status === "available" && !b.held).length;
                           const totalBedCount = allFloorBeds.length;
                           if (totalBedCount === 0) return null;
                           const isExpanded = expandedFloors.has(floor.id);
@@ -1421,11 +1421,13 @@ export default function BookingGeneration() {
                                     })) : null;
 
                                     const renderBedCell = (bed: any) => {
-                                      const isAvail = bed.status === "available";
+                                      const isHeld = bed.held && selectedBedId !== bed.id;
+                                      const isAvail = bed.status === "available" && !isHeld;
                                       const isSelected = selectedBedId === bed.id;
                                       const isBlocked = bed.status === "blocked";
                                       const statusColor = isSelected
                                         ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
+                                        : isHeld ? "bg-orange-400"
                                         : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
                                         : bed.status === "occupied" ? "bg-rose-500"
                                         : bed.status === "reserved" ? "bg-amber-400"
@@ -1437,13 +1439,17 @@ export default function BookingGeneration() {
                                           key={bed.id}
                                           type="button"
                                           disabled={!isAvail && !isSelected}
+                                          title={isHeld ? "Booking in progress by another user" : undefined}
                                           onClick={() => {
                                             if (isSelected) {
+                                              if (heldBedId === bed.id) releaseBedHold(bed.id);
                                               setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
                                               setFormData(prev => ({ ...prev, residentRoomNo: "", residentBedNo: "", residentAccommodationType: "" }));
                                             } else if (isAvail) {
+                                              if (heldBedId) releaseBedHold(heldBedId);
                                               setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                               setSelectedFloorId(floor.id); setSelectedRoomId(room.id);
+                                              holdBedForBooking(bed.id);
                                               const accomType = getAccommodationType(bed, room);
                                               setFormData(prev => ({ ...prev, residentRoomNo: room.roomNumber, residentBedNo: bed.bedNumber, residentAccommodationType: accomType }));
                                             }
@@ -1499,10 +1505,12 @@ export default function BookingGeneration() {
                                       <p className="text-xs font-medium text-slate-500 mb-2">Unassigned Beds ({orphanBeds.length})</p>
                                       <div className="flex gap-1.5 flex-wrap">
                                         {orphanBeds.map((bed: any) => {
-                                          const isAvail = bed.status === "available";
+                                          const isOrphanHeld = bed.held && selectedBedId !== bed.id;
+                                          const isAvail = bed.status === "available" && !isOrphanHeld;
                                           const isSelected = selectedBedId === bed.id;
                                           const statusColor = isSelected
                                             ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
+                                            : isOrphanHeld ? "bg-orange-400"
                                             : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
                                             : "bg-slate-400";
                                           return (
@@ -1510,13 +1518,17 @@ export default function BookingGeneration() {
                                               key={bed.id}
                                               type="button"
                                               disabled={!isAvail && !isSelected}
+                                              title={isOrphanHeld ? "Booking in progress by another user" : undefined}
                                               onClick={() => {
                                                 if (isSelected) {
+                                                  if (heldBedId === bed.id) releaseBedHold(bed.id);
                                                   setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
                                                   setFormData(prev => ({ ...prev, residentRoomNo: "", residentAccommodationType: "" }));
                                                 } else if (isAvail) {
+                                                  if (heldBedId) releaseBedHold(heldBedId);
                                                   setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                                   setSelectedFloorId(floor.id); setSelectedRoomId("");
+                                                  holdBedForBooking(bed.id);
                                                   setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber, residentAccommodationType: "single" }));
                                                 }
                                               }}
