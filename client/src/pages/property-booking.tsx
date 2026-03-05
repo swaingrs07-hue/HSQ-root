@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -522,6 +522,26 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     enabled: !!property?.id,
   });
 
+  const { data: propertyPlans = [] } = useQuery({
+    queryKey: [`/api/properties/${property.id}/plans`],
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${property.id}/plans`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!property?.id,
+  });
+
+  const roomTypePlanMap = useMemo(() => {
+    const map: Record<string, { name: string; tierLevel: number; id: string }> = {};
+    for (const plan of propertyPlans) {
+      if (plan.roomTypeId) {
+        map[plan.roomTypeId] = { name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id };
+      }
+    }
+    return map;
+  }, [propertyPlans]);
+
   useEffect(() => {
     if (!autoExpand || floorsData.length === 0) return;
     if (prevAutoExpandRef.current === autoExpand) return;
@@ -574,7 +594,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
   };
 
-  const tierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0) : null;
+  const activeTierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0) : null;
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
@@ -583,6 +603,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     const matchesPlanFilter = !filterRoomTypeId || bed.roomTypeId === filterRoomTypeId;
     const isPlanHighlighted = isAvailable && filterRoomTypeId && matchesPlanFilter;
     const isDimmedByPlan = isAvailable && filterRoomTypeId && !matchesPlanFilter;
+
+    const bedPlanInfo = bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null;
+    const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel) : null;
+    const hasPassivePlan = isAvailable && !filterRoomTypeId && bedPlanInfo && bedPlanColors;
+
+    const tierColors = isPlanHighlighted ? activeTierColors : (hasPassivePlan ? bedPlanColors : null);
+
     const config = isHeld 
       ? { bg: "bg-gradient-to-br from-orange-300/60 to-orange-500/60", border: "border-orange-400/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
       : (statusConfig[bed.status] || statusConfig.maintenance);
@@ -600,14 +627,16 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           "relative p-2 border-2 rounded-xl text-center transition-all duration-300",
           isPlanHighlighted && tierColors
             ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
-            : isDimmedByPlan
-              ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
-              : cn(config.bg, config.border),
+            : hasPassivePlan && bedPlanColors
+              ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
+              : isDimmedByPlan
+                ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
+                : cn(config.bg, config.border),
           (isAvailable && matchesPlanFilter) ? "cursor-pointer" : (!isDimmedByPlan && config.cursor),
-          !isAvailable && !isDimmedByPlan && "opacity-40",
+          !isAvailable && !isDimmedByPlan && !hasPassivePlan && "opacity-40",
           isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/50"
         )}
-        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${selectedPlan && isPlanHighlighted ? ` — ${selectedPlan.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
         {isPlanHighlighted && !isSelected && tierColors && (
@@ -627,11 +656,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             />
           </>
         )}
-        {isAvailable && !isSelected && !isPlanHighlighted && !isDimmedByPlan && (
+        {hasPassivePlan && !isSelected && !isPlanHighlighted && bedPlanColors && (
+          <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/20 pointer-events-none" />
+        )}
+        {isAvailable && !isSelected && !isPlanHighlighted && !isDimmedByPlan && !hasPassivePlan && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
         )}
-        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isPlanHighlighted && tierColors ? tierColors.iconText : isSelected ? "text-white" : "text-white/90")} />
-        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isPlanHighlighted && tierColors ? tierColors.text : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
+        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", (isPlanHighlighted || hasPassivePlan) && tierColors ? tierColors.iconText : isSelected ? "text-white" : "text-white/90")} />
+        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", (isPlanHighlighted || hasPassivePlan) && tierColors ? tierColors.text : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
@@ -642,7 +674,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
         )}
-        {isAvailable && matchesPlanFilter && !isPlanHighlighted && (
+        {isAvailable && matchesPlanFilter && !isPlanHighlighted && !hasPassivePlan && (
           <div className="absolute inset-0 rounded-[10px] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         )}
       </motion.button>
@@ -775,25 +807,34 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
                               const roomMatchesPlan = filterRoomTypeId && room.roomTypeId === filterRoomTypeId;
                               const roomDimmedByPlan = filterRoomTypeId && room.roomTypeId !== filterRoomTypeId;
+                              const roomPlanInfo = room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null;
+                              const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel) : null;
+                              const hasPassiveRoomPlan = !filterRoomTypeId && roomPlanInfo && roomPlanColors;
 
                               return (
                                 <div key={room.id} className={cn(
                                   "border rounded-xl p-3 transition-all",
-                                  roomMatchesPlan && tierColors
-                                    ? cn("border-2", tierColors.roomBorder)
+                                  roomMatchesPlan && activeTierColors
+                                    ? cn("border-2", activeTierColors.roomBorder)
                                     : roomDimmedByPlan
                                       ? "border-stone-200 bg-stone-50/30 opacity-40"
-                                      : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
+                                      : hasPassiveRoomPlan
+                                        ? cn("border-2", roomPlanColors.roomBorder)
+                                        : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
                                 )} data-testid={`room-${room.id}`}>
                                   <div className="flex items-center gap-2 mb-2.5">
                                     <span className="text-xs font-bold text-stone-700">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
                                     {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">Shared WC</Badge>}
-                                    {roomMatchesPlan && selectedPlan && tierColors && (
-                                      <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", tierColors.badgeBg, tierColors.badgeText)}>
+                                    {roomMatchesPlan && selectedPlan && activeTierColors ? (
+                                      <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", activeTierColors.badgeBg, activeTierColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
                                       </Badge>
-                                    )}
+                                    ) : hasPassiveRoomPlan && roomPlanColors ? (
+                                      <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", roomPlanColors.badgeBg, roomPlanColors.badgeText)}>
+                                        <Crown className="w-2.5 h-2.5 mr-0.5" /> {roomPlanInfo.name}
+                                      </Badge>
+                                    ) : null}
                                     <div className="flex-1" />
                                     {room.monthlyPrice && <span className="text-[10px] text-stone-400 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
                                     <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200")}>{roomAvail} open</Badge>
