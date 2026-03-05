@@ -341,13 +341,13 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/50 pointer-events-none" />
 
-            <div className="absolute top-0 left-0 right-0 z-10">
+            <div className="absolute top-[72px] left-0 right-0 z-[5]">
               <div className="h-[2px] bg-white/10">
                 <motion.div className="h-full bg-gradient-to-r from-amber-500 to-amber-400" animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
               </div>
             </div>
 
-            <div className="absolute top-4 left-4 right-4 z-10 flex items-start justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute top-20 left-4 right-4 z-[5] flex items-start justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <div className="bg-black/30 backdrop-blur-2xl rounded-2xl px-4 py-2.5 border border-white/10">
                 <div className="flex items-center gap-2">
                   <currentRoom.icon className="w-4 h-4 text-amber-400" />
