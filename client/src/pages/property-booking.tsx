@@ -1223,13 +1223,46 @@ export default function PropertyBooking() {
     setSelectedFloor(floor);
     if (room) setSelectedRoom(room);
     if (!selectedPlan && bed.roomTypeId && propertyPlansParent.length > 0) {
-      const matchedPlan = propertyPlansParent.find((p: any) => p.roomTypeId === bed.roomTypeId);
+      const effectiveRT = getBedSharingRoomType(bed, room || selectedRoom);
+      const rtId = effectiveRT?.id || bed.roomTypeId;
+      const matchedPlan = propertyPlansParent.find((p: any) => {
+        const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
+        return allLinked.includes(rtId) || p.roomTypeId === rtId;
+      });
       setAutoDetectedPlan(matchedPlan || null);
     }
   };
 
-  const getBedSharingRoomType = (bed: any, _room: any) => {
+  const getBedSharingRoomType = (bed: any, room: any) => {
     if (!bed || !property?.roomTypes) return null;
+    if (room?.typology && room.typology.includes("+")) {
+      const parts = room.typology.split("+").map((p: string) => parseInt(p));
+      const sectionIndex = parts.findIndex((_: number, i: number) => {
+        const sectionLetter = String.fromCharCode(65 + i);
+        return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+      });
+      if (sectionIndex >= 0) {
+        const sectionBedCount = parts[sectionIndex];
+        const baseRoomType = property.roomTypes.find((r: any) => r.id === bed.roomTypeId);
+        if (sectionBedCount === 1) {
+          const singleType = property.roomTypes.find((r: any) =>
+            (r.name === "Single" || r.customName?.toLowerCase()?.includes("single")) && r.id !== bed.roomTypeId
+          );
+          if (singleType) return singleType;
+        } else if (sectionBedCount === 2) {
+          const doubleType = property.roomTypes.find((r: any) =>
+            r.name === "Double" && !r.customName && r.id !== bed.roomTypeId
+          );
+          if (doubleType) return doubleType;
+        } else if (sectionBedCount === 3) {
+          const tripleType = property.roomTypes.find((r: any) =>
+            r.name === "Triple" && !r.customName && r.id !== bed.roomTypeId
+          );
+          if (tripleType) return tripleType;
+        }
+        return baseRoomType || null;
+      }
+    }
     return property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
   };
 
@@ -1565,7 +1598,13 @@ export default function PropertyBooking() {
                             </div>
                             <div>
                               <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Type</p>
-                              <p className="font-semibold text-gray-900 text-sm">{(selectedRoomType.customName || selectedRoomType.name) + (selectedRoom?.typology && selectedRoom.typology !== "1 Bed" ? `(${selectedRoom.typology})` : "")}</p>
+                              <p className="font-semibold text-gray-900 text-sm">{(() => {
+                                const rtName = selectedRoomType.customName || selectedRoomType.name;
+                                if (selectedRoom?.typology?.includes("+") && selectedRoomType.id !== selectedBed?.roomTypeId) {
+                                  return rtName;
+                                }
+                                return rtName + (selectedRoom?.typology && selectedRoom.typology !== "1 Bed" ? `(${selectedRoom.typology})` : "");
+                              })()}</p>
                             </div>
                           </div>
 
