@@ -1603,7 +1603,9 @@ export default function PropertyBooking() {
                                 if (selectedRoom?.typology?.includes("+") && selectedRoomType.id !== selectedBed?.roomTypeId) {
                                   return rtName;
                                 }
-                                return rtName + (selectedRoom?.typology && selectedRoom.typology !== "1 Bed" ? `(${selectedRoom.typology})` : "");
+                                const typo = selectedRoom?.typology;
+                                if (!typo || typo === "1 Bed" || rtName.includes(typo)) return rtName;
+                                return `${rtName}(${typo})`;
                               })()}</p>
                             </div>
                           </div>
