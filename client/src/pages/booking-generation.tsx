@@ -187,11 +187,17 @@ export default function BookingGeneration() {
 
   const getAccommodationLabel = (bed: any, room: any): string => {
     if (!bed || !room) return "";
+    let name = "";
     if (bed.roomTypeId && roomTypes.length > 0) {
       const rt = roomTypes.find((r: any) => r.id === bed.roomTypeId);
-      if (rt) return rt.customName || rt.name || "";
+      if (rt) name = rt.customName || rt.name || "";
     }
-    return room.typology || "";
+    if (!name) name = "";
+    const typology = room.typology || "";
+    if (name && typology && typology !== "1 Bed") {
+      return `${name}(${typology})`;
+    }
+    return name || typology || "";
   };
 
   useEffect(() => {
@@ -332,8 +338,10 @@ export default function BookingGeneration() {
               }
               if (data.roomNumber || data.bedNumber) {
                 let accomType = "";
-                if (data.bedNumber && data.roomTypology) {
-                  accomType = data.roomTypeName || getAccommodationLabel(
+                if (data.roomTypeName && data.roomTypology && data.roomTypology !== "1 Bed") {
+                  accomType = `${data.roomTypeName}(${data.roomTypology})`;
+                } else if (data.bedNumber && data.roomTypology) {
+                  accomType = getAccommodationLabel(
                     { bedNumber: data.bedNumber },
                     { typology: data.roomTypology }
                   );
