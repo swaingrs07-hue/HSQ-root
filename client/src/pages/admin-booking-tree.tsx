@@ -16,7 +16,7 @@ import {
   Clock, Eye, Loader2, X, FileText, Shield, ArrowRight, History, Activity,
   Unlock, Link2, GraduationCap, MapPin, ChevronRight, Sparkles,
   LayoutGrid, Box, ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, List,
-  ChevronLeft, Home, Plus, Check, Settings
+  ChevronLeft, Home, Plus, Check, Settings, Play, Pause, Gauge
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -533,6 +533,8 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buildingScrollRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef<number | null>(null);
   const [zoom, setZoom] = useState(0.85);
   const [hoveredBed, setHoveredBed] = useState<any>(null);
   const [hoveredPos, setHoveredPos] = useState({ x: 0, y: 0 });
@@ -540,8 +542,36 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
   const [activeFloorIdx, setActiveFloorIdx] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [scrollSpeed, setScrollSpeed] = useState(1);
+  const [scrollPaused, setScrollPaused] = useState(false);
 
   useEffect(() => { setTimeout(() => setMounted(true), 100); }, []);
+
+  useEffect(() => {
+    if (drillLevel !== "building" || !autoScrollEnabled || scrollPaused) {
+      if (autoScrollRef.current) cancelAnimationFrame(autoScrollRef.current);
+      return;
+    }
+    const el = buildingScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    const pixelsPerFrame = 0.3 * scrollSpeed;
+    let lastTime = 0;
+    const scroll = (time: number) => {
+      if (lastTime) {
+        const delta = Math.min(time - lastTime, 50);
+        el.scrollTop -= pixelsPerFrame * (delta / 16);
+        if (el.scrollTop <= 0) {
+          el.scrollTop = el.scrollHeight;
+        }
+      }
+      lastTime = time;
+      autoScrollRef.current = requestAnimationFrame(scroll);
+    };
+    autoScrollRef.current = requestAnimationFrame(scroll);
+    return () => { if (autoScrollRef.current) cancelAnimationFrame(autoScrollRef.current); };
+  }, [drillLevel, autoScrollEnabled, scrollPaused, scrollSpeed]);
 
   const sortedFloors = useMemo(() => [...floors].sort((a, b) => a.floorNumber - b.floorNumber), [floors]);
 
@@ -612,6 +642,28 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
             <span className="text-[10px] text-white/30 font-mono min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom(z => Math.min(2.0, z + 0.15))} className="iso-ctrl-btn" data-testid="btn-zoom-in" aria-label="Zoom in"><ZoomIn className="w-4 h-4" /></button>
             <button onClick={() => setZoom(drillLevel === "building" ? 0.85 : 1.0)} className="iso-ctrl-btn" data-testid="btn-zoom-reset" aria-label="Reset zoom"><RotateCcw className="w-4 h-4" /></button>
+            {drillLevel === "building" && (
+              <>
+                <div className="w-px h-5 bg-white/10 mx-1" />
+                <button
+                  onClick={() => { if (!autoScrollEnabled) { setAutoScrollEnabled(true); setScrollPaused(false); } else { setScrollPaused(!scrollPaused); } }}
+                  className={cn("iso-ctrl-btn", autoScrollEnabled && !scrollPaused && "!bg-emerald-500/15 !border-emerald-500/30 !text-emerald-400")}
+                  data-testid="btn-auto-scroll"
+                  aria-label={autoScrollEnabled && !scrollPaused ? "Pause auto-scroll" : "Play auto-scroll"}
+                >
+                  {autoScrollEnabled && !scrollPaused ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setScrollSpeed(s => s >= 3 ? 0.5 : s + 0.5)}
+                  className="iso-ctrl-btn relative"
+                  data-testid="btn-scroll-speed"
+                  aria-label="Change scroll speed"
+                >
+                  <Gauge className="w-4 h-4" />
+                  <span className="absolute -bottom-0.5 -right-0.5 text-[7px] font-bold text-amber-400 bg-[#0a1628] rounded-full px-1">{scrollSpeed}x</span>
+                </button>
+              </>
+            )}
             <div className="w-px h-5 bg-white/10 mx-1" />
             <button onClick={toggleFullscreen} className="iso-ctrl-btn" data-testid="btn-fullscreen" aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -620,7 +672,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
-          <div ref={containerRef} className="relative flex items-center justify-center overflow-hidden" style={{ minHeight: isFullscreen ? "calc(100vh - 140px)" : "600px" }}>
+          <div ref={containerRef} className="relative overflow-hidden" style={{ minHeight: isFullscreen ? "calc(100vh - 140px)" : "600px" }}>
 
             {hoveredBed && (
               <div className="absolute z-[100] pointer-events-none iso-hover-enter" style={{ left: Math.min(hoveredPos.x + 16, (containerRef.current?.clientWidth || 400) - 280), top: Math.max(hoveredPos.y - 120, 10) }}>
@@ -655,7 +707,15 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
               </div>
             )}
 
-            <div className="transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]" style={{ transform: `scale(${zoom})`, transformOrigin: "center center", opacity: mounted ? 1 : 0 }}>
+            <div
+              ref={buildingScrollRef}
+              className="overflow-y-auto overflow-x-hidden iso-scrollbar"
+              style={{ maxHeight: isFullscreen ? "calc(100vh - 160px)" : "600px" }}
+              onMouseEnter={() => { if (autoScrollEnabled) setScrollPaused(true); }}
+              onMouseLeave={() => { if (autoScrollEnabled) setScrollPaused(false); }}
+              onWheel={() => { if (autoScrollEnabled) setScrollPaused(true); }}
+            >
+            <div className="transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] flex items-center justify-center" style={{ transform: `scale(${zoom})`, transformOrigin: "center top", opacity: mounted ? 1 : 0 }}>
 
               {drillLevel === "building" && (() => {
                 const FLOOR_W = 520;
@@ -884,9 +944,10 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                 </div>
               )}
             </div>
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto iso-scrollbar" style={{ maxHeight: isFullscreen ? "calc(100vh - 140px)" : "auto" }}>
             <div className="iso-glass-card p-4">
               <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><LayoutGrid className="w-3.5 h-3.5 text-amber-400/70" /> Overview</h3>
               <div className="grid grid-cols-2 gap-2">

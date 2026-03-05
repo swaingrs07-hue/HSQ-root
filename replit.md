@@ -74,6 +74,9 @@ Preferred communication style: Simple, everyday language.
 - **Bed Detail Drawer**: Displays occupant details, booking history, allocation timeline, block/unblock history.
 - **Allocation System**: Admin ability to allocate/deallocate bookings to beds, preventing overlaps.
 - **Stats**: Real-time counts for Total, Available, Occupied, Reserved, Blocked, With Booking.
+- **Auto-Scroll Building View**: Floor cards auto-scroll upward (elevator effect) with requestAnimationFrame; pauses on hover/mouse-wheel; Play/Pause button (`btn-auto-scroll`), Speed control (`btn-scroll-speed`, 0.5x–3x), Fullscreen button.
+- **Fullscreen Fix**: Sidebar (Floors panel) has `overflow-y-auto` with `maxHeight: calc(100vh - 140px)` in fullscreen to prevent getting stuck.
+- **Performance**: Continuous CSS animations (bedGlow, floatLabelSimple, bedCardFloat, bedSceneFloat) converted to hover-only transitions; `contain: layout style` on bed wrappers.
 
 #### Housing Plans (Property Service Tiers)
 - **Admin Route**: `/admin/packages` — manage property-specific housing plans (tiers)
