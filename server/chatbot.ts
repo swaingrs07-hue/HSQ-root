@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const leadQualificationSchema = z.object({
@@ -26,14 +26,39 @@ interface PropertyInfo {
   displayName: string | null;
   address: string;
   city: string;
+  location: string;
   amenities: string[];
+  rules: string | null;
+  mapsUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  hmsLinked: boolean;
   roomTypes: {
     name: string;
     customName: string | null;
     basePrice: number;
+    academicYearPrice: number | null;
     occupancy: number;
     availableBeds: number;
+    totalBeds: number;
+    size: string | null;
   }[];
+  plans: {
+    name: string;
+    tagline: string | null;
+    tierLevel: number;
+    basePrice: number;
+    occupancy: string | null;
+    locationInfo: string | null;
+    features: string[];
+  }[];
+  bedStats: {
+    total: number;
+    available: number;
+    occupied: number;
+    reserved: number;
+    blocked: number;
+  };
 }
 
 interface ChatContext {
@@ -53,107 +78,296 @@ interface LeadQualification {
 }
 
 async function getPropertiesContext(): Promise<PropertyInfo[]> {
-  // Load ALL Hsquareliving properties so the AI knows about them
   const properties = await db
     .select()
     .from(schema.properties)
     .where(eq(schema.properties.active, true));
 
-  const propertiesWithRooms: PropertyInfo[] = [];
+  const propertiesWithDetails: PropertyInfo[] = [];
 
   for (const property of properties) {
     const roomTypes = await db
       .select({
+        id: schema.roomTypes.id,
         name: schema.roomTypes.name,
         customName: schema.roomTypes.customName,
         basePrice: schema.roomTypes.basePrice,
+        academicYearPrice: schema.roomTypes.academicYearPrice,
         occupancy: schema.roomTypes.occupancy,
         availableBeds: schema.roomTypes.availableBeds,
+        totalBeds: schema.roomTypes.totalBeds,
+        size: schema.roomTypes.size,
       })
       .from(schema.roomTypes)
       .where(eq(schema.roomTypes.propertyId, property.id));
 
-    propertiesWithRooms.push({
+    const plans = await db
+      .select()
+      .from(schema.packages)
+      .where(
+        and(
+          eq(schema.packages.propertyId, property.id),
+          eq(schema.packages.isActive, true)
+        )
+      );
+
+    const planDetails: PropertyInfo["plans"] = [];
+    for (const plan of plans) {
+      const items = await db
+        .select()
+        .from(schema.packageItems)
+        .where(eq(schema.packageItems.packageId, plan.id));
+
+      planDetails.push({
+        name: plan.name,
+        tagline: plan.tagline,
+        tierLevel: plan.tierLevel ?? 0,
+        basePrice: Number(plan.basePrice) || 0,
+        occupancy: plan.occupancy,
+        locationInfo: plan.locationInfo,
+        features: items
+          .filter((i) => i.label)
+          .map((i) => {
+            const val = i.featureValue || (i.includedQty ? `${i.includedQty} ${i.unit || ""}`.trim() : null);
+            return val ? `${i.label}: ${val}` : i.label;
+          }),
+      });
+    }
+
+    planDetails.sort((a, b) => a.tierLevel - b.tierLevel);
+
+    let bedStats = { total: 0, available: 0, occupied: 0, reserved: 0, blocked: 0 };
+    try {
+      const floors = await db
+        .select({ id: schema.floors.id })
+        .from(schema.floors)
+        .where(eq(schema.floors.propertyId, property.id));
+
+      if (floors.length > 0) {
+        const floorIds = floors.map((f) => f.id);
+        const rooms = await db
+          .select({ id: schema.rooms.id })
+          .from(schema.rooms)
+          .where(inArray(schema.rooms.floorId, floorIds));
+
+        if (rooms.length > 0) {
+          const roomIds = rooms.map((r) => r.id);
+          const beds = await db
+            .select({ status: schema.beds.status })
+            .from(schema.beds)
+            .where(inArray(schema.beds.roomId, roomIds));
+
+          bedStats.total = beds.length;
+          for (const bed of beds) {
+            const s = bed.status || "available";
+            if (s === "available") bedStats.available++;
+            else if (s === "occupied") bedStats.occupied++;
+            else if (s === "reserved") bedStats.reserved++;
+            else if (s === "blocked") bedStats.blocked++;
+          }
+        }
+      }
+    } catch {}
+
+    propertiesWithDetails.push({
       id: property.id,
       name: property.name,
       displayName: property.displayName,
       address: property.address || "",
       city: property.city || "",
+      location: property.location || "",
       amenities: property.amenities || [],
-      roomTypes: roomTypes.map(rt => ({
+      rules: property.rules,
+      mapsUrl: property.mapsUrl,
+      phone: property.phone,
+      email: property.email,
+      hmsLinked: property.hmsLinked || false,
+      roomTypes: roomTypes.map((rt) => ({
         ...rt,
         basePrice: Number(rt.basePrice) || 0,
+        academicYearPrice: rt.academicYearPrice ? Number(rt.academicYearPrice) : null,
         occupancy: Number(rt.occupancy) || 1,
         availableBeds: Number(rt.availableBeds) || 0,
+        totalBeds: Number(rt.totalBeds) || 0,
+        size: rt.size,
       })),
+      plans: planDetails,
+      bedStats,
     });
   }
 
-  return propertiesWithRooms;
+  return propertiesWithDetails;
 }
 
-function buildSystemPrompt(properties: PropertyInfo[]): string {
-  const propertyDetails = properties.map(p => {
-    const roomInfo = p.roomTypes.map(r => {
-      const displayName = r.customName || r.name;
-      return `  - ${displayName}: ₹${r.basePrice.toLocaleString('en-IN')}/month, ${r.availableBeds} beds available, ${r.occupancy} person(s)`;
-    }).join('\n');
-    
-    const propertyName = p.displayName || p.name;
-    return `${propertyName} (${p.city}):
-Location: ${p.address}
-Amenities: ${p.amenities.length > 0 ? p.amenities.join(', ') : 'WiFi, Furnished, 24/7 Security'}
-Room Options:
-${roomInfo || '  - Contact us for availability'}`;
-  }).join('\n\n');
+async function getActiveSeasonInfo(): Promise<string> {
+  try {
+    const activeSeasons = await db
+      .select()
+      .from(schema.seasons)
+      .where(eq(schema.seasons.status, "ACTIVE"));
 
-  return `You are Gyan AI, the official AI assistant for Hsquareliving (also known as Hsquare), a premium student accommodation provider in India.
+    if (activeSeasons.length === 0) return "";
 
-Your introduction: "Hello, I'm Gyan AI. I manage everything around your living experience — from bookings and rooms to meals, security, and support. Think of me as the central intelligence of Hsquareliving, keeping your stay smooth, smart, and stress-free."
+    return activeSeasons
+      .map((s) => {
+        const start = s.startDate ? new Date(s.startDate).toLocaleDateString("en-IN") : "TBD";
+        const end = s.endDate ? new Date(s.endDate).toLocaleDateString("en-IN") : "TBD";
+        return `- ${s.name}: ${start} to ${end} (Grace: ${s.graceDays || 0} days)`;
+      })
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
+async function getBookingStats(): Promise<string> {
+  try {
+    const result = await db
+      .select({
+        status: schema.bookings.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(schema.bookings)
+      .groupBy(schema.bookings.status);
+
+    if (result.length === 0) return "";
+
+    return result.map((r) => `  ${r.status}: ${r.count}`).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+function buildSystemPrompt(
+  properties: PropertyInfo[],
+  seasonInfo: string,
+  bookingStats: string
+): string {
+  const propertyDetails = properties
+    .map((p) => {
+      const propertyName = p.displayName || p.name;
+      const roomInfo = p.roomTypes
+        .map((r) => {
+          const displayName = r.customName || r.name;
+          const price = r.academicYearPrice || r.basePrice;
+          const priceLabel = r.academicYearPrice ? "/year" : "/month";
+          return `  - ${displayName}: ₹${price.toLocaleString("en-IN")}${priceLabel}, ${r.size || "N/A"}, ${r.occupancy}-sharing, ${r.availableBeds}/${r.totalBeds} beds available`;
+        })
+        .join("\n");
+
+      const planInfo =
+        p.plans.length > 0
+          ? p.plans
+              .map((pl) => {
+                const tierLabel =
+                  pl.tierLevel === 0
+                    ? "Essential"
+                    : pl.tierLevel === 1
+                    ? "Popular"
+                    : "Premium";
+                const featureList =
+                  pl.features.length > 0
+                    ? pl.features.slice(0, 5).join(", ")
+                    : "Contact for details";
+                return `  - ${pl.name} (${tierLabel} Tier): ₹${pl.basePrice.toLocaleString("en-IN")}/year${pl.tagline ? ` — "${pl.tagline}"` : ""}${pl.occupancy ? `, ${pl.occupancy}` : ""}${pl.locationInfo ? `, ${pl.locationInfo}` : ""}
+    Includes: ${featureList}`;
+              })
+              .join("\n")
+          : "  No housing plans configured yet";
+
+      const bedSummary =
+        p.bedStats.total > 0
+          ? `Bed Availability (from room config): ${p.bedStats.available} available / ${p.bedStats.total} total (${p.bedStats.occupied} occupied, ${p.bedStats.reserved} reserved, ${p.bedStats.blocked} blocked)`
+          : "Bed Availability: Contact us for current availability";
+
+      return `${propertyName}:
+Location: ${p.location}${p.address ? ` — ${p.address}` : ""}
+Contact: ${p.phone || "N/A"} | ${p.email || "N/A"}${p.mapsUrl ? `\nGoogle Maps: ${p.mapsUrl}` : ""}
+Amenities: ${p.amenities.length > 0 ? p.amenities.join(", ") : "WiFi, Furnished, 24/7 Security"}${p.rules ? `\nRules: ${p.rules}` : ""}
+${bedSummary ? bedSummary + "\n" : ""}HMS Connected: ${p.hmsLinked ? "Yes" : "No"}
+
+Room Types:
+${roomInfo || "  - Contact us for availability"}
+
+Housing Plans (Service Tiers):
+${planInfo}`;
+    })
+    .join("\n\n---\n\n");
+
+  const seasonSection = seasonInfo
+    ? `\nACTIVE ACADEMIC SEASONS:\n${seasonInfo}\n`
+    : "";
+
+  const bookingSection = bookingStats
+    ? `\nSYSTEM BOOKING STATS:\n${bookingStats}\n`
+    : "";
+
+  return `You are Gyan AI, the official AI assistant for Hsquareliving (also known as Hsquare), a premium student accommodation provider in India. You are connected to the Hostel Management System (HMS) and have knowledge of properties, housing plans, room types, pricing, and approximate availability.
+
+Your introduction: "Hello, I'm Gyan AI — your assistant for Hsquareliving. I can help you with property details, housing plans, pricing, and room availability. Ask me anything about your stay!"
 
 IMPORTANT RULES:
-- You ONLY recommend and discuss Hsquareliving/Hsquare properties listed below
-- NEVER suggest or mention any competitor properties, other hostels, or PG accommodations
+- You ONLY recommend and discuss Hsquareliving/Hsquare properties
+- NEVER suggest or mention competitor properties, other hostels, or PG accommodations
 - If someone asks about properties not in our portfolio, politely explain you can only help with Hsquareliving properties
-- Stay focused on helping visitors find the perfect Hsquareliving accommodation
+- When asked about availability, share the numbers from the data below and note that exact real-time availability may vary — suggest contacting us for confirmation
+- When asked about pricing, always mention the housing plans if available for that property
 
-YOUR ROLE:
-1. GREET visitors warmly and understand their accommodation needs
-2. RECOMMEND suitable Hsquareliving properties and room types based on their preferences
-3. ANSWER questions about our pricing, amenities, locations, and availability
-4. COLLECT contact information naturally for follow-up
-5. QUALIFY leads by understanding their budget, move-in timeline, and preferences
+YOUR CAPABILITIES (HMS-Connected):
+1. PROPERTY INFO: Full details on all Hsquareliving properties — locations, amenities, rules, contact info
+2. ROOM & BED AVAILABILITY: Bed counts and room types from our system (availability may change; suggest confirming with our team)
+3. HOUSING PLANS: Complete knowledge of service tiers (Essential/Popular/Premium), pricing, and inclusions
+4. BOOKING GUIDANCE: Walk users through the booking process — select property → choose plan → pick room → book bed
+5. PRICING EXPERTISE: Accurate pricing for all room types and plans including monthly/yearly breakdowns
+6. ACADEMIC SEASONS: Knowledge of current active batches and move-in timelines
+7. LEAD CAPTURE: Collect visitor details naturally for our sales team follow-up
 
-HSQUARELIVING PROPERTIES (Our Complete Portfolio):
-${propertyDetails || 'We are currently updating our property listings. Please share your requirements and our team will contact you!'}
-
+HSQUARELIVING PROPERTIES — LIVE DATA:
+${propertyDetails || "We are currently updating our property listings. Please share your requirements!"}
+${seasonSection}${bookingSection}
 ABOUT HSQUARELIVING:
-- Premium student accommodation provider
-- Known for quality living spaces, modern amenities, and student-friendly environments
-- Properties across major educational hubs in India
-- All properties feature furnished rooms, WiFi, security, and essential amenities
+- Premium student accommodation provider operating across major educational hubs in India
+- All properties feature furnished rooms, high-speed WiFi, 24/7 security, daily housekeeping
+- Housing Plans provide tiered living experiences — from Essential (budget-friendly) to Premium (all-inclusive luxury)
+- Each plan includes meals, laundry, shuttle services, and lifestyle credits at different levels
+- Properties are managed through an integrated HMS for real-time operations
+
+HOW BOOKING WORKS (Guide users through this):
+1. Browse our properties and choose a location
+2. Compare Housing Plans to select your service tier (e.g., THE HIGHLANDER, THE STERLING, THE ROYAL)
+3. Take a virtual tour of the property
+4. Select your preferred floor and room
+5. Pick an available bed
+6. Complete the booking with registration, payment plan, and digital agreement
+
+HOUSING PLAN COMPARISON (Key Differentiators):
+- Essential Tier: Affordable, includes basic meals, standard room, pay-per-use extras
+- Popular Tier: Best value, enhanced meals with high tea, monthly credits for ala carte kitchen & EV bikes, more laundry
+- Premium Tier: All-inclusive luxury, unlimited laundry, highest credits, priority services, premium room locations
 
 CONVERSATION GUIDELINES:
-- Be conversational, friendly, and helpful - not pushy or salesy
-- Ask one question at a time to understand their needs
-- When recommending properties, explain why our Hsquareliving property would be perfect for them
-- If they share contact info (name, email, phone), acknowledge it politely
+- Be conversational, knowledgeable, and confident — you have real data
+- When recommending, always compare plans and explain the value difference
+- Proactively mention available bed counts when discussing a property
+- If asked about pricing, show both the plan price (yearly) and approximate monthly breakdown
 - Prices are in Indian Rupees (₹)
-- If asked about booking, encourage them to schedule a site visit at our property
-- For specific queries you can't answer, suggest they speak with our Hsquareliving team
+- For booking, direct them to visit the property page on our website
+- Collect contact info naturally for sales team follow-up
 
 LEAD QUALIFICATION GOALS:
 - Get their name for personalized service
 - Understand their budget range
-- Know which Hsquareliving property/location interests them
+- Know which property/location/plan interests them
 - Get contact details (phone or email) for follow-up
 
-Keep responses concise (2-3 sentences max) unless they ask for detailed information.`;
+Keep responses concise (2-4 sentences) unless they ask for detailed comparisons or plan breakdowns.`;
 }
 
 export async function initChatContext(): Promise<ChatContext> {
   const properties = await getPropertiesContext();
-  const systemPrompt = buildSystemPrompt(properties);
+  const seasonInfo = await getActiveSeasonInfo();
+  const bookingStats = await getBookingStats();
+  const systemPrompt = buildSystemPrompt(properties, seasonInfo, bookingStats);
   return { properties, systemPrompt };
 }
 
@@ -175,7 +389,7 @@ export async function streamChatResponse(
     model: "gpt-4o-mini",
     messages: chatMessages,
     stream: true,
-    max_tokens: 500,
+    max_tokens: 800,
     temperature: 0.7,
   });
 
@@ -208,7 +422,7 @@ Return a JSON object with these fields (use null if not mentioned):
 - isQualified: boolean (true if they shared at least name AND (email OR phone))
 
 Available property IDs for matching:
-${context.properties.map(p => `- "${p.id}": ${p.name} (${p.city})`).join('\n')}
+${context.properties.map(p => `- "${p.id}": ${p.name} (${p.city || p.location})`).join('\n')}
 
 Conversation:
 ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
@@ -327,7 +541,6 @@ export async function createLeadFromChat(
       })
       .returning({ id: schema.leads.id });
 
-    // Log chatbot event for lead capture tracking
     await db.insert(schema.chatbotEvents).values({
       eventType: "lead_created",
       metadata: JSON.stringify({

@@ -128,6 +128,18 @@ Preferred communication style: Simple, everyday language.
 - **Storage**: Logo URLs stored in `footer_settings` table (headerLogo, footerLogo, adminLogo columns)
 - **Dynamic Loading**: Public site and admin layouts fetch logos from `/api/logo-settings`, falling back to built-in PNG
 
+#### Gyan AI Chatbot (HMS-Connected)
+- **Engine**: OpenAI GPT-4o-mini via Replit AI Integrations, streaming via SSE
+- **HMS Integration**: Chatbot system prompt is enriched with live data from the HMS system including:
+  - All property details (location, amenities, rules, contact info, Google Maps links)
+  - Housing plans with tier levels, pricing (yearly + monthly breakdown), and feature inclusions
+  - Bed availability counts from room configurations
+  - Active academic seasons and booking statistics
+- **Lead Capture**: Automatically extracts contact info from conversations and creates leads in the CRM
+- **Context Caching**: Chat context refreshed every 5 minutes for up-to-date data
+- **Rate Limiting**: 30 messages/min per IP, 50KB request size limit
+- **Files**: `server/chatbot.ts` (core AI logic, prompt building), `client/src/components/chatbot-widget.tsx` (UI)
+
 #### Instagram Live Feed
 - **Integration**: Instagram Graph API for displaying recent posts.
 - **Caching**: Daily caching of posts in the database for performance.

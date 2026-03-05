@@ -5981,8 +5981,16 @@ export async function registerRoutes(
       const context = await getChatContext();
       res.json({
         available: true,
+        hmsIntegrated: true,
         propertiesCount: context.properties.length,
-        properties: context.properties.map(p => ({ id: p.id, name: p.name, city: p.city })),
+        properties: context.properties.map(p => ({
+          id: p.id,
+          name: p.name,
+          city: p.city || p.location,
+          hmsLinked: p.hmsLinked,
+          plansCount: p.plans.length,
+          bedStats: p.bedStats,
+        })),
       });
     } catch (error) {
       console.error("Chatbot status error:", error);
