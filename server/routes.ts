@@ -16,35 +16,38 @@ import { searchProperties, getSuggestedFilters } from "./nlp-search";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 
-// Temporary bed hold system — holds beds for 15 minutes during booking
-const bedHolds = new Map<string, { heldBy: string; heldAt: number; expiresAt: number }>();
 const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
 
-function holdBed(bedId: string, userId: string): boolean {
-  cleanExpiredHolds();
-  const existing = bedHolds.get(bedId);
-  if (existing && existing.heldBy !== userId) return false;
-  bedHolds.set(bedId, { heldBy: userId, heldAt: Date.now(), expiresAt: Date.now() + BED_HOLD_DURATION });
+async function holdBed(bedId: string, sessionId: string): Promise<boolean> {
+  await cleanExpiredHolds();
+  const existing = await db.select().from(schema.bedHolds).where(
+    and(eq(schema.bedHolds.bedId, bedId), sql`${schema.bedHolds.expiresAt} > NOW()`)
+  );
+  if (existing.length > 0 && existing[0].sessionId !== sessionId) return false;
+  if (existing.length > 0 && existing[0].sessionId === sessionId) {
+    await db.update(schema.bedHolds).set({ expiresAt: new Date(Date.now() + BED_HOLD_DURATION) }).where(eq(schema.bedHolds.id, existing[0].id));
+    return true;
+  }
+  await db.insert(schema.bedHolds).values({ bedId, sessionId, expiresAt: new Date(Date.now() + BED_HOLD_DURATION) });
   return true;
 }
 
-function releaseBed(bedId: string, userId: string): void {
-  const existing = bedHolds.get(bedId);
-  if (existing && existing.heldBy === userId) bedHolds.delete(bedId);
+async function releaseBed(bedId: string, sessionId: string): Promise<void> {
+  await db.delete(schema.bedHolds).where(
+    and(eq(schema.bedHolds.bedId, bedId), eq(schema.bedHolds.sessionId, sessionId))
+  );
 }
 
-function isBedHeld(bedId: string): { held: boolean; heldBy?: string } {
-  cleanExpiredHolds();
-  const existing = bedHolds.get(bedId);
-  if (!existing) return { held: false };
-  return { held: true, heldBy: existing.heldBy };
+async function isBedHeld(bedId: string): Promise<{ held: boolean; heldBy?: string }> {
+  const existing = await db.select().from(schema.bedHolds).where(
+    and(eq(schema.bedHolds.bedId, bedId), sql`${schema.bedHolds.expiresAt} > NOW()`)
+  );
+  if (existing.length === 0) return { held: false };
+  return { held: true, heldBy: existing[0].sessionId };
 }
 
-function cleanExpiredHolds(): void {
-  const now = Date.now();
-  for (const [bedId, hold] of bedHolds.entries()) {
-    if (hold.expiresAt <= now) bedHolds.delete(bedId);
-  }
+async function cleanExpiredHolds(): Promise<void> {
+  await db.delete(schema.bedHolds).where(sql`${schema.bedHolds.expiresAt} <= NOW()`);
 }
 
 // Rate limiter for web leads endpoint
@@ -3020,11 +3023,11 @@ export async function registerRoutes(
       const bed = await storage.getBed(bedId);
       if (!bed) return res.status(404).json({ error: "Bed not found" });
       if (bed.status !== "available") return res.status(400).json({ error: "Bed is not available", status: bed.status });
-      const holdResult = isBedHeld(bedId);
+      const holdResult = await isBedHeld(bedId);
       if (holdResult.held && holdResult.heldBy !== sessionId) {
         return res.status(409).json({ error: "This bed is currently being booked by someone else. Please choose another bed.", held: true });
       }
-      holdBed(bedId, sessionId);
+      await holdBed(bedId, sessionId);
       res.json({ success: true, expiresIn: BED_HOLD_DURATION / 1000 });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3034,7 +3037,7 @@ export async function registerRoutes(
   app.post("/api/beds/release", async (req, res) => {
     try {
       const { bedId, sessionId } = req.body;
-      if (bedId && sessionId) releaseBed(bedId, sessionId);
+      if (bedId && sessionId) await releaseBed(bedId, sessionId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3156,7 +3159,7 @@ export async function registerRoutes(
 
       // Mark the bed as reserved, clear hold, and update availability counts
       if (resolvedBedId) {
-        bedHolds.delete(resolvedBedId);
+        await db.delete(schema.bedHolds).where(eq(schema.bedHolds.bedId, resolvedBedId));
         await storage.updateBedStatus(resolvedBedId, "reserved");
         await storage.updateRoomTypeAvailability(roomTypeId, -1);
 
@@ -6149,10 +6152,10 @@ export async function registerRoutes(
           const roomsWithBeds = await Promise.all(
             floorRooms.map(async (room) => {
               const roomBeds = await storage.getBedsByRoom(room.id);
-              const bedsWithHoldStatus = roomBeds.map(bed => {
-                const hold = isBedHeld(bed.id);
+              const bedsWithHoldStatus = await Promise.all(roomBeds.map(async (bed) => {
+                const hold = await isBedHeld(bed.id);
                 return { ...bed, held: hold.held };
-              });
+              }));
               return { ...room, beds: bedsWithHoldStatus };
             })
           );

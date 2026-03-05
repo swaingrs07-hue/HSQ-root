@@ -1375,5 +1375,14 @@ export const insertSeasonCloseJobItemSchema = createInsertSchema(seasonCloseJobI
 export type SeasonCloseJobItem = typeof seasonCloseJobItems.$inferSelect;
 export type InsertSeasonCloseJobItem = z.infer<typeof insertSeasonCloseJobItemSchema>;
 
+// Bed holds table (persistent hold during booking)
+export const bedHolds = pgTable("bed_holds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bedId: varchar("bed_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

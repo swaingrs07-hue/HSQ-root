@@ -182,37 +182,13 @@ export default function BookingGeneration() {
   const maxDiscountPercent = isSalesExec ? 10 : 100;
   const getAuthToken = () => token || "";
 
-  const getAccommodationType = (bed: any, room: any): string => {
+  const getAccommodationLabel = (bed: any, room: any): string => {
     if (!bed || !room) return "";
-    const typology = (room.typology || "").trim();
-    if (!typology) return "";
-    const isCombo = typology.includes("+");
-    let sharingCount = 1;
-    if (isCombo) {
-      const parts = typology.split("+").map((p: string) => parseInt(p.trim()));
-      const bedNumber = bed.bedNumber || "";
-      const sectionMatch = bedNumber.match(/\d+([A-Z])/);
-      const sectionLetter = sectionMatch ? sectionMatch[1] : "A";
-      const sectionIndex = sectionLetter.charCodeAt(0) - 65;
-      sharingCount = parts[sectionIndex] || parts[0] || 1;
-    } else {
-      const parsed = parseInt(typology);
-      if (!isNaN(parsed)) {
-        sharingCount = parsed;
-      } else {
-        const lower = typology.toLowerCase();
-        if (lower.includes("single") || lower === "1") return "single";
-        if (lower.includes("double") || lower === "2") return "double";
-        if (lower.includes("triple") || lower === "3") return "triple";
-        if (lower.includes("quad") || lower === "4") return "quad";
-        return "";
-      }
+    if (bed.roomTypeId && roomTypes.length > 0) {
+      const rt = roomTypes.find((r: any) => r.id === bed.roomTypeId);
+      if (rt) return rt.customName || rt.name || "";
     }
-    if (sharingCount === 1) return "single";
-    if (sharingCount === 2) return "double";
-    if (sharingCount === 3) return "triple";
-    if (sharingCount === 4) return "quad";
-    return `${sharingCount}-sharing`;
+    return room.typology || "";
   };
 
   useEffect(() => {
@@ -353,16 +329,12 @@ export default function BookingGeneration() {
               if (data.roomNumber || data.bedNumber) {
                 let accomType = "";
                 if (data.bedNumber && data.roomTypology) {
-                  accomType = getAccommodationType(
+                  accomType = data.roomTypeName || getAccommodationLabel(
                     { bedNumber: data.bedNumber },
                     { typology: data.roomTypology }
                   );
                 } else if (data.roomTypeName) {
-                  const name = data.roomTypeName.toLowerCase();
-                  if (name.includes("single") || name === "1") accomType = "single";
-                  else if (name.includes("double") || name === "2") accomType = "double";
-                  else if (name.includes("triple") || name === "3") accomType = "triple";
-                  else if (name.includes("quad") || name === "4") accomType = "quad";
+                  accomType = data.roomTypeName;
                 }
                 setFormData(prev => ({
                   ...prev,
@@ -525,12 +497,7 @@ export default function BookingGeneration() {
     const selectedRT = roomTypes.find((rt: any) => rt.id === roomTypeId);
     let accomType = "";
     if (selectedRT) {
-      const occ = selectedRT.occupancy || 1;
-      if (occ === 1) accomType = "single";
-      else if (occ === 2) accomType = "double";
-      else if (occ === 3) accomType = "triple";
-      else if (occ === 4) accomType = "quad";
-      else accomType = `${occ}-sharing`;
+      accomType = selectedRT.customName || selectedRT.name || "";
     }
     setFormData(prev => ({ ...prev, roomTypeId, residentAccommodationType: accomType }));
     setSelectedFloorId("");
@@ -1485,7 +1452,7 @@ export default function BookingGeneration() {
                                               setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                               setSelectedFloorId(floor.id); setSelectedRoomId(room.id);
                                               holdBedForBooking(bed.id);
-                                              const accomType = getAccommodationType(bed, room);
+                                              const accomType = getAccommodationLabel(bed, room);
                                               setFormData(prev => ({ ...prev, residentRoomNo: room.roomNumber, residentBedNo: bed.bedNumber, residentAccommodationType: accomType }));
                                             }
                                           }}
@@ -1820,14 +1787,7 @@ export default function BookingGeneration() {
                             <Label className="text-sm font-medium text-slate-700">Accommodation Type</Label>
                             <Input
                               readOnly
-                              value={
-                                formData.residentAccommodationType === "single" ? "Single Occupancy"
-                                : formData.residentAccommodationType === "double" ? "Double Sharing"
-                                : formData.residentAccommodationType === "triple" ? "Triple Sharing"
-                                : formData.residentAccommodationType === "quad" ? "Quad Sharing"
-                                : formData.residentAccommodationType ? formData.residentAccommodationType.replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())
-                                : ""
-                              }
+                              value={formData.residentAccommodationType || ""}
                               placeholder="Auto-detected from room type"
                               className="bg-slate-50 cursor-default"
                               data-testid="input-accommodation-type"
