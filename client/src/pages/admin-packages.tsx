@@ -511,10 +511,6 @@ export default function AdminPackages() {
                 <Input value={editingPkg.occupancy} onChange={e => setEditingPkg(p => ({ ...p, occupancy: e.target.value }))} placeholder="e.g. Triple Sharing" data-testid="input-occupancy" />
               </div>
               <div className="space-y-2">
-                <Label>Location / Floors</Label>
-                <Input value={editingPkg.locationInfo} onChange={e => setEditingPkg(p => ({ ...p, locationInfo: e.target.value }))} placeholder="e.g. Floors 2 - 6" data-testid="input-location-info" />
-              </div>
-              <div className="space-y-2">
                 <Label>Tax %</Label>
                 <Input type="number" value={editingPkg.taxPercent} onChange={e => setEditingPkg(p => ({ ...p, taxPercent: e.target.value }))} placeholder="e.g. 18" data-testid="input-tax-percent" />
               </div>
