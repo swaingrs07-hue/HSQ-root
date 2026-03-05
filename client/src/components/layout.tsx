@@ -44,14 +44,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
 
   const isHomePage = location === "/";
+  const isPropertyPage = /^\/properties\/[^/]+$/.test(location);
+  const hasTransparentHeader = isHomePage || isPropertyPage;
 
   useEffect(() => {
-    if (!isHomePage) { setScrolled(true); return; }
+    if (!hasTransparentHeader) { setScrolled(true); return; }
     const handleScroll = () => setScrolled(window.scrollY > 50);
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isHomePage]);
+  }, [hasTransparentHeader]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -130,7 +132,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const userName = user?.name || "Guest";
 
-  const headerTransparent = isHomePage && !scrolled && !mobileMenuOpen;
+  const headerTransparent = hasTransparentHeader && !scrolled && !mobileMenuOpen;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -250,7 +252,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {!isHomePage && <div className="h-16" />}
+      {!hasTransparentHeader && <div className="h-16" />}
 
       <main className="flex-1 w-full">
         {children}
