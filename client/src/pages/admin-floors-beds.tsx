@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -120,6 +120,10 @@ export default function AdminFloorsBeds() {
   const [roomTypeSearch, setRoomTypeSearch] = useState("");
   const [roomTypeDropdownOpen, setRoomTypeDropdownOpen] = useState(false);
   const [autoGen, setAutoGen] = useState({ numberOfFloors: 3, bedsPerFloor: 10 });
+  const [planAssignOpen, setPlanAssignOpen] = useState(false);
+  const [planAssignRoomTypeId, setPlanAssignRoomTypeId] = useState<string>("");
+  const [planAssignRoomTypeName, setPlanAssignRoomTypeName] = useState<string>("");
+  const [assigningPlanId, setAssigningPlanId] = useState<string | null>(null);
 
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({ queryKey: ["/api/properties"] });
 
@@ -201,6 +205,33 @@ export default function AdminFloorsBeds() {
     onSuccess: () => { invalidateFloors(); toast({ title: "Bed Unblocked", description: "Bed is now available for booking." }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const { data: propertyPackages, refetch: refetchPackages } = useQuery<any[]>({
+    queryKey: ["/api/admin/packages", selectedPropertyId],
+    queryFn: () => apiFetch(`/api/admin/packages`),
+    enabled: !!selectedPropertyId,
+    select: (data: any[]) => data.filter((p: any) => !p.propertyId || p.propertyId === selectedPropertyId),
+  });
+
+  const assignPlanMutation = useMutation({
+    mutationFn: ({ packageId, roomTypeId }: { packageId: string; roomTypeId: string | null }) =>
+      apiFetch(`/api/admin/packages/${packageId}`, {
+        method: "PUT",
+        body: JSON.stringify({ roomTypeId }),
+      }),
+    onSuccess: () => {
+      refetchPackages();
+      toast({ title: "Plan Updated" });
+      setAssigningPlanId(null);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openPlanAssign = (roomTypeId: string, roomTypeName: string) => {
+    setPlanAssignRoomTypeId(roomTypeId);
+    setPlanAssignRoomTypeName(roomTypeName);
+    setPlanAssignOpen(true);
+  };
 
   const autoGenerateMutation = useMutation({
     mutationFn: (data: { numberOfFloors: number; bedsPerFloor: number }) =>
@@ -376,6 +407,8 @@ export default function AdminFloorsBeds() {
                                 onDeleteBed={(bedId) => { if (confirm("Remove this bed?")) deleteBedMutation.mutate(bedId); }}
                                 onBlockBed={(bedId, reason, category) => blockBedMutation.mutate({ bedId, reason, category })}
                                 onUnblockBed={(bedId, note) => unblockBedMutation.mutate({ bedId, note })}
+                                linkedPlans={propertyPackages}
+                                onAssignPlan={openPlanAssign}
                               />
                             ))}
                             {orphanBeds.length > 0 && (
@@ -622,17 +655,105 @@ export default function AdminFloorsBeds() {
           </Dialog>
         </>
       )}
+
+      <Dialog open={planAssignOpen} onOpenChange={(open) => { setPlanAssignOpen(open); if (!open) setAssigningPlanId(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-violet-600" /> Assign Plan to Room Type
+            </DialogTitle>
+            <DialogDescription>
+              Link housing plans to <span className="font-semibold">{planAssignRoomTypeName}</span> rooms. Linked plans will filter beds on the booking page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-72 overflow-y-auto py-2">
+            {propertyPackages && propertyPackages.filter(p => p.isActive).length > 0 ? (
+              propertyPackages.filter(p => p.isActive).map((pkg: any) => {
+                const isLinked = pkg.roomTypeId === planAssignRoomTypeId;
+                const isLinkedOther = pkg.roomTypeId && pkg.roomTypeId !== planAssignRoomTypeId;
+                const otherRt = isLinkedOther ? roomTypes?.find(r => r.id === pkg.roomTypeId) : null;
+                return (
+                  <div
+                    key={pkg.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors",
+                      isLinked ? "bg-violet-50 border-violet-300" : isLinkedOther ? "bg-slate-50 border-slate-200 opacity-60" : "bg-white border-slate-200 hover:border-violet-300"
+                    )}
+                    data-testid={`plan-assign-row-${pkg.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-slate-800 truncate">{pkg.name}</span>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Tier {pkg.tierLevel || 0}</Badge>
+                        {isLinked && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-0 shrink-0">
+                            <Check className="w-2.5 h-2.5 mr-0.5" />Linked
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-500">₹{Number(pkg.basePrice).toLocaleString("en-IN")}</span>
+                        {isLinkedOther && (
+                          <span className="text-[10px] text-slate-400">
+                            Linked to {otherRt?.customName || otherRt?.name || "another room type"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {isLinked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-rose-600 border-rose-200 hover:bg-rose-50"
+                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, roomTypeId: null })}
+                          disabled={assignPlanMutation.isPending}
+                          data-testid={`button-unlink-plan-${pkg.id}`}
+                        >
+                          <X className="w-3 h-3" />Unlink
+                        </Button>
+                      ) : !isLinkedOther ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-violet-600 border-violet-200 hover:bg-violet-50"
+                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, roomTypeId: planAssignRoomTypeId })}
+                          disabled={assignPlanMutation.isPending}
+                          data-testid={`button-link-plan-${pkg.id}`}
+                        >
+                          <Tag className="w-3 h-3" />Link
+                        </Button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">In use</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                No active plans found for this property.
+                <br />
+                <span className="text-xs">Create plans in the Packages page first.</span>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed }: {
+function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onUpdateBed: (bedId: string, status: string) => void;
   onDeleteBed: (bedId: string) => void;
   onBlockBed: (bedId: string, reason: string, category: string) => void;
   onUnblockBed: (bedId: string, note?: string) => void;
+  linkedPlans?: any[];
+  onAssignPlan?: (roomTypeId: string, roomTypeName: string) => void;
 }) {
   const rt = roomTypes.find(r => r.id === room.roomTypeId);
   const isCombo = room.typology.includes("+");
@@ -646,10 +767,12 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
     beds: room.beds.filter(b => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
   })) : null;
 
+  const plansForThisRoom = linkedPlans?.filter((p: any) => p.roomTypeId === room.roomTypeId) || [];
+
   return (
     <div className={cn("border rounded-lg p-3 transition-colors", roomStatusColor)} data-testid={`room-card-${room.id}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <DoorOpen className="w-4 h-4 text-indigo-600" />
           <span className="font-semibold text-sm text-slate-800">Room {room.roomNumber}</span>
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
@@ -660,8 +783,26 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
             </Badge>
           )}
           {room.monthlyPrice && <span className="text-[10px] text-slate-400">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
+          {plansForThisRoom.length > 0 ? (
+            plansForThisRoom.map((p: any) => (
+              <Badge key={p.id} className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 gap-0.5 cursor-pointer hover:bg-violet-200"
+                onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type")}
+                data-testid={`badge-plan-${p.id}`}
+              >
+                <Package className="w-2.5 h-2.5" />{p.name}
+              </Badge>
+            ))
+          ) : (
+            <button
+              className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 hover:text-violet-600 transition-colors border border-dashed border-slate-300 hover:border-violet-400 rounded px-1.5 py-0.5"
+              onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type")}
+              data-testid={`button-assign-plan-${room.id}`}
+            >
+              <Tag className="w-2.5 h-2.5" />Assign Plan
+            </button>
+          )}
         </div>
-        <Button size="sm" variant="ghost" className="text-rose-500 hover:text-rose-700 h-6 w-6 p-0" onClick={onDeleteRoom} data-testid={`button-delete-room-${room.id}`}>
+        <Button size="sm" variant="ghost" className="text-rose-500 hover:text-rose-700 h-6 w-6 p-0 shrink-0" onClick={onDeleteRoom} data-testid={`button-delete-room-${room.id}`}>
           <Trash2 className="w-3 h-3" />
         </Button>
       </div>

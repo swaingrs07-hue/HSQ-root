@@ -7191,8 +7191,8 @@ export async function registerRoutes(
       const [pkg] = await db.update(schema.packages).set({
         propertyId: packageData.propertyId ?? existing.propertyId,
         roomTypeId: packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId,
-        name: packageData.name,
-        description: packageData.description || null,
+        name: packageData.name ?? existing.name,
+        description: packageData.description !== undefined ? (packageData.description || null) : existing.description,
         tagline: packageData.tagline ?? existing.tagline,
         priceType: packageData.priceType || existing.priceType,
         basePrice: packageData.basePrice ?? existing.basePrice,
@@ -7204,8 +7204,8 @@ export async function registerRoutes(
         locationInfo: packageData.locationInfo ?? existing.locationInfo,
         upgradeDescription: packageData.upgradeDescription ?? existing.upgradeDescription,
         upgradeFee: packageData.upgradeFee !== undefined ? packageData.upgradeFee : existing.upgradeFee,
-        validFrom: packageData.validFrom ? new Date(packageData.validFrom) : null,
-        validTo: packageData.validTo ? new Date(packageData.validTo) : null,
+        validFrom: packageData.validFrom !== undefined ? (packageData.validFrom ? new Date(packageData.validFrom) : null) : existing.validFrom,
+        validTo: packageData.validTo !== undefined ? (packageData.validTo ? new Date(packageData.validTo) : null) : existing.validTo,
         isActive: packageData.isActive ?? existing.isActive,
         updatedAt: new Date(),
       }).where(eq(schema.packages.id, req.params.id)).returning();

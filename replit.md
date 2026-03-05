@@ -64,6 +64,7 @@ Preferred communication style: Simple, everyday language.
 - **Booking Hierarchy**: Interactive Floor → Room → Bed selection.
 - **Room Typology**: System for defining bed configurations (simple, combo rooms with sections A, B, C).
 - **Admin Management**: Tools for floor/room/bed auto-generation, visual management, status updates, and virtual tour image uploads (Matterport, Kuula, CloudPano integration).
+- **Plan Assignment on Floors & Beds**: Room cards on `/admin/floors-beds` show linked plan badges (violet) or "Assign Plan" button; clicking opens dialog to link/unlink housing plans to the room type. Plans linked to other room types shown as dimmed "In use".
 - **Image Handling**: Direct file upload with WebP compression, object storage, secure image import from URLs.
 
 #### Booking Tree (Bed-wise Booking Details)
