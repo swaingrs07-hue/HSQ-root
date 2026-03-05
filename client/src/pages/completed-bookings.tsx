@@ -48,6 +48,11 @@ import {
   Star,
   History,
   Sparkles,
+  Bus,
+  Bike,
+  SprayCan,
+  Lock,
+  Tag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -551,6 +556,63 @@ export default function CompletedBookings() {
       });
     }
 
+    const pdfIncludedServices: any[] = Array.isArray(booking.propertyIncludedServices) ? booking.propertyIncludedServices : [];
+    if (pdfIncludedServices.length > 0) {
+      y += 6;
+      drawHeader("INCLUDED SERVICES");
+      const PDF_MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+      pdfIncludedServices.forEach((svc: any) => {
+        if (svc.type === "meals" && svc.schedule) {
+          const getMealNames = (dayRules: any) => {
+            if (!dayRules) return "";
+            const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+            const count = dayRules.count ?? meals.length;
+            const names = meals.map((m: string) => PDF_MEAL_LABELS[m] || m).join(", ");
+            return `${count} meals${names ? ` (${names})` : ""}`;
+          };
+          const wd = getMealNames(svc.schedule.weekday);
+          const sat = getMealNames(svc.schedule.saturday);
+          const sun = getMealNames(svc.schedule.sunday);
+          drawRow(svc.label, `Mon-Fri: ${wd}`);
+          if (sat !== wd) drawRow("", `Saturday: ${sat}`);
+          if (sun !== wd) drawRow("", `Sunday: ${sun}`);
+        } else {
+          drawRow(svc.label, svc.description || "Included");
+        }
+      });
+    }
+
+    const pdfBookingPkgs = bookingPackages?.bookingPackages || [];
+    const pdfAddonPkgs = pdfBookingPkgs.filter((bp: any) => bp.package?.category === "addon_service");
+    if (pdfAddonPkgs.length > 0) {
+      y += 6;
+      drawHeader("ADD-ON SERVICES");
+      const PDF_MEAL_LABELS2: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+      pdfAddonPkgs.forEach((bp: any) => {
+        const pkg = bp.package;
+        const statusStr = bp.status === "ACTIVE" ? "Active" : "Ended";
+        const priceStr = pkg?.basePrice ? `Rs. ${Number(pkg.basePrice).toLocaleString("en-IN")}` : "";
+        drawRow(pkg?.name || "Add-On", `${priceStr} — ${statusStr}`);
+        const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
+        if (mealItem) {
+          const getMealNames2 = (dayRules: any) => {
+            if (!dayRules) return "";
+            const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+            const count = dayRules.count ?? meals.length;
+            const names = meals.map((m: string) => PDF_MEAL_LABELS2[m] || m).join(", ");
+            return `${count} meals${names ? ` (${names})` : ""}`;
+          };
+          const r = mealItem.rules;
+          const wd = getMealNames2(r.weekday);
+          const sat = getMealNames2(r.saturday);
+          const sun = getMealNames2(r.sunday);
+          drawRow("  Schedule", `Mon-Fri: ${wd}`);
+          if (sat !== wd) drawRow("", `Saturday: ${sat}`);
+          if (sun !== wd) drawRow("", `Sunday: ${sun}`);
+        }
+      });
+    }
+
     checkPage(30);
     y += 10;
     doc.setDrawColor(200, 200, 200);
@@ -1043,6 +1105,66 @@ export default function CompletedBookings() {
                   </div>
                 </div>
               )}
+
+              {(() => {
+                const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];
+                if (includedServices.length === 0) return null;
+                const SERVICE_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
+                const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+                return (
+                  <div className="p-4 bg-teal-50 rounded-xl border border-teal-100" data-testid="included-services-section">
+                    <h4 className="text-xs font-semibold text-teal-600 uppercase mb-3 flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5" /> Included Services
+                    </h4>
+                    <div className="space-y-2.5">
+                      {includedServices.map((svc: any, idx: number) => {
+                        const Icon = SERVICE_ICONS[svc.type] || Tag;
+                        return (
+                          <div key={idx} className="bg-white rounded-lg border border-teal-100 p-2.5" data-testid={`included-svc-${idx}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-6 h-6 rounded bg-teal-100 flex items-center justify-center">
+                                <Icon className="h-3.5 w-3.5 text-teal-600" />
+                              </div>
+                              <span className="font-semibold text-xs text-slate-800">{svc.label}</span>
+                            </div>
+                            {svc.description && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
+                            {svc.type === "meals" && svc.schedule && (() => {
+                              const getMealInfo = (dayRules: any) => {
+                                if (!dayRules) return { count: 0, names: [] as string[] };
+                                const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+                                return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
+                              };
+                              const wd = getMealInfo(svc.schedule.weekday);
+                              const sat = getMealInfo(svc.schedule.saturday);
+                              const sun = getMealInfo(svc.schedule.sunday);
+                              return (
+                                <div className="ml-8 space-y-0.5">
+                                  <div className="flex items-start gap-1.5 text-[10px]">
+                                    <span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span>
+                                    <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
+                                  </div>
+                                  {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
+                                    <div className="flex items-start gap-1.5 text-[10px]">
+                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sat</span>
+                                      <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
+                                    </div>
+                                  )}
+                                  {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
+                                    <div className="flex items-start gap-1.5 text-[10px]">
+                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sun</span>
+                                      <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {isAdmin && (
                 <div className="border border-indigo-100 rounded-xl overflow-hidden">

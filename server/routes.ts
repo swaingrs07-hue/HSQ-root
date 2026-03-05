@@ -2827,6 +2827,7 @@ export async function registerRoutes(
           ...booking,
           propertyName: property?.name || "Unknown",
           propertyLocation: property?.location || "",
+          propertyIncludedServices: property?.includedServices || null,
           roomTypeName: roomType?.customName || roomType?.name || "Unknown",
           roomTypeSize: roomType?.size || "",
           occupancy: roomType?.occupancy || 0,
