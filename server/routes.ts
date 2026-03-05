@@ -7108,7 +7108,12 @@ export async function registerRoutes(
       const result = [];
       for (const pkg of allPackages) {
         const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
-        result.push({ ...pkg, items });
+        let roomTypeName = null;
+        if (pkg.roomTypeId) {
+          const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, pkg.roomTypeId));
+          if (rt) roomTypeName = rt.customName || rt.name;
+        }
+        result.push({ ...pkg, items, roomTypeName });
       }
       res.json(result);
     } catch (error: any) {
@@ -7132,6 +7137,7 @@ export async function registerRoutes(
       const { items, ...packageData } = req.body;
       const [pkg] = await db.insert(schema.packages).values({
         propertyId: packageData.propertyId || null,
+        roomTypeId: packageData.roomTypeId || null,
         name: packageData.name,
         description: packageData.description || null,
         tagline: packageData.tagline || null,
@@ -7184,6 +7190,7 @@ export async function registerRoutes(
 
       const [pkg] = await db.update(schema.packages).set({
         propertyId: packageData.propertyId ?? existing.propertyId,
+        roomTypeId: packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId,
         name: packageData.name,
         description: packageData.description || null,
         tagline: packageData.tagline ?? existing.tagline,
@@ -7312,7 +7319,12 @@ export async function registerRoutes(
         const items = await db.select().from(schema.packageItems)
           .where(eq(schema.packageItems.packageId, plan.id))
           .orderBy(schema.packageItems.sortOrder);
-        result.push({ ...plan, items });
+        let roomTypeName = null;
+        if (plan.roomTypeId) {
+          const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, plan.roomTypeId));
+          if (rt) roomTypeName = rt.customName || rt.name;
+        }
+        result.push({ ...plan, items, roomTypeName });
       }
       res.json(result);
     } catch (error: any) {

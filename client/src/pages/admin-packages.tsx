@@ -38,6 +38,7 @@ interface PackageItemData {
 interface PackageData {
   id?: string;
   propertyId: string;
+  roomTypeId: string;
   name: string;
   description: string;
   tagline: string;
@@ -73,7 +74,7 @@ const ITEM_TYPES = [
 const UNIT_OPTIONS = ["unit", "items/week", "items/month", "meals/day", "credits", "credits/mo", "hours", "days", "per visit", "cloths", "cloths/mo"];
 
 const emptyPackage: PackageData = {
-  propertyId: "", name: "", description: "", tagline: "", priceType: "PER_MONTH", basePrice: 0,
+  propertyId: "", roomTypeId: "", name: "", description: "", tagline: "", priceType: "PER_MONTH", basePrice: 0,
   currency: "INR", taxPercent: "", tierLevel: 0, isHighlighted: false,
   occupancy: "", locationInfo: "", validFrom: "", validTo: "", isActive: true,
   upgradeDescription: "", upgradeFee: "", items: [],
@@ -96,6 +97,7 @@ export default function AdminPackages() {
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [newItemType, setNewItemType] = useState("meals");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [roomTypes, setRoomTypes] = useState<any[]>([]);
 
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
@@ -117,6 +119,20 @@ export default function AdminPackages() {
 
   useEffect(() => { fetchPackages(); fetchProperties(); }, []);
 
+  useEffect(() => {
+    if (editingPkg.propertyId && dialogOpen) {
+      fetch(`/api/properties/${editingPkg.propertyId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.roomTypes) setRoomTypes(data.roomTypes);
+          else setRoomTypes([]);
+        })
+        .catch(() => setRoomTypes([]));
+    } else {
+      setRoomTypes([]);
+    }
+  }, [editingPkg.propertyId, dialogOpen]);
+
   const filtered = packages.filter(p => {
     if (filter === "active" && !p.isActive) return false;
     if (filter === "inactive" && p.isActive) return false;
@@ -134,6 +150,7 @@ export default function AdminPackages() {
   const openEdit = (pkg: any) => {
     setEditingPkg({
       propertyId: pkg.propertyId || "",
+      roomTypeId: pkg.roomTypeId || "",
       name: pkg.name, description: pkg.description || "", tagline: pkg.tagline || "",
       priceType: pkg.priceType, basePrice: pkg.basePrice, currency: pkg.currency || "INR",
       taxPercent: pkg.taxPercent || "", tierLevel: pkg.tierLevel || 0,
@@ -164,6 +181,7 @@ export default function AdminPackages() {
         validTo: editingPkg.validTo || null,
         upgradeDescription: editingPkg.upgradeDescription || null,
         upgradeFee: editingPkg.upgradeFee ? Number(editingPkg.upgradeFee) : null,
+        roomTypeId: editingPkg.roomTypeId || null,
       };
       const url = editId ? `/api/admin/packages/${editId}` : "/api/admin/packages";
       const method = editId ? "PUT" : "POST";
@@ -339,6 +357,11 @@ export default function AdminPackages() {
                       </Badge>
                       {pkg.occupancy && <Badge variant="outline" className="text-xs">{pkg.occupancy}</Badge>}
                       <Badge variant="outline" className="text-xs">Tier {pkg.tierLevel || 0}</Badge>
+                      {pkg.roomTypeId && (
+                        <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
+                          Room: {pkg.roomTypeName || "Linked"}
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 text-lg font-bold text-indigo-600 mb-3">
@@ -408,9 +431,9 @@ export default function AdminPackages() {
             <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
               <h3 className="text-sm font-semibold text-indigo-800 mb-3 flex items-center gap-1.5"><Building2 className="h-4 w-4" /> Property & Tier</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2">
                   <Label>Property *</Label>
-                  <Select value={editingPkg.propertyId} onValueChange={v => setEditingPkg(p => ({ ...p, propertyId: v }))}>
+                  <Select value={editingPkg.propertyId} onValueChange={v => setEditingPkg(p => ({ ...p, propertyId: v, roomTypeId: "" }))}>
                     <SelectTrigger data-testid="select-property"><SelectValue placeholder="Select property" /></SelectTrigger>
                     <SelectContent>
                       {properties.map(p => (
@@ -418,6 +441,19 @@ export default function AdminPackages() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Room Type</Label>
+                  <Select value={editingPkg.roomTypeId || "_none"} onValueChange={v => setEditingPkg(p => ({ ...p, roomTypeId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger data-testid="select-room-type"><SelectValue placeholder="All room types" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">All Room Types</SelectItem>
+                      {roomTypes.map((rt: any) => (
+                        <SelectItem key={rt.id} value={rt.id}>{rt.customName || rt.name} ({rt.occupancy || 1}-sharing)</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400">Links this plan to specific rooms. When booked, only matching beds are shown.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Plan Name *</Label>

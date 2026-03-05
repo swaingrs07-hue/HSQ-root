@@ -445,7 +445,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   );
 }
 
-function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void }) {
+function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null }) {
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
 
@@ -489,30 +489,45 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
     const isSelected = selectedBedId === bed.id;
     const isHeld = bed.held && !isSelected;
     const isAvailable = bed.status === "available" && !isHeld;
+    const matchesPlanFilter = !filterRoomTypeId || bed.roomTypeId === filterRoomTypeId;
+    const isPlanHighlighted = isAvailable && filterRoomTypeId && matchesPlanFilter;
+    const isDimmedByPlan = isAvailable && filterRoomTypeId && !matchesPlanFilter;
     const config = isHeld 
       ? { bg: "bg-gradient-to-br from-orange-300/60 to-orange-500/60", border: "border-orange-400/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
       : (statusConfig[bed.status] || statusConfig.maintenance);
     return (
       <motion.button
         key={bed.id}
-        whileHover={isAvailable ? { scale: 1.12, y: -4, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
-        whileTap={isAvailable ? { scale: 0.93 } : {}}
+        whileHover={(isAvailable && matchesPlanFilter) ? { scale: 1.12, y: -4, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
+        whileTap={(isAvailable && matchesPlanFilter) ? { scale: 0.93 } : {}}
         onClick={() => {
-          if (!isAvailable) return;
+          if (!isAvailable || !matchesPlanFilter) return;
           setSelectedBedId(bed.id);
           onSelectBed(bed, floor, room);
         }}
         className={cn(
           "relative p-2 border-2 rounded-xl text-center transition-all duration-200",
-          config.bg, config.border, config.cursor,
-          !isAvailable && "opacity-35",
-          isAvailable && "backdrop-blur-sm",
+          config.bg, config.border,
+          (isAvailable && matchesPlanFilter) ? "cursor-pointer" : config.cursor,
+          (!isAvailable || isDimmedByPlan) && "opacity-25",
+          isDimmedByPlan && "grayscale cursor-not-allowed",
+          isAvailable && matchesPlanFilter && "backdrop-blur-sm",
+          isPlanHighlighted && "ring-2 ring-amber-400/40 shadow-lg shadow-amber-400/20",
           isSelected && "!bg-gradient-to-br !from-amber-400 !to-amber-600 !border-amber-300 ring-2 ring-amber-400/50 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/40"
         )}
-        title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
-        {isAvailable && !isSelected && (
+        {isPlanHighlighted && !isSelected && (
+          <motion.div
+            className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-md"
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            <Crown className="w-2.5 h-2.5 text-white" />
+          </motion.div>
+        )}
+        {isAvailable && !isSelected && matchesPlanFilter && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
         )}
         <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isSelected ? "text-white" : "text-white/90")} />
@@ -527,7 +542,7 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
             <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
         )}
-        {isAvailable && (
+        {isAvailable && matchesPlanFilter && (
           <div className="absolute inset-0 rounded-[10px] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         )}
       </motion.button>
@@ -539,6 +554,21 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
 
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
+      {filterRoomTypeId && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-3 shadow-sm"
+        >
+          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
+            <Crown className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-amber-800">Plan filter active</p>
+            <p className="text-[10px] text-amber-600">Only beds matching your selected plan are highlighted. Other beds are dimmed.</p>
+          </div>
+        </motion.div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-stone-50 via-white to-amber-50/50 p-4 rounded-xl border border-stone-200 shadow-sm">
         <div className="flex flex-wrap items-center gap-4 text-xs text-stone-500">
           {Object.entries(statusConfig).map(([key, config]) => (
@@ -1205,7 +1235,7 @@ export default function PropertyBooking() {
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
               </h2>
-              <FloorBedSelector property={property} onSelectBed={handleSelectBed} />
+              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} />
             </div>
 
             <div>
