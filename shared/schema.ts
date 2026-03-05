@@ -1319,6 +1319,10 @@ export const seasons = pgTable("seasons", {
   graceDays: integer("grace_days").notNull().default(30),
   status: seasonStatusEnum("status").notNull().default("UPCOMING"),
   nextSeasonId: varchar("next_season_id"),
+  hmsSyncStatus: text("hms_sync_status"),
+  hmsSyncedAt: timestamp("hms_synced_at"),
+  hmsSyncResults: jsonb("hms_sync_results"),
+  hmsSyncedBookingCount: integer("hms_synced_booking_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Calendar, Plus, Edit, Trash2, Play, Square, ChevronDown, ChevronUp,
   Loader2, AlertCircle, CheckCircle2, Users, FileText, RotateCcw,
-  ClipboardList, Zap, Clock, ArrowRight, RefreshCw, Building
+  ClipboardList, Zap, Clock, ArrowRight, RefreshCw, Building, UploadCloud
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -29,6 +29,10 @@ interface Season {
   graceDays: number;
   status: "UPCOMING" | "ACTIVE" | "ENDED";
   nextSeasonId: string | null;
+  hmsSyncStatus: string | null;
+  hmsSyncedAt: string | null;
+  hmsSyncedBookingCount: number;
+  hmsSyncResults: any;
   createdAt: string;
   updatedAt: string;
 }
@@ -152,8 +156,31 @@ export default function AdminSeasons() {
   const [jobLoading, setJobLoading] = useState(false);
   const [showEndFlow, setShowEndFlow] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [hmsSyncing, setHmsSyncing] = useState<string | null>(null);
 
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const handleHmsSync = async (seasonId: string) => {
+    setHmsSyncing(seasonId);
+    try {
+      const res = await fetch(`/api/admin/seasons/${seasonId}/sync-to-hms`, { method: "POST", headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      fetchSeasons();
+      if (data.synced > 0 && data.notMatched === 0 && data.failed === 0) {
+        toast({ title: "HMS Sync Complete", description: `${data.synced} of ${data.total} bookings synced to HMS` });
+      } else if (data.synced > 0) {
+        toast({ title: "HMS Sync Partial", description: `${data.synced} synced, ${data.notMatched} not matched, ${data.failed} failed` });
+      } else if (data.total === 0) {
+        toast({ title: "No bookings", description: "No active bookings to sync for this season" });
+      } else {
+        toast({ title: "HMS Sync Issue", description: `${data.notMatched} not matched, ${data.failed} failed — check sync results`, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "HMS Sync Error", description: e.message, variant: "destructive" });
+    }
+    setHmsSyncing(null);
+  };
 
   const fetchSeasons = async () => {
     setLoading(true);
@@ -547,6 +574,64 @@ export default function AdminSeasons() {
                         </Button>
                       </>
                     )}
+                    {(() => {
+                      const prop = properties.find(p => p.id === season.propertyId);
+                      const isHmsLinked = prop?.hmsLinked;
+                      if (!isHmsLinked) return null;
+                      const syncing = hmsSyncing === season.id;
+                      const syncStatus = season.hmsSyncStatus;
+                      const syncCount = season.hmsSyncedBookingCount || 0;
+                      const syncResults = season.hmsSyncResults as any;
+                      const syncTime = season.hmsSyncedAt ? new Date(season.hmsSyncedAt).toLocaleString() : null;
+
+                      if (syncStatus === "synced" && syncCount > 0) {
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs" data-testid={`badge-hms-sync-${season.id}`}>
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              {syncCount} synced to HMS
+                            </Badge>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-slate-400 hover:text-indigo-600" onClick={() => handleHmsSync(season.id)} disabled={syncing} data-testid={`button-resync-hms-${season.id}`} title={syncTime ? `Last: ${syncTime}` : undefined}>
+                              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                        );
+                      }
+                      if (syncStatus === "partial") {
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs" data-testid={`badge-hms-sync-${season.id}`}>
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              {syncCount}/{syncResults?.total || "?"} synced
+                            </Badge>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-amber-500 hover:text-amber-700" onClick={() => handleHmsSync(season.id)} disabled={syncing} data-testid={`button-resync-hms-${season.id}`}>
+                              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                        );
+                      }
+                      if (syncStatus === "failed") {
+                        return (
+                          <Button size="sm" variant="outline" className="text-rose-600 border-rose-200 hover:bg-rose-50" onClick={() => handleHmsSync(season.id)} disabled={syncing} data-testid={`button-retry-hms-sync-${season.id}`}>
+                            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <AlertCircle className="h-3.5 w-3.5 mr-1" />}
+                            Retry HMS Sync
+                          </Button>
+                        );
+                      }
+                      if (syncStatus === "synced" && syncCount === 0) {
+                        return (
+                          <Badge variant="outline" className="text-xs text-slate-400" data-testid={`badge-hms-sync-${season.id}`}>
+                            No bookings to sync
+                          </Badge>
+                        );
+                      }
+                      return (
+                        <Button size="sm" variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50" onClick={() => handleHmsSync(season.id)} disabled={syncing} data-testid={`button-sync-to-hms-${season.id}`}>
+                          {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <UploadCloud className="h-3.5 w-3.5 mr-1" />}
+                          Sync to HMS
+                        </Button>
+                      );
+                    })()}
                     <Button size="sm" variant="ghost" onClick={() => toggleExpand(season.id)} data-testid={`button-expand-${season.id}`}>
                       {expandedSeason === season.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </Button>

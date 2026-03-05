@@ -7935,6 +7935,227 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/seasons/:id/sync-to-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
+      if (!season) return res.status(404).json({ error: "Season not found" });
+      if (!season.propertyId) return res.status(400).json({ error: "Season has no property assigned" });
+
+      const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, season.propertyId));
+      if (!property) return res.status(404).json({ error: "Property not found" });
+      if (!property.hmsLinked || !property.hmsPropertyId) {
+        return res.status(400).json({ error: "Property is not linked to HMS. Link it first in HMS Sync page." });
+      }
+
+      const activeBookings = await db.select({
+        id: schema.bookings.id,
+        bookingCode: schema.bookings.bookingCode,
+        status: schema.bookings.status,
+        walkInName: schema.bookings.walkInName,
+        walkInPhone: schema.bookings.walkInPhone,
+        residentDetails: schema.bookings.residentDetails,
+        studentId: schema.bookings.studentId,
+        studentFullName: schema.students.fullName,
+        studentPhone: schema.students.phone,
+        studentEmail: schema.students.email,
+        studentCollege: schema.students.collegeName,
+        studentCourse: schema.students.course,
+        studentYear: schema.students.year,
+      })
+        .from(schema.bookings)
+        .leftJoin(schema.students, eq(schema.bookings.studentId, schema.students.id))
+        .where(and(
+          eq(schema.bookings.propertyId, season.propertyId),
+          inArray(schema.bookings.status, ["active", "confirmed"])
+        ));
+
+      if (activeBookings.length === 0) {
+        await db.update(schema.seasons).set({
+          hmsSyncStatus: "synced",
+          hmsSyncedAt: new Date(),
+          hmsSyncedBookingCount: 0,
+          hmsSyncResults: { synced: 0, notMatched: 0, failed: 0, message: "No active bookings to sync" },
+          updatedAt: new Date(),
+        }).where(eq(schema.seasons.id, req.params.id));
+        return res.json({ synced: 0, notMatched: 0, failed: 0, total: 0, message: "No active bookings to sync" });
+      }
+
+      let jwt: string;
+      try {
+        jwt = await getHostelFlowJWT();
+      } catch (loginErr: any) {
+        return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+      }
+
+      let hmsResidents: any[] = [];
+      try {
+        let hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
+          headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+        });
+        if (hmsRes.status === 401) {
+          cachedHostelFlowJWT = null;
+          jwtExpiresAt = 0;
+          jwt = await getHostelFlowJWT();
+          hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
+            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+          });
+        }
+        if (!hmsRes.ok) throw new Error(`HMS API returned ${hmsRes.status}`);
+        const hmsData = await hmsRes.json();
+        hmsResidents = Array.isArray(hmsData) ? hmsData : (hmsData as any).residents || (hmsData as any).data || [];
+      } catch (hmsErr: any) {
+        await db.update(schema.seasons).set({
+          hmsSyncStatus: "failed",
+          hmsSyncedAt: new Date(),
+          hmsSyncResults: { error: "Failed to fetch HMS residents: " + hmsErr.message },
+          updatedAt: new Date(),
+        }).where(eq(schema.seasons.id, req.params.id));
+        return res.status(502).json({ error: "Failed to fetch HMS residents: " + hmsErr.message });
+      }
+
+      function normalizePhone(phone: string | null | undefined): string {
+        if (!phone) return "";
+        let cleaned = phone.replace(/[\s\-\(\)]/g, "");
+        if (cleaned.startsWith("+91")) cleaned = cleaned.slice(3);
+        else if (cleaned.startsWith("91") && cleaned.length > 10) cleaned = cleaned.slice(2);
+        else if (cleaned.startsWith("0")) cleaned = cleaned.slice(1);
+        return cleaned.slice(-10);
+      }
+
+      const hmsPhoneMap = new Map<string, any>();
+      const hmsEmailMap = new Map<string, any>();
+      for (const r of hmsResidents) {
+        const phone = normalizePhone(r.phone);
+        if (phone) hmsPhoneMap.set(phone, r);
+        if (r.email) hmsEmailMap.set(r.email.toLowerCase().trim(), r);
+      }
+
+      const syncedDetails: any[] = [];
+      const notMatchedDetails: any[] = [];
+      const failedDetails: any[] = [];
+
+      for (const booking of activeBookings) {
+        const rd = booking.residentDetails as any;
+        const name = booking.studentFullName || rd?.fullName || rd?.name || booking.walkInName || booking.bookingCode || "Unknown";
+        const phone = booking.studentPhone || booking.walkInPhone || rd?.phone;
+        const email = booking.studentEmail || rd?.email;
+        const college = booking.studentCollege || rd?.college || rd?.instituteName;
+        const roomNo = rd?.roomNo || rd?.room;
+
+        const normalizedPhone = normalizePhone(phone);
+        let matchedResident = normalizedPhone ? hmsPhoneMap.get(normalizedPhone) : null;
+        if (!matchedResident && email) {
+          matchedResident = hmsEmailMap.get(email.toLowerCase().trim());
+        }
+
+        if (!matchedResident) {
+          notMatchedDetails.push({
+            bookingCode: booking.bookingCode,
+            name,
+            phone: phone || "N/A",
+            email: email || "N/A",
+            reason: "No matching HMS resident found by phone or email",
+          });
+          continue;
+        }
+
+        const syncPayload = {
+          residentId: matchedResident.id,
+          seasonAccess: "FULL",
+          bookingCode: booking.bookingCode,
+          bookingStatus: booking.status,
+          seasonName: season.name,
+          seasonStartDate: season.startDate,
+          seasonEndDate: season.endDate,
+          syncedAt: new Date().toISOString(),
+          residentDetails: {
+            name,
+            phone: phone || null,
+            email: email || null,
+            college: college || null,
+            room: roomNo || matchedResident.room || null,
+            course: booking.studentCourse || rd?.course || null,
+            year: booking.studentYear || rd?.year || null,
+          },
+        };
+
+        try {
+          const syncRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/crm/season-sync`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${jwt}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(syncPayload),
+          });
+
+          if (syncRes.ok) {
+            const syncResult = await syncRes.json();
+            syncedDetails.push({
+              bookingCode: booking.bookingCode,
+              name,
+              hmsResidentId: matchedResident.id,
+              hmsResidentName: matchedResident.name,
+              response: syncResult,
+            });
+          } else {
+            const errText = await syncRes.text();
+            failedDetails.push({
+              bookingCode: booking.bookingCode,
+              name,
+              hmsResidentId: matchedResident.id,
+              error: `HMS returned ${syncRes.status}: ${errText}`,
+            });
+          }
+        } catch (syncErr: any) {
+          failedDetails.push({
+            bookingCode: booking.bookingCode,
+            name,
+            hmsResidentId: matchedResident.id,
+            error: syncErr.message || "Network error",
+          });
+        }
+      }
+
+      const syncStatus = failedDetails.length === 0 && notMatchedDetails.length === 0
+        ? "synced"
+        : syncedDetails.length === 0
+          ? "failed"
+          : "partial";
+
+      const results = {
+        synced: syncedDetails.length,
+        notMatched: notMatchedDetails.length,
+        failed: failedDetails.length,
+        total: activeBookings.length,
+        syncedDetails,
+        notMatchedDetails,
+        failedDetails,
+      };
+
+      await db.update(schema.seasons).set({
+        hmsSyncStatus: syncStatus,
+        hmsSyncedAt: new Date(),
+        hmsSyncedBookingCount: syncedDetails.length,
+        hmsSyncResults: results,
+        updatedAt: new Date(),
+      }).where(eq(schema.seasons.id, req.params.id));
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: season.id,
+        entityLabel: `HMS Season Sync for ${season.name}`,
+        metadata: { synced: syncedDetails.length, notMatched: notMatchedDetails.length, failed: failedDetails.length, total: activeBookings.length },
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync to HMS" });
+    }
+  });
+
   app.get("/api/admin/seasons/:id/residents", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const residents = await db.select({
