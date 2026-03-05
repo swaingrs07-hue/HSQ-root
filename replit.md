@@ -79,6 +79,8 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: `packages` table has `propertyId`, `tagline`, `tierLevel`, `isHighlighted`, `occupancy`, `locationInfo`; `package_items` has `featureValue` for display text
 - **Public API**: `GET /api/properties/:propertyId/plans` returns active plans with features
 - **Booking Integration**: Attach/detach plans to bookings, track usage with progress bars, calculate extra charges, and manage an Ala Carte wallet
+- **Direct Booking**: "Book Now" button on each plan card scrolls to bed selector with plan pre-selected; selected plan shown in Booking Summary sidebar and passed to booking generation
+- **Premium Visuals**: Tier-specific styling (gold shimmer for top tier, silver for mid, neutral for base); gradient bed buttons with glass-morphism, spring animations, and animated shimmer effects on premium plan cards
 
 #### Season/Batch CRM Module
 - **Admin Route**: `/admin/seasons` — manage academic seasons/batches as CRM source-of-truth

@@ -478,11 +478,11 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
   }
 
   const statusConfig: Record<string, { bg: string; border: string; label: string; cursor: string; dot: string }> = {
-    available: { bg: "bg-emerald-500 hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-500/30", border: "border-emerald-600", label: "Available", cursor: "cursor-pointer", dot: "bg-emerald-500" },
-    occupied: { bg: "bg-red-400/60", border: "border-red-500/40", label: "Occupied", cursor: "cursor-not-allowed", dot: "bg-red-400" },
-    reserved: { bg: "bg-amber-400/60", border: "border-amber-500/40", label: "Reserved", cursor: "cursor-not-allowed", dot: "bg-amber-400" },
-    maintenance: { bg: "bg-stone-300/60", border: "border-stone-400/40", label: "Maintenance", cursor: "cursor-not-allowed", dot: "bg-stone-400" },
-    blocked: { bg: "bg-red-700/60", border: "border-red-800/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
+    available: { bg: "bg-gradient-to-br from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 hover:shadow-lg hover:shadow-emerald-500/40", border: "border-emerald-500/80", label: "Available", cursor: "cursor-pointer", dot: "bg-emerald-500" },
+    occupied: { bg: "bg-gradient-to-br from-red-300/60 to-red-500/60", border: "border-red-400/40", label: "Occupied", cursor: "cursor-not-allowed", dot: "bg-red-400" },
+    reserved: { bg: "bg-gradient-to-br from-amber-300/60 to-amber-500/60", border: "border-amber-400/40", label: "Reserved", cursor: "cursor-not-allowed", dot: "bg-amber-400" },
+    maintenance: { bg: "bg-gradient-to-br from-stone-200/60 to-stone-400/60", border: "border-stone-300/40", label: "Maintenance", cursor: "cursor-not-allowed", dot: "bg-stone-400" },
+    blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
   };
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {
@@ -490,33 +490,45 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
     const isHeld = bed.held && !isSelected;
     const isAvailable = bed.status === "available" && !isHeld;
     const config = isHeld 
-      ? { bg: "bg-orange-400/60", border: "border-orange-500/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
+      ? { bg: "bg-gradient-to-br from-orange-300/60 to-orange-500/60", border: "border-orange-400/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
       : (statusConfig[bed.status] || statusConfig.maintenance);
     return (
       <motion.button
         key={bed.id}
-        whileHover={isAvailable ? { scale: 1.1, y: -3 } : {}}
-        whileTap={isAvailable ? { scale: 0.95 } : {}}
+        whileHover={isAvailable ? { scale: 1.12, y: -4, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
+        whileTap={isAvailable ? { scale: 0.93 } : {}}
         onClick={() => {
           if (!isAvailable) return;
           setSelectedBedId(bed.id);
           onSelectBed(bed, floor, room);
         }}
         className={cn(
-          "relative p-2 border-2 rounded-xl text-center transition-all",
+          "relative p-2 border-2 rounded-xl text-center transition-all duration-200",
           config.bg, config.border, config.cursor,
-          !isAvailable && "opacity-40",
-          isSelected && "!bg-amber-500 !border-amber-400 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/30"
+          !isAvailable && "opacity-35",
+          isAvailable && "backdrop-blur-sm",
+          isSelected && "!bg-gradient-to-br !from-amber-400 !to-amber-600 !border-amber-300 ring-2 ring-amber-400/50 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/40"
         )}
         title={`${bed.bedNumber} — ${config.label}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
-        <Bed className="w-4 h-4 mx-auto text-white" />
-        <span className="text-[9px] font-bold block text-white mt-0.5 truncate">{bed.bedNumber}</span>
+        {isAvailable && !isSelected && (
+          <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
+        )}
+        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isSelected ? "text-white" : "text-white/90")} />
+        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 15 }}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30"
+          >
             <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
+        )}
+        {isAvailable && (
+          <div className="absolute inset-0 rounded-[10px] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         )}
       </motion.button>
     );
@@ -527,17 +539,17 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
 
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-stone-50 to-amber-50/50 p-4 rounded-xl border border-stone-200">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-stone-50 via-white to-amber-50/50 p-4 rounded-xl border border-stone-200 shadow-sm">
         <div className="flex flex-wrap items-center gap-4 text-xs text-stone-500">
           {Object.entries(statusConfig).map(([key, config]) => (
             <span key={key} className="flex items-center gap-1.5">
-              <span className={cn("w-3 h-3 rounded-full", config.dot)} />
+              <span className={cn("w-3 h-3 rounded-full shadow-sm", config.dot)} />
               {config.label}
             </span>
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold">{availAll} available</Badge>
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold shadow-sm shadow-emerald-100">{availAll} available</Badge>
           <span className="text-stone-400 text-xs">of {totalAll} total beds</span>
         </div>
       </div>
@@ -678,7 +690,13 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
   );
 }
 
-function HousingPlans({ propertyId }: { propertyId: string }) {
+function getTierStyle(tierLevel: number, totalTiers: number) {
+  if (tierLevel >= totalTiers) return { accent: "from-amber-400 via-yellow-300 to-amber-500", glow: "shadow-amber-400/40", text: "text-amber-700", badge: "bg-gradient-to-r from-amber-500 to-yellow-500", border: "border-amber-400", ring: "ring-amber-400/30", shimmer: "from-amber-200/0 via-amber-200/60 to-amber-200/0" };
+  if (tierLevel >= totalTiers - 1) return { accent: "from-slate-300 via-gray-200 to-slate-400", glow: "shadow-slate-400/30", text: "text-slate-700", badge: "bg-gradient-to-r from-slate-500 to-gray-500", border: "border-slate-300", ring: "ring-slate-300/30", shimmer: "from-slate-200/0 via-slate-200/60 to-slate-200/0" };
+  return { accent: "from-stone-300 via-stone-200 to-stone-300", glow: "shadow-stone-300/20", text: "text-stone-700", badge: "bg-gradient-to-r from-stone-500 to-stone-600", border: "border-stone-300", ring: "ring-stone-200/20", shimmer: "from-stone-100/0 via-stone-200/40 to-stone-100/0" };
+}
+
+function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSelectPlan: (plan: any) => void }) {
   const { data: plans = [], isLoading } = useQuery({
     queryKey: [`/api/properties/${propertyId}/plans`],
     queryFn: async () => {
@@ -706,6 +724,8 @@ function HousingPlans({ propertyId }: { propertyId: string }) {
     return item.featureValue || (item.includedQty > 0 ? `${item.includedQty} ${item.unit}` : "Included");
   };
 
+  const maxTier = Math.max(...plans.map((p: any) => p.tierLevel || 1));
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -719,34 +739,43 @@ function HousingPlans({ propertyId }: { propertyId: string }) {
         Housing Plans & Features
       </h2>
 
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-lg shadow-stone-200/50">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gradient-to-r from-stone-900 to-stone-800">
               <th className="text-left py-4 px-5 text-stone-300 uppercase text-xs tracking-wider font-semibold min-w-[180px]">
                 Lifestyle Features
               </th>
-              {plans.map((plan: any) => (
-                <th key={plan.id} className={`text-center px-4 min-w-[180px] relative ${plan.isHighlighted ? "bg-amber-600/20 pt-8 pb-4" : "py-4"}`}>
-                  {plan.isHighlighted && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10">
-                      Most Popular
+              {plans.map((plan: any) => {
+                const style = getTierStyle(plan.tierLevel || 1, maxTier);
+                return (
+                  <th key={plan.id} className={cn("text-center px-4 min-w-[180px] relative", plan.isHighlighted ? "bg-amber-600/20 pt-8 pb-4" : "py-4")}>
+                    {plan.isHighlighted && (
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Most Popular
+                      </div>
+                    )}
+                    <div className="text-white font-bold text-sm tracking-wide flex items-center justify-center gap-1.5">
+                      {(plan.tierLevel || 1) >= maxTier && <Crown className="w-3.5 h-3.5 text-amber-400" />}
+                      {plan.name}
                     </div>
-                  )}
-                  <div className="text-white font-bold text-sm tracking-wide">{plan.name}</div>
-                  {plan.tagline && <div className="text-stone-400 text-[10px] mt-0.5 font-medium">{plan.tagline}</div>}
-                </th>
-              ))}
+                    {plan.tagline && <div className="text-stone-400 text-[10px] mt-0.5 font-medium">{plan.tagline}</div>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-stone-100 bg-amber-50/50">
               <td className="py-3.5 px-5 font-semibold text-stone-700">Annual Fee (Standard)</td>
-              {plans.map((plan: any) => (
-                <td key={plan.id} className={`text-center py-3.5 px-4 ${plan.isHighlighted ? "bg-amber-50" : ""}`}>
-                  <span className="text-lg font-bold text-amber-700">₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
-                </td>
-              ))}
+              {plans.map((plan: any) => {
+                const style = getTierStyle(plan.tierLevel || 1, maxTier);
+                return (
+                  <td key={plan.id} className={`text-center py-3.5 px-4 ${plan.isHighlighted ? "bg-amber-50" : ""}`}>
+                    <span className={cn("text-lg font-bold", style.text)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                  </td>
+                );
+              })}
             </tr>
             {plans.some((p: any) => p.occupancy) && (
               <tr className="border-b border-stone-100">
@@ -806,56 +835,149 @@ function HousingPlans({ propertyId }: { propertyId: string }) {
                 })}
               </tr>
             ))}
+            <tr className="bg-gradient-to-r from-stone-50 to-amber-50/30">
+              <td className="py-4 px-5"></td>
+              {plans.map((plan: any) => {
+                const style = getTierStyle(plan.tierLevel || 1, maxTier);
+                const isTop = (plan.tierLevel || 1) >= maxTier;
+                return (
+                  <td key={plan.id} className="text-center py-4 px-4">
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+                      <Button
+                        onClick={() => onSelectPlan(plan)}
+                        className={cn(
+                          "rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm text-white shadow-lg transition-all relative overflow-hidden",
+                          plan.isHighlighted
+                            ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-amber-500/30"
+                            : isTop
+                            ? "bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-800 hover:to-yellow-700 shadow-amber-500/20"
+                            : "bg-stone-800 hover:bg-stone-700 shadow-stone-500/20"
+                        )}
+                        data-testid={`button-book-plan-${plan.id}`}
+                      >
+                        <span className="relative z-10 flex items-center gap-2">
+                          Book Now <ArrowRight className="w-4 h-4" />
+                        </span>
+                        {(plan.isHighlighted || isTop) && (
+                          <motion.div
+                            className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
+                            animate={{ x: ["-100%", "200%"] }}
+                            transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+                          />
+                        )}
+                      </Button>
+                    </motion.div>
+                  </td>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <div className="md:hidden space-y-4">
-        {plans.map((plan: any) => (
-          <motion.div
-            key={plan.id}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className={cn(
-              "rounded-2xl border overflow-hidden bg-white",
-              plan.isHighlighted ? "border-2 border-amber-400 shadow-lg shadow-amber-100" : "border-stone-200"
-            )}
-            data-testid={`plan-card-${plan.id}`}
-          >
-            {plan.isHighlighted && (
-              <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5">
-                <Star className="h-3 w-3 inline mr-1" /> Most Popular
-              </div>
-            )}
-            <div className="p-5">
-              <h3 className="font-bold text-lg text-stone-900">{plan.name}</h3>
-              {plan.tagline && <p className="text-sm text-amber-600 font-medium">{plan.tagline}</p>}
-              <div className="flex items-baseline gap-1 mt-2 mb-4">
-                <span className="text-2xl font-bold text-amber-700">₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
-                <span className="text-xs text-stone-400">/ year</span>
-              </div>
-              {plan.occupancy && (
-                <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
-                  <span className="text-stone-500">Occupancy</span>
-                  <span className="font-medium text-stone-700">{plan.occupancy}</span>
+      <div className="md:hidden space-y-5">
+        {plans.map((plan: any, pi: number) => {
+          const style = getTierStyle(plan.tierLevel || 1, maxTier);
+          const isTop = (plan.tierLevel || 1) >= maxTier;
+          return (
+            <motion.div
+              key={plan.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: pi * 0.1 }}
+              className={cn(
+                "rounded-2xl border overflow-hidden bg-white relative",
+                plan.isHighlighted
+                  ? "border-2 border-amber-400 shadow-xl shadow-amber-200/50"
+                  : isTop
+                  ? "border-2 border-amber-300/60 shadow-lg shadow-amber-100/30"
+                  : "border-stone-200 shadow-md"
+              )}
+              data-testid={`plan-card-${plan.id}`}
+            >
+              {(plan.isHighlighted || isTop) && (
+                <motion.div
+                  className={cn("absolute inset-0 bg-gradient-to-r pointer-events-none rounded-2xl", style.shimmer)}
+                  animate={{ x: ["-100%", "200%"] }}
+                  transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+                />
+              )}
+              {plan.isHighlighted && (
+                <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative">
+                  <Sparkles className="h-3 w-3 inline mr-1" /> Most Popular
                 </div>
               )}
-              {plan.locationInfo && (
-                <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
-                  <span className="text-stone-500">Location</span>
-                  <span className="font-medium text-stone-700">{plan.locationInfo}</span>
+              {isTop && !plan.isHighlighted && (
+                <div className="bg-gradient-to-r from-amber-700 via-yellow-600 to-amber-700 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative">
+                  <Crown className="h-3 w-3 inline mr-1" /> Premium Tier
                 </div>
               )}
-              {(plan.items || []).map((item: any) => (
-                <div key={item.id} className="flex justify-between py-2 border-b border-stone-100 text-sm">
-                  <span className="text-stone-500">{item.label}</span>
-                  <span className="font-medium text-stone-700">{item.featureValue || `${item.includedQty} ${item.unit}`}</span>
+              <div className="p-5 relative">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-lg text-stone-900">{plan.name}</h3>
+                  {isTop && <Crown className="w-4 h-4 text-amber-500" />}
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        ))}
+                {plan.tagline && <p className={cn("text-sm font-medium", style.text)}>{plan.tagline}</p>}
+                <div className="flex items-baseline gap-1 mt-2 mb-4">
+                  <span className={cn("text-2xl font-bold", style.text)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                  <span className="text-xs text-stone-400">/ year</span>
+                </div>
+                {plan.occupancy && (
+                  <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                    <span className="text-stone-500">Occupancy</span>
+                    <span className="font-medium text-stone-700">{plan.occupancy}</span>
+                  </div>
+                )}
+                {plan.locationInfo && (
+                  <div className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                    <span className="text-stone-500">Location</span>
+                    <span className="font-medium text-stone-700">{plan.locationInfo}</span>
+                  </div>
+                )}
+                {(plan.items || []).map((item: any) => {
+                  const val = item.featureValue || `${item.includedQty} ${item.unit}`;
+                  const isCredit = val.includes("Credit");
+                  const isUnlimited = val.toLowerCase().includes("unlimited");
+                  return (
+                    <div key={item.id} className="flex justify-between py-2 border-b border-stone-100 text-sm">
+                      <span className="text-stone-500">{item.label}</span>
+                      <span className={cn(
+                        "font-medium",
+                        isCredit ? "text-emerald-700 font-semibold" : isUnlimited ? "text-amber-700 font-bold" : "text-stone-700"
+                      )}>{val}</span>
+                    </div>
+                  );
+                })}
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-5">
+                  <Button
+                    onClick={() => onSelectPlan(plan)}
+                    className={cn(
+                      "w-full rounded-xl h-12 font-semibold tracking-wider uppercase text-sm text-white shadow-lg relative overflow-hidden",
+                      plan.isHighlighted
+                        ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-amber-500/30"
+                        : isTop
+                        ? "bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-800 hover:to-yellow-700 shadow-amber-500/20"
+                        : "bg-stone-800 hover:bg-stone-700 shadow-stone-500/20"
+                    )}
+                    data-testid={`button-book-plan-${plan.id}`}
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      Book This Plan <ArrowRight className="w-4 h-4" />
+                    </span>
+                    {(plan.isHighlighted || isTop) && (
+                      <motion.div
+                        className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
+                        animate={{ x: ["-100%", "200%"] }}
+                        transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+                      />
+                    )}
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </motion.div>
   );
@@ -881,6 +1003,7 @@ export default function PropertyBooking() {
   });
 
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const handleSelectBed = (bed: any, floor: any, room?: any) => {
     setSelectedBed(bed);
     setSelectedFloor(floor);
@@ -908,6 +1031,15 @@ export default function PropertyBooking() {
     floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleSelectPlan = (plan: any) => {
+    setSelectedPlan(plan);
+    toast({
+      title: `${plan.name} selected`,
+      description: "Now select a bed to complete your booking with this plan.",
+    });
+    scrollToFloors();
+  };
+
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
     if (!property) return;
     localStorage.setItem("selected_room", JSON.stringify({
@@ -925,6 +1057,8 @@ export default function PropertyBooking() {
       floorId: selectedFloor?.id,
       floorName: selectedFloor?.name,
       roomTypology: selectedRoom?.typology || "",
+      selectedPlanId: selectedPlan?.id || null,
+      selectedPlanName: selectedPlan?.name || null,
     }));
     navigate("/booking/generate");
   };
@@ -1153,7 +1287,7 @@ export default function PropertyBooking() {
               </div>
             </div>
 
-            <HousingPlans propertyId={property.id} />
+            <HousingPlans propertyId={property.id} onSelectPlan={handleSelectPlan} />
 
             {property.rules && (
               <div>
@@ -1261,13 +1395,38 @@ export default function PropertyBooking() {
                     </motion.div>
                   )}
 
+                  {selectedPlan && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="border-t border-stone-100 pt-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg flex items-center justify-center shrink-0">
+                          <Crown className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Selected Plan</p>
+                          <p className="font-semibold text-gray-900 text-sm">{selectedPlan.name}</p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedPlan(null)}
+                          className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors"
+                          data-testid="button-clear-plan"
+                        >
+                          <X className="w-3 h-3 text-stone-500" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {!selectedBed && (
                     <div className="text-center py-8 border-t border-stone-100">
                       <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <Bed className="w-7 h-7 text-stone-300" />
                       </div>
                       <p className="text-sm text-stone-400 font-medium">No bed selected</p>
-                      <p className="text-xs text-stone-300 mt-1">Select a floor & bed, or choose a room type below</p>
+                      <p className="text-xs text-stone-300 mt-1">{selectedPlan ? "Now select a floor & bed above" : "Select a floor & bed, or choose a room type below"}</p>
                     </div>
                   )}
                 </div>
