@@ -1243,7 +1243,11 @@ export default function PropertyBooking() {
       });
       if (sectionIndex >= 0) {
         const sectionBedCount = parts[sectionIndex];
+        const maxSection = Math.max(...parts);
         const baseRoomType = property.roomTypes.find((r: any) => r.id === bed.roomTypeId);
+        if (sectionBedCount === maxSection) {
+          return baseRoomType || null;
+        }
         if (sectionBedCount === 1) {
           const singleType = property.roomTypes.find((r: any) =>
             (r.name === "Single" || r.customName?.toLowerCase()?.includes("single")) && r.id !== bed.roomTypeId
