@@ -94,6 +94,7 @@ export const properties = pgTable("properties", {
   virtualTourUrl: text("virtual_tour_url"),
   virtualTourProvider: text("virtual_tour_provider"),
   highlights: text("highlights").array(),
+  includedServices: jsonb("included_services"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

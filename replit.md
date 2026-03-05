@@ -45,6 +45,7 @@ Preferred communication style: Simple, everyday language.
 - **HMS Property Sync**: Functionality to link/unlink properties to an external Hostel Management System, including verification and auto-matching.
 - **Package Upgrade System**: Allows admins to upgrade a booking's active package to a higher-tier, with transaction safety, price calculation, and upgrade history tracking.
 - **Property Add-On Services**: Management of property-specific add-on services (e.g., meal plans, laundry) using the packages table with distinct categorization and booking integration.
+- **Property Included Services**: Admin can configure services included with all housing plans via a "Services" tab in the property edit dialog. Supports service types (meals, shuttle, EV bike, laundry, housekeeping, locker, custom) with named meal schedule toggles (Breakfast/Lunch/Evening Snacks/Dinner) per day group (Mon–Fri, Saturday, Sunday). Stored as JSONB `includedServices` on the properties table.
 - **Homepage Amenities & Facilities Control**: Admin panel to manage amenities displayed on the homepage, including title, description, image, icon, and sort order.
 - **Logo Control Panel**: Admin-only panel to upload custom header, footer, and admin sidebar logos, stored dynamically.
 - **Gyan AI Chatbot (HMS-Connected)**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data for personalized responses, lead capture, and context caching.

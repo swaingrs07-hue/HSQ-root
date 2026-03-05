@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -492,6 +492,7 @@ export default function AdminDashboard() {
   const [editImagesLoading, setEditImagesLoading] = useState(false);
   const [editTab, setEditTab] = useState("basic");
   const [editRoomTypes, setEditRoomTypes] = useState<any[]>([]);
+  const [editIncludedServices, setEditIncludedServices] = useState<any[]>([]);
   const [savingRoomTypes, setSavingRoomTypes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editImageUploading, setEditImageUploading] = useState(false);
@@ -716,6 +717,7 @@ export default function AdminDashboard() {
     setEditProperty(property);
     setEditTab("basic");
     setEditRoomTypes((property.roomTypes || []).map((rt: any) => ({ ...rt })));
+    setEditIncludedServices(Array.isArray(property.includedServices) ? property.includedServices.map((s: any) => ({ ...s })) : []);
     setEditForm({
       name: property.name || "",
       displayName: property.displayName || "",
@@ -770,6 +772,7 @@ export default function AdminDashboard() {
         ...editForm,
         amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
         highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
+        includedServices: editIncludedServices,
       };
       const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
         method: "PATCH",
@@ -1787,7 +1790,7 @@ export default function AdminDashboard() {
           </DialogHeader>
           {editProperty && (
             <Tabs value={editTab} onValueChange={setEditTab}>
-              <TabsList className="grid w-full grid-cols-5 mb-4">
+              <TabsList className="grid w-full grid-cols-6 mb-4">
                 <TabsTrigger value="basic" className="text-xs gap-1" data-testid="edit-tab-basic">
                   <Building2 className="h-3 w-3" /> Basic
                 </TabsTrigger>
@@ -1801,6 +1804,12 @@ export default function AdminDashboard() {
                   <Bed className="h-3 w-3" /> Rooms
                   {editRoomTypes.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editRoomTypes.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="services" className="text-xs gap-1" data-testid="edit-tab-services">
+                  <UtensilsCrossed className="h-3 w-3" /> Services
+                  {editIncludedServices.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editIncludedServices.length}</Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="images" className="text-xs gap-1" data-testid="edit-tab-images">
@@ -2169,6 +2178,208 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="services" className="space-y-4 mt-0">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">Included Services</h3>
+                    <p className="text-[11px] text-slate-400">Services included with all housing plans at this property</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => {
+                    setEditIncludedServices(prev => [...prev, {
+                      type: "meals",
+                      label: "Daily Meals",
+                      description: "",
+                      schedule: {
+                        weekday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                        saturday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                        sunday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                      },
+                    }]);
+                  }} data-testid="button-add-included-service">
+                    <Plus className="h-3.5 w-3.5" /> Add Service
+                  </Button>
+                </div>
+
+                {editIncludedServices.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-slate-200 rounded-lg">
+                    <Package className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">No included services configured</p>
+                    <p className="text-[11px] text-slate-300 mt-1">Add services like meals, shuttle, housekeeping that come with housing plans</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {editIncludedServices.map((svc, svcIdx) => {
+                      const SERVICE_TYPES = [
+                        { value: "meals", label: "Meals", icon: UtensilsCrossed },
+                        { value: "shuttle", label: "Express Shuttle", icon: Bus },
+                        { value: "ev_bike", label: "EV Bike Access", icon: Bike },
+                        { value: "laundry", label: "Cleaning & Laundry", icon: Shirt },
+                        { value: "housekeeping", label: "Housekeeping", icon: SprayCan },
+                        { value: "locker", label: "Locker", icon: Lock },
+                        { value: "custom", label: "Custom", icon: Tag },
+                      ];
+                      const MEAL_OPTIONS = [
+                        { value: "breakfast", label: "Breakfast" },
+                        { value: "lunch", label: "Lunch" },
+                        { value: "evening_snacks", label: "Evening Snacks" },
+                        { value: "dinner", label: "Dinner" },
+                      ];
+                      const currentType = SERVICE_TYPES.find(t => t.value === svc.type);
+                      const TypeIcon = currentType?.icon || Tag;
+                      const toggleServiceMeal = (dayKey: string, mealValue: string) => {
+                        setEditIncludedServices(prev => prev.map((s, i) => {
+                          if (i !== svcIdx) return s;
+                          const schedule = { ...(s.schedule || {}) };
+                          const dayRules = schedule[dayKey] || { meals: [], count: 0 };
+                          const meals: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+                          const exists = meals.includes(mealValue);
+                          const newMeals = exists ? meals.filter((m: string) => m !== mealValue) : [...meals, mealValue];
+                          schedule[dayKey] = { meals: newMeals, count: newMeals.length };
+                          return { ...s, schedule };
+                        }));
+                      };
+                      return (
+                        <div key={svcIdx} className="border border-slate-200 rounded-lg p-4 bg-slate-50" data-testid={`included-service-${svcIdx}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                                <TypeIcon className="h-4 w-4 text-orange-600" />
+                              </div>
+                              <div>
+                                <input
+                                  value={svc.label}
+                                  onChange={e => setEditIncludedServices(prev => prev.map((s, i) => i === svcIdx ? { ...s, label: e.target.value } : s))}
+                                  className="font-semibold text-sm text-slate-800 bg-transparent border-none outline-none w-full"
+                                  placeholder="Service name..."
+                                  data-testid={`input-service-label-${svcIdx}`}
+                                />
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => setEditIncludedServices(prev => prev.filter((_, i) => i !== svcIdx))} data-testid={`remove-service-${svcIdx}`}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Type</Label>
+                              <select
+                                value={svc.type}
+                                onChange={e => setEditIncludedServices(prev => prev.map((s, i) => i === svcIdx ? { ...s, type: e.target.value } : s))}
+                                className="w-full h-8 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                data-testid={`select-service-type-${svcIdx}`}
+                              >
+                                {SERVICE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Description</Label>
+                              <input
+                                value={svc.description || ""}
+                                onChange={e => setEditIncludedServices(prev => prev.map((s, i) => i === svcIdx ? { ...s, description: e.target.value } : s))}
+                                className="w-full h-8 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                placeholder="e.g., Fresh home-style meals daily"
+                                data-testid={`input-service-desc-${svcIdx}`}
+                              />
+                            </div>
+                          </div>
+
+                          {svc.type === "meals" && (
+                            <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                              <Label className="text-xs font-semibold text-orange-700 mb-3 block">
+                                <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Meal Schedule — Select included meals
+                              </Label>
+                              <div className="space-y-2.5">
+                                {[
+                                  { key: "weekday", label: "Mon – Fri" },
+                                  { key: "saturday", label: "Saturday" },
+                                  { key: "sunday", label: "Sunday" },
+                                ].map(day => {
+                                  const dayRules = svc.schedule?.[day.key] || { meals: [], count: 0 };
+                                  const selectedMeals: string[] = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+                                  return (
+                                    <div key={day.key} className="bg-white rounded-lg border border-orange-100 p-2.5">
+                                      <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[11px] font-semibold text-slate-700">{day.label}</span>
+                                        <span className="text-[10px] text-orange-600 font-medium">{selectedMeals.length} meals</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {MEAL_OPTIONS.map(meal => {
+                                          const isSelected = selectedMeals.includes(meal.value);
+                                          return (
+                                            <button
+                                              key={meal.value}
+                                              type="button"
+                                              onClick={() => toggleServiceMeal(day.key, meal.value)}
+                                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                                                isSelected
+                                                  ? "bg-orange-600 text-white border-orange-600"
+                                                  : "bg-white text-slate-500 border-slate-200 hover:border-orange-300"
+                                              }`}
+                                              data-testid={`svc-meal-${day.key}-${meal.value}-${svcIdx}`}
+                                            >
+                                              {meal.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {svc.type !== "meals" && (
+                            <div className="p-2 bg-slate-100 rounded text-[11px] text-slate-500">
+                              This service is included with all plans. Add details in the description.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {[
+                    { type: "meals", label: "Meals", icon: UtensilsCrossed },
+                    { type: "shuttle", label: "Shuttle", icon: Bus },
+                    { type: "laundry", label: "Laundry", icon: Shirt },
+                    { type: "housekeeping", label: "Housekeeping", icon: SprayCan },
+                    { type: "ev_bike", label: "EV Bike", icon: Bike },
+                  ].map(quick => {
+                    const QuickIcon = quick.icon;
+                    const alreadyAdded = editIncludedServices.some(s => s.type === quick.type);
+                    return (
+                      <Button
+                        key={quick.type}
+                        variant="outline"
+                        size="sm"
+                        className={`text-[11px] gap-1 ${alreadyAdded ? "opacity-40 cursor-not-allowed" : ""}`}
+                        disabled={alreadyAdded}
+                        onClick={() => {
+                          const defaultSchedule = quick.type === "meals" ? {
+                            weekday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                            saturday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                            sunday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+                          } : null;
+                          setEditIncludedServices(prev => [...prev, {
+                            type: quick.type,
+                            label: quick.label === "Meals" ? "Daily Meals" : quick.label,
+                            description: "",
+                            schedule: defaultSchedule,
+                          }]);
+                        }}
+                        data-testid={`quick-add-${quick.type}`}
+                      >
+                        <QuickIcon className="h-3 w-3" /> {quick.label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </TabsContent>
 
               <TabsContent value="images" className="space-y-4 mt-0">
