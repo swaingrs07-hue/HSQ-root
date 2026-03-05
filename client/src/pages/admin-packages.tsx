@@ -196,11 +196,22 @@ export default function AdminPackages() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, force = false) => {
     try {
-      const res = await fetch(`/api/admin/packages/${id}`, { method: "DELETE", headers });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to delete");
-      toast({ title: "Plan deleted" });
+      const url = force ? `/api/admin/packages/${id}?force=true` : `/api/admin/packages/${id}`;
+      const res = await fetch(url, { method: "DELETE", headers });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.attachmentCount && !force) {
+          setDeleteConfirm(null);
+          if (confirm(`This plan has ${data.attachmentCount} active booking attachment(s). Force delete will end those attachments and remove the plan. Continue?`)) {
+            return handleDelete(id, true);
+          }
+          return;
+        }
+        throw new Error(data.error || "Failed to delete");
+      }
+      toast({ title: "Plan deleted", description: data.endedAttachments > 0 ? `${data.endedAttachments} booking attachment(s) were ended.` : undefined });
       setDeleteConfirm(null);
       fetchPackages();
     } catch (e: any) {
@@ -657,7 +668,7 @@ export default function AdminPackages() {
               <AlertCircle className="h-5 w-5" /> Delete Plan?
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-600">This will permanently delete this plan and all its features. Active booking attachments will prevent deletion.</p>
+          <p className="text-sm text-slate-600">This will permanently delete this plan and all its features. If it has active booking attachments, you'll be asked to confirm force deletion.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)} data-testid="button-confirm-delete">Delete</Button>

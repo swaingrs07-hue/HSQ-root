@@ -7247,10 +7247,19 @@ export async function registerRoutes(
 
   app.delete("/api/admin/packages/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
+      const forceDelete = req.query.force === "true";
       const attached = await db.select().from(schema.bookingPackages).where(and(eq(schema.bookingPackages.packageId, req.params.id), eq(schema.bookingPackages.status, "ACTIVE")));
-      if (attached.length > 0) return res.status(400).json({ error: "Cannot delete package with active booking attachments" });
+      if (attached.length > 0 && !forceDelete) {
+        return res.status(400).json({ error: `This plan has ${attached.length} active booking attachment(s). Use force delete to end them and remove the plan.`, attachmentCount: attached.length });
+      }
+      if (attached.length > 0 && forceDelete) {
+        await db.update(schema.bookingPackages).set({ status: "ENDED", endDate: new Date() }).where(and(eq(schema.bookingPackages.packageId, req.params.id), eq(schema.bookingPackages.status, "ACTIVE")));
+      }
+      await db.delete(schema.bookingPackages).where(eq(schema.bookingPackages.packageId, req.params.id));
+      await db.delete(schema.packageUpgrades).where(or(eq(schema.packageUpgrades.fromPackageId, req.params.id), eq(schema.packageUpgrades.toPackageId, req.params.id)));
+      await db.delete(schema.packageItems).where(eq(schema.packageItems.packageId, req.params.id));
       await db.delete(schema.packages).where(eq(schema.packages.id, req.params.id));
-      res.json({ success: true });
+      res.json({ success: true, endedAttachments: attached.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to delete package" });
     }
