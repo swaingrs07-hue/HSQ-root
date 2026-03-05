@@ -553,18 +553,30 @@ export default function Home() {
         return (
           <section className="py-24 md:py-32 relative overflow-hidden" data-testid="section-housing-plans">
             <div className="absolute inset-0 bg-[#0c0c0c]" />
-            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z' fill='%23ffffff' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E\")" }} />
+            <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z' fill='%23ffffff' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E\")" }} />
             <motion.div
-              className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
-              style={{ background: "radial-gradient(circle, rgba(16,185,129,0.3) 0%, transparent 70%)" }}
-              animate={{ x: [0, 50, 0], y: [0, 30, 0] }}
-              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute w-[500px] h-[500px] rounded-full pointer-events-none"
+              style={{ top: "-5%", left: "10%", background: "radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(16,185,129,0.08) 40%, transparent 70%)", filter: "blur(80px)" }}
+              animate={{ x: [0, 120, -40, 0], y: [0, 80, 20, 0], scale: [1, 1.3, 0.9, 1], opacity: [0.3, 0.5, 0.25, 0.3] }}
+              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
-              style={{ background: "radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 70%)" }}
-              animate={{ x: [0, -50, 0], y: [0, -30, 0] }}
-              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute w-[450px] h-[450px] rounded-full pointer-events-none"
+              style={{ top: "30%", right: "5%", background: "radial-gradient(circle, rgba(139,92,246,0.2) 0%, rgba(139,92,246,0.06) 40%, transparent 70%)", filter: "blur(80px)" }}
+              animate={{ x: [0, -80, 60, 0], y: [0, -60, 40, 0], scale: [1, 0.8, 1.2, 1], opacity: [0.25, 0.4, 0.2, 0.25] }}
+              transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute w-[550px] h-[550px] rounded-full pointer-events-none"
+              style={{ bottom: "-10%", right: "20%", background: "radial-gradient(circle, rgba(245,158,11,0.25) 0%, rgba(245,158,11,0.08) 40%, transparent 70%)", filter: "blur(80px)" }}
+              animate={{ x: [0, -100, 50, 0], y: [0, -50, 80, 0], scale: [1, 1.2, 0.85, 1], opacity: [0.3, 0.2, 0.45, 0.3] }}
+              transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
+              style={{ top: "50%", left: "40%", background: "radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 60%)", filter: "blur(60px)" }}
+              animate={{ x: [0, 60, -60, 0], y: [0, -40, 40, 0], scale: [0.8, 1.1, 0.9, 0.8], opacity: [0.15, 0.3, 0.1, 0.15] }}
+              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
             />
 
             <div className="container mx-auto px-4 relative z-10">
