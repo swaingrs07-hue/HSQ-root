@@ -1220,7 +1220,7 @@ export default function PropertyBooking() {
                             </div>
                             <div>
                               <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Type</p>
-                              <p className="font-semibold text-gray-900 text-sm">{selectedRoomType.customName || selectedRoomType.name}</p>
+                              <p className="font-semibold text-gray-900 text-sm">{(selectedRoomType.customName || selectedRoomType.name) + (selectedRoom?.typology && selectedRoom.typology !== "1 Bed" ? `(${selectedRoom.typology})` : "")}</p>
                             </div>
                           </div>
                           <div className="border-t border-stone-100 pt-4 bg-gradient-to-b from-amber-50/50 to-stone-50 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl">
