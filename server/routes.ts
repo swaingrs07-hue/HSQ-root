@@ -7841,10 +7841,11 @@ export async function registerRoutes(
           const graceDays = activated.graceDays || 30;
           const graceUntil = new Date(activated.endDate);
           graceUntil.setDate(graceUntil.getDate() + graceDays);
+          const isRegistered = !!(booking.studentId || booking.walkInName || (booking.residentDetails as any)?.fullName);
           await db.insert(schema.residentSeasonStatus).values({
             bookingId: booking.id,
             seasonId: req.params.id,
-            status: "PENDING",
+            status: isRegistered ? "RETAINED" : "PENDING",
             graceUntil,
           });
           autoLinked++;
@@ -7905,7 +7906,9 @@ export async function registerRoutes(
       const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
 
       let added = 0;
+      let upgraded = 0;
       for (const booking of activeBookings) {
+        const isRegistered = !!(booking.studentId || booking.walkInName || (booking.residentDetails as any)?.fullName);
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
           const graceUntil = new Date(season.endDate);
@@ -7913,10 +7916,18 @@ export async function registerRoutes(
           await db.insert(schema.residentSeasonStatus).values({
             bookingId: booking.id,
             seasonId: req.params.id,
-            status: "PENDING",
+            status: isRegistered ? "RETAINED" : "PENDING",
             graceUntil,
           });
           added++;
+        } else if (isRegistered) {
+          const existing = existingStatuses.find(s => s.bookingId === booking.id);
+          if (existing && existing.status === "PENDING") {
+            await db.update(schema.residentSeasonStatus)
+              .set({ status: "RETAINED", updatedAt: new Date() })
+              .where(eq(schema.residentSeasonStatus.id, existing.id));
+            upgraded++;
+          }
         }
       }
 
@@ -7926,10 +7937,10 @@ export async function registerRoutes(
         entityType: "BOOKING",
         entityId: season.id,
         entityLabel: `Sync residents for ${season.name}`,
-        metadata: { seasonId: season.id, addedResidents: added, totalBookings: activeBookings.length },
+        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, totalBookings: activeBookings.length },
       });
 
-      res.json({ success: true, added, total: existingStatuses.length + added });
+      res.json({ success: true, added, upgraded, total: existingStatuses.length + added });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync residents" });
     }
