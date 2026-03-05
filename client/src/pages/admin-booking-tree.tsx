@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import hsquareLogo from "@/assets/hsquare-logo-full.png";
 
 function getAuthToken(): string {
   try {
@@ -583,10 +584,9 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/25 iso-logo-pulse">
-                <span className="text-sm font-black text-white">H²</span>
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/25 iso-logo-pulse overflow-hidden">
+                <img src={hsquareLogo} alt="Hsquare" className="w-full h-full object-contain p-1" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0c1628] iso-status-dot" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -779,8 +779,8 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                     <div className="rounded-t-2xl overflow-hidden" style={{ height: `${ROOF_H}px`, background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(251,191,36,0.25)", borderBottom: "none" }}>
                       <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-2xl" style={{ background: "linear-gradient(90deg, #166534, #15803d, #22c55e, #4ade80, #22c55e, #15803d, #166534)" }} />
                       <div className="flex items-center justify-center h-full gap-4 px-5 pt-1">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-xl shadow-amber-500/30 iso-logo-pulse">
-                          <span className="text-sm font-black text-white">H²</span>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-xl shadow-amber-500/30 iso-logo-pulse overflow-hidden">
+                          <img src={hsquareLogo} alt="Hsquare" className="w-full h-full object-contain p-1" />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-white tracking-wider uppercase">{propertyName.length > 22 ? propertyName.slice(0, 22) + "…" : propertyName}</p>
@@ -1024,13 +1024,11 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
         .iso-arm-l { animation: armRelax 5s ease-in-out infinite 0.5s; }
         @keyframes phoneGlow { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
         .iso-phone-glow { animation: phoneGlow 3s ease-in-out infinite; }
-        @keyframes bedGlow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
-        .iso-bed-cell { animation: bedGlow 3s ease-in-out infinite; }
-        .iso-bed-cell:hover { z-index: 20; }
-        .iso-guest-label { animation: floatLabelSimple 3s ease-in-out infinite; }
-        @keyframes floatLabelSimple { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-1px); } }
-        @keyframes bedCardFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-        .iso-bed-card-float { animation: bedCardFloat 4s ease-in-out infinite; }
+        .iso-bed-cell { transition: filter 0.3s ease; }
+        .iso-bed-cell:hover { z-index: 20; filter: brightness(1.15); }
+        .iso-guest-label { transform: translateX(-50%); }
+        .iso-bed-card-float { transition: transform 0.3s ease; }
+        .iso-bed-card-float:hover { transform: translateY(-2px); }
 
         .iso-floor-grid {
           display: grid;
@@ -1147,8 +1145,8 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
           z-index: 10;
           animation: statusDot 2s ease-in-out infinite;
         }
-        @keyframes bedSceneFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-        .iso-bed-platform { animation: bedSceneFloat 6s ease-in-out infinite; }
+        .iso-bed-platform { transition: transform 0.3s ease; }
+        .iso-bed-scene:hover .iso-bed-platform { transform: translateY(-2px); }
 
         @media (prefers-reduced-motion: reduce) {
           .iso-char-breathe, .iso-char-idle, .iso-arm-phone, .iso-arm-r, .iso-arm-l,
@@ -1176,7 +1174,7 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
   const isOccupied = bed.status === "occupied";
 
   return (
-    <div className="iso-bed-enter iso-bed-scene-wrap relative group/bed" style={{ animationDelay: `${Math.min(idx, 20) * 60}ms` }}>
+    <div className="iso-bed-enter iso-bed-scene-wrap relative group/bed" style={{ animationDelay: `${Math.min(idx, 20) * 60}ms`, contain: "layout style" }}>
       <button
         onClick={() => onBedClick(bed.id)}
         onMouseEnter={(e) => onHover(bed, e)}
