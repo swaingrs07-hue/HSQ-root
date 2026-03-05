@@ -727,9 +727,9 @@ function HousingPlans({ propertyId }: { propertyId: string }) {
                 Lifestyle Features
               </th>
               {plans.map((plan: any) => (
-                <th key={plan.id} className={`text-center py-4 px-4 min-w-[160px] relative ${plan.isHighlighted ? "bg-amber-600/20" : ""}`}>
+                <th key={plan.id} className={`text-center px-4 min-w-[180px] relative ${plan.isHighlighted ? "bg-amber-600/20 pt-8 pb-4" : "py-4"}`}>
                   {plan.isHighlighted && (
-                    <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-0.5 rounded-b-lg tracking-wider">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10">
                       Most Popular
                     </div>
                   )}
