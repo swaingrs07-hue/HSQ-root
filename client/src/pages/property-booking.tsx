@@ -1225,21 +1225,9 @@ export default function PropertyBooking() {
     }
   };
 
-  const getBedSharingRoomType = (bed: any, room: any) => {
-    if (!bed || !room || !property?.roomTypes) return null;
-    const typology = room.typology || "";
-    const isCombo = typology.includes("+");
-    if (!isCombo) {
-      return property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
-    }
-    const parts = typology.split("+").map((p: string) => parseInt(p.trim()));
-    const bedNumber = bed.bedNumber || "";
-    const sectionMatch = bedNumber.match(/\d+([A-Z])/);
-    const sectionLetter = sectionMatch ? sectionMatch[1] : "A";
-    const sectionIndex = sectionLetter.charCodeAt(0) - 65;
-    const sectionBedCount = parts[sectionIndex] || parts[0] || 1;
-    const matchingRt = property.roomTypes.find((r: any) => (r.occupancy || 1) === sectionBedCount);
-    return matchingRt || property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
+  const getBedSharingRoomType = (bed: any, _room: any) => {
+    if (!bed || !property?.roomTypes) return null;
+    return property.roomTypes.find((r: any) => r.id === bed.roomTypeId) || null;
   };
 
   const scrollToFloors = () => {
