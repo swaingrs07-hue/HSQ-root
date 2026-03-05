@@ -1502,12 +1502,40 @@ export default function PropertyBooking() {
                   )}
 
                   {!selectedBed && (
-                    <div className="text-center py-8 border-t border-stone-100">
-                      <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Bed className="w-7 h-7 text-stone-300" />
-                      </div>
-                      <p className="text-sm text-stone-400 font-medium">No bed selected</p>
-                      <p className="text-xs text-stone-300 mt-1">{selectedPlan ? "Now select a floor & bed above" : "Select a floor & bed, or choose a room type below"}</p>
+                    <div className="text-center py-6 border-t border-stone-100">
+                      {selectedPlan ? (
+                        <div className="space-y-3">
+                          <div className="w-14 h-14 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                            <Bed className="w-7 h-7 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-700">Select a bed to continue</p>
+                            <p className="text-xs text-stone-400 mt-1">
+                              {selectedPlan.roomTypeId
+                                ? `Pick a highlighted ${selectedPlan.roomTypeName || ""} bed from the floor above`
+                                : "Pick any available bed from the floors above"}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                            className="text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                            data-testid="button-scroll-to-beds"
+                          >
+                            <ArrowRight className="w-3 h-3 mr-1 rotate-[-90deg]" />
+                            Scroll to beds
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Bed className="w-7 h-7 text-stone-300" />
+                          </div>
+                          <p className="text-sm text-stone-400 font-medium">No bed selected</p>
+                          <p className="text-xs text-stone-300 mt-1">Select a floor & bed, or choose a room type below</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
