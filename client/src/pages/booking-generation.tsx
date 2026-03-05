@@ -1818,22 +1818,22 @@ export default function BookingGeneration() {
                           </div>
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-slate-700">Accommodation Type</Label>
-                            <Select value={formData.residentAccommodationType} onValueChange={(v) => setFormData(prev => ({ ...prev, residentAccommodationType: v }))}>
-                              <SelectTrigger className="bg-white" data-testid="select-accommodation-type">
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="single">Single Occupancy</SelectItem>
-                                <SelectItem value="double">Double Sharing</SelectItem>
-                                <SelectItem value="triple">Triple Sharing</SelectItem>
-                                <SelectItem value="quad">Quad Sharing</SelectItem>
-                                {formData.residentAccommodationType && !["single", "double", "triple", "quad"].includes(formData.residentAccommodationType) && (
-                                  <SelectItem value={formData.residentAccommodationType}>{formData.residentAccommodationType.replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                            {selectedBedInfo && formData.residentAccommodationType && (
-                              <p className="text-xs text-emerald-600 mt-1">Auto-set from bed selection</p>
+                            <Input
+                              readOnly
+                              value={
+                                formData.residentAccommodationType === "single" ? "Single Occupancy"
+                                : formData.residentAccommodationType === "double" ? "Double Sharing"
+                                : formData.residentAccommodationType === "triple" ? "Triple Sharing"
+                                : formData.residentAccommodationType === "quad" ? "Quad Sharing"
+                                : formData.residentAccommodationType ? formData.residentAccommodationType.replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())
+                                : ""
+                              }
+                              placeholder="Auto-detected from room type"
+                              className="bg-slate-50 cursor-default"
+                              data-testid="input-accommodation-type"
+                            />
+                            {!formData.residentAccommodationType && (
+                              <p className="text-xs text-slate-400 mt-1">Select a room type or bed to auto-fill</p>
                             )}
                           </div>
                         </div>
