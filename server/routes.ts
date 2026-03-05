@@ -3068,6 +3068,8 @@ export async function registerRoutes(
         paymentType,
         tokenAmount,
         numberOfInstallments,
+        customBookingAmount,
+        installmentDueDates,
         paymentPlanId,
         createdBy,
         assignedSalesExecId,
@@ -3179,15 +3181,31 @@ export async function registerRoutes(
         );
       } else if (paymentType === "installments" && numberOfInstallments) {
         const numInstallments = numberOfInstallments || 2;
-        const perInstallment = Math.round(totalFee / numInstallments);
+        const customFirst = customBookingAmount && customBookingAmount > 0 ? customBookingAmount : 0;
+        const dueDates: string[] = installmentDueDates || [];
         for (let i = 0; i < numInstallments; i++) {
-          const isLast = i === numInstallments - 1;
-          const amount = isLast ? totalFee - (perInstallment * (numInstallments - 1)) : perInstallment;
+          let amount: number;
+          if (customFirst > 0) {
+            if (i === 0) {
+              amount = customFirst;
+            } else {
+              const remaining = totalFee - customFirst;
+              const remainingParts = numInstallments - 1;
+              const perRemaining = Math.round(remaining / remainingParts);
+              const isLast = i === numInstallments - 1;
+              amount = isLast ? remaining - (perRemaining * (remainingParts - 1)) : perRemaining;
+            }
+          } else {
+            const perInstallment = Math.round(totalFee / numInstallments);
+            const isLast = i === numInstallments - 1;
+            amount = isLast ? totalFee - (perInstallment * (numInstallments - 1)) : perInstallment;
+          }
+          const dueDate = dueDates[i] || (i === 0 ? "Immediate" : `Installment ${i} Due`);
           installmentRecords.push({
             bookingId: booking.id,
             name: i === 0 ? "Booking Amount" : `Installment ${i}`,
             amount,
-            dueDate: i === 0 ? "Immediate" : `Installment ${i} Due`,
+            dueDate,
           });
         }
       } else {

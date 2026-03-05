@@ -156,6 +156,8 @@ export default function BookingGeneration() {
     paymentPlanId: "",
     tokenAmount: 100000,
     numberOfInstallments: 2,
+    customBookingAmount: 0,
+    installmentDueDates: [] as string[],
     residentName: "",
     residentRoomNo: "",
     residentBedNo: "",
@@ -693,6 +695,8 @@ export default function BookingGeneration() {
           paymentType: formData.paymentType,
           tokenAmount: formData.paymentType === "partial" ? formData.tokenAmount : null,
           numberOfInstallments: formData.paymentType === "installments" ? formData.numberOfInstallments : null,
+          customBookingAmount: formData.paymentType === "installments" && formData.customBookingAmount > 0 ? formData.customBookingAmount : null,
+          installmentDueDates: formData.paymentType === "installments" ? formData.installmentDueDates : null,
           paymentPlanId: formData.paymentPlanId || null,
           residentDetails: {
             name: formData.residentName,
@@ -2093,7 +2097,7 @@ export default function BookingGeneration() {
                               <button
                                 key={num}
                                 type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, numberOfInstallments: num }))}
+                                onClick={() => setFormData(prev => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentDueDates: [] }))}
                                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                                   formData.numberOfInstallments === num
                                     ? "border-purple-500 bg-purple-100 text-purple-700"
@@ -2106,15 +2110,68 @@ export default function BookingGeneration() {
                               </button>
                             ))}
                           </div>
-                          <div className="space-y-1 mt-2">
+                          <div className="space-y-2 mt-2">
                             {Array.from({ length: formData.numberOfInstallments }, (_, i) => {
-                              const perInstallment = Math.round(calculateTotal() / formData.numberOfInstallments);
-                              const isLast = i === formData.numberOfInstallments - 1;
-                              const amount = isLast ? calculateTotal() - (perInstallment * (formData.numberOfInstallments - 1)) : perInstallment;
+                              const total = calculateTotal();
+                              const customFirst = formData.customBookingAmount > 0 ? formData.customBookingAmount : 0;
+                              let amount: number;
+                              if (customFirst > 0) {
+                                if (i === 0) {
+                                  amount = customFirst;
+                                } else {
+                                  const remaining = total - customFirst;
+                                  const remainingParts = formData.numberOfInstallments - 1;
+                                  const perRemaining = Math.round(remaining / remainingParts);
+                                  const isLast = i === formData.numberOfInstallments - 1;
+                                  amount = isLast ? remaining - (perRemaining * (remainingParts - 1)) : perRemaining;
+                                }
+                              } else {
+                                const perInstallment = Math.round(total / formData.numberOfInstallments);
+                                const isLast = i === formData.numberOfInstallments - 1;
+                                amount = isLast ? total - (perInstallment * (formData.numberOfInstallments - 1)) : perInstallment;
+                              }
+                              const dueDate = formData.installmentDueDates[i] || "";
                               return (
-                                <div key={i} className="flex justify-between text-sm text-purple-700 bg-white px-3 py-2 rounded-md border border-purple-100">
-                                  <span>{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
-                                  <span className="font-semibold">₹{amount.toLocaleString()}</span>
+                                <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-purple-700">{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
+                                    {i === 0 ? (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-purple-500">₹</span>
+                                        <input
+                                          type="number"
+                                          value={formData.customBookingAmount || Math.round(total / formData.numberOfInstallments)}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            const clamped = Math.min(val, total - (formData.numberOfInstallments - 1) * 1000);
+                                            setFormData(prev => ({ ...prev, customBookingAmount: Math.max(0, clamped) }));
+                                          }}
+                                          className="w-28 text-right text-sm font-semibold text-purple-700 border border-purple-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                          data-testid="input-booking-amount"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm font-semibold text-purple-700">₹{amount.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-3 h-3 text-purple-400" />
+                                    <input
+                                      type="date"
+                                      value={dueDate}
+                                      onChange={(e) => {
+                                        setFormData(prev => {
+                                          const dates = [...prev.installmentDueDates];
+                                          while (dates.length <= i) dates.push("");
+                                          dates[i] = e.target.value;
+                                          return { ...prev, installmentDueDates: dates };
+                                        });
+                                      }}
+                                      className="text-xs text-purple-600 border border-purple-100 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                      placeholder="Select due date"
+                                      data-testid={`input-due-date-${i}`}
+                                    />
+                                  </div>
                                 </div>
                               );
                             })}
@@ -2165,11 +2222,11 @@ export default function BookingGeneration() {
                             <>
                               <Separator className="my-2" />
                               <div className="flex justify-between text-sm">
-                                <span className="text-purple-600 font-medium">Per Installment</span>
-                                <span className="font-bold text-purple-700">₹{Math.round(calculateTotal() / formData.numberOfInstallments).toLocaleString()}</span>
+                                <span className="text-purple-600 font-medium">Booking Amount</span>
+                                <span className="font-bold text-purple-700">₹{(formData.customBookingAmount > 0 ? formData.customBookingAmount : Math.round(calculateTotal() / formData.numberOfInstallments)).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">Number of Parts</span>
+                                <span className="text-slate-500">Payment Plan</span>
                                 <span className="font-medium text-slate-600">{formData.numberOfInstallments} installments</span>
                               </div>
                             </>
@@ -2299,7 +2356,7 @@ export default function BookingGeneration() {
                       )}
                       {formData.paymentType === "installments" && formData.numberOfInstallments > 0 && (
                         <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
-                          {formData.numberOfInstallments} installments × ₹{Math.round(calculateTotal() / formData.numberOfInstallments).toLocaleString()}
+                          {formData.numberOfInstallments} installments · Booking ₹{(formData.customBookingAmount > 0 ? formData.customBookingAmount : Math.round(calculateTotal() / formData.numberOfInstallments)).toLocaleString()}
                         </Badge>
                       )}
                       {needsApproval() && (
