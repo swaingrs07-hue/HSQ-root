@@ -43,6 +43,7 @@ import AdminFloorsBeds from "@/pages/admin-floors-beds";
 import AdminVirtualTour from "@/pages/admin-virtual-tour";
 import AdminBookingTree from "@/pages/admin-booking-tree";
 import AdminPackages from "@/pages/admin-packages";
+import AdminAddonServices from "@/pages/admin-addon-services";
 import AdminSeasons from "@/pages/admin-seasons";
 import AdminHmsSync from "@/pages/admin-hms-sync";
 import AdminLogoControl from "@/pages/admin-logo-control";
@@ -88,6 +89,7 @@ function AppContent() {
               <Route path="/admin/booking-tree" component={AdminBookingTree} />
               <Route path="/admin/virtual-tour-uploads" component={AdminVirtualTour} />
               <Route path="/admin/packages" component={AdminPackages} />
+              <Route path="/admin/addon-services" component={AdminAddonServices} />
               <Route path="/admin/seasons" component={AdminSeasons} />
               <Route path="/admin/hms-sync" component={AdminHmsSync} />
               <Route path="/admin/logo-control" component={AdminLogoControl} />

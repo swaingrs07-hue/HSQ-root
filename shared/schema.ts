@@ -1166,6 +1166,7 @@ export type InsertBedBlockLog = z.infer<typeof insertBedBlockLogSchema>;
 // ============ PACKAGE MANAGEMENT SYSTEM ============
 
 export const packagePriceTypeEnum = pgEnum("package_price_type", ["ONE_TIME", "PER_DAY", "PER_MONTH"]);
+export const packageCategoryEnum = pgEnum("package_category", ["housing_plan", "addon_service"]);
 export const packageStatusEnum = pgEnum("package_status", ["active", "inactive"]);
 export const bookingPackageStatusEnum = pgEnum("booking_package_status", ["ACTIVE", "ENDED"]);
 
@@ -1173,6 +1174,7 @@ export const packages = pgTable("packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: "set null" }),
   roomTypeId: varchar("room_type_id").references(() => roomTypes.id, { onDelete: "set null" }),
+  category: packageCategoryEnum("category").notNull().default("housing_plan"),
   name: text("name").notNull(),
   description: text("description"),
   tagline: text("tagline"),

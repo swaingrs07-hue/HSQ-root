@@ -138,6 +138,7 @@ export default function CompletedBookings() {
   const [showPackages, setShowPackages] = useState(false);
   const [allPackages, setAllPackages] = useState<any[]>([]);
   const [attachDialog, setAttachDialog] = useState(false);
+  const [attachTab, setAttachTab] = useState<"housing" | "addon">("housing");
   const [attachForm, setAttachForm] = useState({ packageId: "", startDate: "", endDate: "" });
   const [usageDialog, setUsageDialog] = useState<any>(null);
   const [usageForm, setUsageForm] = useState({ itemType: "", qtyUsed: 1, note: "" });
@@ -1075,24 +1076,39 @@ export default function CompletedBookings() {
                                 const pkg = bp.package;
                                 const usageByType: Record<string, number> = {};
                                 (bp.usage || []).forEach((u: any) => { usageByType[u.itemType] = (usageByType[u.itemType] || 0) + u.qtyUsed; });
+                                const isAddon = pkg?.category === "addon_service";
+                                const borderColor = bp.status === "ACTIVE"
+                                  ? (isAddon ? "border-orange-200 bg-orange-50/50" : "border-emerald-200 bg-emerald-50/50")
+                                  : "border-slate-200 bg-slate-50 opacity-70";
+                                const badgeColor = bp.status === "ACTIVE"
+                                  ? (isAddon ? "bg-orange-100 text-orange-700 border-0 text-[10px]" : "bg-emerald-100 text-emerald-700 border-0 text-[10px]")
+                                  : "bg-slate-100 text-slate-500 border-0 text-[10px]";
                                 return (
-                                  <div key={bp.id} className={`border rounded-lg p-3 ${bp.status === "ACTIVE" ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50 opacity-70"}`} data-testid={`booking-package-${bp.id}`}>
+                                  <div key={bp.id} className={`border rounded-lg p-3 ${borderColor}`} data-testid={`booking-package-${bp.id}`}>
                                     <div className="flex items-center justify-between mb-2">
                                       <div>
-                                        <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
-                                        <p className="text-[10px] text-slate-500">
-                                          {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                          {isAddon && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
+                                          <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          {isAddon && <Badge className="bg-orange-100 text-orange-600 border-0 text-[9px] px-1.5 py-0">Add-On</Badge>}
+                                          <p className="text-[10px] text-slate-500">
+                                            {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
+                                          </p>
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                        <Badge className={bp.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700 border-0 text-[10px]" : "bg-slate-100 text-slate-500 border-0 text-[10px]"}>
+                                        <Badge className={badgeColor}>
                                           {bp.status}
                                         </Badge>
                                         {bp.status === "ACTIVE" && (
                                           <>
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-indigo-500" title="Upgrade Plan" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid={`upgrade-${bp.id}`}>
-                                              <ArrowUpRight className="h-3 w-3" />
-                                            </Button>
+                                            {!isAddon && (
+                                              <Button size="icon" variant="ghost" className="h-6 w-6 text-indigo-500" title="Upgrade Plan" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid={`upgrade-${bp.id}`}>
+                                                <ArrowUpRight className="h-3 w-3" />
+                                              </Button>
+                                            )}
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp); setUsageForm({ itemType: pkg?.items?.[0]?.type || "", qtyUsed: 1, note: "" }); }} data-testid={`usage-${bp.id}`}>
                                               <Plus className="h-3 w-3" />
                                             </Button>
@@ -1103,6 +1119,35 @@ export default function CompletedBookings() {
                                         )}
                                       </div>
                                     </div>
+                                    {isAddon && (() => {
+                                      const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
+                                      if (!mealItem) return null;
+                                      const r = mealItem.rules;
+                                      const wd = r.weekday ?? mealItem.includedQty ?? 0;
+                                      const sat = r.saturday ?? wd;
+                                      const sun = r.sunday ?? wd;
+                                      return (
+                                        <div className="mb-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
+                                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-orange-700 mb-1">
+                                            <UtensilsCrossed className="w-3 h-3" /> Meal Schedule
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
+                                              <div className="font-bold text-slate-800">{wd} meals</div>
+                                              <div className="text-[9px] text-slate-400">Mon–Fri</div>
+                                            </div>
+                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
+                                              <div className="font-bold text-slate-800">{sat} meals</div>
+                                              <div className="text-[9px] text-slate-400">Saturday</div>
+                                            </div>
+                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
+                                              <div className="font-bold text-slate-800">{sun} meals</div>
+                                              <div className="text-[9px] text-slate-400">Sunday</div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                     {pkg?.items?.map((item: any, idx: number) => {
                                       const used = usageByType[item.type] || 0;
                                       const included = item.includedQty || 0;
@@ -1465,20 +1510,61 @@ export default function CompletedBookings() {
       </AlertDialog>
 
       <Dialog open={attachDialog} onOpenChange={setAttachDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" /> Attach Package</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" /> Attach Package / Service</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              <button onClick={() => { setAttachTab("housing"); setAttachForm(p => ({ ...p, packageId: "" })); }} className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${attachTab === "housing" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`} data-testid="tab-housing-plans">
+                Housing Plans
+              </button>
+              <button onClick={() => { setAttachTab("addon"); setAttachForm(p => ({ ...p, packageId: "" })); }} className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${attachTab === "addon" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500"}`} data-testid="tab-addon-services">
+                Add-On Services
+              </button>
+            </div>
             <div className="space-y-1">
-              <Label className="text-xs">Package</Label>
+              <Label className="text-xs">{attachTab === "housing" ? "Housing Plan" : "Add-On Service"}</Label>
               <Select value={attachForm.packageId} onValueChange={v => setAttachForm(p => ({ ...p, packageId: v }))}>
-                <SelectTrigger data-testid="select-attach-package"><SelectValue placeholder="Select package" /></SelectTrigger>
+                <SelectTrigger data-testid="select-attach-package"><SelectValue placeholder={attachTab === "housing" ? "Select plan..." : "Select service..."} /></SelectTrigger>
                 <SelectContent>
-                  {allPackages.filter(p => p.isActive).map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name} — ₹{Number(p.basePrice).toLocaleString("en-IN")}</SelectItem>
-                  ))}
+                  {allPackages
+                    .filter(p => p.isActive && (attachTab === "housing" ? (p.category === "housing_plan" || !p.category) : p.category === "addon_service"))
+                    .filter(p => attachTab !== "addon" || !selectedBooking?.propertyId || p.propertyId === selectedBooking.propertyId)
+                    .map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — ₹{Number(p.basePrice).toLocaleString("en-IN")}
+                        {attachTab === "addon" && p.propertyId ? "" : ""}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
+            {attachTab === "addon" && attachForm.packageId && (() => {
+              const selectedSvc = allPackages.find(p => p.id === attachForm.packageId);
+              const mealItem = selectedSvc?.items?.find((i: any) => i.type === "meals" && i.rules);
+              if (!mealItem) return null;
+              const r = mealItem.rules;
+              return (
+                <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700 mb-1">
+                    <UtensilsCrossed className="w-3.5 h-3.5" /> Meal Schedule
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
+                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
+                      <div className="font-semibold text-slate-800">{r.weekday ?? mealItem.includedQty}</div>
+                      <div className="text-[9px] text-slate-400">Mon–Fri</div>
+                    </div>
+                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
+                      <div className="font-semibold text-slate-800">{r.saturday ?? r.weekday ?? mealItem.includedQty}</div>
+                      <div className="text-[9px] text-slate-400">Saturday</div>
+                    </div>
+                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
+                      <div className="font-semibold text-slate-800">{r.sunday ?? r.weekday ?? mealItem.includedQty}</div>
+                      <div className="text-[9px] text-slate-400">Sunday</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Start Date</Label>
@@ -1489,7 +1575,9 @@ export default function CompletedBookings() {
                 <Input type="date" value={attachForm.endDate} onChange={e => setAttachForm(p => ({ ...p, endDate: e.target.value }))} data-testid="input-attach-end" />
               </div>
             </div>
-            <Button className="w-full bg-indigo-600" onClick={attachPackage} data-testid="button-confirm-attach">Attach Package</Button>
+            <Button className={`w-full ${attachTab === "addon" ? "bg-orange-600 hover:bg-orange-700" : "bg-indigo-600 hover:bg-indigo-700"}`} onClick={attachPackage} data-testid="button-confirm-attach">
+              Attach {attachTab === "housing" ? "Plan" : "Service"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -104,7 +104,7 @@ export default function AdminPackages() {
   const fetchPackages = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/packages", { headers });
+      const res = await fetch("/api/admin/packages?category=housing_plan", { headers });
       if (res.ok) setPackages(await res.json());
     } catch { }
     setLoading(false);

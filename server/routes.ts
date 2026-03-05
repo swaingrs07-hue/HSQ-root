@@ -7132,7 +7132,14 @@ export async function registerRoutes(
 
   app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const allPackages = await db.select().from(schema.packages).orderBy(sql`${schema.packages.createdAt} DESC`);
+      const category = req.query.category as string | undefined;
+      const conditions = [];
+      if (category && (category === "housing_plan" || category === "addon_service")) {
+        conditions.push(eq(schema.packages.category, category));
+      }
+      const allPackages = conditions.length > 0
+        ? await db.select().from(schema.packages).where(and(...conditions)).orderBy(sql`${schema.packages.createdAt} DESC`)
+        : await db.select().from(schema.packages).orderBy(sql`${schema.packages.createdAt} DESC`);
       const result = [];
       for (const pkg of allPackages) {
         const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, pkg.id)).orderBy(schema.packageItems.sortOrder);
@@ -7166,6 +7173,7 @@ export async function registerRoutes(
       const [pkg] = await db.insert(schema.packages).values({
         propertyId: packageData.propertyId || null,
         roomTypeId: packageData.roomTypeId || null,
+        category: packageData.category || "housing_plan",
         name: packageData.name,
         description: packageData.description || null,
         tagline: packageData.tagline || null,
@@ -7219,6 +7227,7 @@ export async function registerRoutes(
       const [pkg] = await db.update(schema.packages).set({
         propertyId: packageData.propertyId ?? existing.propertyId,
         roomTypeId: packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId,
+        category: packageData.category ?? existing.category,
         name: packageData.name ?? existing.name,
         description: packageData.description !== undefined ? (packageData.description || null) : existing.description,
         tagline: packageData.tagline ?? existing.tagline,
@@ -7293,6 +7302,7 @@ export async function registerRoutes(
 
       const [newPkg] = await db.insert(schema.packages).values({
         propertyId: original.propertyId,
+        category: original.category,
         name: `${original.name} (Copy)`,
         description: original.description,
         tagline: original.tagline,
@@ -7346,7 +7356,7 @@ export async function registerRoutes(
   app.get("/api/plans/featured", async (_req, res) => {
     try {
       const allPlans = await db.select().from(schema.packages)
-        .where(eq(schema.packages.isActive, true))
+        .where(and(eq(schema.packages.isActive, true), eq(schema.packages.category, "housing_plan")))
         .orderBy(schema.packages.tierLevel);
       if (allPlans.length === 0) return res.json([]);
       const planIds = allPlans.map(p => p.id);
@@ -7385,7 +7395,8 @@ export async function registerRoutes(
       const plans = await db.select().from(schema.packages)
         .where(and(
           eq(schema.packages.propertyId, req.params.propertyId),
-          eq(schema.packages.isActive, true)
+          eq(schema.packages.isActive, true),
+          eq(schema.packages.category, "housing_plan")
         ))
         .orderBy(schema.packages.tierLevel);
       const result = [];
@@ -7403,6 +7414,28 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch property plans" });
+    }
+  });
+
+  app.get("/api/properties/:propertyId/addon-services", async (req, res) => {
+    try {
+      const services = await db.select().from(schema.packages)
+        .where(and(
+          eq(schema.packages.propertyId, req.params.propertyId),
+          eq(schema.packages.isActive, true),
+          eq(schema.packages.category, "addon_service")
+        ))
+        .orderBy(schema.packages.createdAt);
+      const result = [];
+      for (const svc of services) {
+        const items = await db.select().from(schema.packageItems)
+          .where(eq(schema.packageItems.packageId, svc.id))
+          .orderBy(schema.packageItems.sortOrder);
+        result.push({ ...svc, items });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch addon services" });
     }
   });
 
@@ -7436,7 +7469,7 @@ export async function registerRoutes(
       if (!pkg.isActive) return res.status(400).json({ error: "Cannot attach an inactive package" });
 
       const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, packageId)).orderBy(schema.packageItems.sortOrder);
-      const priceSnapshot = { name: pkg.name, basePrice: pkg.basePrice, priceType: pkg.priceType, taxPercent: pkg.taxPercent, items: items.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice })) };
+      const priceSnapshot = { name: pkg.name, basePrice: pkg.basePrice, priceType: pkg.priceType, taxPercent: pkg.taxPercent, category: pkg.category, items: items.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice, rules: i.rules })) };
 
       const [bp] = await db.insert(schema.bookingPackages).values({
         bookingId: req.params.bookingId,
