@@ -182,6 +182,28 @@ export default function BookingGeneration() {
   const maxDiscountPercent = isSalesExec ? 10 : 100;
   const getAuthToken = () => token || "";
 
+  const getAccommodationType = (bed: any, room: any): string => {
+    if (!bed || !room) return "";
+    const typology = room.typology || "";
+    const isCombo = typology.includes("+");
+    let sharingCount = 1;
+    if (isCombo) {
+      const parts = typology.split("+").map((p: string) => parseInt(p.trim()));
+      const bedNumber = bed.bedNumber || "";
+      const sectionMatch = bedNumber.match(/\d+([A-Z])/);
+      const sectionLetter = sectionMatch ? sectionMatch[1] : "A";
+      const sectionIndex = sectionLetter.charCodeAt(0) - 65;
+      sharingCount = parts[sectionIndex] || parts[0] || 1;
+    } else {
+      sharingCount = parseInt(typology) || 1;
+    }
+    if (sharingCount === 1) return "single";
+    if (sharingCount === 2) return "double";
+    if (sharingCount === 3) return "triple";
+    if (sharingCount === 4) return "quad";
+    return `${sharingCount}-sharing`;
+  };
+
   useEffect(() => {
     if (isRegularUser && user) {
       setFormData(prev => ({
@@ -1418,11 +1440,12 @@ export default function BookingGeneration() {
                                           onClick={() => {
                                             if (isSelected) {
                                               setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
-                                              setFormData(prev => ({ ...prev, residentRoomNo: "", residentBedNo: "" }));
+                                              setFormData(prev => ({ ...prev, residentRoomNo: "", residentBedNo: "", residentAccommodationType: "" }));
                                             } else if (isAvail) {
                                               setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                               setSelectedFloorId(floor.id); setSelectedRoomId(room.id);
-                                              setFormData(prev => ({ ...prev, residentRoomNo: room.roomNumber, residentBedNo: bed.bedNumber }));
+                                              const accomType = getAccommodationType(bed, room);
+                                              setFormData(prev => ({ ...prev, residentRoomNo: room.roomNumber, residentBedNo: bed.bedNumber, residentAccommodationType: accomType }));
                                             }
                                           }}
                                           className={`rounded-lg w-14 h-14 flex flex-col items-center justify-center text-white text-xs font-medium transition-all ${statusColor} ${!isAvail && !isSelected ? "opacity-60 cursor-not-allowed" : ""}`}
@@ -1490,11 +1513,11 @@ export default function BookingGeneration() {
                                               onClick={() => {
                                                 if (isSelected) {
                                                   setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
-                                                  setFormData(prev => ({ ...prev, residentRoomNo: "" }));
+                                                  setFormData(prev => ({ ...prev, residentRoomNo: "", residentAccommodationType: "" }));
                                                 } else if (isAvail) {
                                                   setSelectedBedId(bed.id); setSelectedBedInfo(bed);
                                                   setSelectedFloorId(floor.id); setSelectedRoomId("");
-                                                  setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber }));
+                                                  setFormData(prev => ({ ...prev, residentRoomNo: bed.bedNumber, residentAccommodationType: "single" }));
                                                 }
                                               }}
                                               className={`rounded-lg w-14 h-14 flex flex-col items-center justify-center text-white text-xs font-medium transition-all ${statusColor} ${!isAvail && !isSelected ? "opacity-60 cursor-not-allowed" : ""}`}
@@ -1756,8 +1779,15 @@ export default function BookingGeneration() {
                                 <SelectItem value="single">Single Occupancy</SelectItem>
                                 <SelectItem value="double">Double Sharing</SelectItem>
                                 <SelectItem value="triple">Triple Sharing</SelectItem>
+                                <SelectItem value="quad">Quad Sharing</SelectItem>
+                                {formData.residentAccommodationType && !["single", "double", "triple", "quad"].includes(formData.residentAccommodationType) && (
+                                  <SelectItem value={formData.residentAccommodationType}>{formData.residentAccommodationType.replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
+                            {selectedBedInfo && formData.residentAccommodationType && (
+                              <p className="text-xs text-emerald-600 mt-1">Auto-set from bed selection</p>
+                            )}
                           </div>
                         </div>
                       </div>
