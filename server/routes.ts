@@ -3477,21 +3477,39 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Booking not found" });
       }
 
-      const { paymentMethod, transactionId, notes, amount } = req.body;
+      const { paymentMethod, transactionId, notes, amount, installmentId } = req.body;
 
       const paymentAmount = amount || booking.totalFee;
+      const txnId = transactionId || `MANUAL-${Date.now()}`;
 
       const payment = await storage.createPayment({
         bookingId: booking.id,
         amount: paymentAmount,
-        method: paymentMethod || "cash",
-        transactionId: transactionId || `MANUAL-${Date.now()}`,
-        status: "completed",
-        notes: notes || "Payment marked as done by admin",
+        paymentMethod: paymentMethod || "cash",
+        razorpayPaymentId: txnId,
+        status: "success",
+        installmentId: installmentId || null,
       });
 
+      let updatedInstallment = null;
+      if (installmentId) {
+        const [existingInst] = await db.select().from(schema.installments).where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
+        if (!existingInst) {
+          return res.status(400).json({ error: "Installment not found for this booking" });
+        }
+        const [inst] = await db.update(schema.installments)
+          .set({ paid: true, paidAt: new Date() })
+          .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+          .returning();
+        updatedInstallment = inst;
+      }
+
+      const allInstallments = await db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id));
+      const allPaid = allInstallments.length > 0 && allInstallments.every(i => i.paid);
+      const bookingStatus = allPaid ? "confirmed" : (installmentId ? booking.status : "confirmed");
+
       const updated = await storage.updateBooking(req.params.id, {
-        status: "confirmed",
+        status: bookingStatus,
       });
 
       await storage.createAuditLog({
@@ -3503,11 +3521,13 @@ export async function registerRoutes(
           bookingCode: booking.bookingCode,
           amount: paymentAmount,
           method: paymentMethod || "cash",
-          transactionId: transactionId || `MANUAL-${Date.now()}`,
+          transactionId: txnId,
+          installmentId: installmentId || null,
+          installmentName: installmentId ? allInstallments.find(i => i.id === installmentId)?.name : null,
         }),
       });
 
-      res.json({ booking: updated, payment });
+      res.json({ booking: updated, payment, installment: updatedInstallment });
     } catch (error: any) {
       console.error("Error marking payment done:", error);
       res.status(500).json({ error: error.message || "Failed to mark payment done" });

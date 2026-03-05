@@ -129,6 +129,8 @@ export default function CompletedBookings() {
     paymentMethod: "cash",
     transactionId: "",
     notes: "",
+    installmentId: null as string | null,
+    installmentName: "",
   });
   const [markingPayment, setMarkingPayment] = useState(false);
   const [bookingPackages, setBookingPackages] = useState<any>(null);
@@ -337,12 +339,14 @@ export default function CompletedBookings() {
     }
   };
 
-  const openPaymentDialog = (booking: any) => {
+  const openPaymentDialog = (booking: any, installment?: any) => {
     setPaymentForm({
-      amount: booking.totalFee || 0,
-      paymentMethod: "cash",
+      amount: installment ? installment.amount : (booking.totalFee || 0),
+      paymentMethod: "upi",
       transactionId: "",
-      notes: "",
+      notes: installment ? `Payment for ${installment.name}` : "",
+      installmentId: installment?.id || null,
+      installmentName: installment?.name || "",
     });
     setShowPaymentDialog(true);
   };
@@ -362,11 +366,21 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated } = await res.json();
-      setSelectedBooking({ ...selectedBooking, ...updated, status: "confirmed" });
+      const { booking: updated, installment: updatedInst } = await res.json();
+      if (updatedInst && selectedBooking.installments) {
+        const updatedInstallments = selectedBooking.installments.map((inst: any) =>
+          inst.id === updatedInst.id ? { ...inst, paid: true, paidAt: updatedInst.paidAt } : inst
+        );
+        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments });
+      } else {
+        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status || "confirmed" });
+      }
       setShowPaymentDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
-      toast({ title: "Payment marked as done", description: "Booking status updated to Confirmed" });
+      const desc = paymentForm.installmentName
+        ? `₹${paymentForm.amount.toLocaleString("en-IN")} for ${paymentForm.installmentName} recorded`
+        : "Booking status updated to Confirmed";
+      toast({ title: "Payment marked as done", description: desc });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -979,16 +993,30 @@ export default function CompletedBookings() {
                   <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
                   <div className="space-y-2">
                     {selectedBooking.installments.map((inst: any, idx: number) => (
-                      <div key={inst.id || idx} className="flex items-center justify-between text-sm">
-                        <div>
-                          <p className="font-medium text-slate-700">{inst.name}</p>
-                          <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                      <div
+                        key={inst.id || idx}
+                        className={`flex items-center justify-between text-sm p-2 rounded-lg -mx-1 ${!inst.paid && isAdmin ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
+                        onClick={() => {
+                          if (!inst.paid && isAdmin) openPaymentDialog(selectedBooking, inst);
+                        }}
+                        data-testid={`installment-row-${idx}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-medium text-slate-700">{inst.name}</p>
+                            <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                          <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
-                            {inst.paid ? "PAID" : "PENDING"}
-                          </Badge>
+                        <div className="text-right flex items-center gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                            <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
+                              {inst.paid ? "PAID" : "PENDING"}
+                            </Badge>
+                          </div>
+                          {!inst.paid && isAdmin && (
+                            <Banknote className="w-4 h-4 text-amber-500" />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1306,7 +1334,7 @@ export default function CompletedBookings() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Banknote className="h-5 w-5 text-emerald-600" />
-              Mark Payment Done
+              {paymentForm.installmentName ? `Pay: ${paymentForm.installmentName}` : "Mark Payment Done"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
