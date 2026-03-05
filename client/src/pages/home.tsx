@@ -503,139 +503,243 @@ export default function Home() {
           if (!plansByProperty[key]) plansByProperty[key] = [];
           plansByProperty[key].push(plan);
         });
-        const tierStyles = [
-          { gradient: "from-emerald-600 to-teal-700", headerBg: "bg-gradient-to-r from-emerald-600 to-teal-700", badge: "bg-emerald-100 text-emerald-700", accent: "text-emerald-600", border: "border-emerald-200", ring: "ring-emerald-200", featureCheck: "text-emerald-500", label: "Essential" },
-          { gradient: "from-violet-600 to-purple-700", headerBg: "bg-gradient-to-r from-violet-600 to-purple-700", badge: "bg-violet-100 text-violet-700", accent: "text-violet-600", border: "border-violet-200", ring: "ring-violet-200", featureCheck: "text-violet-500", label: "Popular" },
-          { gradient: "from-amber-600 to-yellow-600", headerBg: "bg-gradient-to-r from-amber-600 to-yellow-600", badge: "bg-amber-100 text-amber-700", accent: "text-amber-600", border: "border-amber-200", ring: "ring-amber-200", featureCheck: "text-amber-500", label: "Premium" },
+        const tierDesigns = [
+          {
+            cardBg: "bg-gradient-to-br from-[#0a2e1f] via-[#134e31] to-[#0a3d23]",
+            headerAccent: "from-emerald-400 to-teal-300",
+            priceColor: "text-emerald-300",
+            taglineColor: "text-emerald-400/70",
+            divider: "border-emerald-800/40",
+            featureIcon: "from-emerald-500/30 to-teal-500/30 text-emerald-300",
+            featureText: "text-emerald-100/80",
+            featureValue: "text-white font-semibold",
+            btnBg: "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30",
+            glow: "rgba(16,185,129,0.08)",
+            decorLine: "from-transparent via-emerald-500/30 to-transparent",
+            occupancyBg: "bg-emerald-900/40 border-emerald-700/30",
+            occupancyText: "text-emerald-300",
+          },
+          {
+            cardBg: "bg-gradient-to-br from-[#1a0a3e] via-[#2d1b69] to-[#1e0f4f]",
+            headerAccent: "from-violet-400 to-purple-300",
+            priceColor: "text-violet-300",
+            taglineColor: "text-violet-400/70",
+            divider: "border-violet-800/40",
+            featureIcon: "from-violet-500/30 to-purple-500/30 text-violet-300",
+            featureText: "text-violet-100/80",
+            featureValue: "text-white font-semibold",
+            btnBg: "bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-400 hover:to-purple-400 shadow-violet-500/30",
+            glow: "rgba(139,92,246,0.08)",
+            decorLine: "from-transparent via-violet-500/30 to-transparent",
+            occupancyBg: "bg-violet-900/40 border-violet-700/30",
+            occupancyText: "text-violet-300",
+          },
+          {
+            cardBg: "bg-gradient-to-br from-[#3d2400] via-[#5c3a0a] to-[#4a2d00]",
+            headerAccent: "from-amber-300 to-yellow-200",
+            priceColor: "text-amber-300",
+            taglineColor: "text-amber-400/70",
+            divider: "border-amber-700/40",
+            featureIcon: "from-amber-500/30 to-yellow-500/30 text-amber-300",
+            featureText: "text-amber-100/80",
+            featureValue: "text-white font-semibold",
+            btnBg: "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 shadow-amber-500/30",
+            glow: "rgba(245,158,11,0.1)",
+            decorLine: "from-transparent via-amber-500/30 to-transparent",
+            occupancyBg: "bg-amber-900/40 border-amber-700/30",
+            occupancyText: "text-amber-300",
+          },
         ];
         return (
-          <section className="py-20 md:py-28 bg-gradient-to-b from-white via-stone-50/50 to-white" data-testid="section-housing-plans">
-            <div className="container mx-auto px-4">
+          <section className="py-24 md:py-32 relative overflow-hidden" data-testid="section-housing-plans">
+            <div className="absolute inset-0 bg-[#0c0c0c]" />
+            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z' fill='%23ffffff' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E\")" }} />
+            <motion.div
+              className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
+              style={{ background: "radial-gradient(circle, rgba(16,185,129,0.3) 0%, transparent 70%)" }}
+              animate={{ x: [0, 50, 0], y: [0, 30, 0] }}
+              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
+              style={{ background: "radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 70%)" }}
+              animate={{ x: [0, -50, 0], y: [0, -30, 0] }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <div className="container mx-auto px-4 relative z-10">
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-                className="text-center mb-14"
+                transition={{ duration: 0.8 }}
+                className="text-center mb-16"
               >
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium">Choose Your Lifestyle</p>
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                </div>
-                <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-4">
-                  Housing Plans
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  className="w-16 h-[2px] bg-gradient-to-r from-amber-500 to-yellow-400 mx-auto mb-6"
+                />
+                <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Curated Living Experiences</p>
+                <h2 className="text-4xl md:text-6xl font-heading font-bold text-white mb-5 tracking-tight">
+                  Housing <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Plans</span>
                 </h2>
-                <p className="text-stone-500 max-w-2xl mx-auto text-base md:text-lg">
-                  Select the plan that fits your lifestyle. From essentials to all-inclusive premium living — every plan is designed to make your stay comfortable and convenient.
+                <p className="text-white/40 max-w-xl mx-auto text-sm md:text-base leading-relaxed">
+                  Tailored tiers of comfort, service, and luxury. Choose the experience that matches your lifestyle.
                 </p>
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: 0.4 }}
+                  className="w-32 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent mx-auto mt-8"
+                />
               </motion.div>
 
               {propertyIds.map((propId, propIdx) => {
                 const plans = plansByProperty[propId] || [];
                 const propName = plans[0]?.propertyName || "Property";
                 return (
-                  <div key={propId} className={propIdx > 0 ? "mt-16" : ""}>
+                  <div key={propId} className={propIdx > 0 ? "mt-20" : ""}>
                     {propertyIds.length > 1 && (
                       <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
                         viewport={{ once: true }}
-                        className="flex items-center gap-3 mb-8"
+                        className="flex items-center justify-center gap-4 mb-10"
                       >
-                        <div className="w-10 h-10 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-amber-600" />
+                        <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-white/20" />
+                        <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
+                          <Building2 className="w-4 h-4 text-amber-400" />
+                          <span className="text-white/70 text-xs tracking-wider uppercase font-medium">{propName}</span>
                         </div>
-                        <div>
-                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Plans for</p>
-                          <h3 className="font-bold text-lg text-stone-800">{propName}</h3>
-                        </div>
+                        <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-white/20" />
                       </motion.div>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
                       {plans.map((plan: any, idx: number) => {
                         const tier = plan.tierLevel ?? idx;
-                        const style = tierStyles[Math.min(tier, tierStyles.length - 1)];
+                        const d = tierDesigns[Math.min(tier, tierDesigns.length - 1)];
                         const isHighlighted = plan.isHighlighted;
                         const isTop = tier === Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
                         const price = Number(plan.basePrice || 0);
-                        const features = (plan.items || []).slice(0, 5);
+                        const features = (plan.items || []).slice(0, 6);
                         return (
                           <motion.div
                             key={plan.id}
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 0.5, delay: idx * 0.15 }}
-                            whileHover={{ y: -8, transition: { duration: 0.3 } }}
-                            className="relative"
+                            transition={{ duration: 0.6, delay: idx * 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                            className="relative group"
                             data-testid={`plan-card-home-${plan.id}`}
                           >
                             {isHighlighted && (
-                              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                                <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 rounded-full shadow-lg shadow-amber-500/30 flex items-center gap-1">
-                                  <Star className="w-3 h-3 fill-white" /> Most Popular
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
+                              >
+                                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-black text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2 rounded-full shadow-xl shadow-amber-500/40 flex items-center gap-1.5">
+                                  <Star className="w-3.5 h-3.5 fill-current" /> Most Popular
                                 </span>
-                              </div>
+                              </motion.div>
                             )}
-                            <div className={`bg-white rounded-2xl border-2 overflow-hidden shadow-lg hover:shadow-xl transition-shadow h-full flex flex-col ${isHighlighted ? "border-amber-300 shadow-amber-100" : isTop ? "border-amber-200" : style.border}`}>
-                              <div className={`${style.headerBg} px-6 py-5 text-white relative overflow-hidden`}>
-                                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
-                                <div className="relative">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {isTop && <Award className="w-5 h-5 text-yellow-300" />}
-                                    <h3 className="font-heading font-bold text-xl tracking-wide">{plan.name}</h3>
-                                  </div>
-                                  {plan.tagline && (
-                                    <p className="text-white/75 text-sm">{plan.tagline}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="px-6 py-5 flex-1 flex flex-col">
-                                <div className="flex items-baseline gap-1 mb-1">
-                                  <span className={`text-3xl font-bold ${style.accent}`}>
+                            {isTop && !isHighlighted && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
+                              >
+                                <span className="bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-[0.2em] px-5 py-2 rounded-full shadow-xl shadow-amber-600/30 flex items-center gap-1.5">
+                                  <Award className="w-3.5 h-3.5" /> Premium
+                                </span>
+                              </motion.div>
+                            )}
+
+                            <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ boxShadow: `0 0 60px 10px ${d.glow}, 0 25px 50px -12px rgba(0,0,0,0.5)` }} />
+
+                            <div className={`${d.cardBg} rounded-3xl overflow-hidden h-full flex flex-col relative border border-white/[0.06] group-hover:border-white/[0.12] transition-all duration-500`}>
+                              <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 60%)` }} />
+
+                              <div className="px-7 pt-8 pb-6 relative">
+                                <div className={`absolute top-0 left-7 right-7 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
+                                <h3 className={`font-heading font-bold text-2xl tracking-wide bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}>
+                                  {plan.name}
+                                </h3>
+                                {plan.tagline && (
+                                  <p className={`text-sm mt-1 ${d.taglineColor} italic`}>{plan.tagline}</p>
+                                )}
+
+                                <div className="mt-5 flex items-baseline gap-2">
+                                  <span className={`text-4xl font-bold tracking-tight ${d.priceColor}`}>
                                     {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Custom"}
                                   </span>
-                                  {price > 0 && <span className="text-stone-400 text-sm">/ year</span>}
+                                  {price > 0 && <span className="text-white/30 text-sm">/ year</span>}
                                 </div>
                                 {price > 0 && (
-                                  <p className="text-stone-400 text-xs mb-5">≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month</p>
+                                  <p className="text-white/25 text-xs mt-1">≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month</p>
                                 )}
+                              </div>
+
+                              <div className={`mx-7 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
+
+                              <div className="px-7 py-5 flex-1 flex flex-col">
                                 {plan.occupancy && (
-                                  <div className="flex items-center gap-2 py-2 border-b border-stone-100 text-sm">
-                                    <Users className="w-4 h-4 text-stone-400" />
-                                    <span className="text-stone-500">Occupancy</span>
-                                    <span className="ml-auto font-medium text-stone-700">{plan.occupancy}</span>
+                                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs mb-4 ${d.occupancyBg}`}>
+                                    <Users className={`w-3.5 h-3.5 ${d.occupancyText}`} />
+                                    <span className={d.occupancyText}>{plan.occupancy}</span>
                                   </div>
                                 )}
+
                                 {features.length > 0 && (
-                                  <div className="mt-3 space-y-2 flex-1">
+                                  <div className="space-y-3 flex-1">
                                     {features.map((item: any) => {
                                       const val = item.featureValue || `${item.includedQty} ${item.unit}`;
+                                      const isCredit = val.includes("Credit");
+                                      const isUnlimited = val.toLowerCase().includes("unlimited") || val.toLowerCase().includes("priority");
                                       return (
-                                        <div key={item.id} className="flex items-start gap-2 text-sm">
-                                          <div className={`w-4 h-4 mt-0.5 rounded-full flex items-center justify-center shrink-0 ${style.badge}`}>
-                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                        <div key={item.id} className="flex items-start gap-3">
+                                          <div className={`w-5 h-5 mt-0.5 rounded-md bg-gradient-to-br ${d.featureIcon} flex items-center justify-center shrink-0`}>
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                           </div>
-                                          <span className="text-stone-600">
-                                            {item.label}: <span className="font-medium text-stone-800">{val}</span>
-                                          </span>
+                                          <div className="flex-1 min-w-0">
+                                            <span className={`text-sm ${d.featureText}`}>{item.label}</span>
+                                            <span className={`text-sm ml-1 ${isCredit || isUnlimited ? d.featureValue + " drop-shadow-sm" : d.featureValue}`}>
+                                              {val}
+                                            </span>
+                                          </div>
                                         </div>
                                       );
                                     })}
-                                    {(plan.items || []).length > 5 && (
-                                      <p className="text-xs text-stone-400 pl-6">+{(plan.items || []).length - 5} more features</p>
+                                    {(plan.items || []).length > 6 && (
+                                      <p className="text-xs text-white/25 pl-8">+{(plan.items || []).length - 6} more inclusions</p>
                                     )}
                                   </div>
                                 )}
-                                <div className="mt-6 pt-4 border-t border-stone-100">
+
+                                <div className="mt-7">
                                   <Link href={plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}>
-                                    <Button
-                                      className={`w-full rounded-xl h-11 font-semibold tracking-wider uppercase text-sm text-white shadow-md ${style.headerBg} hover:opacity-90 transition-opacity`}
+                                    <motion.button
+                                      whileHover={{ scale: 1.02 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      className={`w-full rounded-xl h-12 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300`}
                                       data-testid={`button-view-plan-${plan.id}`}
                                     >
-                                      Explore & Book <ArrowRight className="w-4 h-4 ml-1" />
-                                    </Button>
+                                      <span className="relative z-10 flex items-center justify-center gap-2">
+                                        Explore & Book <ArrowRight className="w-4 h-4" />
+                                      </span>
+                                      <motion.div
+                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                                        animate={{ x: ["-100%", "200%"] }}
+                                        transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+                                      />
+                                    </motion.button>
                                   </Link>
                                 </div>
                               </div>
