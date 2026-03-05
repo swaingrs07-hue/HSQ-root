@@ -498,7 +498,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { propert
     return (
       <motion.button
         key={bed.id}
-        whileHover={(isAvailable && matchesPlanFilter) ? { scale: 1.12, y: -4, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
+        whileHover={(isAvailable && matchesPlanFilter) ? { scale: 1.15, y: -6, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
         whileTap={(isAvailable && matchesPlanFilter) ? { scale: 0.93 } : {}}
         onClick={() => {
           if (!isAvailable || !matchesPlanFilter) return;
@@ -506,43 +506,52 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { propert
           onSelectBed(bed, floor, room);
         }}
         className={cn(
-          "relative p-2 border-2 rounded-xl text-center transition-all duration-200",
-          config.bg, config.border,
-          (isAvailable && matchesPlanFilter) ? "cursor-pointer" : config.cursor,
-          (!isAvailable || isDimmedByPlan) && "opacity-25",
-          isDimmedByPlan && "grayscale cursor-not-allowed",
-          isAvailable && matchesPlanFilter && "backdrop-blur-sm",
-          isPlanHighlighted && "ring-2 ring-amber-400/40 shadow-lg shadow-amber-400/20",
-          isSelected && "!bg-gradient-to-br !from-amber-400 !to-amber-600 !border-amber-300 ring-2 ring-amber-400/50 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/40"
+          "relative p-2 border-2 rounded-xl text-center transition-all duration-300",
+          isPlanHighlighted
+            ? "bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 border-amber-300 shadow-lg shadow-amber-400/40 ring-2 ring-amber-300/60 ring-offset-1 ring-offset-white"
+            : isDimmedByPlan
+              ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
+              : cn(config.bg, config.border),
+          (isAvailable && matchesPlanFilter) ? "cursor-pointer" : (!isDimmedByPlan && config.cursor),
+          !isAvailable && !isDimmedByPlan && "opacity-40",
+          isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/50"
         )}
         title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
         {isPlanHighlighted && !isSelected && (
-          <motion.div
-            className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-md"
-            animate={{ scale: [1, 1.15, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <Crown className="w-2.5 h-2.5 text-white" />
-          </motion.div>
+          <>
+            <motion.div
+              className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/50 z-10 border border-white"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Crown className="w-3 h-3 text-white" />
+            </motion.div>
+            <motion.div
+              className="absolute inset-0 rounded-[10px] pointer-events-none"
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.3) 0%, rgba(245,158,11,0.1) 50%, rgba(251,191,36,0.3) 100%)" }}
+            />
+          </>
         )}
-        {isAvailable && !isSelected && matchesPlanFilter && (
+        {isAvailable && !isSelected && !isPlanHighlighted && !isDimmedByPlan && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
         )}
-        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isSelected ? "text-white" : "text-white/90")} />
-        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
+        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", isPlanHighlighted ? "text-amber-900" : isSelected ? "text-white" : "text-white/90")} />
+        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", isPlanHighlighted ? "text-amber-900" : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 15 }}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30"
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 z-10"
           >
             <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
         )}
-        {isAvailable && matchesPlanFilter && (
+        {isAvailable && matchesPlanFilter && !isPlanHighlighted && (
           <div className="absolute inset-0 rounded-[10px] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         )}
       </motion.button>
@@ -558,14 +567,22 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { propert
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="flex items-center gap-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-3 shadow-sm"
+          className="flex items-center gap-3 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 border-2 border-amber-300 rounded-xl p-3.5 shadow-md shadow-amber-200/30"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-md">
-            <Crown className="w-4 h-4 text-white" />
-          </div>
+          <motion.div
+            className="w-9 h-9 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-400/40"
+            animate={{ rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Crown className="w-5 h-5 text-white" />
+          </motion.div>
           <div className="flex-1">
-            <p className="text-xs font-bold text-amber-800">Plan filter active</p>
-            <p className="text-[10px] text-amber-600">Only beds matching your selected plan are highlighted. Other beds are dimmed.</p>
+            <p className="text-sm font-bold text-amber-800">Plan filter active</p>
+            <p className="text-xs text-amber-600">Gold beds match your plan. Grey beds are for other room types.</p>
+          </div>
+          <div className="flex items-center gap-2 text-[10px]">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gradient-to-br from-amber-400 to-yellow-400 border border-amber-300" /> Plan beds</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-stone-300 opacity-40" /> Other</span>
           </div>
         </motion.div>
       )}
@@ -1438,6 +1455,13 @@ export default function PropertyBooking() {
                         <div className="flex-1">
                           <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Selected Plan</p>
                           <p className="font-semibold text-gray-900 text-sm">{selectedPlan.name}</p>
+                          {selectedPlan.roomTypeId ? (
+                            <p className="text-[10px] text-amber-600 mt-0.5">
+                              {selectedPlan.roomTypeName ? `${selectedPlan.roomTypeName} beds highlighted` : "Matching beds highlighted in gold"}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-stone-400 mt-0.5">All beds available for this plan</p>
+                          )}
                         </div>
                         <button
                           onClick={() => setSelectedPlan(null)}
