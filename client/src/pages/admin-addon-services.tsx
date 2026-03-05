@@ -62,7 +62,12 @@ const ITEM_TYPES = [
 
 const UNIT_OPTIONS = ["unit", "items/week", "items/month", "meals/day", "credits", "credits/mo", "hours", "days", "per visit", "cloths", "cloths/mo"];
 
-const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const MEAL_OPTIONS = [
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "evening_snacks", label: "Evening Snacks" },
+  { value: "dinner", label: "Dinner" },
+];
 
 const emptyService: ServiceData = {
   propertyId: "", name: "", description: "", tagline: "",
@@ -205,7 +210,11 @@ export default function AdminAddonServices() {
 
   const addItem = () => {
     const typeInfo = ITEM_TYPES.find(t => t.value === newItemType);
-    const defaultRules = newItemType === "meals" ? { weekday: 3, saturday: 3, sunday: 3 } : null;
+    const defaultRules = newItemType === "meals" ? {
+      weekday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+      saturday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+      sunday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
+    } : null;
     setEditingService(p => ({
       ...p,
       items: [...p.items, {
@@ -242,6 +251,22 @@ export default function AdminAddonServices() {
     }));
   };
 
+  const toggleMeal = (idx: number, dayKey: string, mealValue: string) => {
+    setEditingService(p => ({
+      ...p,
+      items: p.items.map((item, i) => {
+        if (i !== idx) return item;
+        const rules = { ...(item.rules || {}) };
+        const dayRules = rules[dayKey] || { meals: [], count: 0 };
+        const meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+        const exists = meals.includes(mealValue);
+        const newMeals = exists ? meals.filter((m: string) => m !== mealValue) : [...meals, mealValue];
+        rules[dayKey] = { meals: newMeals, count: newMeals.length };
+        return { ...item, rules, includedQty: rules.weekday?.count ?? item.includedQty };
+      }),
+    }));
+  };
+
   const getItemIcon = (type: string) => {
     const t = ITEM_TYPES.find(i => i.value === type);
     if (!t) return <Tag className="w-3.5 h-3.5" />;
@@ -250,13 +275,38 @@ export default function AdminAddonServices() {
   };
   const getItemColor = (type: string) => ITEM_TYPES.find(i => i.value === type)?.color || "bg-gray-100 text-gray-700";
 
+  const getMealNames = (dayRules: any): string[] => {
+    if (!dayRules) return [];
+    if (typeof dayRules === "number") return [];
+    if (dayRules.meals && Array.isArray(dayRules.meals)) {
+      return dayRules.meals.map((m: string) => MEAL_OPTIONS.find(o => o.value === m)?.label || m);
+    }
+    return [];
+  };
+
+  const getMealCount = (dayRules: any): number => {
+    if (!dayRules) return 0;
+    if (typeof dayRules === "number") return dayRules;
+    return dayRules.count ?? (dayRules.meals?.length ?? 0);
+  };
+
   const getMealScheduleSummary = (items: any[]) => {
     const mealItem = items.find((i: any) => i.type === "meals" && i.rules);
     if (!mealItem || !mealItem.rules) return null;
     const rules = mealItem.rules;
-    const wd = rules.weekday ?? rules.weekdays ?? mealItem.includedQty ?? 0;
-    const sat = rules.saturday ?? wd;
-    const sun = rules.sunday ?? wd;
+    const wdNames = getMealNames(rules.weekday);
+    const satNames = getMealNames(rules.saturday);
+    const sunNames = getMealNames(rules.sunday);
+    if (wdNames.length > 0) {
+      const wdStr = wdNames.join(", ");
+      const satStr = satNames.join(", ");
+      const sunStr = sunNames.join(", ");
+      if (wdStr === satStr && satStr === sunStr) return `${wdNames.length} meals/day — ${wdStr}`;
+      return null;
+    }
+    const wd = typeof rules.weekday === "number" ? rules.weekday : (rules.weekday?.count ?? mealItem.includedQty ?? 0);
+    const sat = typeof rules.saturday === "number" ? rules.saturday : (rules.saturday?.count ?? wd);
+    const sun = typeof rules.sunday === "number" ? rules.sunday : (rules.sunday?.count ?? wd);
     if (wd === sat && sat === sun) return `${wd} meals/day`;
     return `Mon–Fri: ${wd} meals | Sat: ${sat} | Sun: ${sun}`;
   };
@@ -368,15 +418,44 @@ export default function AdminAddonServices() {
                 </div>
 
                 {(() => {
-                  const mealSummary = getMealScheduleSummary(svc.items || []);
-                  if (mealSummary) return (
-                    <div className="mb-3 p-2 bg-orange-50 rounded-lg border border-orange-100">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700">
-                        <UtensilsCrossed className="w-3.5 h-3.5" /> {mealSummary}
+                  const mealItem = (svc.items || []).find((i: any) => i.type === "meals" && i.rules);
+                  if (!mealItem) return null;
+                  const rules = mealItem.rules;
+                  const wdNames = getMealNames(rules.weekday);
+                  const satNames = getMealNames(rules.saturday);
+                  const sunNames = getMealNames(rules.sunday);
+                  const wdCount = getMealCount(rules.weekday);
+                  const satCount = getMealCount(rules.saturday);
+                  const sunCount = getMealCount(rules.sunday);
+                  const hasNamedMeals = wdNames.length > 0;
+                  return (
+                    <div className="mb-3 p-2.5 bg-orange-50 rounded-lg border border-orange-100">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 mb-2">
+                        <UtensilsCrossed className="w-3.5 h-3.5" /> Meal Schedule
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-start gap-2 text-[11px]">
+                          <span className="text-slate-500 font-medium w-14 shrink-0">Mon–Fri</span>
+                          <span className="text-slate-700">{hasNamedMeals ? `${wdCount} meals — ${wdNames.join(", ")}` : `${wdCount} meals`}</span>
+                        </div>
+                        {(satCount !== wdCount || satNames.join(",") !== wdNames.join(",")) && (
+                          <div className="flex items-start gap-2 text-[11px]">
+                            <span className="text-slate-500 font-medium w-14 shrink-0">Saturday</span>
+                            <span className="text-slate-700">{hasNamedMeals ? `${satCount} meals — ${satNames.join(", ")}` : `${satCount} meals`}</span>
+                          </div>
+                        )}
+                        {(sunCount !== wdCount || sunNames.join(",") !== wdNames.join(",")) && (
+                          <div className="flex items-start gap-2 text-[11px]">
+                            <span className="text-slate-500 font-medium w-14 shrink-0">Sunday</span>
+                            <span className="text-slate-700">{hasNamedMeals ? `${sunCount} meals — ${sunNames.join(", ")}` : `${sunCount} meals`}</span>
+                          </div>
+                        )}
+                        {satCount === wdCount && sunCount === wdCount && satNames.join(",") === wdNames.join(",") && sunNames.join(",") === wdNames.join(",") && (
+                          <div className="text-[10px] text-slate-400">Same schedule every day</div>
+                        )}
                       </div>
                     </div>
                   );
-                  return null;
                 })()}
 
                 {(svc.items || []).length > 0 && (
@@ -515,42 +594,48 @@ export default function AdminAddonServices() {
 
                       {item.type === "meals" && (
                         <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
-                          <Label className="text-xs font-semibold text-orange-700 mb-2 block">
-                            <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Meal Schedule (meals per day)
+                          <Label className="text-xs font-semibold text-orange-700 mb-3 block">
+                            <UtensilsCrossed className="w-3.5 h-3.5 inline mr-1" /> Meal Schedule — Select meals for each day
                           </Label>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <Label className="text-[10px] text-slate-500">Mon – Fri</Label>
-                              <Input
-                                type="number" min={0} max={6}
-                                value={item.rules?.weekday ?? item.includedQty ?? 3}
-                                onChange={e => updateItemRules(idx, "weekday", parseInt(e.target.value) || 0)}
-                                className="h-8 text-sm"
-                                data-testid={`input-weekday-meals-${idx}`}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-[10px] text-slate-500">Saturday</Label>
-                              <Input
-                                type="number" min={0} max={6}
-                                value={item.rules?.saturday ?? item.rules?.weekday ?? item.includedQty ?? 3}
-                                onChange={e => updateItemRules(idx, "saturday", parseInt(e.target.value) || 0)}
-                                className="h-8 text-sm"
-                                data-testid={`input-saturday-meals-${idx}`}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-[10px] text-slate-500">Sunday</Label>
-                              <Input
-                                type="number" min={0} max={6}
-                                value={item.rules?.sunday ?? item.rules?.weekday ?? item.includedQty ?? 3}
-                                onChange={e => updateItemRules(idx, "sunday", parseInt(e.target.value) || 0)}
-                                className="h-8 text-sm"
-                                data-testid={`input-sunday-meals-${idx}`}
-                              />
-                            </div>
+                          <div className="space-y-3">
+                            {[
+                              { key: "weekday", label: "Mon – Fri" },
+                              { key: "saturday", label: "Saturday" },
+                              { key: "sunday", label: "Sunday" },
+                            ].map(day => {
+                              const dayRules = item.rules?.[day.key];
+                              const selectedMeals: string[] = Array.isArray(dayRules?.meals) ? dayRules.meals : [];
+                              return (
+                                <div key={day.key} className="bg-white rounded-lg border border-orange-100 p-2.5">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[11px] font-semibold text-slate-700">{day.label}</span>
+                                    <span className="text-[10px] text-orange-600 font-medium">{selectedMeals.length} meals</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {MEAL_OPTIONS.map(meal => {
+                                      const isSelected = selectedMeals.includes(meal.value);
+                                      return (
+                                        <button
+                                          key={meal.value}
+                                          type="button"
+                                          onClick={() => toggleMeal(idx, day.key, meal.value)}
+                                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                                            isSelected
+                                              ? "bg-orange-600 text-white border-orange-600"
+                                              : "bg-white text-slate-500 border-slate-200 hover:border-orange-300"
+                                          }`}
+                                          data-testid={`meal-${day.key}-${meal.value}-${idx}`}
+                                        >
+                                          {meal.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-2">Set different meal counts for weekdays vs weekends</p>
+                          <p className="text-[10px] text-slate-400 mt-2">Select which meals are included each day. E.g., add Lunch only on Sat & Sun for 4 meals on weekends.</p>
                         </div>
                       )}
                     </div>

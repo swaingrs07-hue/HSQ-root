@@ -1123,27 +1123,38 @@ export default function CompletedBookings() {
                                       const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
                                       if (!mealItem) return null;
                                       const r = mealItem.rules;
-                                      const wd = r.weekday ?? mealItem.includedQty ?? 0;
-                                      const sat = r.saturday ?? wd;
-                                      const sun = r.sunday ?? wd;
+                                      const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+                                      const getMealInfo = (dayRules: any) => {
+                                        if (!dayRules) return { count: 0, names: [] as string[] };
+                                        if (typeof dayRules === "number") return { count: dayRules, names: [] };
+                                        const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+                                        return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
+                                      };
+                                      const wd = getMealInfo(r.weekday);
+                                      const sat = getMealInfo(r.saturday);
+                                      const sun = getMealInfo(r.sunday);
                                       return (
                                         <div className="mb-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
-                                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-orange-700 mb-1">
+                                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-orange-700 mb-1.5">
                                             <UtensilsCrossed className="w-3 h-3" /> Meal Schedule
                                           </div>
-                                          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
-                                              <div className="font-bold text-slate-800">{wd} meals</div>
-                                              <div className="text-[9px] text-slate-400">Mon–Fri</div>
+                                          <div className="space-y-1">
+                                            <div className="flex items-start gap-1.5 text-[10px]">
+                                              <span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span>
+                                              <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
                                             </div>
-                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
-                                              <div className="font-bold text-slate-800">{sat} meals</div>
-                                              <div className="text-[9px] text-slate-400">Saturday</div>
-                                            </div>
-                                            <div className="bg-white rounded px-1.5 py-1 text-center border border-orange-100">
-                                              <div className="font-bold text-slate-800">{sun} meals</div>
-                                              <div className="text-[9px] text-slate-400">Sunday</div>
-                                            </div>
+                                            {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
+                                              <div className="flex items-start gap-1.5 text-[10px]">
+                                                <span className="text-slate-500 font-medium w-12 shrink-0">Sat</span>
+                                                <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
+                                              </div>
+                                            )}
+                                            {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
+                                              <div className="flex items-start gap-1.5 text-[10px]">
+                                                <span className="text-slate-500 font-medium w-12 shrink-0">Sun</span>
+                                                <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
+                                              </div>
+                                            )}
                                           </div>
                                         </div>
                                       );
@@ -1543,24 +1554,38 @@ export default function CompletedBookings() {
               const mealItem = selectedSvc?.items?.find((i: any) => i.type === "meals" && i.rules);
               if (!mealItem) return null;
               const r = mealItem.rules;
+              const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+              const getMealInfo = (dayRules: any) => {
+                if (!dayRules) return { count: 0, names: [] as string[] };
+                if (typeof dayRules === "number") return { count: dayRules, names: [] };
+                const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
+                return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
+              };
+              const wd = getMealInfo(r.weekday);
+              const sat = getMealInfo(r.saturday);
+              const sun = getMealInfo(r.sunday);
               return (
                 <div className="p-2.5 bg-orange-50 rounded-lg border border-orange-100">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700 mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700 mb-1.5">
                     <UtensilsCrossed className="w-3.5 h-3.5" /> Meal Schedule
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-600">
-                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
-                      <div className="font-semibold text-slate-800">{r.weekday ?? mealItem.includedQty}</div>
-                      <div className="text-[9px] text-slate-400">Mon–Fri</div>
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2 text-[11px]">
+                      <span className="text-slate-500 font-medium w-14 shrink-0">Mon–Fri</span>
+                      <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
                     </div>
-                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
-                      <div className="font-semibold text-slate-800">{r.saturday ?? r.weekday ?? mealItem.includedQty}</div>
-                      <div className="text-[9px] text-slate-400">Saturday</div>
-                    </div>
-                    <div className="bg-white rounded px-2 py-1 text-center border border-orange-100">
-                      <div className="font-semibold text-slate-800">{r.sunday ?? r.weekday ?? mealItem.includedQty}</div>
-                      <div className="text-[9px] text-slate-400">Sunday</div>
-                    </div>
+                    {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
+                      <div className="flex items-start gap-2 text-[11px]">
+                        <span className="text-slate-500 font-medium w-14 shrink-0">Saturday</span>
+                        <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
+                      </div>
+                    )}
+                    {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
+                      <div className="flex items-start gap-2 text-[11px]">
+                        <span className="text-slate-500 font-medium w-14 shrink-0">Sunday</span>
+                        <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

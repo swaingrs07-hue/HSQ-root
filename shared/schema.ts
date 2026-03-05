@@ -1165,7 +1165,7 @@ export type InsertBedBlockLog = z.infer<typeof insertBedBlockLogSchema>;
 
 // ============ PACKAGE MANAGEMENT SYSTEM ============
 
-export const packagePriceTypeEnum = pgEnum("package_price_type", ["ONE_TIME", "PER_DAY", "PER_MONTH"]);
+export const packagePriceTypeEnum = pgEnum("package_price_type", ["ONE_TIME", "PER_DAY", "PER_MONTH", "PER_YEAR"]);
 export const packageCategoryEnum = pgEnum("package_category", ["housing_plan", "addon_service"]);
 export const packageStatusEnum = pgEnum("package_status", ["active", "inactive"]);
 export const bookingPackageStatusEnum = pgEnum("booking_package_status", ["ACTIVE", "ENDED"]);
