@@ -1248,21 +1248,20 @@ export default function PropertyBooking() {
         if (sectionBedCount === maxSection) {
           return baseRoomType || null;
         }
-        if (sectionBedCount === 1) {
-          const singleType = property.roomTypes.find((r: any) =>
-            (r.name === "Single" || r.customName?.toLowerCase()?.includes("single")) && r.id !== bed.roomTypeId
+        const matchByOccupancy = property.roomTypes.find((r: any) =>
+          r.id !== bed.roomTypeId && (r.occupancy === sectionBedCount || r.occupancy === sectionBedCount)
+        );
+        if (matchByOccupancy) return matchByOccupancy;
+        const nameMap: Record<number, string> = { 1: "single", 2: "double", 3: "triple", 4: "quad" };
+        const targetName = nameMap[sectionBedCount];
+        if (targetName) {
+          const matchByName = property.roomTypes.find((r: any) =>
+            r.id !== bed.roomTypeId && (
+              r.name?.toLowerCase() === targetName ||
+              r.customName?.toLowerCase()?.includes(targetName)
+            )
           );
-          if (singleType) return singleType;
-        } else if (sectionBedCount === 2) {
-          const doubleType = property.roomTypes.find((r: any) =>
-            r.name === "Double" && !r.customName && r.id !== bed.roomTypeId
-          );
-          if (doubleType) return doubleType;
-        } else if (sectionBedCount === 3) {
-          const tripleType = property.roomTypes.find((r: any) =>
-            r.name === "Triple" && !r.customName && r.id !== bed.roomTypeId
-          );
-          if (tripleType) return tripleType;
+          if (matchByName) return matchByName;
         }
         return baseRoomType || null;
       }
