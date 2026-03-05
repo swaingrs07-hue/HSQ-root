@@ -535,8 +535,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   const roomTypePlanMap = useMemo(() => {
     const map: Record<string, { name: string; tierLevel: number; id: string }> = {};
     for (const plan of propertyPlans) {
-      if (plan.roomTypeId) {
-        map[plan.roomTypeId] = { name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id };
+      const allLinkedIds: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : (plan.roomTypeId ? [plan.roomTypeId] : []);
+      for (const rtId of allLinkedIds) {
+        if (!map[rtId]) {
+          map[rtId] = { name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id };
+        }
       }
     }
     return map;

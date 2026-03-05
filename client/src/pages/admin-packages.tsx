@@ -368,9 +368,9 @@ export default function AdminPackages() {
                       </Badge>
                       {pkg.occupancy && <Badge variant="outline" className="text-xs">{pkg.occupancy}</Badge>}
                       <Badge variant="outline" className="text-xs">Tier {pkg.tierLevel || 0}</Badge>
-                      {pkg.roomTypeId && (
+                      {(pkg.linkedRoomTypeNames?.length > 0 || pkg.roomTypeId) && (
                         <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600 bg-indigo-50">
-                          Room: {pkg.roomTypeName || "Linked"}
+                          Room: {pkg.linkedRoomTypeNames?.length > 0 ? pkg.linkedRoomTypeNames.join(", ") : pkg.roomTypeName || "Linked"}
                         </Badge>
                       )}
                     </div>

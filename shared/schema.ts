@@ -1175,6 +1175,7 @@ export const packages = pgTable("packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   propertyId: varchar("property_id").references(() => properties.id, { onDelete: "set null" }),
   roomTypeId: varchar("room_type_id").references(() => roomTypes.id, { onDelete: "set null" }),
+  linkedRoomTypeIds: text("linked_room_type_ids").array(),
   category: packageCategoryEnum("category").notNull().default("housing_plan"),
   name: text("name").notNull(),
   description: text("description"),

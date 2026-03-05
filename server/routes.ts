@@ -7149,7 +7149,13 @@ export async function registerRoutes(
           const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, pkg.roomTypeId));
           if (rt) roomTypeName = rt.customName || rt.name;
         }
-        result.push({ ...pkg, items, roomTypeName });
+        const linkedRoomTypeNames: string[] = [];
+        const allLinkedIds: string[] = Array.isArray(pkg.linkedRoomTypeIds) ? pkg.linkedRoomTypeIds : (pkg.roomTypeId ? [pkg.roomTypeId] : []);
+        for (const rtId of allLinkedIds) {
+          const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, rtId));
+          if (rt) linkedRoomTypeNames.push(rt.customName || rt.name);
+        }
+        result.push({ ...pkg, items, roomTypeName, linkedRoomTypeNames });
       }
       res.json(result);
     } catch (error: any) {
@@ -7225,9 +7231,35 @@ export async function registerRoutes(
       const [existing] = await db.select().from(schema.packages).where(eq(schema.packages.id, req.params.id));
       if (!existing) return res.status(404).json({ error: "Package not found" });
 
+      let newLinkedIds: string[] = Array.isArray(existing.linkedRoomTypeIds) ? [...existing.linkedRoomTypeIds] : [];
+      if (existing.roomTypeId && !newLinkedIds.includes(existing.roomTypeId)) {
+        newLinkedIds.push(existing.roomTypeId);
+      }
+      if (packageData.linkRoomTypeId) {
+        if (!newLinkedIds.includes(packageData.linkRoomTypeId)) {
+          newLinkedIds.push(packageData.linkRoomTypeId);
+        }
+      }
+      if (packageData.unlinkRoomTypeId) {
+        newLinkedIds = newLinkedIds.filter((id: string) => id !== packageData.unlinkRoomTypeId);
+      }
+      if (packageData.roomTypeId !== undefined) {
+        if (packageData.roomTypeId) {
+          if (!newLinkedIds.includes(packageData.roomTypeId)) {
+            newLinkedIds.push(packageData.roomTypeId);
+          }
+        }
+      }
+
+      let resolvedRoomTypeId = packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId;
+      if (packageData.unlinkRoomTypeId && resolvedRoomTypeId === packageData.unlinkRoomTypeId) {
+        resolvedRoomTypeId = newLinkedIds.length > 0 ? newLinkedIds[0] : null;
+      }
+
       const [pkg] = await db.update(schema.packages).set({
         propertyId: packageData.propertyId ?? existing.propertyId,
-        roomTypeId: packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId,
+        roomTypeId: resolvedRoomTypeId,
+        linkedRoomTypeIds: newLinkedIds.length > 0 ? newLinkedIds : null,
         category: packageData.category ?? existing.category,
         name: packageData.name ?? existing.name,
         description: packageData.description !== undefined ? (packageData.description || null) : existing.description,

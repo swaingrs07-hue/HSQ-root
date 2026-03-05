@@ -214,10 +214,10 @@ export default function AdminFloorsBeds() {
   });
 
   const assignPlanMutation = useMutation({
-    mutationFn: ({ packageId, roomTypeId }: { packageId: string; roomTypeId: string | null }) =>
+    mutationFn: ({ packageId, linkRoomTypeId, unlinkRoomTypeId }: { packageId: string; linkRoomTypeId?: string; unlinkRoomTypeId?: string }) =>
       apiFetch(`/api/admin/packages/${packageId}`, {
         method: "PUT",
-        body: JSON.stringify({ roomTypeId }),
+        body: JSON.stringify({ linkRoomTypeId, unlinkRoomTypeId }),
       }),
     onSuccess: () => {
       refetchPackages();
@@ -669,22 +669,26 @@ export default function AdminFloorsBeds() {
           <div className="space-y-2 max-h-72 overflow-y-auto py-2">
             {propertyPackages && propertyPackages.filter(p => p.isActive).length > 0 ? (
               propertyPackages.filter(p => p.isActive).map((pkg: any) => {
-                const isLinked = pkg.roomTypeId === planAssignRoomTypeId;
-                const isLinkedOther = pkg.roomTypeId && pkg.roomTypeId !== planAssignRoomTypeId;
-                const otherRt = isLinkedOther ? roomTypes?.find(r => r.id === pkg.roomTypeId) : null;
+                const allLinkedIds: string[] = Array.isArray(pkg.linkedRoomTypeIds) ? pkg.linkedRoomTypeIds : (pkg.roomTypeId ? [pkg.roomTypeId] : []);
+                const isLinked = allLinkedIds.includes(planAssignRoomTypeId);
+                const otherLinkedIds = allLinkedIds.filter(id => id !== planAssignRoomTypeId);
+                const otherRtNames = otherLinkedIds.map(id => {
+                  const rt = roomTypes?.find(r => r.id === id);
+                  return rt?.customName || rt?.name || "Unknown";
+                });
                 return (
                   <div
                     key={pkg.id}
                     className={cn(
                       "flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors",
-                      isLinked ? "bg-violet-50 border-violet-300" : isLinkedOther ? "bg-slate-50 border-slate-200 opacity-60" : "bg-white border-slate-200 hover:border-violet-300"
+                      isLinked ? "bg-violet-50 border-violet-300" : "bg-white border-slate-200 hover:border-violet-300"
                     )}
                     data-testid={`plan-assign-row-${pkg.id}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm text-slate-800 truncate">{pkg.name}</span>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Tier {pkg.tierLevel || 0}</Badge>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Tier {pkg.tierLevel ?? 0}</Badge>
                         {isLinked && (
                           <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-0 shrink-0">
                             <Check className="w-2.5 h-2.5 mr-0.5" />Linked
@@ -693,9 +697,9 @@ export default function AdminFloorsBeds() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-500">₹{Number(pkg.basePrice).toLocaleString("en-IN")}</span>
-                        {isLinkedOther && (
+                        {otherRtNames.length > 0 && (
                           <span className="text-[10px] text-slate-400">
-                            Linked to {otherRt?.customName || otherRt?.name || "another room type"}
+                            Also linked to {otherRtNames.join(", ")}
                           </span>
                         )}
                       </div>
@@ -706,25 +710,23 @@ export default function AdminFloorsBeds() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1 text-rose-600 border-rose-200 hover:bg-rose-50"
-                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, roomTypeId: null })}
+                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, unlinkRoomTypeId: planAssignRoomTypeId })}
                           disabled={assignPlanMutation.isPending}
                           data-testid={`button-unlink-plan-${pkg.id}`}
                         >
                           <X className="w-3 h-3" />Unlink
                         </Button>
-                      ) : !isLinkedOther ? (
+                      ) : (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1 text-violet-600 border-violet-200 hover:bg-violet-50"
-                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, roomTypeId: planAssignRoomTypeId })}
+                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, linkRoomTypeId: planAssignRoomTypeId })}
                           disabled={assignPlanMutation.isPending}
                           data-testid={`button-link-plan-${pkg.id}`}
                         >
                           <Tag className="w-3 h-3" />Link
                         </Button>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">In use</span>
                       )}
                     </div>
                   </div>
@@ -767,7 +769,10 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
     beds: room.beds.filter(b => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
   })) : null;
 
-  const plansForThisRoom = linkedPlans?.filter((p: any) => p.roomTypeId === room.roomTypeId) || [];
+  const plansForThisRoom = linkedPlans?.filter((p: any) => {
+    const allLinkedIds: string[] = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
+    return allLinkedIds.includes(room.roomTypeId);
+  }) || [];
 
   return (
     <div className={cn("border rounded-lg p-3 transition-colors", roomStatusColor)} data-testid={`room-card-${room.id}`}>
