@@ -184,7 +184,8 @@ export default function BookingGeneration() {
 
   const getAccommodationType = (bed: any, room: any): string => {
     if (!bed || !room) return "";
-    const typology = room.typology || "";
+    const typology = (room.typology || "").trim();
+    if (!typology) return "";
     const isCombo = typology.includes("+");
     let sharingCount = 1;
     if (isCombo) {
@@ -195,7 +196,17 @@ export default function BookingGeneration() {
       const sectionIndex = sectionLetter.charCodeAt(0) - 65;
       sharingCount = parts[sectionIndex] || parts[0] || 1;
     } else {
-      sharingCount = parseInt(typology) || 1;
+      const parsed = parseInt(typology);
+      if (!isNaN(parsed)) {
+        sharingCount = parsed;
+      } else {
+        const lower = typology.toLowerCase();
+        if (lower.includes("single") || lower === "1") return "single";
+        if (lower.includes("double") || lower === "2") return "double";
+        if (lower.includes("triple") || lower === "3") return "triple";
+        if (lower.includes("quad") || lower === "4") return "quad";
+        return "";
+      }
     }
     if (sharingCount === 1) return "single";
     if (sharingCount === 2) return "double";
@@ -340,10 +351,24 @@ export default function BookingGeneration() {
                 setSelectedRoomId(data.roomId);
               }
               if (data.roomNumber || data.bedNumber) {
+                let accomType = "";
+                if (data.bedNumber && data.roomTypology) {
+                  accomType = getAccommodationType(
+                    { bedNumber: data.bedNumber },
+                    { typology: data.roomTypology }
+                  );
+                } else if (data.roomTypeName) {
+                  const name = data.roomTypeName.toLowerCase();
+                  if (name.includes("single") || name === "1") accomType = "single";
+                  else if (name.includes("double") || name === "2") accomType = "double";
+                  else if (name.includes("triple") || name === "3") accomType = "triple";
+                  else if (name.includes("quad") || name === "4") accomType = "quad";
+                }
                 setFormData(prev => ({
                   ...prev,
                   residentRoomNo: data.roomNumber || prev.residentRoomNo,
                   residentBedNo: data.bedNumber || prev.residentBedNo,
+                  residentAccommodationType: accomType || prev.residentAccommodationType,
                 }));
               }
             }
@@ -497,7 +522,17 @@ export default function BookingGeneration() {
   };
 
   const handleRoomTypeChange = (roomTypeId: string) => {
-    setFormData(prev => ({ ...prev, roomTypeId }));
+    const selectedRT = roomTypes.find((rt: any) => rt.id === roomTypeId);
+    let accomType = "";
+    if (selectedRT) {
+      const occ = selectedRT.occupancy || 1;
+      if (occ === 1) accomType = "single";
+      else if (occ === 2) accomType = "double";
+      else if (occ === 3) accomType = "triple";
+      else if (occ === 4) accomType = "quad";
+      else accomType = `${occ}-sharing`;
+    }
+    setFormData(prev => ({ ...prev, roomTypeId, residentAccommodationType: accomType }));
     setSelectedFloorId("");
     setSelectedRoomId("");
     setSelectedBedId("");

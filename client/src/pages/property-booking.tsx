@@ -924,6 +924,7 @@ export default function PropertyBooking() {
       roomId: selectedRoom?.id || "",
       floorId: selectedFloor?.id,
       floorName: selectedFloor?.name,
+      roomTypology: selectedRoom?.typology || "",
     }));
     navigate("/booking/generate");
   };
