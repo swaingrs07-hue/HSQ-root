@@ -445,9 +445,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   );
 }
 
-function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null }) {
+function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null }) {
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
+  const [lastAutoExpand, setLastAutoExpand] = useState<string | null>(null);
 
   const { data: floorsData = [], isLoading } = useQuery({
     queryKey: [`/api/properties/${property.id}/floors`],
@@ -458,6 +459,30 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId }: { propert
     },
     enabled: !!property?.id,
   });
+
+  useEffect(() => {
+    if (!autoExpand || floorsData.length === 0) return;
+    if (lastAutoExpand === autoExpand) return;
+    setLastAutoExpand(autoExpand);
+
+    if (filterRoomTypeId) {
+      const matchFloor = floorsData.find((f: any) =>
+        (f.beds || []).some((b: any) => b.roomTypeId === filterRoomTypeId && b.status === "available") ||
+        (f.rooms || []).some((r: any) => r.roomTypeId === filterRoomTypeId && (r.beds || []).some((b: any) => b.status === "available"))
+      );
+      if (matchFloor) {
+        setExpandedFloor(matchFloor.id);
+        return;
+      }
+    }
+    const firstWithAvailable = floorsData.find((f: any) =>
+      (f.beds || []).some((b: any) => b.status === "available") ||
+      (f.rooms || []).some((r: any) => (r.beds || []).some((b: any) => b.status === "available"))
+    );
+    if (firstWithAvailable) {
+      setExpandedFloor(firstWithAvailable.id);
+    }
+  }, [autoExpand, filterRoomTypeId, floorsData, lastAutoExpand]);
 
   if (isLoading) {
     return (
@@ -1252,7 +1277,7 @@ export default function PropertyBooking() {
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
               </h2>
-              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} />
+              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} autoExpand={selectedPlan?.id || null} />
             </div>
 
             <div>
