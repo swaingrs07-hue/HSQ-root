@@ -4011,13 +4011,12 @@ export async function registerRoutes(
   // Get property assignment summary stats (aggregated endpoint)
   app.get("/api/admin/property-assignment-stats", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
-      const properties = await storage.getProperties();
+      const properties = await storage.getAllProperties();
       const allLeads = await storage.getAllLeads();
       
-      // Get all property-exec assignments in one query
-      const propertyExecCounts = new Map<number, number>();
+      const propertyExecCounts = new Map<string, number>();
       for (const property of properties) {
-        const execs = await storage.getPropertySalesExecs(property.id);
+        const execs = await storage.getActiveSalesExecsForProperty(property.id);
         propertyExecCounts.set(property.id, execs.length);
       }
       
