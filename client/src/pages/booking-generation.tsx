@@ -154,6 +154,9 @@ export default function BookingGeneration() {
   const [selectedBedId, setSelectedBedId] = useState("");
   const [selectedBedInfo, setSelectedBedInfo] = useState<any>(null);
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedPlanName, setSelectedPlanName] = useState<string | null>(null);
+  const [selectedPlanPrice, setSelectedPlanPrice] = useState<number>(0);
 
   const [formData, setFormData] = useState({
     customerType: "walk_in",
@@ -356,6 +359,13 @@ export default function BookingGeneration() {
               if (data.roomId) {
                 setSelectedRoomId(data.roomId);
               }
+              if (data.selectedPlanId) {
+                setSelectedPlanId(data.selectedPlanId);
+                setSelectedPlanName(data.selectedPlanName || null);
+                if (data.price && data.price > 0) {
+                  setSelectedPlanPrice(data.price);
+                }
+              }
               if (data.roomNumber || data.bedNumber) {
                 let accomType = "";
                 if (data.roomTypeName && data.roomTypology && data.roomTypology !== "1 Bed") {
@@ -401,7 +411,7 @@ export default function BookingGeneration() {
       fetchAvailability(formData.roomTypeId);
       calculateFee();
     }
-  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes]);
+  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes, selectedPlanPrice]);
 
   const fetchProperties = async () => {
     try {
@@ -483,7 +493,9 @@ export default function BookingGeneration() {
     if (!property) return;
 
     let baseFee = 0;
-    if (property.bookingMode === "monthly" && formData.stayPlanType === "monthly") {
+    if (selectedPlanPrice > 0) {
+      baseFee = selectedPlanPrice;
+    } else if (property.bookingMode === "monthly" && formData.stayPlanType === "monthly") {
       baseFee = selectedRoom.basePrice * formData.durationMonths;
     } else {
       baseFee = selectedRoom.academicYearPrice || (selectedRoom.basePrice * 11);
@@ -750,6 +762,7 @@ export default function BookingGeneration() {
           roomTypeId: formData.roomTypeId,
           bedId: selectedBedId || null,
           floorId: selectedFloorId || null,
+          selectedPlanId: selectedPlanId || null,
           stayPlanType: formData.stayPlanType,
           academicYearPeriod: formData.stayPlanType === "academic_year" ? formData.academicYearPeriod : null,
           checkInDate: formData.checkInDate || null,
@@ -2036,12 +2049,17 @@ export default function BookingGeneration() {
                         <div className="flex items-center gap-2 mb-1">
                           <Receipt className="h-4 w-4 text-indigo-500" />
                           <span className="text-sm font-medium text-indigo-600">Base Fee</span>
+                          {selectedPlanName && (
+                            <span className="ml-auto text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full" data-testid="badge-plan-pricing">
+                              {selectedPlanName} Plan
+                            </span>
+                          )}
                         </div>
                         <p className="text-3xl font-bold text-slate-800" data-testid="text-base-fee">
                           ₹{formData.baseFee.toLocaleString()}
                         </p>
                         <p className="text-xs text-slate-500 mt-1">
-                          {getSelectedProperty()?.name} · {getSelectedRoomType()?.name}
+                          {getSelectedProperty()?.name} · {selectedPlanName || getSelectedRoomType()?.name}
                         </p>
                       </div>
 
@@ -2294,7 +2312,7 @@ export default function BookingGeneration() {
                         <h4 className="text-sm font-semibold text-slate-600 mb-3">Payment Summary</h4>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Base Fee</span>
+                            <span className="text-slate-500">Base Fee {selectedPlanName && <span className="text-amber-600 text-[10px]">({selectedPlanName})</span>}</span>
                             <span className="font-medium text-slate-700">₹{formData.baseFee.toLocaleString()}</span>
                           </div>
                           {formData.discount > 0 && (
@@ -2442,7 +2460,7 @@ export default function BookingGeneration() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Base Fee</p>
+                        <p className="text-xs text-slate-500 mb-1">Base Fee {selectedPlanName && <span className="text-amber-600">({selectedPlanName})</span>}</p>
                         <p className="font-bold text-slate-800">₹{formData.baseFee.toLocaleString()}</p>
                       </div>
                       <div>
