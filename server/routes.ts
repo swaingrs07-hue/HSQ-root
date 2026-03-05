@@ -7824,7 +7824,7 @@ export async function registerRoutes(
 
       const [activated] = await db.update(schema.seasons).set({ status: "ACTIVE", updatedAt: new Date() }).where(eq(schema.seasons.id, req.params.id)).returning();
 
-      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed", "pending_payment"])];
       if (activated.propertyId) {
         bookingConds.push(eq(schema.bookings.propertyId, activated.propertyId));
       }
@@ -7893,7 +7893,7 @@ export async function registerRoutes(
       const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!season) return res.status(404).json({ error: "Season not found" });
 
-      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      const bookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed", "pending_payment"])];
       if (season.propertyId) {
         bookingConds.push(eq(schema.bookings.propertyId, season.propertyId));
       }
@@ -7966,7 +7966,7 @@ export async function registerRoutes(
         .leftJoin(schema.students, eq(schema.bookings.studentId, schema.students.id))
         .where(and(
           eq(schema.bookings.propertyId, season.propertyId),
-          inArray(schema.bookings.status, ["active", "confirmed"])
+          inArray(schema.bookings.status, ["active", "confirmed", "pending_payment"])
         ));
 
       if (activeBookings.length === 0) {
@@ -8274,7 +8274,7 @@ export async function registerRoutes(
       const [season] = await db.select().from(schema.seasons).where(eq(schema.seasons.id, req.params.id));
       if (!season) return res.status(404).json({ error: "Season not found" });
 
-      const closeBookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed"])];
+      const closeBookingConds: any[] = [inArray(schema.bookings.status, ["active", "confirmed", "pending_payment"])];
       if (season.propertyId) {
         closeBookingConds.push(eq(schema.bookings.propertyId, season.propertyId));
       }
