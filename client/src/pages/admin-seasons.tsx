@@ -225,7 +225,7 @@ export default function AdminSeasons() {
     } catch {}
   };
 
-  const toggleExpand = (seasonId: string) => {
+  const toggleExpand = async (seasonId: string) => {
     if (expandedSeason === seasonId) {
       setExpandedSeason(null);
       setResidents([]);
@@ -234,6 +234,12 @@ export default function AdminSeasons() {
     } else {
       setExpandedSeason(seasonId);
       setSelectedResidents(new Set());
+      const season = seasons.find(s => s.id === seasonId);
+      if (season && (season.status === "ACTIVE" || season.status === "UPCOMING")) {
+        try {
+          await fetch(`/api/admin/seasons/${seasonId}/sync-residents`, { method: "POST", headers });
+        } catch {}
+      }
       fetchResidents(seasonId);
     }
   };
