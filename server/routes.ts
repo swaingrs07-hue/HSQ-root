@@ -7306,6 +7306,43 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/plans/featured", async (_req, res) => {
+    try {
+      const allPlans = await db.select().from(schema.packages)
+        .where(eq(schema.packages.isActive, true))
+        .orderBy(schema.packages.tierLevel);
+      if (allPlans.length === 0) return res.json([]);
+      const planIds = allPlans.map(p => p.id);
+      const propertyIds = [...new Set(allPlans.map(p => p.propertyId).filter(Boolean))] as string[];
+      const [allItems, allProps] = await Promise.all([
+        db.select().from(schema.packageItems)
+          .where(inArray(schema.packageItems.packageId, planIds))
+          .orderBy(schema.packageItems.sortOrder),
+        propertyIds.length > 0
+          ? db.select({ id: schema.properties.id, name: schema.properties.name, displayName: schema.properties.displayName })
+              .from(schema.properties).where(inArray(schema.properties.id, propertyIds))
+          : Promise.resolve([]),
+      ]);
+      const itemsByPlan: Record<string, typeof allItems> = {};
+      for (const item of allItems) {
+        if (!itemsByPlan[item.packageId]) itemsByPlan[item.packageId] = [];
+        itemsByPlan[item.packageId].push(item);
+      }
+      const propsMap: Record<string, typeof allProps[0]> = {};
+      for (const p of allProps) propsMap[p.id] = p;
+      const result = allPlans.map(plan => ({
+        ...plan,
+        items: itemsByPlan[plan.id] || [],
+        propertyName: plan.propertyId && propsMap[plan.propertyId]
+          ? (propsMap[plan.propertyId].displayName || propsMap[plan.propertyId].name)
+          : null,
+      }));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch featured plans" });
+    }
+  });
+
   app.get("/api/properties/:propertyId/plans", async (req, res) => {
     try {
       const plans = await db.select().from(schema.packages)

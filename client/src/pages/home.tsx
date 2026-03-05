@@ -85,6 +85,7 @@ export default function Home() {
   const [igAutoPlaying, setIgAutoPlaying] = useState(true);
   const [footerPhone, setFooterPhone] = useState("+91 6372294625");
   const [dynamicAmenities, setDynamicAmenities] = useState<any[]>([]);
+  const [featuredPlans, setFeaturedPlans] = useState<any[]>([]);
   const igInterval = useRef<NodeJS.Timeout | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
@@ -129,6 +130,12 @@ export default function Home() {
       .then(res => res.ok ? res.json() : [])
       .then((data: any[]) => {
         if (data.length > 0) setDynamicAmenities(data.filter((a: any) => a.isActive));
+      })
+      .catch(() => {});
+    fetch("/api/plans/featured")
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => {
+        if (data.length > 0) setFeaturedPlans(data);
       })
       .catch(() => {});
   }, []);
@@ -487,6 +494,163 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {featuredPlans.length > 0 && (() => {
+        const propertyIds = [...new Set(featuredPlans.map((p: any) => p.propertyId).filter(Boolean))];
+        const plansByProperty: Record<string, any[]> = {};
+        featuredPlans.forEach((plan: any) => {
+          const key = plan.propertyId || "general";
+          if (!plansByProperty[key]) plansByProperty[key] = [];
+          plansByProperty[key].push(plan);
+        });
+        const tierStyles = [
+          { gradient: "from-emerald-600 to-teal-700", headerBg: "bg-gradient-to-r from-emerald-600 to-teal-700", badge: "bg-emerald-100 text-emerald-700", accent: "text-emerald-600", border: "border-emerald-200", ring: "ring-emerald-200", featureCheck: "text-emerald-500", label: "Essential" },
+          { gradient: "from-violet-600 to-purple-700", headerBg: "bg-gradient-to-r from-violet-600 to-purple-700", badge: "bg-violet-100 text-violet-700", accent: "text-violet-600", border: "border-violet-200", ring: "ring-violet-200", featureCheck: "text-violet-500", label: "Popular" },
+          { gradient: "from-amber-600 to-yellow-600", headerBg: "bg-gradient-to-r from-amber-600 to-yellow-600", badge: "bg-amber-100 text-amber-700", accent: "text-amber-600", border: "border-amber-200", ring: "ring-amber-200", featureCheck: "text-amber-500", label: "Premium" },
+        ];
+        return (
+          <section className="py-20 md:py-28 bg-gradient-to-b from-white via-stone-50/50 to-white" data-testid="section-housing-plans">
+            <div className="container mx-auto px-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="text-center mb-14"
+              >
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium">Choose Your Lifestyle</p>
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                </div>
+                <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-4">
+                  Housing Plans
+                </h2>
+                <p className="text-stone-500 max-w-2xl mx-auto text-base md:text-lg">
+                  Select the plan that fits your lifestyle. From essentials to all-inclusive premium living — every plan is designed to make your stay comfortable and convenient.
+                </p>
+              </motion.div>
+
+              {propertyIds.map((propId, propIdx) => {
+                const plans = plansByProperty[propId] || [];
+                const propName = plans[0]?.propertyName || "Property";
+                return (
+                  <div key={propId} className={propIdx > 0 ? "mt-16" : ""}>
+                    {propertyIds.length > 1 && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        className="flex items-center gap-3 mb-8"
+                      >
+                        <div className="w-10 h-10 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Plans for</p>
+                          <h3 className="font-bold text-lg text-stone-800">{propName}</h3>
+                        </div>
+                      </motion.div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                      {plans.map((plan: any, idx: number) => {
+                        const tier = plan.tierLevel ?? idx;
+                        const style = tierStyles[Math.min(tier, tierStyles.length - 1)];
+                        const isHighlighted = plan.isHighlighted;
+                        const isTop = tier === Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
+                        const price = Number(plan.basePrice || 0);
+                        const features = (plan.items || []).slice(0, 5);
+                        return (
+                          <motion.div
+                            key={plan.id}
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.5, delay: idx * 0.15 }}
+                            whileHover={{ y: -8, transition: { duration: 0.3 } }}
+                            className="relative"
+                            data-testid={`plan-card-home-${plan.id}`}
+                          >
+                            {isHighlighted && (
+                              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                                <span className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-1.5 rounded-full shadow-lg shadow-amber-500/30 flex items-center gap-1">
+                                  <Star className="w-3 h-3 fill-white" /> Most Popular
+                                </span>
+                              </div>
+                            )}
+                            <div className={`bg-white rounded-2xl border-2 overflow-hidden shadow-lg hover:shadow-xl transition-shadow h-full flex flex-col ${isHighlighted ? "border-amber-300 shadow-amber-100" : isTop ? "border-amber-200" : style.border}`}>
+                              <div className={`${style.headerBg} px-6 py-5 text-white relative overflow-hidden`}>
+                                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
+                                <div className="relative">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {isTop && <Award className="w-5 h-5 text-yellow-300" />}
+                                    <h3 className="font-heading font-bold text-xl tracking-wide">{plan.name}</h3>
+                                  </div>
+                                  {plan.tagline && (
+                                    <p className="text-white/75 text-sm">{plan.tagline}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="px-6 py-5 flex-1 flex flex-col">
+                                <div className="flex items-baseline gap-1 mb-1">
+                                  <span className={`text-3xl font-bold ${style.accent}`}>
+                                    {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Custom"}
+                                  </span>
+                                  {price > 0 && <span className="text-stone-400 text-sm">/ year</span>}
+                                </div>
+                                {price > 0 && (
+                                  <p className="text-stone-400 text-xs mb-5">≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month</p>
+                                )}
+                                {plan.occupancy && (
+                                  <div className="flex items-center gap-2 py-2 border-b border-stone-100 text-sm">
+                                    <Users className="w-4 h-4 text-stone-400" />
+                                    <span className="text-stone-500">Occupancy</span>
+                                    <span className="ml-auto font-medium text-stone-700">{plan.occupancy}</span>
+                                  </div>
+                                )}
+                                {features.length > 0 && (
+                                  <div className="mt-3 space-y-2 flex-1">
+                                    {features.map((item: any) => {
+                                      const val = item.featureValue || `${item.includedQty} ${item.unit}`;
+                                      return (
+                                        <div key={item.id} className="flex items-start gap-2 text-sm">
+                                          <div className={`w-4 h-4 mt-0.5 rounded-full flex items-center justify-center shrink-0 ${style.badge}`}>
+                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                          </div>
+                                          <span className="text-stone-600">
+                                            {item.label}: <span className="font-medium text-stone-800">{val}</span>
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                    {(plan.items || []).length > 5 && (
+                                      <p className="text-xs text-stone-400 pl-6">+{(plan.items || []).length - 5} more features</p>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="mt-6 pt-4 border-t border-stone-100">
+                                  <Link href={plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}>
+                                    <Button
+                                      className={`w-full rounded-xl h-11 font-semibold tracking-wider uppercase text-sm text-white shadow-md ${style.headerBg} hover:opacity-90 transition-opacity`}
+                                      data-testid={`button-view-plan-${plan.id}`}
+                                    >
+                                      Explore & Book <ArrowRight className="w-4 h-4 ml-1" />
+                                    </Button>
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       {instagramPosts.length > 0 && (
         <section
