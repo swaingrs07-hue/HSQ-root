@@ -242,6 +242,56 @@ export default function BookingGeneration() {
     }
   }, [user]);
 
+  const [bookingSessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [heldBedId, setHeldBedId] = useState<string | null>(null);
+
+  const holdBedForBooking = async (bedId: string) => {
+    try {
+      const res = await fetch("/api/beds/hold", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bedId, sessionId: bookingSessionId }),
+      });
+      if (res.ok) {
+        setHeldBedId(bedId);
+      } else {
+        const data = await res.json();
+        if (res.status === 409) {
+          toast({ title: "Bed Unavailable", description: data.error, variant: "destructive" });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to hold bed:", e);
+    }
+  };
+
+  const releaseBedHold = async (bedId: string) => {
+    try {
+      await fetch("/api/beds/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bedId, sessionId: bookingSessionId }),
+      });
+      setHeldBedId(null);
+    } catch (e) {
+      console.error("Failed to release bed:", e);
+    }
+  };
+
+  useEffect(() => {
+    const releaseOnUnload = () => {
+      if (heldBedId) {
+        const blob = new Blob([JSON.stringify({ bedId: heldBedId, sessionId: bookingSessionId })], { type: "application/json" });
+        navigator.sendBeacon("/api/beds/release", blob);
+      }
+    };
+    window.addEventListener("beforeunload", releaseOnUnload);
+    return () => {
+      window.removeEventListener("beforeunload", releaseOnUnload);
+      releaseOnUnload();
+    };
+  }, [heldBedId, bookingSessionId]);
+
   useEffect(() => {
     if (properties.length > 0) {
       try {
@@ -259,6 +309,7 @@ export default function BookingGeneration() {
               }));
               if (data.bedId) {
                 setSelectedBedId(data.bedId);
+                holdBedForBooking(data.bedId);
               }
               if (data.floorId) {
                 setSelectedFloorId(data.floorId);

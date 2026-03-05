@@ -487,8 +487,11 @@ function FloorBedSelector({ property, onSelectBed }: { property: any; onSelectBe
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
-    const isAvailable = bed.status === "available";
-    const config = statusConfig[bed.status] || statusConfig.maintenance;
+    const isHeld = bed.held && !isSelected;
+    const isAvailable = bed.status === "available" && !isHeld;
+    const config = isHeld 
+      ? { bg: "bg-orange-400/60", border: "border-orange-500/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
+      : (statusConfig[bed.status] || statusConfig.maintenance);
     return (
       <motion.button
         key={bed.id}

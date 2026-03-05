@@ -16,6 +16,37 @@ import { searchProperties, getSuggestedFilters } from "./nlp-search";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 
+// Temporary bed hold system — holds beds for 15 minutes during booking
+const bedHolds = new Map<string, { heldBy: string; heldAt: number; expiresAt: number }>();
+const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function holdBed(bedId: string, userId: string): boolean {
+  cleanExpiredHolds();
+  const existing = bedHolds.get(bedId);
+  if (existing && existing.heldBy !== userId) return false;
+  bedHolds.set(bedId, { heldBy: userId, heldAt: Date.now(), expiresAt: Date.now() + BED_HOLD_DURATION });
+  return true;
+}
+
+function releaseBed(bedId: string, userId: string): void {
+  const existing = bedHolds.get(bedId);
+  if (existing && existing.heldBy === userId) bedHolds.delete(bedId);
+}
+
+function isBedHeld(bedId: string): { held: boolean; heldBy?: string } {
+  cleanExpiredHolds();
+  const existing = bedHolds.get(bedId);
+  if (!existing) return { held: false };
+  return { held: true, heldBy: existing.heldBy };
+}
+
+function cleanExpiredHolds(): void {
+  const now = Date.now();
+  for (const [bedId, hold] of bedHolds.entries()) {
+    if (hold.expiresAt <= now) bedHolds.delete(bedId);
+  }
+}
+
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -2982,6 +3013,34 @@ export async function registerRoutes(
   });
 
   // Create booking with workflow (supports walk-in, lead, student)
+  app.post("/api/beds/hold", async (req, res) => {
+    try {
+      const { bedId, sessionId } = req.body;
+      if (!bedId || !sessionId) return res.status(400).json({ error: "bedId and sessionId required" });
+      const bed = await storage.getBed(bedId);
+      if (!bed) return res.status(404).json({ error: "Bed not found" });
+      if (bed.status !== "available") return res.status(400).json({ error: "Bed is not available", status: bed.status });
+      const holdResult = isBedHeld(bedId);
+      if (holdResult.held && holdResult.heldBy !== sessionId) {
+        return res.status(409).json({ error: "This bed is currently being booked by someone else. Please choose another bed.", held: true });
+      }
+      holdBed(bedId, sessionId);
+      res.json({ success: true, expiresIn: BED_HOLD_DURATION / 1000 });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/beds/release", async (req, res) => {
+    try {
+      const { bedId, sessionId } = req.body;
+      if (bedId && sessionId) releaseBed(bedId, sessionId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/bookings/generate", async (req, res) => {
     try {
       const {
@@ -3095,8 +3154,9 @@ export async function registerRoutes(
         residentDetails: residentDetails || null,
       });
 
-      // Mark the bed as reserved and update availability counts
+      // Mark the bed as reserved, clear hold, and update availability counts
       if (resolvedBedId) {
+        bedHolds.delete(resolvedBedId);
         await storage.updateBedStatus(resolvedBedId, "reserved");
         await storage.updateRoomTypeAvailability(roomTypeId, -1);
 
@@ -6089,7 +6149,11 @@ export async function registerRoutes(
           const roomsWithBeds = await Promise.all(
             floorRooms.map(async (room) => {
               const roomBeds = await storage.getBedsByRoom(room.id);
-              return { ...room, beds: roomBeds };
+              const bedsWithHoldStatus = roomBeds.map(bed => {
+                const hold = isBedHeld(bed.id);
+                return { ...bed, held: hold.held };
+              });
+              return { ...room, beds: bedsWithHoldStatus };
             })
           );
           const availableBeds = floorBeds.filter(b => b.status === "available").length;
