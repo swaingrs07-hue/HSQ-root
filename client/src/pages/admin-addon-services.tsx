@@ -264,6 +264,7 @@ export default function AdminAddonServices() {
   const priceLabel = (type: string) => {
     if (type === "ONE_TIME") return "one-time";
     if (type === "PER_DAY") return "/ day";
+    if (type === "PER_YEAR") return "/ year";
     return "/ month";
   };
 
@@ -448,6 +449,7 @@ export default function AdminAddonServices() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PER_MONTH">Per Month</SelectItem>
+                    <SelectItem value="PER_YEAR">Per Year</SelectItem>
                     <SelectItem value="ONE_TIME">One Time</SelectItem>
                     <SelectItem value="PER_DAY">Per Day</SelectItem>
                   </SelectContent>

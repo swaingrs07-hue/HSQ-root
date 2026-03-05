@@ -379,7 +379,7 @@ export default function AdminPackages() {
                       <IndianRupee className="h-4 w-4" />
                       {Number(pkg.basePrice).toLocaleString("en-IN")}
                       <span className="text-xs text-slate-400 font-normal">
-                        / {pkg.priceType === "ONE_TIME" ? "one-time" : pkg.priceType === "PER_DAY" ? "day" : "year"}
+                        / {pkg.priceType === "ONE_TIME" ? "one-time" : pkg.priceType === "PER_DAY" ? "day" : pkg.priceType === "PER_YEAR" ? "year" : "month"}
                       </span>
                     </div>
 
@@ -501,7 +501,8 @@ export default function AdminPackages() {
                   <SelectContent>
                     <SelectItem value="ONE_TIME">One-Time</SelectItem>
                     <SelectItem value="PER_DAY">Per Day</SelectItem>
-                    <SelectItem value="PER_MONTH">Per Month / Annual</SelectItem>
+                    <SelectItem value="PER_MONTH">Per Month</SelectItem>
+                    <SelectItem value="PER_YEAR">Per Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
