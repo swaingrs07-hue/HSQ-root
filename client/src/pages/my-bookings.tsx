@@ -393,12 +393,22 @@ export default function MyBookings() {
                   </div>
                   <div className="divide-y divide-slate-100">
                     {b.payments.map((p: any, idx: number) => (
-                      <div key={p.id || idx} className="px-4 py-3 flex items-center justify-between text-sm">
-                        <div>
+                      <div key={p.id || idx} className="px-4 py-3 flex items-center justify-between text-sm gap-3">
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
                           <p className="text-xs text-slate-500">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
+                          {(p.paymentMethod || p.razorpayPaymentId) && (
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {p.paymentMethod && (
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
+                              )}
+                              {p.razorpayPaymentId && (
+                                <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <Badge variant="outline" className={`text-[10px] ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
                           {(p.status || "pending").toUpperCase()}
                         </Badge>
                       </div>

@@ -552,7 +552,11 @@ export default function CompletedBookings() {
       drawHeader("PAYMENT HISTORY");
       booking.payments.forEach((p: any) => {
         const pDate = p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy") : "N/A";
-        drawRow(`${pDate} (${(p.status || "pending").toUpperCase()})`, `Rs. ${(p.amount || 0).toLocaleString("en-IN")}`);
+        const methodLabel = p.paymentMethod ? ` via ${p.paymentMethod.toUpperCase()}` : "";
+        drawRow(`${pDate} (${(p.status || "pending").toUpperCase()})${methodLabel}`, `Rs. ${(p.amount || 0).toLocaleString("en-IN")}`);
+        if (p.razorpayPaymentId) {
+          drawRow(`  UTR/Txn: ${p.razorpayPaymentId}`, "");
+        }
       });
     }
 
@@ -1092,12 +1096,22 @@ export default function CompletedBookings() {
                   <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
                   <div className="space-y-2">
                     {selectedBooking.payments.map((p: any, idx: number) => (
-                      <div key={p.id || idx} className="flex items-center justify-between text-sm">
-                        <div>
+                      <div key={p.id || idx} className="flex items-center justify-between text-sm gap-3">
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
                           <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
+                          {(p.paymentMethod || p.razorpayPaymentId) && (
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {p.paymentMethod && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
+                              )}
+                              {p.razorpayPaymentId && (
+                                <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <Badge variant="outline" className={`text-[10px] ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
                           {(p.status || "pending").toUpperCase()}
                         </Badge>
                       </div>
