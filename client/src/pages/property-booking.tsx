@@ -545,6 +545,88 @@ function getBedTierColors(tierLevel: number, maxTier: number = 2) {
   return PLAN_TIER_PALETTES[Math.min(Math.max(idx, 0), PLAN_TIER_PALETTES.length - 1)];
 }
 
+function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> }) {
+  const sortedPlans = [...plans].sort((a, b) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0));
+  const bgGradients = [
+    "linear-gradient(135deg, rgba(16,185,129,0.85) 0%, rgba(20,184,166,0.85) 100%)",
+    "linear-gradient(135deg, rgba(139,92,246,0.85) 0%, rgba(168,85,247,0.85) 100%)",
+    "linear-gradient(135deg, rgba(251,191,36,0.85) 0%, rgba(250,204,21,0.85) 100%)",
+  ];
+  const borderColors = ["rgba(16,185,129,0.7)", "rgba(139,92,246,0.7)", "rgba(251,191,36,0.7)"];
+  const n = sortedPlans.length;
+  const planBgs = sortedPlans.map((_, i) => bgGradients[Math.min(i, bgGradients.length - 1)]);
+  const planBorders = sortedPlans.map((_, i) => borderColors[Math.min(i, borderColors.length - 1)]);
+  const duration = n * 1.5;
+
+  const bgKeyframes = [...planBgs, planBgs[0]];
+  const borderKeyframes = [...planBorders, planBorders[0]];
+
+  return (
+    <>
+      <motion.div
+        className="absolute inset-0 rounded-[10px] pointer-events-none"
+        animate={{ background: bgKeyframes }}
+        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute inset-[-2px] rounded-xl pointer-events-none"
+        style={{ border: "2px solid transparent" }}
+        animate={{ borderColor: borderKeyframes }}
+        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-lg z-10 border border-white"
+        animate={{ background: bgKeyframes }}
+        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Crown className="w-3 h-3 text-white" />
+      </motion.div>
+    </>
+  );
+}
+
+function MultiPlanRoomBadge({ plans }: { plans: Array<{ name: string; tierLevel: number }> }) {
+  const sorted = [...plans].sort((a, b) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0));
+  const allColors = sorted.map(p => PLAN_TIER_PALETTES[Math.min(Math.max(p.tierLevel ?? 0, 0), PLAN_TIER_PALETTES.length - 1)]);
+  const duration = 3;
+  const longestName = sorted.reduce((a, b) => a.name.length > b.name.length ? a : b, sorted[0]);
+
+  return (
+    <div className="relative overflow-hidden rounded-md h-[18px] inline-flex" style={{ minWidth: `${longestName.name.length * 6 + 30}px` }}>
+      {sorted.map((plan, i) => {
+        const c = allColors[i];
+        return (
+          <motion.div
+            key={plan.name}
+            className={cn("absolute inset-0 flex items-center gap-0.5 px-1.5 rounded-md text-[10px] font-semibold whitespace-nowrap", c.badgeBg, c.badgeText)}
+            animate={{
+              opacity: sorted.map((_, j) => j === i ? 1 : 0).concat(sorted.map((_, j) => j === i ? 1 : 0)),
+            }}
+            transition={{
+              opacity: {
+                duration,
+                repeat: Infinity,
+                ease: "easeInOut",
+                times: (() => {
+                  const steps: number[] = [];
+                  for (let j = 0; j < sorted.length; j++) {
+                    steps.push(j / sorted.length);
+                    steps.push((j + 0.5) / sorted.length);
+                  }
+                  return steps;
+                })(),
+              },
+            }}
+            initial={{ opacity: i === 0 ? 1 : 0 }}
+          >
+            <Crown className="w-2.5 h-2.5" /> {plan.name}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
 function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand, selectedPlan }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null; selectedPlan?: any }) {
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
@@ -578,6 +660,18 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
         if (!map[rtId]) {
           map[rtId] = { name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id };
         }
+      }
+    }
+    return map;
+  }, [propertyPlans]);
+
+  const roomTypeMultiPlanMap = useMemo(() => {
+    const map: Record<string, Array<{ name: string; tierLevel: number; id: string }>> = {};
+    for (const plan of propertyPlans) {
+      const allLinkedIds: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : (plan.roomTypeId ? [plan.roomTypeId] : []);
+      for (const rtId of allLinkedIds) {
+        if (!map[rtId]) map[rtId] = [];
+        map[rtId].push({ name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id });
       }
     }
     return map;
@@ -648,8 +742,10 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     const bedPlanInfo = bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null;
     const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel) : null;
     const hasPassivePlan = isAvailable && !filterRoomTypeId && bedPlanInfo && bedPlanColors;
+    const multiPlans = bed.roomTypeId ? (roomTypeMultiPlanMap[bed.roomTypeId] || []) : [];
+    const hasMultiPlan = isAvailable && !filterRoomTypeId && multiPlans.length > 1;
 
-    const tierColors = isPlanHighlighted ? activeTierColors : (hasPassivePlan ? bedPlanColors : null);
+    const tierColors = isPlanHighlighted ? activeTierColors : (hasPassivePlan && !hasMultiPlan ? bedPlanColors : null);
 
     const config = isHeld 
       ? { bg: "bg-gradient-to-br from-orange-300/60 to-orange-500/60", border: "border-orange-400/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
@@ -668,16 +764,18 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           "relative p-2 border-2 rounded-xl text-center transition-all duration-300",
           isPlanHighlighted && tierColors
             ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
-            : hasPassivePlan && bedPlanColors
-              ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
-              : isDimmedByPlan
-                ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
-                : cn(config.bg, config.border),
+            : hasMultiPlan
+              ? "border-transparent shadow-lg"
+              : hasPassivePlan && bedPlanColors
+                ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
+                : isDimmedByPlan
+                  ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
+                  : cn(config.bg, config.border),
           (isAvailable && matchesPlanFilter) ? "cursor-pointer" : (!isDimmedByPlan && config.cursor),
-          !isAvailable && !isDimmedByPlan && !hasPassivePlan && "opacity-40",
+          !isAvailable && !isDimmedByPlan && !hasPassivePlan && !hasMultiPlan && "opacity-40",
           isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/50"
         )}
-        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasMultiPlan ? ` — ${multiPlans.map(p => p.name).join(", ")}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
         {isPlanHighlighted && !isSelected && tierColors && (
@@ -697,14 +795,17 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             />
           </>
         )}
-        {hasPassivePlan && !isSelected && !isPlanHighlighted && bedPlanColors && (
+        {hasMultiPlan && !isSelected && !isPlanHighlighted && (
+          <MultiPlanBedOverlay plans={multiPlans} />
+        )}
+        {hasPassivePlan && !hasMultiPlan && !isSelected && !isPlanHighlighted && bedPlanColors && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/20 pointer-events-none" />
         )}
         {isAvailable && !isSelected && !isPlanHighlighted && !isDimmedByPlan && !hasPassivePlan && (
           <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-white/10 to-white/25 pointer-events-none" />
         )}
-        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm", (isPlanHighlighted || hasPassivePlan) && tierColors ? tierColors.iconText : isSelected ? "text-white" : "text-white/90")} />
-        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm", (isPlanHighlighted || hasPassivePlan) && tierColors ? tierColors.text : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
+        <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm relative z-[1]", (isPlanHighlighted || (hasPassivePlan && !hasMultiPlan)) && tierColors ? tierColors.iconText : hasMultiPlan ? "text-white" : isSelected ? "text-white" : "text-white/90")} />
+        <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm relative z-[1]", (isPlanHighlighted || (hasPassivePlan && !hasMultiPlan)) && tierColors ? tierColors.text : hasMultiPlan ? "text-white" : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
@@ -851,6 +952,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                               const roomPlanInfo = room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null;
                               const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel) : null;
                               const hasPassiveRoomPlan = !filterRoomTypeId && roomPlanInfo && roomPlanColors;
+                              const roomMultiPlans = room.roomTypeId ? (roomTypeMultiPlanMap[room.roomTypeId] || []) : [];
+                              const hasMultiRoomPlan = !filterRoomTypeId && roomMultiPlans.length > 1;
 
                               return (
                                 <div key={room.id} className={cn(
@@ -859,11 +962,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                     ? cn("border-2", activeTierColors.roomBorder)
                                     : roomDimmedByPlan
                                       ? "border-stone-200 bg-stone-50/30 opacity-40"
-                                      : hasPassiveRoomPlan
+                                      : hasPassiveRoomPlan && !hasMultiRoomPlan
                                         ? cn("border-2", roomPlanColors.roomBorder)
-                                        : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
+                                        : hasMultiRoomPlan
+                                          ? "border-2 border-stone-200 bg-gradient-to-br from-stone-50/50 to-white"
+                                          : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
                                 )} data-testid={`room-${room.id}`}>
-                                  <div className="flex items-center gap-2 mb-2.5">
+                                  <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                                     <span className="text-xs font-bold text-stone-700">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
                                     {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">Shared WC</Badge>}
@@ -871,6 +976,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", activeTierColors.badgeBg, activeTierColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
                                       </Badge>
+                                    ) : hasMultiRoomPlan ? (
+                                      <MultiPlanRoomBadge plans={roomMultiPlans} />
                                     ) : hasPassiveRoomPlan && roomPlanColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", roomPlanColors.badgeBg, roomPlanColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {roomPlanInfo.name}
