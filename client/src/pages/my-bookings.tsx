@@ -140,7 +140,8 @@ export default function MyBookings() {
     drawRow("Status", formatLabel(b.status || "draft"), true);
     drawRow("Property", b.property?.name || "N/A");
     drawRow("Location", b.property?.location || "");
-    drawRow("Room Type", `${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`);
+    const rdAccom = b.residentDetails?.accommodationType;
+    drawRow("Room Type", rdAccom || `${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`);
     drawRow("Stay Plan", b.stayPlanType === "academic_year" ? "Academic Year" : b.stayPlanType === "monthly" ? "Monthly" : b.stayPlanType ? formatLabel(b.stayPlanType) : "");
     if (b.academicYearPeriod) drawRow("Period", b.academicYearPeriod);
     drawRow("Duration", b.durationMonths ? `${b.durationMonths} months` : "");
@@ -211,7 +212,8 @@ export default function MyBookings() {
       y += 10;
       drawHeader("INSTALLMENTS");
       b.installments.forEach((inst: any) => {
-        drawRow(inst.name, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+        const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
+        drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
       });
     }
 
@@ -277,7 +279,7 @@ export default function MyBookings() {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoCard icon={<Building2 className="h-3.5 w-3.5" />} label="Property" value={b.property?.name || "N/A"} sub={b.property?.location || ""} testId="text-detail-property" />
-                <InfoCard icon={<BedDouble className="h-3.5 w-3.5" />} label="Room Type" value={`${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`} sub={`${b.roomType?.size || ""} • ${b.roomType?.occupancy || ""}${b.roomType?.occupancy === 1 ? " person" : " persons"}`} testId="text-detail-room" />
+                <InfoCard icon={<BedDouble className="h-3.5 w-3.5" />} label="Room Type" value={b.residentDetails?.accommodationType || `${b.roomType?.name || "N/A"}${b.roomType?.customName ? ` (${b.roomType.customName})` : ""}`} sub={`${b.roomType?.size || ""} • ${b.roomType?.occupancy || ""}${b.roomType?.occupancy === 1 ? " person" : " persons"}`} testId="text-detail-room" />
                 <InfoCard icon={<Layers className="h-3.5 w-3.5" />} label="Stay Plan" value={formatLabel(b.stayPlanType || "academic_year")} sub={b.durationMonths ? `${b.durationMonths} months` : ""} />
                 <InfoCard icon={<CreditCard className="h-3.5 w-3.5" />} label="Payment Plan" value={formatLabel(b.paymentType || "full")} sub={b.paymentPlanId && b.paymentPlanId !== "custom" ? b.paymentPlanId : ""} />
                 {(b.checkInDate || rd.moveInDate) && (
@@ -523,7 +525,7 @@ export default function MyBookings() {
                       </div>
                       <p className="font-semibold text-slate-800 truncate">{b.property?.name || "Property"}</p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-                        <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {b.roomType?.name || "Room"}</span>
+                        <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {b.residentDetails?.accommodationType || b.roomType?.name || "Room"}</span>
                         {rd.roomNo && <span className="flex items-center gap-1"><Hash className="h-3 w-3" /> {rd.roomNo}</span>}
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : ""}</span>
                       </div>

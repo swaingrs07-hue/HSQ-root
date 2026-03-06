@@ -217,6 +217,14 @@ export default function BookingGeneration() {
     }
     if (!name) name = "";
     const typology = room.typology || "";
+    const isCombo = typology.includes("+");
+    if (isCombo) {
+      const parts = typology.split("+").map((p: string) => parseInt(p.trim())).filter((n: number) => !isNaN(n));
+      const maxSection = Math.max(...parts);
+      const sectionLabels: Record<number, string> = { 1: "SINGLE", 2: "DOUBLE", 3: "TRIPLE", 4: "QUAD" };
+      const comboName = sectionLabels[maxSection] || name || `${maxSection}-BED`;
+      return `${comboName}(${typology})`;
+    }
     if (name && typology && typology !== "1 Bed") {
       return `${name}(${typology})`;
     }
