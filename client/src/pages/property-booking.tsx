@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -1207,6 +1208,8 @@ export default function PropertyBooking() {
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [autoDetectedPlan, setAutoDetectedPlan] = useState<any>(null);
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const [planPickerOptions, setPlanPickerOptions] = useState<any[]>([]);
 
   const { data: propertyPlansParent = [] } = useQuery({
     queryKey: [`/api/properties/${propertyId}/plans`],
@@ -1225,11 +1228,23 @@ export default function PropertyBooking() {
     if (!selectedPlan && bed.roomTypeId && propertyPlansParent.length > 0) {
       const effectiveRT = getBedSharingRoomType(bed, room || selectedRoom);
       const rtId = effectiveRT?.id || bed.roomTypeId;
-      const matchedPlan = propertyPlansParent.find((p: any) => {
+      const matchingPlans = propertyPlansParent.filter((p: any) => {
         const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
         return allLinked.includes(rtId) || p.roomTypeId === rtId;
       });
-      setAutoDetectedPlan(matchedPlan || null);
+      if (matchingPlans.length === 1) {
+        setAutoDetectedPlan(matchingPlans[0]);
+        setPlanPickerOptions([]);
+      } else if (matchingPlans.length > 1) {
+        setAutoDetectedPlan(null);
+        setPlanPickerOptions(matchingPlans);
+        setPlanPickerOpen(true);
+      } else {
+        setAutoDetectedPlan(null);
+        setPlanPickerOptions([]);
+      }
+    } else if (selectedPlan) {
+      setPlanPickerOptions([]);
     }
   };
 
@@ -1308,8 +1323,25 @@ export default function PropertyBooking() {
     navigate("/booking/generate");
   };
 
+  const getMatchingPlansForBed = useCallback((bed: any, room: any) => {
+    if (!bed?.roomTypeId || !property?.roomTypes || propertyPlansParent.length === 0) return [];
+    const effectiveRT = getBedSharingRoomType(bed, room);
+    const rtId = effectiveRT?.id || bed.roomTypeId;
+    return propertyPlansParent.filter((p: any) => {
+      const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
+      return allLinked.includes(rtId) || p.roomTypeId === rtId;
+    });
+  }, [property, propertyPlansParent]);
+
   const handleBookSelectedBed = () => {
     if (!selectedBed || !property) return;
+    const bedPlans = getMatchingPlansForBed(selectedBed, selectedRoom);
+    if (bedPlans.length > 1 && !effectivePlan) {
+      setPlanPickerOptions(bedPlans);
+      setPlanPickerOpen(true);
+      toast({ title: "Please select a plan", description: "This bed has multiple plans available. Choose one to proceed.", variant: "destructive" });
+      return;
+    }
     const effectiveRoomType = getBedSharingRoomType(selectedBed, selectedRoom) 
       || property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId);
     if (!effectiveRoomType) {
@@ -1635,7 +1667,17 @@ export default function PropertyBooking() {
                                     </div>
                                     {selectedPlan && (
                                       <button
-                                        onClick={() => { setSelectedPlan(null); setAutoDetectedPlan(null); }}
+                                        onClick={() => {
+                                          setSelectedPlan(null);
+                                          setAutoDetectedPlan(null);
+                                          if (selectedBed) {
+                                            const bedPlans = getMatchingPlansForBed(selectedBed, selectedRoom);
+                                            if (bedPlans.length > 1) {
+                                              setPlanPickerOptions(bedPlans);
+                                              setPlanPickerOpen(true);
+                                            }
+                                          }
+                                        }}
                                         className="w-5 h-5 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors"
                                         data-testid="button-clear-plan"
                                       >
@@ -1709,6 +1751,20 @@ export default function PropertyBooking() {
                           </div>
                         </>
                       )}
+                      {planPickerOptions.length > 1 && !effectivePlan && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                          <p className="text-xs font-semibold text-amber-700 mb-2">Multiple plans available for this bed</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPlanPickerOpen(true)}
+                            className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                            data-testid="button-choose-plan"
+                          >
+                            <Crown className="w-4 h-4 mr-1.5" /> Choose a Plan
+                          </Button>
+                        </div>
+                      )}
                       <Button onClick={handleBookSelectedBed} className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20" data-testid="button-proceed-booking">
                         Proceed to Book <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
@@ -1754,6 +1810,75 @@ export default function PropertyBooking() {
                   )}
                 </div>
               </motion.div>
+
+              <Dialog open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold text-stone-800">Choose a Plan</DialogTitle>
+                    <p className="text-sm text-stone-500 mt-1">This bed has multiple plans available. Select one to continue.</p>
+                  </DialogHeader>
+                  <div className="space-y-3 mt-2">
+                    {[...planPickerOptions]
+                      .sort((a: any, b: any) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0))
+                      .map((plan: any) => {
+                        const colors = getBedTierColors(plan.tierLevel ?? 0);
+                        const planPrice = Number(plan.basePrice || 0);
+                        const isAcademic = property?.bookingMode === "academic_year";
+                        return (
+                          <motion.button
+                            key={plan.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => {
+                              setSelectedPlan(plan);
+                              setAutoDetectedPlan(null);
+                              setPlanPickerOpen(false);
+                              toast({ title: `${plan.name} selected`, description: "Plan applied to your booking." });
+                            }}
+                            className={cn(
+                              "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md relative overflow-hidden",
+                              colors.roomBorder
+                            )}
+                            data-testid={`plan-picker-${plan.id}`}
+                          >
+                            <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ background: `linear-gradient(135deg, ${colors.overlay} 0%, transparent 60%)` }} />
+                            <div className="relative flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", colors.badgeBg)}>
+                                  <Crown className={cn("w-5 h-5", colors.badgeText)} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className={cn("font-bold text-sm", colors.text)}>{plan.name}</p>
+                                  {plan.tagline && <p className="text-[10px] text-stone-500 truncate">{plan.tagline}</p>}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {planPrice > 0 && (
+                                  <>
+                                    <p className={cn("text-lg font-bold", colors.text)}>₹{planPrice.toLocaleString("en-IN")}</p>
+                                    <p className="text-[10px] text-stone-400">{isAcademic ? "per year" : "per month"}</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {(plan.items || []).length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-stone-100 flex flex-wrap gap-x-3 gap-y-1">
+                                {(plan.items || []).slice(0, 4).map((item: any) => (
+                                  <span key={item.id} className="text-[10px] text-stone-500 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                    {item.label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
                 <h4 className="font-bold text-xs tracking-wider uppercase text-gray-900">Contact Property</h4>
