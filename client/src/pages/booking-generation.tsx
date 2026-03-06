@@ -1503,15 +1503,16 @@ export default function BookingGeneration() {
                       <div className="space-y-3">
                         {floors.map((floor: any) => {
                           const floorRooms = (floor.rooms || []).filter((r: any) =>
-                            (r.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId)
+                            (r.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId) || r.roomTypeId === formData.roomTypeId
                           );
+                          const roomBedIds = new Set(floorRooms.flatMap((r: any) => (r.beds || []).map((b: any) => b.id)));
                           const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId))
-                            .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !b.roomId));
+                            .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !roomBedIds.has(b.id)));
                           const availBedCount = allFloorBeds.filter((b: any) => b.status === "available" && !b.held).length;
                           const totalBedCount = allFloorBeds.length;
                           if (totalBedCount === 0) return null;
                           const isExpanded = expandedFloors.has(floor.id);
-                          const orphanBeds = (floor.beds || []).filter((b: any) => !b.roomId && b.roomTypeId === formData.roomTypeId);
+                          const orphanBeds = (floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !roomBedIds.has(b.id));
 
                           return (
                             <div key={floor.id} className="border-2 border-slate-200 rounded-xl overflow-hidden bg-white" data-testid={`booking-floor-${floor.id}`}>
