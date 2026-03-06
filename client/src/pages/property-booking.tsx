@@ -548,15 +548,15 @@ function getBedTierColors(tierLevel: number, maxTier: number = 2) {
 function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> }) {
   const sortedPlans = [...plans].sort((a, b) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0));
   const bgGradients = [
-    "linear-gradient(135deg, rgba(16,185,129,0.85) 0%, rgba(20,184,166,0.85) 100%)",
-    "linear-gradient(135deg, rgba(139,92,246,0.85) 0%, rgba(168,85,247,0.85) 100%)",
-    "linear-gradient(135deg, rgba(251,191,36,0.85) 0%, rgba(250,204,21,0.85) 100%)",
+    "linear-gradient(135deg, rgba(16,185,129,0.55) 0%, rgba(20,184,166,0.55) 100%)",
+    "linear-gradient(135deg, rgba(139,92,246,0.55) 0%, rgba(168,85,247,0.55) 100%)",
+    "linear-gradient(135deg, rgba(251,191,36,0.55) 0%, rgba(250,204,21,0.55) 100%)",
   ];
-  const borderColors = ["rgba(16,185,129,0.7)", "rgba(139,92,246,0.7)", "rgba(251,191,36,0.7)"];
+  const borderColors = ["rgba(16,185,129,0.4)", "rgba(139,92,246,0.4)", "rgba(251,191,36,0.4)"];
   const n = sortedPlans.length;
   const planBgs = sortedPlans.map((_, i) => bgGradients[Math.min(i, bgGradients.length - 1)]);
   const planBorders = sortedPlans.map((_, i) => borderColors[Math.min(i, borderColors.length - 1)]);
-  const duration = n * 1.5;
+  const duration = n * 2.5;
 
   const bgKeyframes = [...planBgs, planBgs[0]];
   const borderKeyframes = [...planBorders, planBorders[0]];
@@ -565,7 +565,7 @@ function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> })
     <>
       <motion.div
         className="absolute inset-0 rounded-[10px] pointer-events-none"
-        animate={{ background: bgKeyframes }}
+        animate={{ background: bgKeyframes, opacity: [0.7, 0.9, 0.7] }}
         transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
@@ -575,11 +575,11 @@ function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> })
         transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-lg z-10 border border-white"
-        animate={{ background: bgKeyframes }}
+        className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-md z-10 border border-white/80"
+        animate={{ background: bgKeyframes, opacity: [0.7, 1, 0.7] }}
         transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Crown className="w-3 h-3 text-white" />
+        <Crown className="w-3 h-3 text-white/90" />
       </motion.div>
     </>
   );
@@ -588,39 +588,15 @@ function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> })
 function MultiPlanRoomBadge({ plans }: { plans: Array<{ name: string; tierLevel: number }> }) {
   const sorted = [...plans].sort((a, b) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0));
   const allColors = sorted.map(p => PLAN_TIER_PALETTES[Math.min(Math.max(p.tierLevel ?? 0, 0), PLAN_TIER_PALETTES.length - 1)]);
-  const duration = 3;
-  const longestName = sorted.reduce((a, b) => a.name.length > b.name.length ? a : b, sorted[0]);
 
   return (
-    <div className="relative overflow-hidden rounded-md h-[18px] inline-flex" style={{ minWidth: `${longestName.name.length * 6 + 30}px` }}>
+    <div className="flex items-center gap-1 flex-wrap">
       {sorted.map((plan, i) => {
         const c = allColors[i];
         return (
-          <motion.div
-            key={plan.name}
-            className={cn("absolute inset-0 flex items-center gap-0.5 px-1.5 rounded-md text-[10px] font-semibold whitespace-nowrap", c.badgeBg, c.badgeText)}
-            animate={{
-              opacity: sorted.map((_, j) => j === i ? 1 : 0).concat(sorted.map((_, j) => j === i ? 1 : 0)),
-            }}
-            transition={{
-              opacity: {
-                duration,
-                repeat: Infinity,
-                ease: "easeInOut",
-                times: (() => {
-                  const steps: number[] = [];
-                  for (let j = 0; j < sorted.length; j++) {
-                    steps.push(j / sorted.length);
-                    steps.push((j + 0.5) / sorted.length);
-                  }
-                  return steps;
-                })(),
-              },
-            }}
-            initial={{ opacity: i === 0 ? 1 : 0 }}
-          >
-            <Crown className="w-2.5 h-2.5" /> {plan.name}
-          </motion.div>
+          <Badge key={plan.name} className={cn("text-[9px] px-1.5 py-0 rounded-md border-0 whitespace-nowrap", c.badgeBg, c.badgeText)}>
+            <Crown className="w-2.5 h-2.5 mr-0.5" /> {plan.name}
+          </Badge>
         );
       })}
     </div>
