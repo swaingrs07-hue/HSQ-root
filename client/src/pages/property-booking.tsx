@@ -1413,7 +1413,13 @@ function PropertyBooking() {
   };
 
   const scrollToFloors = () => {
-    floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => {
+      if (floorSectionRef.current) {
+        const el = floorSectionRef.current;
+        const top = el.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
+    }, 300);
   };
 
   const handleSelectPlan = (plan: any) => {
@@ -1607,7 +1613,7 @@ function PropertyBooking() {
               </div>
             )}
 
-            <div ref={floorSectionRef}>
+            <div ref={floorSectionRef} style={{ scrollMarginTop: "80px" }}>
               <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-600" />
                 Select Your Floor & Bed
