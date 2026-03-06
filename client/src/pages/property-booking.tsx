@@ -1,13 +1,50 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[PropertyBooking] React render error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-stone-50 flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <h2 className="text-xl font-bold text-stone-800 mb-2">Something went wrong</h2>
+            <p className="text-stone-500 text-sm mb-4">
+              {this.state.error?.message || "An unexpected error occurred while loading this page."}
+            </p>
+            <button
+              onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              className="px-6 py-2 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import {
   Building2, MapPin, Bed, ChevronLeft, ChevronRight, Camera,
   Sparkles, Check, Phone, Mail, ArrowRight, Users,
@@ -1186,7 +1223,15 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
   );
 }
 
-export default function PropertyBooking() {
+export default function PropertyBookingWrapper() {
+  return (
+    <PropertyBookingErrorBoundary>
+      <PropertyBooking />
+    </PropertyBookingErrorBoundary>
+  );
+}
+
+function PropertyBooking() {
   const [, params] = useRoute("/properties/:id");
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -1646,6 +1691,7 @@ export default function PropertyBooking() {
                           </div>
 
                           {effectivePlan && (() => {
+                            try {
                             const planTierColors = getBedTierColors(effectivePlan.tierLevel ?? 0);
                             const planPrice = Number(effectivePlan.basePrice || 0);
                             return (
@@ -1710,6 +1756,7 @@ export default function PropertyBooking() {
                                 </div>
                               </motion.div>
                             );
+                            } catch (e) { console.error("[PropertyBooking] Plan render error:", e); return null; }
                           })()}
 
                           <div className={cn(
@@ -1720,12 +1767,13 @@ export default function PropertyBooking() {
                               <span className="text-stone-500 text-sm">Total Price</span>
                               <div className="text-right">
                                 {(() => {
-                                  const isAcademic = property.bookingMode === "academic_year";
+                                  try {
+                                  const isAcademic = property?.bookingMode === "academic_year";
                                   const planPrice = effectivePlan ? Number(effectivePlan.basePrice || 0) : 0;
-                                  const rtAnnualPrice = selectedRoomType.academicYearPrice || (selectedRoomType.basePrice ? selectedRoomType.basePrice * 11 : 0);
+                                  const rtAnnualPrice = selectedRoomType?.academicYearPrice || (selectedRoomType?.basePrice ? selectedRoomType.basePrice * 11 : 0);
                                   const rtMonthlyPrice = isAcademic
-                                    ? (selectedRoomType.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType.basePrice || 0)
-                                    : (selectedRoomType.basePrice || 0);
+                                    ? (selectedRoomType?.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType?.basePrice || 0)
+                                    : (selectedRoomType?.basePrice || 0);
                                   const showPlanPrice = effectivePlan && planPrice > 0;
                                   const displayPrice = showPlanPrice ? planPrice : (isAcademic ? rtAnnualPrice : rtMonthlyPrice);
                                   const priceLabel = showPlanPrice ? "per year" : (isAcademic ? "per year" : "per month");
@@ -1745,6 +1793,7 @@ export default function PropertyBooking() {
                                       )}
                                     </>
                                   );
+                                  } catch (e) { console.error("[PropertyBooking] Price render error:", e); return <span className="text-stone-400">—</span>; }
                                 })()}
                               </div>
                             </div>
@@ -1815,7 +1864,7 @@ export default function PropertyBooking() {
                 <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-bold text-stone-800">Choose a Plan</DialogTitle>
-                    <p className="text-sm text-stone-500 mt-1">This bed has multiple plans available. Select one to continue.</p>
+                    <DialogDescription className="text-sm text-stone-500 mt-1">This bed has multiple plans available. Select one to continue.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3 mt-2">
                     {[...planPickerOptions]
