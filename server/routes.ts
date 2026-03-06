@@ -5,7 +5,7 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
+import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
@@ -2842,6 +2842,30 @@ export async function registerRoutes(
           if (exec) salesExecName = exec.fullName;
         }
         
+        const bpWithPlan = await db.select({
+          planName: schema.packages.name,
+          tierLevel: schema.packages.tierLevel,
+          tagline: schema.packages.tagline,
+          basePrice: schema.packages.basePrice,
+          priceSnapshot: schema.bookingPackages.priceSnapshot,
+        })
+          .from(schema.bookingPackages)
+          .innerJoin(schema.packages, eq(schema.bookingPackages.packageId, schema.packages.id))
+          .where(and(
+            eq(schema.bookingPackages.bookingId, booking.id),
+            eq(schema.bookingPackages.status, "ACTIVE"),
+            eq(schema.packages.category, "housing_plan"),
+          ))
+          .orderBy(desc(schema.bookingPackages.createdAt))
+          .limit(1);
+        const housingPlanInfo = bpWithPlan.length > 0 ? {
+          planName: bpWithPlan[0].planName,
+          tierLevel: bpWithPlan[0].tierLevel ?? 0,
+          tagline: bpWithPlan[0].tagline || null,
+          priceSnapshot: bpWithPlan[0].priceSnapshot,
+          basePrice: bpWithPlan[0].basePrice,
+        } : null;
+
         return {
           ...booking,
           propertyName: property?.name || "Unknown",
@@ -2856,6 +2880,7 @@ export async function registerRoutes(
           salesExecName,
           installments,
           payments,
+          housingPlanInfo,
         };
       }));
       

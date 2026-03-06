@@ -53,6 +53,8 @@ import {
   SprayCan,
   Lock,
   Tag,
+  Crown,
+  Gem,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -848,83 +850,111 @@ export default function CompletedBookings() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((booking: any) => (
-            <Card
-              key={booking.id}
-              className="border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => { setSelectedBooking(booking); fetchBookingPackages(booking.id); }}
-              data-testid={`card-booking-${booking.id}`}
-            >
-              <CardContent className="p-5">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                      {booking.customerName?.charAt(0)?.toUpperCase() || "?"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-slate-900" data-testid={`text-customer-name-${booking.id}`}>
-                          {booking.customerName}
-                        </h3>
-                        {getStatusBadge(booking.status)}
-                        {booking.bookingCode && (
-                          <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded" data-testid={`text-booking-code-${booking.id}`}>
-                            {booking.bookingCode}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3.5 w-3.5" />
-                          {booking.propertyName}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BedDouble className="h-3.5 w-3.5" />
-                          {booking.residentDetails?.accommodationType || booking.roomTypeName || "N/A"}
-                        </span>
-                        {booking.customerPhone && (
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3.5 w-3.5" />
-                            {booking.customerPhone}
-                          </span>
-                        )}
-                        {!isSalesExec && booking.salesExecName && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
-                            {booking.salesExecName}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          {filtered.map((booking: any) => {
+            const plan = booking.housingPlanInfo;
+            const pt = plan?.tierLevel ?? null;
+            const hasTier = plan != null && pt != null;
+            const cardTierBorder = hasTier
+              ? pt >= 2 ? "border-amber-200 hover:border-amber-300" : pt >= 1 ? "border-slate-300 hover:border-slate-400" : "border-violet-200 hover:border-violet-300"
+              : "border-slate-200";
+            const cardTierGradient = hasTier
+              ? pt >= 2 ? "from-amber-500 via-yellow-400 to-orange-500" : pt >= 1 ? "from-slate-400 via-gray-300 to-slate-500" : "from-violet-500 via-purple-400 to-indigo-500"
+              : "from-indigo-500 to-purple-600";
+            const tierBadgeStyle = hasTier
+              ? pt >= 2 ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white" : pt >= 1 ? "bg-gradient-to-r from-slate-500 to-gray-500 text-white" : "bg-gradient-to-r from-violet-500 to-purple-500 text-white"
+              : "";
+            const TierIcon = hasTier ? (pt >= 2 ? Crown : pt >= 1 ? Gem : Star) : null;
+            const tierAccentText = hasTier
+              ? pt >= 2 ? "text-amber-600" : pt >= 1 ? "text-slate-500" : "text-violet-600"
+              : "";
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-slate-900" data-testid={`text-amount-${booking.id}`}>
-                        ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {booking.createdAt ? format(new Date(booking.createdAt), "dd MMM yyyy") : ""}
-                      </p>
+            return (
+              <Card
+                key={booking.id}
+                className={`${cardTierBorder} shadow-sm hover:shadow-md transition-all cursor-pointer ${hasTier ? "relative overflow-hidden" : ""}`}
+                onClick={() => { setSelectedBooking(booking); fetchBookingPackages(booking.id); }}
+                data-testid={`card-booking-${booking.id}`}
+              >
+                {hasTier && (
+                  <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${cardTierGradient}`} />
+                )}
+                <CardContent className="p-5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
+                        {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-slate-900" data-testid={`text-customer-name-${booking.id}`}>
+                            {booking.customerName}
+                          </h3>
+                          {getStatusBadge(booking.status)}
+                          {booking.bookingCode && (
+                            <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded" data-testid={`text-booking-code-${booking.id}`}>
+                              {booking.bookingCode}
+                            </span>
+                          )}
+                          {hasTier && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${tierBadgeStyle}`} data-testid={`badge-plan-${booking.id}`}>
+                              {TierIcon && <TierIcon className="h-3 w-3" />}
+                              {plan.planName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Building2 className="h-3.5 w-3.5" />
+                            {booking.propertyName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <BedDouble className="h-3.5 w-3.5" />
+                            {booking.residentDetails?.accommodationType || booking.roomTypeName || "N/A"}
+                          </span>
+                          {booking.customerPhone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3.5 w-3.5" />
+                              {booking.customerPhone}
+                            </span>
+                          )}
+                          {!isSalesExec && booking.salesExecName && (
+                            <span className="flex items-center gap-1">
+                              <User className="h-3.5 w-3.5" />
+                              {booking.salesExecName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBooking(booking);
-                        fetchBookingPackages(booking.id);
-                      }}
-                      data-testid={`button-view-${booking.id}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
+                          ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {booking.createdAt ? format(new Date(booking.createdAt), "dd MMM yyyy") : ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBooking(booking);
+                          fetchBookingPackages(booking.id);
+                        }}
+                        data-testid={`button-view-${booking.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
