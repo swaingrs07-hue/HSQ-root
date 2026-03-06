@@ -474,7 +474,7 @@ export default function CompletedBookings() {
     drawRow("Customer", booking.customerName || "N/A");
     drawRow("Property", booking.propertyName || "N/A");
     if (booking.propertyLocation) drawRow("Location", booking.propertyLocation);
-    drawRow("Room Type", booking.residentDetails?.accommodationType || `${booking.roomTypeName || "N/A"} · ${booking.occupancy || ""}-sharing`);
+    drawRow("Room Type", booking.residentDetails?.accommodationType || booking.roomTypeName || "N/A");
     drawRow("Stay Plan", booking.stayPlanType === "academic_year" ? "Academic Year" : booking.stayPlanType === "monthly" ? "Monthly" : booking.stayPlanType ? fmtLabel(booking.stayPlanType) : "");
     if (booking.academicYearPeriod) drawRow("Period", booking.academicYearPeriod);
     drawRow("Duration", booking.durationMonths ? `${booking.durationMonths} months` : "");
@@ -849,7 +849,7 @@ export default function CompletedBookings() {
                         </span>
                         <span className="flex items-center gap-1">
                           <BedDouble className="h-3.5 w-3.5" />
-                          {booking.residentDetails?.accommodationType || `${booking.roomTypeName} · ${booking.occupancy}-sharing`}
+                          {booking.residentDetails?.accommodationType || booking.roomTypeName || "N/A"}
                         </span>
                         {booking.customerPhone && (
                           <span className="flex items-center gap-1">
@@ -947,7 +947,7 @@ export default function CompletedBookings() {
                   <p className="text-xs font-medium text-slate-500 uppercase mb-1">Room Type</p>
                   <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     <BedDouble className="h-3.5 w-3.5 text-indigo-500" />
-                    {selectedBooking.residentDetails?.accommodationType || `${selectedBooking.roomTypeName} · ${selectedBooking.occupancy}-sharing`}
+                    {selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}
                   </p>
                 </div>
               </div>

@@ -3083,6 +3083,45 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No beds available for this room type" });
       }
 
+      // Prevent duplicate bookings: check if same phone already has an active booking on this property
+      let dupCheckPhone = walkInPhone || residentDetails?.phone || null;
+      if (!dupCheckPhone && customerType === "student" && studentId) {
+        const studentRecord = await storage.getStudent(studentId);
+        if (studentRecord) dupCheckPhone = studentRecord.phone;
+      }
+      if (!dupCheckPhone && customerType === "lead" && leadId) {
+        const leadRecord = await storage.getLead(leadId);
+        if (leadRecord) dupCheckPhone = leadRecord.phone;
+      }
+      if (dupCheckPhone) {
+        const normalizedPhone = dupCheckPhone.replace(/\D/g, "").slice(-10);
+        if (normalizedPhone.length >= 10) {
+          const existingBookings = await db.select().from(schema.bookings).where(eq(schema.bookings.propertyId, propertyId));
+          const duplicateBooking = existingBookings.find(b => {
+            if (b.status === "cancelled" || b.status === "completed") return false;
+            const bPhone = (b.walkInPhone || "").replace(/\D/g, "").slice(-10);
+            const rdPhone = ((b.residentDetails as any)?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === normalizedPhone || rdPhone === normalizedPhone;
+          });
+          if (duplicateBooking) {
+            return res.status(400).json({
+              error: `This phone number already has an active booking (${duplicateBooking.bookingCode}) for this property. Cannot create a duplicate booking.`
+            });
+          }
+        }
+      }
+
+      // Prevent double-booking the same bed
+      if (bedId) {
+        const existingBedBooking = await db.select().from(schema.bookings).where(eq(schema.bookings.bedId, bedId));
+        const activeBedBooking = existingBedBooking.find(b => b.status !== "cancelled" && b.status !== "completed");
+        if (activeBedBooking) {
+          return res.status(400).json({
+            error: `This bed is already assigned to booking ${activeBedBooking.bookingCode}. Please select a different bed.`
+          });
+        }
+      }
+
       // Validate bed availability if bedId provided
       let resolvedBedId: string | null = bedId || null;
       let resolvedFloorId: string | null = floorId || null;
