@@ -50,6 +50,7 @@ import {
   DoorOpen,
   Bath,
   Ban,
+  AlertCircle,
   Layers,
   Crown,
   Star,
@@ -116,6 +117,9 @@ interface RegisteredStudent {
   accommodationType?: string;
   photo?: string;
   profileImageUrl?: string;
+  hasActiveBooking?: boolean;
+  activeBookingCode?: string | null;
+  activeBookingPropertyId?: string | null;
 }
 
 const STEP_CONFIG = [
@@ -1239,30 +1243,49 @@ export default function BookingGeneration() {
                           {registeredStudents.map((student) => {
                             const isSelected = selectedStudent?.id === student.id;
                             const displayName = student.fullName || student.name || "Unknown";
+                            const hasBooking = student.hasActiveBooking;
                             return (
                               <button
                                 key={student.id}
                                 type="button"
-                                onClick={() => handleStudentSelect(student)}
+                                onClick={() => {
+                                  if (hasBooking) {
+                                    toast({
+                                      title: "Already Booked",
+                                      description: `${displayName} already has an active booking${student.activeBookingCode ? ` (${student.activeBookingCode})` : ""}. Cannot create a duplicate booking.`,
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  handleStudentSelect(student);
+                                }}
                                 className={`w-full p-3 rounded-lg border-2 text-left transition-all duration-200 ${
-                                  isSelected
-                                    ? "border-indigo-500 bg-indigo-50 shadow-sm"
-                                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                                  hasBooking
+                                    ? "border-orange-200 bg-orange-50/50 opacity-70 cursor-not-allowed"
+                                    : isSelected
+                                      ? "border-indigo-500 bg-indigo-50 shadow-sm"
+                                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
                                 }`}
                                 data-testid={`student-card-${student.id}`}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
-                                    isSelected ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"
+                                    hasBooking ? "bg-orange-100 text-orange-600" : isSelected ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"
                                   }`}>
                                     {displayName.charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <p className={`font-semibold text-sm truncate ${isSelected ? "text-indigo-700" : "text-slate-800"}`}>
+                                      <p className={`font-semibold text-sm truncate ${hasBooking ? "text-orange-700" : isSelected ? "text-indigo-700" : "text-slate-800"}`}>
                                         {displayName}
                                       </p>
-                                      {isSelected && <CheckCircle className="h-4 w-4 text-indigo-600 shrink-0" />}
+                                      {hasBooking && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200 shrink-0">
+                                          <AlertCircle className="h-3 w-3" />
+                                          Active Booking
+                                        </span>
+                                      )}
+                                      {isSelected && !hasBooking && <CheckCircle className="h-4 w-4 text-indigo-600 shrink-0" />}
                                     </div>
                                     <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
                                       {student.phone && (
@@ -1272,6 +1295,11 @@ export default function BookingGeneration() {
                                         <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{student.email}</span>
                                       )}
                                     </div>
+                                    {hasBooking && student.activeBookingCode && (
+                                      <p className="text-[11px] text-orange-600 mt-1 font-medium">
+                                        Booking: {student.activeBookingCode}
+                                      </p>
+                                    )}
                                     {(student.collegeName || student.college || student.instituteName || student.course || student.courseName) && (
                                       <p className="text-xs text-slate-400 mt-1 truncate">
                                         {[student.collegeName || student.college || student.instituteName, student.course || student.courseName, student.courseYear || student.year].filter(Boolean).join(" · ")}

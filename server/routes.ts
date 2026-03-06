@@ -4396,6 +4396,42 @@ export async function registerRoutes(
         });
       }
 
+      const activeBookings = await db.select({
+        walkInPhone: schema.bookings.walkInPhone,
+        walkInEmail: schema.bookings.walkInEmail,
+        bookingCode: schema.bookings.bookingCode,
+        propertyId: schema.bookings.propertyId,
+        status: schema.bookings.status,
+        residentDetails: schema.bookings.residentDetails,
+      }).from(schema.bookings).where(
+        sql`${schema.bookings.status} NOT IN ('cancelled', 'completed')`
+      );
+
+      const bookedPhones = new Map<string, { bookingCode: string; propertyId: string }>();
+      const bookedEmails = new Map<string, { bookingCode: string; propertyId: string }>();
+      for (const b of activeBookings) {
+        const rd = b.residentDetails as any;
+        const phones = [b.walkInPhone, rd?.phone].filter(Boolean).map((p: string) => p.replace(/\D/g, "").slice(-10));
+        const emails = [b.walkInEmail, rd?.email, rd?.studentEmail, rd?.registeredEmail].filter(Boolean).map((e: string) => e.toLowerCase().trim());
+        const info = { bookingCode: b.bookingCode || "", propertyId: b.propertyId || "" };
+        for (const ph of phones) { if (ph.length >= 10) bookedPhones.set(ph, info); }
+        for (const em of emails) { if (em) bookedEmails.set(em, info); }
+      }
+
+      residents = (residents as any[]).map((r: any) => {
+        const rPhone = (r.phone || "").replace(/\D/g, "").slice(-10);
+        const rEmail = (r.email || "").toLowerCase().trim();
+        const matchByPhone = rPhone.length >= 10 ? bookedPhones.get(rPhone) : undefined;
+        const matchByEmail = rEmail ? bookedEmails.get(rEmail) : undefined;
+        const existingBooking = matchByPhone || matchByEmail;
+        return {
+          ...r,
+          hasActiveBooking: !!existingBooking,
+          activeBookingCode: existingBooking?.bookingCode || null,
+          activeBookingPropertyId: existingBooking?.propertyId || null,
+        };
+      });
+
       res.json(residents);
     } catch (error) {
       console.error("Error fetching registered students:", error);
