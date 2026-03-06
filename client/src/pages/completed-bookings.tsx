@@ -482,6 +482,37 @@ export default function CompletedBookings() {
     drawRow("Check-out", booking.checkOutDate ? format(new Date(booking.checkOutDate), "dd MMM yyyy") : "");
     drawRow("Deposit", booking.deposit ? `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}` : "");
 
+    const pdfHousingPlan = bookingPackages?.bookingPackages?.find((bp: any) => bp.package?.category === "housing_plan" && bp.status === "ACTIVE");
+    if (pdfHousingPlan) {
+      const hpPkg = pdfHousingPlan.package;
+      const hpTier = hpPkg?.tierLevel ?? 0;
+      const hpTierLabel = hpTier >= 2 ? "PREMIUM" : hpTier >= 1 ? "CLASSIC" : "ESSENTIAL";
+      const hpColor = hpTier >= 2 ? [180, 130, 40] : hpTier >= 1 ? [100, 110, 130] : [110, 80, 180];
+      y += 6;
+      checkPage(40);
+      doc.setFillColor(hpColor[0], hpColor[1], hpColor[2]);
+      doc.roundedRect(m, y - 4, cw, 12, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(`HOUSING PLAN — ${hpTierLabel}`, m + 5, y + 4);
+      doc.text(hpPkg?.name || "Plan", pw - m - 5, y + 4, { align: "right" });
+      y += 16;
+      doc.setTextColor(30, 30, 30);
+      if (hpPkg?.tagline) {
+        drawRow("Tagline", hpPkg.tagline);
+      }
+      if (pdfHousingPlan.priceSnapshot > 0) {
+        drawRow("Plan Price", `Rs. ${Number(pdfHousingPlan.priceSnapshot).toLocaleString("en-IN")}`);
+      }
+      if (hpPkg?.items && hpPkg.items.length > 0) {
+        hpPkg.items.forEach((item: any) => {
+          const val = item.featureValue || "Included";
+          drawRow(item.label || item.name, val);
+        });
+      }
+    }
+
     const rd = booking.residentDetails;
     if (rd && (rd.name || rd.phone || rd.email)) {
       y += 4;
@@ -821,7 +852,7 @@ export default function CompletedBookings() {
             <Card
               key={booking.id}
               className="border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedBooking(booking)}
+              onClick={() => { setSelectedBooking(booking); fetchBookingPackages(booking.id); }}
               data-testid={`card-booking-${booking.id}`}
             >
               <CardContent className="p-5">
@@ -883,6 +914,7 @@ export default function CompletedBookings() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedBooking(booking);
+                        fetchBookingPackages(booking.id);
                       }}
                       data-testid={`button-view-${booking.id}`}
                     >
@@ -988,6 +1020,55 @@ export default function CompletedBookings() {
                   </div>
                 </div>
               )}
+
+              {(() => {
+                const housingPlan = bookingPackages?.bookingPackages?.find((bp: any) => bp.package?.category === "housing_plan" && bp.status === "ACTIVE");
+                if (!housingPlan) return null;
+                const pkg = housingPlan.package;
+                const tier = pkg?.tierLevel ?? 0;
+                const planColors = tier >= 2
+                  ? { bg: "from-amber-50 via-yellow-50 to-orange-50", border: "border-amber-200", accent: "text-amber-700", badge: "bg-gradient-to-r from-amber-500 to-yellow-500 text-white", icon: "text-amber-500", glow: "shadow-amber-100" }
+                  : tier >= 1
+                  ? { bg: "from-slate-50 via-gray-50 to-slate-100", border: "border-slate-300", accent: "text-slate-700", badge: "bg-gradient-to-r from-slate-500 to-gray-500 text-white", icon: "text-slate-500", glow: "shadow-slate-100" }
+                  : { bg: "from-violet-50 via-purple-50 to-indigo-50", border: "border-violet-200", accent: "text-violet-700", badge: "bg-gradient-to-r from-violet-500 to-purple-500 text-white", icon: "text-violet-500", glow: "shadow-violet-100" };
+                const tierLabel = tier >= 2 ? "PREMIUM" : tier >= 1 ? "CLASSIC" : "ESSENTIAL";
+                return (
+                  <div className={`p-4 bg-gradient-to-br ${planColors.bg} rounded-xl border ${planColors.border} ${planColors.glow} shadow-sm`} data-testid="booking-plan-card">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className={`text-xs font-semibold ${planColors.accent} uppercase flex items-center gap-1.5`}>
+                        <Sparkles className="h-3.5 w-3.5" /> Housing Plan
+                      </h4>
+                      <Badge className={`${planColors.badge} text-[10px] px-2 py-0.5 border-0 font-bold`}>{tierLabel}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-10 h-10 rounded-xl ${planColors.badge} flex items-center justify-center`}>
+                        <Star className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className={`font-bold text-base ${planColors.accent}`}>{pkg?.name || "Housing Plan"}</p>
+                        {pkg?.tagline && <p className="text-[11px] text-slate-500">{pkg.tagline}</p>}
+                      </div>
+                      {housingPlan.priceSnapshot > 0 && (
+                        <div className="ml-auto text-right">
+                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot).toLocaleString("en-IN")}</p>
+                          <p className="text-[10px] text-slate-400">{pkg?.priceType === "PER_MONTH" ? "/mo" : "/year"}</p>
+                        </div>
+                      )}
+                    </div>
+                    {pkg?.items && pkg.items.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1.5 mt-2">
+                        {pkg.items.map((item: any) => (
+                          <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-600 bg-white/60 rounded-lg px-2 py-1.5">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span className="truncate">{item.label || item.name}</span>
+                            {item.featureValue && <span className="ml-auto text-[10px] text-slate-400 shrink-0">{item.featureValue}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
                 <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">

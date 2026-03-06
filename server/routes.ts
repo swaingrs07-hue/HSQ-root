@@ -2729,7 +2729,7 @@ export async function registerRoutes(
   // Create booking
   app.post("/api/bookings", async (req, res) => {
     try {
-      const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason } = req.body;
+      const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId } = req.body;
 
       // Validate room availability
       const roomType = await storage.getRoomType(roomTypeId);
@@ -2767,6 +2767,25 @@ export async function registerRoutes(
           dueDate: inst.dueDate,
         }))
       );
+
+      // Auto-attach selected housing plan if provided
+      if (legacySelectedPlanId) {
+        try {
+          const [selectedPkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, legacySelectedPlanId));
+          if (selectedPkg && selectedPkg.category === "housing_plan") {
+            await db.insert(schema.bookingPackages).values({
+              bookingId: booking.id,
+              packageId: legacySelectedPlanId,
+              startDate: new Date(),
+              endDate: null,
+              priceSnapshot: selectedPkg.basePrice || baseFee,
+              status: "ACTIVE",
+            });
+          }
+        } catch (e: any) {
+          console.error("Failed to auto-attach housing plan:", e.message);
+        }
+      }
 
       // Decrease available beds
       await storage.updateRoomTypeAvailability(roomTypeId, -1);
@@ -3058,6 +3077,7 @@ export async function registerRoutes(
         roomTypeId,
         bedId,
         floorId,
+        selectedPlanId,
         stayPlanType,
         checkInDate,
         checkOutDate,
@@ -3198,6 +3218,25 @@ export async function registerRoutes(
         signatureData: null,
         residentDetails: residentDetails || null,
       });
+
+      // Auto-attach selected housing plan as a booking package
+      if (selectedPlanId) {
+        try {
+          const [selectedPkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, selectedPlanId));
+          if (selectedPkg && selectedPkg.category === "housing_plan") {
+            await db.insert(schema.bookingPackages).values({
+              bookingId: booking.id,
+              packageId: selectedPlanId,
+              startDate: checkInDate ? new Date(checkInDate) : new Date(),
+              endDate: checkOutDate ? new Date(checkOutDate) : null,
+              priceSnapshot: selectedPkg.basePrice || baseFee,
+              status: "ACTIVE",
+            });
+          }
+        } catch (e: any) {
+          console.error("Failed to auto-attach housing plan:", e.message);
+        }
+      }
 
       // Mark the bed as reserved, clear hold, and update availability counts
       if (resolvedBedId) {
