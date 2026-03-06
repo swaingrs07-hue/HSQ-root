@@ -804,22 +804,22 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
-      {selectedPlan && tierColors && (
+      {selectedPlan && activeTierColors && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className={cn("flex items-center gap-3 rounded-xl p-3.5 shadow-md border-2", tierColors.bannerBg, tierColors.bannerBorder)}
+          className={cn("flex items-center gap-3 rounded-xl p-3.5 shadow-md border-2", activeTierColors.bannerBg, activeTierColors.bannerBorder)}
         >
           <motion.div
-            className={cn("w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg", tierColors.crownColor)}
+            className={cn("w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg", activeTierColors.crownColor)}
             animate={{ rotate: [0, 5, -5, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <Crown className="w-5 h-5 text-white" />
           </motion.div>
           <div className="flex-1">
-            <p className={cn("text-sm font-bold", tierColors.text)}>{selectedPlan.name}</p>
-            <p className={cn("text-xs", tierColors.bannerSubText)}>
+            <p className={cn("text-sm font-bold", activeTierColors.text)}>{selectedPlan.name}</p>
+            <p className={cn("text-xs", activeTierColors.bannerSubText)}>
               {filterRoomTypeId 
                 ? `Highlighted beds belong to ${selectedPlan.roomTypeName || "this plan's room type"}. Select one to book.`
                 : "All beds are available for this plan. Select any bed to book."}
@@ -828,7 +828,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           <div className="flex items-center gap-2 text-[10px]">
             {filterRoomTypeId && (
               <>
-                <span className="flex items-center gap-1"><span className={cn("w-3 h-3 rounded", tierColors.bg, tierColors.border)} /> {selectedPlan.name}</span>
+                <span className="flex items-center gap-1"><span className={cn("w-3 h-3 rounded", activeTierColors.bg, activeTierColors.border)} /> {selectedPlan.name}</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-stone-300 opacity-40" /> Other</span>
               </>
             )}
@@ -1967,7 +1967,38 @@ function PropertyBooking() {
                               setSelectedPlan(plan);
                               setAutoDetectedPlan(null);
                               setPlanPickerOpen(false);
-                              toast({ title: `${plan.name} selected`, description: "Plan applied to your booking." });
+                              if (selectedBed && property) {
+                                const effectiveRoomType = getBedSharingRoomType(selectedBed, selectedRoom)
+                                  || property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId);
+                                if (effectiveRoomType) {
+                                  const planPrice = Number(plan.basePrice || 0);
+                                  const rtPrice = property.bookingMode === "academic_year"
+                                    ? (effectiveRoomType.academicYearPrice || effectiveRoomType.basePrice * 11)
+                                    : effectiveRoomType.basePrice;
+                                  const price = planPrice > 0 ? planPrice : rtPrice;
+                                  localStorage.setItem("selected_room", JSON.stringify({
+                                    propertyId: property.id,
+                                    roomTypeId: effectiveRoomType.id,
+                                    price,
+                                    roomTypeName: effectiveRoomType.customName || effectiveRoomType.name,
+                                    propertyName: property.name,
+                                    bookingMode: property.bookingMode || "monthly",
+                                    deposit: effectiveRoomType.deposit || 0,
+                                    bedId: selectedBed.id,
+                                    bedNumber: selectedBed.bedNumber,
+                                    roomNumber: selectedRoom?.roomNumber || "",
+                                    roomId: selectedRoom?.id || "",
+                                    floorId: selectedFloor?.id,
+                                    floorName: selectedFloor?.name,
+                                    roomTypology: selectedRoom?.typology || "",
+                                    selectedPlanId: plan.id,
+                                    selectedPlanName: plan.name,
+                                  }));
+                                  navigate("/booking/generate");
+                                  return;
+                                }
+                              }
+                              toast({ title: `${plan.name} selected`, description: "Now select a bed to complete your booking." });
                             }}
                             className={cn(
                               "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md relative overflow-hidden",
