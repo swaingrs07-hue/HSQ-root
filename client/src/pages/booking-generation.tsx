@@ -164,6 +164,8 @@ export default function BookingGeneration() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedPlanName, setSelectedPlanName] = useState<string | null>(null);
   const [selectedPlanPrice, setSelectedPlanPrice] = useState<number>(0);
+  const [selectedPlanTier, setSelectedPlanTier] = useState<number | null>(null);
+  const [selectedPlanItems, setSelectedPlanItems] = useState<any[]>([]);
   const [propertyPlans, setPropertyPlans] = useState<any[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
 
@@ -382,6 +384,12 @@ export default function BookingGeneration() {
                 if (data.price && data.price > 0) {
                   setSelectedPlanPrice(data.price);
                 }
+                if (data.selectedPlanTier != null) {
+                  setSelectedPlanTier(data.selectedPlanTier);
+                }
+                if (data.selectedPlanItems) {
+                  setSelectedPlanItems(data.selectedPlanItems);
+                }
               }
               if (data.roomNumber || data.bedNumber) {
                 let accomType = "";
@@ -427,6 +435,17 @@ export default function BookingGeneration() {
         .catch(() => { setPropertyPlans([]); setPlansLoading(false); });
     }
   }, [formData.propertyId]);
+
+  useEffect(() => {
+    if (selectedPlanId && selectedPlanTier == null && propertyPlans.length > 0) {
+      const matched = propertyPlans.find((p: any) => p.id === selectedPlanId);
+      if (matched) {
+        setSelectedPlanTier(matched.tierLevel ?? 0);
+        setSelectedPlanItems(matched.items || []);
+        if (!selectedPlanName) setSelectedPlanName(matched.name);
+      }
+    }
+  }, [selectedPlanId, selectedPlanTier, propertyPlans, selectedPlanName]);
 
   useEffect(() => {
     if (formData.roomTypeId) {
@@ -560,6 +579,8 @@ export default function BookingGeneration() {
     setSelectedPlanId(null);
     setSelectedPlanName(null);
     setSelectedPlanPrice(0);
+    setSelectedPlanTier(null);
+    setSelectedPlanItems([]);
   };
 
   const handleRoomTypeChange = (roomTypeId: string) => {
@@ -577,6 +598,8 @@ export default function BookingGeneration() {
     setSelectedPlanId(null);
     setSelectedPlanName(null);
     setSelectedPlanPrice(0);
+    setSelectedPlanTier(null);
+    setSelectedPlanItems([]);
   };
 
   const fetchRegisteredStudents = async (search?: string) => {
@@ -887,6 +910,46 @@ export default function BookingGeneration() {
     if (formData.customerType === "student") return selectedStudent?.email || formData.walkInEmail;
     return formData.walkInEmail;
   };
+
+  const tierLabel = (t: number | null) => t != null && t >= 2 ? "PREMIUM" : t != null && t >= 1 ? "CLASSIC" : t === 0 ? "ESSENTIAL" : null;
+  const tierGradient = (t: number | null) => {
+    if (t == null) return "";
+    if (t >= 2) return "from-amber-500 via-yellow-400 to-orange-500";
+    if (t >= 1) return "from-slate-400 via-gray-300 to-slate-500";
+    return "from-violet-500 via-purple-400 to-indigo-500";
+  };
+  const tierBorder = (t: number | null) => {
+    if (t == null) return "border-slate-200";
+    if (t >= 2) return "border-amber-300";
+    if (t >= 1) return "border-slate-300";
+    return "border-violet-300";
+  };
+  const tierAccent = (t: number | null) => {
+    if (t == null) return "text-indigo-600";
+    if (t >= 2) return "text-amber-600";
+    if (t >= 1) return "text-slate-600";
+    return "text-violet-600";
+  };
+  const tierBg = (t: number | null) => {
+    if (t == null) return "bg-indigo-50";
+    if (t >= 2) return "bg-gradient-to-br from-amber-50 via-yellow-50/50 to-orange-50";
+    if (t >= 1) return "bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100";
+    return "bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50";
+  };
+  const tierIcon = (t: number | null) => {
+    if (t == null) return null;
+    if (t >= 2) return Crown;
+    if (t >= 1) return Gem;
+    return Star;
+  };
+  const tierBadgeBg = (t: number | null) => {
+    if (t == null) return "";
+    if (t >= 2) return "bg-gradient-to-r from-amber-500 to-yellow-500 text-white";
+    if (t >= 1) return "bg-gradient-to-r from-slate-500 to-gray-500 text-white";
+    return "bg-gradient-to-r from-violet-500 to-purple-500 text-white";
+  };
+  const hasPlan = selectedPlanId != null && selectedPlanTier != null;
+  const TierIconComponent = tierIcon(selectedPlanTier);
 
   return (
     <div className="space-y-6">
@@ -2025,6 +2088,8 @@ export default function BookingGeneration() {
                                         setSelectedPlanId(plan.id);
                                         setSelectedPlanName(plan.name);
                                         setSelectedPlanPrice(price);
+                                        setSelectedPlanTier(tier);
+                                        setSelectedPlanItems(plan.items || []);
                                         toast({ title: `${plan.name} selected`, description: "Plan applied to your booking." });
                                       }}
                                       className={`relative cursor-pointer rounded-xl border p-4 transition-all duration-200 ${getPlanStyle(tier, isSelected)} overflow-hidden`}
@@ -2153,42 +2218,86 @@ export default function BookingGeneration() {
                     </div>
 
                     <div className="space-y-5">
-                      <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                      <motion.div
+                        className={`p-5 rounded-xl border-2 space-y-4 relative overflow-hidden ${hasPlan ? tierBorder(selectedPlanTier) : "border-slate-200"} ${hasPlan ? tierBg(selectedPlanTier) : "bg-slate-50"}`}
+                        animate={hasPlan ? { borderColor: ["rgba(0,0,0,0.1)", "rgba(0,0,0,0.2)", "rgba(0,0,0,0.1)"] } : {}}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        {hasPlan && (
+                          <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tierGradient(selectedPlanTier)}`} />
+                        )}
                         <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
                           <Camera className="h-4 w-4" /> Resident Photo
+                          {hasPlan && (
+                            <Badge className={`text-[9px] px-1.5 py-0 font-bold border-0 ml-auto ${tierBadgeBg(selectedPlanTier)}`}>
+                              {tierLabel(selectedPlanTier)}
+                            </Badge>
+                          )}
                         </h4>
                         <div className="flex flex-col items-center gap-3">
                           {residentPhotoUrl ? (
-                            <div className="relative">
-                              <img src={residentPhotoUrl} alt="Resident" className="w-36 h-36 rounded-xl object-cover border-2 border-indigo-200 shadow-md" data-testid="img-resident-photo" />
+                            <motion.div
+                              className="relative"
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: "spring", stiffness: 200 }}
+                            >
+                              <div className={`p-1 rounded-xl ${hasPlan ? `bg-gradient-to-br ${tierGradient(selectedPlanTier)} shadow-lg` : "bg-indigo-100"}`}>
+                                <img src={residentPhotoUrl} alt="Resident" className="w-36 h-36 rounded-lg object-cover bg-white" data-testid="img-resident-photo" />
+                              </div>
+                              {hasPlan && TierIconComponent && (
+                                <motion.div
+                                  className={`absolute -bottom-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br ${tierGradient(selectedPlanTier)}`}
+                                  animate={{ rotate: [0, 10, -10, 0] }}
+                                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                >
+                                  <TierIconComponent className="h-3.5 w-3.5 text-white" />
+                                </motion.div>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => { setResidentPhotoUrl(null); setFormData(prev => ({ ...prev, residentPhotoPath: "" })); }}
-                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors z-10"
                                 data-testid="button-remove-photo"
                               >
                                 <X className="h-3 w-3" />
                               </button>
-                            </div>
+                            </motion.div>
                           ) : (
-                            <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center text-slate-400 gap-2">
-                              <Camera className="h-8 w-8" />
+                            <div className={`w-36 h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 ${hasPlan ? `${tierBorder(selectedPlanTier)} ${tierBg(selectedPlanTier)}` : "border-slate-300 bg-white text-slate-400"}`}>
+                              <Camera className={`h-8 w-8 ${hasPlan ? tierAccent(selectedPlanTier) : ""}`} />
                               <span className="text-xs">No photo</span>
                             </div>
                           )}
                           <label className="cursor-pointer">
                             <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={photoUploading} data-testid="input-photo-upload" />
-                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${photoUploading ? "bg-slate-100 text-slate-400 border-slate-200" : "bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100"}`}>
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${photoUploading ? "bg-slate-100 text-slate-400 border-slate-200" : hasPlan ? `${tierBg(selectedPlanTier)} ${tierAccent(selectedPlanTier)} ${tierBorder(selectedPlanTier)} hover:opacity-80` : "bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100"}`}>
                               {photoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                               {photoUploading ? "Uploading..." : "Upload Photo"}
                             </div>
                           </label>
                           <p className="text-xs text-slate-400 text-center">JPG, PNG under 5MB</p>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                        <h4 className="text-sm font-semibold text-indigo-700 mb-2">Quick Summary</h4>
+                      <motion.div
+                        className={`p-4 rounded-xl border relative overflow-hidden ${hasPlan ? `${tierBorder(selectedPlanTier)} ${tierBg(selectedPlanTier)}` : "bg-indigo-50 border-indigo-100"}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                      >
+                        {hasPlan && (
+                          <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${tierGradient(selectedPlanTier)}`} />
+                        )}
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className={`text-sm font-semibold ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-700"}`}>Quick Summary</h4>
+                          {hasPlan && TierIconComponent && (
+                            <div className="flex items-center gap-1.5">
+                              <TierIconComponent className={`h-3.5 w-3.5 ${tierAccent(selectedPlanTier)}`} />
+                              <span className={`text-[10px] font-bold ${tierAccent(selectedPlanTier)}`}>{selectedPlanName}</span>
+                            </div>
+                          )}
+                        </div>
                         <div className="space-y-1.5 text-xs text-slate-600">
                           {formData.residentName && <p><span className="font-medium">Name:</span> {formData.residentName}</p>}
                           {formData.residentRoomNo && <p><span className="font-medium">Room:</span> {formData.residentRoomNo}</p>}
@@ -2197,7 +2306,23 @@ export default function BookingGeneration() {
                           {formData.residentInstitute && <p><span className="font-medium">Institute:</span> {formData.residentInstitute}</p>}
                           {formData.residentMoveInDate && <p><span className="font-medium">Move-in:</span> {formData.residentMoveInDate}</p>}
                         </div>
-                      </div>
+                        {hasPlan && selectedPlanItems.length > 0 && (
+                          <div className={`mt-3 pt-3 border-t ${tierBorder(selectedPlanTier)}`}>
+                            <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${tierAccent(selectedPlanTier)}`}>Plan Features</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {selectedPlanItems.slice(0, 4).map((item: any) => (
+                                <div key={item.id} className="flex items-center gap-1 text-[10px] text-slate-500">
+                                  <CheckCircle className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+                                  <span className="truncate">{item.name}</span>
+                                </div>
+                              ))}
+                              {selectedPlanItems.length > 4 && (
+                                <span className="text-[10px] text-slate-400">+{selectedPlanItems.length - 4} more</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
                     </div>
                   </div>
                 </div>
@@ -2475,11 +2600,26 @@ export default function BookingGeneration() {
                         </div>
                       )}
 
-                      <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
-                        <h4 className="text-sm font-semibold text-slate-600 mb-3">Payment Summary</h4>
+                      <motion.div
+                        className={`p-5 rounded-xl border-2 relative overflow-hidden ${hasPlan ? `${tierBorder(selectedPlanTier)} ${tierBg(selectedPlanTier)}` : "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200"}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        {hasPlan && (
+                          <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tierGradient(selectedPlanTier)}`} />
+                        )}
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-slate-600">Payment Summary</h4>
+                          {hasPlan && (
+                            <Badge className={`text-[9px] px-1.5 py-0 font-bold border-0 ${tierBadgeBg(selectedPlanTier)}`}>
+                              {selectedPlanName}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Base Fee {selectedPlanName && <span className="text-amber-600 text-[10px]">({selectedPlanName})</span>}</span>
+                            <span className="text-slate-500">Base Fee {selectedPlanName && <span className={`text-[10px] ${tierAccent(selectedPlanTier)}`}>({selectedPlanName})</span>}</span>
                             <span className="font-medium text-slate-700">₹{formData.baseFee.toLocaleString()}</span>
                           </div>
                           {formData.discount > 0 && (
@@ -2497,7 +2637,7 @@ export default function BookingGeneration() {
                           <Separator className="my-2" />
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-slate-700">Total Amount</span>
-                            <span className="text-2xl font-bold text-indigo-600" data-testid="text-total-amount">
+                            <span className={`text-2xl font-bold ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-600"}`} data-testid="text-total-amount">
                               ₹{calculateTotal().toLocaleString()}
                             </span>
                           </div>
@@ -2528,7 +2668,7 @@ export default function BookingGeneration() {
                             </>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
 
                       {needsApproval() && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
@@ -2544,14 +2684,74 @@ export default function BookingGeneration() {
               )}
 
               {step === 5 && (
-                <div className="space-y-6">
+                <motion.div
+                  className="space-y-6"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
                   <div className="flex items-center gap-2 mb-1">
-                    <ClipboardCheck className="h-5 w-5 text-indigo-500" />
+                    <ClipboardCheck className={`h-5 w-5 ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-500"}`} />
                     <h3 className="text-lg font-semibold text-slate-800">Review & Confirm</h3>
+                    {hasPlan && (
+                      <Badge className={`text-[9px] px-2 py-0.5 font-bold border-0 ml-auto ${tierBadgeBg(selectedPlanTier)}`}>
+                        {tierLabel(selectedPlanTier)} PLAN
+                      </Badge>
+                    )}
                   </div>
 
+                  {hasPlan && (
+                    <motion.div
+                      className={`p-4 rounded-xl border-2 relative overflow-hidden ${tierBorder(selectedPlanTier)} ${tierBg(selectedPlanTier)}`}
+                      initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: "spring", stiffness: 150, delay: 0.1 }}
+                    >
+                      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tierGradient(selectedPlanTier)}`} />
+                      <div className="flex items-center gap-3">
+                        <motion.div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${tierGradient(selectedPlanTier)} shadow-md`}
+                          animate={{ rotate: [0, 5, -5, 0] }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                          {TierIconComponent && <TierIconComponent className="h-5 w-5 text-white" />}
+                        </motion.div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-slate-800">{selectedPlanName}</p>
+                            <Badge className={`text-[9px] px-1.5 py-0 font-bold border-0 ${tierBadgeBg(selectedPlanTier)}`}>
+                              {tierLabel(selectedPlanTier)}
+                            </Badge>
+                          </div>
+                          <p className={`text-sm font-semibold ${tierAccent(selectedPlanTier)}`}>
+                            ₹{selectedPlanPrice.toLocaleString("en-IN")}
+                            <span className="text-xs text-slate-400 ml-1 font-normal">
+                              {getSelectedProperty()?.bookingMode === "academic_year" ? "/year" : "/mo"}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      {selectedPlanItems.length > 0 && (
+                        <div className={`mt-3 pt-3 border-t ${tierBorder(selectedPlanTier)} grid grid-cols-2 sm:grid-cols-3 gap-1.5`}>
+                          {selectedPlanItems.map((item: any) => (
+                            <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-600">
+                              <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                              <span className="truncate">{item.name || item.label}</span>
+                              {item.featureValue && <span className="text-[10px] text-slate-400 truncate">· {item.featureValue}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <motion.div
+                      className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 }}
+                    >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                           <User className="h-4 w-4 text-indigo-600" />
@@ -2572,9 +2772,14 @@ export default function BookingGeneration() {
                       <Badge variant="secondary" className="mt-3 capitalize">
                         {isRegularUser ? "Profile Booking" : formData.customerType.replace("_", " ")}
                       </Badge>
-                    </div>
+                    </motion.div>
 
-                    <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <motion.div
+                      className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                           <Building2 className="h-4 w-4 text-emerald-600" />
@@ -2590,11 +2795,16 @@ export default function BookingGeneration() {
                         <Calendar className="h-3.5 w-3.5" />
                         {formData.stayPlanType === "monthly" ? `${formData.durationMonths} months` : `Academic Year ${formData.academicYearPeriod}`}
                       </div>
-                    </div>
+                    </motion.div>
                   </div>
 
                   {formData.residentName && (
-                    <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <motion.div
+                      className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                    >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
                           <Heart className="h-4 w-4 text-pink-600" />
@@ -2603,7 +2813,9 @@ export default function BookingGeneration() {
                       </div>
                       <div className="flex gap-4">
                         {residentPhotoUrl && (
-                          <img src={residentPhotoUrl} alt="Resident" className="w-16 h-16 rounded-lg object-cover border" />
+                          <div className={`p-0.5 rounded-lg ${hasPlan ? `bg-gradient-to-br ${tierGradient(selectedPlanTier)}` : ""}`}>
+                            <img src={residentPhotoUrl} alt="Resident" className="w-16 h-16 rounded-md object-cover bg-white" />
+                          </div>
                         )}
                         <div className="space-y-1 text-sm">
                           <p className="font-bold text-slate-800">{formData.residentName}</p>
@@ -2615,19 +2827,32 @@ export default function BookingGeneration() {
                           {formData.parentName && <p className="text-slate-500">Parent: {formData.parentName} ({formData.parentRelation})</p>}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
 
-                  <div className="p-5 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
+                  <motion.div
+                    className={`p-5 rounded-xl border-2 relative overflow-hidden ${hasPlan ? `${tierBorder(selectedPlanTier)} ${tierBg(selectedPlanTier)}` : "bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-100"}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    {hasPlan && (
+                      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tierGradient(selectedPlanTier)}`} />
+                    )}
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                        <CreditCard className="h-4 w-4 text-indigo-600" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasPlan ? `bg-gradient-to-br ${tierGradient(selectedPlanTier)}` : "bg-indigo-100"}`}>
+                        <CreditCard className={`h-4 w-4 ${hasPlan ? "text-white" : "text-indigo-600"}`} />
                       </div>
                       <h4 className="font-semibold text-sm text-slate-500 uppercase tracking-wide">Payment Summary</h4>
+                      {hasPlan && (
+                        <Badge className={`text-[9px] px-1.5 py-0 font-bold border-0 ml-auto ${tierBadgeBg(selectedPlanTier)}`}>
+                          {selectedPlanName}
+                        </Badge>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Base Fee {selectedPlanName && <span className="text-amber-600">({selectedPlanName})</span>}</p>
+                        <p className="text-xs text-slate-500 mb-1">Base Fee</p>
                         <p className="font-bold text-slate-800">₹{formData.baseFee.toLocaleString()}</p>
                       </div>
                       <div>
@@ -2640,7 +2865,7 @@ export default function BookingGeneration() {
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Total</p>
-                        <p className="font-bold text-2xl text-indigo-600" data-testid="review-total">₹{calculateTotal().toLocaleString()}</p>
+                        <p className={`font-bold text-2xl ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-600"}`} data-testid="review-total">₹{calculateTotal().toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -2662,8 +2887,8 @@ export default function BookingGeneration() {
                         </Badge>
                       )}
                     </div>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
               )}
 
               <div className="flex justify-between mt-8 pt-5 border-t border-slate-200">
