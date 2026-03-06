@@ -51,6 +51,9 @@ import {
   Bath,
   Ban,
   Layers,
+  Crown,
+  Star,
+  Gem,
 } from "lucide-react";
 
 interface Property {
@@ -157,6 +160,8 @@ export default function BookingGeneration() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedPlanName, setSelectedPlanName] = useState<string | null>(null);
   const [selectedPlanPrice, setSelectedPlanPrice] = useState<number>(0);
+  const [propertyPlans, setPropertyPlans] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     customerType: "walk_in",
@@ -411,6 +416,11 @@ export default function BookingGeneration() {
         .then(r => r.ok ? r.json() : [])
         .then(data => { setFloors(data || []); setFloorsLoading(false); })
         .catch(() => { setFloors([]); setFloorsLoading(false); });
+      setPlansLoading(true);
+      fetch(`/api/properties/${formData.propertyId}/plans`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => { setPropertyPlans(data || []); setPlansLoading(false); })
+        .catch(() => { setPropertyPlans([]); setPlansLoading(false); });
     }
   }, [formData.propertyId]);
 
@@ -543,6 +553,9 @@ export default function BookingGeneration() {
     setSelectedBedInfo(null);
     setExpandedFloors(new Set());
     setFloors([]);
+    setSelectedPlanId(null);
+    setSelectedPlanName(null);
+    setSelectedPlanPrice(0);
   };
 
   const handleRoomTypeChange = (roomTypeId: string) => {
@@ -557,6 +570,9 @@ export default function BookingGeneration() {
     setSelectedBedId("");
     setSelectedBedInfo(null);
     setExpandedFloors(new Set());
+    setSelectedPlanId(null);
+    setSelectedPlanName(null);
+    setSelectedPlanPrice(0);
   };
 
   const fetchRegisteredStudents = async (search?: string) => {
@@ -1925,6 +1941,120 @@ export default function BookingGeneration() {
                           </div>
                         </div>
                       </div>
+
+                      {(() => {
+                        const matchingPlans = propertyPlans.filter((plan: any) => {
+                          if (!formData.roomTypeId) return true;
+                          const linked: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : [];
+                          return linked.includes(formData.roomTypeId) || plan.roomTypeId === formData.roomTypeId;
+                        });
+                        if (matchingPlans.length === 0 && !plansLoading) return null;
+                        const getPlanIcon = (tierLevel: number) => {
+                          if (tierLevel >= 2) return Crown;
+                          if (tierLevel >= 1) return Gem;
+                          return Star;
+                        };
+                        const getPlanStyle = (tierLevel: number, isSelected: boolean) => {
+                          const base = isSelected ? "ring-2 scale-[1.02]" : "hover:scale-[1.01]";
+                          if (tierLevel >= 2) return `${base} ${isSelected ? "ring-amber-400 border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50" : "border-amber-200/60 bg-gradient-to-br from-amber-50/30 to-yellow-50/20 hover:border-amber-300"}`;
+                          if (tierLevel >= 1) return `${base} ${isSelected ? "ring-slate-400 border-slate-400 bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100" : "border-slate-200/60 bg-gradient-to-br from-slate-50/30 to-gray-50/20 hover:border-slate-300"}`;
+                          return `${base} ${isSelected ? "ring-violet-400 border-violet-400 bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50" : "border-violet-200/60 bg-gradient-to-br from-violet-50/30 to-purple-50/20 hover:border-violet-300"}`;
+                        };
+                        const getBadgeStyle = (tierLevel: number) => {
+                          if (tierLevel >= 2) return "bg-gradient-to-r from-amber-500 to-yellow-500 text-white";
+                          if (tierLevel >= 1) return "bg-gradient-to-r from-slate-500 to-gray-500 text-white";
+                          return "bg-gradient-to-r from-violet-500 to-purple-500 text-white";
+                        };
+                        const getAccentColor = (tierLevel: number) => {
+                          if (tierLevel >= 2) return "text-amber-600";
+                          if (tierLevel >= 1) return "text-slate-600";
+                          return "text-violet-600";
+                        };
+                        return (
+                          <div className="p-5 rounded-xl border border-slate-200 space-y-4 bg-gradient-to-br from-white via-slate-50/50 to-white" data-testid="plan-picker-section">
+                            <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                              <Crown className="h-4 w-4 text-amber-500" /> Select Housing Plan
+                            </h4>
+                            {plansLoading ? (
+                              <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Loading plans...
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {matchingPlans.map((plan: any) => {
+                                  const tier = plan.tierLevel ?? 0;
+                                  const isSelected = selectedPlanId === plan.id;
+                                  const PlanIcon = getPlanIcon(tier);
+                                  const price = plan.basePrice || plan.price || 0;
+                                  const selectedProp = properties.find(p => p.id === formData.propertyId);
+                                  const isAcademic = selectedProp?.bookingMode === "academic_year";
+                                  return (
+                                    <motion.div
+                                      key={plan.id}
+                                      whileTap={{ scale: 0.98 }}
+                                      onClick={() => {
+                                        setSelectedPlanId(plan.id);
+                                        setSelectedPlanName(plan.name);
+                                        setSelectedPlanPrice(price);
+                                        toast({ title: `${plan.name} selected`, description: "Plan applied to your booking." });
+                                      }}
+                                      className={`relative cursor-pointer rounded-xl border p-4 transition-all duration-200 ${getPlanStyle(tier, isSelected)} overflow-hidden`}
+                                      data-testid={`plan-card-${plan.id}`}
+                                    >
+                                      {isSelected && (
+                                        <div className="absolute top-2 right-2">
+                                          <CheckCircle className={`h-5 w-5 ${getAccentColor(tier)}`} />
+                                        </div>
+                                      )}
+                                      <div className="flex items-start gap-3">
+                                        <div className={`p-2 rounded-lg ${isSelected ? getBadgeStyle(tier) : "bg-slate-100"}`}>
+                                          <PlanIcon className={`h-4 w-4 ${isSelected ? "text-white" : getAccentColor(tier)}`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-bold text-sm text-slate-800 truncate">{plan.name}</span>
+                                            <Badge className={`text-[10px] px-1.5 py-0 font-semibold border-0 shrink-0 ${getBadgeStyle(tier)}`}>
+                                              {tier >= 2 ? "PREMIUM" : tier >= 1 ? "CLASSIC" : "ESSENTIAL"}
+                                            </Badge>
+                                          </div>
+                                          {price > 0 && (
+                                            <div className="mt-1.5">
+                                              <span className={`text-lg font-bold ${getAccentColor(tier)}`}>
+                                                ₹{price.toLocaleString("en-IN")}
+                                              </span>
+                                              <span className="text-xs text-slate-400 ml-1">
+                                                {isAcademic ? "/year" : "/mo"}
+                                              </span>
+                                            </div>
+                                          )}
+                                          {plan.items && plan.items.length > 0 && (
+                                            <div className="mt-2 space-y-0.5">
+                                              {plan.items.slice(0, 3).map((item: any) => (
+                                                <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                  <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                                                  <span className="truncate">{item.name}</span>
+                                                </div>
+                                              ))}
+                                              {plan.items.length > 3 && (
+                                                <div className="text-[10px] text-slate-400 pl-4.5">+{plan.items.length - 3} more</div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {!selectedPlanId && matchingPlans.length > 0 && (
+                              <p className="text-xs text-slate-400 flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" /> Select a plan to apply tier pricing to your booking
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
                         <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wide flex items-center gap-2">
