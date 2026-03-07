@@ -268,7 +268,7 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
               return (
                 <motion.span
                   key={idx}
-                  className={`inline-block ${gradient ? "bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
+                  className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
                   initial={{ opacity: 0, y: 80, rotateX: -90, filter: "blur(10px)" }}
                   whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
                   viewport={{ once: true }}
@@ -1069,12 +1069,10 @@ export default function Home() {
                   >
                     Curated Living Experiences
                   </motion.p>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[0.95]">
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1]">
                     <CinematicText delay={0.1}>Housing</CinematicText>
                     {" "}
-                    <span className="bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
-                      <CinematicText delay={0.3}>Plans</CinematicText>
-                    </span>
+                    <CinematicText delay={0.3} gradient>Plans</CinematicText>
                   </h2>
                   <motion.p
                     className="text-white/25 max-w-xl mx-auto text-sm md:text-base leading-relaxed"
