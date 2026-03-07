@@ -344,7 +344,7 @@ const AMENITY_SHOWCASE = [
 ];
 
 const STATS = [
-  { value: "500+", label: "Happy Residents", numericEnd: 500, suffix: "+" },
+  { value: "5000+", label: "Happy Residents", numericEnd: 5000, suffix: "+" },
   { value: "15+", label: "Premium Properties", numericEnd: 15, suffix: "+" },
   { value: "98%", label: "Satisfaction Rate", numericEnd: 98, suffix: "%" },
   { value: "24/7", label: "Support & Security", numericEnd: 0, suffix: "" },
@@ -385,9 +385,9 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
 
   if (end === 0) {
     return (
-      <div ref={ref} className="text-center">
+      <div ref={ref} className="flex flex-col items-center justify-center text-center">
         <motion.div
-          className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50 mb-2"
+          className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50"
           initial={{ scale: 0.5, opacity: 0 }}
           whileInView={{ scale: 1, opacity: 1 }}
           viewport={{ once: true }}
@@ -396,22 +396,22 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
         >
           24/7
         </motion.div>
-        <div className="text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-2">{label}</div>
+        <div className="text-[10px] md:text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-3">{label}</div>
       </div>
     );
   }
 
   return (
-    <div ref={ref} className="text-center">
+    <div ref={ref} className="flex flex-col items-center justify-center text-center">
       <motion.div
-        className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50 mb-2"
+        className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50"
         animate={done ? { scale: [1, 1.15, 1], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 30px rgba(0,200,255,0.5))", "drop-shadow(0 0 0px transparent)"] } : {}}
         transition={{ duration: 0.6 }}
         style={{ textShadow: done ? "0 0 40px rgba(0,200,255,0.2)" : "none" }}
       >
-        {count}{suffix}
+        {count.toLocaleString()}{suffix}
       </motion.div>
-      <div className="text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-2">{label}</div>
+      <div className="text-[10px] md:text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-3">{label}</div>
     </div>
   );
 }
@@ -753,7 +753,7 @@ export default function Home() {
         <Floating3DShape type="diamond" size={20} color="#8b5cf6" delay={3} x="92%" y="50%" duration={22} />
 
         <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             {STATS.map((stat, i) => (
               <motion.div
                 key={i}
@@ -767,7 +767,7 @@ export default function Home() {
                   stiffness: 120,
                   damping: 12,
                 }}
-                className="relative"
+                className="relative flex items-center justify-center"
                 data-testid={`stat-value-${i}`}
               >
                 <AnimatedCounter end={stat.numericEnd} suffix={stat.suffix} label={stat.label} />
@@ -836,7 +836,7 @@ export default function Home() {
                 key={i}
                 intensity={12}
                 glowColor={feature.glow}
-                className="relative group cursor-default"
+                className="relative group cursor-default h-full"
               >
                 <motion.div
                   initial={{ opacity: 0, y: 80, rotateX: 30 }}
@@ -850,20 +850,21 @@ export default function Home() {
                     damping: 14,
                   }}
                   whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                  className="h-full"
                 >
-                  <div className={`p-8 rounded-2xl border ${feature.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full`}>
+                  <div className={`p-6 md:p-8 rounded-2xl border ${feature.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)` }} />
 
                     <motion.div
-                      className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                      className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-5 shadow-lg relative z-10 shrink-0`}
                       style={{ boxShadow: `0 8px 30px ${feature.glow}` }}
                       whileHover={{ scale: 1.15, rotate: 5 }}
                       transition={{ type: "spring", stiffness: 400, damping: 15 }}
                     >
-                      <feature.icon className="w-7 h-7 text-white" />
+                      <feature.icon className="w-6 h-6 md:w-7 md:h-7 text-white" />
                     </motion.div>
-                    <h3 className="font-heading font-bold text-xl text-white mb-3 relative z-10">{feature.title}</h3>
-                    <p className="text-white/30 text-sm leading-relaxed relative z-10">{feature.desc}</p>
+                    <h3 className="font-heading font-bold text-lg md:text-xl text-white mb-2 relative z-10 leading-tight">{feature.title}</h3>
+                    <p className="text-white/30 text-sm leading-relaxed relative z-10 flex-1">{feature.desc}</p>
                   </div>
                 </motion.div>
               </TiltCard>
@@ -932,7 +933,7 @@ export default function Home() {
                   key={i}
                   intensity={12}
                   glowColor={c.glow}
-                  className="relative group cursor-default"
+                  className="relative group cursor-default h-full"
                   data-testid={`amenity-card-${i}`}
                 >
                   <motion.div
@@ -947,20 +948,21 @@ export default function Home() {
                       damping: 14,
                     }}
                     whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                    className="h-full"
                   >
-                    <div className={`p-8 rounded-2xl border ${c.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full`}>
+                    <div className={`p-6 md:p-8 rounded-2xl border ${c.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${c.glow} 0%, transparent 60%)` }} />
 
                       <motion.div
-                        className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${c.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                        className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${c.accent} flex items-center justify-center mb-5 shadow-lg relative z-10 shrink-0`}
                         style={{ boxShadow: `0 8px 30px ${c.glow}` }}
                         whileHover={{ scale: 1.15, rotate: 5 }}
                         transition={{ type: "spring", stiffness: 400, damping: 15 }}
                       >
-                        <amenity.icon className="w-7 h-7 text-white" />
+                        <amenity.icon className="w-6 h-6 md:w-7 md:h-7 text-white" />
                       </motion.div>
-                      <h3 className="font-heading font-bold text-xl text-white mb-3 relative z-10">{amenity.title}</h3>
-                      <p className="text-white/30 text-sm leading-relaxed relative z-10">{amenity.desc}</p>
+                      <h3 className="font-heading font-bold text-lg md:text-xl text-white mb-2 relative z-10 leading-tight">{amenity.title}</h3>
+                      <p className="text-white/30 text-sm leading-relaxed relative z-10 flex-1">{amenity.desc}</p>
                     </div>
                   </motion.div>
                 </TiltCard>
@@ -1464,7 +1466,7 @@ export default function Home() {
                       key={property.id}
                       intensity={12}
                       glowColor={pc.glow}
-                      className="relative group cursor-pointer"
+                      className="relative group cursor-pointer h-full"
                       data-testid={`property-card-${property.id}`}
                     >
                       <motion.div
@@ -1479,21 +1481,22 @@ export default function Home() {
                           damping: 14,
                         }}
                         whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                        className="h-full"
                       >
                         <Link href={`/properties/${property.id}`}>
-                          <div className={`p-8 rounded-2xl border ${pc.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full`}>
+                          <div className={`p-6 md:p-8 rounded-2xl border ${pc.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${pc.glow} 0%, transparent 60%)` }} />
 
                             <motion.div
-                              className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${pc.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                              className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${pc.accent} flex items-center justify-center mb-5 shadow-lg relative z-10 shrink-0`}
                               style={{ boxShadow: `0 8px 30px ${pc.glow}` }}
                               whileHover={{ scale: 1.15, rotate: 5 }}
                               transition={{ type: "spring", stiffness: 400, damping: 15 }}
                             >
-                              <Building2 className="w-7 h-7 text-white" />
+                              <Building2 className="w-6 h-6 md:w-7 md:h-7 text-white" />
                             </motion.div>
 
-                            <h3 className="font-heading font-bold text-xl text-white mb-2 relative z-10 group-hover:text-amber-400 transition-colors">{property.name}</h3>
+                            <h3 className="font-heading font-bold text-lg md:text-xl text-white mb-2 relative z-10 leading-tight group-hover:text-amber-400 transition-colors">{property.name}</h3>
                             <p className="text-white/30 text-sm flex items-center gap-1 mb-4 relative z-10">
                               <MapPin className="w-3.5 h-3.5" />
                               {property.location}
