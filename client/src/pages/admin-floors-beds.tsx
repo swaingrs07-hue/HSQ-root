@@ -216,15 +216,14 @@ export default function AdminFloorsBeds() {
   });
 
   const assignPlanMutation = useMutation({
-    mutationFn: ({ packageId, linkRoomTypeId, unlinkRoomTypeId }: { packageId: string; linkRoomTypeId?: string; unlinkRoomTypeId?: string }) =>
+    mutationFn: ({ packageId, linkRoomTypeId, unlinkRoomTypeId, linkRoomId, unlinkRoomId }: { packageId: string; linkRoomTypeId?: string; unlinkRoomTypeId?: string; linkRoomId?: string; unlinkRoomId?: string }) =>
       apiFetch(`/api/admin/packages/${packageId}`, {
         method: "PUT",
-        body: JSON.stringify({ linkRoomTypeId, unlinkRoomTypeId }),
+        body: JSON.stringify({ linkRoomTypeId, unlinkRoomTypeId, linkRoomId, unlinkRoomId }),
       }),
     onSuccess: () => {
       refetchPackages();
       toast({ title: "Plan Updated" });
-      setAssigningPlanId(null);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
