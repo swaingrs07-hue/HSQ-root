@@ -637,7 +637,7 @@ export default function Home() {
                   {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
-                <h1 className="text-6xl md:text-8xl lg:text-9xl font-heading font-black text-white leading-[0.9] tracking-tighter" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5)" }}>
+                <h1 className="text-[clamp(2.5rem,8vw,8rem)] font-heading font-black text-white leading-[0.9] tracking-tighter [word-break:keep-all] [overflow-wrap:normal]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5)" }}>
                   <CinematicText delay={0.3}>{heroSlides[currentSlide].title}</CinematicText>
                 </h1>
 
