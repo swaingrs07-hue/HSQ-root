@@ -1014,10 +1014,26 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   );
 }
 
-function getTierStyle(tierLevel: number, totalTiers: number) {
-  if (tierLevel >= totalTiers) return { accent: "from-amber-400 via-yellow-300 to-amber-500", glow: "shadow-amber-400/40", text: "text-amber-700", badge: "bg-gradient-to-r from-amber-500 to-yellow-500", border: "border-amber-400", ring: "ring-amber-400/30", shimmer: "from-amber-200/0 via-amber-200/60 to-amber-200/0" };
-  if (tierLevel >= totalTiers - 1) return { accent: "from-slate-300 via-gray-200 to-slate-400", glow: "shadow-slate-400/30", text: "text-slate-700", badge: "bg-gradient-to-r from-slate-500 to-gray-500", border: "border-slate-300", ring: "ring-slate-300/30", shimmer: "from-slate-200/0 via-slate-200/60 to-slate-200/0" };
-  return { accent: "from-stone-300 via-stone-200 to-stone-300", glow: "shadow-stone-300/20", text: "text-stone-700", badge: "bg-gradient-to-r from-stone-500 to-stone-600", border: "border-stone-300", ring: "ring-stone-200/20", shimmer: "from-stone-100/0 via-stone-200/40 to-stone-100/0" };
+function getTierStyle(tierLevel: number, _totalTiers: number) {
+  const tierStyles: Record<number, { accent: string; glow: string; text: string; badge: string; border: string; ring: string; shimmer: string; bg: string; cardBg: string; btnGradient: string; btnHover: string; priceColor: string; headerBg: string; icon: string }> = {
+    0: { accent: "from-stone-400 to-stone-500", glow: "shadow-stone-300/20", text: "text-stone-600", badge: "bg-stone-700", border: "border-stone-300", ring: "ring-stone-200/20", shimmer: "from-stone-100/0 via-stone-200/40 to-stone-100/0", bg: "bg-stone-50", cardBg: "bg-gradient-to-br from-stone-50 to-stone-100", btnGradient: "bg-gradient-to-r from-stone-700 to-stone-600", btnHover: "hover:from-stone-800 hover:to-stone-700", priceColor: "text-stone-700", headerBg: "bg-stone-800", icon: "text-stone-400" },
+    1: { accent: "from-violet-400 to-purple-500", glow: "shadow-violet-400/30", text: "text-violet-700", badge: "bg-gradient-to-r from-violet-600 to-purple-600", border: "border-violet-300", ring: "ring-violet-300/30", shimmer: "from-violet-200/0 via-violet-200/50 to-violet-200/0", bg: "bg-violet-50/50", cardBg: "bg-gradient-to-br from-violet-50 to-purple-50", btnGradient: "bg-gradient-to-r from-violet-600 to-purple-600", btnHover: "hover:from-violet-700 hover:to-purple-700", priceColor: "text-violet-700", headerBg: "bg-violet-900", icon: "text-violet-400" },
+    2: { accent: "from-amber-400 via-yellow-300 to-amber-500", glow: "shadow-amber-400/40", text: "text-amber-700", badge: "bg-gradient-to-r from-amber-500 to-yellow-500", border: "border-amber-400", ring: "ring-amber-400/30", shimmer: "from-amber-200/0 via-amber-300/60 to-amber-200/0", bg: "bg-amber-50/50", cardBg: "bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50", btnGradient: "bg-gradient-to-r from-amber-600 to-yellow-500", btnHover: "hover:from-amber-700 hover:to-yellow-600", priceColor: "text-amber-600", headerBg: "bg-amber-900", icon: "text-amber-400" },
+    3: { accent: "from-emerald-400 to-teal-500", glow: "shadow-emerald-400/30", text: "text-emerald-700", badge: "bg-gradient-to-r from-emerald-600 to-teal-600", border: "border-emerald-300", ring: "ring-emerald-300/30", shimmer: "from-emerald-200/0 via-emerald-200/50 to-emerald-200/0", bg: "bg-emerald-50/50", cardBg: "bg-gradient-to-br from-emerald-50 to-teal-50", btnGradient: "bg-gradient-to-r from-emerald-600 to-teal-600", btnHover: "hover:from-emerald-700 hover:to-teal-700", priceColor: "text-emerald-700", headerBg: "bg-emerald-900", icon: "text-emerald-400" },
+    4: { accent: "from-rose-400 to-pink-500", glow: "shadow-rose-400/30", text: "text-rose-700", badge: "bg-gradient-to-r from-rose-600 to-pink-600", border: "border-rose-300", ring: "ring-rose-300/30", shimmer: "from-rose-200/0 via-rose-200/50 to-rose-200/0", bg: "bg-rose-50/50", cardBg: "bg-gradient-to-br from-rose-50 to-pink-50", btnGradient: "bg-gradient-to-r from-rose-600 to-pink-600", btnHover: "hover:from-rose-700 hover:to-pink-700", priceColor: "text-rose-700", headerBg: "bg-rose-900", icon: "text-rose-400" },
+    5: { accent: "from-cyan-400 to-sky-500", glow: "shadow-cyan-400/30", text: "text-cyan-700", badge: "bg-gradient-to-r from-cyan-600 to-sky-600", border: "border-cyan-300", ring: "ring-cyan-300/30", shimmer: "from-cyan-200/0 via-cyan-200/50 to-cyan-200/0", bg: "bg-cyan-50/50", cardBg: "bg-gradient-to-br from-cyan-50 to-sky-50", btnGradient: "bg-gradient-to-r from-cyan-600 to-sky-600", btnHover: "hover:from-cyan-700 hover:to-sky-700", priceColor: "text-cyan-700", headerBg: "bg-cyan-900", icon: "text-cyan-400" },
+    6: { accent: "from-orange-400 to-red-500", glow: "shadow-orange-400/30", text: "text-orange-700", badge: "bg-gradient-to-r from-orange-600 to-red-600", border: "border-orange-300", ring: "ring-orange-300/30", shimmer: "from-orange-200/0 via-orange-200/50 to-orange-200/0", bg: "bg-orange-50/50", cardBg: "bg-gradient-to-br from-orange-50 to-red-50", btnGradient: "bg-gradient-to-r from-orange-600 to-red-600", btnHover: "hover:from-orange-700 hover:to-red-700", priceColor: "text-orange-700", headerBg: "bg-orange-900", icon: "text-orange-400" },
+    7: { accent: "from-indigo-400 to-blue-500", glow: "shadow-indigo-400/30", text: "text-indigo-700", badge: "bg-gradient-to-r from-indigo-600 to-blue-600", border: "border-indigo-300", ring: "ring-indigo-300/30", shimmer: "from-indigo-200/0 via-indigo-200/50 to-indigo-200/0", bg: "bg-indigo-50/50", cardBg: "bg-gradient-to-br from-indigo-50 to-blue-50", btnGradient: "bg-gradient-to-r from-indigo-600 to-blue-600", btnHover: "hover:from-indigo-700 hover:to-blue-700", priceColor: "text-indigo-700", headerBg: "bg-indigo-900", icon: "text-indigo-400" },
+    8: { accent: "from-fuchsia-400 to-purple-500", glow: "shadow-fuchsia-400/30", text: "text-fuchsia-700", badge: "bg-gradient-to-r from-fuchsia-600 to-purple-600", border: "border-fuchsia-300", ring: "ring-fuchsia-300/30", shimmer: "from-fuchsia-200/0 via-fuchsia-200/50 to-fuchsia-200/0", bg: "bg-fuchsia-50/50", cardBg: "bg-gradient-to-br from-fuchsia-50 to-purple-50", btnGradient: "bg-gradient-to-r from-fuchsia-600 to-purple-600", btnHover: "hover:from-fuchsia-700 hover:to-purple-700", priceColor: "text-fuchsia-700", headerBg: "bg-fuchsia-900", icon: "text-fuchsia-400" },
+    9: { accent: "from-lime-400 to-green-500", glow: "shadow-lime-400/30", text: "text-lime-700", badge: "bg-gradient-to-r from-lime-600 to-green-600", border: "border-lime-300", ring: "ring-lime-300/30", shimmer: "from-lime-200/0 via-lime-200/50 to-lime-200/0", bg: "bg-lime-50/50", cardBg: "bg-gradient-to-br from-lime-50 to-green-50", btnGradient: "bg-gradient-to-r from-lime-600 to-green-600", btnHover: "hover:from-lime-700 hover:to-green-700", priceColor: "text-lime-700", headerBg: "bg-lime-900", icon: "text-lime-400" },
+    10: { accent: "from-yellow-400 to-amber-500", glow: "shadow-yellow-400/30", text: "text-yellow-700", badge: "bg-gradient-to-r from-yellow-600 to-amber-600", border: "border-yellow-400", ring: "ring-yellow-300/30", shimmer: "from-yellow-200/0 via-yellow-300/50 to-yellow-200/0", bg: "bg-yellow-50/50", cardBg: "bg-gradient-to-br from-yellow-50 to-amber-50", btnGradient: "bg-gradient-to-r from-yellow-600 to-amber-600", btnHover: "hover:from-yellow-700 hover:to-amber-700", priceColor: "text-yellow-700", headerBg: "bg-yellow-900", icon: "text-yellow-400" },
+    11: { accent: "from-teal-400 to-emerald-500", glow: "shadow-teal-400/30", text: "text-teal-700", badge: "bg-gradient-to-r from-teal-600 to-emerald-600", border: "border-teal-300", ring: "ring-teal-300/30", shimmer: "from-teal-200/0 via-teal-200/50 to-teal-200/0", bg: "bg-teal-50/50", cardBg: "bg-gradient-to-br from-teal-50 to-emerald-50", btnGradient: "bg-gradient-to-r from-teal-600 to-emerald-600", btnHover: "hover:from-teal-700 hover:to-emerald-700", priceColor: "text-teal-700", headerBg: "bg-teal-900", icon: "text-teal-400" },
+    12: { accent: "from-pink-400 to-rose-500", glow: "shadow-pink-400/30", text: "text-pink-700", badge: "bg-gradient-to-r from-pink-600 to-rose-600", border: "border-pink-300", ring: "ring-pink-300/30", shimmer: "from-pink-200/0 via-pink-200/50 to-pink-200/0", bg: "bg-pink-50/50", cardBg: "bg-gradient-to-br from-pink-50 to-rose-50", btnGradient: "bg-gradient-to-r from-pink-600 to-rose-600", btnHover: "hover:from-pink-700 hover:to-rose-700", priceColor: "text-pink-700", headerBg: "bg-pink-900", icon: "text-pink-400" },
+    13: { accent: "from-sky-400 to-indigo-500", glow: "shadow-sky-400/30", text: "text-sky-700", badge: "bg-gradient-to-r from-sky-600 to-indigo-600", border: "border-sky-300", ring: "ring-sky-300/30", shimmer: "from-sky-200/0 via-sky-200/50 to-sky-200/0", bg: "bg-sky-50/50", cardBg: "bg-gradient-to-br from-sky-50 to-indigo-50", btnGradient: "bg-gradient-to-r from-sky-600 to-indigo-600", btnHover: "hover:from-sky-700 hover:to-indigo-700", priceColor: "text-sky-700", headerBg: "bg-sky-900", icon: "text-sky-400" },
+    14: { accent: "from-red-400 to-orange-500", glow: "shadow-red-400/30", text: "text-red-700", badge: "bg-gradient-to-r from-red-600 to-orange-600", border: "border-red-300", ring: "ring-red-300/30", shimmer: "from-red-200/0 via-red-200/50 to-red-200/0", bg: "bg-red-50/50", cardBg: "bg-gradient-to-br from-red-50 to-orange-50", btnGradient: "bg-gradient-to-r from-red-600 to-orange-600", btnHover: "hover:from-red-700 hover:to-orange-700", priceColor: "text-red-700", headerBg: "bg-red-900", icon: "text-red-400" },
+  };
+  const tier = Math.max(0, Math.min(14, tierLevel ?? 0));
+  return tierStyles[tier] || tierStyles[0];
 }
 
 function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSelectPlan: (plan: any) => void }) {
@@ -1048,7 +1064,7 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
     return item.featureValue || (item.includedQty > 0 ? `${item.includedQty} ${item.unit}` : "Included");
   };
 
-  const maxTier = Math.max(...plans.map((p: any) => p.tierLevel || 1));
+  const maxTier = Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
 
   return (
     <motion.div
@@ -1071,32 +1087,38 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                 Lifestyle Features
               </th>
               {plans.map((plan: any) => {
-                const style = getTierStyle(plan.tierLevel || 1, maxTier);
+                const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
+                const tierNum = plan.tierLevel ?? 0;
                 return (
-                  <th key={plan.id} className={cn("text-center px-4 min-w-[180px] relative", plan.isHighlighted ? "bg-amber-600/20 pt-8 pb-4" : "py-4")}>
+                  <th key={plan.id} className={cn("text-center px-4 min-w-[180px] relative py-4", plan.isHighlighted ? "pt-8" : "")}>
                     {plan.isHighlighted && (
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10 flex items-center gap-1">
+                      <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10 flex items-center gap-1", style.badge)}>
                         <Sparkles className="w-3 h-3" /> Most Popular
                       </div>
                     )}
+                    {tierNum >= maxTier && !plan.isHighlighted && (
+                      <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-b-lg tracking-wider whitespace-nowrap z-10 flex items-center gap-1", style.badge)}>
+                        <Crown className="w-3 h-3" /> Premium
+                      </div>
+                    )}
                     <div className="text-white font-bold text-sm tracking-wide flex items-center justify-center gap-1.5">
-                      {(plan.tierLevel || 1) >= maxTier && <Crown className="w-3.5 h-3.5 text-amber-400" />}
+                      <span className={style.icon}>{tierNum >= maxTier ? "👑" : tierNum >= maxTier - 1 ? "💎" : "⭐"}</span>
                       {plan.name}
                     </div>
-                    {plan.tagline && <div className="text-stone-400 text-[10px] mt-0.5 font-medium">{plan.tagline}</div>}
+                    {plan.tagline && <div className={cn("text-[10px] mt-0.5 font-medium", style.icon)}>{plan.tagline}</div>}
                   </th>
                 );
               })}
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-stone-100 bg-amber-50/50">
+            <tr className="border-b border-stone-100 bg-stone-50/50">
               <td className="py-3.5 px-5 font-semibold text-stone-700">Annual Fee (Standard)</td>
               {plans.map((plan: any) => {
-                const style = getTierStyle(plan.tierLevel || 1, maxTier);
+                const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
                 return (
-                  <td key={plan.id} className={`text-center py-3.5 px-4 ${plan.isHighlighted ? "bg-amber-50" : ""}`}>
-                    <span className={cn("text-lg font-bold", style.text)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                  <td key={plan.id} className={cn("text-center py-3.5 px-4", style.bg)}>
+                    <span className={cn("text-lg font-bold", style.priceColor)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
                   </td>
                 );
               })}
@@ -1104,48 +1126,58 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
             {plans.some((p: any) => p.occupancy) && (
               <tr className="border-b border-stone-100">
                 <td className="py-3 px-5 font-medium text-stone-600">Occupancy</td>
-                {plans.map((plan: any) => (
-                  <td key={plan.id} className={`text-center py-3 px-4 text-stone-700 font-medium ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
-                    {plan.occupancy || "—"}
-                  </td>
-                ))}
+                {plans.map((plan: any) => {
+                  const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
+                  return (
+                    <td key={plan.id} className={cn("text-center py-3 px-4 font-medium", plan.isHighlighted ? style.bg : "", style.priceColor)}>
+                      {plan.occupancy || "—"}
+                    </td>
+                  );
+                })}
               </tr>
             )}
             {plans.some((p: any) => p.locationInfo) && (
               <tr className="border-b border-stone-100">
                 <td className="py-3 px-5 font-medium text-stone-600">Location</td>
-                {plans.map((plan: any) => (
-                  <td key={plan.id} className={`text-center py-3 px-4 text-stone-700 font-medium ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
-                    {plan.locationInfo || "—"}
-                  </td>
-                ))}
+                {plans.map((plan: any) => {
+                  const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
+                  return (
+                    <td key={plan.id} className={cn("text-center py-3 px-4 font-medium text-stone-700", plan.isHighlighted ? style.bg : "")}>
+                      {plan.locationInfo || "—"}
+                    </td>
+                  );
+                })}
               </tr>
             )}
             {plans.some((p: any) => p.tagline) && (
               <tr className="border-b border-stone-100 bg-stone-50/50">
                 <td className="py-3 px-5 font-medium text-stone-600">The "Vibe"</td>
-                {plans.map((plan: any) => (
-                  <td key={plan.id} className={`text-center py-3 px-4 font-bold ${plan.isHighlighted ? "text-amber-700 bg-amber-50/30" : "text-stone-800"}`}>
-                    {plan.tagline || "—"}
-                  </td>
-                ))}
+                {plans.map((plan: any) => {
+                  const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
+                  return (
+                    <td key={plan.id} className={cn("text-center py-3 px-4 font-bold", style.text, plan.isHighlighted ? style.bg : "")}>
+                      {plan.tagline || "—"}
+                    </td>
+                  );
+                })}
               </tr>
             )}
             {allFeatureLabels.map((label, idx) => (
               <tr key={label} className={`border-b border-stone-100 ${idx % 2 === 1 ? "bg-stone-50/40" : ""}`}>
                 <td className="py-3 px-5 font-medium text-stone-600">{label}</td>
                 {plans.map((plan: any) => {
+                  const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
                   const val = getFeatureValue(plan, label);
                   const isPaid = val && (val.toLowerCase().includes("paid") || val.toLowerCase().includes("pay-per"));
                   const isUnlimited = val && val.toLowerCase().includes("unlimited");
                   const isCredit = val && val.includes("Credit");
                   return (
-                    <td key={plan.id} className={`text-center py-3 px-4 ${plan.isHighlighted ? "bg-amber-50/30" : ""}`}>
+                    <td key={plan.id} className={cn("text-center py-3 px-4", plan.isHighlighted ? style.bg : "")}>
                       {val ? (
                         <span className={cn(
                           "font-medium",
                           isPaid ? "text-stone-400" : "",
-                          isUnlimited ? "font-bold text-amber-700" : "",
+                          isUnlimited ? cn("font-bold", style.text) : "",
                           isCredit ? "text-emerald-700 font-semibold" : "",
                           !isPaid && !isUnlimited && !isCredit ? "text-stone-700" : ""
                         )}>
@@ -1159,11 +1191,10 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                 })}
               </tr>
             ))}
-            <tr className="bg-gradient-to-r from-stone-50 to-amber-50/30">
+            <tr className="bg-gradient-to-r from-stone-50 to-stone-100/30">
               <td className="py-4 px-5"></td>
               {plans.map((plan: any) => {
-                const style = getTierStyle(plan.tierLevel || 1, maxTier);
-                const isTop = (plan.tierLevel || 1) >= maxTier;
+                const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
                 return (
                   <td key={plan.id} className="text-center py-4 px-4">
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
@@ -1171,24 +1202,18 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                         onClick={() => onSelectPlan(plan)}
                         className={cn(
                           "rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm text-white shadow-lg transition-all relative overflow-hidden",
-                          plan.isHighlighted
-                            ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-amber-500/30"
-                            : isTop
-                            ? "bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-800 hover:to-yellow-700 shadow-amber-500/20"
-                            : "bg-stone-800 hover:bg-stone-700 shadow-stone-500/20"
+                          style.btnGradient, style.btnHover, style.glow
                         )}
                         data-testid={`button-book-plan-${plan.id}`}
                       >
                         <span className="relative z-10 flex items-center gap-2">
-                          Book Now <ArrowRight className="w-4 h-4" />
+                          Explore & Book <ArrowRight className="w-4 h-4" />
                         </span>
-                        {(plan.isHighlighted || isTop) && (
-                          <motion.div
-                            className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
-                            animate={{ x: ["-100%", "200%"] }}
-                            transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-                          />
-                        )}
+                        <motion.div
+                          className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
+                          animate={{ x: ["-100%", "200%"] }}
+                          transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+                        />
                       </Button>
                     </motion.div>
                   </td>
@@ -1201,8 +1226,9 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
 
       <div className="md:hidden space-y-5">
         {plans.map((plan: any, pi: number) => {
-          const style = getTierStyle(plan.tierLevel || 1, maxTier);
-          const isTop = (plan.tierLevel || 1) >= maxTier;
+          const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
+          const tierNum = plan.tierLevel ?? 0;
+          const isTop = tierNum >= maxTier;
           return (
             <motion.div
               key={plan.id}
@@ -1211,40 +1237,40 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
               viewport={{ once: true }}
               transition={{ delay: pi * 0.1 }}
               className={cn(
-                "rounded-2xl border overflow-hidden bg-white relative",
-                plan.isHighlighted
-                  ? "border-2 border-amber-400 shadow-xl shadow-amber-200/50"
-                  : isTop
-                  ? "border-2 border-amber-300/60 shadow-lg shadow-amber-100/30"
-                  : "border-stone-200 shadow-md"
+                "rounded-2xl border-2 overflow-hidden relative",
+                style.border, style.cardBg, style.glow,
+                plan.isHighlighted ? "shadow-xl" : "shadow-lg"
               )}
               data-testid={`plan-card-${plan.id}`}
             >
-              {(plan.isHighlighted || isTop) && (
-                <motion.div
-                  className={cn("absolute inset-0 bg-gradient-to-r pointer-events-none rounded-2xl", style.shimmer)}
-                  animate={{ x: ["-100%", "200%"] }}
-                  transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-                />
-              )}
+              <motion.div
+                className={cn("absolute inset-0 bg-gradient-to-r pointer-events-none rounded-2xl", style.shimmer)}
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+              />
               {plan.isHighlighted && (
-                <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative">
-                  <Sparkles className="h-3 w-3 inline mr-1" /> Most Popular
+                <div className={cn("text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative flex items-center justify-center gap-1", style.badge)}>
+                  <Sparkles className="h-3 w-3" /> Most Popular
                 </div>
               )}
               {isTop && !plan.isHighlighted && (
-                <div className="bg-gradient-to-r from-amber-700 via-yellow-600 to-amber-700 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative">
-                  <Crown className="h-3 w-3 inline mr-1" /> Premium Tier
+                <div className={cn("text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative flex items-center justify-center gap-1", style.badge)}>
+                  <Crown className="h-3 w-3" /> Premium
+                </div>
+              )}
+              {!isTop && !plan.isHighlighted && (
+                <div className={cn("text-white text-center text-[10px] font-bold uppercase tracking-wider py-1.5 relative flex items-center justify-center gap-1", style.badge)}>
+                  Tier {tierNum}
                 </div>
               )}
               <div className="p-5 relative">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-lg text-stone-900">{plan.name}</h3>
-                  {isTop && <Crown className="w-4 h-4 text-amber-500" />}
+                  <span>{isTop ? "👑" : tierNum >= maxTier - 1 ? "💎" : "⭐"}</span>
                 </div>
                 {plan.tagline && <p className={cn("text-sm font-medium", style.text)}>{plan.tagline}</p>}
                 <div className="flex items-baseline gap-1 mt-2 mb-4">
-                  <span className={cn("text-2xl font-bold", style.text)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
+                  <span className={cn("text-2xl font-bold", style.priceColor)}>₹{Number(plan.basePrice).toLocaleString("en-IN")}</span>
                   <span className="text-xs text-stone-400">/ year</span>
                 </div>
                 {plan.occupancy && (
@@ -1268,7 +1294,7 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                       <span className="text-stone-500">{item.label}</span>
                       <span className={cn(
                         "font-medium",
-                        isCredit ? "text-emerald-700 font-semibold" : isUnlimited ? "text-amber-700 font-bold" : "text-stone-700"
+                        isCredit ? "text-emerald-700 font-semibold" : isUnlimited ? cn("font-bold", style.text) : "text-stone-700"
                       )}>{val}</span>
                     </div>
                   );
@@ -1278,24 +1304,18 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                     onClick={() => onSelectPlan(plan)}
                     className={cn(
                       "w-full rounded-xl h-12 font-semibold tracking-wider uppercase text-sm text-white shadow-lg relative overflow-hidden",
-                      plan.isHighlighted
-                        ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-amber-500/30"
-                        : isTop
-                        ? "bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-800 hover:to-yellow-700 shadow-amber-500/20"
-                        : "bg-stone-800 hover:bg-stone-700 shadow-stone-500/20"
+                      style.btnGradient, style.btnHover, style.glow
                     )}
                     data-testid={`button-book-plan-${plan.id}`}
                   >
                     <span className="relative z-10 flex items-center justify-center gap-2">
-                      Book This Plan <ArrowRight className="w-4 h-4" />
+                      Explore & Book <ArrowRight className="w-4 h-4" />
                     </span>
-                    {(plan.isHighlighted || isTop) && (
-                      <motion.div
-                        className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
-                        animate={{ x: ["-100%", "200%"] }}
-                        transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-                      />
-                    )}
+                    <motion.div
+                      className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
+                      animate={{ x: ["-100%", "200%"] }}
+                      transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+                    />
                   </Button>
                 </motion.div>
               </div>
