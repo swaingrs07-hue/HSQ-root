@@ -135,6 +135,12 @@ export default function BookingGeneration() {
   const { user, token } = useAuth();
   const [, navigate] = useLocation();
 
+  useEffect(() => {
+    if (!token && !user) {
+      navigate("/login");
+    }
+  }, [token, user, navigate]);
+
   const [step, setStep] = useState(1);
   const [prefilledFromProperty, setPrefilledFromProperty] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1093,7 +1099,7 @@ export default function BookingGeneration() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[
                         { value: "walk_in", label: "Walk-in Customer", desc: "New walk-in visitor", icon: User },
-                        { value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users },
+                        ...((isAdmin || isSalesExec) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
                         ...(isAdmin ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
                       ].map(opt => {
                         const OptIcon = opt.icon;
