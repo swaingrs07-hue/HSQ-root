@@ -119,6 +119,7 @@ function AppContent() {
               <Route path="/payment-plans" component={PaymentPlans} />
               <Route path="/payment-gateway" component={PaymentGateway} />
               <Route path="/agreement" component={Agreement} />
+              <Route path="/booking/generate" component={BookingGeneration} />
               <Route path="/my-bookings" component={MyBookings} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />

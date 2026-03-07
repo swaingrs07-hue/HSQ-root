@@ -132,14 +132,14 @@ const STEP_CONFIG = [
 
 export default function BookingGeneration() {
   const { toast } = useToast();
-  const { user, token } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    if (!token && !user) {
+    if (!authLoading && !token && !user) {
       navigate("/login");
     }
-  }, [token, user, navigate]);
+  }, [token, user, authLoading, navigate]);
 
   const [step, setStep] = useState(1);
   const [prefilledFromProperty, setPrefilledFromProperty] = useState(false);
