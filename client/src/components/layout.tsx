@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
+import { AnimatedLogo } from "./animated-logo";
 
 interface FooterLink { label: string; href: string; }
 interface FooterData {
@@ -192,7 +193,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
         >
           <Link href="/" className="flex items-center gap-2 group">
-            <img
+            <AnimatedLogo
               src={activeLogo}
               alt="Hsquare Living"
               className={cn(
