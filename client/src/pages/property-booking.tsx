@@ -24,13 +24,13 @@ class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-stone-50 flex items-center justify-center p-8">
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">⚠️</span>
             </div>
-            <h2 className="text-xl font-bold text-stone-800 mb-2">Something went wrong</h2>
-            <p className="text-stone-500 text-sm mb-4">
+            <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
+            <p className="text-white/50 text-sm mb-4">
               {this.state.error?.message || "An unexpected error occurred while loading this page."}
             </p>
             <button
@@ -54,6 +54,7 @@ import {
   ZoomIn, Navigation, Compass, Star, Wifi, Coffee,
   Crown, IndianRupee, CheckCircle2,
 } from "lucide-react";
+import { ParticleBackground } from "@/components/particle-background";
 
 function parseImages(json: string | null | undefined): string[] {
   if (!json) return [];
@@ -350,7 +351,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     <div className="space-y-0" data-testid="tour-gallery">
       <div
         ref={containerRef}
-        className="relative aspect-[16/10] md:aspect-[21/9] bg-stone-950 overflow-hidden group cursor-pointer"
+        className="relative aspect-[16/10] md:aspect-[21/9] bg-[#050505] overflow-hidden group cursor-pointer"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={() => images.length > 0 && setIsFullscreen(true)}
@@ -451,18 +452,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
             </div>
           </>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-stone-900 to-stone-950">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0a0a] to-[#050505]">
             <div className="relative">
               <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-3xl" />
-              <Camera className="w-20 h-20 text-stone-600 relative" />
+              <Camera className="w-20 h-20 text-white/20 relative" />
             </div>
-            <p className="text-stone-400 font-bold text-lg mt-4 tracking-wider uppercase">Tour Coming Soon</p>
-            <p className="text-stone-600 text-sm mt-2">Images will be uploaded by the property manager</p>
+            <p className="text-white/40 font-bold text-lg mt-4 tracking-wider uppercase">Tour Coming Soon</p>
+            <p className="text-white/20 text-sm mt-2">Images will be uploaded by the property manager</p>
           </div>
         )}
       </div>
 
-      <div className="bg-gradient-to-r from-stone-900 via-stone-900 to-stone-800 px-4 py-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a] to-white/[0.03] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Camera className="w-4 h-4 text-amber-500" />
           <span className="text-white/80 text-sm font-medium tracking-wide">Virtual Tour</span>
@@ -690,10 +691,10 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
   if (floorsData.length === 0) {
     return (
-      <div className="text-center py-16 rounded-2xl border-2 border-dashed border-stone-200 bg-gradient-to-b from-stone-50 to-white">
-        <Layers className="w-14 h-14 text-stone-300 mx-auto mb-3" />
-        <p className="text-stone-500 font-semibold text-lg">Floor plan not configured yet</p>
-        <p className="text-sm text-stone-400 mt-1">Please select a room type below to book</p>
+      <div className="text-center py-16 rounded-2xl border-2 border-dashed border-white/[0.08] bg-white/[0.02]">
+        <Layers className="w-14 h-14 text-white/20 mx-auto mb-3" />
+        <p className="text-white/50 font-semibold text-lg">Floor plan not configured yet</p>
+        <p className="text-sm text-white/30 mt-1">Please select a room type below to book</p>
       </div>
     );
   }
@@ -746,11 +747,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
               : hasPassivePlan && bedPlanColors
                 ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
                 : isDimmedByPlan
-                  ? "bg-gradient-to-br from-stone-200 to-stone-300 border-stone-300/50 opacity-30 grayscale cursor-not-allowed"
+                  ? "bg-white/[0.04] border-white/[0.04] opacity-30 grayscale cursor-not-allowed"
                   : cn(config.bg, config.border),
           (isAvailable && matchesPlanFilter) ? "cursor-pointer" : (!isDimmedByPlan && config.cursor),
           !isAvailable && !isDimmedByPlan && !hasPassivePlan && !hasMultiPlan && "opacity-40",
-          isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-white shadow-xl shadow-amber-500/50"
+          isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-[#050505] shadow-xl shadow-amber-500/50"
         )}
         title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasMultiPlan ? ` — ${multiPlans.map(p => p.name).join(", ")}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
@@ -788,7 +789,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 15 }}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 z-10"
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 z-10"
           >
             <Check className="w-3.5 h-3.5 text-amber-600" />
           </motion.div>
@@ -830,14 +831,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             {filterRoomTypeId && (
               <>
                 <span className="flex items-center gap-1"><span className={cn("w-3 h-3 rounded", activeTierColors.bg, activeTierColors.border)} /> {selectedPlan.name}</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-stone-300 opacity-40" /> Other</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/20" /> Other</span>
               </>
             )}
           </div>
         </motion.div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-stone-50 via-white to-amber-50/50 p-4 rounded-xl border border-stone-200 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 text-xs text-stone-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.03] p-4 rounded-xl border border-white/[0.08]">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
           {Object.entries(statusConfig).map(([key, config]) => (
             <span key={key} className="flex items-center gap-1.5">
               <span className={cn("w-3 h-3 rounded-full shadow-sm", config.dot)} />
@@ -846,13 +847,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold shadow-sm shadow-emerald-100">{availAll} available</Badge>
-          <span className="text-stone-400 text-xs">of {totalAll} total beds</span>
+          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availAll} available</Badge>
+          <span className="text-white/30 text-xs">of {totalAll} total beds</span>
         </div>
       </div>
 
       <div className="relative">
-        <div className="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-amber-300 via-amber-200 to-transparent" />
+        <div className="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-amber-500/60 via-amber-500/20 to-transparent" />
 
         {floorsData.map((floor: any, fi: number) => {
           const isExpanded = expandedFloor === floor.id;
@@ -873,35 +874,35 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
               className="relative pl-10 mb-3"
               data-testid={`floor-card-${floor.id}`}
             >
-              <div className={cn("absolute left-5 top-5 w-5 h-5 rounded-full border-2 z-10", availBeds > 0 ? "bg-amber-500 border-amber-400" : "bg-stone-300 border-stone-200")} />
+              <div className={cn("absolute left-5 top-5 w-5 h-5 rounded-full border-2 z-10", availBeds > 0 ? "bg-amber-500 border-amber-400" : "bg-white/20 border-white/10")} />
 
-              <div className={cn("rounded-xl border overflow-hidden transition-all duration-200", isExpanded ? "border-amber-300 shadow-xl shadow-amber-500/10 bg-white" : "border-stone-200 hover:border-stone-300 bg-white hover:shadow-md")}>
+              <div className={cn("rounded-xl border overflow-hidden transition-all duration-200", isExpanded ? "border-amber-500/30 shadow-xl shadow-amber-500/10 bg-white/[0.04]" : "border-white/[0.08] hover:border-white/[0.15] bg-white/[0.02] hover:bg-white/[0.04]")}>
                 <button
                   onClick={() => setExpandedFloor(isExpanded ? null : floor.id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-stone-50/50 transition-colors"
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
                 >
                   <div className="flex items-center gap-4">
                     <div className="relative w-12 h-12">
                       <svg viewBox="0 0 48 48" className="w-full h-full">
-                        <circle cx="24" cy="24" r="20" fill="none" stroke="#f5f5f4" strokeWidth="3" />
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
                         <circle cx="24" cy="24" r="20" fill="none" stroke={availBeds > 0 ? "#f59e0b" : "#ef4444"} strokeWidth="3" strokeDasharray={`${(availBeds / Math.max(totalBeds, 1)) * 125.6} 125.6`} strokeLinecap="round" transform="rotate(-90 24 24)" className="transition-all duration-700" />
                       </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-stone-700">{floor.floorNumber}</span>
+                      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white/80">{floor.floorNumber}</span>
                     </div>
                     <div className="text-left">
-                      <h4 className="font-bold text-gray-900">{floor.name}</h4>
-                      <p className="text-xs text-stone-400 mt-0.5">
-                        {hasRooms && <><span className="text-indigo-600 font-medium">{rooms.length} rooms</span> · </>}
-                        <span className="text-emerald-600 font-semibold">{availBeds}</span> of {totalBeds} beds available
-                        <span className="text-stone-300 ml-2">({occupancyPct}% open)</span>
+                      <h4 className="font-bold text-white">{floor.name}</h4>
+                      <p className="text-xs text-white/40 mt-0.5">
+                        {hasRooms && <><span className="text-indigo-400 font-medium">{rooms.length} rooms</span> · </>}
+                        <span className="text-emerald-400 font-semibold">{availBeds}</span> of {totalBeds} beds available
+                        <span className="text-white/20 ml-2">({occupancyPct}% open)</span>
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {availBeds > 0 && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold">{availBeds} open</Badge>}
-                    {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-50 text-red-600 border-red-200 text-xs font-bold">Full</Badge>}
+                    {availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
+                    {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-xs font-bold">Full</Badge>}
                     <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown className="w-5 h-5 text-stone-400" />
+                      <ChevronDown className="w-5 h-5 text-white/40" />
                     </motion.div>
                   </div>
                 </button>
@@ -909,7 +910,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                 <AnimatePresence>
                   {isExpanded && (beds.length > 0 || rooms.length > 0) && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-                      <div className="px-4 pb-4 border-t border-stone-100 mt-1">
+                      <div className="px-4 pb-4 border-t border-white/[0.06] mt-1">
                         {hasRooms ? (
                           <div className="space-y-3 mt-3">
                             {rooms.map((room: any) => {
@@ -938,15 +939,15 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                   roomMatchesPlan && activeTierColors
                                     ? cn("border-2", activeTierColors.roomBorder)
                                     : roomDimmedByPlan
-                                      ? "border-stone-200 bg-stone-50/30 opacity-40"
+                                      ? "border-white/[0.06] bg-white/[0.01] opacity-40"
                                       : hasPassiveRoomPlan && !hasMultiRoomPlan
                                         ? cn("border-2", roomPlanColors.roomBorder)
                                         : hasMultiRoomPlan
-                                          ? "border-2 border-stone-200 bg-gradient-to-br from-stone-50/50 to-white"
-                                          : allOccupied ? "border-red-200 bg-red-50/30" : roomAvail > 0 ? "border-stone-200 hover:border-amber-200 bg-stone-50/50 hover:bg-amber-50/30" : "border-stone-200 bg-stone-50/30"
+                                          ? "border-2 border-white/[0.1] bg-white/[0.02]"
+                                          : allOccupied ? "border-red-500/20 bg-red-500/5" : roomAvail > 0 ? "border-white/[0.08] hover:border-amber-500/20 bg-white/[0.02] hover:bg-amber-500/5" : "border-white/[0.06] bg-white/[0.01]"
                                 )} data-testid={`room-${room.id}`}>
                                   <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-                                    <span className="text-xs font-bold text-stone-700">Room {room.roomNumber}</span>
+                                    <span className="text-xs font-bold text-white/80">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
                                     {room.hasSharedWashroom && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">Shared WC</Badge>}
                                     {roomMatchesPlan && selectedPlan && activeTierColors ? (
@@ -961,15 +962,15 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                       </Badge>
                                     ) : null}
                                     <div className="flex-1" />
-                                    {room.monthlyPrice && <span className="text-[10px] text-stone-400 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
-                                    <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-500 border-red-200")}>{roomAvail} open</Badge>
+                                    {room.monthlyPrice && <span className="text-[10px] text-white/30 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
+                                    <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>{roomAvail} open</Badge>
                                   </div>
 
                                   {isCombo && sections ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                       {sections.map((section: any) => (
-                                        <div key={section.label} className="bg-white rounded-lg border border-stone-100 p-2.5">
-                                          <p className="text-[10px] font-semibold text-stone-500 mb-1.5 uppercase tracking-wider">
+                                        <div key={section.label} className="bg-white/[0.03] rounded-lg border border-white/[0.06] p-2.5">
+                                          <p className="text-[10px] font-semibold text-white/40 mb-1.5 uppercase tracking-wider">
                                             Section {section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
                                           </p>
                                           <div className="flex gap-1.5 flex-wrap">
@@ -989,7 +990,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
                             {orphanBeds.length > 0 && (
                               <div className="mt-2">
-                                <p className="text-[10px] text-stone-400 mb-1.5 font-medium uppercase tracking-wider">Other beds</p>
+                                <p className="text-[10px] text-white/30 mb-1.5 font-medium uppercase tracking-wider">Other beds</p>
                                 <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
                                   {orphanBeds.map((bed: any) => renderBedButton(bed, floor))}
                                 </div>
@@ -1074,12 +1075,12 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
       transition={{ duration: 0.5 }}
       data-testid="housing-plans-section"
     >
-      <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
-        <Crown className="w-5 h-5 text-amber-600" />
+      <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+        <Crown className="w-5 h-5 text-amber-500" />
         Housing Plans & Features
       </h2>
 
-      <div className="hidden md:grid gap-3" style={{ gridTemplateColumns: `repeat(${plans.length}, minmax(200px, 1fr))` }}>
+      <div className="hidden md:flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10" style={{ scrollbarWidth: "thin" }}>
         {plans.map((plan: any, pi: number) => {
           const style = getTierStyle(plan.tierLevel ?? 0, maxTier);
           const tierNum = plan.tierLevel ?? 0;
@@ -1092,7 +1093,8 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
               viewport={{ once: true }}
               transition={{ delay: pi * 0.08 }}
               className={cn(
-                "rounded-xl border overflow-hidden relative flex flex-col",
+                "rounded-xl border overflow-hidden relative flex flex-col flex-shrink-0",
+                plans.length <= 3 ? "flex-1 min-w-[200px]" : "min-w-[220px] w-[260px]",
                 style.border, style.cardBg, style.glow
               )}
               data-testid={`plan-card-${plan.id}`}
@@ -1467,17 +1469,17 @@ function PropertyBooking() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-stone-50">
-        <Skeleton className="h-[400px] w-full" />
+      <div className="min-h-screen bg-[#050505]">
+        <Skeleton className="h-[400px] w-full bg-white/[0.05]" />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-[300px] w-full rounded-xl" />
-              <Skeleton className="h-8 w-48" />
-              <div className="grid grid-cols-3 gap-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+              <Skeleton className="h-8 w-48 bg-white/[0.05]" />
+              <Skeleton className="h-[300px] w-full rounded-xl bg-white/[0.05]" />
+              <Skeleton className="h-8 w-48 bg-white/[0.05]" />
+              <div className="grid grid-cols-3 gap-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24 rounded-xl bg-white/[0.05]" />)}</div>
             </div>
-            <div><Skeleton className="h-[300px] w-full rounded-xl" /></div>
+            <div><Skeleton className="h-[300px] w-full rounded-xl bg-white/[0.05]" /></div>
           </div>
         </div>
       </div>
@@ -1486,11 +1488,11 @@ function PropertyBooking() {
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <div className="text-center">
-          <Building2 className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-stone-700">Property not found</h2>
-          <p className="text-stone-500 mt-2">The property you're looking for doesn't exist or has been removed.</p>
+          <Building2 className="w-16 h-16 text-white/20 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white">Property not found</h2>
+          <p className="text-white/50 mt-2">The property you're looking for doesn't exist or has been removed.</p>
           <Button onClick={() => navigate("/properties")} className="mt-6 bg-amber-600 hover:bg-amber-700 rounded-xl" data-testid="button-browse">Browse Properties</Button>
         </div>
       </div>
@@ -1511,56 +1513,57 @@ function PropertyBooking() {
   }, Infinity) || 0;
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-[#050505] relative">
+      <ParticleBackground preset="sparse" />
       <div className="relative">
         <ImmersiveTour property={property} onStartBooking={scrollToFloors} />
       </div>
 
-      <div className="bg-white border-b border-stone-200 shadow-sm">
+      <div className="relative bg-white/[0.03] backdrop-blur-sm border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <button onClick={() => navigate("/properties")} className="flex items-center gap-1.5 text-stone-400 hover:text-amber-600 text-xs mb-2 transition-colors uppercase tracking-wider font-medium" data-testid="button-back">
+              <button onClick={() => navigate("/properties")} className="flex items-center gap-1.5 text-white/40 hover:text-amber-400 text-xs mb-2 transition-colors uppercase tracking-wider font-medium" data-testid="button-back">
                 <ChevronLeft className="w-3.5 h-3.5" /> All Properties
               </button>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight" data-testid="text-property-name">
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight" data-testid="text-property-name">
                   {property.displayName || property.name}
                 </h1>
-                <Badge className="bg-amber-50 text-amber-700 border-amber-200 uppercase text-[10px] tracking-widest font-bold rounded-md">
+                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 uppercase text-[10px] tracking-widest font-bold rounded-md">
                   {property.category}
                 </Badge>
               </div>
-              <p className="text-stone-500 flex items-center gap-1.5 text-sm mt-1.5">
-                <MapPin className="w-3.5 h-3.5 text-amber-600" />
+              <p className="text-white/50 flex items-center gap-1.5 text-sm mt-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-500" />
                 {property.location}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-center px-5 py-3 bg-gradient-to-b from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl">
-                <p className="text-xl font-bold text-amber-600">{lowestPrice > 0 && lowestPrice < Infinity ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}</p>
-                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Starting {property.bookingMode === "academic_year" ? "per year" : "per month"}</p>
+              <div className="text-center px-5 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                <p className="text-xl font-bold text-amber-400">{lowestPrice > 0 && lowestPrice < Infinity ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Starting {property.bookingMode === "academic_year" ? "per year" : "per month"}</p>
               </div>
-              <div className="text-center px-5 py-3 bg-gradient-to-b from-emerald-50 to-emerald-100/50 border border-emerald-200 rounded-xl">
-                <p className="text-xl font-bold text-emerald-600">{availableBeds}</p>
-                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Beds Available</p>
+              <div className="text-center px-5 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <p className="text-xl font-bold text-emerald-400">{availableBeds}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Beds Available</p>
               </div>
-              <div className="text-center px-5 py-3 bg-gradient-to-b from-stone-50 to-stone-100/50 border border-stone-200 rounded-xl">
-                <p className="text-xl font-bold text-stone-700">{property.roomTypes?.length || 0}</p>
-                <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Types</p>
+              <div className="text-center px-5 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl">
+                <p className="text-xl font-bold text-white/80">{property.roomTypes?.length || 0}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Room Types</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+      <div className="relative max-w-7xl mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-10">
             {property.amenities?.length > 0 && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-600" />
+                <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
                   Amenities & Facilities
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1571,10 +1574,10 @@ function PropertyBooking() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.02 }}
-                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-gray-700 hover:border-amber-300 hover:shadow-sm transition-all group"
+                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white/70 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group"
                     >
-                      <div className="w-6 h-6 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
-                        <Check className="w-3.5 h-3.5 text-amber-600" />
+                      <div className="w-6 h-6 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
+                        <Check className="w-3.5 h-3.5 text-amber-500" />
                       </div>
                       {am}
                     </motion.div>
@@ -1584,16 +1587,16 @@ function PropertyBooking() {
             )}
 
             <div ref={floorSectionRef} style={{ scrollMarginTop: "80px" }}>
-              <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-amber-600" />
+              <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-amber-500" />
                 Select Your Floor & Bed
               </h2>
               <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
-                <Bed className="w-5 h-5 text-amber-600" />
+              <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                <Bed className="w-5 h-5 text-amber-500" />
                 Room Types & Pricing
               </h2>
               <div className="space-y-3">
@@ -1604,21 +1607,21 @@ function PropertyBooking() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white border border-stone-200 rounded-xl p-5 hover:border-amber-300 hover:shadow-lg hover:shadow-amber-500/5 transition-all group"
+                    className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 hover:border-amber-500/20 hover:bg-white/[0.05] transition-all group backdrop-blur-sm"
                     data-testid={`room-card-${room.id}`}
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-bold text-lg">{room.customName || room.name}</h4>
-                          {room.size && <span className="text-xs bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-md">{room.size}</span>}
+                          <h4 className="font-bold text-lg text-white">{room.customName || room.name}</h4>
+                          {room.size && <span className="text-xs bg-white/[0.06] border border-white/[0.08] text-white/50 px-2 py-0.5 rounded-md">{room.size}</span>}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-stone-500">
-                          <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-600" /> {room.occupancy || 1}-sharing</span>
-                          <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-600" /> {room.availableBeds}/{room.totalBeds} available</span>
+                        <div className="flex items-center gap-4 text-sm text-white/50">
+                          <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-500" /> {room.occupancy || 1}-sharing</span>
+                          <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>
                         </div>
                         {room.availableBeds > 0 && room.availableBeds < 5 && (
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 border border-red-200 text-xs text-red-600 font-medium rounded-md">
+                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-medium rounded-md">
                             <Clock className="w-3 h-3" /> Only {room.availableBeds} left
                           </div>
                         )}
@@ -1634,14 +1637,14 @@ function PropertyBooking() {
                             const displayPrice = isAcademic ? annualPrice : monthlyPrice;
                             return (
                               <>
-                                <div className="text-2xl font-bold text-amber-600">
+                                <div className="text-2xl font-bold text-amber-400">
                                   {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                 </div>
-                                <div className="text-xs text-stone-400 uppercase tracking-wider">
+                                <div className="text-xs text-white/40 uppercase tracking-wider">
                                   {isAcademic ? "per year" : "per month"}
                                 </div>
                                 {isAcademic && monthlyPrice > 0 && (
-                                  <div className="text-xs text-stone-400 mt-0.5">
+                                  <div className="text-xs text-white/30 mt-0.5">
                                     ≈ ₹{monthlyPrice.toLocaleString("en-IN")}/mo
                                   </div>
                                 )}
@@ -1674,12 +1677,12 @@ function PropertyBooking() {
 
             {property.rules && (
               <div>
-                <h2 className="text-lg font-bold text-gray-900 tracking-wide uppercase mb-4 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-amber-600" />
+                <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-amber-500" />
                   Rules & Policies
                 </h2>
-                <div className="bg-white border border-stone-200 rounded-xl p-5">
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{property.rules}</p>
+                <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 backdrop-blur-sm">
+                  <p className="text-sm text-white/60 whitespace-pre-wrap leading-relaxed">{property.rules}</p>
                 </div>
               </div>
             )}
@@ -1690,9 +1693,9 @@ function PropertyBooking() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-stone-200 shadow-xl shadow-stone-200/50 overflow-hidden rounded-xl"
+                className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden rounded-xl"
               >
-                <div className="bg-gradient-to-r from-stone-900 to-stone-800 p-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-white/[0.06] to-white/[0.03] p-4 flex items-center justify-between border-b border-white/[0.06]">
                   <h3 className="text-white font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
                   {selectedBed && (
                     <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] rounded-md">Selected</Badge>
@@ -1700,44 +1703,44 @@ function PropertyBooking() {
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                      <Building2 className="w-5 h-5 text-amber-600" />
+                    <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0">
+                      <Building2 className="w-5 h-5 text-amber-500" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Property</p>
-                      <p className="font-semibold text-gray-900 text-sm">{property.displayName || property.name}</p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Property</p>
+                      <p className="font-semibold text-white text-sm">{property.displayName || property.name}</p>
                     </div>
                   </div>
 
                   {selectedBed && selectedFloor && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-3">
-                      <div className="border-t border-stone-100 pt-3 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                          <Layers className="w-5 h-5 text-amber-600" />
+                      <div className="border-t border-white/[0.06] pt-3 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0">
+                          <Layers className="w-5 h-5 text-amber-500" />
                         </div>
                         <div>
-                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Floor</p>
-                          <p className="font-semibold text-gray-900 text-sm">{selectedFloor.name}</p>
+                          <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Floor</p>
+                          <p className="font-semibold text-white text-sm">{selectedFloor.name}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                          <Bed className="w-5 h-5 text-amber-600" />
+                        <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0">
+                          <Bed className="w-5 h-5 text-amber-500" />
                         </div>
                         <div>
-                          <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Bed</p>
-                          <p className="font-semibold text-gray-900 text-sm">#{selectedBed.bedNumber}</p>
+                          <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Bed</p>
+                          <p className="font-semibold text-white text-sm">#{selectedBed.bedNumber}</p>
                         </div>
                       </div>
                       {selectedRoomType && (
                         <>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                              <Home className="w-5 h-5 text-amber-600" />
+                            <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0">
+                              <Home className="w-5 h-5 text-amber-500" />
                             </div>
                             <div>
-                              <p className="text-[10px] text-stone-400 uppercase tracking-wider font-medium">Room Type</p>
-                              <p className="font-semibold text-gray-900 text-sm">{(() => {
+                              <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Room Type</p>
+                              <p className="font-semibold text-white text-sm">{(() => {
                                 const rtName = selectedRoomType.customName || selectedRoomType.name;
                                 if (selectedRoom?.typology?.includes("+") && selectedRoomType.id !== selectedBed?.roomTypeId) {
                                   return rtName;
@@ -1767,7 +1770,7 @@ function PropertyBooking() {
                                       <Crown className={cn("w-4 h-4", planTierColors.badgeText)} />
                                     </div>
                                     <div className="flex-1">
-                                      <p className="text-[9px] text-stone-400 uppercase tracking-wider font-medium">Active Plan</p>
+                                      <p className="text-[9px] text-white/40 uppercase tracking-wider font-medium">Active Plan</p>
                                       <p className={cn("font-bold text-sm", planTierColors.text)}>{effectivePlan.name}</p>
                                     </div>
                                     {selectedPlan && (
@@ -1783,32 +1786,32 @@ function PropertyBooking() {
                                             }
                                           }
                                         }}
-                                        className="w-5 h-5 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors"
+                                        className="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                                         data-testid="button-clear-plan"
                                       >
-                                        <X className="w-3 h-3 text-stone-500" />
+                                        <X className="w-3 h-3 text-white/50" />
                                       </button>
                                     )}
                                   </div>
                                   {effectivePlan.tagline && (
-                                    <p className="text-[10px] text-stone-500 italic mb-2">{effectivePlan.tagline}</p>
+                                    <p className="text-[10px] text-white/40 italic mb-2">{effectivePlan.tagline}</p>
                                   )}
                                   {planPrice > 0 && (
                                     <div className="flex items-baseline gap-1.5 mb-1">
                                       <span className={cn("text-lg font-bold", planTierColors.text)}>₹{planPrice.toLocaleString("en-IN")}</span>
-                                      <span className="text-[10px] text-stone-400">/ year</span>
+                                      <span className="text-[10px] text-white/40">/ year</span>
                                     </div>
                                   )}
                                   {(effectivePlan.items || []).length > 0 && (
-                                    <div className="mt-2 pt-2 border-t border-stone-100 space-y-1">
+                                    <div className="mt-2 pt-2 border-t border-white/[0.06] space-y-1">
                                       {(effectivePlan.items || []).slice(0, 3).map((item: any) => (
                                         <div key={item.id} className="flex items-center gap-1.5 text-[10px]">
-                                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                                          <span className="text-stone-600">{item.label}: <span className="font-medium text-stone-800">{item.featureValue || `${item.includedQty} ${item.unit}`}</span></span>
+                                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                          <span className="text-white/50">{item.label}: <span className="font-medium text-white/70">{item.featureValue || `${item.includedQty} ${item.unit}`}</span></span>
                                         </div>
                                       ))}
                                       {(effectivePlan.items || []).length > 3 && (
-                                        <p className="text-[9px] text-stone-400">+{(effectivePlan.items || []).length - 3} more features</p>
+                                        <p className="text-[9px] text-white/30">+{(effectivePlan.items || []).length - 3} more features</p>
                                       )}
                                     </div>
                                   )}
@@ -1819,11 +1822,11 @@ function PropertyBooking() {
                           })()}
 
                           <div className={cn(
-                            "border-t border-stone-100 pt-4 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl",
-                            effectivePlan ? "bg-gradient-to-b from-stone-50 to-white" : "bg-gradient-to-b from-amber-50/50 to-stone-50"
+                            "border-t border-white/[0.06] pt-4 -mx-5 px-5 pb-0 -mb-1 rounded-b-xl",
+                            effectivePlan ? "bg-gradient-to-b from-white/[0.03] to-transparent" : "bg-gradient-to-b from-amber-500/5 to-transparent"
                           )}>
                             <div className="flex justify-between items-baseline">
-                              <span className="text-stone-500 text-sm">Total Price</span>
+                              <span className="text-white/50 text-sm">Total Price</span>
                               <div className="text-right">
                                 {(() => {
                                   try {
@@ -1839,20 +1842,20 @@ function PropertyBooking() {
                                   const monthlyEquiv = showPlanPrice ? Math.round(planPrice / 12) : (isAcademic && rtMonthlyPrice > 0 ? rtMonthlyPrice : 0);
                                   return (
                                     <>
-                                      <span className={cn("text-3xl font-bold", effectivePlan ? "text-stone-900" : "text-amber-600")}>
+                                      <span className={cn("text-3xl font-bold", effectivePlan ? "text-white" : "text-amber-400")}>
                                         {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                       </span>
-                                      <p className="text-[10px] text-stone-400 uppercase tracking-wider mt-0.5">
+                                      <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">
                                         {priceLabel}
                                       </p>
                                       {monthlyEquiv > 0 && (
-                                        <p className="text-[10px] text-stone-400">
+                                        <p className="text-[10px] text-white/30">
                                           ≈ ₹{monthlyEquiv.toLocaleString("en-IN")}/mo
                                         </p>
                                       )}
                                     </>
                                   );
-                                  } catch (e) { console.error("[PropertyBooking] Price render error:", e); return <span className="text-stone-400">—</span>; }
+                                  } catch (e) { console.error("[PropertyBooking] Price render error:", e); return <span className="text-white/40">—</span>; }
                                 })()}
                               </div>
                             </div>
@@ -1860,35 +1863,35 @@ function PropertyBooking() {
                         </>
                       )}
                       {planPickerOptions.length > 1 && !effectivePlan && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-                          <p className="text-xs font-semibold text-amber-700 mb-2">Multiple plans available for this bed</p>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
+                          <p className="text-xs font-semibold text-amber-400 mb-2">Multiple plans available for this bed</p>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setPlanPickerOpen(true)}
-                            className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                             data-testid="button-choose-plan"
                           >
                             <Crown className="w-4 h-4 mr-1.5" /> Choose a Plan
                           </Button>
                         </div>
                       )}
-                      <Button onClick={handleBookSelectedBed} className="w-full bg-amber-600 hover:bg-amber-700 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/20" data-testid="button-proceed-booking">
+                      <Button onClick={handleBookSelectedBed} className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/30" data-testid="button-proceed-booking">
                         Proceed to Book <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </motion.div>
                   )}
 
                   {!selectedBed && (
-                    <div className="text-center py-6 border-t border-stone-100">
+                    <div className="text-center py-6 border-t border-white/[0.06]">
                       {selectedPlan ? (
                         <div className="space-y-3">
-                          <div className="w-14 h-14 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                          <div className="w-14 h-14 bg-amber-500/10 border-2 border-amber-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
                             <Bed className="w-7 h-7 text-amber-500" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-amber-700">Select a bed to continue</p>
-                            <p className="text-xs text-stone-400 mt-1">
+                            <p className="text-sm font-semibold text-amber-400">Select a bed to continue</p>
+                            <p className="text-xs text-white/30 mt-1">
                               {selectedPlan.roomTypeId
                                 ? `Pick a highlighted ${selectedPlan.roomTypeName || ""} bed from the floor above`
                                 : "Pick any available bed from the floors above"}
@@ -1898,7 +1901,7 @@ function PropertyBooking() {
                             variant="outline"
                             size="sm"
                             onClick={() => floorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                            className="text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                            className="text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                             data-testid="button-scroll-to-beds"
                           >
                             <ArrowRight className="w-3 h-3 mr-1 rotate-[-90deg]" />
@@ -1907,11 +1910,11 @@ function PropertyBooking() {
                         </div>
                       ) : (
                         <>
-                          <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Bed className="w-7 h-7 text-stone-300" />
+                          <div className="w-14 h-14 bg-white/[0.05] rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Bed className="w-7 h-7 text-white/20" />
                           </div>
-                          <p className="text-sm text-stone-400 font-medium">No bed selected</p>
-                          <p className="text-xs text-stone-300 mt-1">Select a floor & bed, or choose a room type below</p>
+                          <p className="text-sm text-white/40 font-medium">No bed selected</p>
+                          <p className="text-xs text-white/20 mt-1">Select a floor & bed, or choose a room type below</p>
                         </>
                       )}
                     </div>
@@ -1920,10 +1923,10 @@ function PropertyBooking() {
               </motion.div>
 
               <Dialog open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md bg-[#0a0a0a] border-white/[0.08]">
                   <DialogHeader>
-                    <DialogTitle className="text-lg font-bold text-stone-800">Choose a Plan</DialogTitle>
-                    <DialogDescription className="text-sm text-stone-500 mt-1">This bed has multiple plans available. Select one to continue.</DialogDescription>
+                    <DialogTitle className="text-lg font-bold text-white">Choose a Plan</DialogTitle>
+                    <DialogDescription className="text-sm text-white/50 mt-1">This bed has multiple plans available. Select one to continue.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3 mt-2">
                     {[...planPickerOptions]
@@ -1977,7 +1980,7 @@ function PropertyBooking() {
                               toast({ title: `${plan.name} selected`, description: "Now select a bed to complete your booking." });
                             }}
                             className={cn(
-                              "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md relative overflow-hidden",
+                              "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md relative overflow-hidden bg-white/[0.02]",
                               colors.roomBorder
                             )}
                             data-testid={`plan-picker-${plan.id}`}
@@ -1990,23 +1993,23 @@ function PropertyBooking() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className={cn("font-bold text-sm", colors.text)}>{plan.name}</p>
-                                  {plan.tagline && <p className="text-[10px] text-stone-500 truncate">{plan.tagline}</p>}
+                                  {plan.tagline && <p className="text-[10px] text-white/40 truncate">{plan.tagline}</p>}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
                                 {planPrice > 0 && (
                                   <>
                                     <p className={cn("text-lg font-bold", colors.text)}>₹{planPrice.toLocaleString("en-IN")}</p>
-                                    <p className="text-[10px] text-stone-400">{isAcademic ? "per year" : "per month"}</p>
+                                    <p className="text-[10px] text-white/40">{isAcademic ? "per year" : "per month"}</p>
                                   </>
                                 )}
                               </div>
                             </div>
                             {(plan.items || []).length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-stone-100 flex flex-wrap gap-x-3 gap-y-1">
+                              <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-wrap gap-x-3 gap-y-1">
                                 {(plan.items || []).slice(0, 4).map((item: any) => (
-                                  <span key={item.id} className="text-[10px] text-stone-500 flex items-center gap-1">
-                                    <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                  <span key={item.id} className="text-[10px] text-white/50 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                                     {item.label}
                                   </span>
                                 ))}
@@ -2019,20 +2022,20 @@ function PropertyBooking() {
                 </DialogContent>
               </Dialog>
 
-              <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
-                <h4 className="font-bold text-xs tracking-wider uppercase text-gray-900">Contact Property</h4>
+              <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-5 space-y-3">
+                <h4 className="font-bold text-xs tracking-wider uppercase text-white">Contact Property</h4>
                 {property.phone && (
-                  <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-stone-600 hover:text-amber-600 transition-colors">
+                  <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors">
                     <Phone className="w-4 h-4" /> {property.phone}
                   </a>
                 )}
                 {property.email && (
-                  <a href={`mailto:${property.email}`} className="flex items-center gap-2.5 text-sm text-stone-600 hover:text-amber-600 transition-colors">
+                  <a href={`mailto:${property.email}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors">
                     <Mail className="w-4 h-4" /> {property.email}
                   </a>
                 )}
                 {property.mapsUrl && (
-                  <a href={property.mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors">
+                  <a href={property.mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-sm text-amber-400 hover:text-amber-300 font-medium transition-colors">
                     <MapPin className="w-4 h-4" /> View on Google Maps
                   </a>
                 )}
