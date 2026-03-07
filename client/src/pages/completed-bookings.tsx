@@ -1488,7 +1488,7 @@ export default function CompletedBookings() {
                           )}
 
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" className="flex-1 gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: new Date().toISOString().slice(0, 10), endDate: "" }); }} data-testid="button-attach-package">
+                            <Button size="sm" variant="outline" className="flex-1 gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: selectedBooking?.checkInDate ? new Date(selectedBooking.checkInDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10), endDate: selectedBooking?.checkOutDate ? new Date(selectedBooking.checkOutDate).toISOString().slice(0, 10) : "" }); }} data-testid="button-attach-package">
                               <Plus className="h-3 w-3" /> Attach Package
                             </Button>
                             {bookingPackages?.bookingPackages?.some((bp: any) => bp.status === "ACTIVE") && (
