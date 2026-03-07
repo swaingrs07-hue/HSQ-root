@@ -7,7 +7,6 @@ import heroTerrace from "@/assets/hero-terrace.jpg";
 import heroDining from "@/assets/hero-dining.jpg";
 import amenityGym from "@/assets/amenity-gym.jpg";
 import amenityStudy from "@/assets/amenity-study.jpg";
-import heroStudentLiving from "@/assets/hero-student-living.png";
 import hsquareLogo from "@assets/Hsquare_Logo_File-07_1771351647884.png";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
@@ -911,7 +910,7 @@ export default function Home() {
             />
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {(dynamicAmenities.length > 0
               ? dynamicAmenities.map(a => ({
                   image: a.imageUrl,
@@ -920,53 +919,53 @@ export default function Home() {
                   icon: ICON_MAP[a.icon] || Star,
                 }))
               : AMENITY_SHOWCASE
-            ).map((amenity, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.8, y: 60 }}
-                whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{
-                  delay: i * 0.15,
-                  duration: 0.8,
-                  type: "spring",
-                  stiffness: 80,
-                  damping: 16,
-                }}
-                whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
-                className="group relative overflow-hidden rounded-2xl cursor-pointer"
-                data-testid={`amenity-card-${i}`}
-              >
-                <div className="aspect-[16/10] overflow-hidden">
-                  <motion.img
-                    src={amenity.image}
-                    alt={amenity.title}
-                    className="w-full h-full object-cover"
-                    whileHover={{ scale: 1.12 }}
-                    transition={{ duration: 0.7, ease: "easeOut" }}
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                <div className="absolute inset-0 border border-white/[0.06] rounded-2xl group-hover:border-white/[0.2] transition-all duration-500" />
-                <motion.div
-                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
-                  style={{ boxShadow: "inset 0 0 80px 20px rgba(139,92,246,0.08)" }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                  <div className="flex items-center gap-3 mb-2">
-                    <motion.div
-                      className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30"
-                      whileHover={{ scale: 1.2, rotate: 10 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                    >
-                      <amenity.icon className="w-5 h-5 text-white" />
-                    </motion.div>
-                    <h3 className="text-white font-heading font-bold text-xl" style={{ textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}>{amenity.title}</h3>
-                  </div>
-                  <p className="text-white/40 text-sm font-light ml-14">{amenity.desc}</p>
-                </div>
-              </motion.div>
-            ))}
+            ).map((amenity, i) => {
+              const amenityColors = [
+                { accent: "from-violet-500 to-purple-400", glow: "rgba(139,92,246,0.2)", border: "border-violet-500/20 hover:border-violet-500/40" },
+                { accent: "from-cyan-500 to-blue-400", glow: "rgba(6,182,212,0.2)", border: "border-cyan-500/20 hover:border-cyan-500/40" },
+                { accent: "from-amber-500 to-orange-400", glow: "rgba(245,158,11,0.2)", border: "border-amber-500/20 hover:border-amber-500/40" },
+                { accent: "from-emerald-500 to-teal-400", glow: "rgba(16,185,129,0.2)", border: "border-emerald-500/20 hover:border-emerald-500/40" },
+              ];
+              const c = amenityColors[i % amenityColors.length];
+              return (
+                <TiltCard
+                  key={i}
+                  intensity={12}
+                  glowColor={c.glow}
+                  className="relative group cursor-default"
+                  data-testid={`amenity-card-${i}`}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 80, rotateX: 30 }}
+                    whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{
+                      delay: i * 0.12,
+                      duration: 0.8,
+                      type: "spring",
+                      stiffness: 100,
+                      damping: 14,
+                    }}
+                    whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                  >
+                    <div className={`p-8 rounded-2xl border ${c.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full`}>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${c.glow} 0%, transparent 60%)` }} />
+
+                      <motion.div
+                        className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${c.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                        style={{ boxShadow: `0 8px 30px ${c.glow}` }}
+                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                      >
+                        <amenity.icon className="w-7 h-7 text-white" />
+                      </motion.div>
+                      <h3 className="font-heading font-bold text-xl text-white mb-3 relative z-10">{amenity.title}</h3>
+                      <p className="text-white/30 text-sm leading-relaxed relative z-10">{amenity.desc}</p>
+                    </div>
+                  </motion.div>
+                </TiltCard>
+              );
+            })}
           </div>
         </div>
       </ImmersiveScene>
@@ -1107,15 +1106,20 @@ export default function Home() {
                           const price = Number(plan.basePrice || 0);
                           const features = (plan.items || []).slice(0, 6);
                           return (
-                            <motion.div
+                            <TiltCard
                               key={plan.id}
+                              intensity={10}
+                              glowColor={d.glow}
+                              className="relative group"
+                              data-testid={`plan-card-home-${plan.id}`}
+                            >
+                            <motion.div
                               initial={{ opacity: 0, y: 80, scale: 0.7, filter: "blur(12px)" }}
                               whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
                               viewport={{ once: true }}
                               transition={{ duration: 0.9, delay: idx * 0.2, type: "spring", stiffness: 80, damping: 16 }}
                               whileHover={{ y: -16, scale: 1.03, transition: { type: "spring", stiffness: 300, damping: 20 } }}
-                              className="relative group"
-                              data-testid={`plan-card-home-${plan.id}`}
+                              className="relative h-full"
                             >
                               {isHighlighted && (
                                 <motion.div
@@ -1223,6 +1227,7 @@ export default function Home() {
                                 </div>
                               </div>
                             </motion.div>
+                            </TiltCard>
                           );
                         })}
                       </div>
@@ -1446,93 +1451,94 @@ export default function Home() {
                   ).filter((p: number) => p > 0) || [];
                   const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
                   const totalBeds = property.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0;
-                  let propertyImage = property.imageUrl;
-                  if (!propertyImage) {
-                    try { const imgs = JSON.parse(property.tourOverviewImages || "[]"); propertyImage = imgs[0]; } catch {}
-                  }
+
+                  const propColors = [
+                    { accent: "from-amber-500 to-orange-400", glow: "rgba(245,158,11,0.2)", border: "border-amber-500/20 hover:border-amber-500/40" },
+                    { accent: "from-violet-500 to-purple-400", glow: "rgba(139,92,246,0.2)", border: "border-violet-500/20 hover:border-violet-500/40" },
+                    { accent: "from-cyan-500 to-blue-400", glow: "rgba(6,182,212,0.2)", border: "border-cyan-500/20 hover:border-cyan-500/40" },
+                  ];
+                  const pc = propColors[i % propColors.length];
 
                   return (
-                    <motion.div
+                    <TiltCard
                       key={property.id}
-                      initial={{ opacity: 0, y: 80, scale: 0.85 }}
-                      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                      viewport={{ once: true, margin: "-80px" }}
-                      transition={{
-                        delay: i * 0.2,
-                        duration: 0.9,
-                        type: "spring",
-                        stiffness: 80,
-                        damping: 16,
-                      }}
-                      whileHover={{ y: -14, transition: { type: "spring", stiffness: 300, damping: 20 } }}
-                      className="group"
+                      intensity={12}
+                      glowColor={pc.glow}
+                      className="relative group cursor-pointer"
                       data-testid={`property-card-${property.id}`}
                     >
-                      <Link href={`/properties/${property.id}`}>
-                        <div className="relative overflow-hidden rounded-2xl cursor-pointer border border-white/[0.06] bg-white/[0.02] group-hover:border-white/[0.15] transition-all duration-500 group-hover:shadow-[0_20px_80px_-15px_rgba(245,158,11,0.15)]">
-                          <div className="aspect-[4/3] overflow-hidden">
-                            <motion.img
-                              src={propertyImage || heroStudentLiving}
-                              alt={property.name}
-                              className="w-full h-full object-cover"
-                              whileHover={{ scale: 1.08 }}
-                              transition={{ duration: 0.7, ease: "easeOut" }}
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                          <div className="absolute top-4 left-4">
-                            <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full ${
-                              property.bookingMode === "academic_year"
-                                ? "bg-violet-500/90 text-white backdrop-blur-sm"
-                                : "bg-amber-500/90 text-white backdrop-blur-sm"
-                            }`}>
-                              {property.bookingMode === "academic_year" ? "Academic Year" : "Monthly Booking"}
-                            </span>
-                          </div>
-                          {totalBeds > 0 && totalBeds < 5 && (
-                            <div className="absolute top-4 right-4">
-                              <span className="px-3 py-1 text-xs font-semibold bg-red-500/90 text-white uppercase tracking-wider rounded-full backdrop-blur-sm">
-                                Only {totalBeds} left
+                      <motion.div
+                        initial={{ opacity: 0, y: 80, rotateX: 30 }}
+                        whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+                        viewport={{ once: true, margin: "-50px" }}
+                        transition={{
+                          delay: i * 0.15,
+                          duration: 0.8,
+                          type: "spring",
+                          stiffness: 100,
+                          damping: 14,
+                        }}
+                        whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                      >
+                        <Link href={`/properties/${property.id}`}>
+                          <div className={`p-8 rounded-2xl border ${pc.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full`}>
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${pc.glow} 0%, transparent 60%)` }} />
+
+                            <motion.div
+                              className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${pc.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                              style={{ boxShadow: `0 8px 30px ${pc.glow}` }}
+                              whileHover={{ scale: 1.15, rotate: 5 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                            >
+                              <Building2 className="w-7 h-7 text-white" />
+                            </motion.div>
+
+                            <h3 className="font-heading font-bold text-xl text-white mb-2 relative z-10 group-hover:text-amber-400 transition-colors">{property.name}</h3>
+                            <p className="text-white/30 text-sm flex items-center gap-1 mb-4 relative z-10">
+                              <MapPin className="w-3.5 h-3.5" />
+                              {property.location}
+                            </p>
+
+                            <div className="flex items-baseline gap-2 mb-4 relative z-10">
+                              <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                                {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString()}` : "—"}
+                              </span>
+                              <span className="text-xs text-white/25">
+                                {property.bookingMode === "academic_year" ? "/ year" : "/ month"}
                               </span>
                             </div>
-                          )}
 
-                          <div className="p-5">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h3 className="font-heading font-bold text-lg text-white group-hover:text-amber-400 transition-colors">
-                                  {property.name}
-                                </h3>
-                                <p className="text-white/30 text-sm flex items-center gap-1 mt-1">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  {property.location}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                                  {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString()}` : "—"}
-                                </div>
-                                <div className="text-xs text-white/25">
-                                  {property.bookingMode === "academic_year" ? "per year" : "per month"}
-                                </div>
-                              </div>
+                            <div className="flex items-center gap-3 relative z-10">
+                              <span className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-full ${
+                                property.bookingMode === "academic_year"
+                                  ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                                  : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              }`}>
+                                {property.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
+                              </span>
+                              {totalBeds > 0 && totalBeds < 5 && (
+                                <span className="px-2.5 py-1 text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30 uppercase tracking-wider rounded-full">
+                                  Only {totalBeds} left
+                                </span>
+                              )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5 mt-3">
-                              {property.amenities?.slice(0, 4).map((am: string) => (
+
+                            <div className="flex flex-wrap gap-1.5 mt-4 relative z-10">
+                              {property.amenities?.slice(0, 3).map((am: string) => (
                                 <span key={am} className="px-2 py-0.5 text-xs text-white/40 bg-white/[0.04] border border-white/[0.06] rounded-full">
                                   {am}
                                 </span>
                               ))}
-                              {property.amenities?.length > 4 && (
+                              {property.amenities?.length > 3 && (
                                 <span className="px-2 py-0.5 text-xs text-amber-400/60 bg-amber-500/[0.06] border border-amber-500/[0.12] rounded-full">
-                                  +{property.amenities.length - 4} more
+                                  +{property.amenities.length - 3} more
                                 </span>
                               )}
                             </div>
                           </div>
-                        </div>
-                      </Link>
-                    </motion.div>
+                        </Link>
+                      </motion.div>
+                    </TiltCard>
                   );
                 })}
               </div>
