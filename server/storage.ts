@@ -183,6 +183,16 @@ export interface IStorage {
     totalBookings: number;
     totalRevenue: number;
     pendingPayments: number;
+    occupiedBeds: number;
+    totalBeds: number;
+    occupancyRate: number;
+    studentsThisMonth: number;
+    studentsPrevMonth: number;
+    bookingsThisMonth: number;
+    bookingsPrevMonth: number;
+    revenueThisMonth: number;
+    revenuePrevMonth: number;
+    pendingDueThisWeek: number;
   }>;
   
   // Lead Analytics
@@ -929,10 +939,27 @@ export class DatabaseStorage implements IStorage {
     totalBookings: number;
     totalRevenue: number;
     pendingPayments: number;
+    occupiedBeds: number;
+    totalBeds: number;
+    occupancyRate: number;
+    studentsThisMonth: number;
+    studentsPrevMonth: number;
+    bookingsThisMonth: number;
+    bookingsPrevMonth: number;
+    revenueThisMonth: number;
+    revenuePrevMonth: number;
+    pendingDueThisWeek: number;
   }> {
-    const [studentsCount] = await db
+    const [registeredStudents] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(students);
+
+    const [bookingStudents] = await db
+      .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
+      .from(bookings)
+      .where(sql`student_id IS NOT NULL OR walk_in_phone IS NOT NULL`);
+
+    const totalStudents = (registeredStudents?.count || 0) + (bookingStudents?.count || 0);
 
     const [bookingsCount] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -948,11 +975,67 @@ export class DatabaseStorage implements IStorage {
       .from(installments)
       .where(eq(installments.paid, false));
 
+    const [bedStats] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        occupied: sql<number>`count(*) FILTER (WHERE status = 'occupied')::int`,
+      })
+      .from(beds);
+
+    const totalBeds = bedStats?.total || 0;
+    const occupiedBeds = bedStats?.occupied || 0;
+    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+    const [studentsThisMonthData] = await db
+      .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
+      .from(bookings)
+      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE)`);
+
+    const [studentsPrevMonthData] = await db
+      .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
+      .from(bookings)
+      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+
+    const [bookingsThisMonthData] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bookings)
+      .where(sql`created_at >= date_trunc('month', CURRENT_DATE)`);
+
+    const [bookingsPrevMonthData] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bookings)
+      .where(sql`created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+
+    const [revenueThisMonthData] = await db
+      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
+      .from(payments)
+      .where(sql`status = 'success' AND created_at >= date_trunc('month', CURRENT_DATE)`);
+
+    const [revenuePrevMonthData] = await db
+      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
+      .from(payments)
+      .where(sql`status = 'success' AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+
+    const [pendingDueThisWeekData] = await db
+      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
+      .from(installments)
+      .where(sql`paid = false`);
+
     return {
-      totalStudents: studentsCount?.count || 0,
+      totalStudents: totalStudents,
       totalBookings: bookingsCount?.count || 0,
       totalRevenue: revenueData?.total || 0,
       pendingPayments: pendingData?.total || 0,
+      occupiedBeds,
+      totalBeds,
+      occupancyRate,
+      studentsThisMonth: studentsThisMonthData?.count || 0,
+      studentsPrevMonth: studentsPrevMonthData?.count || 0,
+      bookingsThisMonth: bookingsThisMonthData?.count || 0,
+      bookingsPrevMonth: bookingsPrevMonthData?.count || 0,
+      revenueThisMonth: revenueThisMonthData?.total || 0,
+      revenuePrevMonth: revenuePrevMonthData?.total || 0,
+      pendingDueThisWeek: pendingDueThisWeekData?.total || 0,
     };
   }
 

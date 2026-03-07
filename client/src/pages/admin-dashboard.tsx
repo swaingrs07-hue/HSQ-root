@@ -19,27 +19,30 @@ import type { Lead } from "@shared/schema";
 import { LeadsTrendChart, PropertyBookingsChart, SalesPerformanceChart, LeadSourcePieChart } from "@/components/animated-charts";
 import { FadeInView, StaggeredList, StaggeredItem } from "@/components/motion-primitives";
 
-function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) {
+function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number | string; prefix?: string; suffix?: string }) {
+  const numValue = typeof value === "string" ? parseFloat(value) : value;
+  const isDecimal = typeof value === "string" && value.includes(".");
   const [displayValue, setDisplayValue] = useState(0);
   
   useEffect(() => {
     const duration = 1000;
     const steps = 30;
-    const increment = value / steps;
+    const increment = numValue / steps;
     let current = 0;
     const timer = setInterval(() => {
       current += increment;
-      if (current >= value) {
-        setDisplayValue(value);
+      if (current >= numValue) {
+        setDisplayValue(numValue);
         clearInterval(timer);
       } else {
-        setDisplayValue(Math.floor(current));
+        setDisplayValue(isDecimal ? parseFloat(current.toFixed(1)) : Math.floor(current));
       }
     }, duration / steps);
     return () => clearInterval(timer);
-  }, [value]);
+  }, [numValue, isDecimal]);
   
-  return <span>{prefix}{displayValue.toLocaleString()}{suffix}</span>;
+  const formatted = isDecimal ? displayValue.toFixed(1) : displayValue.toLocaleString("en-IN");
+  return <span>{prefix}{formatted}{suffix}</span>;
 }
 
 function KPICard({ 
@@ -54,7 +57,7 @@ function KPICard({
   loading 
 }: { 
   title: string; 
-  value: number; 
+  value: number | string; 
   prefix?: string;
   suffix?: string;
   icon: React.ComponentType<{ className?: string }>; 
@@ -113,6 +116,16 @@ export default function AdminDashboard() {
     totalBookings: 0,
     totalRevenue: 0,
     pendingPayments: 0,
+    occupiedBeds: 0,
+    totalBeds: 0,
+    occupancyRate: 0,
+    studentsThisMonth: 0,
+    studentsPrevMonth: 0,
+    bookingsThisMonth: 0,
+    bookingsPrevMonth: 0,
+    revenueThisMonth: 0,
+    revenuePrevMonth: 0,
+    pendingDueThisWeek: 0,
   });
   const [loading, setLoading] = useState(true);
   const [discountForm, setDiscountForm] = useState({
@@ -875,9 +888,29 @@ export default function AdminDashboard() {
     }
   };
 
-  const occupancyRate = stats.totalBookings > 0 
-    ? Math.round((stats.totalBookings / (stats.totalBookings + 10)) * 100) 
-    : 0;
+  const occupancyRate = stats.occupancyRate;
+
+  const formatTrend = (current: number, previous: number): { trend: "up" | "down" | "neutral"; value: string } => {
+    if (previous === 0 && current === 0) return { trend: "neutral", value: "No change" };
+    if (previous === 0 && current > 0) return { trend: "up", value: `+${current} this month` };
+    const pctChange = Math.round(((current - previous) / previous) * 100);
+    if (pctChange > 0) return { trend: "up", value: `+${pctChange}% vs last month` };
+    if (pctChange < 0) return { trend: "down", value: `${pctChange}% vs last month` };
+    return { trend: "neutral", value: "No change" };
+  };
+
+  const formatAmount = (amount: number): { value: number | string; prefix: string; suffix: string } => {
+    if (amount >= 10000000) return { value: (amount / 10000000).toFixed(1), prefix: "₹", suffix: "Cr" };
+    if (amount >= 100000) return { value: (amount / 100000).toFixed(1), prefix: "₹", suffix: "L" };
+    if (amount >= 1000) return { value: (amount / 1000).toFixed(1), prefix: "₹", suffix: "K" };
+    return { value: amount, prefix: "₹", suffix: "" };
+  };
+
+  const studentsTrend = formatTrend(stats.studentsThisMonth, stats.studentsPrevMonth);
+  const bookingsTrend = formatTrend(stats.bookingsThisMonth, stats.bookingsPrevMonth);
+  const revenueTrend = formatTrend(stats.revenueThisMonth, stats.revenuePrevMonth);
+  const revenueDisplay = formatAmount(stats.totalRevenue);
+  const pendingDisplay = formatAmount(stats.pendingPayments);
 
   return (
     <div className="space-y-6">
@@ -1005,8 +1038,8 @@ export default function AdminDashboard() {
                     value={stats.totalStudents}
                     icon={GraduationCap}
                     gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
-                    trend="up"
-                    trendValue="+12% this month"
+                    trend={studentsTrend.trend}
+                    trendValue={studentsTrend.value}
                     loading={loading}
                   />
                   <KPICard
@@ -1014,30 +1047,30 @@ export default function AdminDashboard() {
                     value={stats.totalBookings}
                     icon={CalendarCheck}
                     gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
-                    trend="up"
-                    trendValue="+8% this month"
+                    trend={bookingsTrend.trend}
+                    trendValue={bookingsTrend.value}
                     loading={loading}
                   />
                   <KPICard
                     title="Revenue"
-                    value={Math.round(stats.totalRevenue / 100000)}
-                    prefix="₹"
-                    suffix="L"
+                    value={revenueDisplay.value}
+                    prefix={revenueDisplay.prefix}
+                    suffix={revenueDisplay.suffix}
                     icon={CreditCard}
                     gradient="bg-gradient-to-br from-violet-500 to-violet-600"
-                    trend="up"
-                    trendValue="+15% this month"
+                    trend={revenueTrend.trend}
+                    trendValue={revenueTrend.value}
                     loading={loading}
                   />
                   <KPICard
                     title="Pending Payments"
-                    value={Math.round(stats.pendingPayments / 100000)}
-                    prefix="₹"
-                    suffix="L"
+                    value={pendingDisplay.value}
+                    prefix={pendingDisplay.prefix}
+                    suffix={pendingDisplay.suffix}
                     icon={Clock}
                     gradient="bg-gradient-to-br from-amber-500 to-amber-600"
-                    trend="neutral"
-                    trendValue="Due this week"
+                    trend={stats.pendingPayments > 0 ? "down" : "neutral"}
+                    trendValue={stats.pendingPayments > 0 ? "Pending collection" : "All clear"}
                     loading={loading}
                   />
                 </div>
@@ -1077,7 +1110,7 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-700">Occupancy Rate</p>
-                          <p className="text-xs text-slate-500">{occupancyRate}% Capacity</p>
+                          <p className="text-xs text-slate-500">{occupancyRate}% ({stats.occupiedBeds}/{stats.totalBeds} beds)</p>
                         </div>
                       </div>
                     </div>

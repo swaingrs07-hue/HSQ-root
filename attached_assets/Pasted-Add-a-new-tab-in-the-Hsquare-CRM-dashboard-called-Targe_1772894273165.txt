@@ -1,0 +1,120 @@
+Add a new tab in the Hsquare CRM dashboard called “Target & Achievement”.
+
+Goal:
+Show property-wise sales target and achievement based on bed inventory, pricing, and actual bookings.
+
+Requirements:
+
+1. Create a new dashboard tab:
+- Tab name: Target & Achievement
+- Place it in the main dashboard navigation
+- Make it visible for admin and management roles only
+
+2. Property-wise target logic:
+For each property, calculate target based on:
+- Total number of active beds
+- Bed price / monthly price
+- Occupancy target percentage (configurable, default 100%)
+- Optional seasonal multiplier if available
+
+Formula example:
+Property Target = Total Active Beds × Bed Price × Target Occupancy %
+
+Also support:
+- Different bed prices by room/bed category
+- If different bed prices exist, target should be sum of all active beds category-wise:
+  (Category Bed Count × Category Price)
+
+3. Achievement logic:
+Calculate achievement from actual bookings property-wise using:
+- Confirmed bookings
+- Active residents / occupied beds
+- Booking value based on assigned bed price or booking amount
+
+Formula:
+Achievement = Sum of all confirmed/active booking values for that property
+
+Also show:
+- Total booked beds
+- Total vacant beds
+- Occupancy %
+- Achievement %
+- Remaining target amount
+
+Formula:
+Achievement % = (Achievement / Target) × 100
+Remaining = Target - Achievement
+
+4. Dashboard UI:
+Inside the tab, show a clean property-wise card/table view with:
+- Property Name
+- Total Beds
+- Occupied Beds
+- Vacant Beds
+- Average Bed Price
+- Target Amount
+- Achieved Amount
+- Remaining Amount
+- Achievement %
+- Occupancy %
+
+5. Add summary section at top:
+- Total Target of all properties
+- Total Achievement of all properties
+- Total Remaining
+- Overall Occupancy %
+- Overall Achievement %
+
+6. Add filters:
+- Filter by season / batch
+- Filter by month
+- Filter by date range
+- Filter by property
+- Filter by booking status
+
+7. Visual analytics:
+Add charts for:
+- Property-wise target vs achievement bar chart
+- Occupancy percentage property-wise
+- Monthly achievement trend
+- Top performing property
+- Lowest performing property
+
+8. Backend/data rules:
+- Fetch property list dynamically
+- Fetch total active bed count from inventory/bed master
+- Fetch pricing from existing room/bed pricing structure
+- Fetch achievement from bookings/resident allocation records
+- Ignore cancelled bookings
+- Only count active / confirmed / retained valid bookings
+- Make calculations real-time from database, not static
+
+9. Admin controls:
+- Allow admin to set target occupancy % manually per property
+- Allow admin to set custom target override if needed
+- Save target settings in database
+- Keep auto-calculated target as default, custom target as optional override
+
+10. UX expectations:
+- Modern CRM style UI
+- Clean cards, responsive layout
+- Color indicators:
+  - Green = target achieved or above
+  - Yellow = near target
+  - Red = below target
+- Progress bars for achievement %
+
+11. Technical expectation:
+- Build this in a scalable way
+- Separate calculation logic, API/service layer, and UI components
+- Write reusable functions for target and achievement calculation
+- Ensure dashboard loads fast and handles multiple properties efficiently
+
+12. Output:
+Please implement:
+- Database fields if needed
+- API endpoints / server logic
+- Dashboard tab UI
+- Calculation methods
+- Charts and filters
+- Property-wise summary cards and table

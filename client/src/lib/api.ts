@@ -124,6 +124,16 @@ export async function getAdminStats(): Promise<{
   totalBookings: number;
   totalRevenue: number;
   pendingPayments: number;
+  occupiedBeds: number;
+  totalBeds: number;
+  occupancyRate: number;
+  studentsThisMonth: number;
+  studentsPrevMonth: number;
+  bookingsThisMonth: number;
+  bookingsPrevMonth: number;
+  revenueThisMonth: number;
+  revenuePrevMonth: number;
+  pendingDueThisWeek: number;
 }> {
   return fetchAPI("/admin/stats");
 }
