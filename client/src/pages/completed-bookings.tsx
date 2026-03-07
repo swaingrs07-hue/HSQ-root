@@ -55,6 +55,8 @@ import {
   Tag,
   Crown,
   Gem,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -138,8 +140,11 @@ export default function CompletedBookings() {
     notes: "",
     installmentId: null as string | null,
     installmentName: "",
+    screenshotPath: "",
+    screenshotPreview: "",
   });
   const [markingPayment, setMarkingPayment] = useState(false);
+  const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [bookingPackages, setBookingPackages] = useState<any>(null);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [showPackages, setShowPackages] = useState(false);
@@ -355,8 +360,43 @@ export default function CompletedBookings() {
       notes: installment ? `Payment for ${installment.name}` : "",
       installmentId: installment?.id || null,
       installmentName: installment?.name || "",
+      screenshotPath: "",
+      screenshotPreview: "",
     });
     setShowPaymentDialog(true);
+  };
+
+  const handlePaymentScreenshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Screenshot must be under 10MB.", variant: "destructive" });
+      return;
+    }
+    setScreenshotUploading(true);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const res = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!res.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await res.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      setPaymentForm(prev => ({ ...prev, screenshotPath: objectPath, screenshotPreview: URL.createObjectURL(file) }));
+      toast({ title: "Screenshot uploaded" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setScreenshotUploading(false);
+    }
   };
 
   const markPaymentDone = async () => {
@@ -1675,13 +1715,52 @@ export default function CompletedBookings() {
               </select>
             </div>
             <div>
-              <Label className="text-xs font-medium text-slate-500">Transaction ID / Reference</Label>
+              <Label className="text-xs font-medium text-slate-500">Transaction ID / UTR <span className="text-red-500">*</span></Label>
               <Input
                 placeholder="e.g., UPI ref, cheque number, receipt ID"
                 value={paymentForm.transactionId}
                 onChange={(e) => setPaymentForm(prev => ({ ...prev, transactionId: e.target.value }))}
+                className={!paymentForm.transactionId.trim() ? "border-red-200 focus:border-red-400 focus:ring-red-200" : ""}
                 data-testid="input-transaction-id"
               />
+              {!paymentForm.transactionId.trim() && (
+                <p className="text-[11px] text-red-400 mt-1">UTR / Transaction ID is required</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">Payment Screenshot <span className="text-red-500">*</span></Label>
+              {paymentForm.screenshotPreview ? (
+                <div className="mt-1.5 relative group">
+                  <img
+                    src={paymentForm.screenshotPreview}
+                    alt="Payment screenshot"
+                    className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-slate-50"
+                    data-testid="img-payment-screenshot"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPaymentForm(prev => ({ ...prev, screenshotPath: "", screenshotPreview: "" }))}
+                    className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-testid="button-remove-screenshot"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <label className={`mt-1.5 flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${screenshotUploading ? "border-slate-200 bg-slate-50" : "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50"}`}>
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePaymentScreenshot} disabled={screenshotUploading} data-testid="input-payment-screenshot" />
+                  {screenshotUploading ? (
+                    <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-emerald-500" />
+                  )}
+                  <span className="text-xs font-medium text-slate-500">{screenshotUploading ? "Uploading..." : "Upload payment screenshot"}</span>
+                  <span className="text-[10px] text-slate-400">JPG, PNG under 10MB</span>
+                </label>
+              )}
+              {!paymentForm.screenshotPath && !screenshotUploading && (
+                <p className="text-[11px] text-red-400 mt-1">Payment screenshot is required</p>
+              )}
             </div>
             <div>
               <Label className="text-xs font-medium text-slate-500">Notes (Optional)</Label>
@@ -1707,7 +1786,7 @@ export default function CompletedBookings() {
                 size="sm"
                 className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={markPaymentDone}
-                disabled={markingPayment}
+                disabled={markingPayment || !paymentForm.transactionId.trim() || !paymentForm.screenshotPath || screenshotUploading}
                 data-testid="button-confirm-payment"
               >
                 <Check className="h-3.5 w-3.5" />

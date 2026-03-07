@@ -282,6 +282,8 @@ export const payments = pgTable("payments", {
   // Metadata
   paymentMethod: text("payment_method"), // UPI, Card, Net Banking
   failureReason: text("failure_reason"),
+  screenshotPath: text("screenshot_path"),
+  notes: text("notes"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
