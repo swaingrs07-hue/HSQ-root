@@ -6,15 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock, User, Phone, Mail, MapPin, Hash, Home, Layers } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { motion } from "framer-motion";
+import { ParticleBackground } from "@/components/particle-background";
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-700",
-  pending_payment: "bg-amber-100 text-amber-700",
-  pending_approval: "bg-orange-100 text-orange-700",
-  confirmed: "bg-emerald-100 text-emerald-700",
-  active: "bg-blue-100 text-blue-700",
-  cancelled: "bg-red-100 text-red-700",
-  completed: "bg-indigo-100 text-indigo-700",
+  draft: "bg-white/[0.06] text-white/60 border border-white/[0.1]",
+  pending_payment: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  pending_approval: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+  confirmed: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  active: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",
+  cancelled: "bg-red-500/10 text-red-400 border border-red-500/20",
+  completed: "bg-violet-500/10 text-violet-400 border border-violet-500/20",
 };
 
 const STEP_LABELS = ["Customer", "Property", "Resident", "Pricing", "Review"];
@@ -244,8 +246,8 @@ export default function MyBookings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
       </div>
     );
   }
@@ -257,20 +259,26 @@ export default function MyBookings() {
     const rd = b.residentDetails || {};
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
-          <Button variant="ghost" onClick={() => setSelectedBooking(null)} className="mb-4 text-slate-600" data-testid="button-back-bookings">
+      <div className="min-h-screen bg-[#050505] relative">
+        <ParticleBackground preset="sparse" className="absolute inset-0 z-0" />
+        <div className="container mx-auto px-4 pt-24 pb-8 max-w-3xl relative z-10">
+          <Button variant="ghost" onClick={() => setSelectedBooking(null)} className="mb-4 text-white/50 hover:text-white hover:bg-white/[0.05]" data-testid="button-back-bookings">
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Bookings
           </Button>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-6 text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl"
+          >
+            <div className="bg-gradient-to-r from-indigo-600/80 to-violet-600/80 backdrop-blur-sm p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-indigo-200 text-xs uppercase tracking-wide">Booking Code</p>
+                  <p className="text-indigo-200/70 text-xs uppercase tracking-wide">Booking Code</p>
                   <p className="text-2xl font-bold font-mono mt-1" data-testid="text-detail-code">{b.bookingCode}</p>
                 </div>
-                <Badge className={`${STATUS_COLORS[b.status] || "bg-slate-100 text-slate-700"} text-xs px-3 py-1 capitalize`} data-testid="text-detail-status">
+                <Badge className={`${STATUS_COLORS[b.status] || "bg-white/[0.06] text-white/60"} text-xs px-3 py-1 capitalize`} data-testid="text-detail-status">
                   {formatLabel(b.status || "draft")}
                 </Badge>
               </div>
@@ -295,7 +303,7 @@ export default function MyBookings() {
               </div>
 
               {(rd.name || rd.phone || rd.email) && (
-                <DetailSection title="Resident Details" icon={<User className="h-4 w-4 text-indigo-500" />}>
+                <DetailSection title="Resident Details" icon={<User className="h-4 w-4 text-cyan-400" />}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <DetailRow label="Full Name" value={rd.name} />
                     <DetailRow label="Phone" value={rd.phone} />
@@ -314,7 +322,7 @@ export default function MyBookings() {
               )}
 
               {(rd.parentName || rd.parentPhone) && (
-                <DetailSection title="Emergency / Parent Contact" icon={<Phone className="h-4 w-4 text-indigo-500" />}>
+                <DetailSection title="Emergency / Parent Contact" icon={<Phone className="h-4 w-4 text-cyan-400" />}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <DetailRow label="Name" value={rd.parentName} />
                     <DetailRow label="Relation" value={formatLabel(rd.parentRelation || "")} />
@@ -324,61 +332,61 @@ export default function MyBookings() {
                 </DetailSection>
               )}
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                  <h4 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-                    <Receipt className="h-4 w-4 text-indigo-500" /> Fee Summary
+              <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+                <div className="bg-white/[0.03] px-4 py-3 border-b border-white/[0.08]">
+                  <h4 className="font-semibold text-sm text-white flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-cyan-400" /> Fee Summary
                   </h4>
                 </div>
                 <div className="p-4 space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Base Fee</span>
-                    <span className="text-slate-800">₹{(b.baseFee || 0).toLocaleString("en-IN")}</span>
+                    <span className="text-white/50">Base Fee</span>
+                    <span className="text-white">₹{(b.baseFee || 0).toLocaleString("en-IN")}</span>
                   </div>
                   {(b.deposit || 0) > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Security Deposit</span>
-                      <span className="text-slate-800">₹{b.deposit.toLocaleString("en-IN")}</span>
+                      <span className="text-white/50">Security Deposit</span>
+                      <span className="text-white">₹{b.deposit.toLocaleString("en-IN")}</span>
                     </div>
                   )}
                   {(b.discount || 0) > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Discount</span>
-                      <span className="text-emerald-600">-₹{b.discount.toLocaleString("en-IN")}</span>
+                      <span className="text-white/50">Discount</span>
+                      <span className="text-emerald-400">-₹{b.discount.toLocaleString("en-IN")}</span>
                     </div>
                   )}
-                  <div className="border-t border-slate-200 pt-3 flex justify-between">
-                    <span className="font-semibold text-slate-700">Total Fee</span>
-                    <span className="font-bold text-slate-800">₹{(b.totalFee || 0).toLocaleString("en-IN")}</span>
+                  <div className="border-t border-white/[0.08] pt-3 flex justify-between">
+                    <span className="font-semibold text-white/70">Total Fee</span>
+                    <span className="font-bold text-white">₹{(b.totalFee || 0).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-semibold text-slate-700">Amount Paid</span>
-                    <span className="font-bold text-emerald-600">₹{totalPaid.toLocaleString("en-IN")}</span>
+                    <span className="font-semibold text-white/70">Amount Paid</span>
+                    <span className="font-bold text-emerald-400">₹{totalPaid.toLocaleString("en-IN")}</span>
                   </div>
                   {balance > 0 && (
                     <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">Balance Due</span>
-                      <span className="font-bold text-amber-600">₹{balance.toLocaleString("en-IN")}</span>
+                      <span className="font-semibold text-white/70">Balance Due</span>
+                      <span className="font-bold text-amber-400">₹{balance.toLocaleString("en-IN")}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {(b.installments || []).length > 0 && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                    <h4 className="font-semibold text-sm text-slate-700">Installments</h4>
+                <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+                  <div className="bg-white/[0.03] px-4 py-3 border-b border-white/[0.08]">
+                    <h4 className="font-semibold text-sm text-white">Installments</h4>
                   </div>
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/[0.06]">
                     {b.installments.map((inst: any, idx: number) => (
                       <div key={inst.id || idx} className="px-4 py-3 flex items-center justify-between text-sm">
                         <div>
-                          <p className="font-medium text-slate-700">{inst.name}</p>
-                          <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                          <p className="font-medium text-white">{inst.name}</p>
+                          <p className="text-xs text-white/40">{inst.dueDate || "N/A"}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                          <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
+                          <p className="font-semibold text-white">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                          <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-400 border-emerald-500/20" : "text-amber-400 border-amber-500/20"}`}>
                             {inst.paid ? "PAID" : "PENDING"}
                           </Badge>
                         </div>
@@ -389,28 +397,28 @@ export default function MyBookings() {
               )}
 
               {(b.payments || []).length > 0 && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                    <h4 className="font-semibold text-sm text-slate-700">Payment History</h4>
+                <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+                  <div className="bg-white/[0.03] px-4 py-3 border-b border-white/[0.08]">
+                    <h4 className="font-semibold text-sm text-white">Payment History</h4>
                   </div>
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-white/[0.06]">
                     {b.payments.map((p: any, idx: number) => (
                       <div key={p.id || idx} className="px-4 py-3 flex items-center justify-between text-sm gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
-                          <p className="text-xs text-slate-500">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
+                          <p className="font-medium text-white">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
+                          <p className="text-xs text-white/40">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
                           {(p.paymentMethod || p.razorpayPaymentId) && (
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               {p.paymentMethod && (
-                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
+                                <span className="text-[10px] bg-white/[0.06] text-white/50 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
                               )}
                               {p.razorpayPaymentId && (
-                                <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
+                                <span className="text-[10px] text-white/30 font-mono">UTR: {p.razorpayPaymentId}</span>
                               )}
                             </div>
                           )}
                         </div>
-                        <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-400 border-emerald-500/20" : p.status === "failed" ? "text-red-400 border-red-500/20" : "text-amber-400 border-amber-500/20"}`}>
                           {(p.status || "pending").toUpperCase()}
                         </Badge>
                       </div>
@@ -419,38 +427,55 @@ export default function MyBookings() {
                 </div>
               )}
 
-              <Button onClick={() => downloadReceipt(b)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-download-receipt">
+              <Button onClick={() => downloadReceipt(b)} className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white border-0" data-testid="button-download-receipt">
                 <Download className="h-4 w-4 mr-2" /> Download Receipt (PDF)
               </Button>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">My Bookings</h1>
-          <p className="text-slate-500 text-sm mt-1">View and manage your room bookings</p>
-        </div>
+    <div className="min-h-screen bg-[#050505] relative">
+      <ParticleBackground preset="sparse" className="absolute inset-0 z-0" />
+      <div className="container mx-auto px-4 pt-24 pb-8 max-w-3xl relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="mb-10 pt-6"
+        >
+          <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight">
+            My{" "}
+            <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
+              Bookings
+            </span>
+          </h1>
+          <p className="text-white/40 text-sm mt-3 tracking-wide">View and manage your room bookings</p>
+        </motion.div>
 
         {draft && (
-          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-5 shadow-sm" data-testid="resume-booking-card">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mb-6 bg-white/[0.03] backdrop-blur-sm rounded-xl border border-amber-500/20 p-5 shadow-lg"
+            data-testid="resume-booking-card"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Clock className="h-5 w-5 text-amber-600" />
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Clock className="h-5 w-5 text-amber-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-800 text-sm">Incomplete Booking</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="font-semibold text-white text-sm">Incomplete Booking</h3>
+                  <p className="text-xs text-white/40 mt-0.5">
                     You have an unfinished booking — Step {draft.step || 1} of 5 ({STEP_LABELS[(draft.step || 1) - 1]})
                   </p>
                   {draft.savedAt && (
-                    <p className="text-[10px] text-slate-400 mt-1">
+                    <p className="text-[10px] text-white/25 mt-1">
                       Last saved {new Date(draft.savedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} at {new Date(draft.savedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   )}
@@ -459,7 +484,7 @@ export default function MyBookings() {
                       {[1, 2, 3, 4, 5].map(s => (
                         <div
                           key={s}
-                          className={`h-1.5 w-6 rounded-full ${s < (draft.step || 1) ? "bg-amber-500" : s === (draft.step || 1) ? "bg-amber-400" : "bg-slate-200"}`}
+                          className={`h-1.5 w-6 rounded-full ${s < (draft.step || 1) ? "bg-amber-500" : s === (draft.step || 1) ? "bg-amber-400/60" : "bg-white/[0.08]"}`}
                         />
                       ))}
                     </div>
@@ -470,7 +495,7 @@ export default function MyBookings() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-slate-400 hover:text-red-500 h-8 w-8 p-0"
+                  className="text-white/30 hover:text-red-400 hover:bg-white/[0.05] h-8 w-8 p-0"
                   onClick={() => { localStorage.removeItem("hsquare_booking_draft"); setDraft(null); }}
                   data-testid="button-discard-draft"
                 >
@@ -478,7 +503,7 @@ export default function MyBookings() {
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  className="bg-amber-600 hover:bg-amber-500 text-white"
                   onClick={() => navigate("/booking/generate")}
                   data-testid="button-resume-booking"
                 >
@@ -487,59 +512,68 @@ export default function MyBookings() {
                 </Button>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {bookings.length === 0 && !draft ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600 mb-2">No bookings yet</h3>
-              <p className="text-slate-500 text-sm mb-4">Start by browsing properties and booking a room.</p>
-              <Link href="/properties">
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="button-browse-properties">
-                  Browse Properties
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <Card className="text-center py-12 bg-white/[0.03] backdrop-blur-sm border border-white/[0.08]">
+              <CardContent>
+                <FileText className="h-12 w-12 text-white/20 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white/60 mb-2">No bookings yet</h3>
+                <p className="text-white/40 text-sm mb-4">Start by browsing properties and booking a room.</p>
+                <Link href="/properties">
+                  <Button className="bg-gradient-to-r from-cyan-600 to-violet-600 hover:from-cyan-500 hover:to-violet-500 text-white border-0" data-testid="button-browse-properties">
+                    Browse Properties
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : bookings.length === 0 ? null : (
           <div className="space-y-4">
-            {bookings.map((b: any) => {
+            {bookings.map((b: any, index: number) => {
               const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
               const rd = b.residentDetails || {};
               return (
-                <button
+                <motion.button
                   key={b.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 * index }}
                   onClick={() => setSelectedBooking(b)}
-                  className="w-full text-left bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all p-5"
+                  className="w-full text-left bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/[0.08] hover:border-cyan-500/30 hover:bg-white/[0.05] hover:shadow-[0_0_30px_rgba(0,200,255,0.05)] transition-all duration-300 p-5 group"
                   data-testid={`booking-card-${b.id}`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono font-bold text-indigo-600 text-sm" data-testid={`text-code-${b.id}`}>{b.bookingCode}</span>
-                        <Badge className={`${STATUS_COLORS[b.status] || "bg-slate-100 text-slate-700"} text-[10px] px-2 py-0.5 capitalize`}>
+                        <span className="font-mono font-bold text-cyan-400 text-sm" data-testid={`text-code-${b.id}`}>{b.bookingCode}</span>
+                        <Badge className={`${STATUS_COLORS[b.status] || "bg-white/[0.06] text-white/60"} text-[10px] px-2 py-0.5 capitalize`}>
                           {formatLabel(b.status || "draft")}
                         </Badge>
                       </div>
-                      <p className="font-semibold text-slate-800 truncate">{b.property?.name || "Property"}</p>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                      <p className="font-semibold text-white truncate">{b.property?.name || "Property"}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
                         <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {b.residentDetails?.accommodationType || b.roomType?.name || "Room"}</span>
                         {rd.roomNo && <span className="flex items-center gap-1"><Hash className="h-3 w-3" /> {rd.roomNo}</span>}
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : ""}</span>
                       </div>
                       {rd.name && (
-                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><User className="h-3 w-3" /> {rd.name}</p>
+                        <p className="text-xs text-white/25 mt-1 flex items-center gap-1"><User className="h-3 w-3" /> {rd.name}</p>
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-slate-800">₹{(b.totalFee || 0).toLocaleString("en-IN")}</p>
-                      {totalPaid > 0 && <p className="text-xs text-emerald-600 mt-0.5">Paid: ₹{totalPaid.toLocaleString("en-IN")}</p>}
-                      <ChevronRight className="h-4 w-4 text-slate-400 mt-2 ml-auto" />
+                      <p className="font-bold bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent">₹{(b.totalFee || 0).toLocaleString("en-IN")}</p>
+                      {totalPaid > 0 && <p className="text-xs text-emerald-400 mt-0.5">Paid: ₹{totalPaid.toLocaleString("en-IN")}</p>}
+                      <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-cyan-400 mt-2 ml-auto transition-colors" />
                     </div>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -551,21 +585,21 @@ export default function MyBookings() {
 
 function InfoCard({ icon, label, value, sub, testId }: { icon: React.ReactNode; label: string; value: string; sub?: string; testId?: string }) {
   return (
-    <div className="p-4 bg-slate-50 rounded-xl">
-      <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+    <div className="p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+      <div className="flex items-center gap-2 text-white/40 text-xs mb-1">
         {icon} {label}
       </div>
-      <p className="font-semibold text-slate-800" data-testid={testId}>{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+      <p className="font-semibold text-white" data-testid={testId}>{value}</p>
+      {sub && <p className="text-xs text-white/40 mt-0.5">{sub}</p>}
     </div>
   );
 }
 
 function DetailSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-        <h4 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+    <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+      <div className="bg-white/[0.03] px-4 py-3 border-b border-white/[0.08]">
+        <h4 className="font-semibold text-sm text-white flex items-center gap-2">
           {icon} {title}
         </h4>
       </div>
@@ -578,8 +612,8 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div className="flex justify-between py-1">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-slate-800 font-medium text-right">{value}</span>
+      <span className="text-white/40">{label}</span>
+      <span className="text-white font-medium text-right">{value}</span>
     </div>
   );
 }

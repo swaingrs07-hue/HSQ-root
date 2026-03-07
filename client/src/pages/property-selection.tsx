@@ -18,6 +18,7 @@ import { useAuthGuard } from "@/contexts/auth-guard-context";
 import propertyExterior from "@/assets/property-exterior.png";
 import heroStudentLiving from "@/assets/hero-student-living.png";
 import { SmartSearch } from "@/components/smart-search";
+import { ParticleBackground } from "@/components/particle-background";
 
 const amenityIcons: Record<string, any> = {
   "Free Wifi": Wifi,
@@ -55,14 +56,14 @@ const SORT_OPTIONS = [
 
 function PropertyCardSkeleton() {
   return (
-    <div className="overflow-hidden">
-      <Skeleton className="aspect-[4/3] w-full" />
-      <div className="pt-4 space-y-3">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
+    <div className="overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+      <Skeleton className="aspect-[4/3] w-full bg-white/[0.05]" />
+      <div className="p-6 space-y-3">
+        <Skeleton className="h-5 w-3/4 bg-white/[0.05]" />
+        <Skeleton className="h-4 w-1/2 bg-white/[0.05]" />
         <div className="flex gap-2">
-          <Skeleton className="h-6 w-16" />
-          <Skeleton className="h-6 w-16" />
+          <Skeleton className="h-6 w-16 bg-white/[0.05]" />
+          <Skeleton className="h-6 w-16 bg-white/[0.05]" />
         </div>
       </div>
     </div>
@@ -326,65 +327,38 @@ export default function PropertySelection() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30">
+    <div className="min-h-screen bg-[#050505]">
       <style>{`
-        @keyframes float3d {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
-        }
-        @keyframes float3d2 {
-          0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
-          50% { transform: translateY(-15px) rotate(-8deg) scale(1.05); }
-        }
-        @keyframes float3d3 {
-          0%, 100% { transform: translateY(-5px) rotate(3deg); }
-          50% { transform: translateY(-25px) rotate(-3deg); }
-        }
         @keyframes shimmer {
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
-        .deco-shape { position: absolute; pointer-events: none; z-index: 0; }
-        .hero-card-glow {
-          background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+        .dark-card-glow {
+          background: rgba(255,255,255,0.02);
           backdrop-filter: blur(20px);
-          border: 1px solid rgba(255,255,255,0.8);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        .prop-card-premium {
-          background: white;
+        .prop-card-dark {
+          background: rgba(255,255,255,0.02);
           border-radius: 20px;
           overflow: hidden;
-          border: 1px solid rgba(0,0,0,0.06);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
           transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
-        .prop-card-premium:hover {
+        .prop-card-dark:hover {
           transform: translateY(-8px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.06);
-          border-color: rgba(217,119,6,0.2);
+          box-shadow: 0 20px 60px rgba(245,158,11,0.08), 0 8px 24px rgba(0,0,0,0.3);
+          border-color: rgba(245,158,11,0.25);
         }
       `}</style>
 
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-50/60 via-white to-rose-50/40" />
-        <div className="deco-shape top-10 left-[5%] w-20 h-20 md:w-28 md:h-28 opacity-60" style={{ animation: "float3d 6s ease-in-out infinite" }}>
-          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4"/><stop offset="100%" stopColor="#f97316" stopOpacity="0.2"/></linearGradient></defs><path d="M50 5 L90 30 L90 70 L50 95 L10 70 L10 30 Z" fill="url(#dg1)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.3"/></svg>
-        </div>
-        <div className="deco-shape top-20 right-[8%] w-16 h-16 md:w-24 md:h-24 opacity-50" style={{ animation: "float3d2 7s ease-in-out infinite 1s" }}>
-          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0.15"/></linearGradient></defs><circle cx="50" cy="50" r="42" fill="url(#dg2)" stroke="#8b5cf6" strokeWidth="1" strokeOpacity="0.2"/></svg>
-        </div>
-        <div className="deco-shape bottom-8 left-[12%] w-14 h-14 md:w-20 md:h-20 opacity-40" style={{ animation: "float3d3 8s ease-in-out infinite 0.5s" }}>
-          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ec4899" stopOpacity="0.25"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0.12"/></linearGradient></defs><rect x="15" y="15" width="70" height="70" rx="18" fill="url(#dg3)" stroke="#ec4899" strokeWidth="1" strokeOpacity="0.15" transform="rotate(15 50 50)"/></svg>
-        </div>
-        <div className="deco-shape bottom-16 right-[6%] w-12 h-12 md:w-16 md:h-16 opacity-50" style={{ animation: "float3d 9s ease-in-out infinite 2s" }}>
-          <svg viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#14b8a6" stopOpacity="0.3"/><stop offset="100%" stopColor="#06b6d4" stopOpacity="0.15"/></linearGradient></defs><polygon points="50,10 90,40 75,85 25,85 10,40" fill="url(#dg4)" stroke="#14b8a6" strokeWidth="1" strokeOpacity="0.2"/></svg>
-        </div>
-        <div className="deco-shape top-1/2 left-[45%] w-10 h-10 md:w-14 md:h-14 opacity-30" style={{ animation: "float3d2 10s ease-in-out infinite 3s" }}>
-          <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="35" fill="none" stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.2" strokeDasharray="8 6"/></svg>
-        </div>
+        <ParticleBackground preset="hero" className="z-[1]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-transparent to-[#050505] z-[2]" />
 
-        <div className="relative z-10 container mx-auto px-4 py-14 md:py-20">
+        <div className="relative z-10 container mx-auto px-4 py-14 md:py-24">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -394,16 +368,19 @@ export default function PropertySelection() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-700 text-sm font-semibold tracking-wider uppercase mb-5 border border-amber-200/60"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-sm font-semibold tracking-wider uppercase mb-5 border border-amber-500/20"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Our Properties
             </motion.span>
-            <h1 className="text-4xl md:text-6xl font-heading font-bold text-gray-900 mb-5 leading-tight" data-testid="heading-properties">
-              Find Your Perfect Stay
+            <h1 className="text-5xl md:text-7xl font-heading font-black text-white mb-5 leading-tight" data-testid="heading-properties">
+              Find Your{" "}
+              <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
+                Perfect Stay
+              </span>
             </h1>
             <div className="w-16 h-1 bg-gradient-to-r from-amber-400 to-amber-600 mx-auto mb-6 rounded-full" />
-            <p className="text-gray-500 text-lg md:text-xl max-w-2xl mx-auto font-light leading-relaxed">
+            <p className="text-white/50 text-lg md:text-xl max-w-2xl mx-auto font-light leading-relaxed">
               Discover premium student accommodations with world-class amenities and thoughtfully designed living spaces.
             </p>
           </motion.div>
@@ -414,7 +391,7 @@ export default function PropertySelection() {
             transition={{ delay: 0.15 }}
             className="mt-10 max-w-4xl mx-auto"
           >
-            <div className="hero-card-glow rounded-2xl p-5 md:p-6">
+            <div className="dark-card-glow rounded-2xl p-5 md:p-6">
               <SmartSearch
                 onSearchResults={(results) => {
                   setNlpSearchResults(results);
@@ -428,8 +405,8 @@ export default function PropertySelection() {
 
               {useNlpSearch && nlpSearchResults && (
                 <div className="mt-4 flex items-center justify-between">
-                  <p className="text-sm text-gray-500 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-500" />
+                  <p className="text-sm text-white/50 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-400" />
                     {nlpSearchResults.interpretation}
                   </p>
                   <Button
@@ -439,7 +416,7 @@ export default function PropertySelection() {
                       setUseNlpSearch(false);
                       setNlpSearchResults(null);
                     }}
-                    className="text-xs"
+                    className="text-xs text-white/50 hover:text-white hover:bg-white/[0.05]"
                   >
                     <X className="w-3 h-3 mr-1" />
                     Clear AI Search
@@ -455,42 +432,42 @@ export default function PropertySelection() {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="pt-4 mt-4 border-t border-stone-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="pt-4 mt-4 border-t border-white/[0.08] grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Price Range</label>
+                        <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Price Range</label>
                         <Select value={priceFilter} onValueChange={setPriceFilter}>
-                          <SelectTrigger data-testid="select-price-filter" className="border-stone-300">
+                          <SelectTrigger data-testid="select-price-filter" className="border-white/[0.1] bg-white/[0.03] text-white hover:bg-white/[0.05]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#1a1a1a] border-white/[0.1]">
                             {PRICE_RANGES.map((range) => (
-                              <SelectItem key={range.value} value={range.value}>{range.label}</SelectItem>
+                              <SelectItem key={range.value} value={range.value} className="text-white/70 focus:bg-white/[0.08] focus:text-white">{range.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Room Type</label>
+                        <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Room Type</label>
                         <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
-                          <SelectTrigger data-testid="select-room-type-filter" className="border-stone-300">
+                          <SelectTrigger data-testid="select-room-type-filter" className="border-white/[0.1] bg-white/[0.03] text-white hover:bg-white/[0.05]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#1a1a1a] border-white/[0.1]">
                             {ROOM_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                              <SelectItem key={type.value} value={type.value} className="text-white/70 focus:bg-white/[0.08] focus:text-white">{type.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Sort By</label>
+                        <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Sort By</label>
                         <Select value={sortBy} onValueChange={setSortBy}>
-                          <SelectTrigger data-testid="select-sort-by" className="border-stone-300">
+                          <SelectTrigger data-testid="select-sort-by" className="border-white/[0.1] bg-white/[0.03] text-white hover:bg-white/[0.05]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#1a1a1a] border-white/[0.1]">
                             {SORT_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              <SelectItem key={option.value} value={option.value} className="text-white/70 focus:bg-white/[0.08] focus:text-white">{option.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -498,7 +475,7 @@ export default function PropertySelection() {
                     </div>
                     {hasActiveFilters && (
                       <div className="mt-4 flex justify-end">
-                        <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500">
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="text-white/40 hover:text-white hover:bg-white/[0.05]">
                           <X className="w-4 h-4 mr-1" /> Clear all filters
                         </Button>
                       </div>
@@ -511,9 +488,10 @@ export default function PropertySelection() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12 md:py-20">
+      <div className="relative container mx-auto px-4 py-12 md:py-20">
+        <ParticleBackground preset="sparse" className="z-0" />
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
               <PropertyCardSkeleton key={i} />
             ))}
@@ -522,26 +500,28 @@ export default function PropertySelection() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-20"
+            className="relative z-10 text-center py-20"
           >
-            <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">No properties found</h3>
-            <p className="text-gray-500 mb-6">Try adjusting your search or filter criteria</p>
+            <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center mx-auto mb-6">
+              <Building2 className="w-10 h-10 text-white/20" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">No properties found</h3>
+            <p className="text-white/40 mb-6">Try adjusting your search or filter criteria</p>
             {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="border-stone-300">
+              <Button variant="outline" onClick={clearFilters} className="border-white/[0.1] text-white/60 hover:bg-white/[0.05] hover:text-white">
                 Clear all filters
               </Button>
             )}
           </motion.div>
         ) : (
           <>
-            <div className="flex justify-between items-center mb-8">
-              <p className="text-gray-500 text-sm">
-                Showing <span className="font-semibold text-gray-900">{filteredProperties.length}</span> {filteredProperties.length === 1 ? "property" : "properties"}
+            <div className="relative z-10 flex justify-between items-center mb-8">
+              <p className="text-white/40 text-sm">
+                Showing <span className="font-semibold text-white">{filteredProperties.length}</span> {filteredProperties.length === 1 ? "property" : "properties"}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredProperties.map((prop, index) => {
                 const availability = getAvailabilityStatus(prop.roomTypes);
                 const lowestPrice = getLowestPrice(prop.roomTypes, prop.bookingMode);
@@ -557,7 +537,7 @@ export default function PropertySelection() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.08, duration: 0.5 }}
-                    className="group cursor-pointer prop-card-premium"
+                    className="group cursor-pointer prop-card-dark"
                     onClick={() => handlePropertySelect(prop)}
                     data-testid={`property-card-${prop.id}`}
                   >
@@ -570,9 +550,12 @@ export default function PropertySelection() {
                           loading="lazy"
                         />
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                      <div className="absolute top-4 left-4">
+                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 backdrop-blur-sm border border-amber-500/30 flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-amber-400" />
+                        </div>
                         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
                           prop.bookingMode === "academic_year"
                             ? "bg-purple-600/90 text-white backdrop-blur-sm"
@@ -596,19 +579,19 @@ export default function PropertySelection() {
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-heading font-bold text-lg text-gray-900 group-hover:text-amber-600 transition-colors truncate">
+                          <h3 className="font-heading font-bold text-lg text-white group-hover:text-amber-400 transition-colors truncate">
                             {prop.name}
                           </h3>
-                          <p className="text-gray-400 text-sm flex items-center gap-1.5 mt-1.5">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-amber-500/60" />
+                          <p className="text-white/30 text-sm flex items-center gap-1.5 mt-1.5">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-cyan-400/60" />
                             <span className="truncate">{prop.location}</span>
                           </p>
                         </div>
                         <div className="text-right ml-3 flex-shrink-0">
-                          <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
+                          <div className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">
                             {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}
                           </div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-white/30">
                             {prop.bookingMode === "academic_year" ? "per year" : "per month"}
                           </div>
                         </div>
@@ -618,25 +601,25 @@ export default function PropertySelection() {
                         {displayAmenities.map((am: string) => {
                           const Icon = amenityIcons[am] || Shield;
                           return (
-                            <span key={am} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-500 bg-gray-50 rounded-full border border-gray-100">
-                              <Icon className="w-3 h-3 text-gray-400" />
+                            <span key={am} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-white/40 bg-white/[0.03] rounded-full border border-white/[0.08]">
+                              <Icon className="w-3 h-3 text-white/30" />
                               {am}
                             </span>
                           );
                         })}
                         {prop.amenities?.length > 4 && (
-                          <span className="px-2.5 py-1 text-xs text-amber-600 bg-amber-50 rounded-full border border-amber-100 font-medium">
+                          <span className="px-2.5 py-1 text-xs text-amber-400 bg-amber-500/10 rounded-full border border-amber-500/20 font-medium">
                             +{prop.amenities.length - 4}
                           </span>
                         )}
                       </div>
 
-                      <div className="pt-4 border-t border-gray-100/80 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs text-white/30">
                           <Bed className="w-3.5 h-3.5" />
                           <span>{prop.roomTypes?.length || 0} room types</span>
                         </div>
-                        <span className="text-amber-600 text-sm font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                        <span className="text-amber-400 text-sm font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
                           Explore <ArrowRight className="w-4 h-4" />
                         </span>
                       </div>
@@ -665,7 +648,7 @@ export default function PropertySelection() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="absolute right-0 top-0 bottom-0 w-full md:w-[85vw] lg:w-[75vw] xl:w-[65vw] bg-white overflow-y-auto shadow-2xl"
+              className="absolute right-0 top-0 bottom-0 w-full md:w-[85vw] lg:w-[75vw] xl:w-[65vw] bg-[#0a0a0a] overflow-y-auto shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative">
@@ -693,7 +676,7 @@ export default function PropertySelection() {
                   </button>
                 </div>
 
-                <div className="sticky top-0 z-20 bg-white border-b border-stone-200">
+                <div className="sticky top-0 z-20 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/[0.08]">
                   <div className="flex items-center px-6 md:px-10">
                     {DETAIL_TABS.map((tab) => (
                       <button
@@ -701,8 +684,8 @@ export default function PropertySelection() {
                         onClick={() => setActiveDetailTab(tab)}
                         className={`px-4 md:px-6 py-4 text-sm font-medium relative transition-colors ${
                           activeDetailTab === tab
-                            ? "text-amber-600"
-                            : "text-gray-500 hover:text-gray-700"
+                            ? "text-amber-400"
+                            : "text-white/40 hover:text-white/60"
                         }`}
                         data-testid={`tab-${tab.toLowerCase()}`}
                       >
@@ -730,22 +713,22 @@ export default function PropertySelection() {
                         className="space-y-8"
                       >
                         <div>
-                          <h3 className="text-lg font-heading font-bold text-gray-900 mb-3">About This Property</h3>
-                          <p className="text-gray-500 leading-relaxed font-light">
+                          <h3 className="text-lg font-heading font-bold text-white mb-3">About This Property</h3>
+                          <p className="text-white/50 leading-relaxed font-light">
                             {selectedProperty.description || `Welcome to ${selectedProperty.name}, a premium student accommodation located in the heart of ${selectedProperty.location}. Experience luxury living with top-tier amenities, 24/7 security, and a vibrant community of like-minded students.`}
                           </p>
                         </div>
 
                         {selectedProperty.highlights && selectedProperty.highlights.length > 0 && (
                           <div>
-                            <h3 className="text-lg font-heading font-bold text-gray-900 mb-4">Highlights</h3>
+                            <h3 className="text-lg font-heading font-bold text-white mb-4">Highlights</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {selectedProperty.highlights.map((highlight: string, i: number) => (
-                                <div key={i} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-100">
-                                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                    <Check className="w-4 h-4 text-amber-600" />
+                                <div key={i} className="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                    <Check className="w-4 h-4 text-amber-400" />
                                   </div>
-                                  <span className="text-sm text-gray-700">{highlight}</span>
+                                  <span className="text-sm text-white/70">{highlight}</span>
                                 </div>
                               ))}
                             </div>
@@ -753,38 +736,38 @@ export default function PropertySelection() {
                         )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="p-4 bg-stone-50 border border-stone-200 text-center">
-                            <Bed className="w-5 h-5 text-amber-600 mx-auto mb-2" />
-                            <div className="text-lg font-bold text-gray-900">{selectedProperty.roomTypes?.length || 0}</div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wider">Room Types</div>
+                          <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
+                            <Bed className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">{selectedProperty.roomTypes?.length || 0}</div>
+                            <div className="text-xs text-white/40 uppercase tracking-wider">Room Types</div>
                           </div>
-                          <div className="p-4 bg-stone-50 border border-stone-200 text-center">
-                            <Users className="w-5 h-5 text-amber-600 mx-auto mb-2" />
-                            <div className="text-lg font-bold text-gray-900">
+                          <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
+                            <Users className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">
                               {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0}
                             </div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wider">Beds Available</div>
+                            <div className="text-xs text-white/40 uppercase tracking-wider">Beds Available</div>
                           </div>
-                          <div className="p-4 bg-stone-50 border border-stone-200 text-center">
-                            <Shield className="w-5 h-5 text-amber-600 mx-auto mb-2" />
-                            <div className="text-lg font-bold text-gray-900">24/7</div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wider">Security</div>
+                          <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
+                            <Shield className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">24/7</div>
+                            <div className="text-xs text-white/40 uppercase tracking-wider">Security</div>
                           </div>
-                          <div className="p-4 bg-stone-50 border border-stone-200 text-center">
-                            <Award className="w-5 h-5 text-amber-600 mx-auto mb-2" />
-                            <div className="text-lg font-bold text-gray-900">4.8</div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wider">Rating</div>
+                          <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
+                            <Award className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">4.8</div>
+                            <div className="text-xs text-white/40 uppercase tracking-wider">Rating</div>
                           </div>
                         </div>
 
                         <div>
-                          <h3 className="text-lg font-heading font-bold text-gray-900 mb-4">Top Amenities</h3>
+                          <h3 className="text-lg font-heading font-bold text-white mb-4">Top Amenities</h3>
                           <div className="flex flex-wrap gap-2">
                             {selectedProperty.amenities?.slice(0, 8).map((am: string) => {
                               const Icon = amenityIcons[am] || Shield;
                               return (
-                                <span key={am} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 text-sm text-gray-600 hover:border-amber-300 hover:bg-amber-50 transition-colors cursor-default">
-                                  <Icon className="w-4 h-4 text-amber-600" />
+                                <span key={am} className="inline-flex items-center gap-2 px-4 py-2 bg-white/[0.03] border border-white/[0.08] text-sm text-white/60 hover:border-amber-500/30 hover:bg-amber-500/10 transition-colors cursor-default rounded-lg">
+                                  <Icon className="w-4 h-4 text-amber-400" />
                                   {am}
                                 </span>
                               );
@@ -792,7 +775,7 @@ export default function PropertySelection() {
                             {selectedProperty.amenities?.length > 8 && (
                               <button
                                 onClick={() => setActiveDetailTab("Amenities")}
-                                className="inline-flex items-center gap-1 px-4 py-2 bg-amber-50 border border-amber-200 text-sm text-amber-600 hover:bg-amber-100 transition-colors"
+                                className="inline-flex items-center gap-1 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400 hover:bg-amber-500/20 transition-colors rounded-lg"
                               >
                                 +{selectedProperty.amenities.length - 8} more <ChevronRight className="w-3 h-3" />
                               </button>
@@ -812,8 +795,8 @@ export default function PropertySelection() {
                         className="space-y-6"
                       >
                         <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-heading font-bold text-gray-900">Available Rooms</h3>
-                          <span className="text-sm text-gray-500">
+                          <h3 className="text-lg font-heading font-bold text-white">Available Rooms</h3>
+                          <span className="text-sm text-white/40">
                             {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0} beds available
                           </span>
                         </div>
@@ -825,31 +808,31 @@ export default function PropertySelection() {
                               initial={{ opacity: 0, y: 20 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: i * 0.1 }}
-                              className="bg-white border border-stone-200 overflow-hidden hover:border-amber-300 hover:shadow-lg transition-all duration-300 group"
+                              className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group"
                               data-testid={`room-card-${room.id}`}
                             >
                               <div className="p-6">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
-                                      <h4 className="font-heading font-bold text-lg text-gray-900">{room.customName || room.name}</h4>
+                                      <h4 className="font-heading font-bold text-lg text-white">{room.customName || room.name}</h4>
                                       {room.size && (
-                                        <span className="px-2 py-0.5 text-xs bg-stone-100 text-gray-500 border border-stone-200">{room.size}</span>
+                                        <span className="px-2 py-0.5 text-xs bg-white/[0.05] text-white/40 border border-white/[0.08] rounded">{room.size}</span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-4 text-sm text-white/40">
                                       <span className="flex items-center gap-1">
-                                        <Bed className="w-4 h-4 text-amber-600" />
+                                        <Bed className="w-4 h-4 text-amber-400" />
                                         {room.occupancy || 1}-sharing
                                       </span>
                                       <span className="flex items-center gap-1">
-                                        <Users className="w-4 h-4 text-amber-600" />
+                                        <Users className="w-4 h-4 text-amber-400" />
                                         {room.availableBeds} of {room.totalBeds} available
                                       </span>
                                     </div>
 
                                     {room.availableBeds > 0 && room.availableBeds < 3 && (
-                                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 border border-red-200 text-xs text-red-600 font-medium">
+                                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400 font-medium">
                                         <Clock className="w-3 h-3" />
                                         Only {room.availableBeds} left — Book now!
                                       </div>
@@ -858,7 +841,7 @@ export default function PropertySelection() {
                                     {room.amenities && room.amenities.length > 0 && (
                                       <div className="flex flex-wrap gap-1.5 mt-3">
                                         {room.amenities.slice(0, 5).map((am: string) => (
-                                          <span key={am} className="px-2 py-0.5 text-xs text-gray-400 bg-stone-50 border border-stone-200">{am}</span>
+                                          <span key={am} className="px-2 py-0.5 text-xs text-white/30 bg-white/[0.03] border border-white/[0.06] rounded">{am}</span>
                                         ))}
                                       </div>
                                     )}
@@ -875,14 +858,14 @@ export default function PropertySelection() {
                                         const displayPrice = isAcademic ? annualPrice : monthlyPrice;
                                         return (
                                           <>
-                                            <div className="text-2xl md:text-3xl font-bold text-amber-600">
+                                            <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">
                                               {displayPrice > 0 ? `₹${displayPrice.toLocaleString("en-IN")}` : "—"}
                                             </div>
-                                            <div className="text-xs text-gray-400 uppercase tracking-wider">
+                                            <div className="text-xs text-white/30 uppercase tracking-wider">
                                               {isAcademic ? "per year" : "per month"}
                                             </div>
                                             {isAcademic && monthlyPrice > 0 && (
-                                              <div className="text-xs text-gray-400 mt-0.5">
+                                              <div className="text-xs text-white/30 mt-0.5">
                                                 ≈ ₹{monthlyPrice.toLocaleString("en-IN")}/mo
                                               </div>
                                             )}
@@ -890,7 +873,7 @@ export default function PropertySelection() {
                                         );
                                       })()}
                                       {room.deposit > 0 && (
-                                        <div className="text-xs text-gray-400 mt-1">+ ₹{room.deposit.toLocaleString()} deposit</div>
+                                        <div className="text-xs text-white/30 mt-1">+ ₹{room.deposit.toLocaleString()} deposit</div>
                                       )}
                                     </div>
                                     <Button
@@ -910,7 +893,7 @@ export default function PropertySelection() {
                                         );
                                       }}
                                       disabled={room.availableBeds === 0}
-                                      className="bg-amber-600 hover:bg-amber-700 text-white rounded-none px-8 h-11 font-semibold tracking-wider uppercase text-sm"
+                                      className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm"
                                       data-testid={`button-book-room-${room.id}`}
                                     >
                                       {room.availableBeds === 0 ? "Sold Out" : "Book Now"}
@@ -933,7 +916,7 @@ export default function PropertySelection() {
                         transition={{ duration: 0.3 }}
                         className="space-y-6"
                       >
-                        <h3 className="text-lg font-heading font-bold text-gray-900">All Amenities</h3>
+                        <h3 className="text-lg font-heading font-bold text-white">All Amenities</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {selectedProperty.amenities?.map((am: string, i: number) => {
                             const Icon = amenityIcons[am] || Shield;
@@ -943,12 +926,12 @@ export default function PropertySelection() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.03 }}
-                                className="flex items-center gap-3 p-4 bg-white border border-stone-200 hover:border-amber-300 hover:bg-amber-50 transition-all group cursor-default"
+                                className="flex items-center gap-3 p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl hover:border-amber-500/30 hover:bg-amber-500/10 transition-all group cursor-default"
                               >
-                                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors flex-shrink-0">
-                                  <Icon className="w-5 h-5 text-amber-600" />
+                                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors flex-shrink-0">
+                                  <Icon className="w-5 h-5 text-amber-400" />
                                 </div>
-                                <span className="text-sm text-gray-700 font-medium">{am}</span>
+                                <span className="text-sm text-white/70 font-medium">{am}</span>
                               </motion.div>
                             );
                           })}
@@ -965,17 +948,17 @@ export default function PropertySelection() {
                         transition={{ duration: 0.3 }}
                         className="space-y-6"
                       >
-                        <h3 className="text-lg font-heading font-bold text-gray-900">Location & Address</h3>
-                        <div className="bg-stone-50 border border-stone-200 p-6">
+                        <h3 className="text-lg font-heading font-bold text-white">Location & Address</h3>
+                        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6">
                           <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <MapPin className="w-6 h-6 text-amber-600" />
+                            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                              <MapPin className="w-6 h-6 text-amber-400" />
                             </div>
                             <div>
-                              <h4 className="font-semibold text-gray-900 mb-1">{selectedProperty.name}</h4>
-                              <p className="text-gray-500 text-sm mb-1">{selectedProperty.location}</p>
+                              <h4 className="font-semibold text-white mb-1">{selectedProperty.name}</h4>
+                              <p className="text-white/50 text-sm mb-1">{selectedProperty.location}</p>
                               {selectedProperty.address && (
-                                <p className="text-gray-400 text-sm">{selectedProperty.address}</p>
+                                <p className="text-white/30 text-sm">{selectedProperty.address}</p>
                               )}
                             </div>
                           </div>
@@ -984,7 +967,7 @@ export default function PropertySelection() {
                               href={selectedProperty.mapsUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
+                              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors rounded-lg"
                             >
                               <ExternalLink className="w-4 h-4" />
                               View on Google Maps
@@ -994,9 +977,9 @@ export default function PropertySelection() {
 
                         {selectedProperty.rules && (
                           <div>
-                            <h3 className="text-lg font-heading font-bold text-gray-900 mb-3">Property Rules</h3>
-                            <div className="bg-stone-50 border border-stone-200 p-6">
-                              <p className="text-gray-500 text-sm whitespace-pre-line leading-relaxed">{selectedProperty.rules}</p>
+                            <h3 className="text-lg font-heading font-bold text-white mb-3">Property Rules</h3>
+                            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6">
+                              <p className="text-white/50 text-sm whitespace-pre-line leading-relaxed">{selectedProperty.rules}</p>
                             </div>
                           </div>
                         )}
@@ -1004,15 +987,15 @@ export default function PropertySelection() {
                     )}
                   </AnimatePresence>
 
-                  <div className="mt-10 pt-6 border-t border-stone-200">
-                    <div className="bg-gradient-to-r from-stone-50 to-amber-50 border border-stone-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="mt-10 pt-6 border-t border-white/[0.08]">
+                    <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm text-gray-500 mb-1">Starting from</p>
+                        <p className="text-sm text-white/40 mb-1">Starting from</p>
                         <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-amber-600">
+                          <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-amber-400 bg-clip-text text-transparent">
                             ₹{getLowestPrice(selectedProperty.roomTypes, selectedProperty.bookingMode).toLocaleString()}
                           </span>
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-white/30 text-sm">
                             {selectedProperty.bookingMode === "academic_year" ? "per year" : "per month"}
                           </span>
                         </div>
@@ -1020,7 +1003,7 @@ export default function PropertySelection() {
                       <div className="flex gap-3 w-full md:w-auto">
                         <Button
                           variant="outline"
-                          className="flex-1 md:flex-none rounded-none h-12 px-6 border-stone-300 text-gray-700 hover:bg-stone-100"
+                          className="flex-1 md:flex-none rounded-lg h-12 px-6 border-white/[0.1] text-white/60 hover:bg-white/[0.05] hover:text-white"
                           onClick={() => {
                             requireAuth(() => {
                               if (selectedProperty.phone) {
@@ -1034,7 +1017,7 @@ export default function PropertySelection() {
                           Contact Us
                         </Button>
                         <Button
-                          className="flex-1 md:flex-none bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 px-8 font-semibold tracking-wider uppercase text-sm"
+                          className="flex-1 md:flex-none bg-amber-600 hover:bg-amber-700 text-white rounded-lg h-12 px-8 font-semibold tracking-wider uppercase text-sm"
                           onClick={() => setActiveDetailTab("Rooms")}
                           data-testid="button-view-rooms"
                         >
