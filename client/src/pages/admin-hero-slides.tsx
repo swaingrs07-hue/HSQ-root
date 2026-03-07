@@ -415,7 +415,7 @@ export default function AdminHeroSlides() {
               Add Slide
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-lg font-bold">Add New Slide</DialogTitle>
             </DialogHeader>
@@ -551,7 +551,7 @@ export default function AdminHeroSlides() {
                           <Edit2 className="w-4 h-4 text-slate-500" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                         <DialogHeader className="flex-shrink-0">
                           <DialogTitle className="text-lg font-bold">Edit Slide</DialogTitle>
                         </DialogHeader>

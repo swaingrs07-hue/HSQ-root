@@ -255,30 +255,45 @@ function WorldTransition({ color = "amber" }: { color?: string }) {
 function CinematicText({ children, className = "", delay = 0, gradient = false }: {
   children: string; className?: string; delay?: number; gradient?: boolean;
 }) {
+  const words = children.split(" ");
+  let charIndex = 0;
   return (
     <span className={className}>
-      {children.split("").map((char, i) => (
-        <motion.span
-          key={i}
-          className={`inline-block ${char === " " ? "mr-[0.25em]" : ""} ${gradient ? "bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
-          initial={{ opacity: 0, y: 80, rotateX: -90, filter: "blur(10px)" }}
-          whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
-          viewport={{ once: true }}
-          transition={{
-            duration: 0.6,
-            delay: delay + i * 0.03,
-            ease: [0.25, 0.46, 0.45, 0.94],
-          }}
-          style={gradient ? {
-            animationName: "shimmerGradient",
-            animationDuration: "4s",
-            animationIterationCount: "infinite",
-            animationTimingFunction: "linear",
-          } : undefined}
-        >
-          {char === " " ? "\u00A0" : char}
-        </motion.span>
-      ))}
+      {words.map((word, wi) => {
+        const wordChars = word.split("");
+        const wordElement = (
+          <span key={wi} className="inline-flex" style={{ whiteSpace: "nowrap" }}>
+            {wordChars.map((char, ci) => {
+              const idx = charIndex++;
+              return (
+                <motion.span
+                  key={idx}
+                  className={`inline-block ${gradient ? "bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
+                  initial={{ opacity: 0, y: 80, rotateX: -90, filter: "blur(10px)" }}
+                  whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
+                  viewport={{ once: true }}
+                  transition={{
+                    duration: 0.6,
+                    delay: delay + idx * 0.03,
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                  }}
+                  style={gradient ? {
+                    animationName: "shimmerGradient",
+                    animationDuration: "4s",
+                    animationIterationCount: "infinite",
+                    animationTimingFunction: "linear",
+                  } : undefined}
+                >
+                  {char}
+                </motion.span>
+              );
+            })}
+            {wi < words.length - 1 && <span className="inline-block" style={{ width: "0.3em" }}>{"\u00A0"}</span>}
+          </span>
+        );
+        charIndex++;
+        return wordElement;
+      })}
     </span>
   );
 }
