@@ -7650,7 +7650,25 @@ export async function registerRoutes(
       if (!pkg.isActive) return res.status(400).json({ error: "Cannot attach an inactive package" });
 
       const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, packageId)).orderBy(schema.packageItems.sortOrder);
-      const priceSnapshot = { name: pkg.name, basePrice: pkg.basePrice, priceType: pkg.priceType, taxPercent: pkg.taxPercent, category: pkg.category, items: items.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice, rules: i.rules })) };
+      const base = Number(pkg.basePrice) || 0;
+      let totalPrice = base;
+      if (startDate && endDate) {
+        const s = new Date(startDate);
+        const e = new Date(endDate);
+        if (e > s) {
+          const diffDays = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+          if (pkg.priceType === "PER_DAY") {
+            totalPrice = base * diffDays;
+          } else if (pkg.priceType === "PER_MONTH") {
+            const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) || 1;
+            totalPrice = base * months;
+          } else if (pkg.priceType === "PER_YEAR") {
+            const years = Math.max(1, Math.round((diffDays / 365) * 10) / 10);
+            totalPrice = base * years;
+          }
+        }
+      }
+      const priceSnapshot = { name: pkg.name, basePrice: pkg.basePrice, totalPrice: Math.round(totalPrice), priceType: pkg.priceType, taxPercent: pkg.taxPercent, category: pkg.category, items: items.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice, rules: i.rules })) };
 
       const [bp] = await db.insert(schema.bookingPackages).values({
         bookingId: req.params.bookingId,

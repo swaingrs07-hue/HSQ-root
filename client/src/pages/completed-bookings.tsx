@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, differenceInDays, differenceInMonths, differenceInCalendarMonths } from "date-fns";
 import { jsPDF } from "jspdf";
 import {
   Search,
@@ -544,8 +544,9 @@ export default function CompletedBookings() {
       if (hpPkg?.tagline) {
         drawRow("Tagline", hpPkg.tagline);
       }
-      if (pdfHousingPlan.priceSnapshot > 0) {
-        drawRow("Plan Price", `Rs. ${Number(pdfHousingPlan.priceSnapshot).toLocaleString("en-IN")}`);
+      const planPrice = pdfHousingPlan.priceSnapshot?.totalPrice || pdfHousingPlan.basePrice || 0;
+      if (planPrice > 0) {
+        drawRow("Plan Price", `Rs. ${Number(planPrice).toLocaleString("en-IN")}${pdfHousingPlan.priceSnapshot?.totalPrice ? " (total)" : ""}`);
       }
       if (hpPkg?.items && hpPkg.items.length > 0) {
         hpPkg.items.forEach((item: any) => {
@@ -670,7 +671,8 @@ export default function CompletedBookings() {
       pdfAddonPkgs.forEach((bp: any) => {
         const pkg = bp.package;
         const statusStr = bp.status === "ACTIVE" ? "Active" : "Ended";
-        const priceStr = pkg?.basePrice ? `Rs. ${Number(pkg.basePrice).toLocaleString("en-IN")}` : "";
+        const addonTotalPrice = bp.priceSnapshot?.totalPrice || pkg?.basePrice;
+        const priceStr = addonTotalPrice ? `Rs. ${Number(addonTotalPrice).toLocaleString("en-IN")}` : "";
         drawRow(pkg?.name || "Add-On", `${priceStr} — ${statusStr}`);
         const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
         if (mealItem) {
@@ -1118,10 +1120,10 @@ export default function CompletedBookings() {
                         <p className={`font-bold text-base ${planColors.accent}`}>{pkg?.name || "Housing Plan"}</p>
                         {pkg?.tagline && <p className="text-[11px] text-slate-500">{pkg.tagline}</p>}
                       </div>
-                      {housingPlan.priceSnapshot > 0 && (
+                      {(housingPlan.priceSnapshot?.totalPrice > 0 || housingPlan.basePrice > 0) && (
                         <div className="ml-auto text-right">
-                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot).toLocaleString("en-IN")}</p>
-                          <p className="text-[10px] text-slate-400">{pkg?.priceType === "PER_MONTH" ? "/mo" : "/year"}</p>
+                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot?.totalPrice || housingPlan.basePrice || 0).toLocaleString("en-IN")}</p>
+                          <p className="text-[10px] text-slate-400">{housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year")}</p>
                         </div>
                       )}
                     </div>
@@ -1379,6 +1381,11 @@ export default function CompletedBookings() {
                                         <div className="flex items-center gap-1.5">
                                           {isAddon && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
                                           <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
+                                          {(bp.priceSnapshot?.totalPrice > 0 || pkg?.basePrice > 0) && (
+                                            <span className={`text-xs font-bold ${isAddon ? "text-orange-600" : "text-emerald-600"}`}>
+                                              ₹{Number(bp.priceSnapshot?.totalPrice || pkg?.basePrice || 0).toLocaleString("en-IN")}
+                                            </span>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-1.5 mt-0.5">
                                           {isAddon && <Badge className="bg-orange-100 text-orange-600 border-0 text-[9px] px-1.5 py-0">Add-On</Badge>}
@@ -1928,6 +1935,48 @@ export default function CompletedBookings() {
                 <Input type="date" value={attachForm.endDate} onChange={e => setAttachForm(p => ({ ...p, endDate: e.target.value }))} data-testid="input-attach-end" />
               </div>
             </div>
+            {(() => {
+              const selectedPkg = allPackages.find(p => p.id === attachForm.packageId);
+              if (!selectedPkg || !attachForm.startDate || !attachForm.endDate) return null;
+              const start = new Date(attachForm.startDate);
+              const end = new Date(attachForm.endDate);
+              if (end <= start) return null;
+              const base = Number(selectedPkg.basePrice) || 0;
+              const pType = selectedPkg.priceType || "PER_MONTH";
+              let total = base;
+              let durationLabel = "";
+              if (pType === "ONE_TIME") {
+                total = base;
+                durationLabel = "One-time";
+              } else if (pType === "PER_DAY") {
+                const days = differenceInDays(end, start);
+                total = base * days;
+                durationLabel = `${days} day${days !== 1 ? "s" : ""}`;
+              } else if (pType === "PER_MONTH") {
+                const months = differenceInCalendarMonths(end, start) || 1;
+                total = base * months;
+                durationLabel = `${months} month${months !== 1 ? "s" : ""}`;
+              } else if (pType === "PER_YEAR") {
+                const days = differenceInDays(end, start);
+                const years = Math.max(1, Math.round((days / 365) * 10) / 10);
+                total = base * years;
+                durationLabel = `${years} year${years !== 1 ? "s" : ""}`;
+              }
+              return (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] text-slate-500">Duration: {durationLabel}</p>
+                      <p className="text-[11px] text-slate-400">₹{base.toLocaleString("en-IN")} × {durationLabel}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide">Total Price</p>
+                      <p className="text-lg font-bold text-slate-800" data-testid="text-calculated-price">₹{Math.round(total).toLocaleString("en-IN")}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             <Button className={`w-full ${attachTab === "addon" ? "bg-orange-600 hover:bg-orange-700" : "bg-indigo-600 hover:bg-indigo-700"}`} onClick={attachPackage} data-testid="button-confirm-attach">
               Attach {attachTab === "housing" ? "Plan" : "Service"}
             </Button>
