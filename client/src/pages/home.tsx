@@ -1115,9 +1115,13 @@ export default function Home() {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
                         {plans.map((plan: any, idx: number) => {
                           const tier = plan.tierLevel ?? idx;
-                          const d = tierDesigns[Math.min(tier, tierDesigns.length - 1)];
+                          const maxTier = Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
+                          const isTop = tier === maxTier;
                           const isHighlighted = plan.isHighlighted;
-                          const isTop = tier === Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
+                          const designIdx = plans.length <= 2
+                            ? (isHighlighted || isTop ? tierDesigns.length - 1 : 0)
+                            : Math.min(tier, tierDesigns.length - 1);
+                          const d = tierDesigns[designIdx];
                           const price = Number(plan.basePrice || 0);
                           const features = (plan.items || []).slice(0, 6);
                           return (
@@ -1129,11 +1133,11 @@ export default function Home() {
                               data-testid={`plan-card-home-${plan.id}`}
                             >
                             <motion.div
-                              initial={{ opacity: 0, y: 80, scale: 0.7, filter: "blur(12px)" }}
-                              whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                              viewport={{ once: true }}
-                              transition={{ duration: 0.9, delay: idx * 0.2, type: "spring", stiffness: 80, damping: 16 }}
-                              whileHover={{ y: -16, scale: 1.03, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, delay: idx * 0.12, ease: "easeOut" }}
+                              whileHover={{ y: -12, scale: 1.02, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                               className="relative h-full"
                             >
                               {isHighlighted && (
