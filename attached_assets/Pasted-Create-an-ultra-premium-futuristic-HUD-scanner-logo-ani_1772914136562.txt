@@ -1,0 +1,148 @@
+Create an ultra-premium futuristic HUD scanner logo animation for Hsquare Harmony Living.
+
+Objective:
+Design a highly advanced logo reveal sequence that feels like a next-generation tactical scanning interface discovering and locking onto the Hsquare Harmony Living logo in a dark cinematic environment. The final result should feel futuristic, intelligent, luxury, precise, and production-quality.
+
+Core style direction:
+- Futuristic HUD scanner interface
+- premium dark-tech aesthetic
+- cinematic lighting
+- tactical crosshair targeting
+- holographic UI details
+- elegant luxury branding
+- sharp, controlled motion design
+- minimal but advanced
+- no cartoon effects
+- no cheap gaming look
+- no clutter
+- everything must feel refined, intelligent, and expensive
+
+Scene setup:
+- Fullscreen dark environment with deep black / charcoal / midnight blue tones
+- Soft ambient fog, subtle particles, cinematic bloom, and depth-based lighting
+- Background should feel like a hidden premium structure or dark architectural surface
+- Add faint texture, reflections, and low-opacity scan noise for realism
+- Include subtle volumetric glow and moving light haze
+
+Animation sequence:
+1. Initial dark idle state
+   - Screen starts nearly black
+   - Very faint UI noise and ambient HUD flicker
+   - Tiny moving particles and scan distortions
+   - Logo is barely visible or hidden in shadow
+
+2. Scanner system activation
+   - A futuristic HUD system powers on with subtle rings, thin grid fragments, micro lines, targeting ticks, and rotating circular interface elements
+   - Crosshair appears with smooth glowing edges and layered reticle components
+   - Add tiny digital calibration marks and elegant motion graphics
+   - Interface should feel like a premium AI vision system
+
+3. Crosshair search motion
+   - Crosshair moves intentionally across screen as if scanning for a hidden target
+   - Motion must be smooth, tactical, and believable
+   - Add tiny focus pulses, soft radar sweeps, line traces, and angular tracking marks
+   - Crosshair should dynamically react to the environment, not move randomly
+   - Use subtle zoom-in / zoom-out micro motion for realism
+
+4. Target detection
+   - Scanner begins detecting the logo zone
+   - HUD elements intensify near logo position
+   - Add soft light beam sweep and precision alignment lines
+   - Circular reticle narrows and stabilizes
+   - Thin vector lines and data marks converge toward the logo
+   - Include a short visual pulse indicating “target found”
+
+5. Lock-on sequence
+   - Crosshair locks perfectly onto the logo
+   - Reticle tightens with elegant mechanical precision
+   - Add concentric rings, rotating arcs, thin digital brackets, and pulse shockwave
+   - A clean holographic scan sweep reveals the logo sharply
+   - Use glow bloom, crisp highlight pass, and premium reveal lighting
+   - Optional subtle glitch stabilization effect, but keep it classy and minimal
+
+6. Final brand reveal
+   - Hsquare Harmony Living logo becomes fully visible, clean, bright, and premium
+   - HUD elements reduce in intensity and support the logo rather than distract from it
+   - Final frame should feel luxurious and futuristic
+   - Add a gentle shine pass and elegant ambient hold
+   - End with a polished hero-state suitable for a splash screen or landing page intro
+
+HUD details to include:
+- rotating circular scanner rings
+- reticle brackets
+- thin vector alignment lines
+- micro typography placeholders
+- scanning grid fragments
+- angular target markers
+- pulse waves
+- soft radar sweep arcs
+- minimal digital noise
+- holographic edge glow
+- precision tracking dots
+- light distortion ripples
+
+Crosshair design:
+- Multi-layer reticle with inner dot, outer ring, side brackets, and rotating arc pieces
+- Use subtle transparency and premium glow
+- Movement should feel AI-controlled and highly precise
+- Lock-on behavior should include:
+  - narrowing reticle
+  - ring compression
+  - pulse flash
+  - line convergence
+  - small circular expansion wave
+- Crosshair should remain elegant and not overly aggressive
+
+Color palette:
+- Primary: dark black, charcoal, deep blue
+- Accent: cyan / electric blue / cool white
+- Secondary premium accent: soft amber or warm gold for contrast
+- Keep colors controlled and upscale
+- Avoid oversaturated neon chaos
+
+Technical requirements:
+- Build using HTML, CSS, and JavaScript
+- Use canvas and layered DOM elements for premium effects
+- Smooth and performant animation
+- Responsive layout for desktop and mobile
+- Production-quality structure with organized code
+- Keep all constants configurable:
+  - logo path
+  - animation duration
+  - scanner speed
+  - glow intensity
+  - HUD density
+  - accent colors
+- Add comments for easy editing
+- Must be easy to embed into a landing page, app splash screen, or hero section
+- Include fallback for reduced motion / low-performance devices
+
+Code quality:
+- Write clean, modular, professional code
+- Separate logic for:
+  - background atmosphere
+  - HUD rendering
+  - crosshair tracking motion
+  - lock-on animation
+  - logo reveal
+- Use easing for all motion
+- Avoid cheap abrupt transitions
+- Make animation feel like a premium brand film interface
+
+Brand emotion:
+Hsquare Harmony Living should feel like:
+- premium modern living
+- trust and sophistication
+- smart hospitality
+- elevated comfort
+- futuristic lifestyle brand
+- luxury with intelligence
+
+Final output:
+- Generate complete working code in one file
+- Include sample logo asset reference
+- Add a clear section at the top explaining what to replace for logo and colors
+- Make the final result feel like a luxury futuristic scanner intro for a premium hospitality brand
+
+Extra polish:
+Make the motion language feel like a high-end AI operating system, cinematic architectural branding, and a next-gen luxury dashboard interface.

@@ -270,7 +270,7 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
                 <motion.span
                   key={idx}
                   className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
-                  initial={{ opacity: 0, y: 80, rotateX: -90, filter: "blur(10px)" }}
+                  initial={{ opacity: 0, y: 40, rotateX: -60, filter: "blur(8px)" }}
                   whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
                   viewport={{ once: true }}
                   transition={{
@@ -825,10 +825,10 @@ export default function Home() {
             >
               Discover
             </motion.p>
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
               <CinematicText delay={0.1}>Why Choose</CinematicText>
               <br />
-              <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent inline-block pb-2">
                 <CinematicText delay={0.4}>Hsquareliving</CinematicText>
               </span>
             </h2>
@@ -920,10 +920,10 @@ export default function Home() {
             >
               Our Spaces
             </motion.p>
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
               <CinematicText delay={0.1}>Amenities &</CinematicText>
               <br />
-              <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-amber-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-amber-400 bg-clip-text text-transparent inline-block pb-2">
                 <CinematicText delay={0.4}>Facilities</CinematicText>
               </span>
             </h2>
@@ -1079,7 +1079,7 @@ export default function Home() {
                   >
                     Curated Living Experiences
                   </motion.p>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
                     <CinematicText delay={0.1}>Housing</CinematicText>
                     {" "}
                     <CinematicText delay={0.3} gradient>Plans</CinematicText>
@@ -1458,10 +1458,10 @@ export default function Home() {
                   >
                     Properties
                   </motion.p>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white tracking-tight leading-[1.1] overflow-visible">
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white tracking-tight leading-[1.15]">
                     <CinematicText delay={0.1}>Featured</CinematicText>
                     <br />
-                    <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent inline-block pb-2">
                       <CinematicText delay={0.3}>Residences</CinematicText>
                     </span>
                   </h2>
@@ -1628,10 +1628,10 @@ export default function Home() {
           >
             Ready to Begin
           </motion.p>
-          <h2 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black text-white mb-8 leading-[0.9] tracking-tighter" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8)" }}>
+          <h2 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black text-white mb-8 leading-[1.15] tracking-tighter" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8)" }}>
             <CinematicText delay={0.3}>Your Premium Living</CinematicText>
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent inline-block pb-2">
               <CinematicText delay={0.6}>Experience Awaits</CinematicText>
             </span>
           </h2>
