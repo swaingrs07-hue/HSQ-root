@@ -15,11 +15,88 @@ import {
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
   ArrowUp
 } from "lucide-react";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
+
+function useMouseTilt(intensity = 15) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [intensity, -intensity]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-intensity, intensity]), { stiffness: 300, damping: 30 });
+  const glowX = useSpring(useTransform(x, [-0.5, 0.5], [0, 100]), { stiffness: 200, damping: 25 });
+  const glowY = useSpring(useTransform(y, [-0.5, 0.5], [0, 100]), { stiffness: 200, damping: 25 });
+  const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    x.set((e.clientX - rect.left) / rect.width - 0.5);
+    y.set((e.clientY - rect.top) / rect.height - 0.5);
+  }, [x, y]);
+  const onMouseLeave = useCallback(() => { x.set(0); y.set(0); }, [x, y]);
+  return { rotateX, rotateY, glowX, glowY, onMouseMove, onMouseLeave };
+}
+
+function TiltCard({ children, className = "", intensity = 12, glowColor = "rgba(245,158,11,0.15)", ...props }: {
+  children: React.ReactNode; className?: string; intensity?: number; glowColor?: string;
+  [key: string]: any;
+}) {
+  const { rotateX, rotateY, glowX, glowY, onMouseMove, onMouseLeave } = useMouseTilt(intensity);
+  const prefersReduced = useRef(typeof window !== 'undefined' && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  if (prefersReduced.current) {
+    return <div className={className} {...props}>{children}</div>;
+  }
+  return (
+    <motion.div
+      className={className}
+      style={{ perspective: 1000, transformStyle: "preserve-3d" as any }}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      {...props}
+    >
+      <motion.div style={{ rotateX, rotateY, transformStyle: "preserve-3d" as any }} className="relative h-full">
+        {children}
+        <motion.div
+          className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+          style={{ background: useTransform([glowX, glowY], ([gx, gy]) => `radial-gradient(circle at ${gx}% ${gy}%, ${glowColor} 0%, transparent 60%)`) }}
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function TextReveal({ children, className = "", delay = 0 }: { children: string; className?: string; delay?: number }) {
+  return (
+    <span className={className}>
+      {children.split(" ").map((word, i) => (
+        <motion.span
+          key={i}
+          className="inline-block mr-[0.3em]"
+          initial={{ opacity: 0, y: 40, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: delay + i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
+
+function ShimmerText({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`relative ${className}`}>
+      {children}
+      <motion.span
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent bg-clip-text"
+        style={{ backgroundSize: "200% 100%" }}
+        animate={{ backgroundPosition: ["200% 0%", "-200% 0%"] }}
+        transition={{ duration: 4, repeat: Infinity, repeatDelay: 3, ease: "linear" }}
+      />
+    </span>
+  );
+}
 
 const DEFAULT_SLIDES = [
   {
@@ -77,6 +154,7 @@ const STATS = [
 function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; label: string }) {
   const [count, setCount] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
+  const [done, setDone] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,6 +173,7 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
             start = Math.floor(eased * end);
             setCount(start);
             if (progress < 1) requestAnimationFrame(animate);
+            else setDone(true);
           };
           requestAnimationFrame(animate);
         }
@@ -108,31 +187,67 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
   if (end === 0) {
     return (
       <div ref={ref} className="text-center">
-        <div className="text-4xl md:text-5xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2">
+        <motion.div
+          className="text-4xl md:text-6xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2"
+          initial={{ scale: 0.5, opacity: 0 }}
+          whileInView={{ scale: 1, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.3 }}
+          style={{ textShadow: "0 0 40px rgba(245,158,11,0.3)" }}
+        >
           24/7
-        </div>
-        <div className="text-sm text-white/50 uppercase tracking-wider font-medium">{label}</div>
+        </motion.div>
+        <div className="text-sm text-white/50 uppercase tracking-[0.2em] font-medium">{label}</div>
       </div>
     );
   }
 
   return (
     <div ref={ref} className="text-center">
-      <div className="text-4xl md:text-5xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2">
+      <motion.div
+        className="text-4xl md:text-6xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2"
+        animate={done ? { scale: [1, 1.15, 1], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 20px rgba(245,158,11,0.5))", "drop-shadow(0 0 0px transparent)"] } : {}}
+        transition={{ duration: 0.6 }}
+        style={{ textShadow: done ? "0 0 30px rgba(245,158,11,0.2)" : "none" }}
+      >
         {count}{suffix}
-      </div>
-      <div className="text-sm text-white/50 uppercase tracking-wider font-medium">{label}</div>
+      </motion.div>
+      <div className="text-sm text-white/50 uppercase tracking-[0.2em] font-medium">{label}</div>
     </div>
   );
 }
 
 function GlowDivider() {
   return (
-    <div className="relative py-1">
-      <div className="absolute inset-0 flex items-center">
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
-      </div>
-      <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500/40 blur-sm" />
+    <div className="relative py-4 overflow-hidden">
+      <motion.div
+        className="absolute inset-0 flex items-center"
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+      >
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+      </motion.div>
+      <motion.div
+        className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2"
+        initial={{ scale: 0, opacity: 0 }}
+        whileInView={{ scale: 1, opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, delay: 0.6 }}
+      >
+        <div className="w-3 h-3 rounded-full bg-amber-500/50 blur-[2px]" />
+        <div className="absolute inset-0 w-3 h-3 rounded-full bg-amber-400/30 animate-ping" />
+      </motion.div>
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        style={{
+          background: "linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.08) 25%, transparent 50%, rgba(167,139,250,0.08) 75%, transparent 100%)",
+          backgroundSize: "200% 100%",
+        }}
+      />
     </div>
   );
 }
@@ -158,8 +273,9 @@ export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
   const heroOpacity = useTransform(scrollY, [0, 600], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 600], [1, 1.1]);
-  const overlayY = useTransform(scrollY, [0, 400], [0, 100]);
+  const heroScale = useTransform(scrollY, [0, 600], [1, 1.15]);
+  const overlayY = useTransform(scrollY, [0, 400], [0, 120]);
+  const heroBlur = useTransform(scrollY, [0, 600], [0, 6]);
   const progressRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -277,7 +393,7 @@ export default function Home() {
             exit={{ opacity: 0 }}
             transition={{ duration: 1.5, ease: "easeInOut" }}
             className="absolute inset-0"
-            style={{ scale: heroScale }}
+            style={{ scale: heroScale, filter: useTransform(heroBlur, (v) => `blur(${v}px)`) }}
           >
             <motion.img
               src={heroSlides[currentSlide].image}
@@ -301,6 +417,10 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent z-[5]" />
 
+        <div className="absolute inset-0 z-[4] pointer-events-none" style={{
+          boxShadow: "inset 0 0 150px 60px rgba(0,0,0,0.7)",
+        }} />
+
         <div className="absolute inset-0 z-[8]">
           <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
         </div>
@@ -321,28 +441,33 @@ export default function Home() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentSlide}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, y: -20, filter: "blur(8px)" }}
+                transition={{ duration: 0.8, delay: 0.1 }}
                 className="space-y-6"
               >
                 <motion.p
                   className="text-amber-400 text-xs md:text-sm tracking-[0.4em] uppercase font-medium"
-                  initial={{ opacity: 0, letterSpacing: "0.6em" }}
-                  animate={{ opacity: 1, letterSpacing: "0.4em" }}
-                  transition={{ duration: 1, delay: 0.3 }}
+                  initial={{ opacity: 0, letterSpacing: "0.6em", y: -20 }}
+                  animate={{ opacity: 1, letterSpacing: "0.4em", y: 0 }}
+                  transition={{ duration: 1, delay: 0.2 }}
                 >
                   {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
-                <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold text-white leading-[0.95] tracking-tight">
-                  {heroSlides[currentSlide].title}
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold text-white leading-[0.95] tracking-tight" style={{ textShadow: "0 4px 60px rgba(0,0,0,0.5)" }}>
+                  <TextReveal delay={0.3}>{heroSlides[currentSlide].title}</TextReveal>
                 </h1>
 
-                <p className="text-white/60 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed">
+                <motion.p
+                  className="text-white/60 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed"
+                  initial={{ opacity: 0, y: 20, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{ duration: 0.8, delay: 0.8 }}
+                >
                   {heroSlides[currentSlide].caption}
-                </p>
+                </motion.p>
               </motion.div>
             </AnimatePresence>
 
@@ -447,23 +572,43 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-20 bg-[#0a0a0a] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute w-[400px] h-[400px] rounded-full" style={{ top: "-20%", left: "10%", background: "radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%)", filter: "blur(80px)" }} />
-          <div className="absolute w-[300px] h-[300px] rounded-full" style={{ bottom: "-10%", right: "15%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 70%)", filter: "blur(60px)" }} />
+      <section className="py-24 bg-[#0a0a0a] relative overflow-hidden">
+        <div className="absolute inset-0 opacity-40">
+          <motion.div
+            className="absolute w-[500px] h-[500px] rounded-full"
+            style={{ top: "-20%", left: "10%", background: "radial-gradient(circle, rgba(245,158,11,0.2) 0%, transparent 70%)", filter: "blur(100px)" }}
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full"
+            style={{ bottom: "-10%", right: "15%", background: "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%)", filter: "blur(80px)" }}
+            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          />
         </div>
         <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             {STATS.map((stat, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.3, y: 60, rotateX: 45 }}
+                whileInView={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.15, duration: 0.6 }}
+                transition={{
+                  delay: i * 0.15,
+                  duration: 0.7,
+                  type: "spring",
+                  stiffness: 150,
+                  damping: 15,
+                }}
+                className="relative"
                 data-testid={`stat-value-${i}`}
               >
-                <AnimatedCounter end={stat.numericEnd} suffix={stat.suffix} label={stat.label} />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/[0.05]" />
+                <div className="relative p-6">
+                  <AnimatedCounter end={stat.numericEnd} suffix={stat.suffix} label={stat.label} />
+                </div>
               </motion.div>
             ))}
           </div>
@@ -474,8 +619,23 @@ export default function Home() {
 
       <section className="py-24 md:py-32 bg-[#0a0a0a] relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute w-[600px] h-[600px] rounded-full" style={{ top: "10%", right: "-10%", background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 60%)", filter: "blur(100px)" }} />
+          <motion.div
+            className="absolute w-[600px] h-[600px] rounded-full"
+            style={{ top: "10%", right: "-10%", background: "radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 60%)", filter: "blur(100px)" }}
+            animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute w-[400px] h-[400px] rounded-full"
+            style={{ bottom: "-5%", left: "5%", background: "radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 60%)", filter: "blur(80px)" }}
+            animate={{ x: [0, -20, 0], y: [0, 15, 0] }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 3 }}
+          />
         </div>
+        <div className="absolute inset-0 opacity-[0.015]" style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }} />
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -486,7 +646,7 @@ export default function Home() {
           >
             <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Discover</p>
             <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-4">
-              Why Choose <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Hsquareliving</span>
+              Why Choose <ShimmerText className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Hsquareliving</ShimmerText>
             </h2>
             <motion.div
               initial={{ scaleX: 0 }}
@@ -507,29 +667,40 @@ export default function Home() {
               { icon: Utensils, title: "Gourmet Meals", desc: "Chef-prepared nutritious meals with diverse cuisine options daily.", accent: "from-amber-500 to-orange-400", glow: "rgba(245,158,11,0.15)" },
               { icon: Users, title: "Vibrant Community", desc: "Events, workshops, and curated spaces to connect with brilliant peers.", accent: "from-violet-500 to-purple-400", glow: "rgba(139,92,246,0.15)" },
             ].map((feature, i) => (
-              <motion.div
+              <TiltCard
                 key={i}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.12, duration: 0.6 }}
-                whileHover={{ y: -8, transition: { type: "spring", stiffness: 300 } }}
+                intensity={10}
+                glowColor={feature.glow}
                 className="relative group cursor-default"
-                style={{ perspective: "1000px" }}
               >
-                <div
-                  className="p-8 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm relative overflow-hidden transition-all duration-500 group-hover:border-white/[0.15] h-full"
-                  style={{ transformStyle: "preserve-3d" }}
+                <motion.div
+                  initial={{ opacity: 0, rotateX: 25, y: 60, filter: "blur(4px)" }}
+                  whileInView={{ opacity: 1, rotateX: 0, y: 0, filter: "blur(0px)" }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{
+                    delay: i * 0.15,
+                    duration: 0.7,
+                    type: "spring",
+                    stiffness: 120,
+                    damping: 15,
+                  }}
+                  whileHover={{ y: -10, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                 >
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)` }} />
+                  <div className="p-8 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm relative overflow-hidden transition-all duration-500 group-hover:border-white/[0.15] h-full">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)` }} />
 
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-500 relative z-10`}>
-                    <feature.icon className="w-6 h-6 text-white" />
+                    <motion.div
+                      className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-6 shadow-lg relative z-10`}
+                      whileHover={{ scale: 1.15, rotate: 5 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
+                      <feature.icon className="w-6 h-6 text-white" />
+                    </motion.div>
+                    <h3 className="font-heading font-bold text-lg text-white mb-3 relative z-10" style={{ textShadow: "0 2px 20px rgba(0,0,0,0.3)" }}>{feature.title}</h3>
+                    <p className="text-white/40 text-sm leading-relaxed relative z-10">{feature.desc}</p>
                   </div>
-                  <h3 className="font-heading font-bold text-lg text-white mb-3 relative z-10">{feature.title}</h3>
-                  <p className="text-white/40 text-sm leading-relaxed relative z-10">{feature.desc}</p>
-                </div>
-              </motion.div>
+                </motion.div>
+              </TiltCard>
             ))}
           </div>
         </div>
@@ -551,7 +722,7 @@ export default function Home() {
           >
             <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Our Spaces</p>
             <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-4">
-              Amenities & <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Facilities</span>
+              Amenities & <ShimmerText className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Facilities</ShimmerText>
             </h2>
             <motion.div
               initial={{ scaleX: 0 }}
@@ -574,11 +745,17 @@ export default function Home() {
             ).map((amenity, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.85, x: i % 2 === 0 ? -60 : 60 }}
+                whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
-                transition={{ delay: i * 0.1, duration: 0.7 }}
-                whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
+                transition={{
+                  delay: i * 0.12,
+                  duration: 0.8,
+                  type: "spring",
+                  stiffness: 100,
+                  damping: 18,
+                }}
+                whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
                 className="group relative overflow-hidden rounded-2xl cursor-pointer"
                 data-testid={`amenity-card-${i}`}
               >
@@ -591,12 +768,20 @@ export default function Home() {
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                 <div className="absolute inset-0 border border-white/[0.08] rounded-2xl group-hover:border-white/[0.2] transition-all duration-500" />
+                <motion.div
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+                  style={{ boxShadow: "inset 0 0 60px 10px rgba(245,158,11,0.08)" }}
+                />
                 <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <motion.div
+                      className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20"
+                      whileHover={{ scale: 1.2, rotate: 10 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
                       <amenity.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <h3 className="text-white font-heading font-bold text-xl">{amenity.title}</h3>
+                    </motion.div>
+                    <h3 className="text-white font-heading font-bold text-xl" style={{ textShadow: "0 2px 15px rgba(0,0,0,0.5)" }}>{amenity.title}</h3>
                   </div>
                   <p className="text-white/50 text-sm font-light ml-13 pl-13">{amenity.desc}</p>
                 </div>
@@ -697,7 +882,7 @@ export default function Home() {
                 />
                 <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Curated Living Experiences</p>
                 <h2 className="text-4xl md:text-6xl font-heading font-bold text-white mb-5 tracking-tight">
-                  Housing <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Plans</span>
+                  Housing <ShimmerText className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Plans</ShimmerText>
                 </h2>
                 <p className="text-white/40 max-w-xl mx-auto text-sm md:text-base leading-relaxed">
                   Tailored tiers of comfort, service, and luxury. Choose the experience that matches your lifestyle.
@@ -742,11 +927,11 @@ export default function Home() {
                         return (
                           <motion.div
                             key={plan.id}
-                            initial={{ opacity: 0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
+                            initial={{ opacity: 0, scale: 0.7, filter: "blur(10px)", y: 50 }}
+                            whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)", y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 0.6, delay: idx * 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-                            whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                            transition={{ duration: 0.8, delay: idx * 0.2, type: "spring", stiffness: 100, damping: 18 }}
+                            whileHover={{ y: -16, scale: 1.03, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                             className="relative group"
                             data-testid={`plan-card-home-${plan.id}`}
                           >
@@ -1048,7 +1233,7 @@ export default function Home() {
               <div>
                 <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Properties</p>
                 <h2 className="text-3xl md:text-5xl font-heading font-bold text-white">
-                  Featured <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Residences</span>
+                  Featured <ShimmerText className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Residences</ShimmerText>
                 </h2>
               </div>
               <Link href="/properties">
@@ -1073,16 +1258,23 @@ export default function Home() {
                 return (
                   <motion.div
                     key={property.id}
-                    initial={{ opacity: 0, y: 40 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 60, rotateY: -8, scale: 0.9 }}
+                    whileInView={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
                     viewport={{ once: true, margin: "-80px" }}
-                    transition={{ delay: i * 0.15, duration: 0.6 }}
-                    whileHover={{ y: -8, transition: { type: "spring", stiffness: 300 } }}
+                    transition={{
+                      delay: i * 0.2,
+                      duration: 0.8,
+                      type: "spring",
+                      stiffness: 100,
+                      damping: 18,
+                    }}
+                    whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                     className="group"
+                    style={{ perspective: 1200 }}
                     data-testid={`property-card-${property.id}`}
                   >
                     <Link href={`/properties/${property.id}`}>
-                      <div className="relative overflow-hidden rounded-2xl cursor-pointer border border-white/[0.06] bg-white/[0.02] group-hover:border-white/[0.15] transition-all duration-500">
+                      <div className="relative overflow-hidden rounded-2xl cursor-pointer border border-white/[0.06] bg-white/[0.02] group-hover:border-white/[0.15] transition-all duration-500 group-hover:shadow-[0_20px_60px_-15px_rgba(245,158,11,0.15)]">
                         <div className="aspect-[4/3] overflow-hidden">
                           <img
                             src={propertyImage || heroStudentLiving}
@@ -1153,48 +1345,95 @@ export default function Home() {
 
       <section className="relative py-32 md:py-40 overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroTerrace} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/80" />
+          <motion.img
+            src={heroTerrace}
+            alt=""
+            className="w-full h-full object-cover"
+            initial={{ scale: 1.1 }}
+            whileInView={{ scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 2, ease: "easeOut" }}
+          />
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 200px 80px rgba(0,0,0,0.8)" }} />
         </div>
         <div className="absolute inset-0 z-[1]">
           <ParticleBackground preset="sparse" className="absolute inset-0" id="cta-particles" />
         </div>
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          className="absolute inset-0 z-[2] pointer-events-none"
+          animate={{
+            background: [
+              "radial-gradient(ellipse at 30% 50%, rgba(245,158,11,0.08) 0%, transparent 60%)",
+              "radial-gradient(ellipse at 70% 50%, rgba(139,92,246,0.08) 0%, transparent 60%)",
+              "radial-gradient(ellipse at 30% 50%, rgba(245,158,11,0.08) 0%, transparent 60%)",
+            ],
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 1.2 }}
           className="relative z-10 container mx-auto px-4 text-center"
         >
-          <p className="text-amber-400 text-xs tracking-[0.4em] uppercase font-medium mb-4">Ready to Begin</p>
-          <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold text-white mb-6 leading-tight tracking-tight">
-            Your Premium Living<br />
-            <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Experience Awaits</span>
+          <motion.p
+            className="text-amber-400 text-xs tracking-[0.4em] uppercase font-medium mb-4"
+            initial={{ opacity: 0, y: -20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            Ready to Begin
+          </motion.p>
+          <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold text-white mb-6 leading-tight tracking-tight" style={{ textShadow: "0 4px 60px rgba(0,0,0,0.5)" }}>
+            <TextReveal delay={0.3}>Your Premium Living</TextReveal>
+            <br />
+            <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">
+              <TextReveal delay={0.6}>Experience Awaits</TextReveal>
+            </span>
           </h2>
-          <p className="text-white/40 text-lg max-w-2xl mx-auto mb-12 font-light">
+          <motion.p
+            className="text-white/40 text-lg max-w-2xl mx-auto mb-12 font-light"
+            initial={{ opacity: 0, y: 20, filter: "blur(4px)" }}
+            whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+          >
             Secure your spot in minutes. Premium accommodation with flexible payment plans, starting from ₹18,000/-.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          </motion.p>
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 1 }}
+          >
             <Link href="/properties">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-full h-14 px-12 font-bold tracking-wider uppercase text-sm shadow-2xl shadow-amber-500/30 hover:shadow-amber-500/50 transition-shadow"
+                  data-testid="button-cta-book"
+                >
+                  Book Your Stay <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </motion.div>
+            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
               <Button
                 size="lg"
-                className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-full h-14 px-12 font-bold tracking-wider uppercase text-sm shadow-2xl shadow-amber-500/30"
-                data-testid="button-cta-book"
+                variant="outline"
+                className="bg-white/5 backdrop-blur-md border border-white/20 text-white hover:bg-white/15 rounded-full h-14 px-12 font-semibold tracking-wider uppercase text-sm hover:border-white/40 transition-all"
+                onClick={() => window.open(`tel:${footerPhone.replace(/\s/g, "")}`)}
+                data-testid="button-cta-call"
               >
-                Book Your Stay <ArrowRight className="ml-2 w-5 h-5" />
+                <Phone className="w-4 h-4 mr-2" />
+                Contact Us
               </Button>
-            </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="bg-white/5 backdrop-blur-md border border-white/20 text-white hover:bg-white/15 rounded-full h-14 px-12 font-semibold tracking-wider uppercase text-sm"
-              onClick={() => window.open(`tel:${footerPhone.replace(/\s/g, "")}`)}
-              data-testid="button-cta-call"
-            >
-              <Phone className="w-4 h-4 mr-2" />
-              Contact Us
-            </Button>
-          </div>
+            </motion.div>
+          </motion.div>
         </motion.div>
       </section>
 

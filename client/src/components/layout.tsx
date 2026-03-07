@@ -38,6 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [, setNav] = useLocation();
@@ -49,11 +50,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasTransparentHeader]);
+
+  useEffect(() => {
+    const handleScrollProgress = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 0;
+      setScrollProgress(progress);
+    };
+    window.addEventListener("scroll", handleScrollProgress, { passive: true });
+    handleScrollProgress();
+    return () => window.removeEventListener("scroll", handleScrollProgress);
+  }, []);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -72,6 +87,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
       document.removeEventListener("keydown", handleEsc);
     };
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
 
   const handleSearchResults = (results: any) => {
     if (results.totalResults > 0 || results.interpretation) {
@@ -136,15 +160,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
-      <header className={cn(
-        "fixed top-0 z-50 w-full transition-all duration-300",
-        headerTransparent
-          ? "bg-transparent border-b border-transparent"
-          : "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
-      )}>
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div
+        className="fixed top-0 left-0 z-[100] h-[3px] pointer-events-none"
+        style={{
+          width: `${scrollProgress * 100}%`,
+          background: "linear-gradient(90deg, #f59e0b, #d97706, #b45309)",
+          transition: "width 0.1s linear",
+          boxShadow: "0 0 8px rgba(245, 158, 11, 0.6), 0 0 20px rgba(245, 158, 11, 0.3)",
+        }}
+        data-testid="scroll-progress-indicator"
+      />
+
+      <header
+        className={cn(
+          "fixed top-0 z-50 w-full transition-all duration-500 ease-out",
+          headerTransparent
+            ? "bg-transparent border-b border-transparent"
+            : hasTransparentHeader
+              ? "bg-black/60 backdrop-blur-xl border-b border-white/[0.08]"
+              : "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
+        )}
+        style={{
+          boxShadow: !headerTransparent && hasTransparentHeader ? "0 1px 20px rgba(245, 158, 11, 0.08), inset 0 -1px 0 rgba(245, 158, 11, 0.15)" : undefined,
+        }}
+      >
+        <div
+          className={cn(
+            "container mx-auto px-4 flex items-center justify-between transition-all duration-500 ease-out",
+            scrolled ? "h-16" : "h-20"
+          )}
+        >
           <Link href="/" className="flex items-center gap-2 group">
-            <img src={activeLogo} alt="Hsquare Living" className="h-12 w-auto object-contain" />
+            <img
+              src={activeLogo}
+              alt="Hsquare Living"
+              className={cn(
+                "w-auto object-contain transition-all duration-500",
+                scrolled ? "h-10" : "h-12"
+              )}
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -153,41 +207,49 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 key={item.href} 
                 href={item.href}
                 className={cn(
-                  "text-sm font-medium transition-colors flex items-center gap-2",
+                  "text-sm font-medium transition-all duration-300 flex items-center gap-2 relative group",
                   headerTransparent
                     ? "text-white/90 hover:text-white"
-                    : location === item.href
-                      ? "text-primary font-bold"
-                      : "text-muted-foreground hover:text-primary"
+                    : hasTransparentHeader
+                      ? (location === item.href ? "text-amber-400 font-bold" : "text-white/70 hover:text-white")
+                      : (location === item.href ? "text-primary font-bold" : "text-muted-foreground hover:text-primary")
                 )}
               >
                 <item.icon className="w-4 h-4" />
                 {item.name}
+                <span className={cn(
+                  "absolute -bottom-1 left-0 h-[2px] bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-300",
+                  location === item.href ? "w-full" : "w-0 group-hover:w-full"
+                )} />
               </Link>
             ))}
             <button
               onClick={() => setSearchOpen(!searchOpen)}
               className={cn(
-                "p-2 rounded-full transition-all duration-200",
+                "p-2 rounded-full transition-all duration-300",
                 searchOpen
-                  ? "bg-amber-600 text-white"
+                  ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                   : headerTransparent
                     ? "text-white/80 hover:text-white hover:bg-white/10"
-                    : "text-muted-foreground hover:text-primary hover:bg-muted"
+                    : hasTransparentHeader
+                      ? "text-white/70 hover:text-white hover:bg-white/10"
+                      : "text-muted-foreground hover:text-primary hover:bg-muted"
               )}
               data-testid="button-search-toggle"
               aria-label="Search"
             >
               <Search className="w-4 h-4" />
             </button>
-            <div className={cn("pl-4 border-l", headerTransparent ? "border-white/20" : "")}>
+            <div className={cn("pl-4 border-l", headerTransparent ? "border-white/20" : hasTransparentHeader ? "border-white/10" : "border-border")}>
               <ProfileDropdown />
             </div>
           </nav>
 
           <div className="md:hidden flex items-center gap-1">
             <button
-              className={cn("p-2 rounded-full transition-colors", headerTransparent ? "text-white hover:bg-white/10" : "text-foreground hover:bg-muted")}
+              className={cn("p-2 rounded-full transition-colors",
+                headerTransparent || hasTransparentHeader ? "text-white hover:bg-white/10" : "text-muted-foreground hover:bg-muted"
+              )}
               onClick={() => { setSearchOpen(!searchOpen); setMobileMenuOpen(false); }}
               data-testid="button-search-toggle-mobile"
               aria-label="Search"
@@ -195,39 +257,76 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Search className="w-5 h-5" />
             </button>
             <button
-              className={cn("p-2", headerTransparent ? "text-white" : "text-foreground")}
+              className={cn(
+                "p-2 transition-all duration-300 relative z-[60]",
+                headerTransparent || hasTransparentHeader ? "text-white" : "text-foreground"
+              )}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
-              {mobileMenuOpen ? <X /> : <Menu />}
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-background p-4 flex flex-col gap-4 shadow-lg animate-in slide-in-from-top-5">
-            {navItems.map((item) => (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                className={cn(
-                  "text-base font-medium transition-colors hover:text-primary flex items-center gap-3 p-2 rounded-md hover:bg-muted",
-                  location === item.href
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground"
-                )}
-                onClick={() => setMobileMenuOpen(false)}
+          <div className="md:hidden fixed inset-0 z-[55] bg-black/95 backdrop-blur-2xl flex flex-col" style={{ top: 0 }}>
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {Array.from({ length: 30 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full bg-amber-400/20"
+                  style={{
+                    width: `${Math.random() * 3 + 1}px`,
+                    height: `${Math.random() * 3 + 1}px`,
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animation: `float ${Math.random() * 6 + 4}s ease-in-out infinite`,
+                    animationDelay: `${Math.random() * 3}s`,
+                    opacity: Math.random() * 0.5 + 0.2,
+                  }}
+                />
+              ))}
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center gap-2 px-8" style={{ paddingTop: "5rem" }}>
+              {navItems.map((item, index) => (
+                <Link 
+                  key={item.href} 
+                  href={item.href}
+                  className={cn(
+                    "text-2xl font-bold transition-all duration-500 flex items-center gap-4 p-4 rounded-xl w-full max-w-sm",
+                    "opacity-0 translate-y-8",
+                    location === item.href
+                      ? "text-amber-400 bg-amber-400/10"
+                      : "text-white/80 hover:text-white hover:bg-white/5"
+                  )}
+                  style={{
+                    animation: `mobileMenuItemReveal 0.5s ease-out ${index * 0.1}s forwards`,
+                  }}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center",
+                    location === item.href ? "bg-amber-400/20" : "bg-white/5"
+                  )}>
+                    <item.icon className="w-6 h-6" />
+                  </div>
+                  {item.name}
+                </Link>
+              ))}
+              <div
+                className="w-full max-w-sm mt-6 pt-6 border-t border-white/10 opacity-0 translate-y-8"
+                style={{
+                  animation: `mobileMenuItemReveal 0.5s ease-out ${navItems.length * 0.1}s forwards`,
+                }}
               >
-                <item.icon className="w-5 h-5" />
-                {item.name}
-              </Link>
-            ))}
-            <div className="border-t pt-3">
-              <SmartSearch
-                onSearchResults={handleSearchResults}
-                placeholder="Search properties, locations..."
-                className="[&_input]:h-10"
-              />
+                <SmartSearch
+                  onSearchResults={handleSearchResults}
+                  placeholder="Search properties, locations..."
+                  className="[&_input]:h-12 [&_input]:bg-white/10 [&_input]:border-white/20 [&_input]:text-white [&_input]:placeholder:text-white/50 [&_input]:rounded-xl"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -252,7 +351,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {!hasTransparentHeader && <div className="h-16" />}
+      {!hasTransparentHeader && <div className={cn("transition-all duration-500", scrolled ? "h-16" : "h-20")} />}
 
       <main className="flex-1 w-full">
         {children}
@@ -374,6 +473,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </footer>
+
+      <style>{`
+        @keyframes mobileMenuItemReveal {
+          from {
+            opacity: 0;
+            transform: translateY(2rem);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) translateX(0px); }
+          25% { transform: translateY(-10px) translateX(5px); }
+          50% { transform: translateY(-5px) translateX(-3px); }
+          75% { transform: translateY(-15px) translateX(2px); }
+        }
+      `}</style>
     </div>
   );
 }
