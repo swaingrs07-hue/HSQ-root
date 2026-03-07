@@ -4602,10 +4602,9 @@ export async function registerRoutes(
 
       for (const prop of propertiesToProcess) {
         const propBeds = await db.select().from(schema.beds)
-          .innerJoin(schema.rooms, eq(schema.beds.roomId, schema.rooms.id))
-          .innerJoin(schema.floors, eq(schema.rooms.floorId, schema.floors.id))
+          .leftJoin(schema.rooms, eq(schema.beds.roomId, schema.rooms.id))
           .where(and(
-            eq(schema.floors.propertyId, prop.id),
+            eq(schema.beds.propertyId, prop.id),
             inArray(schema.beds.status, ['available', 'occupied', 'reserved'])
           ));
 

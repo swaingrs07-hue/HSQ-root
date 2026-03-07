@@ -1,0 +1,66 @@
+Create a premium cinematic logo intro animation for Hsquare Harmony Living with an advanced “crosshair tracking” concept.
+
+Goal:
+Build a high-end hero/logo reveal animation that feels like a luxury-tech surveillance interface mixed with a hospitality brand intro. The animation should look smooth, modern, dark, futuristic, and polished like a premium app or startup launch screen.
+
+Animation concept:
+- Fullscreen dark background with soft cinematic gradients, subtle blur, floating dust/noise, and realistic lens flare
+- The Hsquare logo starts dim and partially hidden in darkness
+- A glowing crosshair / tracking reticle enters the screen and scans the environment
+- Crosshair moves intelligently with motion, like it is searching and locking onto a target
+- Add HUD-style micro details: scan lines, thin circular arcs, targeting marks, subtle data ticks, rotating rings, tiny particles
+- When the crosshair detects the logo, it should “lock on” with a smooth targeting animation
+- Use tracking beam / light sweep / focus pulse effect on the logo area
+- After lock-on, logo becomes sharper, brighter, and more premium with a luxury reveal
+- Add soft orange/gold and cool blue light accents for a cinematic contrast
+- Include realistic glow bloom, light streaks, faint reflections, and subtle depth/parallax
+- End with a clean final frame where the Hsquare Harmony Living logo is fully visible, crisp, centered or elegantly placed, with a premium shine pass
+- Make the animation feel expensive, branded, and highly refined — not gimmicky
+
+Technical requirements:
+- Build with HTML, CSS, and JavaScript only
+- Use canvas or layered div animation for best performance
+- Smooth 60fps feel
+- Responsive for desktop and mobile
+- Easy to plug into landing page hero section or splash screen
+- Code should be clean, modular, and professional
+- Separate sections clearly: background effects, crosshair tracking system, logo reveal, final hold state
+- Add comments in code for customization
+- Make logo image easy to replace by using a single asset path variable
+- Add timing controls so animation duration can be tuned easily
+- Include graceful fallback if animation is disabled or device is low performance
+
+Crosshair behavior details:
+- Crosshair should not move randomly; it should feel intentional and tactical
+- Start with a slow searching motion
+- Add subtle zoom/focus pulses while scanning
+- When near the logo, movement becomes more precise
+- Lock-on moment should include:
+  - circular reticle tightening
+  - short pulse flash
+  - tiny tracking lines converging
+  - optional soft beep-style visual rhythm
+- After lock-on, crosshair can stay around logo briefly, then fade or integrate into final reveal
+
+Visual style:
+- Luxury tech
+- cinematic
+- minimal but advanced
+- dark glossy atmosphere
+- premium hospitality brand identity
+- sleek interface aesthetics
+- modern startup / sci-fi dashboard feel
+- no cartoon style
+- no cheap neon overload
+- no clutter
+
+Final deliverable:
+- A working single-page demo
+- Include sample logo placement
+- Add instructions at top of file for changing logo asset, colors, speed, and glow intensity
+- Make it look like a production-ready premium brand animation
+
+Brand feeling:
+Hsquare Harmony Living = premium living, modern comfort, elevated experience, trust, sophistication, smart hospitality
+
+Please generate the complete code now.
