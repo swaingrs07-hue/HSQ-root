@@ -14,7 +14,8 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack React Query.
 - **UI Components**: shadcn/ui built on Radix UI, styled with Tailwind CSS, custom design tokens, and CSS variables.
 - **Typography**: Inter (body) and Manrope (headings).
-- **Animations**: Framer Motion.
+- **Animations**: Framer Motion, custom canvas-based particle effects.
+- **Homepage Theme**: Premium dark 3D immersive design (`bg-[#0a0a0a]`) with canvas particle backgrounds, glassmorphism cards, animated counters, gradient glow dividers, and scroll-triggered Framer Motion animations. Particle system supports `hero`, `section`, and `sparse` presets with IntersectionObserver-based pause for performance and `prefers-reduced-motion` support.
 - **Forms**: React Hook Form with Zod validation.
 
 ### Backend

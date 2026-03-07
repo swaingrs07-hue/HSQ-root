@@ -258,7 +258,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="bg-stone-900 text-stone-300 mt-16" data-testid="site-footer">
+      <footer className="bg-stone-900 text-stone-300" data-testid="site-footer">
         <div className="container mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
             <div className="md:col-span-4 space-y-5">

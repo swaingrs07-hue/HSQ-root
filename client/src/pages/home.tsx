@@ -12,12 +12,14 @@ import hsquareLogo from "@assets/Hsquare_Logo_File-07_1771351647884.png";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
-  ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink
+  ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
+  ArrowUp
 } from "lucide-react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
+import { ParticleBackground } from "@/components/particle-background";
 
 const DEFAULT_SLIDES = [
   {
@@ -66,11 +68,74 @@ const AMENITY_SHOWCASE = [
 ];
 
 const STATS = [
-  { value: "500+", label: "Happy Residents" },
-  { value: "15+", label: "Premium Properties" },
-  { value: "98%", label: "Satisfaction Rate" },
-  { value: "24/7", label: "Support & Security" },
+  { value: "500+", label: "Happy Residents", numericEnd: 500, suffix: "+" },
+  { value: "15+", label: "Premium Properties", numericEnd: 15, suffix: "+" },
+  { value: "98%", label: "Satisfaction Rate", numericEnd: 98, suffix: "%" },
+  { value: "24/7", label: "Support & Security", numericEnd: 0, suffix: "" },
 ];
+
+function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; label: string }) {
+  const [count, setCount] = useState(0);
+  const [hasAnimated, setHasAnimated] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (hasAnimated || end === 0) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true);
+          let start = 0;
+          const duration = 2000;
+          const startTime = performance.now();
+          const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            start = Math.floor(eased * end);
+            setCount(start);
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+          requestAnimationFrame(animate);
+        }
+      },
+      { threshold: 0.5 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [end, hasAnimated]);
+
+  if (end === 0) {
+    return (
+      <div ref={ref} className="text-center">
+        <div className="text-4xl md:text-5xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2">
+          24/7
+        </div>
+        <div className="text-sm text-white/50 uppercase tracking-wider font-medium">{label}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} className="text-center">
+      <div className="text-4xl md:text-5xl font-heading font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2">
+        {count}{suffix}
+      </div>
+      <div className="text-sm text-white/50 uppercase tracking-wider font-medium">{label}</div>
+    </div>
+  );
+}
+
+function GlowDivider() {
+  return (
+    <div className="relative py-1">
+      <div className="absolute inset-0 flex items-center">
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500/40 blur-sm" />
+    </div>
+  );
+}
 
 export default function Home() {
   const [tourModalOpen, setTourModalOpen] = useState(false);
@@ -86,6 +151,7 @@ export default function Home() {
   const [footerPhone, setFooterPhone] = useState("+91 6372294625");
   const [dynamicAmenities, setDynamicAmenities] = useState<any[]>([]);
   const [featuredPlans, setFeaturedPlans] = useState<any[]>([]);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const igInterval = useRef<NodeJS.Timeout | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
@@ -95,6 +161,12 @@ export default function Home() {
   const heroScale = useTransform(scrollY, [0, 600], [1, 1.1]);
   const overlayY = useTransform(scrollY, [0, 400], [0, 100]);
   const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 600);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     fetch("/api/hero-slides?active=true")
@@ -191,7 +263,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col bg-[#0a0a0a]">
       <section
         ref={heroRef}
         className="relative w-full h-screen overflow-hidden"
@@ -219,17 +291,21 @@ export default function Home() {
         </AnimatePresence>
 
         <motion.div
-          className="absolute inset-0 z-10"
+          className="absolute inset-0 z-[5]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
           style={{
-            background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)",
+            background: "linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.75) 100%)",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent z-10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent z-[5]" />
 
-        <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-30 pointer-events-none select-none" data-testid="hero-watermark">
+        <div className="absolute inset-0 z-[8]">
+          <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
+        </div>
+
+        <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-20 pointer-events-none select-none" data-testid="hero-watermark">
           <img src={hsquareLogo} alt="" className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert" />
           <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">Hsquare Living</span>
         </div>
@@ -240,7 +316,7 @@ export default function Home() {
         >
           <motion.div
             style={{ y: overlayY }}
-            className="max-w-4xl mx-auto"
+            className="max-w-5xl mx-auto"
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -249,22 +325,22 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="space-y-4"
+                className="space-y-6"
               >
                 <motion.p
-                  className="text-amber-400 text-sm md:text-base tracking-[0.3em] uppercase font-medium"
-                  initial={{ opacity: 0, letterSpacing: "0.5em" }}
-                  animate={{ opacity: 1, letterSpacing: "0.3em" }}
+                  className="text-amber-400 text-xs md:text-sm tracking-[0.4em] uppercase font-medium"
+                  initial={{ opacity: 0, letterSpacing: "0.6em" }}
+                  animate={{ opacity: 1, letterSpacing: "0.4em" }}
                   transition={{ duration: 1, delay: 0.3 }}
                 >
                   {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold text-white leading-tight drop-shadow-2xl">
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold text-white leading-[0.95] tracking-tight">
                   {heroSlides[currentSlide].title}
                 </h1>
 
-                <p className="text-white/80 text-lg md:text-xl font-light max-w-2xl mx-auto">
+                <p className="text-white/60 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed">
                   {heroSlides[currentSlide].caption}
                 </p>
               </motion.div>
@@ -274,22 +350,23 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.6 }}
-              className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
+              className="mt-10 flex flex-col sm:flex-row gap-4 justify-center"
             >
               <Link href="/properties">
                 <Button
                   size="lg"
-                  className="bg-amber-600 hover:bg-amber-700 text-white border-none text-base px-8 h-14 rounded-none font-semibold tracking-wider shadow-2xl hover:shadow-amber-500/20 transition-all uppercase"
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black border-none text-base px-10 h-14 rounded-full font-bold tracking-wider shadow-2xl shadow-amber-500/30 hover:shadow-amber-500/50 transition-all uppercase"
                   data-testid="button-explore-properties"
                 >
                   Explore Properties
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
               <Link href="/properties">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-transparent border-2 border-white/40 text-white hover:bg-white/10 hover:border-white/60 text-base px-8 h-14 rounded-none font-semibold tracking-wider group uppercase"
+                  className="bg-white/5 backdrop-blur-md border border-white/20 text-white hover:bg-white/15 hover:border-white/40 text-base px-10 h-14 rounded-full font-semibold tracking-wider group uppercase"
                   data-testid="button-take-tour"
                 >
                   <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
@@ -305,15 +382,17 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <button
                 onClick={prevSlide}
-                className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white hover:border-white/40 transition-all backdrop-blur-sm"
                 data-testid="button-hero-prev"
+                aria-label="Previous slide"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={nextSlide}
-                className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white hover:border-white/40 transition-all backdrop-blur-sm"
                 data-testid="button-hero-next"
+                aria-label="Next slide"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -346,18 +425,18 @@ export default function Home() {
 
             <button
               onClick={scrollToContent}
-              className="hidden md:flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm tracking-wide group"
+              className="hidden md:flex items-center gap-2 text-white/50 hover:text-white transition-colors text-sm tracking-wide group"
             >
               Scroll to explore
               <ChevronDown className="w-4 h-4 animate-bounce" />
             </button>
           </div>
 
-          <div className="bg-black/40 backdrop-blur-sm border-t border-white/10">
+          <div className="bg-black/50 backdrop-blur-md border-t border-white/5">
             <div className="container mx-auto px-4 py-3 flex justify-center">
               <Link href="/properties">
                 <Button
-                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-none h-12 px-10 font-semibold tracking-wider uppercase text-sm whitespace-nowrap"
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-full h-11 px-10 font-bold tracking-wider uppercase text-sm whitespace-nowrap shadow-lg shadow-amber-500/20"
                   data-testid="button-book-now-hero"
                 >
                   Book Now
@@ -368,8 +447,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 bg-white border-b">
-        <div className="container mx-auto px-4">
+      <section className="py-20 bg-[#0a0a0a] relative overflow-hidden">
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute w-[400px] h-[400px] rounded-full" style={{ top: "-20%", left: "10%", background: "radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%)", filter: "blur(80px)" }} />
+          <div className="absolute w-[300px] h-[300px] rounded-full" style={{ bottom: "-10%", right: "15%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 70%)", filter: "blur(60px)" }} />
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {STATS.map((stat, i) => (
               <motion.div
@@ -377,23 +460,23 @@ export default function Home() {
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.1, duration: 0.6 }}
-                className="text-center"
+                transition={{ delay: i * 0.15, duration: 0.6 }}
+                data-testid={`stat-value-${i}`}
               >
-                <div className="text-3xl md:text-4xl font-heading font-bold text-amber-600 mb-1" data-testid={`stat-value-${i}`}>
-                  {stat.value}
-                </div>
-                <div className="text-sm text-gray-500 uppercase tracking-wider font-medium">
-                  {stat.label}
-                </div>
+                <AnimatedCounter end={stat.numericEnd} suffix={stat.suffix} label={stat.label} />
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 md:py-28 bg-gradient-to-b from-white to-stone-50">
-        <div className="container mx-auto px-4">
+      <GlowDivider />
+
+      <section className="py-24 md:py-32 bg-[#0a0a0a] relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute w-[600px] h-[600px] rounded-full" style={{ top: "10%", right: "-10%", background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 60%)", filter: "blur(100px)" }} />
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -401,44 +484,64 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium mb-3">Discover</p>
-            <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-4">
-              Why Choose Hsquareliving
+            <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Discover</p>
+            <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-4">
+              Why Choose <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Hsquareliving</span>
             </h2>
-            <div className="w-16 h-0.5 bg-amber-500 mx-auto mb-6" />
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto font-light">
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="w-16 h-[2px] bg-gradient-to-r from-amber-500 to-yellow-400 mx-auto mb-6"
+            />
+            <p className="text-white/40 text-lg max-w-2xl mx-auto font-light">
               An ecosystem thoughtfully designed for students to thrive, study, and build lifelong connections.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { icon: Wifi, title: "High-Speed WiFi", desc: "Enterprise-grade connectivity for seamless studies and entertainment.", color: "from-blue-50 to-indigo-50" },
-              { icon: Shield, title: "24/7 Security", desc: "Biometric access, CCTV surveillance, and round-the-clock security staff.", color: "from-emerald-50 to-teal-50" },
-              { icon: Utensils, title: "Gourmet Meals", desc: "Chef-prepared nutritious meals with diverse cuisine options daily.", color: "from-orange-50 to-amber-50" },
-              { icon: Users, title: "Vibrant Community", desc: "Events, workshops, and curated spaces to connect with brilliant peers.", color: "from-purple-50 to-pink-50" },
+              { icon: Wifi, title: "High-Speed WiFi", desc: "Enterprise-grade connectivity for seamless studies and entertainment.", accent: "from-blue-500 to-cyan-400", glow: "rgba(59,130,246,0.15)" },
+              { icon: Shield, title: "24/7 Security", desc: "Biometric access, CCTV surveillance, and round-the-clock security staff.", accent: "from-emerald-500 to-teal-400", glow: "rgba(16,185,129,0.15)" },
+              { icon: Utensils, title: "Gourmet Meals", desc: "Chef-prepared nutritious meals with diverse cuisine options daily.", accent: "from-amber-500 to-orange-400", glow: "rgba(245,158,11,0.15)" },
+              { icon: Users, title: "Vibrant Community", desc: "Events, workshops, and curated spaces to connect with brilliant peers.", accent: "from-violet-500 to-purple-400", glow: "rgba(139,92,246,0.15)" },
             ].map((feature, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: i * 0.15, duration: 0.6 }}
-                className={`p-8 md:p-10 border-r border-b last:border-r-0 lg:last:border-r-0 bg-gradient-to-br ${feature.color} group hover:bg-white transition-all duration-500 cursor-default`}
+                transition={{ delay: i * 0.12, duration: 0.6 }}
+                whileHover={{ y: -8, transition: { type: "spring", stiffness: 300 } }}
+                className="relative group cursor-default"
+                style={{ perspective: "1000px" }}
               >
-                <div className="w-14 h-14 rounded-full bg-white shadow-md flex items-center justify-center text-amber-600 mb-6 group-hover:scale-110 group-hover:shadow-lg transition-all duration-500">
-                  <feature.icon className="w-6 h-6" />
+                <div
+                  className="p-8 rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm relative overflow-hidden transition-all duration-500 group-hover:border-white/[0.15] h-full"
+                  style={{ transformStyle: "preserve-3d" }}
+                >
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)` }} />
+
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-500 relative z-10`}>
+                    <feature.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-heading font-bold text-lg text-white mb-3 relative z-10">{feature.title}</h3>
+                  <p className="text-white/40 text-sm leading-relaxed relative z-10">{feature.desc}</p>
                 </div>
-                <h3 className="font-heading font-bold text-lg text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 md:py-28 bg-stone-50">
-        <div className="container mx-auto px-4">
+      <GlowDivider />
+
+      <section className="py-24 md:py-32 bg-[#0a0a0a] relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute w-[500px] h-[500px] rounded-full" style={{ bottom: "0%", left: "20%", background: "radial-gradient(circle, rgba(167,139,250,0.06) 0%, transparent 60%)", filter: "blur(80px)" }} />
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -446,14 +549,20 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium mb-3">Our Spaces</p>
-            <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-4">
-              Amenities & Facilities
+            <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Our Spaces</p>
+            <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-4">
+              Amenities & <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Facilities</span>
             </h2>
-            <div className="w-16 h-0.5 bg-amber-500 mx-auto" />
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="w-16 h-[2px] bg-gradient-to-r from-amber-500 to-yellow-400 mx-auto"
+            />
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {(dynamicAmenities.length > 0
               ? dynamicAmenities.map(a => ({
                   image: a.imageUrl,
@@ -469,7 +578,8 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ delay: i * 0.1, duration: 0.7 }}
-                className="group relative overflow-hidden cursor-pointer"
+                whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
+                className="group relative overflow-hidden rounded-2xl cursor-pointer"
                 data-testid={`amenity-card-${i}`}
               >
                 <div className="aspect-[16/10] overflow-hidden">
@@ -479,15 +589,16 @@ export default function Home() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                   />
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                <div className="absolute inset-0 border border-white/[0.08] rounded-2xl group-hover:border-white/[0.2] transition-all duration-500" />
                 <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full bg-amber-500/90 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
                       <amenity.icon className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-white font-heading font-bold text-xl">{amenity.title}</h3>
                   </div>
-                  <p className="text-white/70 text-sm font-light ml-13 pl-13">{amenity.desc}</p>
+                  <p className="text-white/50 text-sm font-light ml-13 pl-13">{amenity.desc}</p>
                 </div>
               </motion.div>
             ))}
@@ -552,22 +663,21 @@ export default function Home() {
         ];
         return (
           <section className="py-24 md:py-32 relative overflow-hidden" data-testid="section-housing-plans">
-            <div className="absolute inset-0 bg-[#0c0c0c]" />
+            <div className="absolute inset-0 bg-[#060606]" />
+            <div className="absolute inset-0">
+              <ParticleBackground preset="section" className="absolute inset-0" id="plans-particles" />
+            </div>
             <div
-              className="absolute w-[500px] h-[500px] rounded-full pointer-events-none plans-orb-1"
-              style={{ top: "-5%", left: "10%", background: "radial-gradient(circle, rgba(16,185,129,0.35) 0%, rgba(16,185,129,0.12) 40%, transparent 70%)", filter: "blur(60px)" }}
+              className="absolute w-[500px] h-[500px] rounded-full pointer-events-none"
+              style={{ top: "-5%", left: "10%", background: "radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(16,185,129,0.08) 40%, transparent 70%)", filter: "blur(60px)" }}
             />
             <div
-              className="absolute w-[450px] h-[450px] rounded-full pointer-events-none plans-orb-2"
-              style={{ top: "30%", right: "5%", background: "radial-gradient(circle, rgba(139,92,246,0.3) 0%, rgba(139,92,246,0.1) 40%, transparent 70%)", filter: "blur(60px)" }}
+              className="absolute w-[450px] h-[450px] rounded-full pointer-events-none"
+              style={{ top: "30%", right: "5%", background: "radial-gradient(circle, rgba(139,92,246,0.2) 0%, rgba(139,92,246,0.07) 40%, transparent 70%)", filter: "blur(60px)" }}
             />
             <div
-              className="absolute w-[550px] h-[550px] rounded-full pointer-events-none plans-orb-3"
-              style={{ bottom: "-10%", right: "20%", background: "radial-gradient(circle, rgba(245,158,11,0.35) 0%, rgba(245,158,11,0.12) 40%, transparent 70%)", filter: "blur(60px)" }}
-            />
-            <div
-              className="absolute w-[300px] h-[300px] rounded-full pointer-events-none plans-orb-4"
-              style={{ top: "50%", left: "40%", background: "radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 60%)", filter: "blur(40px)" }}
+              className="absolute w-[550px] h-[550px] rounded-full pointer-events-none"
+              style={{ bottom: "-10%", right: "20%", background: "radial-gradient(circle, rgba(245,158,11,0.25) 0%, rgba(245,158,11,0.08) 40%, transparent 70%)", filter: "blur(60px)" }}
             />
 
             <div className="container mx-auto px-4 relative z-10">
@@ -665,7 +775,7 @@ export default function Home() {
                               </motion.div>
                             )}
 
-                            <div className={`${d.cardBg} rounded-[28px] overflow-hidden h-full flex flex-col relative border border-white/[0.08] group-hover:border-white/[0.18] transition-all duration-500 plan-card-glass`} style={{ boxShadow: `0 8px 40px -8px ${d.glow}, 0 0 80px -20px ${d.glow}` }}>
+                            <div className={`${d.cardBg} rounded-[28px] overflow-hidden h-full flex flex-col relative border border-white/[0.08] group-hover:border-white/[0.18] transition-all duration-500`} style={{ boxShadow: `0 8px 40px -8px ${d.glow}, 0 0 80px -20px ${d.glow}` }}>
                               <div className="absolute inset-0 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 50%)`, boxShadow: `0 0 80px 20px ${d.glow}` }} />
 
                               <div className="px-7 pt-8 pb-6 relative">
@@ -759,12 +869,15 @@ export default function Home() {
 
       {instagramPosts.length > 0 && (
         <section
-          className="py-20 md:py-28 bg-gradient-to-b from-stone-50 to-white overflow-hidden"
+          className="py-24 md:py-32 bg-[#0a0a0a] overflow-hidden relative"
           onMouseEnter={() => setIgAutoPlaying(false)}
           onMouseLeave={() => setIgAutoPlaying(true)}
           data-testid="instagram-feed-section"
         >
-          <div className="container mx-auto px-4">
+          <div className="absolute inset-0">
+            <div className="absolute w-[400px] h-[400px] rounded-full" style={{ top: "10%", right: "5%", background: "radial-gradient(circle, rgba(188,24,136,0.08) 0%, transparent 60%)", filter: "blur(80px)" }} />
+          </div>
+          <div className="container mx-auto px-4 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -779,10 +892,10 @@ export default function Home() {
                   </div>
                   <p className="text-sm tracking-[0.3em] uppercase font-medium" style={{ background: "linear-gradient(135deg, #f09433, #dc2743, #bc1888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live From Instagram</p>
                 </div>
-                <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900 mb-2">
+                <h2 className="text-3xl md:text-5xl font-heading font-bold text-white mb-2">
                   Life at Hsquareliving
                 </h2>
-                <p className="text-gray-500 font-light">Follow our journey and see what makes us special</p>
+                <p className="text-white/40 font-light">Follow our journey and see what makes us special</p>
               </div>
               <a
                 href="https://www.instagram.com/hsquareliving/"
@@ -792,12 +905,12 @@ export default function Home() {
                 style={{ background: "linear-gradient(135deg, #f09433, #dc2743, #bc1888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
                 data-testid="link-instagram-profile"
               >
-                @hsquareliving <ExternalLink className="w-4 h-4 text-pink-600 group-hover:translate-x-0.5 transition-transform" />
+                @hsquareliving <ExternalLink className="w-4 h-4 text-pink-500 group-hover:translate-x-0.5 transition-transform" />
               </a>
             </motion.div>
 
             <div className="relative">
-              <div className="relative aspect-[16/9] md:aspect-[21/9] overflow-hidden rounded-lg shadow-2xl">
+              <div className="relative aspect-[16/9] md:aspect-[21/9] overflow-hidden rounded-2xl shadow-2xl border border-white/[0.06]">
                 <AnimatePresence initial={false}>
                   <motion.div
                     key={igCurrentSlide}
@@ -833,7 +946,7 @@ export default function Home() {
                           href={instagramPosts[igCurrentSlide]?.permalink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs uppercase tracking-wider font-semibold hover:bg-white/20 transition-all rounded-none"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs uppercase tracking-wider font-semibold hover:bg-white/20 transition-all rounded-full"
                           data-testid="link-instagram-post"
                         >
                           View on Instagram
@@ -853,6 +966,7 @@ export default function Home() {
                   onClick={() => setIgCurrentSlide(prev => (prev - 1 + instagramPosts.length) % instagramPosts.length)}
                   className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
                   data-testid="button-ig-prev"
+                  aria-label="Previous Instagram post"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -860,6 +974,7 @@ export default function Home() {
                   onClick={() => setIgCurrentSlide(prev => (prev + 1) % instagramPosts.length)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
                   data-testid="button-ig-next"
+                  aria-label="Next Instagram post"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -877,7 +992,7 @@ export default function Home() {
                     <span className={`absolute inset-0 rounded-full ${
                       i === igCurrentSlide
                         ? "bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600"
-                        : "bg-gray-300 hover:bg-gray-400"
+                        : "bg-white/20 hover:bg-white/40"
                     }`} />
                     {i === igCurrentSlide && igAutoPlaying && (
                       <motion.span
@@ -898,8 +1013,8 @@ export default function Home() {
                   <motion.button
                     key={post.id}
                     onClick={() => setIgCurrentSlide(i)}
-                    className={`aspect-square overflow-hidden rounded-sm transition-all duration-300 ${
-                      i === igCurrentSlide ? "ring-2 ring-pink-500 ring-offset-2 scale-95" : "opacity-70 hover:opacity-100"
+                    className={`aspect-square overflow-hidden rounded-lg transition-all duration-300 border ${
+                      i === igCurrentSlide ? "ring-2 ring-pink-500 ring-offset-2 ring-offset-[#0a0a0a] scale-95 border-pink-500/50" : "opacity-60 hover:opacity-100 border-white/[0.06]"
                     }`}
                     whileHover={{ scale: 1.05 }}
                     data-testid={`button-ig-thumb-${i}`}
@@ -918,8 +1033,11 @@ export default function Home() {
       )}
 
       {!propertiesLoading && properties.length > 0 && (
-        <section className="py-20 md:py-28 bg-white">
-          <div className="container mx-auto px-4">
+        <section className="py-24 md:py-32 bg-[#0a0a0a] relative overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute w-[500px] h-[500px] rounded-full" style={{ top: "20%", left: "-5%", background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 60%)", filter: "blur(80px)" }} />
+          </div>
+          <div className="container mx-auto px-4 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -928,13 +1046,13 @@ export default function Home() {
               className="flex flex-col md:flex-row items-start md:items-end justify-between mb-12"
             >
               <div>
-                <p className="text-amber-600 text-sm tracking-[0.3em] uppercase font-medium mb-3">Properties</p>
-                <h2 className="text-3xl md:text-5xl font-heading font-bold text-gray-900">
-                  Featured Residences
+                <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-4">Properties</p>
+                <h2 className="text-3xl md:text-5xl font-heading font-bold text-white">
+                  Featured <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Residences</span>
                 </h2>
               </div>
               <Link href="/properties">
-                <Button variant="ghost" className="text-amber-600 hover:text-amber-700 mt-4 md:mt-0 group" data-testid="link-view-all-properties">
+                <Button variant="ghost" className="text-amber-400 hover:text-amber-300 hover:bg-white/5 mt-4 md:mt-0 group" data-testid="link-view-all-properties">
                   View All Properties <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -959,67 +1077,69 @@ export default function Home() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-80px" }}
                     transition={{ delay: i * 0.15, duration: 0.6 }}
+                    whileHover={{ y: -8, transition: { type: "spring", stiffness: 300 } }}
                     className="group"
                     data-testid={`property-card-${property.id}`}
                   >
                     <Link href={`/properties/${property.id}`}>
-                      <div className="relative overflow-hidden cursor-pointer">
-                        <div className="aspect-[4/3] overflow-hidden bg-gray-100">
+                      <div className="relative overflow-hidden rounded-2xl cursor-pointer border border-white/[0.06] bg-white/[0.02] group-hover:border-white/[0.15] transition-all duration-500">
+                        <div className="aspect-[4/3] overflow-hidden">
                           <img
                             src={propertyImage || heroStudentLiving}
                             alt={property.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           />
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                         <div className="absolute top-4 left-4">
-                          <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                          <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full ${
                             property.bookingMode === "academic_year"
-                              ? "bg-purple-600 text-white"
-                              : "bg-amber-600 text-white"
+                              ? "bg-purple-500/90 text-white backdrop-blur-sm"
+                              : "bg-amber-500/90 text-white backdrop-blur-sm"
                           }`}>
                             {property.bookingMode === "academic_year" ? "Academic Year" : "Monthly Booking"}
                           </span>
                         </div>
                         {totalBeds > 0 && totalBeds < 5 && (
                           <div className="absolute top-4 right-4">
-                            <span className="px-3 py-1 text-xs font-semibold bg-red-600 text-white uppercase tracking-wider">
+                            <span className="px-3 py-1 text-xs font-semibold bg-red-500/90 text-white uppercase tracking-wider rounded-full backdrop-blur-sm">
                               Only {totalBeds} left
                             </span>
                           </div>
                         )}
-                      </div>
-                      <div className="py-5">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="font-heading font-bold text-lg text-gray-900 group-hover:text-amber-600 transition-colors">
-                              {property.name}
-                            </h3>
-                            <p className="text-gray-500 text-sm flex items-center gap-1 mt-1">
-                              <MapPin className="w-3.5 h-3.5" />
-                              {property.location}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xl font-bold text-amber-600">
-                              {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString()}` : "—"}
+
+                        <div className="p-5">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="font-heading font-bold text-lg text-white group-hover:text-amber-400 transition-colors">
+                                {property.name}
+                              </h3>
+                              <p className="text-white/40 text-sm flex items-center gap-1 mt-1">
+                                <MapPin className="w-3.5 h-3.5" />
+                                {property.location}
+                              </p>
                             </div>
-                            <div className="text-xs text-gray-400">
-                              {property.bookingMode === "academic_year" ? "per year" : "per month"}
+                            <div className="text-right">
+                              <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                                {lowestPrice > 0 ? `₹${lowestPrice.toLocaleString()}` : "—"}
+                              </div>
+                              <div className="text-xs text-white/30">
+                                {property.bookingMode === "academic_year" ? "per year" : "per month"}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 mt-3">
-                          {property.amenities?.slice(0, 4).map((am: string) => (
-                            <span key={am} className="px-2 py-0.5 text-xs text-gray-500 bg-gray-100 border border-gray-200">
-                              {am}
-                            </span>
-                          ))}
-                          {property.amenities?.length > 4 && (
-                            <span className="px-2 py-0.5 text-xs text-amber-600 bg-amber-50 border border-amber-200">
-                              +{property.amenities.length - 4} more
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {property.amenities?.slice(0, 4).map((am: string) => (
+                              <span key={am} className="px-2 py-0.5 text-xs text-white/50 bg-white/[0.05] border border-white/[0.08] rounded-full">
+                                {am}
+                              </span>
+                            ))}
+                            {property.amenities?.length > 4 && (
+                              <span className="px-2 py-0.5 text-xs text-amber-400/70 bg-amber-500/[0.08] border border-amber-500/[0.15] rounded-full">
+                                +{property.amenities.length - 4} more
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </Link>
@@ -1031,10 +1151,13 @@ export default function Home() {
         </section>
       )}
 
-      <section className="relative py-28 md:py-36 overflow-hidden">
+      <section className="relative py-32 md:py-40 overflow-hidden">
         <div className="absolute inset-0">
           <img src={heroTerrace} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/70" />
+          <div className="absolute inset-0 bg-black/80" />
+        </div>
+        <div className="absolute inset-0 z-[1]">
+          <ParticleBackground preset="sparse" className="absolute inset-0" id="cta-particles" />
         </div>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -1043,18 +1166,19 @@ export default function Home() {
           transition={{ duration: 0.8 }}
           className="relative z-10 container mx-auto px-4 text-center"
         >
-          <p className="text-amber-400 text-sm tracking-[0.3em] uppercase font-medium mb-4">Ready to Begin</p>
-          <h2 className="text-3xl md:text-5xl lg:text-6xl font-heading font-bold text-white mb-6 leading-tight">
-            Your Premium Living<br />Experience Awaits
+          <p className="text-amber-400 text-xs tracking-[0.4em] uppercase font-medium mb-4">Ready to Begin</p>
+          <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-bold text-white mb-6 leading-tight tracking-tight">
+            Your Premium Living<br />
+            <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">Experience Awaits</span>
           </h2>
-          <p className="text-white/60 text-lg max-w-2xl mx-auto mb-10 font-light">
+          <p className="text-white/40 text-lg max-w-2xl mx-auto mb-12 font-light">
             Secure your spot in minutes. Premium accommodation with flexible payment plans, starting from ₹18,000/-.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/properties">
               <Button
                 size="lg"
-                className="bg-amber-600 hover:bg-amber-700 text-white rounded-none h-14 px-10 font-semibold tracking-wider uppercase text-sm shadow-2xl"
+                className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-full h-14 px-12 font-bold tracking-wider uppercase text-sm shadow-2xl shadow-amber-500/30"
                 data-testid="button-cta-book"
               >
                 Book Your Stay <ArrowRight className="ml-2 w-5 h-5" />
@@ -1063,7 +1187,7 @@ export default function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="border-2 border-white/30 text-white hover:bg-white/10 rounded-none h-14 px-10 font-semibold tracking-wider uppercase text-sm bg-transparent"
+              className="bg-white/5 backdrop-blur-md border border-white/20 text-white hover:bg-white/15 rounded-full h-14 px-12 font-semibold tracking-wider uppercase text-sm"
               onClick={() => window.open(`tel:${footerPhone.replace(/\s/g, "")}`)}
               data-testid="button-cta-call"
             >
@@ -1073,6 +1197,22 @@ export default function Home() {
           </div>
         </motion.div>
       </section>
+
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-24 right-6 z-40 w-11 h-11 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black flex items-center justify-center shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 transition-shadow"
+            data-testid="button-scroll-top"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <PropertyTourModal
         isOpen={tourModalOpen}
