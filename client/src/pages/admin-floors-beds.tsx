@@ -123,6 +123,8 @@ export default function AdminFloorsBeds() {
   const [planAssignOpen, setPlanAssignOpen] = useState(false);
   const [planAssignRoomTypeId, setPlanAssignRoomTypeId] = useState<string>("");
   const [planAssignRoomTypeName, setPlanAssignRoomTypeName] = useState<string>("");
+  const [planAssignRoomId, setPlanAssignRoomId] = useState<string>("");
+  const [planAssignRoomNumber, setPlanAssignRoomNumber] = useState<string>("");
   const [assigningPlanId, setAssigningPlanId] = useState<string | null>(null);
 
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({ queryKey: ["/api/properties"] });
@@ -227,9 +229,11 @@ export default function AdminFloorsBeds() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const openPlanAssign = (roomTypeId: string, roomTypeName: string) => {
+  const openPlanAssign = (roomTypeId: string, roomTypeName: string, roomId?: string, roomNumber?: string) => {
     setPlanAssignRoomTypeId(roomTypeId);
     setPlanAssignRoomTypeName(roomTypeName);
+    setPlanAssignRoomId(roomId || "");
+    setPlanAssignRoomNumber(roomNumber || "");
     setPlanAssignOpen(true);
   };
 
@@ -660,18 +664,21 @@ export default function AdminFloorsBeds() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Tag className="w-5 h-5 text-violet-600" /> Assign Plan to Room Type
+              <Tag className="w-5 h-5 text-violet-600" /> Assign Plan to Room
             </DialogTitle>
             <DialogDescription>
-              Link housing plans to <span className="font-semibold">{planAssignRoomTypeName}</span> rooms. Linked plans will filter beds on the booking page.
+              Link housing plans to <span className="font-semibold">Room {planAssignRoomNumber || planAssignRoomTypeName}</span>. Plans linked to a specific room will only show on that room.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-72 overflow-y-auto py-2">
             {propertyPackages && propertyPackages.filter(p => p.isActive).length > 0 ? (
               propertyPackages.filter(p => p.isActive).map((pkg: any) => {
-                const allLinkedIds: string[] = Array.isArray(pkg.linkedRoomTypeIds) ? pkg.linkedRoomTypeIds : (pkg.roomTypeId ? [pkg.roomTypeId] : []);
-                const isLinked = allLinkedIds.includes(planAssignRoomTypeId);
-                const otherLinkedIds = allLinkedIds.filter(id => id !== planAssignRoomTypeId);
+                const allLinkedRoomIds: string[] = Array.isArray(pkg.linkedRoomIds) ? pkg.linkedRoomIds : [];
+                const allLinkedTypeIds: string[] = Array.isArray(pkg.linkedRoomTypeIds) ? pkg.linkedRoomTypeIds : (pkg.roomTypeId ? [pkg.roomTypeId] : []);
+                const isRoomLinked = planAssignRoomId ? allLinkedRoomIds.includes(planAssignRoomId) : false;
+                const isTypeLinked = allLinkedTypeIds.includes(planAssignRoomTypeId);
+                const isLinked = isRoomLinked || isTypeLinked;
+                const otherLinkedIds = allLinkedTypeIds.filter(id => id !== planAssignRoomTypeId);
                 const otherRtNames = otherLinkedIds.map(id => {
                   const rt = roomTypes?.find(r => r.id === id);
                   return rt?.customName || rt?.name || "Unknown";
@@ -689,9 +696,14 @@ export default function AdminFloorsBeds() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm text-slate-800 truncate">{pkg.name}</span>
                         <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Tier {pkg.tierLevel ?? 0}</Badge>
-                        {isLinked && (
+                        {isRoomLinked && (
                           <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-0 shrink-0">
-                            <Check className="w-2.5 h-2.5 mr-0.5" />Linked
+                            <Check className="w-2.5 h-2.5 mr-0.5" />This Room
+                          </Badge>
+                        )}
+                        {isTypeLinked && !isRoomLinked && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-slate-100 text-slate-500 border-0 shrink-0">
+                            All {planAssignRoomTypeName}
                           </Badge>
                         )}
                       </div>
@@ -704,8 +716,19 @@ export default function AdminFloorsBeds() {
                         )}
                       </div>
                     </div>
-                    <div className="shrink-0">
-                      {isLinked ? (
+                    <div className="shrink-0 flex gap-1">
+                      {isRoomLinked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-rose-600 border-rose-200 hover:bg-rose-50"
+                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, unlinkRoomId: planAssignRoomId })}
+                          disabled={assignPlanMutation.isPending}
+                          data-testid={`button-unlink-plan-${pkg.id}`}
+                        >
+                          <X className="w-3 h-3" />Unlink
+                        </Button>
+                      ) : isTypeLinked ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -714,19 +737,31 @@ export default function AdminFloorsBeds() {
                           disabled={assignPlanMutation.isPending}
                           data-testid={`button-unlink-plan-${pkg.id}`}
                         >
-                          <X className="w-3 h-3" />Unlink
+                          <X className="w-3 h-3" />Unlink All
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1 text-violet-600 border-violet-200 hover:bg-violet-50"
-                          onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, linkRoomTypeId: planAssignRoomTypeId })}
-                          disabled={assignPlanMutation.isPending}
-                          data-testid={`button-link-plan-${pkg.id}`}
-                        >
-                          <Tag className="w-3 h-3" />Link
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-violet-600 border-violet-200 hover:bg-violet-50"
+                            onClick={() => planAssignRoomId ? assignPlanMutation.mutate({ packageId: pkg.id, linkRoomId: planAssignRoomId }) : assignPlanMutation.mutate({ packageId: pkg.id, linkRoomTypeId: planAssignRoomTypeId })}
+                            disabled={assignPlanMutation.isPending}
+                            data-testid={`button-link-plan-${pkg.id}`}
+                          >
+                            <Tag className="w-3 h-3" />This Room
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-slate-500 border-slate-200 hover:bg-slate-50"
+                            onClick={() => assignPlanMutation.mutate({ packageId: pkg.id, linkRoomTypeId: planAssignRoomTypeId })}
+                            disabled={assignPlanMutation.isPending}
+                            data-testid={`button-link-all-${pkg.id}`}
+                          >
+                            All {planAssignRoomTypeName}
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -755,7 +790,7 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
   onBlockBed: (bedId: string, reason: string, category: string) => void;
   onUnblockBed: (bedId: string, note?: string) => void;
   linkedPlans?: any[];
-  onAssignPlan?: (roomTypeId: string, roomTypeName: string) => void;
+  onAssignPlan?: (roomTypeId: string, roomTypeName: string, roomId?: string, roomNumber?: string) => void;
 }) {
   const rt = roomTypes.find(r => r.id === room.roomTypeId);
   const isCombo = room.typology.includes("+");
@@ -770,6 +805,10 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
   })) : null;
 
   const plansForThisRoom = linkedPlans?.filter((p: any) => {
+    const allLinkedRoomIds: string[] = Array.isArray(p.linkedRoomIds) ? p.linkedRoomIds : [];
+    if (allLinkedRoomIds.length > 0) {
+      return allLinkedRoomIds.includes(room.id);
+    }
     const allLinkedIds: string[] = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
     return allLinkedIds.includes(room.roomTypeId);
   }) || [];
@@ -791,7 +830,7 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
           {plansForThisRoom.length > 0 ? (
             plansForThisRoom.map((p: any) => (
               <Badge key={p.id} className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 gap-0.5 cursor-pointer hover:bg-violet-200"
-                onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type")}
+                onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type", room.id, room.roomNumber)}
                 data-testid={`badge-plan-${p.id}`}
               >
                 <Package className="w-2.5 h-2.5" />{p.name}
@@ -800,7 +839,7 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
           ) : (
             <button
               className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 hover:text-violet-600 transition-colors border border-dashed border-slate-300 hover:border-violet-400 rounded px-1.5 py-0.5"
-              onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type")}
+              onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type", room.id, room.roomNumber)}
               data-testid={`button-assign-plan-${room.id}`}
             >
               <Tag className="w-2.5 h-2.5" />Assign Plan

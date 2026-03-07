@@ -2054,6 +2054,10 @@ export default function BookingGeneration() {
                       {(() => {
                         const matchingPlans = propertyPlans.filter((plan: any) => {
                           if (!formData.roomTypeId) return true;
+                          const linkedRooms: string[] = Array.isArray(plan.linkedRoomIds) ? plan.linkedRoomIds : [];
+                          if (linkedRooms.length > 0) {
+                            return selectedRoomId ? linkedRooms.includes(selectedRoomId) : false;
+                          }
                           const linked: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : [];
                           return linked.includes(formData.roomTypeId) || plan.roomTypeId === formData.roomTypeId;
                         });

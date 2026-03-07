@@ -7399,6 +7399,16 @@ export async function registerRoutes(
         }
       }
 
+      let newLinkedRoomIds: string[] = Array.isArray(existing.linkedRoomIds) ? [...existing.linkedRoomIds] : [];
+      if (packageData.linkRoomId) {
+        if (!newLinkedRoomIds.includes(packageData.linkRoomId)) {
+          newLinkedRoomIds.push(packageData.linkRoomId);
+        }
+      }
+      if (packageData.unlinkRoomId) {
+        newLinkedRoomIds = newLinkedRoomIds.filter((id: string) => id !== packageData.unlinkRoomId);
+      }
+
       let resolvedRoomTypeId = packageData.roomTypeId !== undefined ? (packageData.roomTypeId || null) : existing.roomTypeId;
       if (packageData.unlinkRoomTypeId && resolvedRoomTypeId === packageData.unlinkRoomTypeId) {
         resolvedRoomTypeId = newLinkedIds.length > 0 ? newLinkedIds[0] : null;
@@ -7408,6 +7418,7 @@ export async function registerRoutes(
         propertyId: packageData.propertyId ?? existing.propertyId,
         roomTypeId: resolvedRoomTypeId,
         linkedRoomTypeIds: newLinkedIds.length > 0 ? newLinkedIds : null,
+        linkedRoomIds: newLinkedRoomIds.length > 0 ? newLinkedRoomIds : null,
         category: packageData.category ?? existing.category,
         name: packageData.name ?? existing.name,
         description: packageData.description !== undefined ? (packageData.description || null) : existing.description,

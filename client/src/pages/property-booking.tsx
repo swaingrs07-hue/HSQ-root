@@ -1359,6 +1359,10 @@ function PropertyBooking() {
       const effectiveRT = getBedSharingRoomType(bed, room || selectedRoom);
       const rtId = effectiveRT?.id || bed.roomTypeId;
       const matchingPlans = propertyPlansParent.filter((p: any) => {
+        const linkedRooms: string[] = Array.isArray(p.linkedRoomIds) ? p.linkedRoomIds : [];
+        if (linkedRooms.length > 0) {
+          return room?.id ? linkedRooms.includes(room.id) : false;
+        }
         const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
         return allLinked.includes(rtId) || p.roomTypeId === rtId;
       });
@@ -1471,6 +1475,10 @@ function PropertyBooking() {
     const effectiveRT = getBedSharingRoomType(bed, room);
     const rtId = effectiveRT?.id || bed.roomTypeId;
     return propertyPlansParent.filter((p: any) => {
+      const linkedRooms: string[] = Array.isArray(p.linkedRoomIds) ? p.linkedRoomIds : [];
+      if (linkedRooms.length > 0) {
+        return room?.id ? linkedRooms.includes(room.id) : false;
+      }
       const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
       return allLinked.includes(rtId) || p.roomTypeId === rtId;
     });
