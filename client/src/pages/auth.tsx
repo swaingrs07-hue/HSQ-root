@@ -222,7 +222,13 @@ export default function AuthPage() {
       if (result.success) {
         setShowSuccess(true);
         setTimeout(() => {
-          setLocation(result.redirectPath || "/dashboard");
+          const pendingRedirect = localStorage.getItem("post_login_redirect");
+          if (pendingRedirect) {
+            localStorage.removeItem("post_login_redirect");
+            setLocation(pendingRedirect);
+          } else {
+            setLocation(result.redirectPath || "/dashboard");
+          }
         }, 800);
       } else {
         setShakeForm(true);

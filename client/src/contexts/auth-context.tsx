@@ -69,9 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const isProtectedRoute = isAdminRoute || isOperationsRoute || isSalesRoute || isDashboardRoute || isBookingsRoute || isProfileRoute;
     
-    // Progressive Auth: If user is NOT logged in and lands on /auth, redirect to home
-    // They can browse freely and will see auth modal when taking protected actions
-    if (!user && isAuthRoute) {
+    const hasPendingRedirect = !!localStorage.getItem("post_login_redirect");
+    if (!user && isAuthRoute && !hasPendingRedirect) {
       setLocation("/");
       return;
     }

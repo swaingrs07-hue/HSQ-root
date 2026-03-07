@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
 class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -1318,6 +1319,7 @@ function PropertyBooking() {
   const [, params] = useRoute("/properties/:id");
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user, token } = useAuth();
   const propertyId = params?.id;
   const [selectedBed, setSelectedBed] = useState<any>(null);
   const [selectedFloor, setSelectedFloor] = useState<any>(null);
@@ -1436,7 +1438,7 @@ function PropertyBooking() {
 
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
     if (!property) return;
-    localStorage.setItem("selected_room", JSON.stringify({
+    const roomData = {
       propertyId: property.id,
       roomTypeId,
       price,
@@ -1453,7 +1455,14 @@ function PropertyBooking() {
       roomTypology: selectedRoom?.typology || "",
       selectedPlanId: effectivePlan?.id || null,
       selectedPlanName: effectivePlan?.name || null,
-    }));
+    };
+    localStorage.setItem("selected_room", JSON.stringify(roomData));
+    if (!token && !user) {
+      localStorage.setItem("post_login_redirect", "/booking/generate");
+      toast({ title: "Sign in required", description: "Please sign in to proceed with your booking." });
+      window.location.href = "/login";
+      return;
+    }
     navigate("/booking/generate");
   };
 
