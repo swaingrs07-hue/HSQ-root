@@ -815,7 +815,7 @@ export default function Home() {
             >
               Discover
             </motion.p>
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[0.95]">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
               <CinematicText delay={0.1}>Why Choose</CinematicText>
               <br />
               <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent">
@@ -910,7 +910,7 @@ export default function Home() {
             >
               Our Spaces
             </motion.p>
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[0.95]">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
               <CinematicText delay={0.1}>Amenities &</CinematicText>
               <br />
               <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-amber-400 bg-clip-text text-transparent">
@@ -1069,7 +1069,7 @@ export default function Home() {
                   >
                     Curated Living Experiences
                   </motion.p>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1]">
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.1] overflow-visible">
                     <CinematicText delay={0.1}>Housing</CinematicText>
                     {" "}
                     <CinematicText delay={0.3} gradient>Plans</CinematicText>
@@ -1448,7 +1448,7 @@ export default function Home() {
                   >
                     Properties
                   </motion.p>
-                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white tracking-tight leading-[0.95]">
+                  <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white tracking-tight leading-[1.1] overflow-visible">
                     <CinematicText delay={0.1}>Featured</CinematicText>
                     <br />
                     <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
