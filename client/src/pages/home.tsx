@@ -202,10 +202,12 @@ function ImmersiveScene({ children, className = "", variant = "default", paralla
   return (
     <motion.section
       ref={ref}
-      className={`relative overflow-hidden ${className}`}
+      className={`relative ${className}`}
       style={{ scale, opacity }}
     >
-      {backgrounds[variant]}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {backgrounds[variant]}
+      </div>
       {children}
     </motion.section>
   );
@@ -270,8 +272,8 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
                 <motion.span
                   key={idx}
                   className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
-                  initial={{ opacity: 0, y: 40, rotateX: -60, filter: "blur(8px)" }}
-                  whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
+                  initial={{ opacity: 0, y: 20, filter: "blur(6px)" }}
+                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   viewport={{ once: true }}
                   transition={{
                     duration: 0.6,
@@ -828,9 +830,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
               <CinematicText delay={0.1}>Why Choose</CinematicText>
               <br />
-              <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent inline-block pb-2">
-                <CinematicText delay={0.4}>Hsquareliving</CinematicText>
-              </span>
+              <CinematicText delay={0.4} gradient>Hsquareliving</CinematicText>
             </h2>
             <motion.div
               initial={{ scaleX: 0 }}
@@ -923,9 +923,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
               <CinematicText delay={0.1}>Amenities &</CinematicText>
               <br />
-              <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-amber-400 bg-clip-text text-transparent inline-block pb-2">
-                <CinematicText delay={0.4}>Facilities</CinematicText>
-              </span>
+              <CinematicText delay={0.4} gradient>Facilities</CinematicText>
             </h2>
             <motion.div
               initial={{ scaleX: 0 }}
@@ -1461,9 +1459,7 @@ export default function Home() {
                   <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white tracking-tight leading-[1.15]">
                     <CinematicText delay={0.1}>Featured</CinematicText>
                     <br />
-                    <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent inline-block pb-2">
-                      <CinematicText delay={0.3}>Residences</CinematicText>
-                    </span>
+                    <CinematicText delay={0.3} gradient>Residences</CinematicText>
                   </h2>
                 </div>
                 <Link href="/properties">
@@ -1631,9 +1627,7 @@ export default function Home() {
           <h2 className="text-5xl md:text-7xl lg:text-8xl font-heading font-black text-white mb-8 leading-[1.15] tracking-tighter" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8)" }}>
             <CinematicText delay={0.3}>Your Premium Living</CinematicText>
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-400 bg-clip-text text-transparent inline-block pb-2">
-              <CinematicText delay={0.6}>Experience Awaits</CinematicText>
-            </span>
+            <CinematicText delay={0.6} gradient>Experience Awaits</CinematicText>
           </h2>
           <motion.p
             className="text-white/30 text-lg md:text-xl max-w-2xl mx-auto mb-14 font-light"
