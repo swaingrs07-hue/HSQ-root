@@ -1599,11 +1599,23 @@ export default function BookingGeneration() {
 
                       <div className="space-y-3">
                         {floors.map((floor: any) => {
+                          const selectedRT = roomTypes.find((rt: any) => rt.id === formData.roomTypeId);
+                          const selectedOccupancy = selectedRT?.occupancy || 0;
+                          const bedMatchesSelectedType = (bed: any, room: any) => {
+                            if (bed.roomTypeId === formData.roomTypeId) return true;
+                            if (!room?.typology?.includes("+") || !selectedOccupancy) return false;
+                            const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                            const sectionIdx = parts.findIndex((_: number, i: number) => {
+                              const sLetter = String.fromCharCode(65 + i);
+                              return bed.bedNumber?.includes(`${room.roomNumber}${sLetter}`);
+                            });
+                            return sectionIdx >= 0 && parts[sectionIdx] === selectedOccupancy;
+                          };
                           const floorRooms = (floor.rooms || []).filter((r: any) =>
-                            (r.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId) || r.roomTypeId === formData.roomTypeId
+                            (r.beds || []).some((b: any) => bedMatchesSelectedType(b, r)) || r.roomTypeId === formData.roomTypeId
                           );
                           const roomBedIds = new Set(floorRooms.flatMap((r: any) => (r.beds || []).map((b: any) => b.id)));
-                          const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId))
+                          const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => bedMatchesSelectedType(b, r)))
                             .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !roomBedIds.has(b.id)));
                           const availBedCount = allFloorBeds.filter((b: any) => b.status === "available" && !b.held).length;
                           const totalBedCount = allFloorBeds.length;
@@ -1650,7 +1662,7 @@ export default function BookingGeneration() {
                                   )}
 
                                   {floorRooms.map((room: any) => {
-                                    const roomBeds = (room.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId);
+                                    const roomBeds = (room.beds || []).filter((b: any) => bedMatchesSelectedType(b, room));
                                     if (roomBeds.length === 0) return null;
                                     const isCombo = room.typology?.includes("+");
                                     const allAvail = roomBeds.every((b: any) => b.status === "available");
@@ -1721,14 +1733,13 @@ export default function BookingGeneration() {
 
                                         {isCombo && sections ? (
                                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {sections.map((section: any) => (
+                                            {sections.filter((section: any) => section.beds.length > 0).map((section: any) => (
                                               <div key={section.label} className="bg-white/80 rounded border border-slate-200 p-2">
                                                 <p className="text-[10px] font-medium text-slate-500 mb-1.5">
                                                   {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
                                                 </p>
                                                 <div className="flex gap-1.5 flex-wrap">
                                                   {section.beds.map(renderBedCell)}
-                                                  {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
                                                 </div>
                                               </div>
                                             ))}
