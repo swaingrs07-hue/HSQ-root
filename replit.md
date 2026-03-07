@@ -77,3 +77,4 @@ Preferred communication style: Simple, everyday language.
 - **Instagram Graph API**: For Instagram feed integration.
 - **OpenAI GPT-4o-mini**: Via Replit AI Integrations for the chatbot.
 - **Hostel Management System**: External system for property syncing (e.g., `https://hostel-flow--swaingrs07.replit.app`).
+- **Resend**: Email delivery service for automated booking confirmation emails. Service module at `server/email-service.ts`, sends branded HTML emails on booking confirmation. Email status (sent/failed) logged to CRM activity logs.

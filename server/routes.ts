@@ -13,6 +13,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
+import { sendBookingConfirmationEmail } from "./email-service";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 
@@ -3409,7 +3410,7 @@ export async function registerRoutes(
   });
 
   // Confirm booking (after payment)
-  app.post("/api/bookings/:id/confirm", async (req, res) => {
+  app.post("/api/bookings/:id/confirm", authMiddleware, async (req, res) => {
     try {
       const { approvedBy } = req.body;
       
@@ -3424,6 +3425,13 @@ export async function registerRoutes(
       }
 
       const confirmed = await storage.confirmBooking(req.params.id, approvedBy);
+
+      if (confirmed && confirmed.status === "confirmed") {
+        sendBookingConfirmationEmail(confirmed).catch(err => {
+          console.error("[Email] Background email send failed:", err);
+        });
+      }
+
       res.json(confirmed);
     } catch (error: any) {
       console.error("Error confirming booking:", error);
@@ -3432,7 +3440,7 @@ export async function registerRoutes(
   });
 
   // Cancel booking
-  app.post("/api/bookings/:id/cancel", async (req, res) => {
+  app.post("/api/bookings/:id/cancel", authMiddleware, async (req, res) => {
     try {
       const { reason } = req.body;
       
