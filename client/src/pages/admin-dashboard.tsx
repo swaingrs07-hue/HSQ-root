@@ -18,6 +18,7 @@ import { getAdminStats } from "@/lib/api";
 import type { Lead } from "@shared/schema";
 import { LeadsTrendChart, PropertyBookingsChart, SalesPerformanceChart, LeadSourcePieChart } from "@/components/animated-charts";
 import { FadeInView, StaggeredList, StaggeredItem } from "@/components/motion-primitives";
+import TargetAchievementTab from "@/components/target-achievement-tab";
 
 function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number | string; prefix?: string; suffix?: string }) {
   const numValue = typeof value === "string" ? parseFloat(value) : value;
@@ -957,6 +958,15 @@ export default function AdminDashboard() {
               </Badge>
             )}
           </Button>
+          <Button 
+            variant={activeTab === "targets" ? "default" : "ghost"}
+            size="sm"
+            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "targets" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            onClick={() => setActiveTab("targets")}
+            data-testid="tab-targets"
+          >
+            <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Target & Achievement
+          </Button>
         </div>
         {activeTab === "overview" && (
           <div className="flex gap-2">
@@ -1500,6 +1510,10 @@ export default function AdminDashboard() {
                   </DialogContent>
                 </Dialog>
               </div>
+            )}
+
+            {activeTab === "targets" && (
+              <TargetAchievementTab />
             )}
 
             {activeTab === "leads" && (

@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
 - **Logo Control Panel**: Admin-only panel to upload custom header, footer, and admin sidebar logos, stored dynamically.
 - **Gyan AI Chatbot (HMS-Connected)**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data for personalized responses, lead capture, and context caching.
 - **Instagram Live Feed**: Integration with Instagram Graph API to display recent posts on the homepage with daily caching.
+- **Target & Achievement Dashboard**: Admin-only CRM tab showing property-wise sales targets vs achievements. Features auto-calculated targets from bed inventory × pricing × occupancy %, admin-configurable target overrides, summary KPI cards, property-wise detail rows with progress bars and color indicators (green/yellow/red), filters (property/month/status), Recharts bar and area charts (Target vs Achievement, Occupancy %, Monthly Trend), and top/bottom performer highlights. Data stored in `propertyTargets` table; API endpoints protected with auth middleware and Zod validation.
 
 ## External Dependencies
 

@@ -1406,6 +1406,22 @@ export const insertSeasonCloseJobItemSchema = createInsertSchema(seasonCloseJobI
 export type SeasonCloseJobItem = typeof seasonCloseJobItems.$inferSelect;
 export type InsertSeasonCloseJobItem = z.infer<typeof insertSeasonCloseJobItemSchema>;
 
+// Property Targets table (for Target & Achievement dashboard)
+export const propertyTargets = pgTable("property_targets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").notNull(),
+  targetOccupancyPercent: integer("target_occupancy_percent").default(100).notNull(),
+  customTargetOverride: integer("custom_target_override"),
+  seasonId: varchar("season_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPropertyTargetSchema = createInsertSchema(propertyTargets).omit({ id: true, createdAt: true, updatedAt: true });
+export type PropertyTarget = typeof propertyTargets.$inferSelect;
+export type InsertPropertyTarget = z.infer<typeof insertPropertyTargetSchema>;
+
 // Bed holds table (persistent hold during booking)
 export const bedHolds = pgTable("bed_holds", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

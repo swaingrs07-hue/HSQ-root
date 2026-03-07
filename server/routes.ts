@@ -4573,6 +4573,204 @@ export async function registerRoutes(
     }
   });
 
+  // Target & Achievement endpoints
+  app.get("/api/admin/targets", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { seasonId, propertyId, month, startDate, endDate, bookingStatus } = req.query;
+
+      const allProperties = await storage.getAllPropertiesIncludingInactive();
+      const targetSettings = await storage.getPropertyTargets(
+        propertyId as string | undefined,
+        seasonId as string | undefined
+      );
+
+      const targetMap = new Map(targetSettings.map(t => [t.propertyId, t]));
+
+      const propertiesToProcess = propertyId
+        ? allProperties.filter(p => p.id === propertyId)
+        : allProperties;
+
+      const results = [];
+
+      for (const prop of propertiesToProcess) {
+        const propBeds = await db.select().from(schema.beds)
+          .innerJoin(schema.rooms, eq(schema.beds.roomId, schema.rooms.id))
+          .innerJoin(schema.floors, eq(schema.rooms.floorId, schema.floors.id))
+          .where(and(
+            eq(schema.floors.propertyId, prop.id),
+            inArray(schema.beds.status, ['available', 'occupied', 'reserved'])
+          ));
+
+        const totalBeds = propBeds.length;
+
+        const bedPrices = propBeds.map(b => {
+          const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
+          const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
+          return bedPrice || roomPrice || 0;
+        });
+
+        const totalBedValue = bedPrices.reduce((sum, p) => sum + p, 0);
+        const avgBedPrice = totalBeds > 0 ? Math.round(totalBedValue / totalBeds) : 0;
+
+        const target = targetMap.get(prop.id);
+        const occupancyTarget = target?.targetOccupancyPercent ?? 100;
+        const autoTarget = Math.round(totalBedValue * (occupancyTarget / 100));
+        const targetAmount = target?.customTargetOverride ?? autoTarget;
+
+        const bookingConditions = [
+          eq(schema.bookings.propertyId, prop.id),
+        ];
+
+        const validStatuses = bookingStatus
+          ? [bookingStatus as string]
+          : ['confirmed', 'active', 'completed', 'pending_payment', 'pending_approval'];
+        bookingConditions.push(inArray(schema.bookings.status, validStatuses));
+
+        if (month) {
+          const monthNum = parseInt(month as string);
+          const year = new Date().getFullYear();
+          bookingConditions.push(sql`EXTRACT(MONTH FROM ${schema.bookings.createdAt}) = ${monthNum}`);
+          bookingConditions.push(sql`EXTRACT(YEAR FROM ${schema.bookings.createdAt}) = ${year}`);
+        }
+
+        if (startDate) {
+          bookingConditions.push(sql`${schema.bookings.createdAt} >= ${new Date(startDate as string)}`);
+        }
+        if (endDate) {
+          bookingConditions.push(sql`${schema.bookings.createdAt} <= ${new Date(endDate as string)}`);
+        }
+
+        if (seasonId) {
+          bookingConditions.push(eq(schema.bookings.seasonId, seasonId as string));
+        }
+
+        const propBookings = await db.select().from(schema.bookings)
+          .where(and(...bookingConditions));
+
+        const achievedAmount = propBookings.reduce((sum, b) => sum + (Number(b.totalFee) || 0), 0);
+        const bookedBeds = propBookings.filter(b => ['confirmed', 'active'].includes(b.status)).length;
+        const occupiedBeds = propBeds.filter(b => b.beds.status === 'occupied').length;
+        const vacantBeds = totalBeds - occupiedBeds;
+        const occupancyPercent = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+        const achievementPercent = targetAmount > 0 ? Math.round((achievedAmount / targetAmount) * 100) : 0;
+        const remainingAmount = Math.max(0, targetAmount - achievedAmount);
+
+        results.push({
+          propertyId: prop.id,
+          propertyName: prop.name,
+          totalBeds,
+          occupiedBeds,
+          vacantBeds,
+          bookedBeds,
+          avgBedPrice,
+          targetAmount,
+          autoTarget,
+          achievedAmount,
+          remainingAmount,
+          achievementPercent,
+          occupancyPercent,
+          targetOccupancyPercent: occupancyTarget,
+          hasCustomTarget: !!target?.customTargetOverride,
+          notes: target?.notes || null,
+        });
+      }
+
+      const summary = {
+        totalTarget: results.reduce((s, r) => s + r.targetAmount, 0),
+        totalAchieved: results.reduce((s, r) => s + r.achievedAmount, 0),
+        totalRemaining: results.reduce((s, r) => s + r.remainingAmount, 0),
+        totalBeds: results.reduce((s, r) => s + r.totalBeds, 0),
+        totalOccupied: results.reduce((s, r) => s + r.occupiedBeds, 0),
+        overallOccupancy: 0,
+        overallAchievement: 0,
+        topProperty: null as any,
+        lowestProperty: null as any,
+      };
+
+      summary.overallOccupancy = summary.totalBeds > 0
+        ? Math.round((summary.totalOccupied / summary.totalBeds) * 100)
+        : 0;
+      summary.overallAchievement = summary.totalTarget > 0
+        ? Math.round((summary.totalAchieved / summary.totalTarget) * 100)
+        : 0;
+
+      const sorted = [...results].sort((a, b) => b.achievementPercent - a.achievementPercent);
+      summary.topProperty = sorted[0] || null;
+      summary.lowestProperty = sorted[sorted.length - 1] || null;
+
+      res.json({ properties: results, summary });
+    } catch (error) {
+      console.error("Error fetching targets:", error);
+      res.status(500).json({ error: "Failed to fetch target data" });
+    }
+  });
+
+  app.get("/api/admin/targets/trends", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { propertyId } = req.query;
+      const trendData = await db.select({
+        month: sql<string>`TO_CHAR(${schema.bookings.createdAt}, 'Mon YYYY')`,
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${schema.bookings.createdAt})::int`,
+        year: sql<number>`EXTRACT(YEAR FROM ${schema.bookings.createdAt})::int`,
+        totalAchieved: sql<number>`COALESCE(SUM(${schema.bookings.totalFee}), 0)::int`,
+        bookingCount: sql<number>`COUNT(*)::int`,
+      })
+      .from(schema.bookings)
+      .where(and(
+        inArray(schema.bookings.status, ['confirmed', 'active', 'completed', 'pending_payment', 'pending_approval']),
+        sql`${schema.bookings.createdAt} >= NOW() - INTERVAL '12 months'`,
+        ...(propertyId ? [eq(schema.bookings.propertyId, propertyId as string)] : [])
+      ))
+      .groupBy(
+        sql`TO_CHAR(${schema.bookings.createdAt}, 'Mon YYYY')`,
+        sql`EXTRACT(MONTH FROM ${schema.bookings.createdAt})`,
+        sql`EXTRACT(YEAR FROM ${schema.bookings.createdAt})`
+      )
+      .orderBy(
+        sql`EXTRACT(YEAR FROM ${schema.bookings.createdAt})`,
+        sql`EXTRACT(MONTH FROM ${schema.bookings.createdAt})`
+      );
+
+      res.json(trendData);
+    } catch (error) {
+      console.error("Error fetching trends:", error);
+      res.status(500).json({ error: "Failed to fetch trends" });
+    }
+  });
+
+  app.put("/api/admin/targets/:propertyId", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { propertyId } = req.params;
+
+      const bodySchema = z.object({
+        targetOccupancyPercent: z.number().int().min(0).max(100).optional(),
+        customTargetOverride: z.number().int().min(0).nullable().optional(),
+        seasonId: z.string().nullable().optional(),
+        notes: z.string().nullable().optional(),
+      });
+
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+      }
+
+      const { targetOccupancyPercent, customTargetOverride, seasonId, notes } = parsed.data;
+
+      const result = await storage.upsertPropertyTarget({
+        propertyId,
+        targetOccupancyPercent,
+        customTargetOverride,
+        seasonId,
+        notes,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating target:", error);
+      res.status(500).json({ error: "Failed to update target" });
+    }
+  });
+
   // Get audit logs
   app.get("/api/admin/audit-logs", async (req, res) => {
     try {

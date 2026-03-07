@@ -90,6 +90,8 @@ import {
   packageUpgrades,
   packageUsage,
   walletLedger,
+  propertyTargets,
+  type PropertyTarget,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -372,6 +374,10 @@ export interface IStorage {
   getPackageUpgradeOptions(bookingId: string): Promise<any>;
   upgradeBookingPackage(bookingId: string, targetPackageId: string, upgradedBy: string, reason?: string): Promise<any>;
   getUpgradeHistory(bookingId: string): Promise<any[]>;
+
+  // Property Targets
+  getPropertyTargets(propertyId?: string, seasonId?: string): Promise<any[]>;
+  upsertPropertyTarget(data: { propertyId: string; targetOccupancyPercent?: number; customTargetOverride?: number | null; seasonId?: string | null; notes?: string | null }): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2279,6 +2285,52 @@ export class DatabaseStorage implements IStorage {
     }
 
     return result;
+  }
+
+  async getPropertyTargets(propertyId?: string, seasonId?: string): Promise<PropertyTarget[]> {
+    const conditions = [];
+    if (propertyId) conditions.push(eq(propertyTargets.propertyId, propertyId));
+    if (seasonId) conditions.push(eq(propertyTargets.seasonId, seasonId));
+    
+    if (conditions.length > 0) {
+      return db.select().from(propertyTargets).where(and(...conditions));
+    }
+    return db.select().from(propertyTargets);
+  }
+
+  async upsertPropertyTarget(data: { propertyId: string; targetOccupancyPercent?: number; customTargetOverride?: number | null; seasonId?: string | null; notes?: string | null }): Promise<PropertyTarget> {
+    const conditions = [eq(propertyTargets.propertyId, data.propertyId)];
+    if (data.seasonId) {
+      conditions.push(eq(propertyTargets.seasonId, data.seasonId));
+    } else {
+      conditions.push(isNull(propertyTargets.seasonId));
+    }
+
+    const [existing] = await db.select().from(propertyTargets).where(and(...conditions));
+
+    if (existing) {
+      const [updated] = await db.update(propertyTargets)
+        .set({
+          targetOccupancyPercent: data.targetOccupancyPercent ?? existing.targetOccupancyPercent,
+          customTargetOverride: data.customTargetOverride !== undefined ? data.customTargetOverride : existing.customTargetOverride,
+          notes: data.notes !== undefined ? data.notes : existing.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(propertyTargets.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(propertyTargets)
+      .values({
+        propertyId: data.propertyId,
+        targetOccupancyPercent: data.targetOccupancyPercent ?? 100,
+        customTargetOverride: data.customTargetOverride ?? null,
+        seasonId: data.seasonId ?? null,
+        notes: data.notes ?? null,
+      })
+      .returning();
+    return created;
   }
 }
 
