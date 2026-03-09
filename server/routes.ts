@@ -4248,14 +4248,21 @@ export async function registerRoutes(
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
       if (!property || !property.hmsLinked || !property.hmsPropertyId) return;
 
-      const activeSeasons = await db.select().from(schema.seasons).where(
+      let activeSeasons = await db.select().from(schema.seasons).where(
         and(
           eq(schema.seasons.propertyId, booking.propertyId),
           eq(schema.seasons.status, "active")
         )
       );
-      if (activeSeasons.length === 0) return;
-      const season = activeSeasons[0];
+      if (activeSeasons.length === 0) {
+        activeSeasons = await db.select().from(schema.seasons).where(
+          and(
+            isNull(schema.seasons.propertyId),
+            eq(schema.seasons.status, "active")
+          )
+        );
+      }
+      const season = activeSeasons.length > 0 ? activeSeasons[0] : null;
 
       let jwt: string;
       try {
@@ -4369,9 +4376,9 @@ export async function registerRoutes(
         seasonAccess: "FULL",
         bookingCode: booking.bookingCode,
         bookingStatus: booking.status,
-        seasonName: season.name,
-        seasonStartDate: season.startDate,
-        seasonEndDate: season.endDate,
+        seasonName: season?.name || "Current Season",
+        seasonStartDate: season?.startDate || null,
+        seasonEndDate: season?.endDate || null,
         syncedAt: new Date().toISOString(),
         residentDetails: {
           name,
@@ -4406,19 +4413,21 @@ export async function registerRoutes(
             metadata: {
               hmsResidentId: matchedResident.id,
               hmsResidentName: matchedResident.name,
-              seasonName: season.name,
+              seasonName: season?.name || "No Season",
               status: "synced",
             },
           });
 
-          const prevResults = (season.hmsSyncResults as any) || {};
-          const prevSynced = (prevResults.synced || 0);
-          await db.update(schema.seasons).set({
-            hmsSyncStatus: "synced",
-            hmsSyncedAt: new Date(),
-            hmsSyncedBookingCount: prevSynced + 1,
-            updatedAt: new Date(),
-          }).where(eq(schema.seasons.id, season.id));
+          if (season) {
+            const prevResults = (season.hmsSyncResults as any) || {};
+            const prevSynced = (prevResults.synced || 0);
+            await db.update(schema.seasons).set({
+              hmsSyncStatus: "synced",
+              hmsSyncedAt: new Date(),
+              hmsSyncedBookingCount: prevSynced + 1,
+              updatedAt: new Date(),
+            }).where(eq(schema.seasons.id, season.id));
+          }
         } else {
           const errText = await syncRes.text();
           console.error(`[HMS Auto-Sync] Sync failed for ${booking.bookingCode}: ${syncRes.status} ${errText}`);
