@@ -3628,6 +3628,11 @@ export async function registerRoutes(
         }
       }
 
+      if (req.body.residentDetails && typeof req.body.residentDetails === "object") {
+        const existingRd = (booking.residentDetails as Record<string, any>) || {};
+        updates.residentDetails = { ...existingRd, ...req.body.residentDetails };
+      }
+
       if (updates.baseFee !== undefined || updates.discount !== undefined) {
         const base = updates.baseFee ?? booking.baseFee;
         const disc = updates.discount ?? booking.discount;
