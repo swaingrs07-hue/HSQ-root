@@ -2774,14 +2774,38 @@ export async function registerRoutes(
         try {
           const [selectedPkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, legacySelectedPlanId));
           if (selectedPkg && selectedPkg.category === "housing_plan") {
-            await db.insert(schema.bookingPackages).values({
+            const legacyPlanItems = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, legacySelectedPlanId)).orderBy(schema.packageItems.sortOrder);
+            const legacyBase = Number(selectedPkg.basePrice) || 0;
+            const legacySnapshot = {
+              name: selectedPkg.name,
+              basePrice: selectedPkg.basePrice,
+              totalPrice: legacyBase,
+              priceType: selectedPkg.priceType,
+              category: selectedPkg.category,
+              amount: legacyBase,
+              cadence: selectedPkg.priceType,
+              items: legacyPlanItems.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice, rules: i.rules, featureValue: i.featureValue })),
+            };
+            const [legacyBp] = await db.insert(schema.bookingPackages).values({
               bookingId: booking.id,
               packageId: legacySelectedPlanId,
               startDate: new Date(),
               endDate: null,
-              priceSnapshot: selectedPkg.basePrice || baseFee,
+              priceSnapshot: legacySnapshot,
               status: "ACTIVE",
-            });
+            }).returning();
+
+            const legacyAlacart = legacyPlanItems.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
+            if (legacyAlacart && legacyBp) {
+              await db.insert(schema.walletLedger).values({
+                bookingId: booking.id,
+                credit: legacyAlacart.includedQty,
+                debit: 0,
+                refType: "package_credit",
+                refId: legacyBp.id,
+                note: `Initial credit from package "${selectedPkg.name}"`,
+              });
+            }
           }
         } catch (e: any) {
           console.error("Failed to auto-attach housing plan:", e.message);
@@ -3251,14 +3275,39 @@ export async function registerRoutes(
         try {
           const [selectedPkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, selectedPlanId));
           if (selectedPkg && selectedPkg.category === "housing_plan") {
-            await db.insert(schema.bookingPackages).values({
+            const planItems = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, selectedPlanId)).orderBy(schema.packageItems.sortOrder);
+            const planBase = Number(selectedPkg.basePrice) || 0;
+            const planSnapshot = {
+              name: selectedPkg.name,
+              basePrice: selectedPkg.basePrice,
+              totalPrice: planBase,
+              priceType: selectedPkg.priceType,
+              taxPercent: selectedPkg.taxPercent,
+              category: selectedPkg.category,
+              amount: planBase,
+              cadence: selectedPkg.priceType,
+              items: planItems.map(i => ({ type: i.type, label: i.label, includedQty: i.includedQty, unit: i.unit, extraUnitPrice: i.extraUnitPrice, rules: i.rules, featureValue: i.featureValue })),
+            };
+            const [attachedBp] = await db.insert(schema.bookingPackages).values({
               bookingId: booking.id,
               packageId: selectedPlanId,
               startDate: checkInDate ? new Date(checkInDate) : new Date(),
               endDate: checkOutDate ? new Date(checkOutDate) : null,
-              priceSnapshot: selectedPkg.basePrice || baseFee,
+              priceSnapshot: planSnapshot,
               status: "ACTIVE",
-            });
+            }).returning();
+
+            const alacartCreditItem = planItems.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
+            if (alacartCreditItem && attachedBp) {
+              await db.insert(schema.walletLedger).values({
+                bookingId: booking.id,
+                credit: alacartCreditItem.includedQty,
+                debit: 0,
+                refType: "package_credit",
+                refId: attachedBp.id,
+                note: `Initial credit from package "${selectedPkg.name}"`,
+              });
+            }
           }
         } catch (e: any) {
           console.error("Failed to auto-attach housing plan:", e.message);
@@ -9036,6 +9085,46 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to debit wallet" });
+    }
+  });
+
+  app.post("/api/admin/bookings/:bookingId/wallet/sync-package-credits", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const bookingId = req.params.bookingId;
+      const activeBPs = await db.select().from(schema.bookingPackages).where(
+        and(eq(schema.bookingPackages.bookingId, bookingId), eq(schema.bookingPackages.status, "ACTIVE"))
+      );
+      if (activeBPs.length === 0) return res.status(400).json({ error: "No active packages found" });
+
+      const existingCredits = await db.select().from(schema.walletLedger).where(
+        and(eq(schema.walletLedger.bookingId, bookingId), eq(schema.walletLedger.refType, "package_credit"))
+      );
+      const creditedBpIds = new Set(existingCredits.map(c => c.refId).filter(Boolean));
+
+      let totalCredited = 0;
+      for (const bp of activeBPs) {
+        if (creditedBpIds.has(bp.id)) continue;
+        if (!bp.packageId) continue;
+
+        const items = await db.select().from(schema.packageItems).where(eq(schema.packageItems.packageId, bp.packageId));
+        const alacartItem = items.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
+        if (alacartItem) {
+          const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
+          await db.insert(schema.walletLedger).values({
+            bookingId,
+            credit: alacartItem.includedQty,
+            debit: 0,
+            refType: "package_credit",
+            refId: bp.id,
+            note: `Synced credit from package "${pkg?.name || "Unknown"}"`,
+          });
+          totalCredited += alacartItem.includedQty;
+        }
+      }
+
+      res.json({ success: true, totalCredited, message: totalCredited > 0 ? `Credited ${totalCredited} to wallet` : "No missing credits found" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync wallet credits" });
     }
   });
 

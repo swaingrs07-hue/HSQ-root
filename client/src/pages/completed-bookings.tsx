@@ -57,6 +57,7 @@ import {
   Gem,
   Upload,
   ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -267,6 +268,32 @@ export default function CompletedBookings() {
       toast({ title: "Package ended" });
       fetchBookingPackages(selectedBooking.id);
     } catch { }
+  };
+
+  const [syncingCredits, setSyncingCredits] = useState(false);
+  const syncWalletCredits = async () => {
+    if (!selectedBooking) return;
+    setSyncingCredits(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/wallet/sync-package-credits`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.totalCredited > 0) {
+        toast({ title: `Wallet credited: ${data.totalCredited} credits synced from package` });
+        fetchBookingPackages(selectedBooking.id);
+      } else if (res.ok) {
+        toast({ title: "No missing credits found", description: "Wallet is already up to date" });
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to sync credits", variant: "destructive" });
+    } finally {
+      setSyncingCredits(false);
+    }
   };
 
   const recordUsage = async () => {
@@ -1510,6 +1537,12 @@ export default function CompletedBookings() {
                                 <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true); setWalletForm({ type: "topup", amount: 0, note: "" }); }} data-testid="button-wallet">
                                   Manage
                                 </Button>
+                                {bookingPackages.wallet.balance === 0 && bookingPackages?.bookingPackages?.some((bp: any) => bp.status === "ACTIVE") && (
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-blue-200 text-blue-600" onClick={syncWalletCredits} disabled={syncingCredits} data-testid="button-sync-credits">
+                                    {syncingCredits ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                    <span className="ml-1">Sync</span>
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           )}
