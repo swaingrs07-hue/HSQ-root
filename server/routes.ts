@@ -4401,7 +4401,7 @@ export async function registerRoutes(
 
       for (const booking of completedBookings) {
         const property = booking.propertyId ? propertyMap.get(booking.propertyId) : null;
-        if (!property) {
+        if (!property || !property.hmsLinked || !property.propertyCode) {
           results.skipped++;
           continue;
         }
@@ -4424,7 +4424,7 @@ export async function registerRoutes(
           email: email || undefined,
           phone,
           room: roomNo,
-          propertyCode: property.propertyCode || getPropertyCode(property.name),
+          propertyCode: property.propertyCode,
           college: college || undefined,
           instituteName: college || undefined,
           courseName: studentData?.course || rd?.course || undefined,
