@@ -4368,6 +4368,310 @@ export async function registerRoutes(
     }
   }
 
+  function hmsApiKeyAuth(req: any, res: any, next: any) {
+    const authHeader = req.headers.authorization;
+    const apiKey = process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "API key not configured" });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing or invalid Authorization header" });
+    }
+    const token = authHeader.slice(7);
+    if (token !== apiKey) {
+      return res.status(403).json({ error: "Invalid API key" });
+    }
+    next();
+  }
+
+  app.get("/api/hms/bookings", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { propertyCode, phone, email } = req.query;
+
+      let allBookings = await db.select().from(schema.bookings).where(
+        sql`${schema.bookings.status} NOT IN ('cancelled')`
+      );
+
+      if (phone || email) {
+        const normalizedSearch = (phone as string || "").replace(/\D/g, "").slice(-10);
+        const emailSearch = (email as string || "").toLowerCase().trim();
+        allBookings = allBookings.filter((b: any) => {
+          const rd = b.residentDetails as any;
+          const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+          const bEmail = (b.walkInEmail || b.customerEmail || rd?.email || rd?.studentEmail || "").toLowerCase().trim();
+          if (normalizedSearch && bPhone === normalizedSearch) return true;
+          if (emailSearch && bEmail === emailSearch) return true;
+          return false;
+        });
+      }
+
+      const propertyIds = [...new Set(allBookings.map(b => b.propertyId).filter(Boolean))];
+      const properties = propertyIds.length > 0
+        ? await db.select().from(schema.properties).where(inArray(schema.properties.id, propertyIds as string[]))
+        : [];
+      const propertyMap = new Map(properties.map(p => [p.id, p]));
+
+      if (propertyCode) {
+        allBookings = allBookings.filter((b: any) => {
+          const prop = b.propertyId ? propertyMap.get(b.propertyId) : null;
+          return prop?.propertyCode === propertyCode;
+        });
+      }
+
+      const bookingIds = allBookings.map(b => b.id);
+
+      const [allInstallments, allPayments, allBookingPackages, allWalletEntries] = await Promise.all([
+        bookingIds.length > 0 ? db.select().from(schema.installments).where(inArray(schema.installments.bookingId, bookingIds)) : [],
+        bookingIds.length > 0 ? db.select().from(schema.payments).where(inArray(schema.payments.bookingId, bookingIds)) : [],
+        bookingIds.length > 0 ? db.select().from(schema.bookingPackages).where(inArray(schema.bookingPackages.bookingId, bookingIds)) : [],
+        bookingIds.length > 0 ? db.select().from(schema.walletLedger).where(inArray(schema.walletLedger.bookingId, bookingIds)) : [],
+      ]);
+
+      const pkgIds = [...new Set(allBookingPackages.map(bp => bp.packageId).filter(Boolean))];
+      const packages = pkgIds.length > 0
+        ? await db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[]))
+        : [];
+      const packageMap = new Map(packages.map(p => [p.id, p]));
+
+      const result = allBookings.map((b: any) => {
+        const prop = b.propertyId ? propertyMap.get(b.propertyId) : null;
+        const rd = b.residentDetails as any;
+        const installments = allInstallments.filter(i => i.bookingId === b.id);
+        const payments = allPayments.filter(p => p.bookingId === b.id);
+        const bPackages = allBookingPackages.filter(bp => bp.bookingId === b.id);
+        const walletEntries = allWalletEntries.filter(w => w.bookingId === b.id);
+
+        const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
+        const walletBalance = walletEntries.reduce((sum, w) => sum + (w.credit || 0) - (w.debit || 0), 0);
+
+        return {
+          bookingCode: b.bookingCode,
+          status: b.status,
+          propertyName: prop?.name || null,
+          propertyCode: prop?.propertyCode || null,
+          resident: {
+            name: rd?.fullName || rd?.name || b.walkInName || b.customerName,
+            phone: b.walkInPhone || b.customerPhone || rd?.phone,
+            email: b.walkInEmail || b.customerEmail || rd?.email || rd?.studentEmail,
+            college: rd?.college || rd?.instituteName,
+            course: rd?.course || rd?.courseName,
+            year: rd?.year || rd?.courseYear,
+            gender: rd?.gender,
+            dateOfBirth: rd?.dateOfBirth || rd?.dob,
+            parentName: rd?.parentName || rd?.guardianName,
+            parentPhone: rd?.parentPhone || rd?.guardianPhone,
+            parentEmail: rd?.parentEmail || rd?.guardianEmail,
+            homeAddress: rd?.homeAddress || rd?.address,
+            roomNo: rd?.roomNo || rd?.room,
+          },
+          stayPlan: {
+            type: b.stayPlanType,
+            academicYearPeriod: b.academicYearPeriod,
+            checkInDate: b.checkInDate,
+            checkOutDate: b.checkOutDate,
+            durationMonths: b.durationMonths,
+          },
+          financial: {
+            baseFee: b.baseFee,
+            discount: b.discount,
+            discountPercent: b.discountPercent,
+            totalFee: b.totalFee,
+            deposit: b.deposit,
+            totalPaid,
+            balanceDue: (b.totalFee || 0) - totalPaid,
+            walletBalance,
+          },
+          installments: installments.map(i => ({
+            name: i.name,
+            amount: i.amount,
+            dueDate: i.dueDate,
+            paid: i.paid,
+            paidAt: i.paidAt,
+          })),
+          payments: payments.map(p => ({
+            amount: p.amount,
+            status: p.status,
+            method: p.paymentMethod,
+            razorpayPaymentId: p.razorpayPaymentId,
+            notes: p.notes,
+            createdAt: p.createdAt,
+          })),
+          packages: bPackages.map(bp => {
+            const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+            return {
+              name: pkg?.name || null,
+              category: pkg?.category || null,
+              tierLevel: pkg?.tierLevel ?? null,
+              basePrice: pkg?.basePrice || null,
+              status: bp.status,
+              startDate: bp.startDate,
+              endDate: bp.endDate,
+              priceSnapshot: bp.priceSnapshot,
+              selectedItems: bp.selectedItems,
+            };
+          }),
+          wallet: walletEntries.map(w => ({
+            credit: w.credit,
+            debit: w.debit,
+            note: w.note,
+            refType: w.refType,
+            createdAt: w.createdAt,
+          })),
+          agreement: {
+            generated: b.agreementGenerated || false,
+            url: b.agreementUrl || null,
+            signatureData: b.signatureData ? true : false,
+          },
+          invoice: {
+            generated: b.invoiceGenerated || false,
+            url: b.invoiceUrl || null,
+          },
+          createdAt: b.createdAt,
+          updatedAt: b.updatedAt,
+        };
+      });
+
+      res.json({ bookings: result, total: result.length });
+    } catch (error: any) {
+      console.error("[HMS Bookings API] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/hms/bookings/:identifier", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const identifier = req.params.identifier;
+      let booking: any = null;
+
+      const [byCode] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, identifier));
+      if (byCode) {
+        booking = byCode;
+      } else {
+        const phone10 = identifier.replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} NOT IN ('cancelled')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          });
+        }
+      }
+
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const [prop] = booking.propertyId
+        ? await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId))
+        : [null];
+
+      const [installments, payments, bPackages, walletEntries] = await Promise.all([
+        db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id)),
+        db.select().from(schema.payments).where(eq(schema.payments.bookingId, booking.id)),
+        db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, booking.id)),
+        db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id)),
+      ]);
+
+      const pkgIds = [...new Set(bPackages.map(bp => bp.packageId).filter(Boolean))];
+      const packages = pkgIds.length > 0
+        ? await db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[]))
+        : [];
+      const packageMap = new Map(packages.map(p => [p.id, p]));
+
+      const rd = booking.residentDetails as any;
+      const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
+      const walletBalance = walletEntries.reduce((sum, w) => sum + (w.credit || 0) - (w.debit || 0), 0);
+
+      res.json({
+        bookingCode: booking.bookingCode,
+        status: booking.status,
+        propertyName: prop?.name || null,
+        propertyCode: prop?.propertyCode || null,
+        resident: {
+          name: rd?.fullName || rd?.name || booking.walkInName || booking.customerName,
+          phone: booking.walkInPhone || booking.customerPhone || rd?.phone,
+          email: booking.walkInEmail || booking.customerEmail || rd?.email || rd?.studentEmail,
+          college: rd?.college || rd?.instituteName,
+          course: rd?.course || rd?.courseName,
+          year: rd?.year || rd?.courseYear,
+          gender: rd?.gender,
+          dateOfBirth: rd?.dateOfBirth || rd?.dob,
+          parentName: rd?.parentName || rd?.guardianName,
+          parentPhone: rd?.parentPhone || rd?.guardianPhone,
+          parentEmail: rd?.parentEmail || rd?.guardianEmail,
+          homeAddress: rd?.homeAddress || rd?.address,
+          roomNo: rd?.roomNo || rd?.room,
+        },
+        stayPlan: {
+          type: booking.stayPlanType,
+          academicYearPeriod: booking.academicYearPeriod,
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate,
+          durationMonths: booking.durationMonths,
+        },
+        financial: {
+          baseFee: booking.baseFee,
+          discount: booking.discount,
+          discountPercent: booking.discountPercent,
+          totalFee: booking.totalFee,
+          deposit: booking.deposit,
+          totalPaid,
+          balanceDue: (booking.totalFee || 0) - totalPaid,
+          walletBalance,
+        },
+        installments: installments.map(i => ({
+          name: i.name,
+          amount: i.amount,
+          dueDate: i.dueDate,
+          paid: i.paid,
+          paidAt: i.paidAt,
+        })),
+        payments: payments.map(p => ({
+          amount: p.amount,
+          status: p.status,
+          method: p.paymentMethod,
+          razorpayPaymentId: p.razorpayPaymentId,
+          notes: p.notes,
+          createdAt: p.createdAt,
+        })),
+        packages: bPackages.map(bp => {
+          const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+          return {
+            name: pkg?.name || null,
+            category: pkg?.category || null,
+            tierLevel: pkg?.tierLevel ?? null,
+            basePrice: pkg?.basePrice || null,
+            status: bp.status,
+            startDate: bp.startDate,
+            endDate: bp.endDate,
+            priceSnapshot: bp.priceSnapshot,
+            selectedItems: bp.selectedItems,
+          };
+        }),
+        wallet: walletEntries.map(w => ({
+          credit: w.credit,
+          debit: w.debit,
+          note: w.note,
+          refType: w.refType,
+          createdAt: w.createdAt,
+        })),
+        agreement: {
+          generated: booking.agreementGenerated || false,
+          url: booking.agreementUrl || null,
+          signatureData: booking.signatureData ? true : false,
+        },
+        invoice: {
+          generated: booking.invoiceGenerated || false,
+          url: booking.invoiceUrl || null,
+        },
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+      });
+    } catch (error: any) {
+      console.error("[HMS Booking Detail API] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(

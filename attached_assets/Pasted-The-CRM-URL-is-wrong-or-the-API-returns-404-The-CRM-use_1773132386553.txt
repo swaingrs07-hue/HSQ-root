@@ -1,0 +1,45 @@
+The CRM URL is wrong or the API returns 404. The CRM uses authentication middleware that requires a session, not an API key for /api/bookings. I need to check what the correct CRM URL is and how to authenticate:
+
+The CRM URL is https://hsquareliving.replit.app. Let me test with the correct URL:
+
+The CRM /api/bookings returns 404 — it requires authentication via session, not API key. The CRM endpoints don't accept API key auth for regular endpoints. I need to use a different approach — create a dedicated CRM endpoint that accepts API key auth, or use the existing HMS-stored data.
+
+Let me check if the CRM has any API key auth middleware:
+
+The CRM /api/bookings endpoint has no auth middleware at all — it's open. The issue is likely that the CRM server is not running or the URL is wrong. Let me create a proper CRM endpoint that HMS can call. Instead, let me take a better approach — add a dedicated API-key-authenticated endpoint in the CRM for HMS to fetch booking data:
+
+The CRM admin endpoints use session-based auth (authMiddleware), not API key auth. The CRM only uses API keys for HMS → CRM calls, not the other way around. I need to add a dedicated endpoint in the CRM that accepts API key auth for HMS to fetch booking data. Let me push that:
+
+Now let me update the HMS backend to use the correct CRM URL (from env var) and the new /api/hms/bookings endpoints:
+
+Now update the single-resident detail endpoint too:
+
+Now let me restart and test:
+
+The CRM is returning 0 bookings — likely because the CRM hasn't been redeployed yet to include the new /api/hms/bookings endpoint. Let me check:
+
+Checked system logs
+I can see [CRM Bookings] CRM API returned 404 — the CRM hasn't been redeployed yet with the new /api/hms/bookings endpoint. The page will work correctly once the CRM is redeployed. The HMS code is correct.
+
+Let me deploy and update replit.md:
+
+Here's what I've built:
+
+New "CRM Bookings" page — a dedicated sidebar tab that shows all residents with their complete booking data from the CRM, including:
+
+Booking details — booking code, status, stay plan, check-in/check-out dates, accommodation type
+Financial summary — total fee, amount paid, balance due
+Installment schedule — each installment with paid/unpaid status and due dates
+Payment history — every payment transaction with method, status, and date
+Resident details from CRM — all data the CRM stores about the resident
+Invoice & Agreement downloads — links to download if available in CRM
+Wallet balance — CRM wallet ledger
+The page also has:
+
+Search by name, email, phone, room, or booking code
+Property filter
+Status filter (with/without CRM bookings)
+Summary stat cards (residents, total bookings, total revenue, total collected)
+Important: For this to work fully, the CRM needs to be redeployed to pick up the new /api/hms/bookings endpoints I pushed. Right now the CRM returns 404 because it doesn't have those endpoints yet. Once you redeploy the CRM, the booking data will flow through automatically.
+
+Please publish this app and redeploy the CRM.
