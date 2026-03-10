@@ -3,6 +3,9 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import * as schema from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -106,6 +109,8 @@ app.use((req, res, next) => {
       
       // Start background job for overdue follow-up notifications
       startFollowUpNotificationJob();
+      // Start background job for monthly wallet credit renewal
+      startWalletCreditRenewalJob();
     },
   );
 })();
@@ -205,4 +210,90 @@ async function startFollowUpNotificationJob() {
   // Then run every CHECK_INTERVAL_MS
   setInterval(checkOverdueFollowUps, CHECK_INTERVAL_MS);
   log(`Follow-up notification job started (runs every 30 minutes)`, "background");
+}
+
+// Background job for monthly wallet credit auto-renewal
+async function startWalletCreditRenewalJob() {
+  const RENEWAL_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // Check every 6 hours
+
+  async function renewWalletCredits() {
+    try {
+      log("Checking for monthly wallet credit renewals...", "background");
+
+      const activeBookingPkgs = await db.select().from(schema.bookingPackages)
+        .where(eq(schema.bookingPackages.status, "ACTIVE"));
+
+      if (activeBookingPkgs.length === 0) {
+        log("No active booking packages found for renewal", "background");
+        return;
+      }
+
+      let totalRenewed = 0;
+
+      for (const bp of activeBookingPkgs) {
+        if (!bp.packageId) continue;
+
+        const items = await db.select().from(schema.packageItems)
+          .where(eq(schema.packageItems.packageId, bp.packageId));
+        const alacartItem = items.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
+        if (!alacartItem) continue;
+
+        const existingCredits = await db.select().from(schema.walletLedger)
+          .where(and(
+            eq(schema.walletLedger.bookingId, bp.bookingId),
+            eq(schema.walletLedger.refType, "package_credit_renewal"),
+          ));
+
+        const now = new Date();
+        const startDate = bp.startDate ? new Date(bp.startDate) : bp.createdAt ? new Date(bp.createdAt) : null;
+        if (!startDate) continue;
+
+        if (bp.endDate && new Date(bp.endDate) < now) continue;
+
+        const monthsSinceStart = Math.floor(
+          (now.getFullYear() - startDate.getFullYear()) * 12 +
+          (now.getMonth() - startDate.getMonth())
+        );
+
+        if (monthsSinceStart < 1) continue;
+
+        const renewalCredits = existingCredits.filter(c =>
+          c.refId === bp.id && c.refType === "package_credit_renewal"
+        );
+        const renewalsApplied = renewalCredits.length;
+
+        if (renewalsApplied >= monthsSinceStart) continue;
+
+        const renewalsNeeded = monthsSinceStart - renewalsApplied;
+        const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
+        const pkgName = pkg?.name || "Package";
+
+        for (let i = 0; i < renewalsNeeded; i++) {
+          const renewalMonth = renewalsApplied + i + 1;
+          await db.insert(schema.walletLedger).values({
+            bookingId: bp.bookingId,
+            credit: alacartItem.includedQty,
+            debit: 0,
+            refType: "package_credit_renewal",
+            refId: bp.id,
+            note: `Monthly credit renewal (month ${renewalMonth}) from "${pkgName}"`,
+          });
+          totalRenewed++;
+        }
+      }
+
+      if (totalRenewed > 0) {
+        log(`Wallet credit renewal complete: ${totalRenewed} renewal(s) applied`, "background");
+      } else {
+        log("No wallet credit renewals needed", "background");
+      }
+    } catch (error) {
+      log(`Error in wallet credit renewal job: ${error}`, "background");
+    }
+  }
+
+  await renewWalletCredits();
+
+  setInterval(renewWalletCredits, RENEWAL_CHECK_INTERVAL_MS);
+  log(`Wallet credit renewal job started (runs every 6 hours)`, "background");
 }
