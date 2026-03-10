@@ -1461,9 +1461,11 @@ export default function CompletedBookings() {
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp); setUsageForm({ itemType: pkg?.items?.[0]?.type || "", qtyUsed: 1, note: "" }); }} data-testid={`usage-${bp.id}`}>
                                               <Plus className="h-3 w-3" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}>
-                                              <X className="h-3 w-3" />
-                                            </Button>
+                                            {isAddon && (
+                                              <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}>
+                                                <X className="h-3 w-3" />
+                                              </Button>
+                                            )}
                                           </>
                                         )}
                                       </div>
