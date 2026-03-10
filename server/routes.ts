@@ -4267,9 +4267,15 @@ export async function registerRoutes(
 
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
       if (!property) return;
-      const { getPropertyCode } = await import("./hms-sync.js");
-      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
-      if (!resolvedPropertyCode) return;
+      if (!property.hmsLinked) {
+        console.log(`[HMS Auto-Sync] Property ${property.name} is not linked to HMS — skipping sync for booking ${booking.bookingCode}`);
+        return;
+      }
+      const resolvedPropertyCode = property.propertyCode;
+      if (!resolvedPropertyCode) {
+        console.warn(`[HMS Auto-Sync] Property ${property.name} is HMS-linked but has no propertyCode — skipping sync`);
+        return;
+      }
 
       const rd = booking.residentDetails as any;
       let studentData: any = null;
@@ -4305,7 +4311,7 @@ export async function registerRoutes(
         email: email || undefined,
         phone,
         room: roomNo,
-        propertyCode: resolvedPropertyCode || property.propertyCode || getPropertyCode(property.name),
+        propertyCode: resolvedPropertyCode,
         dietary: rd?.dietary || undefined,
         college: college || undefined,
         instituteName: college || undefined,
