@@ -4298,12 +4298,20 @@ export async function registerRoutes(
       }
       const season = activeSeasons.length > 0 ? activeSeasons[0] : null;
 
+      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+
+      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
+      if (!resolvedPropertyCode) {
+        console.warn(`[HMS Auto-Sync] Skipping booking ${booking.bookingCode} — cannot determine property code for "${property.name}"`);
+        return;
+      }
+
       const syncData = {
         name,
         email: email || undefined,
         phone,
         room: roomNo,
-        propertyCode: property.propertyCode || String(property.hmsPropertyId || ""),
+        propertyCode: resolvedPropertyCode,
         dietary: rd?.dietary || undefined,
         college: college || undefined,
         instituteName: college || undefined,
@@ -4324,8 +4332,6 @@ export async function registerRoutes(
         accessLevel: "FULL",
       };
 
-      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
-      syncData.propertyCode = property.propertyCode || getPropertyCode(property.name) || String(property.hmsPropertyId || "");
       const result = await syncBookingToHMS(syncData);
 
       if (result.success) {
@@ -4408,12 +4414,19 @@ export async function registerRoutes(
         const college = studentData?.collegeName || rd?.college || rd?.instituteName;
         const roomNo = rd?.roomNo || rd?.room || "TBA";
 
+        const resolvedCode = property.propertyCode || getPropertyCode(property.name);
+        if (!resolvedCode) {
+          results.skipped++;
+          results.errors.push(`${name} (${booking.bookingCode}): unknown property "${property.name}"`);
+          continue;
+        }
+
         const result = await syncBookingToHMS({
           name,
           email: email || undefined,
           phone,
           room: roomNo,
-          propertyCode: property.propertyCode || getPropertyCode(property.name),
+          propertyCode: resolvedCode,
           college: college || undefined,
           instituteName: college || undefined,
           courseName: studentData?.course || rd?.course || undefined,

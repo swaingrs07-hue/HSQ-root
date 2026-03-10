@@ -1,13 +1,31 @@
 const PROPERTY_CODE_MAP: Record<string, string> = {
-  "Hsquare Hostel Juhu": "HSQ-MUM-01",
-  "Hsquare Hostel Goregaon": "HSQ-MUM-02",
-  "Hsquare Goregaon": "HSQ-MUM-02",
-  "Hsquare Bayview": "HSQ-MUM-03",
-  "Hsquare Hostel Bayview": "HSQ-MUM-03",
+  "hsquare hostel juhu": "HSQ-MUM-01",
+  "hsquare juhu": "HSQ-MUM-01",
+  "hsquare hostel goregaon": "HSQ-MUM-02",
+  "hsquare goregaon": "HSQ-MUM-02",
+  "hsquare bayview": "HSQ-MUM-03",
+  "hsquare hostel bayview": "HSQ-MUM-03",
 };
 
-export function getPropertyCode(propertyName: string): string {
-  return PROPERTY_CODE_MAP[propertyName] || "HSQ-MUM-01";
+const KEYWORD_MAP: Record<string, string> = {
+  "juhu": "HSQ-MUM-01",
+  "goregaon": "HSQ-MUM-02",
+  "bayview": "HSQ-MUM-03",
+};
+
+export function getPropertyCode(propertyName: string): string | null {
+  if (!propertyName) return null;
+  const lower = propertyName.toLowerCase().trim();
+
+  const exact = PROPERTY_CODE_MAP[lower];
+  if (exact) return exact;
+
+  for (const [keyword, code] of Object.entries(KEYWORD_MAP)) {
+    if (lower.includes(keyword)) return code;
+  }
+
+  console.warn(`[hms-sync] Unknown property name "${propertyName}" — cannot determine property code, skipping sync`);
+  return null;
 }
 
 interface HMSSyncData {
