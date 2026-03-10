@@ -4365,11 +4365,11 @@ export async function registerRoutes(
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
-        sql`${schema.bookings.status} IN ('confirmed', 'active', 'completed')`
+        sql`${schema.bookings.status} IN ('confirmed', 'active', 'completed', 'pending_payment')`
       );
 
       if (completedBookings.length === 0) {
-        return res.json({ success: true, total: 0, synced: 0, failed: 0, errors: [], message: "No completed bookings to sync" });
+        return res.json({ success: true, total: 0, synced: 0, failed: 0, errors: [], message: "No bookings to sync" });
       }
 
       const propertyIds = [...new Set(completedBookings.map(b => b.propertyId).filter(Boolean))];
