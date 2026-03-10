@@ -2267,10 +2267,11 @@ function EditableMoveInDate({ bookingId, currentValue, onUpdated }: { bookingId:
     if (!value) return;
     setSaving(true);
     try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ residentDetails: { moveInDate: value } }),
       });
       if (!res.ok) throw new Error("Failed to update");
