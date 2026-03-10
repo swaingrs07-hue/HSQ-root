@@ -76,5 +76,5 @@ Preferred communication style: Simple, everyday language.
 - **Replit Plugins**: Specific tools for the Replit environment.
 - **Instagram Graph API**: For Instagram feed integration.
 - **OpenAI GPT-4o-mini**: Via Replit AI Integrations for the chatbot.
-- **Hostel Management System (HMS)**: External system for property syncing. Base URL configured via `HMS_API_URL` env var (default: `https://hsquarehostels.com`). Auth uses `HMS_API_KEY` (x-api-key header) with fallback to legacy `HOSTEL_FLOW_EMAIL`/`HOSTEL_FLOW_PASSWORD` JWT login. Centralized via `getHMSAuthHeaders()` in `server/routes.ts`.
+- **Hostel Management System (HMS)**: External system for property syncing. Base URL configured via `HMS_API_URL` env var (default: `https://hsquarehostels.com`). Auth uses `HMS_API_KEY` (`Authorization: Bearer` header) with fallback to legacy `HOSTEL_FLOW_EMAIL`/`HOSTEL_FLOW_PASSWORD` JWT login. Centralized via `getHMSAuthHeaders()` in `server/routes.ts`. Auto-sync uses dedicated `syncBookingToHMS()` helper in `server/hms-sync.ts` which calls `/sync/create-resident` endpoint for upsert-based resident sync.
 - **Resend**: Email delivery service for automated booking confirmation emails. Service module at `server/email-service.ts`, sends branded HTML emails on booking confirmation. Email status (sent/failed) logged to CRM activity logs.
