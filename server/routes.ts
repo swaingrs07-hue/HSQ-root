@@ -4801,6 +4801,224 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/hms/bookings/:identifier/receipt", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const identifier = req.params.identifier;
+      const format = (req.query.format || "html") as string;
+      let booking: any = null;
+
+      const [byCode] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, identifier));
+      if (byCode) {
+        booking = byCode;
+      } else {
+        const phone10 = identifier.replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} NOT IN ('cancelled')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          });
+        }
+      }
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const property = booking.propertyId
+        ? (await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId)))[0]
+        : null;
+
+      const bookingPayments = await db.select().from(schema.payments)
+        .where(eq(schema.payments.bookingId, booking.id))
+        .orderBy(desc(schema.payments.createdAt));
+
+      const bookingInstallments = await db.select().from(schema.installments)
+        .where(eq(schema.installments.bookingId, booking.id))
+        .orderBy(schema.installments.dueDate);
+
+      const bookingPkgs = await db.select().from(schema.bookingPackages)
+        .where(eq(schema.bookingPackages.bookingId, booking.id));
+
+      const pkgDetails = [];
+      for (const bp of bookingPkgs) {
+        if (bp.packageId) {
+          const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
+          if (pkg) pkgDetails.push({ ...bp, package: pkg });
+        }
+      }
+
+      const rd = (booking.residentDetails as any) || {};
+      const totalPaid = bookingPayments.filter((p: any) => p.status === "success").reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+      const balanceDue = (booking.totalFee || 0) - totalPaid;
+      const activePlan = pkgDetails.find((bp: any) => bp.status === "ACTIVE" && bp.package?.category === "housing_plan");
+
+      const fmtLabel = (s: string) => (s || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const fmtDate = (d: any) => {
+        if (!d) return "N/A";
+        try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+        catch { return String(d); }
+      };
+      const fmtCurrency = (n: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
+
+      if (format === "json") {
+        return res.json({
+          bookingCode: booking.bookingCode,
+          status: booking.status,
+          propertyName: property?.name || "N/A",
+          customer: {
+            name: booking.customerName || rd.name || "N/A",
+            phone: booking.customerPhone || rd.phone || "N/A",
+            email: booking.customerEmail || rd.email || "N/A",
+          },
+          resident: rd,
+          stayPlan: {
+            type: booking.stayPlanType,
+            durationMonths: booking.durationMonths,
+            checkInDate: booking.checkInDate,
+            checkOutDate: booking.checkOutDate,
+          },
+          financial: {
+            baseFee: booking.baseFee,
+            discount: booking.discount,
+            totalFee: booking.totalFee,
+            deposit: booking.deposit,
+            totalPaid,
+            balanceDue,
+          },
+          activePlan: activePlan ? {
+            name: activePlan.package?.name,
+            tierLevel: activePlan.package?.tierLevel,
+            basePrice: activePlan.package?.basePrice,
+          } : null,
+          installments: bookingInstallments.map((inst: any) => ({
+            name: inst.name,
+            amount: inst.amount,
+            dueDate: inst.dueDate,
+            paid: inst.paid,
+            paidAt: inst.paidAt,
+          })),
+          payments: bookingPayments.map((p: any) => ({
+            amount: p.amount,
+            status: p.status,
+            method: p.paymentMethod,
+            transactionId: p.razorpayPaymentId,
+            screenshotUrl: p.screenshotPath || null,
+            createdAt: p.createdAt,
+          })),
+          createdAt: booking.createdAt,
+        });
+      }
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Receipt - ${booking.bookingCode || "Booking"}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#1a1a1a;padding:20px}
+.receipt{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.header{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;padding:28px 32px;text-align:center}
+.header h1{font-size:22px;font-weight:700;letter-spacing:1px}
+.header p{font-size:12px;opacity:.85;margin-top:4px}
+.header .code{margin-top:16px;display:inline-block;background:rgba(255,255,255,.2);border-radius:8px;padding:8px 24px}
+.header .code span{font-size:18px;font-weight:700;letter-spacing:2px}
+.header .code small{display:block;font-size:10px;opacity:.7;text-transform:uppercase;margin-bottom:2px}
+.body{padding:24px 32px}
+.section{margin-bottom:20px}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#4f46e5;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e8e5ff}
+.row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+.row .label{color:#666}.row .value{font-weight:500;text-align:right;max-width:60%}
+.row.highlight{background:#f0fdf4;margin:0 -8px;padding:6px 8px;border-radius:6px}
+.row.highlight .value{color:#16a34a;font-weight:700}
+.row.due .value{color:#dc2626;font-weight:700}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase}
+.badge-confirmed{background:#dbeafe;color:#2563eb}.badge-active{background:#dcfce7;color:#16a34a}
+.badge-completed{background:#f3e8ff;color:#7c3aed}.badge-pending{background:#fef3c7;color:#d97706}
+.badge-success{background:#dcfce7;color:#16a34a}.badge-failed{background:#fee2e2;color:#dc2626}
+.plan-banner{background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:8px;padding:14px 16px;margin-bottom:16px}
+.plan-banner h3{font-size:14px;color:#4f46e5;font-weight:700}
+.plan-banner p{font-size:11px;color:#64748b;margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+th{text-align:left;padding:8px 10px;background:#f8fafc;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
+.footer{text-align:center;padding:16px 32px 24px;color:#94a3b8;font-size:11px;border-top:1px solid #f1f5f9}
+.screenshot-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#4f46e5;text-decoration:none;margin-top:4px}
+.screenshot-link:hover{text-decoration:underline}
+@media print{body{background:#fff;padding:0}.receipt{box-shadow:none;border-radius:0}}
+</style></head><body>
+<div class="receipt">
+<div class="header">
+  <h1>HSQUARELIVING</h1>
+  <p>Pvt Ltd &bull; Premium Student Accommodation</p>
+  <div class="code"><small>Booking Code</small><span>${booking.bookingCode || "N/A"}</span></div>
+</div>
+<div class="body">
+  <div class="section">
+    <div class="section-title">Booking Details</div>
+    <div class="row"><span class="label">Status</span><span class="value"><span class="badge badge-${booking.status === "confirmed" ? "confirmed" : booking.status === "active" ? "active" : booking.status === "completed" ? "completed" : "pending"}">${fmtLabel(booking.status)}</span></span></div>
+    <div class="row"><span class="label">Customer</span><span class="value">${booking.customerName || rd.name || "N/A"}</span></div>
+    <div class="row"><span class="label">Phone</span><span class="value">${booking.customerPhone || rd.phone || "N/A"}</span></div>
+    <div class="row"><span class="label">Email</span><span class="value">${booking.customerEmail || rd.email || "N/A"}</span></div>
+    <div class="row"><span class="label">Property</span><span class="value">${property?.name || "N/A"}</span></div>
+    ${rd.roomNo ? `<div class="row"><span class="label">Room No.</span><span class="value">${rd.roomNo}</span></div>` : ""}
+    ${rd.bedNo ? `<div class="row"><span class="label">Bed No.</span><span class="value">${rd.bedNo}</span></div>` : ""}
+    <div class="row"><span class="label">Stay Plan</span><span class="value">${fmtLabel(booking.stayPlanType || "")}</span></div>
+    ${booking.durationMonths ? `<div class="row"><span class="label">Duration</span><span class="value">${booking.durationMonths} months</span></div>` : ""}
+    <div class="row"><span class="label">Booking Date</span><span class="value">${fmtDate(booking.createdAt)}</span></div>
+  </div>
+
+  ${activePlan ? `<div class="plan-banner"><h3>${activePlan.package?.name || "Housing Plan"}</h3><p>Tier ${activePlan.package?.tierLevel ?? 0} &bull; ${fmtCurrency(Number(activePlan.package?.basePrice) || 0)}</p></div>` : ""}
+
+  <div class="section">
+    <div class="section-title">Financial Summary</div>
+    <div class="row"><span class="label">Base Fee</span><span class="value">${fmtCurrency(booking.baseFee)}</span></div>
+    ${booking.discount > 0 ? `<div class="row"><span class="label">Discount</span><span class="value" style="color:#16a34a">-${fmtCurrency(booking.discount)}</span></div>` : ""}
+    <div class="row" style="font-weight:600;border-top:1px solid #e2e8f0;padding-top:8px"><span class="label">Total Fee</span><span class="value">${fmtCurrency(booking.totalFee)}</span></div>
+    ${booking.deposit ? `<div class="row"><span class="label">Deposit</span><span class="value">${fmtCurrency(booking.deposit)}</span></div>` : ""}
+    <div class="row highlight"><span class="label">Total Paid</span><span class="value">${fmtCurrency(totalPaid)}</span></div>
+    <div class="row ${balanceDue > 0 ? "due" : "highlight"}"><span class="label">Balance Due</span><span class="value">${fmtCurrency(balanceDue)}</span></div>
+  </div>
+
+  ${bookingInstallments.length > 0 ? `<div class="section">
+    <div class="section-title">Installments</div>
+    <table><thead><tr><th>Name</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>
+    ${bookingInstallments.map((inst: any) => `<tr>
+      <td>${inst.name}</td><td>${fmtCurrency(Number(inst.amount))}</td>
+      <td>${fmtDate(inst.dueDate)}</td>
+      <td><span class="badge ${inst.paid ? "badge-success" : "badge-pending"}">${inst.paid ? "Paid" : "Pending"}</span></td>
+    </tr>`).join("")}
+    </tbody></table></div>` : ""}
+
+  ${bookingPayments.length > 0 ? `<div class="section">
+    <div class="section-title">Payment History</div>
+    <table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>UTR/Txn ID</th><th>Status</th><th></th></tr></thead><tbody>
+    ${bookingPayments.map((p: any) => `<tr>
+      <td>${fmtDate(p.createdAt)}</td>
+      <td>${fmtCurrency(Number(p.amount))}</td>
+      <td>${(p.paymentMethod || "—").toUpperCase()}</td>
+      <td style="font-family:monospace;font-size:11px">${p.razorpayPaymentId || "—"}</td>
+      <td><span class="badge ${p.status === "success" ? "badge-success" : p.status === "failed" ? "badge-failed" : "badge-pending"}">${(p.status || "pending").toUpperCase()}</span></td>
+      <td>${p.screenshotPath ? `<a href="${p.screenshotPath}" target="_blank" class="screenshot-link">📷 View</a>` : ""}</td>
+    </tr>`).join("")}
+    </tbody></table></div>` : ""}
+</div>
+<div class="footer">
+  <p>Generated on ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+  <p style="margin-top:4px">Hsquareliving Pvt Ltd &bull; Premium Student Accommodation</p>
+</div>
+</div></body></html>`;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(html);
+    } catch (error: any) {
+      console.error("[HMS Receipt API] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
