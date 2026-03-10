@@ -1251,24 +1251,44 @@ export default function CompletedBookings() {
                   <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
                   <div className="space-y-2">
                     {selectedBooking.payments.map((p: any, idx: number) => (
-                      <div key={p.id || idx} className="flex items-center justify-between text-sm gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
-                          <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
-                          {(p.paymentMethod || p.razorpayPaymentId) && (
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {p.paymentMethod && (
-                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
-                              )}
-                              {p.razorpayPaymentId && (
-                                <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
-                              )}
-                            </div>
-                          )}
+                      <div key={p.id || idx} className="text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
+                            <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
+                            {(p.paymentMethod || p.razorpayPaymentId) && (
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {p.paymentMethod && (
+                                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
+                                )}
+                                {p.razorpayPaymentId && (
+                                  <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
+                            {(p.status || "pending").toUpperCase()}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
-                          {(p.status || "pending").toUpperCase()}
-                        </Badge>
+                        {p.screenshotPath && (
+                          <a href={p.screenshotPath} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                              <img
+                                src={p.screenshotPath}
+                                alt="Payment screenshot"
+                                className="w-12 h-12 object-cover rounded border border-slate-200"
+                                data-testid={`img-payment-screenshot-${idx}`}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
+                                  <ImageIcon className="h-3 w-3" /> Payment Screenshot
+                                </p>
+                                <p className="text-[10px] text-slate-400">Tap to view full size</p>
+                              </div>
+                            </div>
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
