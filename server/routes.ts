@@ -4209,7 +4209,7 @@ export async function registerRoutes(
 
   // ============ EXTERNAL REGISTERED STUDENTS (HMS API) ============
   
-  const HOSTEL_FLOW_BASE_URL = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
+  const HOSTEL_FLOW_BASE_URL = process.env.HMS_API_URL || "https://hsquarehostels.com";
   
   let cachedHostelFlowJWT: string | null = null;
   let jwtExpiresAt: number = 0;
@@ -4266,8 +4266,10 @@ export async function registerRoutes(
       if (!booking.propertyId) return;
 
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
-      if (!property || !property.hmsLinked) return;
-      if (!property.propertyCode && !property.hmsPropertyId) return;
+      if (!property) return;
+      const { getPropertyCode } = await import("./hms-sync.js");
+      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
+      if (!resolvedPropertyCode) return;
 
       const rd = booking.residentDetails as any;
       let studentData: any = null;
@@ -4303,7 +4305,7 @@ export async function registerRoutes(
         email: email || undefined,
         phone,
         room: roomNo,
-        propertyCode: property.propertyCode || String(property.hmsPropertyId || ""),
+        propertyCode: resolvedPropertyCode || property.propertyCode || getPropertyCode(property.name),
         dietary: rd?.dietary || undefined,
         college: college || undefined,
         instituteName: college || undefined,
@@ -4390,7 +4392,7 @@ export async function registerRoutes(
 
       for (const booking of completedBookings) {
         const property = booking.propertyId ? propertyMap.get(booking.propertyId) : null;
-        if (!property || !property.hmsLinked) {
+        if (!property) {
           results.skipped++;
           continue;
         }
