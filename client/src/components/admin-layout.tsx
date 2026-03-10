@@ -219,7 +219,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
+    <div className="h-screen bg-slate-50 dark:bg-slate-900 flex overflow-hidden">
       {/* Sidebar - Desktop */}
       <aside 
         className={cn(
@@ -348,7 +348,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <div className={cn(
-        "flex-1 flex flex-col min-h-screen transition-all duration-300",
+        "flex-1 flex flex-col h-screen transition-all duration-300",
         collapsed ? "lg:ml-20" : "lg:ml-64"
       )}>
         {/* Top Header */}
@@ -512,7 +512,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto min-h-0">
           {children}
         </main>
       </div>
