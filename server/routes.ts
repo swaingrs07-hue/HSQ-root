@@ -4362,6 +4362,99 @@ export async function registerRoutes(
     }
   }
 
+  app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const completedBookings = await db.select().from(schema.bookings).where(
+        sql`${schema.bookings.status} IN ('confirmed', 'active', 'completed')`
+      );
+
+      if (completedBookings.length === 0) {
+        return res.json({ success: true, total: 0, synced: 0, failed: 0, errors: [], message: "No completed bookings to sync" });
+      }
+
+      const propertyIds = [...new Set(completedBookings.map(b => b.propertyId).filter(Boolean))];
+      const properties = propertyIds.length > 0
+        ? await db.select().from(schema.properties).where(inArray(schema.properties.id, propertyIds as string[]))
+        : [];
+      const propertyMap = new Map(properties.map(p => [p.id, p]));
+
+      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+
+      const results = {
+        total: completedBookings.length,
+        synced: 0,
+        failed: 0,
+        skipped: 0,
+        errors: [] as string[],
+      };
+
+      for (const booking of completedBookings) {
+        const property = booking.propertyId ? propertyMap.get(booking.propertyId) : null;
+        if (!property || !property.hmsLinked) {
+          results.skipped++;
+          continue;
+        }
+
+        const rd = booking.residentDetails as any;
+        let studentData: any = null;
+        if (booking.studentId) {
+          const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
+          studentData = student || null;
+        }
+
+        const name = studentData?.fullName || rd?.fullName || rd?.name || booking.walkInName || booking.customerName || booking.bookingCode || "Unknown";
+        const phone = studentData?.phone || booking.walkInPhone || booking.customerPhone || rd?.phone || "";
+        const email = studentData?.email || booking.customerEmail || rd?.email || rd?.studentEmail;
+        const college = studentData?.collegeName || rd?.college || rd?.instituteName;
+        const roomNo = rd?.roomNo || rd?.room || "TBA";
+
+        const result = await syncBookingToHMS({
+          name,
+          email: email || undefined,
+          phone,
+          room: roomNo,
+          propertyCode: property.propertyCode || getPropertyCode(property.name),
+          college: college || undefined,
+          instituteName: college || undefined,
+          courseName: studentData?.course || rd?.course || undefined,
+          courseYear: studentData?.year || rd?.year || undefined,
+          accommodationType: rd?.accommodationType || rd?.roomType || undefined,
+          parentName: rd?.parentName || rd?.guardianName || undefined,
+          parentPhone: rd?.parentPhone || rd?.guardianPhone || undefined,
+          parentEmail: rd?.parentEmail || rd?.guardianEmail || undefined,
+          parentRelation: rd?.parentRelation || rd?.guardianRelation || undefined,
+          homeAddress: rd?.homeAddress || rd?.address || undefined,
+          gender: rd?.gender || studentData?.gender || undefined,
+          dateOfBirth: rd?.dateOfBirth || rd?.dob || studentData?.dateOfBirth || undefined,
+          studentEmail: rd?.studentEmail || email || undefined,
+          bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
+          accessLevel: "FULL",
+        });
+
+        if (result.success) {
+          results.synced++;
+        } else {
+          results.failed++;
+          results.errors.push(`${name} (${booking.bookingCode}): ${result.error}`);
+        }
+      }
+
+      await logActivity({
+        actor: { id: req.user!.userId, name: req.user!.name, role: req.user!.role },
+        actionType: "UPDATE" as ActionType,
+        entityType: "BOOKING" as EntityType,
+        entityId: "bulk-sync",
+        entityLabel: "HMS Bulk Sync",
+        metadata: { total: results.total, synced: results.synced, failed: results.failed, skipped: results.skipped },
+      });
+
+      res.json({ success: true, ...results });
+    } catch (error: any) {
+      console.error("[HMS Bulk Sync] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/admin/hms/properties", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       if (!process.env.HMS_API_KEY) {
