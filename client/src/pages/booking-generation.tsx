@@ -833,6 +833,7 @@ export default function BookingGeneration() {
           tokenAmount: formData.paymentType === "partial" ? formData.tokenAmount : null,
           numberOfInstallments: formData.paymentType === "installments" ? formData.numberOfInstallments : null,
           customBookingAmount: formData.paymentType === "installments" && formData.customBookingAmount > 0 ? formData.customBookingAmount : null,
+          installmentAmounts: formData.paymentType === "installments" && (formData as any).installmentAmounts?.length > 0 ? (formData as any).installmentAmounts : null,
           installmentDueDates: formData.paymentType === "installments" ? formData.installmentDueDates : null,
           paymentPlanId: formData.paymentPlanId || null,
           residentDetails: {
@@ -2538,7 +2539,7 @@ export default function BookingGeneration() {
                                     d.setMonth(d.getMonth() + j);
                                     defaultDates.push(d.toISOString().split("T")[0]);
                                   }
-                                  setFormData(prev => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentDueDates: defaultDates }));
+                                  setFormData((prev: any) => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentAmounts: [], installmentDueDates: defaultDates }));
                                 }}
                                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                                   formData.numberOfInstallments === num
@@ -2553,70 +2554,82 @@ export default function BookingGeneration() {
                             ))}
                           </div>
                           <div className="space-y-2 mt-2">
-                            {Array.from({ length: formData.numberOfInstallments }, (_, i) => {
+                            {(() => {
                               const total = calculateTotal();
-                              const customFirst = formData.customBookingAmount > 0 ? formData.customBookingAmount : 0;
-                              let amount: number;
-                              if (customFirst > 0) {
-                                if (i === 0) {
-                                  amount = customFirst;
+                              const n = formData.numberOfInstallments;
+                              const customAmounts: number[] = (formData as any).installmentAmounts || [];
+                              const amounts: number[] = [];
+                              let usedByCustom = 0;
+                              const customIndices: number[] = [];
+                              for (let i = 0; i < n; i++) {
+                                if (customAmounts[i] !== undefined && customAmounts[i] > 0) {
+                                  amounts.push(customAmounts[i]);
+                                  usedByCustom += customAmounts[i];
+                                  customIndices.push(i);
                                 } else {
-                                  const remaining = total - customFirst;
-                                  const remainingParts = formData.numberOfInstallments - 1;
-                                  const perRemaining = Math.round(remaining / remainingParts);
-                                  const isLast = i === formData.numberOfInstallments - 1;
-                                  amount = isLast ? remaining - (perRemaining * (remainingParts - 1)) : perRemaining;
+                                  amounts.push(0);
                                 }
-                              } else {
-                                const perInstallment = Math.round(total / formData.numberOfInstallments);
-                                const isLast = i === formData.numberOfInstallments - 1;
-                                amount = isLast ? total - (perInstallment * (formData.numberOfInstallments - 1)) : perInstallment;
                               }
-                              const dueDate = formData.installmentDueDates[i] || "";
-                              return (
-                                <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-purple-700">{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
-                                    {i === 0 ? (
+                              const autoIndices = Array.from({ length: n }, (_, i) => i).filter(i => !customIndices.includes(i));
+                              if (autoIndices.length > 0) {
+                                const remaining = total - usedByCustom;
+                                const perAuto = Math.round(remaining / autoIndices.length);
+                                autoIndices.forEach((idx, j) => {
+                                  amounts[idx] = j === autoIndices.length - 1
+                                    ? remaining - perAuto * (autoIndices.length - 1)
+                                    : perAuto;
+                                });
+                              }
+                              return amounts.map((amount, i) => {
+                                const dueDate = formData.installmentDueDates[i] || "";
+                                const isCustom = customIndices.includes(i);
+                                return (
+                                  <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-medium text-purple-700">{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
                                       <div className="flex items-center gap-1">
                                         <span className="text-xs text-purple-500">₹</span>
                                         <input
                                           type="number"
-                                          value={formData.customBookingAmount || Math.round(total / formData.numberOfInstallments)}
+                                          value={isCustom ? customAmounts[i] : amount}
                                           onChange={(e) => {
                                             const val = parseInt(e.target.value) || 0;
-                                            const clamped = Math.min(val, total - (formData.numberOfInstallments - 1) * 1000);
-                                            setFormData(prev => ({ ...prev, customBookingAmount: Math.max(0, clamped) }));
+                                            const maxAllowed = total - (n - 1) * 100;
+                                            const clamped = Math.max(0, Math.min(val, maxAllowed));
+                                            setFormData((prev: any) => {
+                                              const newAmounts = [...(prev.installmentAmounts || [])];
+                                              while (newAmounts.length < n) newAmounts.push(0);
+                                              newAmounts[i] = clamped;
+                                              return { ...prev, installmentAmounts: newAmounts, customBookingAmount: newAmounts[0] || 0 };
+                                            });
                                           }}
-                                          className="w-28 text-right text-sm font-semibold text-purple-700 border border-purple-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                                          data-testid="input-booking-amount"
+                                          className={`w-28 text-right text-sm font-semibold border rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400 ${isCustom ? "text-purple-700 border-purple-300 bg-purple-50" : "text-purple-700 border-purple-200"}`}
+                                          data-testid={`input-installment-amount-${i}`}
                                         />
                                       </div>
-                                    ) : (
-                                      <span className="text-sm font-semibold text-purple-700">₹{amount.toLocaleString()}</span>
-                                    )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="w-3 h-3 text-purple-400" />
+                                      <input
+                                        type="date"
+                                        value={dueDate}
+                                        onChange={(e) => {
+                                          setFormData((prev: any) => {
+                                            const dates = [...prev.installmentDueDates];
+                                            while (dates.length <= i) dates.push("");
+                                            dates[i] = e.target.value;
+                                            return { ...prev, installmentDueDates: dates };
+                                          });
+                                        }}
+                                        className="text-xs text-purple-600 border border-purple-100 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                        placeholder="Select due date"
+                                        data-testid={`input-due-date-${i}`}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="w-3 h-3 text-purple-400" />
-                                    <input
-                                      type="date"
-                                      value={dueDate}
-                                      onChange={(e) => {
-                                        setFormData(prev => {
-                                          const dates = [...prev.installmentDueDates];
-                                          while (dates.length <= i) dates.push("");
-                                          dates[i] = e.target.value;
-                                          return { ...prev, installmentDueDates: dates };
-                                        });
-                                      }}
-                                      className="text-xs text-purple-600 border border-purple-100 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-purple-400"
-                                      placeholder="Select due date"
-                                      data-testid={`input-due-date-${i}`}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              });
+                            })()}
                           </div>
                         </div>
                       )}

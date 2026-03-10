@@ -3116,6 +3116,7 @@ export async function registerRoutes(
         tokenAmount,
         numberOfInstallments,
         customBookingAmount,
+        installmentAmounts,
         installmentDueDates,
         paymentPlanId,
         createdBy,
@@ -3286,11 +3287,20 @@ export async function registerRoutes(
         );
       } else if (paymentType === "installments" && numberOfInstallments) {
         const numInstallments = numberOfInstallments || 2;
-        const customFirst = customBookingAmount && customBookingAmount > 0 ? customBookingAmount : 0;
+        const customAmts: number[] = Array.isArray(installmentAmounts) && installmentAmounts.length > 0 ? installmentAmounts : [];
+        const customFirst = customAmts.length === 0 && customBookingAmount && customBookingAmount > 0 ? customBookingAmount : 0;
         const dueDates: string[] = installmentDueDates || [];
         for (let i = 0; i < numInstallments; i++) {
           let amount: number;
-          if (customFirst > 0) {
+          if (customAmts.length > 0 && customAmts[i] > 0) {
+            amount = customAmts[i];
+          } else if (customAmts.length > 0) {
+            const usedByCustom = customAmts.filter((a: number) => a > 0).reduce((s: number, a: number) => s + a, 0);
+            const autoCount = customAmts.filter((a: number, idx: number) => idx < numInstallments && (!a || a <= 0)).length;
+            const remaining = totalFee - usedByCustom;
+            const perAuto = Math.round(remaining / Math.max(autoCount, 1));
+            amount = perAuto;
+          } else if (customFirst > 0) {
             if (i === 0) {
               amount = customFirst;
             } else {
