@@ -3454,6 +3454,20 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Booking not found" });
       }
 
+      if (booking.status !== "cancelled") {
+        if (booking.bedId) {
+          await storage.updateBedStatus(booking.bedId, "available");
+          await storage.updateRoomTypeAvailability(booking.roomTypeId, 1);
+          if (booking.floorId) {
+            const floorBeds = await storage.getBedsByFloor(booking.floorId);
+            const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+            await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+          }
+        } else if (booking.bedAllocated) {
+          await storage.updateRoomTypeAvailability(booking.roomTypeId, 1);
+        }
+      }
+
       const updated = await storage.updateBooking(req.params.id, {
         approvalStatus: "rejected",
         rejectedBy: payload.userId,
@@ -3637,6 +3651,20 @@ export async function registerRoutes(
         const base = updates.baseFee ?? booking.baseFee;
         const disc = updates.discount ?? booking.discount;
         updates.totalFee = base - disc;
+      }
+
+      if (updates.status === "cancelled" && booking.status !== "cancelled") {
+        if (booking.bedId) {
+          await storage.updateBedStatus(booking.bedId, "available");
+          await storage.updateRoomTypeAvailability(booking.roomTypeId, 1);
+          if (booking.floorId) {
+            const floorBeds = await storage.getBedsByFloor(booking.floorId);
+            const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+            await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+          }
+        } else if (booking.bedAllocated) {
+          await storage.updateRoomTypeAvailability(booking.roomTypeId, 1);
+        }
       }
 
       const updated = await storage.updateBooking(req.params.id, updates);

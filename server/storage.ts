@@ -641,6 +641,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBooking(id: string): Promise<void> {
+    const booking = await this.getBooking(id);
+    if (booking) {
+      if (booking.bedId) {
+        await this.updateBedStatus(booking.bedId, "available");
+        await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
+        if (booking.floorId) {
+          const floorBeds = await this.getBedsByFloor(booking.floorId);
+          const availCount = floorBeds.filter(b => b.status === "available").length;
+          await db.update(floors).set({ availableBeds: availCount }).where(eq(floors.id, booking.floorId));
+        }
+      } else if (booking.bedAllocated) {
+        await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
+      }
+    }
+    await db.delete(walletLedger).where(eq(walletLedger.bookingId, id));
     await db.delete(payments).where(eq(payments.bookingId, id));
     await db.delete(installments).where(eq(installments.bookingId, id));
     await db.delete(bookings).where(eq(bookings.id, id));
