@@ -3577,7 +3577,7 @@ export async function registerRoutes(
 
       const updated = await storage.updateBooking(req.params.id, updates);
 
-      if (updates.status && (updates.status === "active" || updates.status === "confirmed") && booking.status !== updates.status) {
+      if (updates.status && (updates.status === "active" || updates.status === "confirmed" || updates.status === "completed") && booking.status !== updates.status) {
         autoSyncBookingToHMS(updated).catch(err => {
           console.error("[HMS Auto-Sync] Background sync after admin edit failed:", err);
         });
