@@ -4324,7 +4324,8 @@ export async function registerRoutes(
         accessLevel: "FULL",
       };
 
-      const { syncBookingToHMS } = await import("./hms-sync.js");
+      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+      syncData.propertyCode = property.propertyCode || getPropertyCode(property.name) || String(property.hmsPropertyId || "");
       const result = await syncBookingToHMS(syncData);
 
       if (result.success) {

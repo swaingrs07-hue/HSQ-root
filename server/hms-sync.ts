@@ -1,3 +1,15 @@
+const PROPERTY_CODE_MAP: Record<string, string> = {
+  "Hsquare Hostel Juhu": "HSQ-MUM-01",
+  "Hsquare Hostel Goregaon": "HSQ-MUM-02",
+  "Hsquare Goregaon": "HSQ-MUM-02",
+  "Hsquare Bayview": "HSQ-MUM-03",
+  "Hsquare Hostel Bayview": "HSQ-MUM-03",
+};
+
+export function getPropertyCode(propertyName: string): string {
+  return PROPERTY_CODE_MAP[propertyName] || "HSQ-MUM-01";
+}
+
 interface HMSSyncData {
   name: string;
   email?: string;
