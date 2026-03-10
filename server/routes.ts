@@ -4429,12 +4429,34 @@ export async function registerRoutes(
 
       const bookingIds = allBookings.map(b => b.id);
 
-      const [allInstallments, allPayments, allBookingPackages, allWalletEntries] = await Promise.all([
+      const [allInstallments, allPayments, allBookingPackages, allWalletEntries, allSeasonStatuses] = await Promise.all([
         bookingIds.length > 0 ? db.select().from(schema.installments).where(inArray(schema.installments.bookingId, bookingIds)) : [],
         bookingIds.length > 0 ? db.select().from(schema.payments).where(inArray(schema.payments.bookingId, bookingIds)) : [],
         bookingIds.length > 0 ? db.select().from(schema.bookingPackages).where(inArray(schema.bookingPackages.bookingId, bookingIds)) : [],
         bookingIds.length > 0 ? db.select().from(schema.walletLedger).where(inArray(schema.walletLedger.bookingId, bookingIds)) : [],
+        bookingIds.length > 0 ? db.select().from(schema.residentSeasonStatus).where(inArray(schema.residentSeasonStatus.bookingId, bookingIds)) : [],
       ]);
+
+      const seasonStatusMap = new Map<string, string>();
+      allSeasonStatuses.forEach((ss: any) => {
+        seasonStatusMap.set(ss.bookingId, ss.status);
+      });
+
+      const getHmsStatus = (bookingStatus: string, bookingId: string): string => {
+        const seasonStatus = seasonStatusMap.get(bookingId);
+        if (seasonStatus === "RETAINED") return "Retained";
+        if (seasonStatus === "NOT_RETAINED") return "Not Retained";
+        switch (bookingStatus) {
+          case "draft": return "Draft";
+          case "pending_payment": return "Pending Payment";
+          case "pending_approval": return "Pending Approval";
+          case "confirmed": return "New Booking";
+          case "active": return "Active";
+          case "completed": return "Completed";
+          case "cancelled": return "Cancelled";
+          default: return bookingStatus;
+        }
+      };
 
       const pkgIds = [...new Set(allBookingPackages.map(bp => bp.packageId).filter(Boolean))];
       const [packages, allPackageItems] = await Promise.all([
@@ -4463,6 +4485,7 @@ export async function registerRoutes(
         return {
           bookingCode: b.bookingCode,
           status: b.status,
+          hmsStatus: getHmsStatus(b.status, b.id),
           propertyName: prop?.name || null,
           propertyCode: prop?.propertyCode || null,
           resident: {
@@ -4597,12 +4620,29 @@ export async function registerRoutes(
         ? await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId))
         : [null];
 
-      const [installments, payments, bPackages, walletEntries] = await Promise.all([
+      const [installments, payments, bPackages, walletEntries, singleSeasonStatuses] = await Promise.all([
         db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id)),
         db.select().from(schema.payments).where(eq(schema.payments.bookingId, booking.id)),
         db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, booking.id)),
         db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id)),
+        db.select().from(schema.residentSeasonStatus).where(eq(schema.residentSeasonStatus.bookingId, booking.id)),
       ]);
+
+      const singleSeasonStatus = singleSeasonStatuses.length > 0 ? singleSeasonStatuses[singleSeasonStatuses.length - 1].status : null;
+      const getSingleHmsStatus = (bookingStatus: string): string => {
+        if (singleSeasonStatus === "RETAINED") return "Retained";
+        if (singleSeasonStatus === "NOT_RETAINED") return "Not Retained";
+        switch (bookingStatus) {
+          case "draft": return "Draft";
+          case "pending_payment": return "Pending Payment";
+          case "pending_approval": return "Pending Approval";
+          case "confirmed": return "New Booking";
+          case "active": return "Active";
+          case "completed": return "Completed";
+          case "cancelled": return "Cancelled";
+          default: return bookingStatus;
+        }
+      };
 
       const pkgIds = [...new Set(bPackages.map(bp => bp.packageId).filter(Boolean))];
       const [packages, singlePkgItems] = await Promise.all([
@@ -4624,6 +4664,7 @@ export async function registerRoutes(
       res.json({
         bookingCode: booking.bookingCode,
         status: booking.status,
+        hmsStatus: getSingleHmsStatus(booking.status),
         propertyName: prop?.name || null,
         propertyCode: prop?.propertyCode || null,
         resident: {
@@ -4887,16 +4928,28 @@ export async function registerRoutes(
         ? (await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId)))[0]
         : null;
 
-      const bookingPayments = await db.select().from(schema.payments)
-        .where(eq(schema.payments.bookingId, booking.id))
-        .orderBy(desc(schema.payments.createdAt));
+      const [bookingPayments, bookingInstallments, bookingPkgs, receiptSeasonStatuses] = await Promise.all([
+        db.select().from(schema.payments).where(eq(schema.payments.bookingId, booking.id)).orderBy(desc(schema.payments.createdAt)),
+        db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id)).orderBy(schema.installments.dueDate),
+        db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, booking.id)),
+        db.select().from(schema.residentSeasonStatus).where(eq(schema.residentSeasonStatus.bookingId, booking.id)),
+      ]);
 
-      const bookingInstallments = await db.select().from(schema.installments)
-        .where(eq(schema.installments.bookingId, booking.id))
-        .orderBy(schema.installments.dueDate);
-
-      const bookingPkgs = await db.select().from(schema.bookingPackages)
-        .where(eq(schema.bookingPackages.bookingId, booking.id));
+      const receiptSeasonStatus = receiptSeasonStatuses.length > 0 ? receiptSeasonStatuses[receiptSeasonStatuses.length - 1].status : null;
+      const getReceiptHmsStatus = (bookingStatus: string): string => {
+        if (receiptSeasonStatus === "RETAINED") return "Retained";
+        if (receiptSeasonStatus === "NOT_RETAINED") return "Not Retained";
+        switch (bookingStatus) {
+          case "draft": return "Draft";
+          case "pending_payment": return "Pending Payment";
+          case "pending_approval": return "Pending Approval";
+          case "confirmed": return "New Booking";
+          case "active": return "Active";
+          case "completed": return "Completed";
+          case "cancelled": return "Cancelled";
+          default: return bookingStatus;
+        }
+      };
 
       const receiptPkgIds = [...new Set(bookingPkgs.map(bp => bp.packageId).filter(Boolean))] as string[];
       const [receiptPkgList, receiptPkgItemList] = await Promise.all([
@@ -4933,6 +4986,7 @@ export async function registerRoutes(
         return res.json({
           bookingCode: booking.bookingCode,
           status: booking.status,
+          hmsStatus: getReceiptHmsStatus(booking.status),
           propertyName: property?.name || "N/A",
           customer: {
             name: booking.customerName || rd.name || "N/A",
