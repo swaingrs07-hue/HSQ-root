@@ -9160,4 +9160,60 @@ export async function registerRoutes(
   });
 
   return httpServer;
+
+
+  // HMS-authenticated endpoint for fetching booking data
+  app.get('/api/hms/bookings', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const bookings = await storage.getAllBookings();
+      res.json(bookings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/hms/bookings/:id', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      const [student, property, roomType, installmentsList, paymentsList] = await Promise.all([
+        booking.studentId ? storage.getStudent(booking.studentId) : Promise.resolve(undefined),
+        storage.getProperty(booking.propertyId),
+        storage.getRoomType(booking.roomTypeId),
+        storage.getInstallmentsByBooking(booking.id),
+        storage.getPaymentsByBooking(booking.id),
+      ]);
+      res.json({ booking, student, property, roomType, installments: installmentsList, payments: paymentsList });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/hms/bookings/:id/wallet', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const ledger = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.id)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
+      const balance = ledger.reduce((sum: number, e: any) => sum + (e.credit || 0) - (e.debit || 0), 0);
+      res.json({ balance, ledger });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 }
