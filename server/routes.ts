@@ -4672,6 +4672,135 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/hms/residents/update", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { phone, email, name, roomNo, bedNo, gender, dateOfBirth, dob,
+              moveInDate, checkInDate, checkOutDate, course, institute,
+              dietaryPreference, accommodationType, guardianName, guardianPhone,
+              guardianRelation, address, city, state, pincode, notes,
+              status: hmsStatus } = req.body;
+
+      if (!phone && !email) {
+        return res.status(400).json({ error: "Phone or email is required to identify the resident" });
+      }
+
+      const normalizedPhone = (phone || "").replace(/\D/g, "").slice(-10);
+      const normalizedEmail = (email || "").toLowerCase().trim();
+
+      const allBookings = await db.select().from(schema.bookings).where(
+        sql`${schema.bookings.status} NOT IN ('cancelled')`
+      );
+
+      const matchedBookings = allBookings.filter((b: any) => {
+        const rd = b.residentDetails as any;
+        const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+        const bEmail = (b.walkInEmail || b.customerEmail || rd?.email || rd?.studentEmail || "").toLowerCase().trim();
+        if (normalizedPhone && normalizedPhone.length === 10 && bPhone === normalizedPhone) return true;
+        if (normalizedEmail && bEmail === normalizedEmail) return true;
+        return false;
+      });
+
+      if (matchedBookings.length === 0) {
+        return res.status(404).json({ error: "No matching booking found for this resident" });
+      }
+
+      const updatedBookings: any[] = [];
+
+      for (const booking of matchedBookings) {
+        const existingRd = (booking.residentDetails as any) || {};
+        const updatedRd: any = { ...existingRd };
+
+        if (name) updatedRd.name = name;
+        if (roomNo !== undefined) updatedRd.roomNo = roomNo;
+        if (bedNo !== undefined) updatedRd.bedNo = bedNo;
+        if (gender) updatedRd.gender = gender;
+        if (dateOfBirth || dob) updatedRd.dob = dateOfBirth || dob;
+        if (moveInDate) updatedRd.moveInDate = moveInDate;
+        if (checkInDate) updatedRd.checkInDate = checkInDate;
+        if (checkOutDate) updatedRd.checkOutDate = checkOutDate;
+        if (course) updatedRd.course = course;
+        if (institute) updatedRd.institute = institute;
+        if (dietaryPreference) updatedRd.dietaryPreference = dietaryPreference;
+        if (accommodationType) updatedRd.accommodationType = accommodationType;
+        if (guardianName) updatedRd.guardianName = guardianName;
+        if (guardianPhone) updatedRd.guardianPhone = guardianPhone;
+        if (guardianRelation) updatedRd.guardianRelation = guardianRelation;
+        if (address) updatedRd.address = address;
+        if (city) updatedRd.city = city;
+        if (state) updatedRd.state = state;
+        if (pincode) updatedRd.pincode = pincode;
+        if (phone) updatedRd.phone = phone;
+        if (email) updatedRd.email = email;
+
+        const updateData: any = {
+          residentDetails: updatedRd,
+          updatedAt: new Date(),
+        };
+
+        if (name) updateData.customerName = name;
+        if (phone) updateData.customerPhone = phone;
+        if (email) updateData.customerEmail = email;
+
+        if (hmsStatus) {
+          const statusMap: Record<string, string> = {
+            "active": "active",
+            "checked_in": "active",
+            "checked_out": "completed",
+            "departed": "completed",
+            "cancelled": "cancelled",
+          };
+          const mappedStatus = statusMap[hmsStatus.toLowerCase()];
+          if (mappedStatus) updateData.status = mappedStatus;
+        }
+
+        const [updated] = await db.update(schema.bookings)
+          .set(updateData)
+          .where(eq(schema.bookings.id, booking.id))
+          .returning();
+
+        if (updated) {
+          try {
+            const [adminUser] = await db.select().from(schema.users).where(eq(schema.users.role, "admin")).limit(1);
+            if (adminUser) {
+              await db.insert(schema.auditLogs).values({
+                id: crypto.randomUUID(),
+                adminId: adminUser.id,
+                action: "hms_resident_update",
+                entityType: "booking",
+                entityId: booking.id,
+                details: JSON.stringify({
+                  source: "HMS",
+                  updatedFields: Object.keys(req.body).filter(k => req.body[k] !== undefined && k !== "phone" && k !== "email"),
+                  phone: normalizedPhone,
+                  email: normalizedEmail,
+                }),
+              });
+            }
+          } catch (auditErr: any) {
+            console.warn("[HMS→CRM] Audit log failed:", auditErr.message);
+          }
+
+          updatedBookings.push({
+            bookingId: updated.id,
+            bookingCode: updated.bookingCode,
+            customerName: updated.customerName,
+            status: updated.status,
+          });
+        }
+      }
+
+      console.log(`[HMS→CRM] Resident update: ${updatedBookings.length} booking(s) updated for phone=${normalizedPhone} email=${normalizedEmail}`);
+      res.json({
+        success: true,
+        message: `${updatedBookings.length} booking(s) updated`,
+        updatedBookings,
+      });
+    } catch (error: any) {
+      console.error("[HMS→CRM] Resident update error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
