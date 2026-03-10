@@ -4437,10 +4437,17 @@ export async function registerRoutes(
       ]);
 
       const pkgIds = [...new Set(allBookingPackages.map(bp => bp.packageId).filter(Boolean))];
-      const packages = pkgIds.length > 0
-        ? await db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[]))
-        : [];
+      const [packages, allPackageItems] = await Promise.all([
+        pkgIds.length > 0 ? db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[])) : [],
+        pkgIds.length > 0 ? db.select().from(schema.packageItems).where(inArray(schema.packageItems.packageId, pkgIds as string[])) : [],
+      ]);
       const packageMap = new Map(packages.map(p => [p.id, p]));
+      const packageItemsMap = new Map<string, typeof allPackageItems>();
+      allPackageItems.forEach(item => {
+        const existing = packageItemsMap.get(item.packageId) || [];
+        existing.push(item);
+        packageItemsMap.set(item.packageId, existing);
+      });
 
       const result = allBookings.map((b: any) => {
         const prop = b.propertyId ? propertyMap.get(b.propertyId) : null;
@@ -4510,16 +4517,28 @@ export async function registerRoutes(
           })),
           packages: bPackages.map(bp => {
             const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+            const items = bp.packageId ? (packageItemsMap.get(bp.packageId) || []) : [];
             return {
               name: pkg?.name || null,
               category: pkg?.category || null,
               tierLevel: pkg?.tierLevel ?? null,
               basePrice: pkg?.basePrice || null,
+              tagline: pkg?.tagline || null,
+              occupancy: pkg?.occupancy || null,
+              locationInfo: pkg?.locationInfo || null,
               status: bp.status,
               startDate: bp.startDate,
               endDate: bp.endDate,
               priceSnapshot: bp.priceSnapshot,
               selectedItems: bp.selectedItems,
+              features: items.map(item => ({
+                type: item.type,
+                label: item.label,
+                value: item.featureValue,
+                includedQty: item.includedQty,
+                unit: item.unit,
+                isOptional: item.isOptional,
+              })),
             };
           }),
           wallet: walletEntries.map(w => ({
@@ -4586,10 +4605,17 @@ export async function registerRoutes(
       ]);
 
       const pkgIds = [...new Set(bPackages.map(bp => bp.packageId).filter(Boolean))];
-      const packages = pkgIds.length > 0
-        ? await db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[]))
-        : [];
+      const [packages, singlePkgItems] = await Promise.all([
+        pkgIds.length > 0 ? db.select().from(schema.packages).where(inArray(schema.packages.id, pkgIds as string[])) : [],
+        pkgIds.length > 0 ? db.select().from(schema.packageItems).where(inArray(schema.packageItems.packageId, pkgIds as string[])) : [],
+      ]);
       const packageMap = new Map(packages.map(p => [p.id, p]));
+      const singlePkgItemsMap = new Map<string, typeof singlePkgItems>();
+      singlePkgItems.forEach(item => {
+        const existing = singlePkgItemsMap.get(item.packageId) || [];
+        existing.push(item);
+        singlePkgItemsMap.set(item.packageId, existing);
+      });
 
       const rd = booking.residentDetails as any;
       const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -4652,16 +4678,28 @@ export async function registerRoutes(
         })),
         packages: bPackages.map(bp => {
           const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+          const items = bp.packageId ? (singlePkgItemsMap.get(bp.packageId) || []) : [];
           return {
             name: pkg?.name || null,
             category: pkg?.category || null,
             tierLevel: pkg?.tierLevel ?? null,
             basePrice: pkg?.basePrice || null,
+            tagline: pkg?.tagline || null,
+            occupancy: pkg?.occupancy || null,
+            locationInfo: pkg?.locationInfo || null,
             status: bp.status,
             startDate: bp.startDate,
             endDate: bp.endDate,
             priceSnapshot: bp.priceSnapshot,
             selectedItems: bp.selectedItems,
+            features: items.map(item => ({
+              type: item.type,
+              label: item.label,
+              value: item.featureValue,
+              includedQty: item.includedQty,
+              unit: item.unit,
+              isOptional: item.isOptional,
+            })),
           };
         }),
         wallet: walletEntries.map(w => ({
@@ -4860,13 +4898,23 @@ export async function registerRoutes(
       const bookingPkgs = await db.select().from(schema.bookingPackages)
         .where(eq(schema.bookingPackages.bookingId, booking.id));
 
-      const pkgDetails = [];
-      for (const bp of bookingPkgs) {
-        if (bp.packageId) {
-          const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
-          if (pkg) pkgDetails.push({ ...bp, package: pkg });
-        }
-      }
+      const receiptPkgIds = [...new Set(bookingPkgs.map(bp => bp.packageId).filter(Boolean))] as string[];
+      const [receiptPkgList, receiptPkgItemList] = await Promise.all([
+        receiptPkgIds.length > 0 ? db.select().from(schema.packages).where(inArray(schema.packages.id, receiptPkgIds)) : [],
+        receiptPkgIds.length > 0 ? db.select().from(schema.packageItems).where(inArray(schema.packageItems.packageId, receiptPkgIds)) : [],
+      ]);
+      const receiptPkgMap = new Map(receiptPkgList.map(p => [p.id, p]));
+      const receiptPkgItemMap = new Map<string, typeof receiptPkgItemList>();
+      receiptPkgItemList.forEach(item => {
+        const existing = receiptPkgItemMap.get(item.packageId) || [];
+        existing.push(item);
+        receiptPkgItemMap.set(item.packageId, existing);
+      });
+      const pkgDetails = bookingPkgs.filter(bp => bp.packageId && receiptPkgMap.has(bp.packageId)).map(bp => ({
+        ...bp,
+        package: receiptPkgMap.get(bp.packageId!)!,
+        items: receiptPkgItemMap.get(bp.packageId!) || [],
+      }));
 
       const rd = (booking.residentDetails as any) || {};
       const totalPaid = bookingPayments.filter((p: any) => p.status === "success").reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
@@ -4908,8 +4956,20 @@ export async function registerRoutes(
           },
           activePlan: activePlan ? {
             name: activePlan.package?.name,
+            category: activePlan.package?.category,
             tierLevel: activePlan.package?.tierLevel,
             basePrice: activePlan.package?.basePrice,
+            tagline: activePlan.package?.tagline || null,
+            occupancy: activePlan.package?.occupancy || null,
+            locationInfo: activePlan.package?.locationInfo || null,
+            features: (activePlan as any).items?.map((item: any) => ({
+              type: item.type,
+              label: item.label,
+              value: item.featureValue,
+              includedQty: item.includedQty,
+              unit: item.unit,
+              isOptional: item.isOptional,
+            })) || [],
           } : null,
           installments: bookingInstallments.map((inst: any) => ({
             name: inst.name,
@@ -4987,7 +5047,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     <div class="row"><span class="label">Booking Date</span><span class="value">${fmtDate(booking.createdAt)}</span></div>
   </div>
 
-  ${activePlan ? `<div class="plan-banner"><h3>${activePlan.package?.name || "Housing Plan"}</h3><p>Tier ${activePlan.package?.tierLevel ?? 0} &bull; ${fmtCurrency(Number(activePlan.package?.basePrice) || 0)}</p></div>` : ""}
+  ${activePlan ? `<div class="plan-banner">
+    <h3>${activePlan.package?.name || "Housing Plan"}</h3>
+    <p>Tier ${activePlan.package?.tierLevel ?? 0} &bull; ${fmtCurrency(Number(activePlan.package?.basePrice) || 0)}</p>
+    ${(activePlan as any).items?.length > 0 ? `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+      ${(activePlan as any).items.map((item: any) => `<span style="display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:500">${item.label}${item.featureValue ? ': ' + item.featureValue : ''}${item.includedQty > 0 ? ' (' + item.includedQty + ' ' + item.unit + ')' : ''}</span>`).join('')}
+    </div>` : ''}
+  </div>` : ""}
 
   <div class="section">
     <div class="section-title">Financial Summary</div>
