@@ -4498,10 +4498,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "hmsPropertyId and hmsPropertyName are required" });
       }
 
+      let resolvedCode = propertyCode || null;
+      if (!resolvedCode) {
+        const { getPropertyCode } = await import("./hms-sync.js");
+        const [currentProp] = await db.select().from(schema.properties).where(eq(schema.properties.id, req.params.id));
+        resolvedCode = getPropertyCode(hmsPropertyName) || getPropertyCode(currentProp?.name || "") || null;
+      }
+
       const [updated] = await db.update(schema.properties).set({
         hmsPropertyId,
         hmsPropertyName,
-        propertyCode: propertyCode || null,
+        propertyCode: resolvedCode,
         hmsLinked: true,
         updatedAt: new Date(),
       }).where(eq(schema.properties.id, req.params.id)).returning();

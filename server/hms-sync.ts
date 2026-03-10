@@ -5,12 +5,17 @@ const PROPERTY_CODE_MAP: Record<string, string> = {
   "hsquare goregaon": "HSQ-MUM-02",
   "hsquare bayview": "HSQ-MUM-03",
   "hsquare hostel bayview": "HSQ-MUM-03",
+  "hsquare bay view": "HSQ-MUM-03",
+  "hsquare caledonia": "HSQ-MUM-04",
+  "hsquare hostel caledonia": "HSQ-MUM-04",
 };
 
 const KEYWORD_MAP: Record<string, string> = {
   "juhu": "HSQ-MUM-01",
   "goregaon": "HSQ-MUM-02",
   "bayview": "HSQ-MUM-03",
+  "bay view": "HSQ-MUM-03",
+  "caledonia": "HSQ-MUM-04",
 };
 
 export function getPropertyCode(propertyName: string): string | null {
