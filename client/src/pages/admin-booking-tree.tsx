@@ -671,7 +671,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5">
           <div ref={containerRef} className="relative overflow-hidden" style={{ minHeight: isFullscreen ? "calc(100vh - 140px)" : "600px" }}>
 
             {hoveredBed && (
@@ -718,15 +718,15 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
             <div className="transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] flex items-center justify-center" style={{ transform: `scale(${zoom})`, transformOrigin: "center top", opacity: mounted ? 1 : 0 }}>
 
               {drillLevel === "building" && (() => {
-                const FLOOR_W = 520;
-                const SLAB_H = 14;
-                const FLOOR_PAD = 16;
+                const FLOOR_W = 620;
+                const SLAB_H = 12;
+                const FLOOR_PAD = 20;
                 const floorHeights = sortedFloors.map((floor) => {
                   const floorRooms = floor.rooms || [];
                   const bedGroups = floorRooms.length > 0 ? floorRooms : [{ id: "o", beds: floor.beds || [] }];
                   const maxBeds = Math.max(...bedGroups.map((g: any) => (g.beds || []).length), 1);
-                  const rows = Math.ceil(Math.min(maxBeds, 16) / 4);
-                  return 44 + rows * 72 + FLOOR_PAD;
+                  const rows = Math.ceil(Math.min(maxBeds, 20) / 5);
+                  return 52 + rows * 78 + FLOOR_PAD;
                 });
                 const ROOF_H = 64;
                 const totalH = floorHeights.reduce((s, h) => s + h + SLAB_H, 0) + ROOF_H + 40;
@@ -757,7 +757,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                           <div className="relative group iso-floor-hover rounded-xl overflow-hidden" style={{ height: `${fH}px`, background: "linear-gradient(160deg, rgba(18,28,50,0.97), rgba(12,20,38,0.95))", border: "1px solid rgba(100,140,200,0.12)", boxShadow: "0 6px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
                             <div className="absolute left-0 top-0 bottom-0 w-[4px] rounded-l-xl" style={{ background: "linear-gradient(to bottom, rgba(100,140,200,0.5), rgba(100,140,200,0.15))" }} />
 
-                            <div className="p-3 pb-1">
+                            <div className="p-4 pb-2">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)", color: "#fbbf24" }}>
@@ -772,55 +772,47 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                 <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-amber-400/70 transition-all" />
                               </div>
 
-                              <div className="flex gap-3 flex-wrap">
-                                {bedGroups.map((group: any) => {
+                              <div className="flex gap-4 flex-wrap">
+                                {bedGroups.map((group: any, gIdx: number) => {
                                   const beds = group.beds || [];
                                   if (beds.length === 0) return null;
                                   return (
-                                    <div key={group.id} className="flex-1 min-w-[160px]">
+                                    <div key={group.id} className="flex-1 min-w-[180px]" style={gIdx > 0 ? { borderLeft: "1px solid rgba(100,140,200,0.08)", paddingLeft: "12px" } : {}}>
                                       {group.roomNumber && (
-                                        <div className="flex items-center gap-1 mb-1.5">
-                                          <DoorOpen className="w-3 h-3 text-indigo-400/60" />
-                                          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(99,102,241,0.1)", color: "rgba(129,140,248,0.8)", border: "1px solid rgba(99,102,241,0.2)" }}>Room {group.roomNumber}</span>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                          <DoorOpen className="w-3 h-3 text-indigo-400/50" />
+                                          <span className="text-[9px] px-2 py-0.5 rounded-md font-semibold" style={{ background: "rgba(99,102,241,0.08)", color: "rgba(129,140,248,0.75)", border: "1px solid rgba(99,102,241,0.15)" }}>Room {group.roomNumber}</span>
                                         </div>
                                       )}
-                                      <div className="flex gap-[6px] flex-wrap">
-                                        {beds.slice(0, 16).map((bed: any) => {
+                                      <div className="flex gap-2 flex-wrap">
+                                        {beds.slice(0, 20).map((bed: any) => {
                                           const cfg = BED_STATUS_CFG[bed.status] || BED_STATUS_CFG.maintenance;
                                           const hasBooking = !!bed.currentBooking && (bed.status === "occupied" || bed.status === "reserved");
                                           return (
-                                            <div key={bed.id} className="relative">
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); onBedClick(bed.id); }}
-                                                onMouseEnter={(e) => handleBedHover(bed, e)}
-                                                onMouseLeave={() => setHoveredBed(null)}
-                                                className="rounded-lg overflow-hidden border transition-all duration-300 hover:scale-110 hover:z-20 flex flex-col items-center justify-center"
-                                                style={{ width: "68px", height: "62px", borderColor: cfg.border, background: `linear-gradient(160deg, ${cfg.bg}, rgba(15,23,42,0.4))`, boxShadow: cfg.glow }}
-                                                data-testid={`iso-bed-${bed.id}`}
-                                              >
-                                                {hasBooking ? (
-                                                  <div className="flex flex-col items-center justify-center gap-0.5">
-                                                    <IsoCharacter gender={getGender(bed)} size={28} />
-                                                    <span className="text-[7px] font-bold leading-none" style={{ color: cfg.text }}>{bed.bedNumber.length > 5 ? bed.bedNumber.slice(-4) : bed.bedNumber}</span>
-                                                  </div>
-                                                ) : (
-                                                  <div className="flex flex-col items-center justify-center gap-1">
-                                                    <IsoBedSVG status={bed.status} w={48} h={34} />
-                                                    <span className="text-[7px] font-bold" style={{ color: cfg.text }}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
-                                                  </div>
-                                                )}
-                                              </button>
-                                              {hasBooking && (
-                                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 iso-guest-label" style={{ pointerEvents: "none" }}>
-                                                  <div className="px-1.5 py-0.5 rounded-md text-[7px] font-bold" style={{ background: `${cfg.dotColor}dd`, color: "white", boxShadow: `0 2px 10px ${cfg.dotColor}50` }}>
-                                                    {(getGuestName(bed) || "Guest").split(" ")[0].slice(0, 8)}
-                                                  </div>
+                                            <button
+                                              key={bed.id}
+                                              onClick={(e) => { e.stopPropagation(); onBedClick(bed.id); }}
+                                              onMouseEnter={(e) => handleBedHover(bed, e)}
+                                              onMouseLeave={() => setHoveredBed(null)}
+                                              className="rounded-lg overflow-hidden border transition-all duration-300 hover:scale-110 hover:z-20 flex flex-col items-center justify-center"
+                                              style={{ width: "74px", height: "66px", borderColor: cfg.border, background: `linear-gradient(160deg, ${cfg.bg}, rgba(15,23,42,0.4))`, boxShadow: cfg.glow }}
+                                              data-testid={`iso-bed-${bed.id}`}
+                                            >
+                                              {hasBooking ? (
+                                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                                  <IsoCharacter gender={getGender(bed)} size={26} />
+                                                  <span className="text-[7px] font-bold leading-none" style={{ color: cfg.text }}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
+                                                </div>
+                                              ) : (
+                                                <div className="flex flex-col items-center justify-center gap-1">
+                                                  <IsoBedSVG status={bed.status} w={52} h={36} />
+                                                  <span className="text-[7px] font-bold" style={{ color: cfg.text }}>{bed.bedNumber.length > 6 ? bed.bedNumber.slice(-5) : bed.bedNumber}</span>
                                                 </div>
                                               )}
-                                            </div>
+                                            </button>
                                           );
                                         })}
-                                        {beds.length > 16 && <span className="text-[9px] text-slate-500 self-center ml-1">+{beds.length - 16}</span>}
+                                        {beds.length > 20 && <span className="text-[9px] text-slate-500 self-center ml-1">+{beds.length - 20}</span>}
                                       </div>
                                     </div>
                                   );
@@ -930,7 +922,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
                                 {roomBeds.map((bed: any, bIdx: number) => (
                                   <IsoBedScene key={bed.id} bed={bed} idx={bIdx} onBedClick={onBedClick} onAllocate={onAllocate} onDeallocate={onDeallocate} onHover={handleBedHover} onLeave={() => setHoveredBed(null)} />
                                 ))}
@@ -957,9 +949,9 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                   { label: "Booked", value: stats.occupied || 0, color: "text-blue-400", bg: "from-blue-500/10 to-blue-600/5", border: "border-blue-500/15" },
                   { label: "Blocked", value: stats.blocked || 0, color: "text-red-400", bg: "from-red-500/10 to-red-600/5", border: "border-red-500/15" },
                 ].map(item => (
-                  <div key={item.label} className={cn("rounded-lg p-2 bg-gradient-to-br border", item.bg, item.border)}>
-                    <p className="text-[8px] text-slate-500 uppercase tracking-wider">{item.label}</p>
-                    <p className={cn("text-xl font-black", item.color)}>{item.value}</p>
+                  <div key={item.label} className={cn("rounded-xl p-3 bg-gradient-to-br border", item.bg, item.border)}>
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider font-medium">{item.label}</p>
+                    <p className={cn("text-2xl font-black mt-0.5", item.color)}>{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -967,11 +959,11 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
             <div className="iso-glass-card p-4">
               <h3 className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em] mb-3 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-cyan-400/70" /> Status Legend</h3>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {Object.entries(BED_STATUS_CFG).map(([status, cfg]) => (
-                  <div key={status} className="flex items-center gap-2.5">
-                    <div className="w-3 h-3 rounded-full" style={{ background: cfg.dotColor, boxShadow: cfg.glow }} />
-                    <span className="text-[10px] font-medium" style={{ color: cfg.text }}>{cfg.label}</span>
+                  <div key={status} className="flex items-center gap-3">
+                    <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: cfg.dotColor, boxShadow: `0 0 10px ${cfg.dotColor}60` }} />
+                    <span className="text-[11px] font-medium" style={{ color: cfg.text }}>{cfg.label}</span>
                   </div>
                 ))}
               </div>
@@ -986,17 +978,17 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                     const fBeds = [...(floor.beds || []), ...fRooms.flatMap((r: any) => r.beds || [])];
                     const pct = fBeds.length ? Math.round((fBeds.filter((b: any) => b.status === "available").length / fBeds.length) * 100) : 0;
                     return (
-                      <button key={floor.id} onClick={() => drillToFloor(idx)} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all hover:bg-white/5 group text-left" data-testid={`iso-floor-btn-${floor.id}`}>
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                      <button key={floor.id} onClick={() => drillToFloor(idx)} className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all hover:bg-white/5 group text-left" data-testid={`iso-floor-btn-${floor.id}`}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 transition-all" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
                           F{floor.floorNumber}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium text-white/70 truncate">{floor.name}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <div className="flex-1 h-[3px] bg-white/5 rounded-full overflow-hidden">
+                          <p className="text-[10px] font-semibold text-white/70 truncate">{floor.name}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className="flex-1 h-[4px] bg-white/5 rounded-full overflow-hidden">
                               <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: pct > 50 ? "linear-gradient(90deg, #10b981, #06b6d4)" : pct > 20 ? "linear-gradient(90deg, #f59e0b, #eab308)" : "linear-gradient(90deg, #ef4444, #f97316)" }} />
                             </div>
-                            <span className="text-[7px] text-slate-600 font-mono">{pct}%</span>
+                            <span className="text-[8px] text-slate-500 font-mono">{pct}%</span>
                           </div>
                         </div>
                       </button>
@@ -1093,8 +1085,8 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
 
         .iso-floor-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+          gap: 16px;
         }
         @media (max-width: 640px) { .iso-floor-grid { grid-template-columns: 1fr; } }
 
@@ -1249,7 +1241,7 @@ function IsoBedScene({ bed, idx, onBedClick, onAllocate, onDeallocate, onHover, 
           <div className="absolute top-2 right-2 z-20">
             <div className="w-2.5 h-2.5 rounded-full iso-status-dot" style={{ background: cfg.dotColor, boxShadow: `0 0 8px ${cfg.dotColor}80` }} />
           </div>
-          <div className="relative flex flex-col items-center justify-center py-4 px-3 min-h-[200px]">
+          <div className="relative flex flex-col items-center justify-center py-3 px-3 min-h-[180px]">
             {showChar && (
               <>
                 <div className="relative w-full flex items-end justify-center" style={{ minHeight: "120px" }}>
