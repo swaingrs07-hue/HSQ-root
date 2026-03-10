@@ -1,13 +1,28 @@
 const PROPERTY_CODE_MAP: Record<string, string> = {
     "Hsquare Hostel Juhu": "HSQ-MUM-01",
+    "Hsquare Juhu": "HSQ-MUM-01",
     "Hsquare Hostel Goregaon": "HSQ-MUM-02",
     "Hsquare Goregaon": "HSQ-MUM-02",
     "Hsquare Bayview": "HSQ-MUM-03",
     "Hsquare Hostel Bayview": "HSQ-MUM-03",
   };
 
-  export function getPropertyCode(propertyName: string): string {
-    return PROPERTY_CODE_MAP[propertyName] || "HSQ-MUM-01";
+  export function getPropertyCode(propertyName: string): string | null {
+    if (!propertyName) return null;
+    const direct = PROPERTY_CODE_MAP[propertyName];
+    if (direct) return direct;
+
+    const lower = propertyName.toLowerCase().trim();
+    for (const [key, code] of Object.entries(PROPERTY_CODE_MAP)) {
+      if (key.toLowerCase() === lower) return code;
+    }
+
+    if (lower.includes("goregaon")) return "HSQ-MUM-02";
+    if (lower.includes("bayview")) return "HSQ-MUM-03";
+    if (lower.includes("juhu")) return "HSQ-MUM-01";
+
+    console.warn(`[hms-sync] No property code found for: "${propertyName}" — skipping sync to avoid wrong property assignment`);
+    return null;
   }
 
   interface HMSSyncData {
@@ -49,8 +64,13 @@ const PROPERTY_CODE_MAP: Record<string, string> = {
       return { success: false, error: "HMS API key not configured" };
     }
 
+    if (!bookingData.propertyCode) {
+      console.error(`[hms-sync] No propertyCode for ${bookingData.name} — cannot sync without valid property`);
+      return { success: false, error: "No valid propertyCode resolved" };
+    }
+
     try {
-      const response = await fetch(`${hmsUrl.replace(/\/+$/, "")}/sync/create-resident`, {
+      const response = await fetch(`${hmsUrl.replace(/\\/+$/, "")}/sync/create-resident`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${hmsApiKey}`,
