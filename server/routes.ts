@@ -5119,7 +5119,7 @@ export async function registerRoutes(
             status: p.status,
             method: p.paymentMethod,
             transactionId: p.razorpayPaymentId,
-            screenshotUrl: p.screenshotPath || null,
+            screenshotUrl: (() => { if (!p.screenshotPath) return null; try { const arr = JSON.parse(p.screenshotPath); if (Array.isArray(arr)) return arr; } catch {} return p.screenshotPath; })(),
             createdAt: p.createdAt,
           })),
           createdAt: booking.createdAt,
@@ -5220,7 +5220,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       <td>${(p.paymentMethod || "—").toUpperCase()}</td>
       <td style="font-family:monospace;font-size:11px">${p.razorpayPaymentId || "—"}</td>
       <td><span class="badge ${p.status === "success" ? "badge-success" : p.status === "failed" ? "badge-failed" : "badge-pending"}">${(p.status || "pending").toUpperCase()}</span></td>
-      <td>${p.screenshotPath ? `<a href="${p.screenshotPath}" target="_blank" class="screenshot-link">📷 View</a>` : ""}</td>
+      <td>${p.screenshotPath ? (() => { try { const arr = JSON.parse(p.screenshotPath); if (Array.isArray(arr)) return arr.map((u: string, i: number) => `<a href="${u}" target="_blank" class="screenshot-link">📷 ${arr.length > 1 ? i + 1 : "View"}</a>`).join(" "); } catch {} return `<a href="${p.screenshotPath}" target="_blank" class="screenshot-link">📷 View</a>`; })() : ""}</td>
     </tr>`).join("")}
     </tbody></table></div>` : ""}
 </div>

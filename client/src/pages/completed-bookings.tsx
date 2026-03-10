@@ -143,6 +143,8 @@ export default function CompletedBookings() {
     installmentName: "",
     screenshotPath: "",
     screenshotPreview: "",
+    screenshotPaths: [] as string[],
+    screenshotPreviews: [] as string[],
   });
   const [markingPayment, setMarkingPayment] = useState(false);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
@@ -389,40 +391,59 @@ export default function CompletedBookings() {
       installmentName: installment?.name || "",
       screenshotPath: "",
       screenshotPreview: "",
+      screenshotPaths: [],
+      screenshotPreviews: [],
     });
     setShowPaymentDialog(true);
   };
 
   const handlePaymentScreenshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Screenshot must be under 10MB.", variant: "destructive" });
-      return;
-    }
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Invalid file", description: `${file.name} is not an image file.`, variant: "destructive" });
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "File too large", description: `${file.name} must be under 10MB.`, variant: "destructive" });
+        return false;
+      }
+      return true;
+    });
+    if (!validFiles.length) return;
     setScreenshotUploading(true);
     try {
       const authData = localStorage.getItem("hsquare_auth");
       const token = authData ? JSON.parse(authData)?.token : null;
-      const res = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!res.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await res.json();
-      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      setPaymentForm(prev => ({ ...prev, screenshotPath: objectPath, screenshotPreview: URL.createObjectURL(file) }));
-      toast({ title: "Screenshot uploaded" });
+      const newPaths: string[] = [];
+      const newPreviews: string[] = [];
+      for (const file of validFiles) {
+        const res = await fetch("/api/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        });
+        if (!res.ok) throw new Error("Failed to get upload URL");
+        const { uploadURL, objectPath } = await res.json();
+        const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+        if (!uploadRes.ok) throw new Error(`Upload failed for ${file.name}`);
+        newPaths.push(objectPath);
+        newPreviews.push(URL.createObjectURL(file));
+      }
+      setPaymentForm(prev => ({
+        ...prev,
+        screenshotPath: [...prev.screenshotPaths, ...newPaths][0] || "",
+        screenshotPaths: [...prev.screenshotPaths, ...newPaths],
+        screenshotPreview: [...prev.screenshotPreviews, ...newPreviews][0] || "",
+        screenshotPreviews: [...prev.screenshotPreviews, ...newPreviews],
+      }));
+      toast({ title: `${validFiles.length} screenshot${validFiles.length > 1 ? "s" : ""} uploaded` });
     } catch (error: any) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
       setScreenshotUploading(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -432,10 +453,16 @@ export default function CompletedBookings() {
     try {
       const authData = localStorage.getItem("hsquare_auth");
       const token = authData ? JSON.parse(authData)?.token : null;
+      const formData = {
+        ...paymentForm,
+        screenshotPath: paymentForm.screenshotPaths.length > 1
+          ? JSON.stringify(paymentForm.screenshotPaths)
+          : paymentForm.screenshotPaths[0] || "",
+      };
       const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/mark-payment-done`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(paymentForm),
+        body: JSON.stringify(formData),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -1304,24 +1331,38 @@ export default function CompletedBookings() {
                             {(p.status || "pending").toUpperCase()}
                           </Badge>
                         </div>
-                        {p.screenshotPath && (
-                          <a href={p.screenshotPath} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                            <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
-                              <img
-                                src={p.screenshotPath}
-                                alt="Payment screenshot"
-                                className="w-12 h-12 object-cover rounded border border-slate-200"
-                                data-testid={`img-payment-screenshot-${idx}`}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
-                                  <ImageIcon className="h-3 w-3" /> Payment Screenshot
-                                </p>
-                                <p className="text-[10px] text-slate-400">Tap to view full size</p>
-                              </div>
+                        {p.screenshotPath && (() => {
+                          let screenshots: string[] = [];
+                          try {
+                            const parsed = JSON.parse(p.screenshotPath);
+                            if (Array.isArray(parsed)) screenshots = parsed;
+                            else screenshots = [p.screenshotPath];
+                          } catch {
+                            screenshots = [p.screenshotPath];
+                          }
+                          return (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {screenshots.map((url: string, sIdx: number) => (
+                                <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
+                                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                                    <img
+                                      src={url}
+                                      alt={`Payment screenshot ${sIdx + 1}`}
+                                      className="w-12 h-12 object-cover rounded border border-slate-200"
+                                      data-testid={`img-payment-screenshot-${idx}-${sIdx}`}
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
+                                        <ImageIcon className="h-3 w-3" /> {screenshots.length > 1 ? `Screenshot ${sIdx + 1}` : "Payment Screenshot"}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400">Tap to view</p>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
                             </div>
-                          </a>
-                        )}
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -1799,37 +1840,44 @@ export default function CompletedBookings() {
             )}
             {paymentForm.paymentMethod !== "cash" && (
               <div>
-                <Label className="text-xs font-medium text-slate-500">Payment Screenshot <span className="text-red-500">*</span></Label>
-                {paymentForm.screenshotPreview ? (
-                  <div className="mt-1.5 relative group">
-                    <img
-                      src={paymentForm.screenshotPreview}
-                      alt="Payment screenshot"
-                      className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-slate-50"
-                      data-testid="img-payment-screenshot"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPaymentForm(prev => ({ ...prev, screenshotPath: "", screenshotPreview: "" }))}
-                      className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      data-testid="button-remove-screenshot"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                <Label className="text-xs font-medium text-slate-500">Payment Screenshots <span className="text-red-500">*</span></Label>
+                {paymentForm.screenshotPreviews.length > 0 && (
+                  <div className="mt-1.5 grid grid-cols-3 gap-2">
+                    {paymentForm.screenshotPreviews.map((preview, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Payment screenshot ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-slate-200 bg-slate-50"
+                          data-testid={`img-payment-screenshot-preview-${idx}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPaymentForm(prev => {
+                            const newPaths = prev.screenshotPaths.filter((_, i) => i !== idx);
+                            const newPreviews = prev.screenshotPreviews.filter((_, i) => i !== idx);
+                            return { ...prev, screenshotPaths: newPaths, screenshotPreviews: newPreviews, screenshotPath: newPaths[0] || "", screenshotPreview: newPreviews[0] || "" };
+                          })}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-testid={`button-remove-screenshot-${idx}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <label className={`mt-1.5 flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${screenshotUploading ? "border-slate-200 bg-slate-50" : "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50"}`}>
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePaymentScreenshot} disabled={screenshotUploading} data-testid="input-payment-screenshot" />
-                    {screenshotUploading ? (
-                      <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
-                    ) : (
-                      <Upload className="h-5 w-5 text-emerald-500" />
-                    )}
-                    <span className="text-xs font-medium text-slate-500">{screenshotUploading ? "Uploading..." : "Upload payment screenshot"}</span>
-                    <span className="text-[10px] text-slate-400">JPG, PNG under 10MB</span>
-                  </label>
                 )}
-                {!paymentForm.screenshotPath && !screenshotUploading && (
+                <label className={`mt-1.5 flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${screenshotUploading ? "border-slate-200 bg-slate-50" : "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50"}`}>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePaymentScreenshot} disabled={screenshotUploading} data-testid="input-payment-screenshot" />
+                  {screenshotUploading ? (
+                    <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-emerald-500" />
+                  )}
+                  <span className="text-xs font-medium text-slate-500">{screenshotUploading ? "Uploading..." : paymentForm.screenshotPaths.length > 0 ? "Add more screenshots" : "Upload payment screenshots"}</span>
+                  <span className="text-[10px] text-slate-400">JPG, PNG under 10MB (multiple allowed)</span>
+                </label>
+                {paymentForm.screenshotPaths.length === 0 && !screenshotUploading && (
                   <p className="text-[11px] text-red-400 mt-1">Payment screenshot is required</p>
                 )}
               </div>
@@ -1858,7 +1906,7 @@ export default function CompletedBookings() {
                 size="sm"
                 className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={markPaymentDone}
-                disabled={markingPayment || (paymentForm.paymentMethod !== "cash" && (!paymentForm.transactionId.trim() || !paymentForm.screenshotPath)) || screenshotUploading}
+                disabled={markingPayment || (paymentForm.paymentMethod !== "cash" && (!paymentForm.transactionId.trim() || paymentForm.screenshotPaths.length === 0)) || screenshotUploading}
                 data-testid="button-confirm-payment"
               >
                 <Check className="h-3.5 w-3.5" />
