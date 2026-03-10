@@ -3608,15 +3608,16 @@ export async function registerRoutes(
 
       const { paymentMethod, transactionId, notes, amount, installmentId, screenshotPath } = req.body;
 
-      if (!transactionId || !transactionId.trim()) {
+      const isCash = paymentMethod === "cash";
+      if (!isCash && (!transactionId || !transactionId.trim())) {
         return res.status(400).json({ error: "Transaction ID / UTR is required" });
       }
-      if (!screenshotPath || !screenshotPath.trim()) {
+      if (!isCash && (!screenshotPath || !screenshotPath.trim())) {
         return res.status(400).json({ error: "Payment screenshot is required" });
       }
 
       const paymentAmount = amount || booking.totalFee;
-      const txnId = transactionId.trim();
+      const txnId = isCash ? (transactionId?.trim() || `CASH-${Date.now()}`) : transactionId.trim();
 
       const payment = await storage.createPayment({
         bookingId: booking.id,
@@ -3625,7 +3626,7 @@ export async function registerRoutes(
         razorpayPaymentId: txnId,
         status: "success",
         installmentId: installmentId || null,
-        screenshotPath: screenshotPath.trim(),
+        screenshotPath: screenshotPath?.trim() || null,
         notes: notes || null,
       });
 
