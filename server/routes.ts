@@ -4326,8 +4326,11 @@ export async function registerRoutes(
         accessLevel: "FULL",
       };
 
-      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
-      syncData.propertyCode = property.propertyCode || getPropertyCode(property.name) || String(property.hmsPropertyId || "");
+      const { syncBookingToHMS } = await import("./hms-sync.js");
+      if (!syncData.propertyCode) {
+        console.warn(`[HMS Auto-Sync] No valid property code for booking ${booking.bookingCode} (property: ${property.name}) — skipping sync`);
+        return;
+      }
       const result = await syncBookingToHMS(syncData);
 
       if (result.success) {
