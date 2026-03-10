@@ -4207,21 +4207,41 @@ export async function registerRoutes(
     }
   });
 
-  // ============ EXTERNAL REGISTERED STUDENTS (Hostel Flow API) ============
+  // ============ EXTERNAL REGISTERED STUDENTS (HMS API) ============
   
-  const HOSTEL_FLOW_BASE_URL = "https://hostel-flow--swaingrs07.replit.app";
+  const HOSTEL_FLOW_BASE_URL = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
   
   let cachedHostelFlowJWT: string | null = null;
   let jwtExpiresAt: number = 0;
 
+  function getHMSAuthHeaders(): Record<string, string> {
+    const apiKey = process.env.HMS_API_KEY;
+    if (apiKey) {
+      return {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      };
+    }
+    if (cachedHostelFlowJWT) {
+      return {
+        "Authorization": `Bearer ${cachedHostelFlowJWT}`,
+        "Content-Type": "application/json",
+      };
+    }
+    return { "Content-Type": "application/json" };
+  }
+
   async function getHostelFlowJWT(): Promise<string> {
+    if (process.env.HMS_API_KEY) {
+      return process.env.HMS_API_KEY;
+    }
     if (cachedHostelFlowJWT && Date.now() < jwtExpiresAt) {
       return cachedHostelFlowJWT;
     }
     const email = process.env.HOSTEL_FLOW_EMAIL;
     const password = process.env.HOSTEL_FLOW_PASSWORD;
     if (!email || !password) {
-      throw new Error("HOSTEL_FLOW_EMAIL and HOSTEL_FLOW_PASSWORD not configured");
+      throw new Error("HMS_API_KEY or HOSTEL_FLOW_EMAIL/PASSWORD not configured");
     }
     const loginRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/auth/login`, {
       method: "POST",
@@ -4264,25 +4284,19 @@ export async function registerRoutes(
       }
       const season = activeSeasons.length > 0 ? activeSeasons[0] : null;
 
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (e: any) {
-        console.error("[HMS Auto-Sync] Auth failed:", e.message);
-        return;
-      }
+      const authHeaders = getHMSAuthHeaders();
 
       let hmsResidents: any[] = [];
       try {
         let hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
-          headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+          headers: authHeaders,
         });
-        if (hmsRes.status === 401) {
+        if (hmsRes.status === 401 && !process.env.HMS_API_KEY) {
           cachedHostelFlowJWT = null;
           jwtExpiresAt = 0;
-          jwt = await getHostelFlowJWT();
+          await getHostelFlowJWT();
           hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
-            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+            headers: getHMSAuthHeaders(),
           });
         }
         if (!hmsRes.ok) throw new Error(`HMS API returned ${hmsRes.status}`);
@@ -4348,10 +4362,7 @@ export async function registerRoutes(
 
           const createRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
             method: "POST",
-            headers: {
-              "Authorization": `Bearer ${jwt}`,
-              "Content-Type": "application/json",
-            },
+            headers: authHeaders,
             body: JSON.stringify(createPayload),
           });
 
@@ -4394,10 +4405,7 @@ export async function registerRoutes(
       try {
         const syncRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/crm/season-sync`, {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${jwt}`,
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders,
           body: JSON.stringify(syncPayload),
         });
 
@@ -4442,15 +4450,14 @@ export async function registerRoutes(
 
   app.get("/api/admin/hms/properties", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (loginErr: any) {
-        return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+      if (!process.env.HMS_API_KEY) {
+        try { await getHostelFlowJWT(); } catch (loginErr: any) {
+          return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+        }
       }
 
       const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/properties`, {
-        headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+        headers: getHMSAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -4527,15 +4534,14 @@ export async function registerRoutes(
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, req.params.id));
       if (!property) return res.status(404).json({ error: "Property not found" });
 
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (loginErr: any) {
-        return res.status(502).json({ error: "Failed to authenticate with HMS" });
+      if (!process.env.HMS_API_KEY) {
+        try { await getHostelFlowJWT(); } catch (loginErr: any) {
+          return res.status(502).json({ error: "Failed to authenticate with HMS" });
+        }
       }
 
       const response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/properties`, {
-        headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+        headers: getHMSAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -4590,36 +4596,32 @@ export async function registerRoutes(
 
   app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (loginErr: any) {
-        console.error("Hostel Flow login error:", loginErr.message);
-        return res.status(502).json({ 
-          error: "Failed to authenticate with Hostel Flow",
-          details: loginErr.message
-        });
+      if (!process.env.HMS_API_KEY) {
+        try { await getHostelFlowJWT(); } catch (loginErr: any) {
+          console.error("HMS login error:", loginErr.message);
+          return res.status(502).json({ 
+            error: "Failed to authenticate with HMS",
+            details: loginErr.message
+          });
+        }
       }
 
       const searchQuery = (req.query.search as string || "").trim();
 
       let response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
-        headers: {
-          "Authorization": `Bearer ${jwt}`,
-          "Content-Type": "application/json",
-        },
+        headers: getHMSAuthHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !process.env.HMS_API_KEY) {
         cachedHostelFlowJWT = null;
         jwtExpiresAt = 0;
         try {
-          jwt = await getHostelFlowJWT();
+          await getHostelFlowJWT();
           response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
-            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+            headers: getHMSAuthHeaders(),
           });
         } catch (retryErr: any) {
-          return res.status(502).json({ error: "Failed to re-authenticate with Hostel Flow", details: retryErr.message });
+          return res.status(502).json({ error: "Failed to re-authenticate with HMS", details: retryErr.message });
         }
       }
 
@@ -4699,30 +4701,26 @@ export async function registerRoutes(
 
   app.get("/api/admin/registered-students/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (loginErr: any) {
-        return res.status(502).json({ error: "Failed to authenticate with Hostel Flow" });
+      if (!process.env.HMS_API_KEY) {
+        try { await getHostelFlowJWT(); } catch (loginErr: any) {
+          return res.status(502).json({ error: "Failed to authenticate with HMS" });
+        }
       }
 
       let response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
-        headers: {
-          "Authorization": `Bearer ${jwt}`,
-          "Content-Type": "application/json",
-        },
+        headers: getHMSAuthHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !process.env.HMS_API_KEY) {
         cachedHostelFlowJWT = null;
         jwtExpiresAt = 0;
         try {
-          jwt = await getHostelFlowJWT();
+          await getHostelFlowJWT();
           response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents/${req.params.id}`, {
-            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+            headers: getHMSAuthHeaders(),
           });
         } catch (retryErr: any) {
-          return res.status(502).json({ error: "Failed to re-authenticate with Hostel Flow", details: retryErr.message });
+          return res.status(502).json({ error: "Failed to re-authenticate with HMS", details: retryErr.message });
         }
       }
 
@@ -8589,24 +8587,23 @@ export async function registerRoutes(
         return res.json({ synced: 0, notMatched: 0, failed: 0, total: 0, message: "No active bookings to sync" });
       }
 
-      let jwt: string;
-      try {
-        jwt = await getHostelFlowJWT();
-      } catch (loginErr: any) {
-        return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+      if (!process.env.HMS_API_KEY) {
+        try { await getHostelFlowJWT(); } catch (loginErr: any) {
+          return res.status(502).json({ error: "Failed to authenticate with HMS: " + loginErr.message });
+        }
       }
 
       let hmsResidents: any[] = [];
       try {
         let hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
-          headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+          headers: getHMSAuthHeaders(),
         });
-        if (hmsRes.status === 401) {
+        if (hmsRes.status === 401 && !process.env.HMS_API_KEY) {
           cachedHostelFlowJWT = null;
           jwtExpiresAt = 0;
-          jwt = await getHostelFlowJWT();
+          await getHostelFlowJWT();
           hmsRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents?propertyId=${property.hmsPropertyId}`, {
-            headers: { "Authorization": `Bearer ${jwt}`, "Content-Type": "application/json" },
+            headers: getHMSAuthHeaders(),
           });
         }
         if (!hmsRes.ok) throw new Error(`HMS API returned ${hmsRes.status}`);
@@ -8691,10 +8688,7 @@ export async function registerRoutes(
         try {
           const syncRes = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/crm/season-sync`, {
             method: "POST",
-            headers: {
-              "Authorization": `Bearer ${jwt}`,
-              "Content-Type": "application/json",
-            },
+            headers: getHMSAuthHeaders(),
             body: JSON.stringify(syncPayload),
           });
 
