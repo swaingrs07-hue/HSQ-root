@@ -384,7 +384,7 @@ export default function AuthPage() {
             variants={cardVariants}
             initial="hidden"
             animate={shakeForm ? "shake" : "visible"}
-            className="relative overflow-hidden bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 border border-white/50 p-8 md:p-10"
+            className="relative bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 border border-white/50 p-8 md:p-10"
           >
             {/* Logo & Greeting */}
             <motion.div
@@ -688,7 +688,7 @@ export default function AuthPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex items-center justify-center p-8 z-50"
+                  className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-3xl flex items-center justify-center p-8 z-50 overflow-hidden"
                 >
                   <div className="w-full max-w-sm space-y-5">
                     {forgotSent ? (
