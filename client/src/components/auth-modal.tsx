@@ -169,6 +169,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [shakeForm, setShakeForm] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
   const { login, signup } = useAuth();
   const reducedMotion = useReducedMotion();
   const { mouseX, mouseY } = useMouseParallax();
@@ -274,6 +279,32 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
+      setForgotError("Please enter a valid email address");
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError("");
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setForgotSent(true);
+      } else {
+        setForgotError(data.message || "Something went wrong");
+      }
+    } catch {
+      setForgotError("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -621,6 +652,19 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                       </AnimatePresence>
                     </motion.div>
 
+                    {isLogin && (
+                      <div className="flex items-center justify-end -mt-2">
+                        <button
+                          type="button"
+                          className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                          onClick={() => { setShowForgotPassword(true); setForgotEmail(email); setForgotSent(false); setForgotError(""); }}
+                          data-testid="button-forgot-password-modal"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    )}
+
                     <AnimatePresence>
                       {error && (
                         <motion.div
@@ -686,6 +730,84 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                   >
                     Maybe later
                   </button>
+
+                  <AnimatePresence>
+                    {showForgotPassword && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-3xl flex items-center justify-center p-8 z-50 overflow-hidden"
+                      >
+                        <div className="w-full max-w-sm space-y-5">
+                          {forgotSent ? (
+                            <div className="text-center space-y-4">
+                              <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center mx-auto shadow-lg shadow-green-500/30">
+                                <Mail className="w-8 h-8 text-white" />
+                              </div>
+                              <h3 className="text-xl font-bold text-gray-800">Check your email</h3>
+                              <p className="text-sm text-gray-600">
+                                If an account exists for <strong>{forgotEmail}</strong>, we've sent a password reset link. The link expires in 10 minutes.
+                              </p>
+                              <Button
+                                onClick={() => { setShowForgotPassword(false); setForgotSent(false); }}
+                                className="w-full h-11 rounded-xl"
+                              >
+                                Back to Sign In
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-center space-y-2">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center mx-auto shadow-lg shadow-purple-500/30">
+                                  <Lock className="w-7 h-7 text-white" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800">Reset password</h3>
+                                <p className="text-sm text-gray-500">Enter your email and we'll send you a reset link</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="forgot-email-modal" className="text-sm font-medium text-gray-700">Email</Label>
+                                <div className="relative">
+                                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                  <Input
+                                    id="forgot-email-modal"
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    className="pl-11 h-12 rounded-xl border-2 border-gray-200 bg-white/80"
+                                    value={forgotEmail}
+                                    onChange={(e) => setForgotEmail(e.target.value)}
+                                    data-testid="input-forgot-email-modal"
+                                  />
+                                </div>
+                              </div>
+                              {forgotError && (
+                                <p className="text-xs text-red-500 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {forgotError}
+                                </p>
+                              )}
+                              <Button
+                                onClick={handleForgotPassword}
+                                disabled={forgotLoading}
+                                className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30"
+                                data-testid="button-send-reset-modal"
+                              >
+                                {forgotLoading ? "Sending..." : "Send Reset Link"}
+                              </Button>
+                              <button
+                                type="button"
+                                onClick={() => setShowForgotPassword(false)}
+                                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                                data-testid="button-back-to-login-modal"
+                              >
+                                Back to Sign In
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               </motion.div>
             </motion.div>
