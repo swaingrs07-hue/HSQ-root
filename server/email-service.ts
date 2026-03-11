@@ -5,7 +5,7 @@ import type { Booking } from "@shared/schema";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = "Hsquare Living <booking@hsquareliving.com>";
+const FROM_EMAIL = "Hsquare Living <booking@hsquarehostels.com>";
 
 interface BookingEmailData {
   residentName: string;

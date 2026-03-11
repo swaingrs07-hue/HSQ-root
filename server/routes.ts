@@ -1061,7 +1061,7 @@ export async function registerRoutes(
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
         const emailResult = await resend.emails.send({
-          from: "Hsquare Living <onboarding@resend.dev>",
+          from: "Hsquare Living <booking@hsquarehostels.com>",
           to: email.toLowerCase().trim(),
           subject: "Reset Your Password - Hsquare Living",
           html: `
