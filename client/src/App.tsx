@@ -56,8 +56,9 @@ function AppContent() {
   const [location] = useLocation();
   const { user, isAdmin } = useAuth();
   
-  const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || location.startsWith("/admin/reset-password");
-  const isAdminRoute = location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate";
+  const isResetPasswordPage = location.startsWith("/admin/reset-password") || location.startsWith("/reset-password");
+  const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || isResetPasswordPage;
+  const isAdminRoute = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate");
   const isSalesExec = user?.role === "sales_executive";
   const useAdminLayout = (isAdmin || isSalesExec) && isAdminRoute;
 
@@ -67,6 +68,7 @@ function AppContent() {
       <Route path="/login" component={AuthPage} />
       <Route path="/admin/login" component={AuthPage} />
       <Route path="/admin/reset-password" component={ResetPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route>
         {isAuthPage ? null : useAdminLayout ? (
           <AdminLayout>

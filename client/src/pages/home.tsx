@@ -19,7 +19,6 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
-import { CinematicIntro } from "@/components/cinematic-intro";
 
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
@@ -435,14 +434,6 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
 }
 
 export default function Home() {
-  const [showIntro, setShowIntro] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !sessionStorage.getItem("hsq_intro_played");
-  });
-  const handleIntroComplete = useCallback(() => {
-    setShowIntro(false);
-    sessionStorage.setItem("hsq_intro_played", "1");
-  }, []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -569,7 +560,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-[#050505]">
-      {showIntro && <CinematicIntro onComplete={handleIntroComplete} />}
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
