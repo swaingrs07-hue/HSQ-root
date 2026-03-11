@@ -528,7 +528,7 @@ export default function RequestsBoard() {
   ];
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
+    <div className="min-h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -853,19 +853,17 @@ export default function RequestsBoard() {
           />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <KanbanBoard
-            leads={filteredLeads}
-            loading={loading}
-            error={error || undefined}
-            onStageChange={handleStageChange}
-            onDelete={handleDelete}
-            onEdit={(lead) => {
-              setSelectedLead(lead);
-              setEditModalOpen(true);
-            }}
-          />
-        </div>
+        <KanbanBoard
+          leads={filteredLeads}
+          loading={loading}
+          error={error || undefined}
+          onStageChange={handleStageChange}
+          onDelete={handleDelete}
+          onEdit={(lead) => {
+            setSelectedLead(lead);
+            setEditModalOpen(true);
+          }}
+        />
       )}
 
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
