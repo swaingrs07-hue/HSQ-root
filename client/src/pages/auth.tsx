@@ -141,6 +141,33 @@ export default function AuthPage() {
   const [shakeForm, setShakeForm] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; password?: string }>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
+      toast({ title: "Please enter a valid email", variant: "destructive" });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setForgotSent(true);
+      toast({ title: "Reset link sent", description: "Check your email for the password reset link." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleCapsLock = useCallback((e: KeyboardEvent) => {
     if (e.getModifierState) {
@@ -357,7 +384,7 @@ export default function AuthPage() {
             variants={cardVariants}
             initial="hidden"
             animate={shakeForm ? "shake" : "visible"}
-            className="bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 border border-white/50 p-8 md:p-10"
+            className="relative overflow-hidden bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 border border-white/50 p-8 md:p-10"
           >
             {/* Logo & Greeting */}
             <motion.div
@@ -604,7 +631,8 @@ export default function AuthPage() {
                   <button
                     type="button"
                     className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
-                    onClick={() => toast({ title: "Coming soon", description: "Password reset will be available soon." })}
+                    onClick={() => { setShowForgotPassword(true); setForgotEmail(email); setForgotSent(false); }}
+                    data-testid="button-forgot-password"
                   >
                     Forgot password?
                   </button>
@@ -653,6 +681,79 @@ export default function AuthPage() {
                 </motion.div>
               </motion.div>
             </form>
+
+            <AnimatePresence>
+              {showForgotPassword && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl flex items-center justify-center p-8 z-50"
+                >
+                  <div className="w-full max-w-sm space-y-5">
+                    {forgotSent ? (
+                      <div className="text-center space-y-4">
+                        <div className="mx-auto w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <Check className="w-7 h-7 text-emerald-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900">Check your email</h2>
+                        <p className="text-sm text-gray-500">
+                          We've sent a password reset link to <span className="font-medium text-gray-700">{forgotEmail}</span>. The link expires in 1 hour.
+                        </p>
+                        <Button
+                          className="w-full h-11 rounded-xl"
+                          onClick={() => { setShowForgotPassword(false); setForgotSent(false); }}
+                          data-testid="button-back-to-login"
+                        >
+                          Back to Sign In
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-center space-y-2">
+                          <div className="mx-auto w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
+                            <Mail className="w-7 h-7 text-primary" />
+                          </div>
+                          <h2 className="text-xl font-bold text-gray-900">Forgot Password?</h2>
+                          <p className="text-sm text-gray-500">Enter your email and we'll send you a reset link</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="forgot-email" className="text-sm font-medium text-gray-700">Email Address</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                              id="forgot-email"
+                              type="email"
+                              placeholder="you@example.com"
+                              className="pl-11 h-12 rounded-xl border-2 border-gray-200 bg-white/80"
+                              value={forgotEmail}
+                              onChange={(e) => setForgotEmail(e.target.value)}
+                              data-testid="input-forgot-email"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/90 font-semibold"
+                          onClick={handleForgotPassword}
+                          disabled={forgotLoading}
+                          data-testid="button-send-reset-link"
+                        >
+                          {forgotLoading ? "Sending..." : "Send Reset Link"}
+                        </Button>
+                        <button
+                          type="button"
+                          className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors text-center"
+                          onClick={() => setShowForgotPassword(false)}
+                          data-testid="button-cancel-forgot"
+                        >
+                          Back to Sign In
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <motion.div
               variants={inputVariants}

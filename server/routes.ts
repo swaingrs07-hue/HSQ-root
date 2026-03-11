@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
@@ -1033,6 +1034,77 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error during login:", error);
       res.status(500).json({ error: "Login failed. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      const user = await db.select().from(schema.users).where(eq(schema.users.email, email.toLowerCase().trim())).limit(1);
+      if (!user.length) {
+        return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+      }
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+      await db.update(schema.users).set({ resetToken, resetTokenExpiry }).where(eq(schema.users.id, user[0].id));
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const resetUrl = `${baseUrl}/admin/reset-password?token=${resetToken}`;
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: "Hsquare Living <booking@hsquareliving.com>",
+          to: email.toLowerCase().trim(),
+          subject: "Reset Your Password - Hsquare Living",
+          html: `
+            <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff;border-radius:12px;border:1px solid #e5e7eb">
+              <div style="text-align:center;margin-bottom:24px">
+                <h1 style="font-size:22px;font-weight:700;color:#1e293b;margin:0">Password Reset</h1>
+                <p style="font-size:14px;color:#64748b;margin-top:8px">Hsquare Living Admin</p>
+              </div>
+              <p style="font-size:14px;color:#334155;line-height:1.6">Hi ${user[0].name},</p>
+              <p style="font-size:14px;color:#334155;line-height:1.6">We received a request to reset your password. Click the button below to set a new password. This link expires in 1 hour.</p>
+              <div style="text-align:center;margin:28px 0">
+                <a href="${resetUrl}" style="display:inline-block;background:#6c2bd9;color:#fff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none">Reset Password</a>
+              </div>
+              <p style="font-size:12px;color:#94a3b8;line-height:1.5">If you didn't request this, you can safely ignore this email. Your password will remain unchanged.</p>
+              <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
+              <p style="font-size:11px;color:#cbd5e1;text-align:center">Hsquareliving Pvt Ltd</p>
+            </div>
+          `,
+        });
+      } catch (emailErr) {
+        console.error("Failed to send reset email:", emailErr);
+      }
+      res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password || typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({ error: "Valid token and password (min 6 characters) are required" });
+      }
+      const user = await db.select().from(schema.users).where(eq(schema.users.resetToken, token)).limit(1);
+      if (!user.length) {
+        return res.status(400).json({ error: "Invalid or expired reset link" });
+      }
+      if (!user[0].resetTokenExpiry || new Date(user[0].resetTokenExpiry) < new Date()) {
+        return res.status(400).json({ error: "Reset link has expired. Please request a new one." });
+      }
+      const hashedPassword = await hashPassword(password);
+      await db.update(schema.users).set({ password: hashedPassword, resetToken: null, resetTokenExpiry: null }).where(eq(schema.users.id, user[0].id));
+      res.json({ message: "Password has been reset successfully. You can now log in." });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
     }
   });
 

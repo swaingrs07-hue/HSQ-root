@@ -29,6 +29,8 @@ export const users = pgTable("users", {
   deactivatedAt: timestamp("deactivated_at"),
   deactivatedBy: varchar("deactivated_by").references(() => users.id),
   deletedAt: timestamp("deleted_at"),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -49,13 +49,14 @@ import AdminHmsSync from "@/pages/admin-hms-sync";
 import AdminLogoControl from "@/pages/admin-logo-control";
 import AdminAmenities from "@/pages/admin-amenities";
 import PropertyBooking from "@/pages/property-booking";
+import ResetPasswordPage from "@/pages/admin-reset-password";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 function AppContent() {
   const [location] = useLocation();
   const { user, isAdmin } = useAuth();
   
-  const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login";
+  const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || location.startsWith("/admin/reset-password");
   const isAdminRoute = location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate";
   const isSalesExec = user?.role === "sales_executive";
   const useAdminLayout = (isAdmin || isSalesExec) && isAdminRoute;
@@ -65,6 +66,7 @@ function AppContent() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/login" component={AuthPage} />
       <Route path="/admin/login" component={AuthPage} />
+      <Route path="/admin/reset-password" component={ResetPasswordPage} />
       <Route>
         {isAuthPage ? null : useAdminLayout ? (
           <AdminLayout>
