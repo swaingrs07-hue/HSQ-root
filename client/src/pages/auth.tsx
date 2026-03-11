@@ -610,13 +610,7 @@ export default function AuthPage() {
               </motion.div>
 
               {isLogin && (
-                <motion.div
-                  variants={inputVariants}
-                  initial="hidden"
-                  animate="visible"
-                  custom={2}
-                  className="flex items-center justify-between"
-                >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Switch
                       id="remember"
@@ -636,7 +630,7 @@ export default function AuthPage() {
                   >
                     Forgot password?
                   </button>
-                </motion.div>
+                </div>
               )}
 
               <motion.div
