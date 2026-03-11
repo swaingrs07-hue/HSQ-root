@@ -1050,16 +1050,7 @@ export async function registerRoutes(
       const resetToken = crypto.randomBytes(32).toString("hex");
       const resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
       await db.update(schema.users).set({ resetToken, resetTokenExpiry }).where(eq(schema.users.id, user[0].id));
-      let baseUrl: string;
-      if (process.env.APP_PUBLIC_URL) {
-        baseUrl = process.env.APP_PUBLIC_URL.replace(/\/$/, "");
-      } else if (process.env.REPLIT_DEPLOYMENT_URL) {
-        baseUrl = `https://${process.env.REPLIT_DEPLOYMENT_URL}`;
-      } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-      } else {
-        baseUrl = `${req.protocol}://${req.get("host")}`;
-      }
+      const baseUrl = process.env.APP_PUBLIC_URL?.replace(/\/$/, "") || "https://hsquare.in";
       const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
       console.log("[forgot-password] Reset URL generated:", resetUrl);
       try {
