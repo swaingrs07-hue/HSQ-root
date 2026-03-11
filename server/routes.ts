@@ -1050,13 +1050,18 @@ export async function registerRoutes(
       const resetToken = crypto.randomBytes(32).toString("hex");
       const resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
       await db.update(schema.users).set({ resetToken, resetTokenExpiry }).where(eq(schema.users.id, user[0].id));
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const forwardedHost = req.get("x-forwarded-host") || req.get("host");
+      const forwardedProto = req.get("x-forwarded-proto") || req.protocol;
+      const baseUrl = forwardedHost?.includes("localhost") || forwardedHost?.includes("0.0.0.0")
+        ? `${forwardedProto}://${forwardedHost}`
+        : `${forwardedProto}://${forwardedHost}`;
       const resetUrl = `${baseUrl}/admin/reset-password?token=${resetToken}`;
+      console.log("[forgot-password] Reset URL generated:", resetUrl);
       try {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: "Hsquare Living <booking@hsquareliving.com>",
+        const emailResult = await resend.emails.send({
+          from: "Hsquare Living <onboarding@resend.dev>",
           to: email.toLowerCase().trim(),
           subject: "Reset Your Password - Hsquare Living",
           html: `
@@ -1070,12 +1075,15 @@ export async function registerRoutes(
               <div style="text-align:center;margin:28px 0">
                 <a href="${resetUrl}" style="display:inline-block;background:#6c2bd9;color:#fff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none">Reset Password</a>
               </div>
+              <p style="font-size:12px;color:#94a3b8;line-height:1.5;margin-top:16px">Or copy and paste this link into your browser:</p>
+              <p style="font-size:12px;color:#6c2bd9;word-break:break-all;line-height:1.5">${resetUrl}</p>
               <p style="font-size:12px;color:#94a3b8;line-height:1.5">If you didn't request this, you can safely ignore this email. Your password will remain unchanged.</p>
               <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0" />
               <p style="font-size:11px;color:#cbd5e1;text-align:center">Hsquareliving Pvt Ltd</p>
             </div>
           `,
         });
+        console.log("[forgot-password] Email send result:", JSON.stringify(emailResult));
       } catch (emailErr) {
         console.error("Failed to send reset email:", emailErr);
       }
