@@ -698,7 +698,7 @@ export default function AuthPage() {
                         </div>
                         <h2 className="text-xl font-bold text-gray-900">Check your email</h2>
                         <p className="text-sm text-gray-500">
-                          We've sent a password reset link to <span className="font-medium text-gray-700">{forgotEmail}</span>. The link expires in 1 hour.
+                          We've sent a password reset link to <span className="font-medium text-gray-700">{forgotEmail}</span>. The link expires in 10 minutes.
                         </p>
                         <Button
                           className="w-full h-11 rounded-xl"

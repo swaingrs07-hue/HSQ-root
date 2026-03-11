@@ -1048,7 +1048,7 @@ export async function registerRoutes(
         return res.json({ message: "If an account exists with that email, a reset link has been sent." });
       }
       const resetToken = crypto.randomBytes(32).toString("hex");
-      const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+      const resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
       await db.update(schema.users).set({ resetToken, resetTokenExpiry }).where(eq(schema.users.id, user[0].id));
       const baseUrl = `${req.protocol}://${req.get("host")}`;
       const resetUrl = `${baseUrl}/admin/reset-password?token=${resetToken}`;
@@ -1066,7 +1066,7 @@ export async function registerRoutes(
                 <p style="font-size:14px;color:#64748b;margin-top:8px">Hsquare Living Admin</p>
               </div>
               <p style="font-size:14px;color:#334155;line-height:1.6">Hi ${user[0].name},</p>
-              <p style="font-size:14px;color:#334155;line-height:1.6">We received a request to reset your password. Click the button below to set a new password. This link expires in 1 hour.</p>
+              <p style="font-size:14px;color:#334155;line-height:1.6">We received a request to reset your password. Click the button below to set a new password. This link expires in 10 minutes.</p>
               <div style="text-align:center;margin:28px 0">
                 <a href="${resetUrl}" style="display:inline-block;background:#6c2bd9;color:#fff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none">Reset Password</a>
               </div>
