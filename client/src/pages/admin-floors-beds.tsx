@@ -35,6 +35,9 @@ interface Bed {
   blockedBy?: string | null;
   unblockedAt?: string | null;
   unblockedBy?: string | null;
+  occupantName?: string | null;
+  bookingCode?: string | null;
+  bookingStatus?: string | null;
 }
 interface Room {
   id: string; propertyId: string; floorId: string; roomTypeId: string;
@@ -885,15 +888,21 @@ function BedCell({ bed, compact, onUpdateStatus, onDelete, onBlock, onUnblock }:
 
   const isBlocked = bed.status === "blocked";
 
+  const hasOccupant = bed.occupantName && (bed.status === "occupied" || bed.status === "reserved" || bed.bookingStatus);
+  const firstName = bed.occupantName ? bed.occupantName.split(" ")[0] : "";
+
   const bedContent = (
     <div className={cn(
       "rounded-lg flex flex-col items-center justify-center text-white text-xs font-medium transition-all hover:scale-105 relative",
-      compact ? "w-12 h-12" : "w-14 h-14",
+      hasOccupant ? (compact ? "w-14 h-14" : "w-16 h-16") : (compact ? "w-12 h-12" : "w-14 h-14"),
       STATUS_COLORS[bed.status]
     )}>
       {isBlocked && <Ban className={cn("mb-0.5", compact ? "w-3 h-3" : "w-4 h-4")} />}
-      {!isBlocked && <BedDouble className={cn("mb-0.5", compact ? "w-3 h-3" : "w-4 h-4")} />}
+      {!isBlocked && <BedDouble className={cn("mb-0.5", compact ? "w-3 h-3" : "w-3.5 h-3.5")} />}
       <span className="text-[9px] leading-tight truncate max-w-full px-0.5">{bed.bedNumber}</span>
+      {hasOccupant && (
+        <span className="text-[7px] leading-tight truncate max-w-full px-0.5 opacity-90 font-normal">{firstName}</span>
+      )}
       {isBlocked && (
         <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-red-800 text-[7px] text-white px-1 rounded whitespace-nowrap">BLOCKED</span>
       )}
@@ -907,6 +916,12 @@ function BedCell({ bed, compact, onUpdateStatus, onDelete, onBlock, onUnblock }:
           <TooltipTrigger asChild>{bedContent}</TooltipTrigger>
           <TooltipContent side="top" className="max-w-52">
             <p className="font-semibold">{bed.bedNumber} — {STATUS_LABELS[bed.status]}</p>
+            {hasOccupant && (
+              <>
+                <p className="text-xs mt-1"><span className="font-medium">Occupant:</span> {bed.occupantName}</p>
+                {bed.bookingCode && <p className="text-xs"><span className="font-medium">Booking:</span> {bed.bookingCode}</p>}
+              </>
+            )}
             {isBlocked && bed.blockedReason && (
               <p className="text-xs mt-1"><span className="font-medium">Reason:</span> {bed.blockedReason}</p>
             )}

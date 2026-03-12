@@ -7731,6 +7731,36 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const propertyId = req.params.id;
       const floorsList = await storage.getFloorsByProperty(propertyId);
+
+      const activeBookings = await db.select({
+        bedId: schema.bookings.bedId,
+        studentId: schema.bookings.studentId,
+        walkInName: schema.bookings.walkInName,
+        bookingCode: schema.bookings.bookingCode,
+        status: schema.bookings.status,
+      }).from(schema.bookings).where(
+        and(
+          eq(schema.bookings.propertyId, propertyId),
+          inArray(schema.bookings.status, ["confirmed", "active", "pending_payment", "pending_approval"]),
+          sql`${schema.bookings.bedId} IS NOT NULL`
+        )
+      );
+
+      const studentIds = activeBookings.filter(b => b.studentId).map(b => b.studentId!);
+      let studentMap: Record<string, string> = {};
+      if (studentIds.length > 0) {
+        const students = await db.select({ id: schema.students.id, fullName: schema.students.fullName }).from(schema.students).where(inArray(schema.students.id, studentIds));
+        studentMap = Object.fromEntries(students.map(s => [s.id, s.fullName]));
+      }
+
+      const bedBookingMap: Record<string, { occupantName: string; bookingCode: string | null; bookingStatus: string }> = {};
+      for (const b of activeBookings) {
+        if (b.bedId) {
+          const name = b.studentId ? (studentMap[b.studentId] || "Student") : (b.walkInName || "Occupant");
+          bedBookingMap[b.bedId] = { occupantName: name, bookingCode: b.bookingCode, bookingStatus: b.status };
+        }
+      }
+
       const floorsWithData = await Promise.all(
         floorsList.map(async (floor) => {
           const floorBeds = await storage.getBedsByFloor(floor.id);
@@ -7738,11 +7768,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           const roomsWithBeds = await Promise.all(
             floorRooms.map(async (room) => {
               const roomBeds = await storage.getBedsByRoom(room.id);
-              const bedsWithHoldStatus = await Promise.all(roomBeds.map(async (bed) => {
+              const bedsWithInfo = await Promise.all(roomBeds.map(async (bed) => {
                 const hold = await isBedHeld(bed.id);
-                return { ...bed, held: hold.held };
+                const booking = bedBookingMap[bed.id];
+                return { ...bed, held: hold.held, occupantName: booking?.occupantName || null, bookingCode: booking?.bookingCode || null, bookingStatus: booking?.bookingStatus || null };
               }));
-              return { ...room, beds: bedsWithHoldStatus };
+              return { ...room, beds: bedsWithInfo };
             })
           );
           const availableBeds = floorBeds.filter(b => b.status === "available").length;
