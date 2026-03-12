@@ -587,9 +587,9 @@ function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> })
   );
 }
 
-function MultiPlanRoomBadge({ plans }: { plans: Array<{ name: string; tierLevel: number }> }) {
+function MultiPlanRoomBadge({ plans, maxTier = 2 }: { plans: Array<{ name: string; tierLevel: number }>; maxTier?: number }) {
   const sorted = [...plans].sort((a, b) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0));
-  const allColors = sorted.map(p => PLAN_TIER_PALETTES[Math.min(Math.max(p.tierLevel ?? 0, 0), PLAN_TIER_PALETTES.length - 1)]);
+  const allColors = sorted.map(p => getBedTierColors(p.tierLevel ?? 0, maxTier));
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -668,6 +668,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     return map;
   }, [propertyPlans]);
 
+  const maxPlanTier = useMemo(() => {
+    if (propertyPlans.length === 0) return 2;
+    return Math.max(...propertyPlans.map((p: any) => p.tierLevel ?? 0), 2);
+  }, [propertyPlans]);
+
   useEffect(() => {
     if (!autoExpand || floorsData.length === 0) return;
     if (prevAutoExpandRef.current === autoExpand) return;
@@ -720,7 +725,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
   };
 
-  const activeTierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0) : null;
+  const activeTierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0, maxPlanTier) : null;
 
   const renderBedButton = (bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
@@ -731,7 +736,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     const isDimmedByPlan = isAvailable && selectedPlanRoomTypeIds && !matchesPlanFilter;
 
     const bedPlanInfo = bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null;
-    const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel) : null;
+    const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel, maxPlanTier) : null;
     const hasPassivePlan = isAvailable && !selectedPlanRoomTypeIds && bedPlanInfo && bedPlanColors;
     const multiPlans = bed.roomTypeId ? (roomTypeMultiPlanMap[bed.roomTypeId] || []) : [];
     const hasMultiPlan = isAvailable && !selectedPlanRoomTypeIds && multiPlans.length > 1;
@@ -941,7 +946,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                               const roomMatchesPlan = selectedPlanRoomTypeIds && room.roomTypeId && selectedPlanRoomTypeIds.includes(room.roomTypeId);
                               const roomDimmedByPlan = selectedPlanRoomTypeIds && (!room.roomTypeId || !selectedPlanRoomTypeIds.includes(room.roomTypeId));
                               const roomPlanInfo = room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null;
-                              const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel) : null;
+                              const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel, maxPlanTier) : null;
                               const hasPassiveRoomPlan = !selectedPlanRoomTypeIds && roomPlanInfo && roomPlanColors;
                               const roomMultiPlans = room.roomTypeId ? (roomTypeMultiPlanMap[room.roomTypeId] || []) : [];
                               const hasMultiRoomPlan = !selectedPlanRoomTypeIds && roomMultiPlans.length > 1;
@@ -968,7 +973,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
                                       </Badge>
                                     ) : hasMultiRoomPlan ? (
-                                      <MultiPlanRoomBadge plans={roomMultiPlans} />
+                                      <MultiPlanRoomBadge plans={roomMultiPlans} maxTier={maxPlanTier} />
                                     ) : hasPassiveRoomPlan && roomPlanColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", roomPlanColors.badgeBg, roomPlanColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {roomPlanInfo.name}
@@ -1767,7 +1772,7 @@ function PropertyBooking() {
 
                           {effectivePlan && (() => {
                             try {
-                            const planTierColors = getBedTierColors(effectivePlan.tierLevel ?? 0);
+                            const planTierColors = getBedTierColors(effectivePlan.tierLevel ?? 0, maxPlanTier);
                             const planPrice = Number(effectivePlan.basePrice || 0);
                             return (
                               <motion.div
@@ -1945,7 +1950,7 @@ function PropertyBooking() {
                     {[...planPickerOptions]
                       .sort((a: any, b: any) => (a.tierLevel ?? 0) - (b.tierLevel ?? 0))
                       .map((plan: any) => {
-                        const colors = getBedTierColors(plan.tierLevel ?? 0);
+                        const colors = getBedTierColors(plan.tierLevel ?? 0, maxPlanTier);
                         const planPrice = Number(plan.basePrice || 0);
                         const isAcademic = property?.bookingMode === "academic_year";
                         return (
