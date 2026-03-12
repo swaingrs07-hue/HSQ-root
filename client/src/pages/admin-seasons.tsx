@@ -126,7 +126,13 @@ const statusColors: Record<string, string> = {
 const residentStatusColors: Record<string, string> = {
   RETAINED: "bg-emerald-100 text-emerald-700",
   NOT_RETAINED: "bg-rose-100 text-rose-700",
-  PENDING: "bg-amber-100 text-amber-700",
+  PENDING: "bg-blue-100 text-blue-700",
+};
+
+const residentStatusLabels: Record<string, string> = {
+  RETAINED: "Retained",
+  NOT_RETAINED: "Not Retained",
+  PENDING: "New Booking",
 };
 
 const jobStatusColors: Record<string, string> = {
@@ -689,7 +695,7 @@ export default function AdminSeasons() {
                                   <SelectContent>
                                     <SelectItem value="RETAINED">Retained</SelectItem>
                                     <SelectItem value="NOT_RETAINED">Not Retained</SelectItem>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
+                                    <SelectItem value="PENDING">New Booking</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <Button size="sm" onClick={handleBulkUpdate} data-testid="button-bulk-update">
@@ -761,13 +767,13 @@ export default function AdminSeasons() {
                                         >
                                           <SelectTrigger className="w-32 h-8" data-testid={`select-status-${r.id}`}>
                                             <Badge className={`${residentStatusColors[r.status]} text-xs border-0`}>
-                                              {r.status.replace("_", " ")}
+                                              {residentStatusLabels[r.status] || r.status.replace("_", " ")}
                                             </Badge>
                                           </SelectTrigger>
                                           <SelectContent>
                                             <SelectItem value="RETAINED">Retained</SelectItem>
                                             <SelectItem value="NOT_RETAINED">Not Retained</SelectItem>
-                                            <SelectItem value="PENDING">Pending</SelectItem>
+                                            <SelectItem value="PENDING">New Booking</SelectItem>
                                           </SelectContent>
                                         </Select>
                                       </TableCell>
@@ -875,7 +881,7 @@ export default function AdminSeasons() {
                                         <div key={status} data-testid={`group-${status.toLowerCase()}`}>
                                           <div className="flex items-center gap-2 mb-2">
                                             <Badge className={`${residentStatusColors[status] || "bg-slate-100 text-slate-600"} text-xs border-0`}>
-                                              {status.replace("_", " ")}
+                                              {residentStatusLabels[status] || status.replace("_", " ")}
                                             </Badge>
                                             <span className="text-xs text-slate-500">{items.length} resident{items.length > 1 ? "s" : ""}</span>
                                           </div>
