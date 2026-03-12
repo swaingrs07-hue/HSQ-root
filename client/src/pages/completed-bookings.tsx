@@ -748,6 +748,19 @@ export default function CompletedBookings() {
       });
     }
 
+    const mic = booking.propertyMoveInCharges;
+    if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
+      y += 6;
+      checkPage(30);
+      drawHeader("MOVE-IN CHARGES");
+      if (mic.policeVerification > 0) drawRow("Police Verification", `Rs. ${Number(mic.policeVerification).toLocaleString("en-IN")}`);
+      if (mic.agreement > 0) drawRow("Agreement", `Rs. ${Number(mic.agreement).toLocaleString("en-IN")}`);
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.text("Payable at the time of move-in", m + 5, y); y += 6;
+    }
+
     y += 6;
     checkPage(80);
     drawHeader("TERMS & CONDITIONS");

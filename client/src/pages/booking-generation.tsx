@@ -62,6 +62,7 @@ interface Property {
   name: string;
   city: string;
   bookingMode: string;
+  moveInCharges?: { policeVerification: number; agreement: number } | null;
 }
 
 interface RoomType {
@@ -868,7 +869,8 @@ export default function BookingGeneration() {
         setBookingResult(data);
         localStorage.removeItem("hsquare_booking_draft");
         if (data.booking) {
-          localStorage.setItem("hsquare_booking", JSON.stringify(data.booking));
+          const bookingWithExtras = { ...data.booking, moveInCharges: getSelectedProperty()?.moveInCharges || null };
+          localStorage.setItem("hsquare_booking", JSON.stringify(bookingWithExtras));
           if (data.installments) {
             localStorage.setItem("hsquare_installments", JSON.stringify(data.installments));
           }
@@ -2925,6 +2927,42 @@ export default function BookingGeneration() {
                         </Badge>
                       )}
                     </div>
+                  </motion.div>
+
+                  <motion.div
+                    className="mt-6 p-4 rounded-xl border border-blue-200 bg-blue-50/60"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                      <h4 className="font-semibold text-slate-800">Move-in Requirements</h4>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-2">At the time of move-in, police verification and resident agreement are mandatory.</p>
+                    {(() => {
+                      const mic = getSelectedProperty()?.moveInCharges;
+                      if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
+                        return (
+                          <div className="flex flex-wrap gap-3 mt-2">
+                            {mic.policeVerification > 0 && (
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-100">
+                                <span className="text-xs text-slate-500">Police Verification:</span>
+                                <span className="text-sm font-semibold text-slate-800" data-testid="text-police-verification-charge">₹{mic.policeVerification.toLocaleString("en-IN")}</span>
+                              </div>
+                            )}
+                            {mic.agreement > 0 && (
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-100">
+                                <span className="text-xs text-slate-500">Agreement:</span>
+                                <span className="text-sm font-semibold text-slate-800" data-testid="text-agreement-charge">₹{mic.agreement.toLocaleString("en-IN")}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <p className="text-xs text-blue-500 mt-2">Payable at the time of move-in</p>
                   </motion.div>
 
                   <motion.div

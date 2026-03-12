@@ -507,6 +507,7 @@ export default function AdminDashboard() {
   const [editTab, setEditTab] = useState("basic");
   const [editRoomTypes, setEditRoomTypes] = useState<any[]>([]);
   const [editIncludedServices, setEditIncludedServices] = useState<any[]>([]);
+  const [editMoveInCharges, setEditMoveInCharges] = useState<{ policeVerification: number; agreement: number }>({ policeVerification: 0, agreement: 0 });
   const [savingRoomTypes, setSavingRoomTypes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editImageUploading, setEditImageUploading] = useState(false);
@@ -732,6 +733,7 @@ export default function AdminDashboard() {
     setEditTab("basic");
     setEditRoomTypes((property.roomTypes || []).map((rt: any) => ({ ...rt })));
     setEditIncludedServices(Array.isArray(property.includedServices) ? property.includedServices.map((s: any) => ({ ...s })) : []);
+    setEditMoveInCharges(property.moveInCharges ? { policeVerification: property.moveInCharges.policeVerification || 0, agreement: property.moveInCharges.agreement || 0 } : { policeVerification: 0, agreement: 0 });
     setEditForm({
       name: property.name || "",
       displayName: property.displayName || "",
@@ -787,6 +789,7 @@ export default function AdminDashboard() {
         amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
         highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
         includedServices: editIncludedServices,
+        moveInCharges: (editMoveInCharges.policeVerification > 0 || editMoveInCharges.agreement > 0) ? editMoveInCharges : null,
       };
       const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
         method: "PATCH",
@@ -1837,7 +1840,7 @@ export default function AdminDashboard() {
           </DialogHeader>
           {editProperty && (
             <Tabs value={editTab} onValueChange={setEditTab}>
-              <TabsList className="grid w-full grid-cols-6 mb-4">
+              <TabsList className="grid w-full grid-cols-7 mb-4">
                 <TabsTrigger value="basic" className="text-xs gap-1" data-testid="edit-tab-basic">
                   <Building2 className="h-3 w-3" /> Basic
                 </TabsTrigger>
@@ -1858,6 +1861,9 @@ export default function AdminDashboard() {
                   {editIncludedServices.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editIncludedServices.length}</Badge>
                   )}
+                </TabsTrigger>
+                <TabsTrigger value="charges" className="text-xs gap-1" data-testid="edit-tab-charges">
+                  <DollarSign className="h-3 w-3" /> Charges
                 </TabsTrigger>
                 <TabsTrigger value="images" className="text-xs gap-1" data-testid="edit-tab-images">
                   <ImageIcon className="h-3 w-3" /> Images
@@ -2426,6 +2432,37 @@ export default function AdminDashboard() {
                       </Button>
                     );
                   })}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="charges" className="space-y-4 mt-0">
+                <div className="rounded-lg border p-4 bg-amber-50/50">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-1">Move-in Charges</h4>
+                  <p className="text-xs text-slate-500 mb-4">These charges are payable at the time of move-in. They will be displayed during booking and on receipts.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">Police Verification Charge (INR)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={editMoveInCharges.policeVerification || ""}
+                        onChange={(e) => setEditMoveInCharges(prev => ({ ...prev, policeVerification: Number(e.target.value) || 0 }))}
+                        placeholder="e.g. 500"
+                        data-testid="input-police-verification-charge"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Agreement Charge (INR)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={editMoveInCharges.agreement || ""}
+                        onChange={(e) => setEditMoveInCharges(prev => ({ ...prev, agreement: Number(e.target.value) || 0 }))}
+                        placeholder="e.g. 1000"
+                        data-testid="input-agreement-charge"
+                      />
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
