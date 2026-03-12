@@ -1320,7 +1320,7 @@ export default function CompletedBookings() {
                         onClick={async () => {
                           setSendingParentEmail(true);
                           try {
-                            const token = localStorage.getItem("token");
+                            const token = getAuthToken();
                             const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/send-parent-email`, {
                               method: "POST",
                               headers: { Authorization: `Bearer ${token}` },
