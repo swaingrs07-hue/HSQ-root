@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, differenceInMonths, differenceInCalendarMonths } from "date-fns";
 import { jsPDF } from "jspdf";
+import { HSQUARE_LOGO_BASE64 } from "@/lib/logo-base64";
 import {
   Search,
   CheckCircle2,
@@ -500,24 +501,34 @@ export default function CompletedBookings() {
     const cw = pw - m * 2;
     let y = 20;
 
+    const logoDataUrl = `data:image/png;base64,${HSQUARE_LOGO_BASE64}`;
+    const addWatermark = () => {
+      doc.saveGraphicsState();
+      (doc as any).setGState(new (doc as any).GState({ opacity: 0.04 }));
+      doc.addImage(logoDataUrl, "PNG", (pw - 80) / 2, (ph - 80) / 2, 80, 80);
+      doc.restoreGraphicsState();
+    };
     const checkPage = (needed: number) => {
-      if (y + needed > ph - 30) { doc.addPage(); y = 20; }
+      if (y + needed > ph - 30) { doc.addPage(); y = 20; addWatermark(); }
     };
 
-    doc.setFillColor(79, 70, 229);
-    doc.rect(0, 0, pw, 45, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("HSQUARELIVING", pw / 2, 20, { align: "center" });
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Pvt Ltd | Premium Student Accommodation", pw / 2, 28, { align: "center" });
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text("BOOKING RECEIPT", pw / 2, 40, { align: "center" });
+    addWatermark();
 
-    y = 58;
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 0, pw, 50, "F");
+    doc.addImage(logoDataUrl, "PNG", (pw - 22) / 2, 4, 22, 22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("HSQUARE LIVING", pw / 2, 34, { align: "center" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Harmony in Living | Premium Student Accommodation", pw / 2, 40, { align: "center" });
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("BOOKING RECEIPT", pw / 2, 48, { align: "center" });
+
+    y = 62;
     doc.setDrawColor(79, 70, 229);
     doc.setLineWidth(0.5);
     doc.roundedRect(m, y - 6, cw, 26, 3, 3);

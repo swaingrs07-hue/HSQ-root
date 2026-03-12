@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { storage } from "./storage";
+import { HSQUARE_LOGO_BASE64 } from "./logo-base64";
 import type { Booking } from "@shared/schema";
 
 function fmtLabel(s: string) {
@@ -28,24 +29,49 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
   const cw = pw - m * 2;
   let y = 20;
 
-  const checkPage = (needed: number) => {
-    if (y + needed > ph - 30) { doc.addPage(); y = 20; }
+  const addWatermark = () => {
+    const wmW = 80;
+    const wmH = 80;
+    const wmX = (pw - wmW) / 2;
+    const wmY = (ph - wmH) / 2;
+    doc.saveGraphicsState();
+    (doc as any).setGState(new (doc as any).GState({ opacity: 0.04 }));
+    doc.addImage(`data:image/png;base64,${HSQUARE_LOGO_BASE64}`, "PNG", wmX, wmY, wmW, wmH);
+    doc.restoreGraphicsState();
   };
 
-  doc.setFillColor(79, 70, 229);
-  doc.rect(0, 0, pw, 45, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.text("HSQUARELIVING", pw / 2, 20, { align: "center" });
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Pvt Ltd | Premium Student Accommodation", pw / 2, 28, { align: "center" });
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("BOOKING RECEIPT", pw / 2, 40, { align: "center" });
+  const checkPage = (needed: number) => {
+    if (y + needed > ph - 30) {
+      doc.addPage();
+      y = 20;
+      addWatermark();
+    }
+  };
 
-  y = 58;
+  addWatermark();
+
+  doc.setFillColor(79, 70, 229);
+  doc.rect(0, 0, pw, 50, "F");
+
+  const logoW = 22;
+  const logoH = 22;
+  const logoX = (pw - logoW) / 2;
+  doc.saveGraphicsState();
+  doc.addImage(`data:image/png;base64,${HSQUARE_LOGO_BASE64}`, "PNG", logoX, 4, logoW, logoH);
+  doc.restoreGraphicsState();
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("HSQUARE LIVING", pw / 2, 34, { align: "center" });
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text("Harmony in Living | Premium Student Accommodation", pw / 2, 40, { align: "center" });
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("BOOKING RECEIPT", pw / 2, 48, { align: "center" });
+
+  y = 62;
   doc.setDrawColor(79, 70, 229);
   doc.setLineWidth(0.5);
   doc.roundedRect(m, y - 6, cw, 26, 3, 3);
