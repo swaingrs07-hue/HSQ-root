@@ -14,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendBookingConfirmationEmail } from "./email-service";
+import { sendBookingConfirmationEmail, sendParentBookingConfirmationEmail } from "./email-service";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 
@@ -3686,6 +3686,17 @@ export async function registerRoutes(
 
           const updatedBooking = await storage.getBooking(bookingId);
           if (updatedBooking) {
+            const allPayments = await storage.getPaymentsByBooking(bookingId);
+            const successPayments = allPayments.filter(p => p.status === "success");
+            if (successPayments.length === 1) {
+              sendBookingConfirmationEmail(updatedBooking).catch(err => {
+                console.error("[Email] Background resident email after online payment failed:", err);
+              });
+              sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
+                console.error("[Email] Background parent email after online payment failed:", err);
+              });
+            }
+
             autoSyncBookingToHMS(updatedBooking).catch(err => {
               console.error("[HMS Auto-Sync] Background sync after payment failed:", err);
             });
@@ -3855,6 +3866,25 @@ export async function registerRoutes(
           installmentName: installmentId ? allInstallments.find(i => i.id === installmentId)?.name : null,
         }),
       });
+
+      const existingPayments = await storage.getPaymentsByBooking(booking.id);
+      const previousSuccessful = existingPayments.filter(p => p.status === "success" && p.id !== payment.id);
+      if (previousSuccessful.length === 0) {
+        const latestBooking = await storage.getBooking(booking.id);
+        if (latestBooking) {
+          sendBookingConfirmationEmail(latestBooking).catch(err => {
+            console.error("[Email] Background resident email after first payment failed:", err);
+          });
+
+          sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
+            console.error("[Email] Background parent email after first payment failed:", err);
+          });
+
+          autoSyncBookingToHMS(latestBooking).catch(err => {
+            console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
+          });
+        }
+      }
 
       res.json({ booking: updated, payment, installment: updatedInstallment });
     } catch (error: any) {
