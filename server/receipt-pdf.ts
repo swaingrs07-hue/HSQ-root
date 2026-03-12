@@ -173,10 +173,10 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
   if ((booking.deposit || 0) > 0) drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
   if ((booking.discount || 0) > 0) drawRow("Discount", `- Rs. ${Number(booking.discount).toLocaleString("en-IN")}`);
 
-  const mic = property?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
-  if (mic && ((mic.policeVerification || 0) > 0 || (mic.agreement || 0) > 0)) {
-    if ((mic.policeVerification || 0) > 0) drawRow("Police Verification", `Rs. ${Number(mic.policeVerification).toLocaleString("en-IN")}`);
-    if ((mic.agreement || 0) > 0) drawRow("Agreement Charges", `Rs. ${Number(mic.agreement).toLocaleString("en-IN")}`);
+  const mic = property?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+  const micTotal = mic ? ((mic.serviceLegalCharges || 0) || ((mic.policeVerification || 0) + (mic.agreement || 0))) : 0;
+  if (micTotal > 0) {
+    drawRow("Service & Legal Charges", `Rs. ${micTotal.toLocaleString("en-IN")}`);
   }
 
   drawRow("Total Fee", `Rs. ${(booking.totalFee || 0).toLocaleString("en-IN")}`, true);

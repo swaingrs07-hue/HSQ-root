@@ -2817,8 +2817,8 @@ export async function registerRoutes(
       // Calculate total fee (including move-in charges from property)
       const totalDiscount = discount || 0;
       const legacyProperty = await storage.getProperty(propertyId);
-      const legacyMic = legacyProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
-      const legacyMicTotal = (legacyMic?.policeVerification || 0) + (legacyMic?.agreement || 0);
+      const legacyMic = legacyProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+      const legacyMicTotal = (legacyMic?.serviceLegalCharges || 0) || ((legacyMic?.policeVerification || 0) + (legacyMic?.agreement || 0));
       const totalFee = baseFee - totalDiscount + legacyMicTotal;
 
       // Create booking
@@ -3305,8 +3305,8 @@ export async function registerRoutes(
       // Calculate total fee (including move-in charges from property)
       const totalDiscount = discount || 0;
       const genProperty = await storage.getProperty(propertyId);
-      const genMic = genProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
-      const genMicTotal = (genMic?.policeVerification || 0) + (genMic?.agreement || 0);
+      const genMic = genProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+      const genMicTotal = (genMic?.serviceLegalCharges || 0) || ((genMic?.policeVerification || 0) + (genMic?.agreement || 0));
       const totalFee = baseFee - totalDiscount + genMicTotal;
 
       // Determine approval requirement based on discount percentage
@@ -3757,8 +3757,8 @@ export async function registerRoutes(
         const base = updates.baseFee ?? booking.baseFee;
         const disc = updates.discount ?? booking.discount;
         const editProperty = await storage.getProperty(booking.propertyId);
-        const editMic = editProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
-        const editMicTotal = (editMic?.policeVerification || 0) + (editMic?.agreement || 0);
+        const editMic = editProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+        const editMicTotal = (editMic?.serviceLegalCharges || 0) || ((editMic?.policeVerification || 0) + (editMic?.agreement || 0));
         updates.totalFee = base - disc + editMicTotal;
       }
 

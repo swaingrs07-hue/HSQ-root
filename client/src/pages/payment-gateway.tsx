@@ -208,17 +208,17 @@ export default function PaymentGateway() {
     const checkPage = (needed: number) => { if (y + needed > pageHeight - 30) { doc.addPage(); y = 20; addWatermark(); } };
 
     const pgMic = booking?.moveInCharges;
-    if (pgMic && (pgMic.policeVerification > 0 || pgMic.agreement > 0)) {
+    const pgMicTotal = pgMic ? ((pgMic.serviceLegalCharges || 0) || ((pgMic.policeVerification || 0) + (pgMic.agreement || 0))) : 0;
+    if (pgMicTotal > 0) {
       checkPage(40);
       doc.setFillColor(245, 245, 250);
       doc.roundedRect(margin, y - 4, contentWidth, 10, 2, 2, "F");
       doc.setTextColor(79, 70, 229);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text("MOVE-IN CHARGES", margin + 6, y + 3);
+      doc.text("SERVICE & LEGAL CHARGES", margin + 6, y + 3);
       y += 14;
-      if (pgMic.policeVerification > 0) { y = drawRow("Police Verification", `Rs. ${Number(pgMic.policeVerification).toLocaleString("en-IN")}`, y); }
-      if (pgMic.agreement > 0) { y = drawRow("Agreement", `Rs. ${Number(pgMic.agreement).toLocaleString("en-IN")}`, y); }
+      y = drawRow("Service & Legal Charges", `Rs. ${pgMicTotal.toLocaleString("en-IN")}`, y);
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");

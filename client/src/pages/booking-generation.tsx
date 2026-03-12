@@ -62,7 +62,7 @@ interface Property {
   name: string;
   city: string;
   bookingMode: string;
-  moveInCharges?: { policeVerification: number; agreement: number } | null;
+  moveInCharges?: { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
 }
 
 interface RoomType {
@@ -560,7 +560,7 @@ export default function BookingGeneration() {
   const getMoveInChargesTotal = () => {
     const mic = getSelectedProperty()?.moveInCharges;
     if (!mic) return 0;
-    return (mic.policeVerification || 0) + (mic.agreement || 0);
+    return (mic.serviceLegalCharges || 0) || ((mic.policeVerification || 0) + (mic.agreement || 0));
   };
 
   const calculateTotal = () => {
@@ -2909,28 +2909,12 @@ export default function BookingGeneration() {
                         <p className="text-xs text-slate-500 mb-1">Deposit</p>
                         <p className="font-bold text-slate-800">{formData.deposit > 0 ? `₹${formData.deposit.toLocaleString()}` : "—"}</p>
                       </div>
-                      {(() => {
-                        const mic = getSelectedProperty()?.moveInCharges;
-                        if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
-                          return (
-                            <>
-                              {mic.policeVerification > 0 && (
-                                <div>
-                                  <p className="text-xs text-slate-500 mb-1">Police Verification</p>
-                                  <p className="font-bold text-slate-800">₹{mic.policeVerification.toLocaleString()}</p>
-                                </div>
-                              )}
-                              {mic.agreement > 0 && (
-                                <div>
-                                  <p className="text-xs text-slate-500 mb-1">Agreement</p>
-                                  <p className="font-bold text-slate-800">₹{mic.agreement.toLocaleString()}</p>
-                                </div>
-                              )}
-                            </>
-                          );
-                        }
-                        return null;
-                      })()}
+                      {getMoveInChargesTotal() > 0 && (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-1">Service & Legal</p>
+                          <p className="font-bold text-slate-800">₹{getMoveInChargesTotal().toLocaleString()}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Total</p>
                         <p className={`font-bold text-2xl ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-600"}`} data-testid="review-total">₹{calculateTotal().toLocaleString()}</p>
@@ -2965,31 +2949,17 @@ export default function BookingGeneration() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <Shield className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-slate-800">Move-in Requirements</h4>
+                      <h4 className="font-semibold text-slate-800">Service & Legal Charges</h4>
                     </div>
-                    <p className="text-sm text-slate-600 mb-2">At the time of move-in, police verification and resident agreement are mandatory.</p>
-                    {(() => {
-                      const mic = getSelectedProperty()?.moveInCharges;
-                      if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
-                        return (
-                          <div className="flex flex-wrap gap-3 mt-2">
-                            {mic.policeVerification > 0 && (
-                              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-100">
-                                <span className="text-xs text-slate-500">Police Verification:</span>
-                                <span className="text-sm font-semibold text-slate-800" data-testid="text-police-verification-charge">₹{mic.policeVerification.toLocaleString("en-IN")}</span>
-                              </div>
-                            )}
-                            {mic.agreement > 0 && (
-                              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-100">
-                                <span className="text-xs text-slate-500">Agreement:</span>
-                                <span className="text-sm font-semibold text-slate-800" data-testid="text-agreement-charge">₹{mic.agreement.toLocaleString("en-IN")}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                    <p className="text-sm text-slate-600 mb-2">Covers police verification, agreement, and other mandatory formalities.</p>
+                    {getMoveInChargesTotal() > 0 && (
+                      <div className="flex flex-wrap gap-3 mt-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-blue-100">
+                          <span className="text-xs text-slate-500">Service & Legal Charges:</span>
+                          <span className="text-sm font-semibold text-slate-800" data-testid="text-service-legal-charges">₹{getMoveInChargesTotal().toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    )}
                     <p className="text-xs text-blue-500 mt-2">Included in total booking amount</p>
                   </motion.div>
 

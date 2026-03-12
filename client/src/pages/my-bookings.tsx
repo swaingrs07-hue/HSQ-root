@@ -237,12 +237,12 @@ export default function MyBookings() {
     }
 
     const mic = b.property?.moveInCharges;
-    if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
+    const micTotal = mic ? ((mic.serviceLegalCharges || 0) || ((mic.policeVerification || 0) + (mic.agreement || 0))) : 0;
+    if (micTotal > 0) {
       y += 6;
       checkPage(30);
-      drawHeader("MOVE-IN CHARGES");
-      if (mic.policeVerification > 0) drawRow("Police Verification", `Rs. ${Number(mic.policeVerification).toLocaleString("en-IN")}`);
-      if (mic.agreement > 0) drawRow("Agreement", `Rs. ${Number(mic.agreement).toLocaleString("en-IN")}`);
+      drawHeader("SERVICE & LEGAL CHARGES");
+      drawRow("Service & Legal Charges", `Rs. ${micTotal.toLocaleString("en-IN")}`);
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");

@@ -507,7 +507,7 @@ export default function AdminDashboard() {
   const [editTab, setEditTab] = useState("basic");
   const [editRoomTypes, setEditRoomTypes] = useState<any[]>([]);
   const [editIncludedServices, setEditIncludedServices] = useState<any[]>([]);
-  const [editMoveInCharges, setEditMoveInCharges] = useState<{ policeVerification: number; agreement: number }>({ policeVerification: 0, agreement: 0 });
+  const [editMoveInCharges, setEditMoveInCharges] = useState<{ serviceLegalCharges: number }>({ serviceLegalCharges: 0 });
   const [savingRoomTypes, setSavingRoomTypes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editImageUploading, setEditImageUploading] = useState(false);
@@ -733,7 +733,7 @@ export default function AdminDashboard() {
     setEditTab("basic");
     setEditRoomTypes((property.roomTypes || []).map((rt: any) => ({ ...rt })));
     setEditIncludedServices(Array.isArray(property.includedServices) ? property.includedServices.map((s: any) => ({ ...s })) : []);
-    setEditMoveInCharges(property.moveInCharges ? { policeVerification: property.moveInCharges.policeVerification || 0, agreement: property.moveInCharges.agreement || 0 } : { policeVerification: 0, agreement: 0 });
+    setEditMoveInCharges(property.moveInCharges ? { serviceLegalCharges: (property.moveInCharges.serviceLegalCharges || 0) || ((property.moveInCharges.policeVerification || 0) + (property.moveInCharges.agreement || 0)) } : { serviceLegalCharges: 0 });
     setEditForm({
       name: property.name || "",
       displayName: property.displayName || "",
@@ -789,7 +789,7 @@ export default function AdminDashboard() {
         amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
         highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
         includedServices: editIncludedServices,
-        moveInCharges: (editMoveInCharges.policeVerification > 0 || editMoveInCharges.agreement > 0) ? editMoveInCharges : null,
+        moveInCharges: editMoveInCharges.serviceLegalCharges > 0 ? editMoveInCharges : null,
       };
       const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
         method: "PATCH",
@@ -2437,31 +2437,18 @@ export default function AdminDashboard() {
 
               <TabsContent value="charges" className="space-y-4 mt-0">
                 <div className="rounded-lg border p-4 bg-amber-50/50">
-                  <h4 className="text-sm font-semibold text-slate-800 mb-1">Move-in Charges</h4>
-                  <p className="text-xs text-slate-500 mb-4">These charges are payable at the time of move-in. They will be displayed during booking and on receipts.</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm">Police Verification Charge (INR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editMoveInCharges.policeVerification || ""}
-                        onChange={(e) => setEditMoveInCharges(prev => ({ ...prev, policeVerification: Number(e.target.value) || 0 }))}
-                        placeholder="e.g. 500"
-                        data-testid="input-police-verification-charge"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Agreement Charge (INR)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editMoveInCharges.agreement || ""}
-                        onChange={(e) => setEditMoveInCharges(prev => ({ ...prev, agreement: Number(e.target.value) || 0 }))}
-                        placeholder="e.g. 1000"
-                        data-testid="input-agreement-charge"
-                      />
-                    </div>
+                  <h4 className="text-sm font-semibold text-slate-800 mb-1">Service & Legal Charges</h4>
+                  <p className="text-xs text-slate-500 mb-4">These charges are included in the total booking amount. They will be displayed during booking and on receipts.</p>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Service & Legal Charges (INR)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editMoveInCharges.serviceLegalCharges || ""}
+                      onChange={(e) => setEditMoveInCharges({ serviceLegalCharges: Number(e.target.value) || 0 })}
+                      placeholder="e.g. 1500"
+                      data-testid="input-service-legal-charges"
+                    />
                   </div>
                 </div>
               </TabsContent>
