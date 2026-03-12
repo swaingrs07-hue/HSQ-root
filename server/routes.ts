@@ -9671,12 +9671,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const activeBookings = await db.select().from(schema.bookings)
         .where(and(...bookingConds));
 
-      const seasonStartYear = new Date(season.startDate).getFullYear();
-      const prevBatchStart = new Date(`${seasonStartYear - 1}-06-01`);
-      const prevBatchEnd = new Date(`${seasonStartYear}-05-31`);
-      console.log(`[Season Sync] Season "${season.name}" → previous batch: ${seasonStartYear - 1}-${seasonStartYear} (${prevBatchStart.toISOString().split("T")[0]} to ${prevBatchEnd.toISOString().split("T")[0]})`);
-
-      let prevBatchPhones = new Set<string>();
+      let hmsPhones = new Set<string>();
       let hmsFetchOk = false;
       try {
         const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
@@ -9686,19 +9681,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         if (hmsResponse.ok) {
           const allResidents = (await hmsResponse.json()) as any[];
           const hmsResidents = Array.isArray(allResidents) ? allResidents : ((allResidents as any).residents || (allResidents as any).data || []);
-          let prevBatchCount = 0;
           for (const r of hmsResidents) {
-            const mid = r.moveInDate ? new Date(r.moveInDate) : null;
-            if (mid && mid >= prevBatchStart && mid <= prevBatchEnd) {
-              const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
-              if (phone.length >= 10) {
-                prevBatchPhones.add(phone);
-              }
-              prevBatchCount++;
+            const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
+            if (phone.length >= 10) {
+              hmsPhones.add(phone);
             }
           }
           hmsFetchOk = true;
-          console.log(`[Season Sync] HMS: ${hmsResidents.length} total residents, ${prevBatchCount} in previous batch, ${prevBatchPhones.size} unique phones`);
+          console.log(`[Season Sync] HMS: ${hmsResidents.length} total residents, ${hmsPhones.size} unique phones for matching`);
         } else {
           console.warn(`[Season Sync] HMS returned ${hmsResponse.status}, all bookings will be marked as New Booking`);
         }
@@ -9715,16 +9705,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let corrected = 0;
       let retainedCount = 0;
       for (const booking of activeBookings) {
-        let isFromPreviousBatch = false;
+        let isRegisteredInHMS = false;
         if (hmsFetchOk) {
           const bookingPhone = (booking.walkInPhone || "").replace(/\D/g, "").slice(-10);
-          if (bookingPhone.length >= 10 && prevBatchPhones.has(bookingPhone)) {
-            isFromPreviousBatch = true;
+          if (bookingPhone.length >= 10 && hmsPhones.has(bookingPhone)) {
+            isRegisteredInHMS = true;
           }
         }
 
-        const status = isFromPreviousBatch ? "RETAINED" : "PENDING";
-        if (isFromPreviousBatch) retainedCount++;
+        const status = isRegisteredInHMS ? "RETAINED" : "PENDING";
+        if (isRegisteredInHMS) retainedCount++;
 
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
