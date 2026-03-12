@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useProperty } from "@/contexts/property-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ function parseImages(json: string | null | undefined): string[] {
 export default function AdminPropertyTourImages() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const { selectedPropertyId } = useProperty();
   const [activeCategory, setActiveCategory] = useState<TourCategory>("overview");
   const [categoryImages, setCategoryImages] = useState<Record<TourCategory, string[]>>({
     overview: [],
@@ -64,11 +65,6 @@ export default function AdminPropertyTourImages() {
 
   const selectedProperty = properties?.find(p => p.id === selectedPropertyId);
 
-  useEffect(() => {
-    if (properties && properties.length > 0 && !selectedPropertyId) {
-      setSelectedPropertyId(properties[0].id);
-    }
-  }, [properties, selectedPropertyId]);
 
   useEffect(() => {
     if (selectedProperty) {
@@ -152,30 +148,12 @@ export default function AdminPropertyTourImages() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Camera className="w-7 h-7" />
-            Property Tour Images
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">Manage tour images for each property category</p>
-        </div>
-        
-        <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-          <SelectTrigger className="w-full sm:w-64" data-testid="select-property">
-            <SelectValue placeholder="Select Property" />
-          </SelectTrigger>
-          <SelectContent>
-            {properties?.map((property) => (
-              <SelectItem key={property.id} value={property.id} data-testid={`option-property-${property.id}`}>
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  {property.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <Camera className="w-7 h-7" />
+          Property Tour Images
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">Manage tour images for each property category</p>
       </div>
 
       {!selectedPropertyId ? (

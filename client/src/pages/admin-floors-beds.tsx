@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useProperty } from "@/contexts/property-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,7 @@ async function apiFetch(url: string, options?: RequestInit) {
 export default function AdminFloorsBeds() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const { selectedPropertyId } = useProperty();
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [addFloorOpen, setAddFloorOpen] = useState(false);
   const [addRoomOpen, setAddRoomOpen] = useState(false);
@@ -129,11 +130,6 @@ export default function AdminFloorsBeds() {
 
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({ queryKey: ["/api/properties"] });
 
-  useEffect(() => {
-    if (properties && properties.length > 0 && !selectedPropertyId) {
-      setSelectedPropertyId(properties[0].id);
-    }
-  }, [properties, selectedPropertyId]);
 
   const { data: floorsData, isLoading: floorsLoading } = useQuery<Floor[]>({
     queryKey: ["/api/properties", selectedPropertyId, "floors"],
@@ -262,26 +258,12 @@ export default function AdminFloorsBeds() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2" data-testid="text-page-title">
-            <Layers className="w-7 h-7" />
-            Floors, Rooms & Beds
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">Manage floor layouts, room typology, and bed assignments</p>
-        </div>
-        <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-          <SelectTrigger className="w-full sm:w-64" data-testid="select-property">
-            <SelectValue placeholder="Select Property" />
-          </SelectTrigger>
-          <SelectContent>
-            {properties?.map((property) => (
-              <SelectItem key={property.id} value={property.id} data-testid={`option-property-${property.id}`}>
-                <div className="flex items-center gap-2"><Building2 className="w-4 h-4" />{property.name}</div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2" data-testid="text-page-title">
+          <Layers className="w-7 h-7" />
+          Floors, Rooms & Beds
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">Manage floor layouts, room typology, and bed assignments</p>
       </div>
 
       {!selectedPropertyId ? (

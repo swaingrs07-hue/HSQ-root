@@ -125,7 +125,6 @@ export default function AdminLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
-  const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -316,10 +315,6 @@ export default function AdminLeads() {
       result = result.filter((lead) => !lead.assignedToId);
     }
 
-    if (propertyFilter !== "all") {
-      result = result.filter((lead) => lead.propertyId === propertyFilter);
-    }
-
     if (deviceFilter !== "all") {
       result = result.filter((lead) => lead.deviceType === deviceFilter);
     }
@@ -340,7 +335,7 @@ export default function AdminLeads() {
     });
 
     return result;
-  }, [leads, searchTerm, statusFilter, assignmentFilter, propertyFilter, deviceFilter, sourceFilter, sortField, sortOrder]);
+  }, [leads, searchTerm, statusFilter, assignmentFilter, deviceFilter, sourceFilter, sortField, sortOrder]);
 
   const stats = useMemo(() => {
     const total = leads.length;
@@ -392,12 +387,11 @@ export default function AdminLeads() {
     setSearchTerm("");
     setStatusFilter("all");
     setAssignmentFilter("all");
-    setPropertyFilter("all");
     setDeviceFilter("all");
     setSourceFilter("all");
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || propertyFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
+  const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
 
   return (
     <div className="space-y-6">
@@ -523,18 +517,6 @@ export default function AdminLeads() {
                     <SelectItem value="all">All</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                  <SelectTrigger className="w-[160px]" data-testid="select-property-filter">
-                    <SelectValue placeholder="Property" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Properties</SelectItem>
-                    {properties.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
                   </SelectContent>
                 </Select>
 

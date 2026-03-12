@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useProperty } from "@/contexts/property-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -128,7 +129,8 @@ function formatMonth(monthStr: string) {
 
 export default function LeadAnalyticsPage() {
   const { token } = useAuth();
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
+  const { selectedPropertyId: globalPropertyId, setSelectedProperty } = useProperty();
+  const effectivePropertyId = globalPropertyId || "all";
   const [compareMode, setCompareMode] = useState(false);
   const [compareProperties, setCompareProperties] = useState<string[]>([]);
   
@@ -167,11 +169,11 @@ export default function LeadAnalyticsPage() {
 
   // Fetch lead score analytics
   const { data: scoreAnalytics } = useQuery<LeadScoreAnalytics>({
-    queryKey: ["/api/leads/scores/analytics", selectedPropertyId],
+    queryKey: ["/api/leads/scores/analytics", effectivePropertyId],
     queryFn: async () => {
-      const url = selectedPropertyId === "all" 
+      const url = effectivePropertyId === "all" 
         ? "/api/leads/scores/analytics"
-        : `/api/leads/scores/analytics?propertyId=${selectedPropertyId}`;
+        : `/api/leads/scores/analytics?propertyId=${effectivePropertyId}`;
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -186,9 +188,9 @@ export default function LeadAnalyticsPage() {
   });
 
   // Get selected funnel data
-  const selectedFunnel = selectedPropertyId === "all" 
+  const selectedFunnel = effectivePropertyId === "all" 
     ? null 
-    : propertyFunnels?.find(f => f.propertyId === selectedPropertyId);
+    : propertyFunnels?.find(f => f.propertyId === effectivePropertyId);
 
   // Prepare funnel chart data
   const getFunnelData = (funnel: PropertyFunnel | null | undefined) => {
@@ -352,39 +354,22 @@ export default function LeadAnalyticsPage() {
         {/* Property Lead Funnel Section */}
         <Card data-testid="property-funnel-section">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Property Lead Funnel
-                </CardTitle>
-                <CardDescription>Track lead progression for each property</CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                  <SelectTrigger className="w-[250px]" data-testid="property-selector">
-                    <SelectValue placeholder="Select Property" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Properties Overview</SelectItem>
-                    {propertyFunnels?.map((funnel) => (
-                      <SelectItem key={funnel.propertyId} value={funnel.propertyId}>
-                        {funnel.propertyName} ({funnel.totalLeads} leads)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Property Lead Funnel
+              </CardTitle>
+              <CardDescription>Track lead progression for each property</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
-            {selectedPropertyId === "all" ? (
+            {effectivePropertyId === "all" ? (
               // All Properties Comparison View
               <div className="space-y-4">
                 {propertyFunnels && propertyFunnels.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {propertyFunnels.map((funnel) => (
-                      <Card key={funnel.propertyId} className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setSelectedPropertyId(funnel.propertyId)}>
+                      <Card key={funnel.propertyId} className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setSelectedProperty(funnel.propertyId)}>
                         <CardContent className="pt-4">
                           <div className="flex items-center justify-between mb-3">
                             <h3 className="font-semibold text-sm truncate">{funnel.propertyName}</h3>
@@ -590,7 +575,7 @@ export default function LeadAnalyticsPage() {
                 </ResponsiveContainer>
               </div>
               
-              {scoreAnalytics?.topProperty && selectedPropertyId === "all" && (
+              {scoreAnalytics?.topProperty && effectivePropertyId === "all" && (
                 <div>
                   <h3 className="text-sm font-medium mb-4">Top Performing Property</h3>
                   <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">

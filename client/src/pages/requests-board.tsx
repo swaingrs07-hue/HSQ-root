@@ -388,7 +388,6 @@ export default function RequestsBoard() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.propertyId !== "all") count++;
     if (filters.salesExecId !== "all") count++;
     if (filters.dateRange?.from || filters.dateRange?.to) count++;
     if (filters.dealValueMin || filters.dealValueMax) count++;
@@ -476,12 +475,10 @@ export default function RequestsBoard() {
           if (!lead.propertyName?.toLowerCase().includes(propName)) return false;
         }
         
-        const matchesProperty =
-          filters.propertyId === "all" || lead.propertyId === filters.propertyId;
         const matchesSales =
           filters.salesExecId === "all" || lead.assignedToId === filters.salesExecId;
         
-        return matchesProperty && matchesSales;
+        return matchesSales;
       }
       
       const matchesSearch =
@@ -490,9 +487,6 @@ export default function RequestsBoard() {
         lead.phone?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         lead.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         lead.propertyName?.toLowerCase().includes(debouncedSearch.toLowerCase());
-
-      const matchesProperty =
-        filters.propertyId === "all" || lead.propertyId === filters.propertyId;
 
       const matchesSales =
         filters.salesExecId === "all" || lead.assignedToId === filters.salesExecId;
@@ -516,7 +510,7 @@ export default function RequestsBoard() {
         matchesDealValue = dealValue <= parseInt(filters.dealValueMax);
       }
 
-      return matchesSearch && matchesProperty && matchesSales && matchesDate && matchesDealValue;
+      return matchesSearch && matchesSales && matchesDate && matchesDealValue;
     });
   }, [leads, debouncedSearch, filters, nlpMode, nlpFilters, salesExecs]);
 
@@ -692,26 +686,6 @@ export default function RequestsBoard() {
               className="overflow-hidden"
             >
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm text-slate-600 whitespace-nowrap">Property:</Label>
-                  <Select 
-                    value={filters.propertyId} 
-                    onValueChange={(v) => setFilters({ ...filters, propertyId: v })}
-                  >
-                    <SelectTrigger className="w-44 rounded-xl" data-testid="select-property-filter">
-                      <SelectValue placeholder="All Properties" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Properties</SelectItem>
-                      {properties.map((prop) => (
-                        <SelectItem key={prop.id} value={prop.id}>
-                          {prop.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-slate-600 whitespace-nowrap">Sales Exec:</Label>
                   <Select 

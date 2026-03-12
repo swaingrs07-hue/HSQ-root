@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useProperty } from "@/contexts/property-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -273,7 +274,7 @@ interface Property { id: string; name: string; roomTypes?: any[]; }
 export default function AdminBookingTree() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const { selectedPropertyId } = useProperty();
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const [bedDetailOpen, setBedDetailOpen] = useState(false);
@@ -394,12 +395,6 @@ export default function AdminBookingTree() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="w-full sm:w-80">
-          <Select value={selectedPropertyId} onValueChange={(val) => { setSelectedPropertyId(val); setExpandedFloors(new Set()); }}>
-            <SelectTrigger className="bg-white" data-testid="select-property"><SelectValue placeholder="Select a property..." /></SelectTrigger>
-            <SelectContent>{properties.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-          </Select>
-        </div>
         {selectedPropertyId && stats.totalBeds > 0 && (
           <div className="flex flex-wrap gap-2">
             <StatPill label="Total" value={stats.totalBeds} color="bg-slate-100 text-slate-700" />
