@@ -675,7 +675,12 @@ export default function AdminSeasons() {
                                     const res = await fetch(`/api/admin/seasons/${season.id}/sync-residents`, { method: "POST", headers });
                                     if (!res.ok) throw new Error("Failed");
                                     const data = await res.json();
-                                    toast({ title: `Synced residents`, description: `${data.added} new residents linked, ${data.total} total` });
+                                    const parts = [];
+                                    if (data.added) parts.push(`${data.added} added`);
+                                    if (data.retained) parts.push(`${data.retained} retained from previous batch`);
+                                    if (data.corrected) parts.push(`${data.corrected} corrected`);
+                                    parts.push(`${data.total} total`);
+                                    toast({ title: `Synced residents`, description: parts.join(", ") });
                                     fetchResidents(season.id);
                                   } catch (e: any) {
                                     toast({ title: "Error", description: e.message, variant: "destructive" });

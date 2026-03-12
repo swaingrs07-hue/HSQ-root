@@ -9671,6 +9671,41 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const activeBookings = await db.select().from(schema.bookings)
         .where(and(...bookingConds));
 
+      const seasonStartYear = new Date(season.startDate).getFullYear();
+      const prevBatchStart = new Date(`${seasonStartYear - 1}-06-01`);
+      const prevBatchEnd = new Date(`${seasonStartYear}-05-31`);
+      console.log(`[Season Sync] Season "${season.name}" → previous batch: ${seasonStartYear - 1}-${seasonStartYear} (${prevBatchStart.toISOString().split("T")[0]} to ${prevBatchEnd.toISOString().split("T")[0]})`);
+
+      let prevBatchPhones = new Set<string>();
+      let hmsFetchOk = false;
+      try {
+        const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
+          headers: getHMSAuthHeaders(),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (hmsResponse.ok) {
+          const allResidents = (await hmsResponse.json()) as any[];
+          const hmsResidents = Array.isArray(allResidents) ? allResidents : ((allResidents as any).residents || (allResidents as any).data || []);
+          let prevBatchCount = 0;
+          for (const r of hmsResidents) {
+            const mid = r.moveInDate ? new Date(r.moveInDate) : null;
+            if (mid && mid >= prevBatchStart && mid <= prevBatchEnd) {
+              const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
+              if (phone.length >= 10) {
+                prevBatchPhones.add(phone);
+              }
+              prevBatchCount++;
+            }
+          }
+          hmsFetchOk = true;
+          console.log(`[Season Sync] HMS: ${hmsResidents.length} total residents, ${prevBatchCount} in previous batch, ${prevBatchPhones.size} unique phones`);
+        } else {
+          console.warn(`[Season Sync] HMS returned ${hmsResponse.status}, all bookings will be marked as New Booking`);
+        }
+      } catch (hmsErr: any) {
+        console.warn(`[Season Sync] HMS fetch failed: ${hmsErr.message}, all bookings will be marked as New Booking`);
+      }
+
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
       const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
@@ -9678,8 +9713,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let added = 0;
       let upgraded = 0;
       let corrected = 0;
+      let retainedCount = 0;
       for (const booking of activeBookings) {
-        const isRegisteredResident = !!booking.studentId;
+        let isFromPreviousBatch = false;
+        if (hmsFetchOk) {
+          const bookingPhone = (booking.walkInPhone || "").replace(/\D/g, "").slice(-10);
+          if (bookingPhone.length >= 10 && prevBatchPhones.has(bookingPhone)) {
+            isFromPreviousBatch = true;
+          }
+        }
+
+        const status = isFromPreviousBatch ? "RETAINED" : "PENDING";
+        if (isFromPreviousBatch) retainedCount++;
 
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
@@ -9688,22 +9733,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           await db.insert(schema.residentSeasonStatus).values({
             bookingId: booking.id,
             seasonId: req.params.id,
-            status: isRegisteredResident ? "RETAINED" : "PENDING",
+            status,
             graceUntil,
           });
           added++;
         } else {
           const existing = existingStatuses.find(s => s.bookingId === booking.id);
-          if (existing && existing.status === "RETAINED" && !isRegisteredResident) {
+          if (existing && existing.status !== status) {
             await db.update(schema.residentSeasonStatus)
-              .set({ status: "PENDING", updatedAt: new Date() })
+              .set({ status, updatedAt: new Date() })
               .where(eq(schema.residentSeasonStatus.id, existing.id));
-            corrected++;
-          } else if (existing && existing.status === "PENDING" && isRegisteredResident) {
-            await db.update(schema.residentSeasonStatus)
-              .set({ status: "RETAINED", updatedAt: new Date() })
-              .where(eq(schema.residentSeasonStatus.id, existing.id));
-            upgraded++;
+            if (status === "PENDING") corrected++;
+            else upgraded++;
           }
         }
       }
@@ -9714,10 +9755,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         entityType: "BOOKING",
         entityId: season.id,
         entityLabel: `Sync residents for ${season.name}`,
-        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, totalBookings: activeBookings.length },
+        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, retainedFromPrevBatch: retainedCount, totalBookings: activeBookings.length, hmsFetchOk },
       });
 
-      res.json({ success: true, added, upgraded, corrected, total: existingStatuses.length + added });
+      res.json({ success: true, added, upgraded, corrected, retained: retainedCount, total: existingStatuses.length + added, hmsFetchOk });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync residents" });
     }
