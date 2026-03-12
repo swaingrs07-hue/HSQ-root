@@ -9015,60 +9015,19 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         ))
         .orderBy(schema.packages.tierLevel);
 
-      const propertyRoomTypes = await db.select().from(schema.roomTypes)
-        .where(eq(schema.roomTypes.propertyId, req.params.propertyId));
-
       const result = [];
       for (const plan of plans) {
         const items = await db.select().from(schema.packageItems)
           .where(eq(schema.packageItems.packageId, plan.id))
           .orderBy(schema.packageItems.sortOrder);
         let roomTypeName = null;
-        let autoLinkedRoomTypeIds = plan.linkedRoomTypeIds;
 
         if (plan.roomTypeId) {
           const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, plan.roomTypeId));
           if (rt) roomTypeName = rt.customName || rt.name;
         }
 
-        if (!plan.roomTypeId && (!plan.linkedRoomTypeIds || (Array.isArray(plan.linkedRoomTypeIds) && plan.linkedRoomTypeIds.length === 0))) {
-          const planNameLower = plan.name.toLowerCase();
-          const matched: string[] = [];
-          let planImpliedOccupancy = 0;
-          for (const rt of propertyRoomTypes) {
-            const rtName = (rt.customName || rt.name || "").toLowerCase();
-            if (planNameLower.includes("single") && rtName === "single") { matched.push(rt.id); planImpliedOccupancy = 1; }
-            else if ((planNameLower.includes("twin") || planNameLower.includes("double")) && (rtName === "double" || rtName === "twin")) { matched.push(rt.id); planImpliedOccupancy = 2; }
-            else if (planNameLower.includes("triple") && rtName === "triple") { matched.push(rt.id); planImpliedOccupancy = 3; }
-            else if (planNameLower.includes("quad") && rtName.includes("quad")) { matched.push(rt.id); planImpliedOccupancy = 4; }
-            else if (planNameLower.includes("2+2") && rtName.includes("2+2")) { matched.push(rt.id); planImpliedOccupancy = 4; }
-            else if (planNameLower.includes("1+2") && rtName.includes("1+2")) { matched.push(rt.id); planImpliedOccupancy = 3; }
-            else if (planNameLower.includes("2+1") && rtName.includes("2+1")) { matched.push(rt.id); planImpliedOccupancy = 3; }
-          }
-          if (!planImpliedOccupancy) {
-            if (planNameLower.includes("single")) planImpliedOccupancy = 1;
-            else if (planNameLower.includes("twin") || planNameLower.includes("double")) planImpliedOccupancy = 2;
-            else if (planNameLower.includes("triple")) planImpliedOccupancy = 3;
-            else if (planNameLower.includes("quad") || planNameLower.includes("2+2")) planImpliedOccupancy = 4;
-            else if (planNameLower.includes("2+1") || planNameLower.includes("1+2")) planImpliedOccupancy = 3;
-          }
-          if (planImpliedOccupancy > 0) {
-            for (const rt of propertyRoomTypes) {
-              if (rt.occupancy === planImpliedOccupancy && !matched.includes(rt.id)) {
-                matched.push(rt.id);
-              }
-            }
-          }
-          if (matched.length > 0) {
-            autoLinkedRoomTypeIds = matched;
-            if (!roomTypeName && matched.length === 1) {
-              const matchedRt = propertyRoomTypes.find(rt => rt.id === matched[0]);
-              if (matchedRt) roomTypeName = matchedRt.customName || matchedRt.name;
-            }
-          }
-        }
-
-        result.push({ ...plan, linkedRoomTypeIds: autoLinkedRoomTypeIds, items, roomTypeName });
+        result.push({ ...plan, items, roomTypeName });
       }
       res.json(result);
     } catch (error: any) {
