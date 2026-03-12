@@ -9671,30 +9671,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const activeBookings = await db.select().from(schema.bookings)
         .where(and(...bookingConds));
 
-      let hmsPhones = new Set<string>();
-      let hmsEmails = new Set<string>();
-      let hmsFetchFailed = false;
-      try {
-        const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
-          headers: getHMSAuthHeaders(),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (hmsResponse.ok) {
-          const hmsResidents = (await hmsResponse.json()) as any[];
-          for (const r of hmsResidents) {
-            if (r.phone) hmsPhones.add(r.phone.replace(/\D/g, "").slice(-10));
-            if (r.email) hmsEmails.add(r.email.toLowerCase().trim());
-          }
-          console.log(`[Season Sync] Fetched ${hmsResidents.length} HMS residents for matching`);
-        } else {
-          console.warn(`[Season Sync] HMS returned ${hmsResponse.status}, falling back to studentId check`);
-          hmsFetchFailed = true;
-        }
-      } catch (hmsErr: any) {
-        console.warn(`[Season Sync] HMS fetch failed: ${hmsErr.message}, falling back to studentId check`);
-        hmsFetchFailed = true;
-      }
-
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
       const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
@@ -9703,17 +9679,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let upgraded = 0;
       let corrected = 0;
       for (const booking of activeBookings) {
-        let isRegisteredResident = !!booking.studentId;
-
-        if (!isRegisteredResident && !hmsFetchFailed) {
-          const bookingPhone = (booking.walkInPhone || "").replace(/\D/g, "").slice(-10);
-          const bookingEmail = (booking.walkInEmail || "").toLowerCase().trim();
-          if (bookingPhone && hmsPhones.has(bookingPhone)) {
-            isRegisteredResident = true;
-          } else if (bookingEmail && hmsEmails.has(bookingEmail)) {
-            isRegisteredResident = true;
-          }
-        }
+        const isRegisteredResident = !!booking.studentId;
 
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
@@ -9748,10 +9714,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         entityType: "BOOKING",
         entityId: season.id,
         entityLabel: `Sync residents for ${season.name}`,
-        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, totalBookings: activeBookings.length, hmsMatchEnabled: !hmsFetchFailed },
+        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, totalBookings: activeBookings.length },
       });
 
-      res.json({ success: true, added, upgraded, corrected, total: existingStatuses.length + added, hmsMatchEnabled: !hmsFetchFailed });
+      res.json({ success: true, added, upgraded, corrected, total: existingStatuses.length + added });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync residents" });
     }
