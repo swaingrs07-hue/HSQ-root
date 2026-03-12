@@ -3224,7 +3224,19 @@ export async function registerRoutes(
         residentDetails,
       } = req.body;
 
-      // Validate room availability
+      let bookingEmail = walkInEmail || residentDetails?.email || null;
+      if (!bookingEmail && customerType === "student" && studentId) {
+        const studentRecord = await storage.getStudent(studentId);
+        if (studentRecord) bookingEmail = studentRecord.email;
+      }
+      if (!bookingEmail && customerType === "lead" && leadId) {
+        const leadRecord = await storage.getLead(leadId);
+        if (leadRecord) bookingEmail = (leadRecord as any).email;
+      }
+      if (!bookingEmail || !bookingEmail.trim() || !bookingEmail.includes("@")) {
+        return res.status(400).json({ error: "A valid email address is required for booking" });
+      }
+
       const roomType = await storage.getRoomType(roomTypeId);
       if (!roomType || roomType.availableBeds <= 0) {
         return res.status(400).json({ error: "No beds available for this room type" });
