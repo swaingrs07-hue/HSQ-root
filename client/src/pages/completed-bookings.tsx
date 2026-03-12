@@ -1920,50 +1920,53 @@ export default function CompletedBookings() {
                 )}
               </div>
             )}
-            {paymentForm.paymentMethod !== "cash" && (
-              <div>
-                <Label className="text-xs font-medium text-slate-500">Payment Screenshots <span className="text-red-500">*</span></Label>
-                {paymentForm.screenshotPreviews.length > 0 && (
-                  <div className="mt-1.5 grid grid-cols-3 gap-2">
-                    {paymentForm.screenshotPreviews.map((preview, idx) => (
-                      <div key={idx} className="relative group">
-                        <img
-                          src={preview}
-                          alt={`Payment screenshot ${idx + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-slate-200 bg-slate-50"
-                          data-testid={`img-payment-screenshot-preview-${idx}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPaymentForm(prev => {
-                            const newPaths = prev.screenshotPaths.filter((_, i) => i !== idx);
-                            const newPreviews = prev.screenshotPreviews.filter((_, i) => i !== idx);
-                            return { ...prev, screenshotPaths: newPaths, screenshotPreviews: newPreviews, screenshotPath: newPaths[0] || "", screenshotPreview: newPreviews[0] || "" };
-                          })}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-testid={`button-remove-screenshot-${idx}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-500">
+                {paymentForm.paymentMethod === "cash" ? "Cash Receipt Photo" : "Payment Screenshots"} <span className="text-red-500">*</span>
+              </Label>
+              {paymentForm.paymentMethod === "cash" && (
+                <p className="text-[11px] text-amber-600 mt-0.5 mb-1">Photo of cash receipt is mandatory for cash payments</p>
+              )}
+              {paymentForm.screenshotPreviews.length > 0 && (
+                <div className="mt-1.5 grid grid-cols-3 gap-2">
+                  {paymentForm.screenshotPreviews.map((preview, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={preview}
+                        alt={`Payment screenshot ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-slate-200 bg-slate-50"
+                        data-testid={`img-payment-screenshot-preview-${idx}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPaymentForm(prev => {
+                          const newPaths = prev.screenshotPaths.filter((_, i) => i !== idx);
+                          const newPreviews = prev.screenshotPreviews.filter((_, i) => i !== idx);
+                          return { ...prev, screenshotPaths: newPaths, screenshotPreviews: newPreviews, screenshotPath: newPaths[0] || "", screenshotPreview: newPreviews[0] || "" };
+                        })}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`button-remove-screenshot-${idx}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label className={`mt-1.5 flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${screenshotUploading ? "border-slate-200 bg-slate-50" : paymentForm.paymentMethod === "cash" && paymentForm.screenshotPaths.length === 0 ? "border-amber-300 bg-amber-50/50 hover:border-amber-400 hover:bg-amber-50" : "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50"}`}>
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handlePaymentScreenshot} disabled={screenshotUploading} data-testid="input-payment-screenshot" />
+                {screenshotUploading ? (
+                  <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
+                ) : (
+                  <Upload className={`h-5 w-5 ${paymentForm.paymentMethod === "cash" && paymentForm.screenshotPaths.length === 0 ? "text-amber-500" : "text-emerald-500"}`} />
                 )}
-                <label className={`mt-1.5 flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${screenshotUploading ? "border-slate-200 bg-slate-50" : "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50"}`}>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePaymentScreenshot} disabled={screenshotUploading} data-testid="input-payment-screenshot" />
-                  {screenshotUploading ? (
-                    <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
-                  ) : (
-                    <Upload className="h-5 w-5 text-emerald-500" />
-                  )}
-                  <span className="text-xs font-medium text-slate-500">{screenshotUploading ? "Uploading..." : paymentForm.screenshotPaths.length > 0 ? "Add more screenshots" : "Upload payment screenshots"}</span>
-                  <span className="text-[10px] text-slate-400">JPG, PNG under 10MB (multiple allowed)</span>
-                </label>
-                {paymentForm.screenshotPaths.length === 0 && !screenshotUploading && (
-                  <p className="text-[11px] text-red-400 mt-1">Payment screenshot is required</p>
-                )}
-              </div>
-            )}
+                <span className="text-xs font-medium text-slate-500">{screenshotUploading ? "Uploading..." : paymentForm.screenshotPaths.length > 0 ? "Add more photos" : paymentForm.paymentMethod === "cash" ? "Upload cash receipt photo" : "Upload payment screenshots"}</span>
+                <span className="text-[10px] text-slate-400">JPG, PNG under 10MB (multiple allowed)</span>
+              </label>
+              {paymentForm.screenshotPaths.length === 0 && !screenshotUploading && (
+                <p className="text-[11px] text-red-400 mt-1">{paymentForm.paymentMethod === "cash" ? "Cash receipt photo is required" : "Payment screenshot is required"}</p>
+              )}
+            </div>
             <div>
               <Label className="text-xs font-medium text-slate-500">Notes (Optional)</Label>
               <Textarea
@@ -1988,7 +1991,7 @@ export default function CompletedBookings() {
                 size="sm"
                 className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={markPaymentDone}
-                disabled={markingPayment || (paymentForm.paymentMethod !== "cash" && (!paymentForm.transactionId.trim() || paymentForm.screenshotPaths.length === 0)) || screenshotUploading}
+                disabled={markingPayment || (paymentForm.paymentMethod !== "cash" && !paymentForm.transactionId.trim()) || paymentForm.screenshotPaths.length === 0 || screenshotUploading}
                 data-testid="button-confirm-payment"
               >
                 <Check className="h-3.5 w-3.5" />
