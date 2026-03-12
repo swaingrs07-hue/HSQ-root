@@ -557,8 +557,14 @@ export default function BookingGeneration() {
     }));
   };
 
+  const getMoveInChargesTotal = () => {
+    const mic = getSelectedProperty()?.moveInCharges;
+    if (!mic) return 0;
+    return (mic.policeVerification || 0) + (mic.agreement || 0);
+  };
+
   const calculateTotal = () => {
-    return formData.baseFee - (formData.discount || 0) + (formData.deposit || 0);
+    return formData.baseFee - (formData.discount || 0) + (formData.deposit || 0) + getMoveInChargesTotal();
   };
 
   const getDiscountPercent = () => {
@@ -2890,7 +2896,7 @@ export default function BookingGeneration() {
                         </Badge>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className={`grid grid-cols-2 ${getMoveInChargesTotal() > 0 ? "sm:grid-cols-3" : "sm:grid-cols-4"} gap-4`}>
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Base Fee</p>
                         <p className="font-bold text-slate-800">₹{formData.baseFee.toLocaleString()}</p>
@@ -2903,6 +2909,28 @@ export default function BookingGeneration() {
                         <p className="text-xs text-slate-500 mb-1">Deposit</p>
                         <p className="font-bold text-slate-800">{formData.deposit > 0 ? `₹${formData.deposit.toLocaleString()}` : "—"}</p>
                       </div>
+                      {(() => {
+                        const mic = getSelectedProperty()?.moveInCharges;
+                        if (mic && (mic.policeVerification > 0 || mic.agreement > 0)) {
+                          return (
+                            <>
+                              {mic.policeVerification > 0 && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Police Verification</p>
+                                  <p className="font-bold text-slate-800">₹{mic.policeVerification.toLocaleString()}</p>
+                                </div>
+                              )}
+                              {mic.agreement > 0 && (
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Agreement</p>
+                                  <p className="font-bold text-slate-800">₹{mic.agreement.toLocaleString()}</p>
+                                </div>
+                              )}
+                            </>
+                          );
+                        }
+                        return null;
+                      })()}
                       <div>
                         <p className="text-xs text-slate-500 mb-1">Total</p>
                         <p className={`font-bold text-2xl ${hasPlan ? tierAccent(selectedPlanTier) : "text-indigo-600"}`} data-testid="review-total">₹{calculateTotal().toLocaleString()}</p>
@@ -2962,7 +2990,7 @@ export default function BookingGeneration() {
                       }
                       return null;
                     })()}
-                    <p className="text-xs text-blue-500 mt-2">Payable at the time of move-in</p>
+                    <p className="text-xs text-blue-500 mt-2">Included in total booking amount</p>
                   </motion.div>
 
                   <motion.div

@@ -2814,9 +2814,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Room not available" });
       }
 
-      // Calculate total fee
+      // Calculate total fee (including move-in charges from property)
       const totalDiscount = discount || 0;
-      const totalFee = baseFee - totalDiscount;
+      const legacyProperty = await storage.getProperty(propertyId);
+      const legacyMic = legacyProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
+      const legacyMicTotal = (legacyMic?.policeVerification || 0) + (legacyMic?.agreement || 0);
+      const totalFee = baseFee - totalDiscount + legacyMicTotal;
 
       // Create booking
       const booking = await storage.createBooking({
@@ -3299,9 +3302,12 @@ export async function registerRoutes(
         resolvedRoomId = bed.roomId || null;
       }
 
-      // Calculate total fee
+      // Calculate total fee (including move-in charges from property)
       const totalDiscount = discount || 0;
-      const totalFee = baseFee - totalDiscount;
+      const genProperty = await storage.getProperty(propertyId);
+      const genMic = genProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
+      const genMicTotal = (genMic?.policeVerification || 0) + (genMic?.agreement || 0);
+      const totalFee = baseFee - totalDiscount + genMicTotal;
 
       // Determine approval requirement based on discount percentage
       const discountPercent = baseFee > 0 ? (totalDiscount / baseFee) * 100 : 0;
@@ -3739,7 +3745,10 @@ export async function registerRoutes(
       if (updates.baseFee !== undefined || updates.discount !== undefined) {
         const base = updates.baseFee ?? booking.baseFee;
         const disc = updates.discount ?? booking.discount;
-        updates.totalFee = base - disc;
+        const editProperty = await storage.getProperty(booking.propertyId);
+        const editMic = editProperty?.moveInCharges as { policeVerification?: number; agreement?: number } | null;
+        const editMicTotal = (editMic?.policeVerification || 0) + (editMic?.agreement || 0);
+        updates.totalFee = base - disc + editMicTotal;
       }
 
       if (updates.status === "cancelled" && booking.status !== "cancelled") {

@@ -211,7 +211,7 @@ export default function PaymentGateway() {
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");
-      doc.text("Payable at the time of move-in", margin + 6, y); y += 8;
+      doc.text("Included in total booking amount", margin + 6, y); y += 8;
     }
 
     checkPage(80);

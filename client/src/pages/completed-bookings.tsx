@@ -758,7 +758,7 @@ export default function CompletedBookings() {
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");
-      doc.text("Payable at the time of move-in", m + 5, y); y += 6;
+      doc.text("Included in total booking amount", m + 5, y); y += 6;
     }
 
     y += 6;
