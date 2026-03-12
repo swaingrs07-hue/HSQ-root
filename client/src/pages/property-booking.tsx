@@ -630,10 +630,23 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     enabled: !!property?.id,
   });
 
+  const getAllPlanLinkedIds = (plan: any): string[] => {
+    const ids: string[] = [];
+    if (Array.isArray(plan.linkedRoomTypeIds)) ids.push(...plan.linkedRoomTypeIds);
+    if (plan.roomTypeId && !ids.includes(plan.roomTypeId)) ids.push(plan.roomTypeId);
+    return ids;
+  };
+
+  const selectedPlanRoomTypeIds = useMemo(() => {
+    if (!selectedPlan) return null;
+    const ids = getAllPlanLinkedIds(selectedPlan);
+    return ids.length > 0 ? ids : null;
+  }, [selectedPlan]);
+
   const roomTypePlanMap = useMemo(() => {
     const map: Record<string, { name: string; tierLevel: number; id: string }> = {};
     for (const plan of propertyPlans) {
-      const allLinkedIds: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : (plan.roomTypeId ? [plan.roomTypeId] : []);
+      const allLinkedIds = getAllPlanLinkedIds(plan);
       for (const rtId of allLinkedIds) {
         if (!map[rtId]) {
           map[rtId] = { name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id };
@@ -646,7 +659,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   const roomTypeMultiPlanMap = useMemo(() => {
     const map: Record<string, Array<{ name: string; tierLevel: number; id: string }>> = {};
     for (const plan of propertyPlans) {
-      const allLinkedIds: string[] = Array.isArray(plan.linkedRoomTypeIds) ? plan.linkedRoomTypeIds : (plan.roomTypeId ? [plan.roomTypeId] : []);
+      const allLinkedIds = getAllPlanLinkedIds(plan);
       for (const rtId of allLinkedIds) {
         if (!map[rtId]) map[rtId] = [];
         map[rtId].push({ name: plan.name, tierLevel: plan.tierLevel ?? 0, id: plan.id });
@@ -662,10 +675,10 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
     let targetFloor: any = null;
 
-    if (filterRoomTypeId) {
+    if (selectedPlanRoomTypeIds) {
       targetFloor = floorsData.find((f: any) =>
-        (f.rooms || []).some((r: any) => r.roomTypeId === filterRoomTypeId && (r.beds || []).some((b: any) => b.status === "available")) ||
-        (f.beds || []).some((b: any) => b.roomTypeId === filterRoomTypeId && b.status === "available")
+        (f.rooms || []).some((r: any) => selectedPlanRoomTypeIds.includes(r.roomTypeId) && (r.beds || []).some((b: any) => b.status === "available")) ||
+        (f.beds || []).some((b: any) => b.roomTypeId && selectedPlanRoomTypeIds.includes(b.roomTypeId) && b.status === "available")
       );
     }
 
@@ -679,7 +692,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     if (targetFloor) {
       setExpandedFloor(targetFloor.id);
     }
-  }, [autoExpand, filterRoomTypeId, floorsData]);
+  }, [autoExpand, selectedPlanRoomTypeIds, floorsData]);
 
   if (isLoading) {
     return (
@@ -713,15 +726,15 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     const isSelected = selectedBedId === bed.id;
     const isHeld = bed.held && !isSelected;
     const isAvailable = bed.status === "available" && !isHeld;
-    const matchesPlanFilter = !filterRoomTypeId || bed.roomTypeId === filterRoomTypeId;
-    const isPlanHighlighted = isAvailable && filterRoomTypeId && matchesPlanFilter;
-    const isDimmedByPlan = isAvailable && filterRoomTypeId && !matchesPlanFilter;
+    const matchesPlanFilter = !selectedPlanRoomTypeIds || (bed.roomTypeId && selectedPlanRoomTypeIds.includes(bed.roomTypeId));
+    const isPlanHighlighted = isAvailable && selectedPlanRoomTypeIds && matchesPlanFilter;
+    const isDimmedByPlan = isAvailable && selectedPlanRoomTypeIds && !matchesPlanFilter;
 
     const bedPlanInfo = bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null;
     const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel) : null;
-    const hasPassivePlan = isAvailable && !filterRoomTypeId && bedPlanInfo && bedPlanColors;
+    const hasPassivePlan = isAvailable && !selectedPlanRoomTypeIds && bedPlanInfo && bedPlanColors;
     const multiPlans = bed.roomTypeId ? (roomTypeMultiPlanMap[bed.roomTypeId] || []) : [];
-    const hasMultiPlan = isAvailable && !filterRoomTypeId && multiPlans.length > 1;
+    const hasMultiPlan = isAvailable && !selectedPlanRoomTypeIds && multiPlans.length > 1;
 
     const tierColors = isPlanHighlighted ? activeTierColors : (hasPassivePlan && !hasMultiPlan ? bedPlanColors : null);
 
@@ -822,13 +835,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           <div className="flex-1">
             <p className={cn("text-sm font-bold", activeTierColors.text)}>{selectedPlan.name}</p>
             <p className={cn("text-xs", activeTierColors.bannerSubText)}>
-              {filterRoomTypeId 
-                ? `Highlighted beds belong to ${selectedPlan.roomTypeName || "this plan's room type"}. Select one to book.`
+              {selectedPlanRoomTypeIds 
+                ? `Highlighted beds belong to ${selectedPlan.roomTypeName || selectedPlan.name}. Select one to book.`
                 : "All beds are available for this plan. Select any bed to book."}
             </p>
           </div>
           <div className="flex items-center gap-2 text-[10px]">
-            {filterRoomTypeId && (
+            {selectedPlanRoomTypeIds && (
               <>
                 <span className="flex items-center gap-1"><span className={cn("w-3 h-3 rounded", activeTierColors.bg, activeTierColors.border)} /> {selectedPlan.name}</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/20" /> Other</span>
@@ -925,13 +938,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                 beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
                               })) : null;
 
-                              const roomMatchesPlan = filterRoomTypeId && room.roomTypeId === filterRoomTypeId;
-                              const roomDimmedByPlan = filterRoomTypeId && room.roomTypeId !== filterRoomTypeId;
+                              const roomMatchesPlan = selectedPlanRoomTypeIds && room.roomTypeId && selectedPlanRoomTypeIds.includes(room.roomTypeId);
+                              const roomDimmedByPlan = selectedPlanRoomTypeIds && (!room.roomTypeId || !selectedPlanRoomTypeIds.includes(room.roomTypeId));
                               const roomPlanInfo = room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null;
                               const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel) : null;
-                              const hasPassiveRoomPlan = !filterRoomTypeId && roomPlanInfo && roomPlanColors;
+                              const hasPassiveRoomPlan = !selectedPlanRoomTypeIds && roomPlanInfo && roomPlanColors;
                               const roomMultiPlans = room.roomTypeId ? (roomTypeMultiPlanMap[room.roomTypeId] || []) : [];
-                              const hasMultiRoomPlan = !filterRoomTypeId && roomMultiPlans.length > 1;
+                              const hasMultiRoomPlan = !selectedPlanRoomTypeIds && roomMultiPlans.length > 1;
 
                               return (
                                 <div key={room.id} className={cn(
@@ -1591,7 +1604,7 @@ function PropertyBooking() {
                 <Layers className="w-5 h-5 text-amber-500" />
                 Select Your Floor & Bed
               </h2>
-              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={selectedPlan?.roomTypeId || null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
+              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
             </div>
 
             <div>

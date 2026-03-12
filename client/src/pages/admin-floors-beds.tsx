@@ -793,7 +793,7 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
     if (allLinkedRoomIds.length > 0) {
       return allLinkedRoomIds.includes(room.id);
     }
-    const allLinkedIds: string[] = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
+    const allLinkedIds: string[] = [...(Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : []), ...(p.roomTypeId && !(Array.isArray(p.linkedRoomTypeIds) && p.linkedRoomTypeIds.includes(p.roomTypeId)) ? [p.roomTypeId] : [])];
     return allLinkedIds.includes(room.roomTypeId);
   }) || [];
 
