@@ -797,6 +797,7 @@ export default function BookingGeneration() {
     if (step === 3 && prefilledFromProperty) {
       prevStep = 1;
     }
+    if (step === 5) setTermsAccepted(false);
     setStep(prevStep);
   };
 
