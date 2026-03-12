@@ -3333,6 +3333,7 @@ export async function registerRoutes(
 
       // Create booking with code
       const booking = await storage.createBookingWithCode({
+        customerType: customerType || "walk_in",
         studentId: validStudentId,
         leadId: customerType === "lead" ? leadId : null,
         walkInName: walkInName || null,
@@ -9672,28 +9673,25 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .where(and(...bookingConds));
 
       let hmsPhones = new Set<string>();
-      let hmsFetchOk = false;
-      try {
-        const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
-          headers: getHMSAuthHeaders(),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (hmsResponse.ok) {
-          const allResidents = (await hmsResponse.json()) as any[];
-          const hmsResidents = Array.isArray(allResidents) ? allResidents : ((allResidents as any).residents || (allResidents as any).data || []);
-          for (const r of hmsResidents) {
-            const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
-            if (phone.length >= 10) {
-              hmsPhones.add(phone);
+      const hasLegacyBookings = activeBookings.some(b => !b.customerType);
+      if (hasLegacyBookings) {
+        try {
+          const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
+            headers: getHMSAuthHeaders(),
+            signal: AbortSignal.timeout(15000),
+          });
+          if (hmsResponse.ok) {
+            const allResidents = (await hmsResponse.json()) as any[];
+            const hmsResidents = Array.isArray(allResidents) ? allResidents : ((allResidents as any).residents || (allResidents as any).data || []);
+            for (const r of hmsResidents) {
+              const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
+              if (phone.length >= 10) hmsPhones.add(phone);
             }
+            console.log(`[Season Sync] Legacy bookings detected, fetched ${hmsResidents.length} HMS residents for fallback matching`);
           }
-          hmsFetchOk = true;
-          console.log(`[Season Sync] HMS: ${hmsResidents.length} total residents, ${hmsPhones.size} unique phones for matching`);
-        } else {
-          console.warn(`[Season Sync] HMS returned ${hmsResponse.status}, all bookings will be marked as New Booking`);
+        } catch (hmsErr: any) {
+          console.warn(`[Season Sync] HMS fetch for legacy fallback failed: ${hmsErr.message}`);
         }
-      } catch (hmsErr: any) {
-        console.warn(`[Season Sync] HMS fetch failed: ${hmsErr.message}, all bookings will be marked as New Booking`);
       }
 
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
@@ -9705,16 +9703,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let corrected = 0;
       let retainedCount = 0;
       for (const booking of activeBookings) {
-        let isRegisteredInHMS = false;
-        if (hmsFetchOk) {
+        let isRegisteredResident = false;
+        if (booking.customerType) {
+          isRegisteredResident = booking.customerType === "student";
+        } else {
           const bookingPhone = (booking.walkInPhone || "").replace(/\D/g, "").slice(-10);
-          if (bookingPhone.length >= 10 && hmsPhones.has(bookingPhone)) {
-            isRegisteredInHMS = true;
-          }
+          isRegisteredResident = bookingPhone.length >= 10 && hmsPhones.has(bookingPhone);
         }
 
-        const status = isRegisteredInHMS ? "RETAINED" : "PENDING";
-        if (isRegisteredInHMS) retainedCount++;
+        const status = isRegisteredResident ? "RETAINED" : "PENDING";
+        if (isRegisteredResident) retainedCount++;
 
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
@@ -9745,10 +9743,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         entityType: "BOOKING",
         entityId: season.id,
         entityLabel: `Sync residents for ${season.name}`,
-        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, retainedFromPrevBatch: retainedCount, totalBookings: activeBookings.length, hmsFetchOk },
+        metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, correctedToPending: corrected, retainedCount, totalBookings: activeBookings.length },
       });
 
-      res.json({ success: true, added, upgraded, corrected, retained: retainedCount, total: existingStatuses.length + added, hmsFetchOk });
+      res.json({ success: true, added, upgraded, corrected, retained: retainedCount, total: existingStatuses.length + added });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync residents" });
     }
