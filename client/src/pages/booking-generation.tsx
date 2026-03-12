@@ -145,6 +145,7 @@ export default function BookingGeneration() {
   const [prefilledFromProperty, setPrefilledFromProperty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
@@ -2924,6 +2925,52 @@ export default function BookingGeneration() {
                       )}
                     </div>
                   </motion.div>
+
+                  <motion.div
+                    className="mt-6 p-5 rounded-xl border border-amber-200 bg-amber-50/60"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="h-5 w-5 text-amber-600" />
+                      <h4 className="font-semibold text-slate-800">Key Terms & Conditions</h4>
+                    </div>
+                    <div className="space-y-3 text-sm text-slate-700">
+                      <div>
+                        <p className="font-medium text-slate-800">1. Booking Confirmation</p>
+                        <ul className="ml-4 mt-1 space-y-0.5 text-slate-600 list-disc">
+                          <li>A booking is considered confirmed upon receipt of the booking amount.</li>
+                          <li>Confirmation will be sent to the email address provided in the booking form.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800">2. Booking Amount</p>
+                        <ul className="ml-4 mt-1 space-y-0.5 text-slate-600 list-disc">
+                          <li>The booking amount is a non-refundable deposit that secures your reservation.</li>
+                          <li>This amount will be deducted from your total stay charges upon check-in.</li>
+                          <li>In case of cancellation or no-show, the booking amount will be forfeited.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800">3. Payment</p>
+                        <ul className="ml-4 mt-1 space-y-0.5 text-slate-600 list-disc">
+                          <li>The remaining balance of your stay is payable upon check-in.</li>
+                          <li>Accepted payment methods will be communicated during the booking process or upon arrival.</li>
+                          <li>No refund of rent in case you move out abruptly without completion of your tenure.</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-3 mt-4 pt-3 border-t border-amber-200 cursor-pointer" data-testid="checkbox-terms-accepted">
+                      <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">I have read and agree to the Terms & Conditions</span>
+                    </label>
+                  </motion.div>
                 </motion.div>
               )}
 
@@ -2954,8 +3001,8 @@ export default function BookingGeneration() {
                 ) : (
                   <Button
                     onClick={handleSubmit}
-                    disabled={submitting}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6"
+                    disabled={submitting || !termsAccepted}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 disabled:opacity-50"
                     data-testid="button-submit-booking"
                   >
                     {submitting ? (

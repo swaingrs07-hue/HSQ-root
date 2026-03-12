@@ -228,7 +228,29 @@ export default function MyBookings() {
       });
     }
 
-    y += 16;
+    y += 10;
+    checkPage(80);
+    drawHeader("TERMS & CONDITIONS");
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. Booking Confirmation", m + 5, y); y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("- A booking is considered confirmed upon receipt of the booking amount.", m + 8, y); y += 4.5;
+    doc.text("- Confirmation will be sent to the email address provided in the booking form.", m + 8, y); y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("2. Booking Amount", m + 5, y); y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("- The booking amount is a non-refundable deposit that secures your reservation.", m + 8, y); y += 4.5;
+    doc.text("- This amount will be deducted from your total stay charges upon check-in.", m + 8, y); y += 4.5;
+    doc.text("- In case of cancellation or no-show, the booking amount will be forfeited.", m + 8, y); y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Payment", m + 5, y); y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("- The remaining balance of your stay is payable upon check-in.", m + 8, y); y += 4.5;
+    doc.text("- Accepted payment methods will be communicated during the booking process or upon arrival.", m + 8, y); y += 4.5;
+    doc.text("- No refund of rent in case you move out abruptly without completion of your tenure.", m + 8, y); y += 8;
+
     checkPage(20);
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
