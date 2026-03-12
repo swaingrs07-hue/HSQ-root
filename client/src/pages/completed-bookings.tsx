@@ -59,6 +59,7 @@ import {
   Upload,
   ImageIcon,
   RefreshCw,
+  Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -134,6 +135,7 @@ export default function CompletedBookings() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [sendingParentEmail, setSendingParentEmail] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
@@ -1306,7 +1308,41 @@ export default function CompletedBookings() {
 
               {selectedBooking.residentDetails && (selectedBooking.residentDetails.parentName || selectedBooking.residentDetails.parentPhone) && (
                 <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                  <h4 className="text-xs font-semibold text-blue-600 uppercase mb-3">Emergency / Parent Contact</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-semibold text-blue-600 uppercase">Emergency / Parent Contact</h4>
+                    {isAdmin && selectedBooking.residentDetails.parentEmail && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-100"
+                        disabled={sendingParentEmail}
+                        data-testid="btn-send-parent-email"
+                        onClick={async () => {
+                          setSendingParentEmail(true);
+                          try {
+                            const token = localStorage.getItem("token");
+                            const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/send-parent-email`, {
+                              method: "POST",
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            const result = await resp.json();
+                            if (resp.ok) {
+                              toast({ title: "Email sent", description: result.message });
+                            } else {
+                              toast({ title: "Failed", description: result.error, variant: "destructive" });
+                            }
+                          } catch {
+                            toast({ title: "Error", description: "Failed to send email", variant: "destructive" });
+                          } finally {
+                            setSendingParentEmail(false);
+                          }
+                        }}
+                      >
+                        {sendingParentEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                        Send Parent Email
+                      </Button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <AdminDetailRow label="Name" value={selectedBooking.residentDetails.parentName} />
                     <AdminDetailRow label="Relation" value={selectedBooking.residentDetails.parentRelation} capitalize />

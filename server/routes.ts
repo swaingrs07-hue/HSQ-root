@@ -3895,6 +3895,32 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const rd = booking.residentDetails as Record<string, any> | null;
+      const parentEmail = rd?.parentEmail || rd?.guardianEmail;
+      if (!parentEmail) {
+        return res.status(400).json({ error: "No parent/guardian email found for this booking" });
+      }
+
+      const payments = await storage.getPaymentsByBooking(booking.id);
+      const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      const result = await sendParentBookingConfirmationEmail(booking, totalPaid);
+      if (result.success) {
+        res.json({ success: true, message: `Parent email sent to ${parentEmail}` });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to send parent email" });
+      }
+    } catch (error: any) {
+      console.error("Error sending parent email:", error);
+      res.status(500).json({ error: error.message || "Failed to send parent email" });
+    }
+  });
+
   // ============ AGREEMENT ============
   
   // Generate agreement (mark as generated)
