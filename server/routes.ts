@@ -3692,10 +3692,11 @@ export async function registerRoutes(
               sendBookingConfirmationEmail(updatedBooking).catch(err => {
                 console.error("[Email] Background resident email after online payment failed:", err);
               });
-              sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
-                console.error("[Email] Background parent email after online payment failed:", err);
-              });
             }
+
+            sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
+              console.error("[Email] Background parent email after online payment failed:", err);
+            });
 
             autoSyncBookingToHMS(updatedBooking).catch(err => {
               console.error("[HMS Auto-Sync] Background sync after payment failed:", err);
@@ -3869,21 +3870,22 @@ export async function registerRoutes(
 
       const existingPayments = await storage.getPaymentsByBooking(booking.id);
       const previousSuccessful = existingPayments.filter(p => p.status === "success" && p.id !== payment.id);
-      if (previousSuccessful.length === 0) {
-        const latestBooking = await storage.getBooking(booking.id);
-        if (latestBooking) {
+      
+      const latestBooking = await storage.getBooking(booking.id);
+      if (latestBooking) {
+        if (previousSuccessful.length === 0) {
           sendBookingConfirmationEmail(latestBooking).catch(err => {
             console.error("[Email] Background resident email after first payment failed:", err);
-          });
-
-          sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
-            console.error("[Email] Background parent email after first payment failed:", err);
           });
 
           autoSyncBookingToHMS(latestBooking).catch(err => {
             console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
           });
         }
+
+        sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
+          console.error("[Email] Background parent email after payment failed:", err);
+        });
       }
 
       res.json({ booking: updated, payment, installment: updatedInstallment });
