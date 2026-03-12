@@ -9663,10 +9663,20 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
       const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
 
+      const previousSeasonStatuses = await db.select({ bookingId: schema.residentSeasonStatus.bookingId })
+        .from(schema.residentSeasonStatus)
+        .where(and(
+          sql`${schema.residentSeasonStatus.seasonId} != ${req.params.id}`,
+          inArray(schema.residentSeasonStatus.status, ["RETAINED", "PENDING"])
+        ));
+      const previousSeasonBookingIds = new Set(previousSeasonStatuses.map(s => s.bookingId));
+
       let added = 0;
       let upgraded = 0;
+      let corrected = 0;
       for (const booking of activeBookings) {
         const isRegistered = !!(booking.studentId || booking.walkInName || (booking.residentDetails as any)?.fullName);
+        const wasInPreviousSeason = previousSeasonBookingIds.has(booking.id);
         if (!existingBookingIds.has(booking.id)) {
           const graceDays = season.graceDays || 30;
           const graceUntil = new Date(season.endDate);
@@ -9674,13 +9684,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           await db.insert(schema.residentSeasonStatus).values({
             bookingId: booking.id,
             seasonId: req.params.id,
-            status: isRegistered ? "RETAINED" : "PENDING",
+            status: (isRegistered && wasInPreviousSeason) ? "RETAINED" : "PENDING",
             graceUntil,
           });
           added++;
-        } else if (isRegistered) {
+        } else {
           const existing = existingStatuses.find(s => s.bookingId === booking.id);
-          if (existing && existing.status === "PENDING") {
+          if (existing && existing.status === "RETAINED" && !wasInPreviousSeason) {
+            await db.update(schema.residentSeasonStatus)
+              .set({ status: "PENDING", updatedAt: new Date() })
+              .where(eq(schema.residentSeasonStatus.id, existing.id));
+            corrected++;
+          } else if (existing && existing.status === "PENDING" && isRegistered && wasInPreviousSeason) {
             await db.update(schema.residentSeasonStatus)
               .set({ status: "RETAINED", updatedAt: new Date() })
               .where(eq(schema.residentSeasonStatus.id, existing.id));
@@ -9698,7 +9713,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         metadata: { seasonId: season.id, addedResidents: added, upgradedToRetained: upgraded, totalBookings: activeBookings.length },
       });
 
-      res.json({ success: true, added, upgraded, total: existingStatuses.length + added });
+      res.json({ success: true, added, upgraded, corrected, total: existingStatuses.length + added });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to sync residents" });
     }
