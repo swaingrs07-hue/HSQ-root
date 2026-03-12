@@ -3743,10 +3743,17 @@ export async function registerRoutes(
         "paymentType", "tokenAmount", "numberOfInstallments",
       ];
 
+      const fieldMapping: Record<string, string> = {
+        customerName: "walkInName",
+        customerPhone: "walkInPhone",
+        customerEmail: "walkInEmail",
+      };
+
       const updates: Record<string, any> = {};
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
+          const dbField = fieldMapping[field] || field;
+          updates[dbField] = req.body[field];
         }
       }
 
@@ -3794,7 +3801,12 @@ export async function registerRoutes(
         details: JSON.stringify({ bookingCode: booking.bookingCode, changes: Object.keys(updates) }),
       });
 
-      res.json(updated);
+      res.json({
+        ...updated,
+        customerName: updated?.walkInName || "",
+        customerPhone: updated?.walkInPhone || "",
+        customerEmail: updated?.walkInEmail || "",
+      });
     } catch (error: any) {
       console.error("Error editing booking:", error);
       res.status(500).json({ error: error.message || "Failed to edit booking" });
