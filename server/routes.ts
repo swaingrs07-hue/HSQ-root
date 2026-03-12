@@ -9672,28 +9672,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const activeBookings = await db.select().from(schema.bookings)
         .where(and(...bookingConds));
 
-      let hmsPhones = new Set<string>();
-      const hasLegacyBookings = activeBookings.some(b => !b.customerType);
-      if (hasLegacyBookings) {
-        try {
-          const hmsResponse = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
-            headers: getHMSAuthHeaders(),
-            signal: AbortSignal.timeout(15000),
-          });
-          if (hmsResponse.ok) {
-            const allResidents = (await hmsResponse.json()) as any[];
-            const hmsResidents = Array.isArray(allResidents) ? allResidents : ((allResidents as any).residents || (allResidents as any).data || []);
-            for (const r of hmsResidents) {
-              const phone = (r.phone || "").replace(/\D/g, "").slice(-10);
-              if (phone.length >= 10) hmsPhones.add(phone);
-            }
-            console.log(`[Season Sync] Legacy bookings detected, fetched ${hmsResidents.length} HMS residents for fallback matching`);
-          }
-        } catch (hmsErr: any) {
-          console.warn(`[Season Sync] HMS fetch for legacy fallback failed: ${hmsErr.message}`);
-        }
-      }
-
       const existingStatuses = await db.select().from(schema.residentSeasonStatus)
         .where(eq(schema.residentSeasonStatus.seasonId, req.params.id));
       const existingBookingIds = new Set(existingStatuses.map(s => s.bookingId));
@@ -9703,13 +9681,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let corrected = 0;
       let retainedCount = 0;
       for (const booking of activeBookings) {
-        let isRegisteredResident = false;
-        if (booking.customerType) {
-          isRegisteredResident = booking.customerType === "student";
-        } else {
-          const bookingPhone = (booking.walkInPhone || "").replace(/\D/g, "").slice(-10);
-          isRegisteredResident = bookingPhone.length >= 10 && hmsPhones.has(bookingPhone);
-        }
+        const isRegisteredResident = booking.customerType === "student" || (!booking.customerType && !!booking.studentId);
 
         const status = isRegisteredResident ? "RETAINED" : "PENDING";
         if (isRegisteredResident) retainedCount++;
