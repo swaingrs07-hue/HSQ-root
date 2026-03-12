@@ -1324,6 +1324,11 @@ function PropertyBooking() {
     enabled: !!propertyId,
   });
 
+  const maxPlanTier = useMemo(() => {
+    if (propertyPlansParent.length === 0) return 2;
+    return Math.max(...propertyPlansParent.map((p: any) => p.tierLevel ?? 0), 2);
+  }, [propertyPlansParent]);
+
   const handleSelectBed = (bed: any, floor: any, room?: any) => {
     setSelectedBed(bed);
     setSelectedFloor(floor);
