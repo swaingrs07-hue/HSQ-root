@@ -745,7 +745,7 @@ export default function BookingGeneration() {
     switch (stepNum) {
       case 1:
         if (formData.customerType === "walk_in") {
-          return !!(formData.walkInName.trim() && formData.walkInPhone.trim());
+          return !!(formData.walkInName.trim() && formData.walkInPhone.trim() && formData.walkInEmail.trim() && formData.walkInEmail.includes("@"));
         } else if (formData.customerType === "lead") {
           return !!formData.leadId;
         }
@@ -753,7 +753,7 @@ export default function BookingGeneration() {
       case 2:
         return !!(formData.propertyId && formData.roomTypeId && availability && availability.availableBeds > 0);
       case 3:
-        return !!(formData.residentName.trim() && formData.residentPhone.trim() && formData.residentGender);
+        return !!(formData.residentName.trim() && formData.residentPhone.trim() && formData.residentGender && formData.residentEmail.trim() && formData.residentEmail.includes("@"));
       case 4:
         return formData.baseFee > 0;
       default:
@@ -1077,12 +1077,13 @@ export default function BookingGeneration() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="walkInEmail" className="text-sm font-medium text-slate-700">Email <span className="text-slate-400 font-normal">(Optional)</span></Label>
+                          <Label htmlFor="walkInEmail" className="text-sm font-medium text-slate-700">Email <span className="text-red-500">*</span></Label>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <Input
                               id="walkInEmail"
                               type="email"
+                              required
                               value={formData.walkInEmail}
                               onChange={(e) => setFormData(prev => ({ ...prev, walkInEmail: e.target.value, residentEmail: e.target.value }))}
                               className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
@@ -1168,12 +1169,13 @@ export default function BookingGeneration() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="walkInEmail" className="text-sm font-medium text-slate-700">Email <span className="text-slate-400 font-normal">(Optional)</span></Label>
+                        <Label htmlFor="walkInEmail" className="text-sm font-medium text-slate-700">Email <span className="text-red-500">*</span></Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                           <Input
                             id="walkInEmail"
                             type="email"
+                            required
                             value={formData.walkInEmail}
                             onChange={(e) => setFormData(prev => ({ ...prev, walkInEmail: e.target.value }))}
                             className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
@@ -2000,10 +2002,10 @@ export default function BookingGeneration() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium text-slate-700">Email ID</Label>
+                            <Label className="text-sm font-medium text-slate-700">Email ID <span className="text-red-500">*</span></Label>
                             <div className="relative">
                               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input type="email" value={formData.residentEmail} onChange={(e) => setFormData(prev => ({ ...prev, residentEmail: e.target.value }))} placeholder="Resident email" className="pl-10 bg-white" data-testid="input-resident-email" />
+                              <Input type="email" required value={formData.residentEmail} onChange={(e) => setFormData(prev => ({ ...prev, residentEmail: e.target.value }))} placeholder="Resident email" className="pl-10 bg-white" data-testid="input-resident-email" />
                             </div>
                           </div>
                           <div className="space-y-2">
