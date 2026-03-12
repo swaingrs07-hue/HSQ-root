@@ -15,6 +15,7 @@ import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
 import { sendBookingConfirmationEmail, sendParentBookingConfirmationEmail } from "./email-service";
+import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 
@@ -3918,6 +3919,40 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error sending parent email:", error);
       res.status(500).json({ error: error.message || "Failed to send parent email" });
+    }
+  });
+
+  app.get("/api/receipt/:bookingId", async (req, res) => {
+    try {
+      const { bookingId } = req.params;
+      const { token } = req.query;
+
+      if (!token || typeof token !== "string") {
+        return res.status(401).json({ error: "Missing or invalid receipt token" });
+      }
+
+      const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only";
+      const expectedToken = crypto.createHmac("sha256", secret).update(`receipt:${bookingId}`).digest("hex").substring(0, 32);
+
+      if (token !== expectedToken) {
+        return res.status(403).json({ error: "Invalid receipt token" });
+      }
+
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const pdfBuffer = await generateBookingReceiptPdf(booking);
+      const filename = `Booking-Receipt-${booking.bookingCode || booking.id}.pdf`;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error("Error generating public receipt:", error);
+      res.status(500).json({ error: "Failed to generate receipt" });
     }
   });
 

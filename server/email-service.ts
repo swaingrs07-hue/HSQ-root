@@ -1,8 +1,20 @@
 import { Resend } from "resend";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { logActivity } from "./activityLogger";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import type { Booking } from "@shared/schema";
+
+function generateReceiptToken(bookingId: string): string {
+  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only";
+  return crypto.createHmac("sha256", secret).update(`receipt:${bookingId}`).digest("hex").substring(0, 32);
+}
+
+function getReceiptUrl(bookingId: string): string {
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  const token = generateReceiptToken(bookingId);
+  return `${baseUrl}/api/receipt/${bookingId}?token=${token}`;
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -528,8 +540,7 @@ export async function sendParentBookingConfirmationEmail(
 
     const amountPaid = `₹${Number(paymentAmount).toLocaleString("en-IN")}`;
 
-    const baseUrl = process.env.APP_PUBLIC_URL?.replace(/\/$/, "") || "https://hsquare.in";
-    const receiptUrl = `${baseUrl}/my-bookings`;
+    const receiptUrl = getReceiptUrl(booking.id);
 
     const emailData: ParentEmailData = {
       parentName: parentName || "Parent / Guardian",
