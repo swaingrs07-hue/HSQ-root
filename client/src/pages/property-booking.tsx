@@ -637,17 +637,18 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     return ids;
   };
 
-  const selectedPlanRoomTypeIds = useMemo(() => {
-    if (!selectedPlan) return null;
-    const ids = getAllPlanLinkedIds(selectedPlan);
-    return ids.length > 0 ? ids : null;
-  }, [selectedPlan]);
-
   const selectedPlanLinkedRoomIds = useMemo(() => {
     if (!selectedPlan) return null;
     const ids: string[] = Array.isArray(selectedPlan.linkedRoomIds) ? selectedPlan.linkedRoomIds : [];
     return ids.length > 0 ? ids : null;
   }, [selectedPlan]);
+
+  const selectedPlanRoomTypeIds = useMemo(() => {
+    if (!selectedPlan) return null;
+    if (selectedPlanLinkedRoomIds) return null;
+    const ids = getAllPlanLinkedIds(selectedPlan);
+    return ids.length > 0 ? ids : null;
+  }, [selectedPlan, selectedPlanLinkedRoomIds]);
 
   const roomTypePlanMap = useMemo(() => {
     const map: Record<string, { name: string; tierLevel: number; id: string }> = {};
