@@ -1457,9 +1457,6 @@ export default function CompletedBookings() {
                 const SERVICE_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
                 const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
                 const activePkg = bookingPackages?.bookingPackages?.find((bp: any) => bp.status === "ACTIVE" && bp.package?.category === "housing_plan");
-                const pkgMealItem = activePkg?.package?.items?.find((i: any) => i.type === "meals");
-                const pkgMealRules = pkgMealItem?.rules;
-                const pkgMealFeature = pkgMealItem?.featureValue;
                 return (
                   <div className="p-4 bg-teal-50 rounded-xl border border-teal-100" data-testid="included-services-section">
                     <h4 className="text-xs font-semibold text-teal-600 uppercase mb-3 flex items-center gap-1.5">
@@ -1470,9 +1467,7 @@ export default function CompletedBookings() {
                         const Icon = SERVICE_ICONS[svc.type] || Tag;
                         const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
                         const pkgSvcFeature = pkgSvcItem?.featureValue;
-                        const hasPkgMealOverride = svc.type === "meals" && (pkgMealRules || pkgMealFeature);
-                        const hasPkgOverride = hasPkgMealOverride || (svc.type !== "meals" && pkgSvcFeature);
-                        const mealSchedule = svc.type === "meals" && pkgMealRules ? pkgMealRules : svc.schedule;
+                        const hasPkgOverride = !!(pkgSvcFeature);
                         return (
                           <div key={idx} className="bg-white rounded-lg border border-teal-100 p-2.5" data-testid={`included-svc-${idx}`}>
                             <div className="flex items-center gap-2 mb-1">
@@ -1484,52 +1479,20 @@ export default function CompletedBookings() {
                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">From Package</span>
                               )}
                             </div>
-                            {svc.type !== "meals" && hasPkgOverride && pkgSvcFeature && (
+                            {hasPkgOverride && (
                               <p className="text-[11px] text-slate-700 ml-8 font-medium">{pkgSvcFeature}</p>
                             )}
-                            {svc.description && !hasPkgOverride && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
-                            {svc.type === "meals" && hasPkgMealOverride && !pkgMealRules && pkgMealFeature && (
-                              <p className="text-[11px] text-slate-700 ml-8 font-medium">{pkgMealFeature}</p>
-                            )}
-                            {svc.type === "meals" && mealSchedule && !hasPkgMealOverride && (() => {
+                            {!hasPkgOverride && svc.description && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
+                            {svc.type === "meals" && !hasPkgOverride && svc.schedule && (() => {
                               const getMealInfo = (dayRules: any) => {
                                 if (!dayRules) return { count: 0, names: [] as string[] };
+                                if (typeof dayRules === "number") return { count: dayRules, names: [] as string[] };
                                 const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
                                 return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
                               };
-                              const wd = getMealInfo(mealSchedule.weekday);
-                              const sat = getMealInfo(mealSchedule.saturday);
-                              const sun = getMealInfo(mealSchedule.sunday);
-                              return (
-                                <div className="ml-8 space-y-0.5">
-                                  <div className="flex items-start gap-1.5 text-[10px]">
-                                    <span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span>
-                                    <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
-                                  </div>
-                                  {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
-                                    <div className="flex items-start gap-1.5 text-[10px]">
-                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sat</span>
-                                      <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
-                                    </div>
-                                  )}
-                                  {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
-                                    <div className="flex items-start gap-1.5 text-[10px]">
-                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sun</span>
-                                      <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                            {svc.type === "meals" && pkgMealRules && (() => {
-                              const getMealInfo = (dayRules: any) => {
-                                if (!dayRules) return { count: 0, names: [] as string[] };
-                                const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
-                                return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
-                              };
-                              const wd = getMealInfo(pkgMealRules.weekday);
-                              const sat = getMealInfo(pkgMealRules.saturday);
-                              const sun = getMealInfo(pkgMealRules.sunday);
+                              const wd = getMealInfo(svc.schedule.weekday);
+                              const sat = getMealInfo(svc.schedule.saturday);
+                              const sun = getMealInfo(svc.schedule.sunday);
                               return (
                                 <div className="ml-8 space-y-0.5">
                                   <div className="flex items-start gap-1.5 text-[10px]">
