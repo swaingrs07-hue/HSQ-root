@@ -1467,7 +1467,7 @@ export default function CompletedBookings() {
                         const Icon = SERVICE_ICONS[svc.type] || Tag;
                         const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
                         const pkgSvcFeature = pkgSvcItem?.featureValue;
-                        const hasPkgOverride = !!(pkgSvcFeature);
+                        const pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
                         return (
                           <div key={idx} className="bg-white rounded-lg border border-teal-100 p-2.5" data-testid={`included-svc-${idx}`}>
                             <div className="flex items-center gap-2 mb-1">
@@ -1475,24 +1475,33 @@ export default function CompletedBookings() {
                                 <Icon className="h-3.5 w-3.5 text-teal-600" />
                               </div>
                               <span className="font-semibold text-xs text-slate-800">{svc.label}</span>
-                              {hasPkgOverride && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">From Package</span>
+                              {pkgSvcFeature && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">{pkgSvcFeature}</span>
                               )}
                             </div>
-                            {hasPkgOverride && (
+                            {svc.type !== "meals" && pkgSvcFeature && (
                               <p className="text-[11px] text-slate-700 ml-8 font-medium">{pkgSvcFeature}</p>
                             )}
-                            {!hasPkgOverride && svc.description && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
-                            {svc.type === "meals" && !hasPkgOverride && svc.schedule && (() => {
-                              const getMealInfo = (dayRules: any) => {
-                                if (!dayRules) return { count: 0, names: [] as string[] };
-                                if (typeof dayRules === "number") return { count: dayRules, names: [] as string[] };
-                                const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
-                                return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
+                            {svc.type !== "meals" && !pkgSvcFeature && svc.description && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
+                            {svc.type === "meals" && svc.schedule && (() => {
+                              const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
+                              const getMealInfo = (dayRules: any, targetCount: number) => {
+                                if (!dayRules) return { count: targetCount || 0, names: [] as string[] };
+                                if (typeof dayRules === "number") return { count: Math.max(dayRules, targetCount), names: [] as string[] };
+                                let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+                                const baseCount = dayRules.count ?? meals.length;
+                                if (targetCount > 0 && targetCount > baseCount) {
+                                  const missing = ALL_MEALS.filter(m => !meals.includes(m));
+                                  const toAdd = missing.slice(0, targetCount - baseCount);
+                                  meals = [...meals, ...toAdd];
+                                  meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
+                                }
+                                const finalCount = Math.max(baseCount, targetCount > 0 ? targetCount : baseCount);
+                                return { count: finalCount, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
                               };
-                              const wd = getMealInfo(svc.schedule.weekday);
-                              const sat = getMealInfo(svc.schedule.saturday);
-                              const sun = getMealInfo(svc.schedule.sunday);
+                              const wd = getMealInfo(svc.schedule.weekday, pkgMealCount);
+                              const sat = getMealInfo(svc.schedule.saturday, pkgMealCount);
+                              const sun = getMealInfo(svc.schedule.sunday, pkgMealCount);
                               return (
                                 <div className="ml-8 space-y-0.5">
                                   <div className="flex items-start gap-1.5 text-[10px]">

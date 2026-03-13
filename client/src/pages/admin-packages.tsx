@@ -237,36 +237,15 @@ export default function AdminPackages() {
 
   const addItem = () => {
     const typeInfo = ITEM_TYPES.find(t => t.value === newItemType);
-    const defaultMealRules = newItemType === "meals" ? {
-      weekday: { meals: ["breakfast", "evening_snacks", "dinner"], count: 3 },
-      saturday: { meals: ["breakfast", "lunch", "evening_snacks", "dinner"], count: 4 },
-      sunday: { meals: ["breakfast", "lunch", "evening_snacks", "dinner"], count: 4 },
-    } : null;
     const newItem: PackageItemData = {
       type: newItemType, label: typeInfo?.label || "Custom Feature", featureValue: "",
       includedQty: 0,
       unit: newItemType === "ala_cart_credit" ? "credits/mo" : newItemType === "meals" ? "meals/day" : newItemType === "laundry" ? "cloths" : "unit",
-      extraUnitPrice: 0, rules: defaultMealRules,
+      extraUnitPrice: 0, rules: null,
       isOptional: false, maxQty: null, sortOrder: editingPkg.items.length,
     };
     setEditingPkg(prev => ({ ...prev, items: [...prev.items, newItem] }));
     setAddItemOpen(false);
-  };
-
-  const togglePackageMeal = (itemIdx: number, dayKey: string, mealValue: string) => {
-    setEditingPkg(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => {
-        if (i !== itemIdx) return item;
-        const rules = { ...(item.rules || {}) };
-        const dayRules = rules[dayKey] || { meals: [], count: 0 };
-        const meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
-        const exists = meals.includes(mealValue);
-        const newMeals = exists ? meals.filter((m: string) => m !== mealValue) : [...meals, mealValue];
-        rules[dayKey] = { meals: newMeals, count: newMeals.length };
-        return { ...item, rules };
-      }),
-    }));
   };
 
   const updateItem = (idx: number, updates: Partial<PackageItemData>) => {
