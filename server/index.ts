@@ -238,12 +238,6 @@ async function startWalletCreditRenewalJob() {
         const alacartItem = items.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
         if (!alacartItem) continue;
 
-        const existingCredits = await db.select().from(schema.walletLedger)
-          .where(and(
-            eq(schema.walletLedger.bookingId, bp.bookingId),
-            eq(schema.walletLedger.refType, "package_credit_renewal"),
-          ));
-
         const now = new Date();
         const startDate = bp.startDate ? new Date(bp.startDate) : bp.createdAt ? new Date(bp.createdAt) : null;
         if (!startDate) continue;
@@ -257,27 +251,55 @@ async function startWalletCreditRenewalJob() {
 
         if (monthsSinceStart < 1) continue;
 
-        const renewalCredits = existingCredits.filter(c =>
-          c.refId === bp.id && c.refType === "package_credit_renewal"
-        );
-        const renewalsApplied = renewalCredits.length;
+        const existingRenewals = await db.select().from(schema.walletLedger)
+          .where(and(
+            eq(schema.walletLedger.bookingId, bp.bookingId),
+            eq(schema.walletLedger.refType, "package_credit_renewal"),
+            eq(schema.walletLedger.refId, bp.id),
+          ));
+        const renewalsApplied = existingRenewals.length;
 
         if (renewalsApplied >= monthsSinceStart) continue;
 
-        const renewalsNeeded = monthsSinceStart - renewalsApplied;
+        const monthlyLimit = alacartItem.includedQty;
+
+        const allWalletEntries = await db.select().from(schema.walletLedger)
+          .where(eq(schema.walletLedger.bookingId, bp.bookingId));
+
+        const packageCreditBalance = allWalletEntries
+          .filter(e => e.refType === "package_credit" || e.refType === "package_credit_renewal")
+          .reduce((sum, e) => sum + (e.credit || 0), 0);
+        const totalDebits = allWalletEntries.reduce((sum, e) => sum + (e.debit || 0), 0);
+        const packageBalance = Math.max(0, packageCreditBalance - totalDebits);
+
+        const topUpAmount = Math.max(0, monthlyLimit - packageBalance);
+
         const [pkg] = await db.select().from(schema.packages).where(eq(schema.packages.id, bp.packageId));
         const pkgName = pkg?.name || "Package";
 
+        const renewalsNeeded = monthsSinceStart - renewalsApplied;
         for (let i = 0; i < renewalsNeeded; i++) {
           const renewalMonth = renewalsApplied + i + 1;
-          await db.insert(schema.walletLedger).values({
-            bookingId: bp.bookingId,
-            credit: alacartItem.includedQty,
-            debit: 0,
-            refType: "package_credit_renewal",
-            refId: bp.id,
-            note: `Monthly credit renewal (month ${renewalMonth}) from "${pkgName}"`,
-          });
+          const creditAmount = i === renewalsNeeded - 1 ? topUpAmount : monthlyLimit;
+          if (creditAmount <= 0 && i === renewalsNeeded - 1) {
+            await db.insert(schema.walletLedger).values({
+              bookingId: bp.bookingId,
+              credit: 0,
+              debit: 0,
+              refType: "package_credit_renewal",
+              refId: bp.id,
+              note: `Monthly renewal (month ${renewalMonth}) from "${pkgName}" — balance already at ${packageBalance}/${monthlyLimit}, no top-up needed`,
+            });
+          } else {
+            await db.insert(schema.walletLedger).values({
+              bookingId: bp.bookingId,
+              credit: creditAmount,
+              debit: 0,
+              refType: "package_credit_renewal",
+              refId: bp.id,
+              note: `Monthly credit reset (month ${renewalMonth}) from "${pkgName}" — topped up ${creditAmount} to restore ${monthlyLimit}/mo`,
+            });
+          }
           totalRenewed++;
         }
       }
