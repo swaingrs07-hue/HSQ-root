@@ -5568,45 +5568,90 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       console.log(`[Sync First Payment] Received webhook for ${bookingCode}, eventId: ${eventId || "none"}`);
 
-      const [booking] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, bookingCode));
-      if (!booking) {
-        console.log(`[Sync First Payment] Booking ${bookingCode} not found, trying phone match...`);
+      let booking: any = null;
+      const [directMatch] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, bookingCode));
+      if (directMatch) {
+        booking = directMatch;
+      } else {
+        console.log(`[Sync First Payment] Booking ${bookingCode} not found by code, trying phone match...`);
         const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
-        let matchedBooking: any = null;
         if (phone10.length === 10) {
           const allBookings = await db.select().from(schema.bookings).where(
             sql`${schema.bookings.status} NOT IN ('cancelled')`
           );
-          matchedBooking = allBookings.find((b: any) => {
+          booking = allBookings.find((b: any) => {
             const rd = b.residentDetails as any;
             const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
             return bPhone === phone10;
-          });
+          }) || null;
         }
-        if (!matchedBooking) {
-          return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
-        }
-
-        const welcomeResult = await sendWelcomeEmail({
-          name: name || (matchedBooking.residentDetails as any)?.name || matchedBooking.walkInName || "Resident",
-          email: email || (matchedBooking.residentDetails as any)?.email || matchedBooking.walkInEmail || "",
-          phone, room, propertyCode, moveInDate, checkOutDate, bookingCode: matchedBooking.bookingCode || bookingCode,
-          amountPaid: amountPaid || 0, paymentDate,
-        }, matchedBooking);
-        console.log(`[Sync First Payment] Welcome email result for ${matchedBooking.bookingCode}:`, JSON.stringify(welcomeResult));
-
-        return res.json({ success: true, bookingCode: matchedBooking.bookingCode, emailSent: welcomeResult.success, emailError: welcomeResult.error || null });
       }
 
+      if (!booking) {
+        return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+      }
+
+      const resolvedBookingCode = booking.bookingCode || bookingCode;
+      const rd = booking.residentDetails as any;
+      const residentName = name || rd?.name || booking.walkInName || "Resident";
+      const residentEmail = email || rd?.email || booking.walkInEmail || "";
+      const residentPhone = phone || rd?.phone || booking.walkInPhone || "";
+
+      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+
+      let resolvedPropertyCode = propertyCode || "";
+      if (!resolvedPropertyCode && booking.propertyId) {
+        const property = await storage.getProperty(booking.propertyId);
+        if (property?.name) {
+          resolvedPropertyCode = getPropertyCode(property.name) || property.propertyCode || property.name;
+        }
+      }
+
+      const syncData: any = {
+        name: residentName,
+        email: residentEmail,
+        phone: residentPhone,
+        room: room || "",
+        propertyCode: resolvedPropertyCode,
+        moveInDate: moveInDate || (booking.checkInDate ? String(booking.checkInDate) : ""),
+        checkOutDate: checkOutDate || (booking.checkOutDate ? String(booking.checkOutDate) : ""),
+        bookingDate: paymentDate || new Date().toISOString().split("T")[0],
+      };
+
+      if (rd?.parentName || rd?.guardianName) syncData.parentName = rd.parentName || rd.guardianName;
+      if (rd?.parentPhone || rd?.guardianPhone) syncData.parentPhone = rd.parentPhone || rd.guardianPhone;
+      if (rd?.parentEmail || rd?.guardianEmail) syncData.parentEmail = rd.parentEmail || rd.guardianEmail;
+      if (rd?.college || rd?.instituteName) syncData.college = rd.college || rd.instituteName;
+      if (rd?.courseName) syncData.courseName = rd.courseName;
+      if (rd?.courseYear) syncData.courseYear = rd.courseYear;
+      if (rd?.gender) syncData.gender = rd.gender;
+      if (rd?.dateOfBirth) syncData.dateOfBirth = rd.dateOfBirth;
+      if (rd?.homeAddress || rd?.address) syncData.homeAddress = rd.homeAddress || rd.address;
+      if (rd?.dietary) syncData.dietary = rd.dietary;
+
+      console.log(`[Sync First Payment] Creating/syncing resident in HMS for ${resolvedBookingCode}...`);
+      const syncResult = await syncBookingToHMS(syncData);
+      console.log(`[Sync First Payment] HMS sync result for ${resolvedBookingCode}:`, JSON.stringify(syncResult));
+
       const welcomeResult = await sendWelcomeEmail({
-        name: name || (booking.residentDetails as any)?.name || booking.walkInName || "Resident",
-        email: email || (booking.residentDetails as any)?.email || booking.walkInEmail || "",
-        phone, room, propertyCode, moveInDate, checkOutDate, bookingCode,
+        name: residentName,
+        email: residentEmail,
+        phone: residentPhone,
+        room, propertyCode: resolvedPropertyCode, moveInDate, checkOutDate,
+        bookingCode: resolvedBookingCode,
         amountPaid: amountPaid || 0, paymentDate,
       }, booking);
-      console.log(`[Sync First Payment] Welcome email result for ${bookingCode}:`, JSON.stringify(welcomeResult));
+      console.log(`[Sync First Payment] Welcome email result for ${resolvedBookingCode}:`, JSON.stringify(welcomeResult));
 
-      res.json({ success: true, bookingCode, emailSent: welcomeResult.success, emailError: welcomeResult.error || null });
+      res.json({
+        success: true,
+        bookingCode: resolvedBookingCode,
+        residentSynced: syncResult.success,
+        residentAction: syncResult.action || null,
+        syncError: syncResult.error || null,
+        emailSent: welcomeResult.success,
+        emailError: welcomeResult.error || null,
+      });
     } catch (error: any) {
       console.error("[Sync First Payment] Error:", error.message);
       res.status(500).json({ error: error.message });
