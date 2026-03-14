@@ -5558,6 +5558,51 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.post("/sync/first-payment", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { bookingCode, name, email, phone, room, propertyCode, moveInDate, checkOutDate, amountPaid, paymentDate, eventId } = req.body;
+
+      if (!bookingCode) {
+        return res.status(400).json({ error: "bookingCode is required" });
+      }
+
+      console.log(`[Sync First Payment] Received webhook for ${bookingCode}, eventId: ${eventId || "none"}`);
+
+      const [booking] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, bookingCode));
+      if (!booking) {
+        console.log(`[Sync First Payment] Booking ${bookingCode} not found, trying phone match...`);
+        const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
+        let matchedBooking: any = null;
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} NOT IN ('cancelled')`
+          );
+          matchedBooking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          });
+        }
+        if (!matchedBooking) {
+          return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+        }
+
+        const result = await sendParentBookingConfirmationEmail(matchedBooking, amountPaid || 0);
+        console.log(`[Sync First Payment] Parent email result for ${matchedBooking.bookingCode}:`, JSON.stringify(result));
+
+        return res.json({ success: true, bookingCode: matchedBooking.bookingCode, emailSent: result.success });
+      }
+
+      const result = await sendParentBookingConfirmationEmail(booking, amountPaid || 0);
+      console.log(`[Sync First Payment] Parent email result for ${bookingCode}:`, JSON.stringify(result));
+
+      res.json({ success: true, bookingCode, emailSent: result.success, emailError: result.error || null });
+    } catch (error: any) {
+      console.error("[Sync First Payment] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
