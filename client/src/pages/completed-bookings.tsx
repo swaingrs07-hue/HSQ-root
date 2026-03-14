@@ -2175,17 +2175,27 @@ export default function CompletedBookings() {
                 total = base * months;
                 durationLabel = `${months} month${months !== 1 ? "s" : ""}`;
               } else if (pType === "PER_YEAR") {
-                const days = differenceInDays(end, start);
-                const years = Math.max(1, Math.round((days / 365) * 10) / 10);
-                total = base * years;
-                durationLabel = `${years} year${years !== 1 ? "s" : ""}`;
+                const months = differenceInCalendarMonths(end, start) || 1;
+                const monthlyRate = base / 12;
+                total = monthlyRate * months;
+                if (months >= 12 && months % 12 === 0) {
+                  const years = months / 12;
+                  durationLabel = `${years} year${years !== 1 ? "s" : ""}`;
+                } else {
+                  durationLabel = `${months} month${months !== 1 ? "s" : ""}`;
+                }
               }
               return (
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] text-slate-500">Duration: {durationLabel}</p>
-                      <p className="text-[11px] text-slate-400">₹{base.toLocaleString("en-IN")} × {durationLabel}</p>
+                      <p className="text-[11px] text-slate-400">
+                        {pType === "PER_YEAR" 
+                          ? `₹${Math.round(base / 12).toLocaleString("en-IN")}/mo × ${durationLabel}`
+                          : `₹${base.toLocaleString("en-IN")} × ${durationLabel}`
+                        }
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-slate-400 uppercase tracking-wide">Total Price</p>

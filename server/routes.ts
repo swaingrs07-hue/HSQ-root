@@ -9315,8 +9315,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) || 1;
             totalPrice = base * months;
           } else if (pkg.priceType === "PER_YEAR") {
-            const years = Math.max(1, Math.round((diffDays / 365) * 10) / 10);
-            totalPrice = base * years;
+            const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) || 1;
+            const monthlyRate = base / 12;
+            totalPrice = monthlyRate * months;
           }
         }
       }
