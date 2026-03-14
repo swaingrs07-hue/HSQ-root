@@ -2176,11 +2176,11 @@ export default function CompletedBookings() {
                 durationLabel = `${months} month${months !== 1 ? "s" : ""}`;
               } else if (pType === "PER_YEAR") {
                 const months = differenceInCalendarMonths(end, start) || 1;
-                const monthlyRate = base / 12;
+                const monthlyRate = base / 11;
                 total = monthlyRate * months;
-                if (months >= 12 && months % 12 === 0) {
-                  const years = months / 12;
-                  durationLabel = `${years} year${years !== 1 ? "s" : ""}`;
+                if (months >= 11 && months % 11 === 0) {
+                  const years = months / 11;
+                  durationLabel = `${years} academic year${years !== 1 ? "s" : ""} (${months} months)`;
                 } else {
                   durationLabel = `${months} month${months !== 1 ? "s" : ""}`;
                 }
@@ -2192,7 +2192,7 @@ export default function CompletedBookings() {
                       <p className="text-[11px] text-slate-500">Duration: {durationLabel}</p>
                       <p className="text-[11px] text-slate-400">
                         {pType === "PER_YEAR" 
-                          ? `₹${Math.round(base / 12).toLocaleString("en-IN")}/mo × ${durationLabel}`
+                          ? `₹${Math.round(base / 11).toLocaleString("en-IN")}/mo × ${durationLabel}`
                           : `₹${base.toLocaleString("en-IN")} × ${durationLabel}`
                         }
                       </p>
