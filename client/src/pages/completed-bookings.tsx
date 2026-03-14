@@ -1456,7 +1456,8 @@ export default function CompletedBookings() {
                 if (includedServices.length === 0) return null;
                 const SERVICE_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
                 const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
-                const activePkg = bookingPackages?.bookingPackages?.find((bp: any) => bp.status === "ACTIVE" && bp.package?.category === "housing_plan");
+                const allActivePkgs = bookingPackages?.bookingPackages?.filter((bp: any) => bp.status === "ACTIVE") || [];
+                const activePkg = allActivePkgs.find((bp: any) => bp.package?.category === "housing_plan");
                 return (
                   <div className="p-4 bg-teal-50 rounded-xl border border-teal-100" data-testid="included-services-section">
                     <h4 className="text-xs font-semibold text-teal-600 uppercase mb-3 flex items-center gap-1.5">
@@ -1466,8 +1467,22 @@ export default function CompletedBookings() {
                       {includedServices.map((svc: any, idx: number) => {
                         const Icon = SERVICE_ICONS[svc.type] || Tag;
                         const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
-                        const pkgSvcFeature = pkgSvcItem?.featureValue;
-                        const pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
+                        let pkgSvcFeature = pkgSvcItem?.featureValue;
+                        let pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
+                        
+                        if (svc.type === "meals") {
+                          const addonMealPkgs = allActivePkgs.filter((bp: any) => bp.package?.category === "addon_service");
+                          for (const addonBp of addonMealPkgs) {
+                            const addonMealItem = addonBp.package?.items?.find((i: any) => i.type === "meals");
+                            if (addonMealItem) {
+                              const addonCount = addonMealItem.includedQty || 0;
+                              if (addonCount > pkgMealCount) {
+                                pkgMealCount = addonCount;
+                                pkgSvcFeature = addonMealItem.featureValue || pkgSvcFeature;
+                              }
+                            }
+                          }
+                        }
                         return (
                           <div key={idx} className="bg-white rounded-lg border border-teal-100 p-2.5" data-testid={`included-svc-${idx}`}>
                             <div className="flex items-center gap-2 mb-1">

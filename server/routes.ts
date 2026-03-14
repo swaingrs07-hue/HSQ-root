@@ -4859,32 +4859,50 @@ export async function registerRoutes(
           })),
           includedServices: (() => {
             const propertyServices: any[] = Array.isArray(prop?.includedServices) ? prop.includedServices : [];
-            const activeBp = bPackages.find(bp => bp.status === "ACTIVE");
-            const activePkgItems = activeBp?.packageId ? (packageItemsMap.get(activeBp.packageId) || []) : [];
+            const allActiveBps = bPackages.filter(bp => bp.status === "ACTIVE");
+            const housingBp = allActiveBps.find(bp => {
+              const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+              return pkg?.category === "housing_plan";
+            });
+            const housingPkgItems = housingBp?.packageId ? (packageItemsMap.get(housingBp.packageId) || []) : [];
             const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
             const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
 
             return propertyServices.map((svc: any) => {
-              const pkgItem = activePkgItems.find(i => i.type === svc.type);
+              const pkgItem = housingPkgItems.find(i => i.type === svc.type);
+              let effectiveMealCount = svc.type === "meals" && pkgItem ? (pkgItem.includedQty || 0) : 0;
+              let effectiveFeature = pkgItem?.featureValue || null;
+              if (svc.type === "meals") {
+                for (const abp of allActiveBps) {
+                  const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
+                  if (abpPkg?.category === "addon_service") {
+                    const addonItems = abp.packageId ? (packageItemsMap.get(abp.packageId) || []) : [];
+                    const addonMealItem = addonItems.find(i => i.type === "meals");
+                    if (addonMealItem && (addonMealItem.includedQty || 0) > effectiveMealCount) {
+                      effectiveMealCount = addonMealItem.includedQty || 0;
+                      effectiveFeature = addonMealItem.featureValue || effectiveFeature;
+                    }
+                  }
+                }
+              }
               if (svc.type === "meals" && svc.schedule) {
-                const pkgMealCount = pkgItem?.includedQty || 0;
                 const mergeMeals = (dayRules: any) => {
-                  if (!dayRules) return { count: pkgMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
+                  if (!dayRules) return { count: effectiveMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
                   let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
                   const baseCount = dayRules.count ?? meals.length;
-                  if (pkgMealCount > 0 && pkgMealCount > baseCount) {
+                  if (effectiveMealCount > 0 && effectiveMealCount > baseCount) {
                     const missing = ALL_MEALS.filter(m => !meals.includes(m));
-                    meals = [...meals, ...missing.slice(0, pkgMealCount - baseCount)];
+                    meals = [...meals, ...missing.slice(0, effectiveMealCount - baseCount)];
                     meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
                   }
-                  const finalCount = Math.max(baseCount, pkgMealCount > 0 ? pkgMealCount : baseCount);
+                  const finalCount = Math.max(baseCount, effectiveMealCount > 0 ? effectiveMealCount : baseCount);
                   return { count: finalCount, meals, mealLabels: meals.map(m => MEAL_LABELS[m] || m) };
                 };
                 return {
                   type: svc.type,
                   label: svc.label,
                   description: svc.description || null,
-                  packageFeature: pkgItem?.featureValue || null,
+                  packageFeature: effectiveFeature,
                   schedule: {
                     weekday: mergeMeals(svc.schedule.weekday),
                     saturday: mergeMeals(svc.schedule.saturday),
@@ -4896,7 +4914,7 @@ export async function registerRoutes(
                 type: svc.type,
                 label: svc.label,
                 description: svc.description || null,
-                packageFeature: pkgItem?.featureValue || null,
+                packageFeature: effectiveFeature,
               };
             });
           })(),
@@ -5081,33 +5099,50 @@ export async function registerRoutes(
         })),
         includedServices: (() => {
           const propertyServices: any[] = Array.isArray(prop?.includedServices) ? prop.includedServices : [];
-          const activeBp = bPackages.find(bp => bp.status === "ACTIVE");
-          const activePkg = activeBp?.packageId ? packageMap.get(activeBp.packageId) : null;
-          const activePkgItems = activeBp?.packageId ? (singlePkgItemsMap.get(activeBp.packageId) || []) : [];
+          const allActiveBps = bPackages.filter(bp => bp.status === "ACTIVE");
+          const housingBp = allActiveBps.find(bp => {
+            const pkg = bp.packageId ? packageMap.get(bp.packageId) : null;
+            return pkg?.category === "housing_plan";
+          });
+          const housingPkgItems = housingBp?.packageId ? (singlePkgItemsMap.get(housingBp.packageId) || []) : [];
           const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
           const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
 
           return propertyServices.map((svc: any) => {
-            const pkgItem = activePkgItems.find(i => i.type === svc.type);
+            const pkgItem = housingPkgItems.find(i => i.type === svc.type);
+            let effectiveMealCount = svc.type === "meals" && pkgItem ? (pkgItem.includedQty || 0) : 0;
+            let effectiveFeature = pkgItem?.featureValue || null;
+            if (svc.type === "meals") {
+              for (const abp of allActiveBps) {
+                const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
+                if (abpPkg?.category === "addon_service") {
+                  const addonItems = abp.packageId ? (singlePkgItemsMap.get(abp.packageId) || []) : [];
+                  const addonMealItem = addonItems.find(i => i.type === "meals");
+                  if (addonMealItem && (addonMealItem.includedQty || 0) > effectiveMealCount) {
+                    effectiveMealCount = addonMealItem.includedQty || 0;
+                    effectiveFeature = addonMealItem.featureValue || effectiveFeature;
+                  }
+                }
+              }
+            }
             if (svc.type === "meals" && svc.schedule) {
-              const pkgMealCount = pkgItem?.includedQty || 0;
               const mergeMeals = (dayRules: any) => {
-                if (!dayRules) return { count: pkgMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
+                if (!dayRules) return { count: effectiveMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
                 let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
                 const baseCount = dayRules.count ?? meals.length;
-                if (pkgMealCount > 0 && pkgMealCount > baseCount) {
+                if (effectiveMealCount > 0 && effectiveMealCount > baseCount) {
                   const missing = ALL_MEALS.filter(m => !meals.includes(m));
-                  meals = [...meals, ...missing.slice(0, pkgMealCount - baseCount)];
+                  meals = [...meals, ...missing.slice(0, effectiveMealCount - baseCount)];
                   meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
                 }
-                const finalCount = Math.max(baseCount, pkgMealCount > 0 ? pkgMealCount : baseCount);
+                const finalCount = Math.max(baseCount, effectiveMealCount > 0 ? effectiveMealCount : baseCount);
                 return { count: finalCount, meals, mealLabels: meals.map(m => MEAL_LABELS[m] || m) };
               };
               return {
                 type: svc.type,
                 label: svc.label,
                 description: svc.description || null,
-                packageFeature: pkgItem?.featureValue || null,
+                packageFeature: effectiveFeature,
                 schedule: {
                   weekday: mergeMeals(svc.schedule.weekday),
                   saturday: mergeMeals(svc.schedule.saturday),
@@ -5119,7 +5154,7 @@ export async function registerRoutes(
               type: svc.type,
               label: svc.label,
               description: svc.description || null,
-              packageFeature: pkgItem?.featureValue || null,
+              packageFeature: effectiveFeature,
             };
           });
         })(),
