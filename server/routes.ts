@@ -14,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendWelcomeEmail } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -5587,16 +5587,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
         }
 
-        const result = await sendParentBookingConfirmationEmail(matchedBooking, amountPaid || 0);
-        console.log(`[Sync First Payment] Parent email result for ${matchedBooking.bookingCode}:`, JSON.stringify(result));
+        const welcomeResult = await sendWelcomeEmail({
+          name: name || (matchedBooking.residentDetails as any)?.name || matchedBooking.walkInName || "Resident",
+          email: email || (matchedBooking.residentDetails as any)?.email || matchedBooking.walkInEmail || "",
+          phone, room, propertyCode, moveInDate, checkOutDate, bookingCode: matchedBooking.bookingCode || bookingCode,
+          amountPaid: amountPaid || 0, paymentDate,
+        }, matchedBooking);
+        console.log(`[Sync First Payment] Welcome email result for ${matchedBooking.bookingCode}:`, JSON.stringify(welcomeResult));
 
-        return res.json({ success: true, bookingCode: matchedBooking.bookingCode, emailSent: result.success });
+        return res.json({ success: true, bookingCode: matchedBooking.bookingCode, emailSent: welcomeResult.success, emailError: welcomeResult.error || null });
       }
 
-      const result = await sendParentBookingConfirmationEmail(booking, amountPaid || 0);
-      console.log(`[Sync First Payment] Parent email result for ${bookingCode}:`, JSON.stringify(result));
+      const welcomeResult = await sendWelcomeEmail({
+        name: name || (booking.residentDetails as any)?.name || booking.walkInName || "Resident",
+        email: email || (booking.residentDetails as any)?.email || booking.walkInEmail || "",
+        phone, room, propertyCode, moveInDate, checkOutDate, bookingCode,
+        amountPaid: amountPaid || 0, paymentDate,
+      }, booking);
+      console.log(`[Sync First Payment] Welcome email result for ${bookingCode}:`, JSON.stringify(welcomeResult));
 
-      res.json({ success: true, bookingCode, emailSent: result.success, emailError: result.error || null });
+      res.json({ success: true, bookingCode, emailSent: welcomeResult.success, emailError: welcomeResult.error || null });
     } catch (error: any) {
       console.error("[Sync First Payment] Error:", error.message);
       res.status(500).json({ error: error.message });
