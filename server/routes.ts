@@ -14,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendBookingConfirmationEmail, sendParentBookingConfirmationEmail } from "./email-service";
+import { sendParentBookingConfirmationEmail } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -3597,10 +3597,6 @@ export async function registerRoutes(
       const confirmed = await storage.confirmBooking(req.params.id, approvedBy);
 
       if (confirmed && confirmed.status === "confirmed") {
-        sendBookingConfirmationEmail(confirmed).catch(err => {
-          console.error("[Email] Background email send failed:", err);
-        });
-
         autoSyncBookingToHMS(confirmed).catch(err => {
           console.error("[HMS Auto-Sync] Background sync failed:", err);
         });
@@ -3690,12 +3686,6 @@ export async function registerRoutes(
           if (updatedBooking) {
             const allPayments = await storage.getPaymentsByBooking(bookingId);
             const successPayments = allPayments.filter(p => p.status === "success");
-            if (successPayments.length === 1) {
-              sendBookingConfirmationEmail(updatedBooking).catch(err => {
-                console.error("[Email] Background resident email after online payment failed:", err);
-              });
-            }
-
             sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
               console.error("[Email] Background parent email after online payment failed:", err);
             });
@@ -3888,10 +3878,6 @@ export async function registerRoutes(
       const latestBooking = await storage.getBooking(booking.id);
       if (latestBooking) {
         if (previousSuccessful.length === 0) {
-          sendBookingConfirmationEmail(latestBooking).catch(err => {
-            console.error("[Email] Background resident email after first payment failed:", err);
-          });
-
           autoSyncBookingToHMS(latestBooking).catch(err => {
             console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
           });
