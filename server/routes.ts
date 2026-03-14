@@ -4872,15 +4872,19 @@ export async function registerRoutes(
               const pkgItem = housingPkgItems.find(i => i.type === svc.type);
               let effectiveMealCount = svc.type === "meals" && pkgItem ? (pkgItem.includedQty || 0) : 0;
               let effectiveFeature = pkgItem?.featureValue || null;
-              if (svc.type === "meals") {
-                for (const abp of allActiveBps) {
-                  const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
-                  if (abpPkg?.category === "addon_service") {
-                    const addonItems = abp.packageId ? (packageItemsMap.get(abp.packageId) || []) : [];
-                    const addonMealItem = addonItems.find(i => i.type === "meals");
-                    if (addonMealItem && (addonMealItem.includedQty || 0) > effectiveMealCount) {
-                      effectiveMealCount = addonMealItem.includedQty || 0;
-                      effectiveFeature = addonMealItem.featureValue || effectiveFeature;
+              for (const abp of allActiveBps) {
+                const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
+                if (abpPkg?.category === "addon_service") {
+                  const addonItems = abp.packageId ? (packageItemsMap.get(abp.packageId) || []) : [];
+                  const addonItem = addonItems.find(i => i.type === svc.type);
+                  if (addonItem) {
+                    if (svc.type === "meals") {
+                      if ((addonItem.includedQty || 0) > effectiveMealCount) {
+                        effectiveMealCount = addonItem.includedQty || 0;
+                        effectiveFeature = addonItem.featureValue || effectiveFeature;
+                      }
+                    } else {
+                      effectiveFeature = addonItem.featureValue || effectiveFeature;
                     }
                   }
                 }
@@ -5112,15 +5116,19 @@ export async function registerRoutes(
             const pkgItem = housingPkgItems.find(i => i.type === svc.type);
             let effectiveMealCount = svc.type === "meals" && pkgItem ? (pkgItem.includedQty || 0) : 0;
             let effectiveFeature = pkgItem?.featureValue || null;
-            if (svc.type === "meals") {
-              for (const abp of allActiveBps) {
-                const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
-                if (abpPkg?.category === "addon_service") {
-                  const addonItems = abp.packageId ? (singlePkgItemsMap.get(abp.packageId) || []) : [];
-                  const addonMealItem = addonItems.find(i => i.type === "meals");
-                  if (addonMealItem && (addonMealItem.includedQty || 0) > effectiveMealCount) {
-                    effectiveMealCount = addonMealItem.includedQty || 0;
-                    effectiveFeature = addonMealItem.featureValue || effectiveFeature;
+            for (const abp of allActiveBps) {
+              const abpPkg = abp.packageId ? packageMap.get(abp.packageId) : null;
+              if (abpPkg?.category === "addon_service") {
+                const addonItems = abp.packageId ? (singlePkgItemsMap.get(abp.packageId) || []) : [];
+                const addonItem = addonItems.find(i => i.type === svc.type);
+                if (addonItem) {
+                  if (svc.type === "meals") {
+                    if ((addonItem.includedQty || 0) > effectiveMealCount) {
+                      effectiveMealCount = addonItem.includedQty || 0;
+                      effectiveFeature = addonItem.featureValue || effectiveFeature;
+                    }
+                  } else {
+                    effectiveFeature = addonItem.featureValue || effectiveFeature;
                   }
                 }
               }

@@ -1470,16 +1470,18 @@ export default function CompletedBookings() {
                         let pkgSvcFeature = pkgSvcItem?.featureValue;
                         let pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
                         
-                        if (svc.type === "meals") {
-                          const addonMealPkgs = allActivePkgs.filter((bp: any) => bp.package?.category === "addon_service");
-                          for (const addonBp of addonMealPkgs) {
-                            const addonMealItem = addonBp.package?.items?.find((i: any) => i.type === "meals");
-                            if (addonMealItem) {
-                              const addonCount = addonMealItem.includedQty || 0;
+                        const addonPkgs = allActivePkgs.filter((bp: any) => bp.package?.category === "addon_service");
+                        for (const addonBp of addonPkgs) {
+                          const addonItem = addonBp.package?.items?.find((i: any) => i.type === svc.type);
+                          if (addonItem) {
+                            if (svc.type === "meals") {
+                              const addonCount = addonItem.includedQty || 0;
                               if (addonCount > pkgMealCount) {
                                 pkgMealCount = addonCount;
-                                pkgSvcFeature = addonMealItem.featureValue || pkgSvcFeature;
+                                pkgSvcFeature = addonItem.featureValue || pkgSvcFeature;
                               }
+                            } else {
+                              pkgSvcFeature = addonItem.featureValue || pkgSvcFeature;
                             }
                           }
                         }
