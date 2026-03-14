@@ -4857,6 +4857,49 @@ export async function registerRoutes(
             refType: w.refType,
             createdAt: w.createdAt,
           })),
+          includedServices: (() => {
+            const propertyServices: any[] = Array.isArray(prop?.includedServices) ? prop.includedServices : [];
+            const activeBp = bPackages.find(bp => bp.status === "ACTIVE");
+            const activePkgItems = activeBp?.packageId ? (packageItemsMap.get(activeBp.packageId) || []) : [];
+            const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
+            const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+
+            return propertyServices.map((svc: any) => {
+              const pkgItem = activePkgItems.find(i => i.type === svc.type);
+              if (svc.type === "meals" && svc.schedule) {
+                const pkgMealCount = pkgItem?.includedQty || 0;
+                const mergeMeals = (dayRules: any) => {
+                  if (!dayRules) return { count: pkgMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
+                  let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+                  const baseCount = dayRules.count ?? meals.length;
+                  if (pkgMealCount > 0 && pkgMealCount > baseCount) {
+                    const missing = ALL_MEALS.filter(m => !meals.includes(m));
+                    meals = [...meals, ...missing.slice(0, pkgMealCount - baseCount)];
+                    meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
+                  }
+                  const finalCount = Math.max(baseCount, pkgMealCount > 0 ? pkgMealCount : baseCount);
+                  return { count: finalCount, meals, mealLabels: meals.map(m => MEAL_LABELS[m] || m) };
+                };
+                return {
+                  type: svc.type,
+                  label: svc.label,
+                  description: svc.description || null,
+                  packageFeature: pkgItem?.featureValue || null,
+                  schedule: {
+                    weekday: mergeMeals(svc.schedule.weekday),
+                    saturday: mergeMeals(svc.schedule.saturday),
+                    sunday: mergeMeals(svc.schedule.sunday),
+                  },
+                };
+              }
+              return {
+                type: svc.type,
+                label: svc.label,
+                description: svc.description || null,
+                packageFeature: pkgItem?.featureValue || null,
+              };
+            });
+          })(),
           agreement: {
             generated: b.agreementGenerated || false,
             url: b.agreementUrl || null,
@@ -5036,6 +5079,50 @@ export async function registerRoutes(
           refType: w.refType,
           createdAt: w.createdAt,
         })),
+        includedServices: (() => {
+          const propertyServices: any[] = Array.isArray(prop?.includedServices) ? prop.includedServices : [];
+          const activeBp = bPackages.find(bp => bp.status === "ACTIVE");
+          const activePkg = activeBp?.packageId ? packageMap.get(activeBp.packageId) : null;
+          const activePkgItems = activeBp?.packageId ? (singlePkgItemsMap.get(activeBp.packageId) || []) : [];
+          const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
+          const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+
+          return propertyServices.map((svc: any) => {
+            const pkgItem = activePkgItems.find(i => i.type === svc.type);
+            if (svc.type === "meals" && svc.schedule) {
+              const pkgMealCount = pkgItem?.includedQty || 0;
+              const mergeMeals = (dayRules: any) => {
+                if (!dayRules) return { count: pkgMealCount || 0, meals: [] as string[], mealLabels: [] as string[] };
+                let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+                const baseCount = dayRules.count ?? meals.length;
+                if (pkgMealCount > 0 && pkgMealCount > baseCount) {
+                  const missing = ALL_MEALS.filter(m => !meals.includes(m));
+                  meals = [...meals, ...missing.slice(0, pkgMealCount - baseCount)];
+                  meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
+                }
+                const finalCount = Math.max(baseCount, pkgMealCount > 0 ? pkgMealCount : baseCount);
+                return { count: finalCount, meals, mealLabels: meals.map(m => MEAL_LABELS[m] || m) };
+              };
+              return {
+                type: svc.type,
+                label: svc.label,
+                description: svc.description || null,
+                packageFeature: pkgItem?.featureValue || null,
+                schedule: {
+                  weekday: mergeMeals(svc.schedule.weekday),
+                  saturday: mergeMeals(svc.schedule.saturday),
+                  sunday: mergeMeals(svc.schedule.sunday),
+                },
+              };
+            }
+            return {
+              type: svc.type,
+              label: svc.label,
+              description: svc.description || null,
+              packageFeature: pkgItem?.featureValue || null,
+            };
+          });
+        })(),
         agreement: {
           generated: booking.agreementGenerated || false,
           url: booking.agreementUrl || null,
