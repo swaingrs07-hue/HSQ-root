@@ -33,6 +33,14 @@ export function getPropertyCode(propertyName: string): string | null {
   return null;
 }
 
+export function resolvePublicUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 interface HMSSyncData {
   name: string;
   email?: string;
@@ -57,6 +65,9 @@ interface HMSSyncData {
   studentEmail?: string;
   bookingDate?: string;
   accessLevel?: string;
+  idProofUrl?: string;
+  photoUrl?: string;
+  documentUrls?: string[];
 }
 
 export async function syncBookingToHMS(bookingData: HMSSyncData): Promise<{

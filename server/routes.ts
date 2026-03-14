@@ -4589,7 +4589,20 @@ export async function registerRoutes(
         return;
       }
 
-      const syncData = {
+      const { resolvePublicUrl } = await import("./hms-sync.js");
+
+      const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
+      const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
+      const documentUrls: string[] = [];
+      const rawDocs = rd?.documentUrls || rd?.documents || [];
+      if (Array.isArray(rawDocs)) {
+        for (const doc of rawDocs) {
+          const resolved = resolvePublicUrl(typeof doc === "string" ? doc : doc?.url);
+          if (resolved) documentUrls.push(resolved);
+        }
+      }
+
+      const syncData: any = {
         name,
         email: email || undefined,
         phone,
@@ -4614,6 +4627,10 @@ export async function registerRoutes(
         bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
         accessLevel: "FULL",
       };
+
+      if (idProofUrl) syncData.idProofUrl = idProofUrl;
+      if (photoUrl) syncData.photoUrl = photoUrl;
+      if (documentUrls.length > 0) syncData.documentUrls = documentUrls;
 
       const result = await syncBookingToHMS(syncData);
 
@@ -5597,7 +5614,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const residentEmail = email || rd?.email || booking.walkInEmail || "";
       const residentPhone = phone || rd?.phone || booking.walkInPhone || "";
 
-      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+      const { syncBookingToHMS, getPropertyCode, resolvePublicUrl } = await import("./hms-sync.js");
 
       let resolvedPropertyCode = propertyCode || "";
       if (!resolvedPropertyCode && booking.propertyId) {
@@ -5605,6 +5622,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         if (property?.name) {
           resolvedPropertyCode = getPropertyCode(property.name) || property.propertyCode || property.name;
         }
+      }
+
+      let studentData: any = null;
+      if (booking.studentId) {
+        const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
+        studentData = student || null;
       }
 
       const syncData: any = {
@@ -5628,6 +5651,20 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (rd?.dateOfBirth) syncData.dateOfBirth = rd.dateOfBirth;
       if (rd?.homeAddress || rd?.address) syncData.homeAddress = rd.homeAddress || rd.address;
       if (rd?.dietary) syncData.dietary = rd.dietary;
+
+      const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
+      const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
+      if (idProofUrl) syncData.idProofUrl = idProofUrl;
+      if (photoUrl) syncData.photoUrl = photoUrl;
+      const rawDocs = rd?.documentUrls || rd?.documents || [];
+      if (Array.isArray(rawDocs) && rawDocs.length > 0) {
+        const docUrls: string[] = [];
+        for (const doc of rawDocs) {
+          const resolved = resolvePublicUrl(typeof doc === "string" ? doc : doc?.url);
+          if (resolved) docUrls.push(resolved);
+        }
+        if (docUrls.length > 0) syncData.documentUrls = docUrls;
+      }
 
       console.log(`[Sync First Payment] Creating/syncing resident in HMS for ${resolvedBookingCode}...`);
       const syncResult = await syncBookingToHMS(syncData);
