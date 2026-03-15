@@ -5695,6 +5695,210 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.post("/sync/wallet-debit", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { bookingCode, phone, amount, orderId, orderType, itemName, note, eventId } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Valid positive amount is required" });
+      }
+      if (!bookingCode && !phone) {
+        return res.status(400).json({ error: "bookingCode or phone is required" });
+      }
+
+      console.log(`[Sync Wallet Debit] Received: bookingCode=${bookingCode}, amount=${amount}, orderId=${orderId}, eventId=${eventId || "none"}`);
+
+      let booking: any = null;
+      if (bookingCode) {
+        const [match] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, bookingCode));
+        booking = match || null;
+      }
+      if (!booking && phone) {
+        const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} IN ('confirmed', 'active')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          }) || null;
+        }
+      }
+
+      if (!booking) {
+        return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+      }
+
+      const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
+      const balance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+
+      if (amount > balance) {
+        console.warn(`[Sync Wallet Debit] Insufficient balance for ${booking.bookingCode}: balance=${balance}, requested=${amount}`);
+        return res.status(400).json({
+          error: "Insufficient wallet balance",
+          currentBalance: balance,
+          requestedAmount: amount,
+          bookingCode: booking.bookingCode,
+        });
+      }
+
+      const debitNote = note || `À la carte order${orderId ? ` #${orderId}` : ""}${itemName ? `: ${itemName}` : ""}`;
+
+      const [entry] = await db.insert(schema.walletLedger).values({
+        bookingId: booking.id,
+        credit: 0,
+        debit: amount,
+        refType: orderType || "alacarte_order",
+        refId: orderId || null,
+        note: debitNote,
+      }).returning();
+
+      const newBalance = balance - amount;
+      console.log(`[Sync Wallet Debit] Debited ₹${amount} from ${booking.bookingCode}, new balance: ₹${newBalance}`);
+
+      res.json({
+        success: true,
+        bookingCode: booking.bookingCode,
+        debitedAmount: amount,
+        previousBalance: balance,
+        newBalance,
+        ledgerEntryId: entry.id,
+      });
+    } catch (error: any) {
+      console.error("[Sync Wallet Debit] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/sync/wallet-credit", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { bookingCode, phone, amount, orderId, reason, note, eventId } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Valid positive amount is required" });
+      }
+      if (!bookingCode && !phone) {
+        return res.status(400).json({ error: "bookingCode or phone is required" });
+      }
+
+      console.log(`[Sync Wallet Credit] Received: bookingCode=${bookingCode}, amount=${amount}, orderId=${orderId}, reason=${reason}, eventId=${eventId || "none"}`);
+
+      let booking: any = null;
+      if (bookingCode) {
+        const [match] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, bookingCode));
+        booking = match || null;
+      }
+      if (!booking && phone) {
+        const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} IN ('confirmed', 'active')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          }) || null;
+        }
+      }
+
+      if (!booking) {
+        return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+      }
+
+      const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
+      const balance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+
+      const creditNote = note || `Refund${orderId ? ` for order #${orderId}` : ""}${reason ? ` — ${reason}` : ""}`;
+
+      const refType = reason === "order_cancel" ? "order_refund" :
+                      reason === "order_reject" ? "order_refund" :
+                      reason || "manual_credit";
+
+      const [entry] = await db.insert(schema.walletLedger).values({
+        bookingId: booking.id,
+        credit: amount,
+        debit: 0,
+        refType,
+        refId: orderId || null,
+        note: creditNote,
+      }).returning();
+
+      const newBalance = balance + amount;
+      console.log(`[Sync Wallet Credit] Credited ₹${amount} to ${booking.bookingCode}, new balance: ₹${newBalance}`);
+
+      res.json({
+        success: true,
+        bookingCode: booking.bookingCode,
+        creditedAmount: amount,
+        previousBalance: balance,
+        newBalance,
+        ledgerEntryId: entry.id,
+      });
+    } catch (error: any) {
+      console.error("[Sync Wallet Credit] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/sync/wallet-balance", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { bookingCode, phone } = req.query;
+
+      if (!bookingCode && !phone) {
+        return res.status(400).json({ error: "bookingCode or phone query param is required" });
+      }
+
+      let booking: any = null;
+      if (bookingCode) {
+        const [match] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, String(bookingCode)));
+        booking = match || null;
+      }
+      if (!booking && phone) {
+        const phone10 = String(phone || "").replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} IN ('confirmed', 'active')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          }) || null;
+        }
+      }
+
+      if (!booking) {
+        return res.status(404).json({ error: `Booking not found` });
+      }
+
+      const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
+      const balance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+
+      res.json({
+        bookingCode: booking.bookingCode,
+        balance,
+        totalCredits: entries.reduce((acc: number, e: any) => acc + e.credit, 0),
+        totalDebits: entries.reduce((acc: number, e: any) => acc + e.debit, 0),
+        transactionCount: entries.length,
+        recentTransactions: entries.slice(0, 10).map((e: any) => ({
+          id: e.id,
+          credit: e.credit,
+          debit: e.debit,
+          refType: e.refType,
+          refId: e.refId,
+          note: e.note,
+          createdAt: e.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error("[Sync Wallet Balance] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
