@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && user.role === "receptionist" && (location.includes("/booking/generate") || location.includes("/add-property") || location.includes("/settings") || location.includes("/users") || location.includes("/hero-slides") || location.includes("/footer-settings") || location.includes("/logo-control") || location.includes("/amenities") || location.includes("/data-export") || location.includes("/hms-sync") || location.includes("/packages") || location.includes("/addon-services") || location.includes("/seasons") || location.includes("/leads") || location.includes("/lead-analytics") || location.includes("/sales-management") || location.includes("/activity-logs") || location.includes("/ai-chatbot") || location.includes("/virtual-tour"))) {
+    if (user && user.role === "receptionist" && (location.includes("/add-property") || location.includes("/settings") || location.includes("/users") || location.includes("/hero-slides") || location.includes("/footer-settings") || location.includes("/logo-control") || location.includes("/amenities") || location.includes("/data-export") || location.includes("/hms-sync") || location.includes("/packages") || location.includes("/addon-services") || location.includes("/seasons") || location.includes("/leads") || location.includes("/lead-analytics") || location.includes("/sales-management") || location.includes("/activity-logs") || location.includes("/ai-chatbot") || location.includes("/virtual-tour"))) {
       setLocation("/admin");
       return;
     }
