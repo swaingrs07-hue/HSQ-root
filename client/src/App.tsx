@@ -60,7 +60,8 @@ function AppContent() {
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || isResetPasswordPage;
   const isAdminRoute = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate");
   const isSalesExec = user?.role === "sales_executive";
-  const useAdminLayout = (isAdmin || isSalesExec) && isAdminRoute;
+  const isReceptionist = user?.role === "receptionist";
+  const useAdminLayout = (isAdmin || isSalesExec || isReceptionist) && isAdminRoute;
 
   return (
     <Switch>
