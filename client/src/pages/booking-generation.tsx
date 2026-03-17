@@ -223,6 +223,7 @@ export default function BookingGeneration() {
 
   const isAdmin = user?.role === "admin";
   const isSalesExec = user?.role === "sales_executive";
+  const isReceptionist = user?.role === "receptionist";
   const isRegularUser = user?.role === "user" || user?.role === "student";
   const maxDiscountPercent = isSalesExec ? 10 : 100;
   const getAuthToken = () => token || "";
@@ -305,7 +306,7 @@ export default function BookingGeneration() {
     fetchProperties();
     if (isSalesExec && user?.id) {
       fetchAssignedLeads();
-    } else if (isAdmin) {
+    } else if (isAdmin || isReceptionist) {
       fetchAllLeads();
     }
   }, [user]);
@@ -1111,8 +1112,8 @@ export default function BookingGeneration() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[
                         { value: "walk_in", label: "Walk-in Customer", desc: "New walk-in visitor", icon: User },
-                        ...((isAdmin || isSalesExec) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
-                        ...(isAdmin ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
+                        ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
+                        ...((isAdmin || isReceptionist) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
                       ].map(opt => {
                         const OptIcon = opt.icon;
                         const selected = formData.customerType === opt.value;
