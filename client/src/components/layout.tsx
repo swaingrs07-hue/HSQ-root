@@ -131,6 +131,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeFooterLogo = logoSettings?.footerLogo || logoSettings?.headerLogo || hsquareLogo;
 
   const isSalesExec = user?.role === "sales_executive";
+  const isReceptionist = user?.role === "receptionist";
 
   const navItems = isAdmin 
     ? [
@@ -138,6 +139,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
         { name: "Sales Team", href: "/admin/sales-management", icon: Users },
+      ]
+    : isReceptionist
+    ? [
+        { name: "Home", href: "/", icon: Home },
+        { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+        { name: "Properties", href: "/properties", icon: Building2 },
       ]
     : isSalesExec
     ? [

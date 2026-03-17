@@ -111,7 +111,6 @@ const adminNavItems: NavItem[] = [
 ];
 
 const receptionistNavItems: NavItem[] = [
-  { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
   { name: "Bookings", href: "/admin/bookings/completed", icon: CalendarCheck },
