@@ -81,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (user && (user.role === "admin" || user.role === "receptionist") && (location === "/" || isAuthRoute)) {
+      setLocation("/admin");
+      return;
+    }
+
     if (user && isAdminRoute && user.role !== "admin" && user.role !== "receptionist") {
       setLocation(getRedirectPath());
       return;
