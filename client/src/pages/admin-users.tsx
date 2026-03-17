@@ -58,7 +58,7 @@ interface User {
   name: string;
   email: string;
   phone: string | null;
-  role: "admin" | "sales_executive" | "student" | "user";
+  role: "admin" | "sales_executive" | "student" | "user" | "receptionist";
   isActive: boolean;
   createdAt: string;
   assignedProperties?: any[];
@@ -88,7 +88,7 @@ function AdminUsersContent() {
   const [deleting, setDeleting] = useState(false);
   
   const [createForm, setCreateForm] = useState({ name: "", email: "", phone: "", password: "", role: "sales_executive" });
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "" });
   
   const [dependencies, setDependencies] = useState<{
     leads: number;
@@ -203,7 +203,7 @@ function AdminUsersContent() {
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
-    setEditForm({ name: user.name, email: user.email, phone: user.phone || "" });
+    setEditForm({ name: user.name, email: user.email, phone: user.phone || "", role: user.role });
     setEditDialogOpen(true);
   };
 
@@ -320,6 +320,8 @@ function AdminUsersContent() {
         return <Badge className="bg-purple-500 text-white"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
       case "sales_executive":
         return <Badge className="bg-blue-500 text-white"><Users className="h-3 w-3 mr-1" /> Sales</Badge>;
+      case "receptionist":
+        return <Badge className="bg-teal-500 text-white">Receptionist</Badge>;
       case "student":
         return <Badge className="bg-emerald-500 text-white">Student</Badge>;
       default:
@@ -588,6 +590,7 @@ function AdminUsersContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
+                  <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="user">Regular User</SelectItem>
                 </SelectContent>
@@ -640,6 +643,20 @@ function AdminUsersContent() {
                 onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
                 data-testid="input-edit-phone"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={editForm.role} onValueChange={(v) => setEditForm({...editForm, role: v})}>
+                <SelectTrigger id="edit-role" data-testid="select-edit-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales_executive">Sales Executive</SelectItem>
+                  <SelectItem value="receptionist">Receptionist</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">Regular User</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
