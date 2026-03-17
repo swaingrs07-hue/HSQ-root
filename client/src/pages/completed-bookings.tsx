@@ -125,6 +125,7 @@ export default function CompletedBookings() {
   const queryClient = useQueryClient();
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin";
+  const isReceptionist = user?.role === "receptionist";
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
@@ -884,21 +885,23 @@ export default function CompletedBookings() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+        {!isReceptionist && (
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Revenue</p>
+                  <p className="text-xl font-bold text-slate-900" data-testid="text-total-revenue">
+                    ₹{totalRevenue.toLocaleString("en-IN")}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Revenue</p>
-                <p className="text-xl font-bold text-slate-900" data-testid="text-total-revenue">
-                  ₹{totalRevenue.toLocaleString("en-IN")}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -1073,9 +1076,11 @@ export default function CompletedBookings() {
 
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
-                          ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
-                        </p>
+                        {!isReceptionist && (
+                          <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
+                            ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                          </p>
+                        )}
                         <p className="text-xs text-slate-400">
                           {booking.createdAt ? format(new Date(booking.createdAt), "dd MMM yyyy") : ""}
                         </p>
@@ -1244,27 +1249,29 @@ export default function CompletedBookings() {
                 );
               })()}
 
-              <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
-                <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
-                  <CreditCard className="h-3.5 w-3.5" /> Payment Summary
-                </h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-xs text-slate-500">Base Fee</p>
-                    <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Discount</p>
-                    <p className="text-sm font-bold text-green-600">
-                      {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="text-lg font-bold text-indigo-700">₹{(selectedBooking.totalFee || 0).toLocaleString("en-IN")}</p>
+              {!isReceptionist && (
+                <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
+                  <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
+                    <CreditCard className="h-3.5 w-3.5" /> Payment Summary
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-xs text-slate-500">Base Fee</p>
+                      <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Discount</p>
+                      <p className="text-sm font-bold text-green-600">
+                        {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Total</p>
+                      <p className="text-lg font-bold text-indigo-700">₹{(selectedBooking.totalFee || 0).toLocaleString("en-IN")}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <span className="flex items-center gap-1.5">
@@ -1352,7 +1359,7 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {(selectedBooking.installments || []).length > 0 && (
+              {!isReceptionist && (selectedBooking.installments || []).length > 0 && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
                   <div className="space-y-2">
@@ -1388,7 +1395,7 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {(selectedBooking.payments || []).length > 0 && (
+              {!isReceptionist && (selectedBooking.payments || []).length > 0 && (
                 <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
                   <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
                   <div className="space-y-2">
@@ -1763,16 +1770,18 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                onClick={() => downloadAdminReceipt(selectedBooking)}
-                data-testid="button-admin-download-pdf"
-              >
-                <Download className="h-4 w-4" />
-                Download Receipt (PDF)
-              </Button>
+              {!isReceptionist && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  onClick={() => downloadAdminReceipt(selectedBooking)}
+                  data-testid="button-admin-download-pdf"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Receipt (PDF)
+                </Button>
+              )}
 
               {isAdmin && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">

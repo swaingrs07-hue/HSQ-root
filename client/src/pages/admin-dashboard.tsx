@@ -19,6 +19,7 @@ import type { Lead } from "@shared/schema";
 import { LeadsTrendChart, PropertyBookingsChart, SalesPerformanceChart, LeadSourcePieChart } from "@/components/animated-charts";
 import { FadeInView, StaggeredList, StaggeredItem } from "@/components/motion-primitives";
 import TargetAchievementTab from "@/components/target-achievement-tab";
+import { useAuth } from "@/contexts/auth-context";
 
 function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number | string; prefix?: string; suffix?: string }) {
   const numValue = typeof value === "string" ? parseFloat(value) : value;
@@ -110,6 +111,8 @@ function KPICard({
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isReceptionist = user?.role === "receptionist";
   const [, setLocation] = useLocation();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [stats, setStats] = useState({
@@ -930,48 +933,56 @@ export default function AdminDashboard() {
           >
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Overview
           </Button>
-          <Button 
-            variant={activeTab === "properties" ? "default" : "ghost"}
-            size="sm"
-            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "properties" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
-            onClick={() => setActiveTab("properties")}
-            data-testid="tab-properties"
-          >
-            <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Properties
-          </Button>
-          <Button 
-            variant={activeTab === "leads" ? "default" : "ghost"}
-            size="sm"
-            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "leads" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
-            onClick={() => setActiveTab("leads")}
-            data-testid="tab-leads"
-          >
-            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Leads
-          </Button>
-          <Button 
-            variant={activeTab === "approvals" ? "default" : "ghost"}
-            className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
-            onClick={() => setActiveTab("approvals")}
-            data-testid="tab-approvals"
-          >
-            <AlertTriangle className="h-4 w-4" /> Approvals
-            {pendingApprovals.length > 0 && (
-              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                {pendingApprovals.length}
-              </Badge>
-            )}
-          </Button>
-          <Button 
-            variant={activeTab === "targets" ? "default" : "ghost"}
-            size="sm"
-            className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "targets" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
-            onClick={() => setActiveTab("targets")}
-            data-testid="tab-targets"
-          >
-            <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Target & Achievement
-          </Button>
+          {!isReceptionist && (
+            <Button 
+              variant={activeTab === "properties" ? "default" : "ghost"}
+              size="sm"
+              className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "properties" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+              onClick={() => setActiveTab("properties")}
+              data-testid="tab-properties"
+            >
+              <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Properties
+            </Button>
+          )}
+          {!isReceptionist && (
+            <Button 
+              variant={activeTab === "leads" ? "default" : "ghost"}
+              size="sm"
+              className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "leads" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+              onClick={() => setActiveTab("leads")}
+              data-testid="tab-leads"
+            >
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Leads
+            </Button>
+          )}
+          {!isReceptionist && (
+            <Button 
+              variant={activeTab === "approvals" ? "default" : "ghost"}
+              className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+              onClick={() => setActiveTab("approvals")}
+              data-testid="tab-approvals"
+            >
+              <AlertTriangle className="h-4 w-4" /> Approvals
+              {pendingApprovals.length > 0 && (
+                <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {pendingApprovals.length}
+                </Badge>
+              )}
+            </Button>
+          )}
+          {!isReceptionist && (
+            <Button 
+              variant={activeTab === "targets" ? "default" : "ghost"}
+              size="sm"
+              className={`gap-1.5 shrink-0 text-xs sm:text-sm ${activeTab === "targets" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+              onClick={() => setActiveTab("targets")}
+              data-testid="tab-targets"
+            >
+              <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Target & Achievement
+            </Button>
+          )}
         </div>
-        {activeTab === "overview" && (
+        {activeTab === "overview" && !isReceptionist && (
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2 border-slate-200 hover:bg-slate-50" data-testid="button-download-report">
               <FileText className="h-4 w-4" /> Export
@@ -1064,28 +1075,32 @@ export default function AdminDashboard() {
                     trendValue={bookingsTrend.value}
                     loading={loading}
                   />
-                  <KPICard
-                    title="Revenue"
-                    value={revenueDisplay.value}
-                    prefix={revenueDisplay.prefix}
-                    suffix={revenueDisplay.suffix}
-                    icon={CreditCard}
-                    gradient="bg-gradient-to-br from-violet-500 to-violet-600"
-                    trend={revenueTrend.trend}
-                    trendValue={revenueTrend.value}
-                    loading={loading}
-                  />
-                  <KPICard
-                    title="Pending Payments"
-                    value={pendingDisplay.value}
-                    prefix={pendingDisplay.prefix}
-                    suffix={pendingDisplay.suffix}
-                    icon={Clock}
-                    gradient="bg-gradient-to-br from-amber-500 to-amber-600"
-                    trend={stats.pendingPayments > 0 ? "down" : "neutral"}
-                    trendValue={stats.pendingPayments > 0 ? "Pending collection" : "All clear"}
-                    loading={loading}
-                  />
+                  {!isReceptionist && (
+                    <KPICard
+                      title="Revenue"
+                      value={revenueDisplay.value}
+                      prefix={revenueDisplay.prefix}
+                      suffix={revenueDisplay.suffix}
+                      icon={CreditCard}
+                      gradient="bg-gradient-to-br from-violet-500 to-violet-600"
+                      trend={revenueTrend.trend}
+                      trendValue={revenueTrend.value}
+                      loading={loading}
+                    />
+                  )}
+                  {!isReceptionist && (
+                    <KPICard
+                      title="Pending Payments"
+                      value={pendingDisplay.value}
+                      prefix={pendingDisplay.prefix}
+                      suffix={pendingDisplay.suffix}
+                      icon={Clock}
+                      gradient="bg-gradient-to-br from-amber-500 to-amber-600"
+                      trend={stats.pendingPayments > 0 ? "down" : "neutral"}
+                      trendValue={stats.pendingPayments > 0 ? "Pending collection" : "All clear"}
+                      loading={loading}
+                    />
+                  )}
                 </div>
 
                 {/* System Status Card */}

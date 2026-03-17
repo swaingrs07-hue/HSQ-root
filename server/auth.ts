@@ -84,6 +84,7 @@ export function roleMiddleware(...allowedRoles: UserRole[]) {
 export function getRoleRedirectPath(role: UserRole): string {
   switch (role) {
     case "admin":
+    case "receptionist":
       return "/admin";
     case "manager":
     case "staff":

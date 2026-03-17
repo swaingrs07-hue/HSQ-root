@@ -8913,7 +8913,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ==========================================
 
   // Get full booking tree for a property (property → floors → rooms → beds with booking info)
-  app.get("/api/admin/properties/:id/booking-tree", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/properties/:id/booking-tree", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
 
@@ -9262,7 +9262,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Get unassigned bookings (bookings without a bed) for a property
-  app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
 

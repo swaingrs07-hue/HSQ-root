@@ -30,10 +30,11 @@ Preferred communication style: Simple, everyday language.
 - **Key Entities**: Users, students, properties, rooms, bookings, payments, audit logs, leads, sales activities, packages.
 
 ### Authentication & Authorization
-- **Roles**: "user", "admin", "sales_executive", "student".
+- **Roles**: "user", "admin", "manager", "staff", "sales_executive", "receptionist".
 - **Session Management**: Express sessions with `connect-pg-simple`.
 - **Security**: Hashed passwords.
 - **Access Control**: Role-based via frontend route protection and backend middleware.
+- **Receptionist Role**: Limited admin access for front-desk staff — can view dashboard (without financial KPIs), manage bookings, view requests board, calendar, floors & beds, and booking tree. Cannot see revenue, pending payments, discounts, targets, reports, settings, or any system configuration. Financial data hidden on both frontend and backend.
 
 ### Core Features
 - **Sales Executive Panel**: Admin functions for sales executive and lead management, including lead sourcing, assignment, activity logging, follow-up systems, and deal closure.

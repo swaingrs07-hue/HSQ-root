@@ -109,6 +109,16 @@ const adminNavItems: NavItem[] = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
+const receptionistNavItems: NavItem[] = [
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Requests", href: "/admin/requests", icon: Kanban },
+  { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
+  { name: "Completed Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
+  { name: "Calendar", href: "/admin/calendar", icon: Calendar },
+  { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
+  { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
+];
+
 const salesNavItems: NavItem[] = [
   { name: "Dashboard", href: "/sales", icon: LayoutDashboard },
   { name: "Requests", href: "/sales/requests", icon: Kanban },
@@ -128,13 +138,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   
   const isSalesExec = user?.role === "sales_executive";
+  const isReceptionist = user?.role === "receptionist";
   const isMainAdmin = user?.email === "gyan@hsquareliving.com";
-  const navItems = isAdmin
-    ? [
-        ...adminNavItems,
-        ...(isMainAdmin ? [{ name: "Logo Control", href: "/admin/logo-control", icon: ImageIcon }] : []),
-      ]
-    : salesNavItems;
+  const navItems = isReceptionist
+    ? receptionistNavItems
+    : isAdmin
+      ? [
+          ...adminNavItems,
+          ...(isMainAdmin ? [{ name: "Logo Control", href: "/admin/logo-control", icon: ImageIcon }] : []),
+        ]
+      : salesNavItems;
   
   const userName = user?.name || "User";
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);

@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && isAdminRoute && user.role !== "admin") {
+    if (user && isAdminRoute && user.role !== "admin" && user.role !== "receptionist") {
       setLocation(getRedirectPath());
       return;
     }
@@ -205,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return "/auth";
     switch (user.role) {
       case "admin":
+      case "receptionist":
         return "/admin";
       case "manager":
       case "staff":
