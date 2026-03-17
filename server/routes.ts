@@ -3197,10 +3197,6 @@ export async function registerRoutes(
 
   app.post("/api/bookings/generate", async (req, res) => {
     try {
-      const currentUser = (req as any).user;
-      if (currentUser?.role === "receptionist") {
-        return res.status(403).json({ error: "Access denied. Receptionists cannot generate bookings." });
-      }
       const {
         customerType,
         studentId,
