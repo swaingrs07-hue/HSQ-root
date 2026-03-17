@@ -41,6 +41,7 @@ import {
   Link2,
   Sparkles,
   UtensilsCrossed,
+  Home,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -110,9 +111,10 @@ const adminNavItems: NavItem[] = [
 ];
 
 const receptionistNavItems: NavItem[] = [
+  { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
-  { name: "Completed Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
+  { name: "Bookings", href: "/admin/bookings/completed", icon: CalendarCheck },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
