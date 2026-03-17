@@ -885,8 +885,7 @@ export default function CompletedBookings() {
             </div>
           </CardContent>
         </Card>
-        {!isReceptionist && (
-          <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-200 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
@@ -901,7 +900,6 @@ export default function CompletedBookings() {
               </div>
             </CardContent>
           </Card>
-        )}
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -1076,11 +1074,9 @@ export default function CompletedBookings() {
 
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        {!isReceptionist && (
                           <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
                             ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
                           </p>
-                        )}
                         <p className="text-xs text-slate-400">
                           {booking.createdAt ? format(new Date(booking.createdAt), "dd MMM yyyy") : ""}
                         </p>
@@ -1115,7 +1111,7 @@ export default function CompletedBookings() {
                 <ClipboardCheck className="h-5 w-5 text-indigo-500" />
                 {isEditing ? "Edit Booking" : "Booking Details"}
               </span>
-              {isAdmin && selectedBooking && !isEditing && (
+              {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1249,8 +1245,7 @@ export default function CompletedBookings() {
                 );
               })()}
 
-              {!isReceptionist && (
-                <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
+              <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
                   <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
                     <CreditCard className="h-3.5 w-3.5" /> Payment Summary
                   </h4>
@@ -1271,7 +1266,6 @@ export default function CompletedBookings() {
                     </div>
                   </div>
                 </div>
-              )}
 
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <span className="flex items-center gap-1.5">
@@ -1317,7 +1311,7 @@ export default function CompletedBookings() {
                 <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-semibold text-blue-600 uppercase">Emergency / Parent Contact</h4>
-                    {isAdmin && selectedBooking.residentDetails.parentEmail && (
+                    {(isAdmin || isReceptionist) && selectedBooking.residentDetails.parentEmail && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1359,16 +1353,16 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {!isReceptionist && (selectedBooking.installments || []).length > 0 && (
+              {(selectedBooking.installments || []).length > 0 && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
                   <div className="space-y-2">
                     {selectedBooking.installments.map((inst: any, idx: number) => (
                       <div
                         key={inst.id || idx}
-                        className={`flex items-center justify-between text-sm p-2 rounded-lg -mx-1 ${!inst.paid && isAdmin ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
+                        className={`flex items-center justify-between text-sm p-2 rounded-lg -mx-1 ${!inst.paid && (isAdmin || isReceptionist) ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
                         onClick={() => {
-                          if (!inst.paid && isAdmin) openPaymentDialog(selectedBooking, inst);
+                          if (!inst.paid && (isAdmin || isReceptionist)) openPaymentDialog(selectedBooking, inst);
                         }}
                         data-testid={`installment-row-${idx}`}
                       >
@@ -1385,7 +1379,7 @@ export default function CompletedBookings() {
                               {inst.paid ? "PAID" : "PENDING"}
                             </Badge>
                           </div>
-                          {!inst.paid && isAdmin && (
+                          {!inst.paid && (isAdmin || isReceptionist) && (
                             <Banknote className="w-4 h-4 text-amber-500" />
                           )}
                         </div>
@@ -1395,7 +1389,7 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {!isReceptionist && (selectedBooking.payments || []).length > 0 && (
+              {(selectedBooking.payments || []).length > 0 && (
                 <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
                   <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
                   <div className="space-y-2">
@@ -1555,7 +1549,7 @@ export default function CompletedBookings() {
                 );
               })()}
 
-              {isAdmin && (
+              {(isAdmin || isReceptionist) && (
                 <div className="border border-indigo-100 rounded-xl overflow-hidden">
                   <button
                     className="w-full flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 transition-colors"
@@ -1770,8 +1764,7 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {!isReceptionist && (
-                <Button
+              <Button
                   variant="outline"
                   size="sm"
                   className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
@@ -1781,9 +1774,8 @@ export default function CompletedBookings() {
                   <Download className="h-4 w-4" />
                   Download Receipt (PDF)
                 </Button>
-              )}
 
-              {isAdmin && (
+              {(isAdmin || isReceptionist) && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">
                   {(selectedBooking.status === "pending_payment" || selectedBooking.status === "draft") && (
                     <Button

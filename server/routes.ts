@@ -3805,7 +3805,7 @@ export async function registerRoutes(
   });
 
   // Admin mark payment done
-  app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
