@@ -1361,34 +1361,82 @@ export default function CompletedBookings() {
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
                   <div className="space-y-2">
-                    {selectedBooking.installments.map((inst: any, idx: number) => (
+                    {selectedBooking.installments.map((inst: any, idx: number) => {
+                      const linkedPayment = inst.paid && (selectedBooking.payments || []).find((p: any) => p.installmentId === inst.id && p.status === "success");
+                      const paidAmount = linkedPayment ? linkedPayment.amount : inst.amount;
+                      let linkedScreenshots: string[] = [];
+                      if (linkedPayment?.screenshotPath) {
+                        try {
+                          const parsed = JSON.parse(linkedPayment.screenshotPath);
+                          linkedScreenshots = Array.isArray(parsed) ? parsed : [linkedPayment.screenshotPath];
+                        } catch { linkedScreenshots = [linkedPayment.screenshotPath]; }
+                      }
+                      return (
                       <div
                         key={inst.id || idx}
-                        className={`flex items-center justify-between text-sm p-2 rounded-lg -mx-1 ${!inst.paid && (isAdmin || isReceptionist) ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
+                        className={`text-sm p-2 rounded-lg -mx-1 ${!inst.paid && (isAdmin || isReceptionist) ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
                         onClick={() => {
                           if (!inst.paid && (isAdmin || isReceptionist)) openPaymentDialog(selectedBooking, inst);
                         }}
                         data-testid={`installment-row-${idx}`}
                       >
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <p className="font-medium text-slate-700">{inst.name}</p>
-                            <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <p className="font-medium text-slate-700">{inst.name}</p>
+                              <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
+                            </div>
+                          </div>
+                          <div className="text-right flex items-center gap-2">
+                            <div>
+                              <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                              <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
+                                {inst.paid ? "PAID" : "PENDING"}
+                              </Badge>
+                            </div>
+                            {!inst.paid && (isAdmin || isReceptionist) && (
+                              <Banknote className="w-4 h-4 text-amber-500" />
+                            )}
                           </div>
                         </div>
-                        <div className="text-right flex items-center gap-2">
-                          <div>
-                            <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                            <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
-                              {inst.paid ? "PAID" : "PENDING"}
-                            </Badge>
+                        {inst.paid && (
+                          <div className="mt-1.5 pl-1 border-l-2 border-emerald-200 ml-1 space-y-1">
+                            {linkedPayment && (
+                              <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-500">
+                                {linkedPayment.amount !== inst.amount && (
+                                  <span className="font-medium text-emerald-700">Received: ₹{(linkedPayment.amount || 0).toLocaleString("en-IN")}</span>
+                                )}
+                                <span>
+                                  {linkedPayment.createdAt ? format(new Date(linkedPayment.createdAt), "dd MMM yyyy, hh:mm a") : ""}
+                                </span>
+                                {linkedPayment.paymentMethod && (
+                                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{linkedPayment.paymentMethod}</span>
+                                )}
+                                {linkedPayment.razorpayPaymentId && (
+                                  <span className="font-mono text-[10px]">UTR: {linkedPayment.razorpayPaymentId}</span>
+                                )}
+                              </div>
+                            )}
+                            {!linkedPayment && inst.paidAt && (
+                              <p className="text-[11px] text-slate-500">Paid on {format(new Date(inst.paidAt), "dd MMM yyyy, hh:mm a")}</p>
+                            )}
+                            {linkedScreenshots.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {linkedScreenshots.map((url: string, sIdx: number) => (
+                                  <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
+                                    <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                                      <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
+                                      <span className="text-[10px] text-emerald-600 font-medium">View</span>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          {!inst.paid && (isAdmin || isReceptionist) && (
-                            <Banknote className="w-4 h-4 text-amber-500" />
-                          )}
-                        </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
