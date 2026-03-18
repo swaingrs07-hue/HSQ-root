@@ -660,75 +660,35 @@ export default function Home() {
 
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="absolute inset-0 z-20 flex flex-col justify-center items-center text-center px-4"
+          className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-28 md:pb-32 px-4"
         >
           <motion.div
-            style={{ y: overlayY }}
-            className="max-w-6xl mx-auto"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentSlide}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, y: -30, filter: "blur(12px)" }}
-                transition={{ duration: 0.8, delay: 0.1 }}
-                className="space-y-8"
+            <Link href="/properties">
+              <Button
+                size="lg"
+                className="bg-white text-black hover:bg-white/90 border-none text-base px-12 h-14 rounded-full font-bold tracking-wider shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all uppercase"
+                data-testid="button-explore-properties"
               >
-                <motion.p
-                  className="text-cyan-400 text-xs md:text-sm tracking-[0.5em] uppercase font-medium"
-                  initial={{ opacity: 0, letterSpacing: "1em", y: -20, filter: "blur(4px)" }}
-                  animate={{ opacity: 1, letterSpacing: "0.5em", y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 1.4, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ textShadow: "0 0 30px rgba(34,211,238,0.3)" }}
-                >
-                  {heroSlides[currentSlide].subtitle}
-                </motion.p>
-
-                <h1 className="font-heading font-black text-white tracking-tighter [word-break:keep-all] [overflow-wrap:normal] text-[19px]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5), 0 0 120px rgba(255,255,255,0.05)" }}>
-                  <CinematicText delay={0.3}>{heroSlides[currentSlide].title}</CinematicText>
-                </h1>
-
-                <motion.p
-                  className="text-white/60 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed"
-                  initial={{ opacity: 0, y: 25, filter: "blur(8px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 1.2, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ textShadow: "0 2px 20px rgba(0,0,0,0.6)" }}
-                >
-                  {heroSlides[currentSlide].caption}
-                </motion.p>
-              </motion.div>
-            </AnimatePresence>
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.2, duration: 0.8 }}
-              className="mt-12 flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <Link href="/properties">
-                <Button
-                  size="lg"
-                  className="bg-white text-black hover:bg-white/90 border-none text-base px-12 h-14 rounded-full font-bold tracking-wider shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all uppercase"
-                  data-testid="button-explore-properties"
-                >
-                  Explore Properties
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/properties">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-transparent backdrop-blur-md border border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
-                  data-testid="button-take-tour"
-                >
-                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Virtual Tour
-                </Button>
-              </Link>
-            </motion.div>
+                Explore Properties
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Link href="/properties">
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-transparent backdrop-blur-md border border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
+                data-testid="button-take-tour"
+              >
+                <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                Virtual Tour
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
 
