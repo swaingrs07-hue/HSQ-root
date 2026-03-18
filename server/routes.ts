@@ -3851,6 +3851,7 @@ export async function registerRoutes(
       });
 
       let updatedInstallment = null;
+      let newBalanceInstallment = null;
       if (installmentId) {
         const [existingInst] = await db.select().from(schema.installments).where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
         if (!existingInst) {
@@ -3867,7 +3868,27 @@ export async function registerRoutes(
             .returning();
           updatedInstallment = inst;
         } else {
-          updatedInstallment = { ...existingInst, _totalPaid: totalPaidSoFar, _remaining: existingInst.amount - totalPaidSoFar };
+          const [inst] = await db.update(schema.installments)
+            .set({ amount: paymentAmount + previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0), paid: true, paidAt: new Date() })
+            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+            .returning();
+          updatedInstallment = inst;
+
+          const remainingAmount = existingInst.amount - totalPaidSoFar;
+          const allBookingInstallments = await db.select().from(schema.installments)
+            .where(eq(schema.installments.bookingId, booking.id))
+            .orderBy(schema.installments.createdAt);
+          const currentIndex = allBookingInstallments.findIndex(i => i.id === installmentId);
+          const nextInstName = `${existingInst.name} - Balance`;
+
+          const [balanceInst] = await db.insert(schema.installments).values({
+            bookingId: booking.id,
+            name: nextInstName,
+            amount: remainingAmount,
+            dueDate: existingInst.dueDate,
+            paid: false,
+          }).returning();
+          newBalanceInstallment = balanceInst;
         }
       }
 
@@ -3922,7 +3943,7 @@ export async function registerRoutes(
         });
       }
 
-      res.json({ booking: updated, payment, installment: updatedInstallment });
+      res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment });
     } catch (error: any) {
       console.error("Error marking payment done:", error);
       res.status(500).json({ error: error.message || "Failed to mark payment done" });

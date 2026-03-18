@@ -495,11 +495,14 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated, installment: updatedInst, payment: newPayment } = await res.json();
+      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment } = await res.json();
       if (updatedInst && selectedBooking.installments) {
-        const updatedInstallments = selectedBooking.installments.map((inst: any) =>
-          inst.id === updatedInst.id ? { ...inst, paid: updatedInst.paid, paidAt: updatedInst.paidAt } : inst
+        let updatedInstallments = selectedBooking.installments.map((inst: any) =>
+          inst.id === updatedInst.id ? { ...inst, ...updatedInst } : inst
         );
+        if (balanceInstallment) {
+          updatedInstallments = [...updatedInstallments, balanceInstallment];
+        }
         const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
         setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments, payments: updatedPayments });
       } else {
