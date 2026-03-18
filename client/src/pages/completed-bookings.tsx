@@ -386,13 +386,17 @@ export default function CompletedBookings() {
   };
 
   const openPaymentDialog = (booking: any, installment?: any) => {
+    const nextUnpaid = !installment && booking.installments?.length
+      ? booking.installments.find((inst: any) => !inst.paid)
+      : null;
+    const selectedInst = installment || nextUnpaid;
     setPaymentForm({
-      amount: installment ? installment.amount : (booking.totalFee || 0),
+      amount: selectedInst ? selectedInst.amount : (booking.totalFee || 0),
       paymentMethod: "upi",
       transactionId: "",
-      notes: installment ? `Payment for ${installment.name}` : "",
-      installmentId: installment?.id || null,
-      installmentName: installment?.name || "",
+      notes: selectedInst ? `Payment for ${selectedInst.name}` : "",
+      installmentId: selectedInst?.id || null,
+      installmentName: selectedInst?.name || "",
       screenshotPath: "",
       screenshotPreview: "",
       screenshotPaths: [],
@@ -1777,7 +1781,10 @@ export default function CompletedBookings() {
 
               {(isAdmin || isReceptionist) && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">
-                  {(selectedBooking.status === "pending_payment" || selectedBooking.status === "draft") && (
+                  {(() => {
+                    const hasUnpaidInstalments = (selectedBooking.installments || []).some((inst: any) => !inst.paid);
+                    const showPayBtn = selectedBooking.status === "pending_payment" || selectedBooking.status === "draft" || selectedBooking.status === "confirmed" || selectedBooking.status === "active" || hasUnpaidInstalments;
+                    return showPayBtn && selectedBooking.status !== "cancelled" && selectedBooking.status !== "completed" ? (
                     <Button
                       size="sm"
                       className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
@@ -1787,7 +1794,8 @@ export default function CompletedBookings() {
                       <Banknote className="h-4 w-4" />
                       Mark Payment Done
                     </Button>
-                  )}
+                    ) : null;
+                  })()}
                   <Button
                     variant="destructive"
                     size="sm"

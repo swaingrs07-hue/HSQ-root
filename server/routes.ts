@@ -3812,7 +3812,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Booking not found" });
       }
 
-      const { paymentMethod, transactionId, notes, amount, installmentId, screenshotPath } = req.body;
+      const { paymentMethod, transactionId, notes, amount, screenshotPath } = req.body;
+      let { installmentId } = req.body;
 
       const isCash = paymentMethod === "cash";
       if (!isCash && (!transactionId || !transactionId.trim())) {
@@ -3820,6 +3821,16 @@ export async function registerRoutes(
       }
       if (!isCash && (!screenshotPath || !screenshotPath.trim())) {
         return res.status(400).json({ error: "Payment screenshot is required" });
+      }
+
+      if (!installmentId) {
+        const bookingInstallments = await db.select().from(schema.installments)
+          .where(eq(schema.installments.bookingId, booking.id))
+          .orderBy(schema.installments.createdAt);
+        const nextUnpaid = bookingInstallments.find(i => !i.paid);
+        if (nextUnpaid) {
+          installmentId = nextUnpaid.id;
+        }
       }
 
       const paymentAmount = amount || booking.totalFee;
@@ -3851,7 +3862,12 @@ export async function registerRoutes(
 
       const allInstallments = await db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id));
       const allPaid = allInstallments.length > 0 && allInstallments.every(i => i.paid);
-      const bookingStatus = allPaid ? "confirmed" : (installmentId ? booking.status : "confirmed");
+      let bookingStatus = booking.status;
+      if (allPaid) {
+        bookingStatus = "confirmed";
+      } else if (booking.status === "pending_payment" || booking.status === "draft") {
+        bookingStatus = "confirmed";
+      }
 
       const updated = await storage.updateBooking(req.params.id, {
         status: bookingStatus,
