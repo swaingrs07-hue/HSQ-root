@@ -660,7 +660,7 @@ export default function Home() {
 
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-28 md:pb-32 px-4"
+          className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4"
         >
           <motion.div
             initial={{ opacity: 0, y: 30 }}
