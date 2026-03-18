@@ -439,7 +439,7 @@ export default function AdminHeroSlides() {
   );
 
   return (
-    <div className="space-y-6" data-testid="admin-hero-slides">
+    <div className="space-y-6 overflow-hidden" data-testid="admin-hero-slides">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Hero Slideshow</h1>
@@ -554,8 +554,8 @@ export default function AdminHeroSlides() {
                     </div>
                   </div>
 
-                  <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
-                    <div>
+                  <div className="flex-1 p-4 flex flex-col justify-between min-w-0 overflow-hidden">
+                    <div className="min-w-0">
                       <h3 className="font-semibold text-slate-800 text-base truncate">{slide.title}</h3>
                       {slide.subtitle && (
                         <p className="text-xs text-amber-600 uppercase tracking-wider mt-0.5 truncate">
@@ -571,7 +571,7 @@ export default function AdminHeroSlides() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 px-4 border-l border-slate-100">
+                  <div className="flex items-center gap-1 px-2 sm:gap-2 sm:px-4 border-l border-slate-100 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
