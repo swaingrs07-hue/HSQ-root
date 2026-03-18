@@ -366,8 +366,8 @@ export default function AdminHeroSlides() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (file.size > 200 * 1024 * 1024) {
-                  toast({ title: "Video must be under 200MB", variant: "destructive" });
+                if (file.size > 1024 * 1024 * 1024) {
+                  toast({ title: "Video must be under 1GB", variant: "destructive" });
                   return;
                 }
                 setUploadingVideo(true);
@@ -413,7 +413,7 @@ export default function AdminHeroSlides() {
                   <Upload className="w-5 h-5 text-indigo-600" />
                 </div>
                 <p className="text-sm font-medium text-slate-700">Click to upload video</p>
-                <p className="text-xs text-slate-400">MP4 or WebM, up to 200MB</p>
+                <p className="text-xs text-slate-400">MP4 or WebM, up to 1GB</p>
               </div>
             )}
           </label>
