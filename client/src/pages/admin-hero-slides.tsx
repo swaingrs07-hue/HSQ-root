@@ -439,7 +439,7 @@ export default function AdminHeroSlides() {
   );
 
   return (
-    <div className="space-y-6 overflow-hidden" data-testid="admin-hero-slides">
+    <div className="space-y-6" data-testid="admin-hero-slides">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Hero Slideshow</h1>
@@ -505,27 +505,27 @@ export default function AdminHeroSlides() {
             >
               <CardContent className="p-0">
                 <div className="flex items-stretch">
-                  <div className="flex flex-col items-center justify-center px-2 bg-slate-50 border-r border-slate-200 gap-1">
+                  <div className="flex flex-col items-center justify-center px-1.5 bg-slate-50 border-r border-slate-200 gap-1 flex-shrink-0">
                     <button
                       onClick={() => moveSlide(index, "up")}
                       disabled={index === 0}
                       className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
                       data-testid={`button-move-up-${slide.id}`}
                     >
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="w-3.5 h-3.5" />
                     </button>
-                    <GripVertical className="w-4 h-4 text-slate-300" />
+                    <GripVertical className="w-3.5 h-3.5 text-slate-300" />
                     <button
                       onClick={() => moveSlide(index, "down")}
                       disabled={index === slides.length - 1}
                       className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
                       data-testid={`button-move-down-${slide.id}`}
                     >
-                      <ArrowDown className="w-4 h-4" />
+                      <ArrowDown className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="w-40 md:w-56 h-28 md:h-32 flex-shrink-0 bg-black relative overflow-hidden">
+                  <div className="w-32 sm:w-40 md:w-48 h-24 sm:h-28 flex-shrink-0 bg-black relative overflow-hidden">
                     {slide.videoUrl ? (
                       <video
                         src={slide.videoUrl}
@@ -543,8 +543,8 @@ export default function AdminHeroSlides() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">No media</div>
                     )}
-                    <div className="absolute top-2 left-2 flex gap-1">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    <div className="absolute top-1.5 left-1.5 flex gap-1">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
                         slide.isActive
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-slate-200 text-slate-500"
@@ -554,78 +554,77 @@ export default function AdminHeroSlides() {
                     </div>
                   </div>
 
-                  <div className="flex-1 p-4 flex flex-col justify-between min-w-0 overflow-hidden">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-800 text-base truncate">{slide.title}</h3>
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <div className="flex-1 p-3 min-w-0">
+                      <h3 className="font-semibold text-slate-800 text-sm sm:text-base truncate">{slide.title}</h3>
                       {slide.subtitle && (
-                        <p className="text-xs text-amber-600 uppercase tracking-wider mt-0.5 truncate">
+                        <p className="text-[10px] sm:text-xs text-amber-600 uppercase tracking-wider mt-0.5 truncate">
                           {slide.subtitle}
                         </p>
                       )}
                       {slide.caption && (
-                        <p className="text-sm text-slate-500 mt-1 truncate">{slide.caption}</p>
+                        <p className="text-xs sm:text-sm text-slate-500 mt-1 line-clamp-2">{slide.caption}</p>
                       )}
+                      <div className="text-[10px] sm:text-xs text-slate-400 mt-1.5">
+                        Position: {index + 1} of {slides.length}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-400 mt-2">
-                      Position: {index + 1} of {slides.length}
+                    <div className="flex items-center gap-1 px-3 pb-2 border-t border-slate-100 pt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateMutation.mutate({
+                          id: slide.id,
+                          data: { isActive: !slide.isActive }
+                        })}
+                        className="h-7 px-2 text-xs gap-1"
+                        title={slide.isActive ? "Hide" : "Show"}
+                        data-testid={`button-toggle-${slide.id}`}
+                      >
+                        {slide.isActive ? (
+                          <><Eye className="w-3.5 h-3.5 text-emerald-600" /><span className="hidden sm:inline">Hide</span></>
+                        ) : (
+                          <><EyeOff className="w-3.5 h-3.5 text-slate-400" /><span className="hidden sm:inline">Show</span></>
+                        )}
+                      </Button>
+                      <Dialog
+                        open={editingSlide?.id === slide.id}
+                        onOpenChange={(open) => {
+                          if (open) openEditDialog(slide);
+                          else { setEditingSlide(null); resetForm(); }
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs gap-1"
+                            data-testid={`button-edit-${slide.id}`}
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-slate-500" /><span className="hidden sm:inline">Edit</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                          <DialogHeader className="flex-shrink-0">
+                            <DialogTitle className="text-lg font-bold">Edit Slide</DialogTitle>
+                          </DialogHeader>
+                          {slideFormContent}
+                        </DialogContent>
+                      </Dialog>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm("Delete this slide?")) {
+                            deleteMutation.mutate(slide.id);
+                          }
+                        }}
+                        className="h-7 px-2 text-xs gap-1 hover:bg-rose-50"
+                        data-testid={`button-delete-${slide.id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-500" /><span className="hidden sm:inline">Delete</span>
+                      </Button>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 px-2 sm:gap-2 sm:px-4 border-l border-slate-100 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => updateMutation.mutate({
-                        id: slide.id,
-                        data: { isActive: !slide.isActive }
-                      })}
-                      className="h-9 w-9"
-                      title={slide.isActive ? "Hide" : "Show"}
-                      data-testid={`button-toggle-${slide.id}`}
-                    >
-                      {slide.isActive ? (
-                        <Eye className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <EyeOff className="w-4 h-4 text-slate-400" />
-                      )}
-                    </Button>
-                    <Dialog
-                      open={editingSlide?.id === slide.id}
-                      onOpenChange={(open) => {
-                        if (open) openEditDialog(slide);
-                        else { setEditingSlide(null); resetForm(); }
-                      }}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9"
-                          data-testid={`button-edit-${slide.id}`}
-                        >
-                          <Edit2 className="w-4 h-4 text-slate-500" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-                        <DialogHeader className="flex-shrink-0">
-                          <DialogTitle className="text-lg font-bold">Edit Slide</DialogTitle>
-                        </DialogHeader>
-                        {slideFormContent}
-                      </DialogContent>
-                    </Dialog>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm("Delete this slide?")) {
-                          deleteMutation.mutate(slide.id);
-                        }
-                      }}
-                      className="h-9 w-9 hover:bg-rose-50"
-                      data-testid={`button-delete-${slide.id}`}
-                    >
-                      <Trash2 className="w-4 h-4 text-rose-500" />
-                    </Button>
                   </div>
                 </div>
               </CardContent>
