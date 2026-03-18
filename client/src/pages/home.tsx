@@ -552,6 +552,19 @@ export default function Home() {
   }, [heroSlides.length]);
 
   const hasAnyVideo = heroSlides.some(s => s.videoUrl);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const heroVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
+
+  useEffect(() => {
+    if (!heroVideoUrl || !heroVideoRef.current) return;
+    const video = heroVideoRef.current;
+    video.src = heroVideoUrl;
+    video.load();
+    const playPromise = video.play();
+    if (playPromise) {
+      playPromise.catch(() => {});
+    }
+  }, [heroVideoUrl]);
 
   useEffect(() => {
     if (hasAnyVideo) return;
@@ -600,10 +613,9 @@ export default function Home() {
         data-testid="hero-section"
       >
         {heroSlides[currentSlide].videoUrl ? (
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-black">
             <video
-              key={`video-${currentSlide}`}
-              src={heroSlides[currentSlide].videoUrl!}
+              ref={heroVideoRef}
               className="w-full h-full object-cover"
               autoPlay
               muted
