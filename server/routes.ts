@@ -3868,18 +3868,16 @@ export async function registerRoutes(
             .returning();
           updatedInstallment = inst;
         } else {
+          const partialName = existingInst.name.includes("(Partial)") ? existingInst.name : `${existingInst.name} (Partial)`;
           const [inst] = await db.update(schema.installments)
-            .set({ amount: paymentAmount + previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0), paid: true, paidAt: new Date() })
+            .set({ name: partialName, amount: paymentAmount + previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0), paid: true, paidAt: new Date() })
             .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
             .returning();
           updatedInstallment = inst;
 
           const remainingAmount = existingInst.amount - totalPaidSoFar;
-          const allBookingInstallments = await db.select().from(schema.installments)
-            .where(eq(schema.installments.bookingId, booking.id))
-            .orderBy(schema.installments.createdAt);
-          const currentIndex = allBookingInstallments.findIndex(i => i.id === installmentId);
-          const nextInstName = `${existingInst.name} - Balance`;
+          const baseName = existingInst.name.replace(/ \(Partial\)$/, "");
+          const nextInstName = `${baseName} - Balance`;
 
           const [balanceInst] = await db.insert(schema.installments).values({
             bookingId: booking.id,
