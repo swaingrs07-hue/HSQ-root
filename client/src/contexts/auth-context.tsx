@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && user.role === "admin" && (location === "/" || isAuthRoute)) {
+    if (user && user.role === "admin" && isAuthRoute) {
       setLocation("/admin");
       return;
     }
