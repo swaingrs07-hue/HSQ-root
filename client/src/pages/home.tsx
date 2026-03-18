@@ -271,13 +271,13 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
                 <motion.span
                   key={idx}
                   className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
-                  initial={{ opacity: 0, y: 20, filter: "blur(6px)" }}
-                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  initial={{ opacity: 0, y: 30, filter: "blur(10px)", scale: 0.95 }}
+                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }}
                   viewport={{ once: true }}
                   transition={{
-                    duration: 0.6,
-                    delay: delay + idx * 0.03,
-                    ease: [0.25, 0.46, 0.45, 0.94],
+                    duration: 0.7,
+                    delay: delay + idx * 0.035,
+                    ease: [0.22, 1, 0.36, 1],
                   }}
                   style={gradient ? {
                     animationName: "shimmerGradient",
@@ -314,7 +314,15 @@ function ShimmerText({ children, className = "" }: { children: React.ReactNode; 
   );
 }
 
-const DEFAULT_SLIDES = [
+interface SlideData {
+  image: string;
+  title: string;
+  subtitle: string;
+  caption: string;
+  videoUrl?: string | null;
+}
+
+const DEFAULT_SLIDES: SlideData[] = [
   {
     image: heroLobby,
     title: "Experience Premium Living",
@@ -440,7 +448,7 @@ export default function Home() {
   const [isAutoPlaying] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
-  const [heroSlides, setHeroSlides] = useState(DEFAULT_SLIDES);
+  const [heroSlides, setHeroSlides] = useState<SlideData[]>(DEFAULT_SLIDES);
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
   const [igCurrentSlide, setIgCurrentSlide] = useState(0);
   const [igAutoPlaying, setIgAutoPlaying] = useState(true);
@@ -474,6 +482,7 @@ export default function Home() {
             title: s.title,
             subtitle: s.subtitle || "",
             caption: s.caption || "",
+            videoUrl: s.videoUrl || null,
           })));
         }
       })
@@ -540,12 +549,14 @@ export default function Home() {
 
   useEffect(() => {
     if (isAutoPlaying) {
-      slideInterval.current = setInterval(nextSlide, 6000);
+      const currentHasVideo = heroSlides[currentSlide]?.videoUrl;
+      const delay = currentHasVideo ? 15000 : 6000;
+      slideInterval.current = setInterval(nextSlide, delay);
     }
     return () => {
       if (slideInterval.current) clearInterval(slideInterval.current);
     };
-  }, [isAutoPlaying, nextSlide]);
+  }, [isAutoPlaying, nextSlide, currentSlide, heroSlides]);
 
   const handleSearchResults = (results: any) => {
     if (results.totalResults > 0 || results.interpretation) {
@@ -594,14 +605,30 @@ export default function Home() {
             className="absolute inset-0"
             style={{ scale: heroScale, filter: useTransform(heroBlur, (v) => `blur(${v}px)`) }}
           >
-            <motion.img
-              src={heroSlides[currentSlide].image}
-              alt={heroSlides[currentSlide].title}
-              className="w-full h-full object-cover will-change-transform"
-              initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
-              animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
-              transition={{ duration: 8, ease: "linear" }}
-            />
+            {heroSlides[currentSlide].videoUrl ? (
+              <motion.video
+                key={`video-${currentSlide}`}
+                src={heroSlides[currentSlide].videoUrl!}
+                poster={heroSlides[currentSlide].image}
+                className="w-full h-full object-cover will-change-transform"
+                autoPlay
+                muted
+                loop
+                playsInline
+                initial={{ scale: 1.05, opacity: 0 }}
+                animate={{ scale: 1.0, opacity: 1 }}
+                transition={{ duration: 2, ease: "easeOut" }}
+              />
+            ) : (
+              <motion.img
+                src={heroSlides[currentSlide].image}
+                alt={heroSlides[currentSlide].title}
+                className="w-full h-full object-cover will-change-transform"
+                initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
+                animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
+                transition={{ duration: 8, ease: "linear" }}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -647,22 +674,24 @@ export default function Home() {
               >
                 <motion.p
                   className="text-cyan-400 text-xs md:text-sm tracking-[0.5em] uppercase font-medium"
-                  initial={{ opacity: 0, letterSpacing: "0.8em", y: -30 }}
-                  animate={{ opacity: 1, letterSpacing: "0.5em", y: 0 }}
-                  transition={{ duration: 1.2, delay: 0.2 }}
+                  initial={{ opacity: 0, letterSpacing: "1em", y: -20, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, letterSpacing: "0.5em", y: 0, filter: "blur(0px)" }}
+                  transition={{ duration: 1.4, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ textShadow: "0 0 30px rgba(34,211,238,0.3)" }}
                 >
                   {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
-                <h1 className="text-[clamp(2.5rem,8vw,8rem)] font-heading font-black text-white leading-[0.9] tracking-tighter [word-break:keep-all] [overflow-wrap:normal]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5)" }}>
+                <h1 className="text-[clamp(2.5rem,8vw,8rem)] font-heading font-black text-white leading-[0.9] tracking-tighter [word-break:keep-all] [overflow-wrap:normal]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5), 0 0 120px rgba(255,255,255,0.05)" }}>
                   <CinematicText delay={0.3}>{heroSlides[currentSlide].title}</CinematicText>
                 </h1>
 
                 <motion.p
-                  className="text-white/50 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed"
-                  initial={{ opacity: 0, y: 30, filter: "blur(6px)" }}
+                  className="text-white/60 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed"
+                  initial={{ opacity: 0, y: 25, filter: "blur(8px)" }}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 1, delay: 1 }}
+                  transition={{ duration: 1.2, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ textShadow: "0 2px 20px rgba(0,0,0,0.6)" }}
                 >
                   {heroSlides[currentSlide].caption}
                 </motion.p>

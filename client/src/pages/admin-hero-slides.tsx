@@ -26,6 +26,7 @@ interface HeroSlide {
   subtitle: string | null;
   caption: string | null;
   imageUrl: string;
+  videoUrl: string | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -45,8 +46,10 @@ export default function AdminHeroSlides() {
     subtitle: "",
     caption: "",
     imageUrl: "",
+    videoUrl: "",
     isActive: true,
   });
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const { data: slides = [], isLoading } = useQuery<HeroSlide[]>({
     queryKey: ["/api/hero-slides"],
@@ -140,7 +143,7 @@ export default function AdminHeroSlides() {
   });
 
   const resetForm = () => {
-    setForm({ title: "", subtitle: "", caption: "", imageUrl: "", isActive: true });
+    setForm({ title: "", subtitle: "", caption: "", imageUrl: "", videoUrl: "", isActive: true });
     setPreviewUrl(null);
   };
 
@@ -249,6 +252,7 @@ export default function AdminHeroSlides() {
       subtitle: slide.subtitle || "",
       caption: slide.caption || "",
       imageUrl: slide.imageUrl,
+      videoUrl: slide.videoUrl || "",
       isActive: slide.isActive,
     });
     setPreviewUrl(slide.imageUrl);
@@ -259,10 +263,14 @@ export default function AdminHeroSlides() {
       toast({ title: "Title and image are required", variant: "destructive" });
       return;
     }
+    const submitData = {
+      ...form,
+      videoUrl: form.videoUrl || null,
+    };
     if (editingSlide) {
-      updateMutation.mutate({ id: editingSlide.id, data: form });
+      updateMutation.mutate({ id: editingSlide.id, data: submitData });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate(submitData);
     }
   };
 
@@ -321,6 +329,95 @@ export default function AdminHeroSlides() {
             </label>
           )}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700">Background Video (Optional)</Label>
+        <p className="text-xs text-slate-400">Upload an mp4/webm video for a cinematic background. Image above is used as poster/fallback.</p>
+        {form.videoUrl ? (
+          <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-black">
+            <video
+              src={form.videoUrl}
+              className="w-full h-full object-cover"
+              muted
+              autoPlay
+              loop
+              playsInline
+            />
+            <button
+              type="button"
+              onClick={() => setForm(prev => ({ ...prev, videoUrl: "" }))}
+              className="absolute top-3 right-3 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
+              data-testid="button-remove-video"
+            >
+              <X className="w-4 h-4 text-slate-700" />
+            </button>
+            <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 rounded text-white text-xs backdrop-blur-sm">Video</div>
+          </div>
+        ) : (
+          <label
+            className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-indigo-400 cursor-pointer transition-all group"
+            data-testid="dropzone-hero-video"
+          >
+            <input
+              type="file"
+              accept="video/mp4,video/webm"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 200 * 1024 * 1024) {
+                  toast({ title: "Video must be under 200MB", variant: "destructive" });
+                  return;
+                }
+                setUploadingVideo(true);
+                try {
+                  const urlRes = await fetch("/api/uploads/request-url", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      name: file.name,
+                      size: file.size,
+                      contentType: file.type,
+                    }),
+                  });
+                  if (!urlRes.ok) throw new Error("Failed to get upload URL");
+                  const { uploadURL, objectPath } = await urlRes.json();
+                  const uploadRes = await fetch(uploadURL, {
+                    method: "PUT",
+                    body: file,
+                    headers: { "Content-Type": file.type },
+                  });
+                  if (!uploadRes.ok) throw new Error("Failed to upload video");
+                  setForm(prev => ({ ...prev, videoUrl: objectPath }));
+                  toast({ title: "Video uploaded successfully" });
+                } catch {
+                  toast({ title: "Failed to upload video", variant: "destructive" });
+                } finally {
+                  setUploadingVideo(false);
+                }
+              }}
+              data-testid="input-hero-video"
+            />
+            {uploadingVideo ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                <p className="text-sm text-slate-500">Uploading video...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                  <Upload className="w-5 h-5 text-indigo-600" />
+                </div>
+                <p className="text-sm font-medium text-slate-700">Click to upload video</p>
+                <p className="text-xs text-slate-400">MP4 or WebM, up to 200MB</p>
+              </div>
+            )}
+          </label>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -488,7 +585,7 @@ export default function AdminHeroSlides() {
                       alt={slide.title}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-2 left-2">
+                    <div className="absolute top-2 left-2 flex gap-1">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         slide.isActive
                           ? "bg-emerald-100 text-emerald-700"
@@ -496,6 +593,11 @@ export default function AdminHeroSlides() {
                       }`}>
                         {slide.isActive ? "Active" : "Hidden"}
                       </span>
+                      {slide.videoUrl && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                          Video
+                        </span>
+                      )}
                     </div>
                   </div>
 

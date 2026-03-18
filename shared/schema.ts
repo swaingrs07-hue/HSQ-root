@@ -994,6 +994,7 @@ export const heroSlides = pgTable("hero_slides", {
   subtitle: text("subtitle"),
   caption: text("caption"),
   imageUrl: text("image_url").notNull(),
+  videoUrl: text("video_url"),
   sortOrder: integer("sort_order").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
