@@ -465,6 +465,7 @@ export default function Home() {
   const heroScale = useTransform(scrollY, [0, 800], [1, 1.3]);
   const overlayY = useTransform(scrollY, [0, 500], [0, 150]);
   const heroBlur = useTransform(scrollY, [0, 600], [0, 8]);
+  const heroBlurFilter = useTransform(heroBlur, (v) => `blur(${v}px)`);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 600);
@@ -599,31 +600,30 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        <AnimatePresence initial={false}>
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: "easeInOut" }}
-            className="absolute inset-0"
-            style={{ scale: heroScale, filter: useTransform(heroBlur, (v) => `blur(${v}px)`) }}
-          >
-            {heroSlides[currentSlide].videoUrl ? (
-              <motion.video
-                key={`video-${currentSlide}`}
-                src={heroSlides[currentSlide].videoUrl!}
-                poster={heroSlides[currentSlide].image}
-                className="w-full h-full object-cover will-change-transform"
-                autoPlay
-                muted
-                loop
-                playsInline
-                initial={{ scale: 1.05, opacity: 0 }}
-                animate={{ scale: 1.0, opacity: 1 }}
-                transition={{ duration: 2, ease: "easeOut" }}
-              />
-            ) : (
+        {heroSlides[currentSlide].videoUrl ? (
+          <div className="absolute inset-0">
+            <video
+              key={`video-${currentSlide}`}
+              src={heroSlides[currentSlide].videoUrl!}
+              className="w-full h-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+            />
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={currentSlide}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: "easeInOut" }}
+              className="absolute inset-0"
+              style={{ scale: heroScale, filter: heroBlurFilter }}
+            >
               <motion.img
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
@@ -632,9 +632,9 @@ export default function Home() {
                 animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
                 transition={{ duration: 8, ease: "linear" }}
               />
-            )}
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        )}
 
         <div className="absolute inset-0 z-[5]" style={{
           background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,1) 100%)",

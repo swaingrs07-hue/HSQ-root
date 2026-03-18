@@ -259,12 +259,13 @@ export default function AdminHeroSlides() {
   };
 
   const handleSubmit = () => {
-    if (!form.title || !form.imageUrl) {
-      toast({ title: "Title and image are required", variant: "destructive" });
+    if (!form.title || !form.videoUrl) {
+      toast({ title: "Title and video are required", variant: "destructive" });
       return;
     }
     const submitData = {
       ...form,
+      imageUrl: form.imageUrl || "",
       videoUrl: form.videoUrl || null,
     };
     if (editingSlide) {
@@ -277,63 +278,8 @@ export default function AdminHeroSlides() {
   const slideFormContent = (
     <div className="overflow-y-auto max-h-[70vh] pr-1 -mr-1 space-y-5">
       <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Slide Image</Label>
-        <div className="relative">
-          {previewUrl ? (
-            <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-slate-100">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-              <button
-                type="button"
-                onClick={() => { setPreviewUrl(null); setForm(prev => ({ ...prev, imageUrl: "" })); }}
-                className="absolute top-3 right-3 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
-                data-testid="button-remove-image"
-              >
-                <X className="w-4 h-4 text-slate-700" />
-              </button>
-            </div>
-          ) : (
-            <label
-              className="flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-indigo-400 cursor-pointer transition-all group"
-              data-testid="dropzone-hero-image"
-            >
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-                data-testid="input-hero-image"
-              />
-              {uploading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  <p className="text-sm text-slate-500">Uploading...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-center p-4">
-                  <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                    <Upload className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Click to upload image</p>
-                    <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP up to 20MB</p>
-                    <p className="text-xs text-slate-400">Auto-compressed to WebP for fast loading</p>
-                    <p className="text-xs text-slate-400">Recommended: 1920x1080 (16:9)</p>
-                  </div>
-                </div>
-              )}
-            </label>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Background Video (Optional)</Label>
-        <p className="text-xs text-slate-400">Upload an mp4/webm video for a cinematic background. Image above is used as poster/fallback.</p>
+        <Label className="text-sm font-semibold text-slate-700">Background Video *</Label>
+        <p className="text-xs text-slate-400">Upload an mp4/webm video for the hero background. Plays full-screen in a loop.</p>
         {form.videoUrl ? (
           <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-black">
             <video
@@ -479,7 +425,7 @@ export default function AdminHeroSlides() {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!form.title || !form.imageUrl || createMutation.isPending || updateMutation.isPending}
+          disabled={!form.title || !form.videoUrl || createMutation.isPending || updateMutation.isPending}
           className="bg-indigo-600 hover:bg-indigo-700"
           data-testid="button-save-slide"
         >
@@ -579,12 +525,24 @@ export default function AdminHeroSlides() {
                     </button>
                   </div>
 
-                  <div className="w-40 md:w-56 h-28 md:h-32 flex-shrink-0 bg-slate-100 relative overflow-hidden">
-                    <img
-                      src={slide.imageUrl}
-                      alt={slide.title}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-40 md:w-56 h-28 md:h-32 flex-shrink-0 bg-black relative overflow-hidden">
+                    {slide.videoUrl ? (
+                      <video
+                        src={slide.videoUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : slide.imageUrl ? (
+                      <img
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">No media</div>
+                    )}
                     <div className="absolute top-2 left-2 flex gap-1">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         slide.isActive
@@ -593,11 +551,6 @@ export default function AdminHeroSlides() {
                       }`}>
                         {slide.isActive ? "Active" : "Hidden"}
                       </span>
-                      {slide.videoUrl && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                          Video
-                        </span>
-                      )}
                     </div>
                   </div>
 
