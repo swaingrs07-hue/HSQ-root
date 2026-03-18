@@ -386,12 +386,31 @@ export default function CompletedBookings() {
   };
 
   const openPaymentDialog = (booking: any, installment?: any) => {
-    const nextUnpaid = !installment && booking.installments?.length
-      ? booking.installments.find((inst: any) => !inst.paid)
-      : null;
-    const selectedInst = installment || nextUnpaid;
+    let selectedInst = installment;
+    if (!selectedInst && booking.installments?.length) {
+      const payments = booking.payments || [];
+      selectedInst = booking.installments.find((inst: any) => {
+        if (inst.paid) return false;
+        const instPayments = payments.filter((p: any) => p.installmentId === inst.id && p.status === "success");
+        const totalPaid = instPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        return totalPaid < (inst.amount || 0);
+      });
+    }
+
+    let prefillAmount = booking.totalFee || 0;
+    if (selectedInst) {
+      if (selectedInst._remaining != null) {
+        prefillAmount = selectedInst._remaining;
+      } else {
+        const payments = booking.payments || [];
+        const instPayments = payments.filter((p: any) => p.installmentId === selectedInst.id && p.status === "success");
+        const totalPaid = instPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        prefillAmount = Math.max(0, (selectedInst.amount || 0) - totalPaid);
+      }
+    }
+
     setPaymentForm({
-      amount: selectedInst ? selectedInst.amount : (booking.totalFee || 0),
+      amount: prefillAmount,
       paymentMethod: "upi",
       transactionId: "",
       notes: selectedInst ? `Payment for ${selectedInst.name}` : "",
@@ -476,20 +495,22 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated, installment: updatedInst } = await res.json();
+      const { booking: updated, installment: updatedInst, payment: newPayment } = await res.json();
       if (updatedInst && selectedBooking.installments) {
         const updatedInstallments = selectedBooking.installments.map((inst: any) =>
-          inst.id === updatedInst.id ? { ...inst, paid: true, paidAt: updatedInst.paidAt } : inst
+          inst.id === updatedInst.id ? { ...inst, paid: updatedInst.paid, paidAt: updatedInst.paidAt } : inst
         );
-        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments });
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments, payments: updatedPayments });
       } else {
-        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status || "confirmed" });
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status || "confirmed", payments: updatedPayments });
       }
       setShowPaymentDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
       const desc = paymentForm.installmentName
         ? `₹${paymentForm.amount.toLocaleString("en-IN")} for ${paymentForm.installmentName} recorded`
-        : "Booking status updated to Confirmed";
+        : `₹${paymentForm.amount.toLocaleString("en-IN")} payment recorded`;
       toast({ title: "Payment marked as done", description: desc });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1360,79 +1381,94 @@ export default function CompletedBookings() {
               {(selectedBooking.installments || []).length > 0 && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {selectedBooking.installments.map((inst: any, idx: number) => {
-                      const linkedPayment = inst.paid && (selectedBooking.payments || []).find((p: any) => p.installmentId === inst.id && p.status === "success");
-                      const paidAmount = linkedPayment ? linkedPayment.amount : inst.amount;
-                      let linkedScreenshots: string[] = [];
-                      if (linkedPayment?.screenshotPath) {
-                        try {
-                          const parsed = JSON.parse(linkedPayment.screenshotPath);
-                          linkedScreenshots = Array.isArray(parsed) ? parsed : [linkedPayment.screenshotPath];
-                        } catch { linkedScreenshots = [linkedPayment.screenshotPath]; }
-                      }
+                      const instPayments = (selectedBooking.payments || []).filter((p: any) => p.installmentId === inst.id && p.status === "success");
+                      const totalPaid = instPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+                      const remaining = Math.max(0, (inst.amount || 0) - totalPaid);
+                      const isFullyPaid = inst.paid || totalPaid >= (inst.amount || 0);
+                      const isPartiallyPaid = totalPaid > 0 && !isFullyPaid;
+                      const canPay = !isFullyPaid && (isAdmin || isReceptionist);
+
                       return (
                       <div
                         key={inst.id || idx}
-                        className={`text-sm p-2 rounded-lg -mx-1 ${!inst.paid && (isAdmin || isReceptionist) ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""}`}
-                        onClick={() => {
-                          if (!inst.paid && (isAdmin || isReceptionist)) openPaymentDialog(selectedBooking, inst);
-                        }}
+                        className={`text-sm p-2.5 rounded-lg ${canPay ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""} ${isFullyPaid ? "bg-emerald-50/50" : isPartiallyPaid ? "bg-blue-50/50" : ""}`}
+                        onClick={() => { if (canPay) openPaymentDialog(selectedBooking, { ...inst, _remaining: remaining }); }}
                         data-testid={`installment-row-${idx}`}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <p className="font-medium text-slate-700">{inst.name}</p>
-                              <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
-                            </div>
+                          <div>
+                            <p className="font-medium text-slate-700">{inst.name}</p>
+                            <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
                           </div>
                           <div className="text-right flex items-center gap-2">
                             <div>
                               <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                              <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
-                                {inst.paid ? "PAID" : "PENDING"}
+                              <Badge variant="outline" className={`text-[10px] ${isFullyPaid ? "text-emerald-600 border-emerald-200" : isPartiallyPaid ? "text-blue-600 border-blue-200" : "text-amber-600 border-amber-200"}`}>
+                                {isFullyPaid ? "PAID" : isPartiallyPaid ? "PARTIAL" : "PENDING"}
                               </Badge>
                             </div>
-                            {!inst.paid && (isAdmin || isReceptionist) && (
+                            {canPay && (
                               <Banknote className="w-4 h-4 text-amber-500" />
                             )}
                           </div>
                         </div>
-                        {inst.paid && (
-                          <div className="mt-1.5 pl-1 border-l-2 border-emerald-200 ml-1 space-y-1">
-                            {linkedPayment && (
-                              <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-500">
-                                {linkedPayment.amount !== inst.amount && (
-                                  <span className="font-medium text-emerald-700">Received: ₹{(linkedPayment.amount || 0).toLocaleString("en-IN")}</span>
-                                )}
-                                <span>
-                                  {linkedPayment.createdAt ? format(new Date(linkedPayment.createdAt), "dd MMM yyyy, hh:mm a") : ""}
-                                </span>
-                                {linkedPayment.paymentMethod && (
-                                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{linkedPayment.paymentMethod}</span>
-                                )}
-                                {linkedPayment.razorpayPaymentId && (
-                                  <span className="font-mono text-[10px]">UTR: {linkedPayment.razorpayPaymentId}</span>
-                                )}
-                              </div>
-                            )}
-                            {!linkedPayment && inst.paidAt && (
-                              <p className="text-[11px] text-slate-500">Paid on {format(new Date(inst.paidAt), "dd MMM yyyy, hh:mm a")}</p>
-                            )}
-                            {linkedScreenshots.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-1">
-                                {linkedScreenshots.map((url: string, sIdx: number) => (
-                                  <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
-                                    <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
-                                      <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
-                                      <span className="text-[10px] text-emerald-600 font-medium">View</span>
-                                    </div>
-                                  </a>
-                                ))}
-                              </div>
-                            )}
+
+                        {(isPartiallyPaid || isFullyPaid) && totalPaid > 0 && (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-[11px] mb-1">
+                              <span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>
+                              {!isFullyPaid && <span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${isFullyPaid ? "bg-emerald-500" : "bg-blue-500"}`}
+                                style={{ width: `${Math.min(100, (totalPaid / (inst.amount || 1)) * 100)}%` }}
+                              />
+                            </div>
                           </div>
+                        )}
+
+                        {instPayments.length > 0 && (
+                          <div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">
+                            {instPayments.map((p: any, pIdx: number) => {
+                              let screenshots: string[] = [];
+                              if (p.screenshotPath) {
+                                try { const parsed = JSON.parse(p.screenshotPath); screenshots = Array.isArray(parsed) ? parsed : [p.screenshotPath]; } catch { screenshots = [p.screenshotPath]; }
+                              }
+                              return (
+                                <div key={p.id || pIdx} className="text-[11px]">
+                                  <div className="flex items-center gap-2 flex-wrap text-slate-500">
+                                    <span className="font-medium text-emerald-700">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
+                                    <span>{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : ""}</span>
+                                    {p.paymentMethod && (
+                                      <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>
+                                    )}
+                                    {p.razorpayPaymentId && (
+                                      <span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>
+                                    )}
+                                  </div>
+                                  {screenshots.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {screenshots.map((url: string, sIdx: number) => (
+                                        <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
+                                          <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                                            <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
+                                            <span className="text-[10px] text-emerald-600 font-medium">View</span>
+                                          </div>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {isFullyPaid && instPayments.length === 0 && inst.paidAt && (
+                          <p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt), "dd MMM yyyy, hh:mm a")}</p>
                         )}
                       </div>
                       );
@@ -1830,7 +1866,13 @@ export default function CompletedBookings() {
               {(isAdmin || isReceptionist) && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">
                   {(() => {
-                    const hasUnpaidInstalments = (selectedBooking.installments || []).some((inst: any) => !inst.paid);
+                    const bookingPayments = selectedBooking.payments || [];
+                    const hasUnpaidInstalments = (selectedBooking.installments || []).some((inst: any) => {
+                      if (inst.paid) return false;
+                      const instPayments = bookingPayments.filter((p: any) => p.installmentId === inst.id && p.status === "success");
+                      const totalPaid = instPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+                      return totalPaid < (inst.amount || 0);
+                    });
                     const showPayBtn = selectedBooking.status === "pending_payment" || selectedBooking.status === "draft" || selectedBooking.status === "confirmed" || selectedBooking.status === "active" || hasUnpaidInstalments;
                     return showPayBtn && selectedBooking.status !== "cancelled" && selectedBooking.status !== "completed" ? (
                     <Button

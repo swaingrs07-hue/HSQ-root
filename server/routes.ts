@@ -3823,6 +3823,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Payment screenshot is required" });
       }
 
+      const allExistingPayments = await db.select().from(schema.payments)
+        .where(and(eq(schema.payments.bookingId, booking.id), eq(schema.payments.status, "success")));
+
       if (!installmentId) {
         const bookingInstallments = await db.select().from(schema.installments)
           .where(eq(schema.installments.bookingId, booking.id))
@@ -3853,17 +3856,32 @@ export async function registerRoutes(
         if (!existingInst) {
           return res.status(400).json({ error: "Installment not found for this booking" });
         }
-        const [inst] = await db.update(schema.installments)
-          .set({ paid: true, paidAt: new Date() })
-          .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
-          .returning();
-        updatedInstallment = inst;
+        const previousPaymentsForInst = allExistingPayments.filter(p => p.installmentId === installmentId);
+        const totalPaidSoFar = previousPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + paymentAmount;
+        const isFullyPaid = totalPaidSoFar >= existingInst.amount;
+
+        if (isFullyPaid) {
+          const [inst] = await db.update(schema.installments)
+            .set({ paid: true, paidAt: new Date() })
+            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+            .returning();
+          updatedInstallment = inst;
+        } else {
+          updatedInstallment = { ...existingInst, _totalPaid: totalPaidSoFar, _remaining: existingInst.amount - totalPaidSoFar };
+        }
       }
 
       const allInstallments = await db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id));
-      const allPaid = allInstallments.length > 0 && allInstallments.every(i => i.paid);
+      const updatedPayments = await db.select().from(schema.payments)
+        .where(and(eq(schema.payments.bookingId, booking.id), eq(schema.payments.status, "success")));
+      const allFullyPaid = allInstallments.length > 0 && allInstallments.every(inst => {
+        if (inst.paid) return true;
+        const instPayments = updatedPayments.filter(p => p.installmentId === inst.id);
+        const totalPaid = instPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        return totalPaid >= inst.amount;
+      });
       let bookingStatus = booking.status;
-      if (allPaid) {
+      if (allFullyPaid) {
         bookingStatus = "confirmed";
       } else if (booking.status === "pending_payment" || booking.status === "draft") {
         bookingStatus = "confirmed";
