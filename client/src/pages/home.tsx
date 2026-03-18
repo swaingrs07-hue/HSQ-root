@@ -554,16 +554,22 @@ export default function Home() {
   const hasAnyVideo = heroSlides.some(s => s.videoUrl);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const heroVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
+  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     if (!heroVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
+    setVideoReady(false);
     video.src = heroVideoUrl;
     video.load();
-    const playPromise = video.play();
-    if (playPromise) {
-      playPromise.catch(() => {});
-    }
+
+    const onCanPlay = () => {
+      setVideoReady(true);
+      const playPromise = video.play();
+      if (playPromise) playPromise.catch(() => {});
+    };
+    video.addEventListener("canplay", onCanPlay);
+    return () => video.removeEventListener("canplay", onCanPlay);
   }, [heroVideoUrl]);
 
   useEffect(() => {
@@ -616,8 +622,8 @@ export default function Home() {
           <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
-              className="w-full h-full object-cover"
-              autoPlay
+              className="w-full h-full object-cover transition-opacity duration-700"
+              style={{ opacity: videoReady ? 1 : 0 }}
               muted
               loop
               playsInline
@@ -648,22 +654,32 @@ export default function Home() {
         )}
 
         <div className="absolute inset-0 z-[5]" style={{
-          background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,1) 100%)",
+          background: hasAnyVideo
+            ? "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 70%, rgba(5,5,5,1) 100%)"
+            : "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,1) 100%)",
         }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/30 z-[5]" />
-        <div className="absolute inset-0 z-[4] pointer-events-none" style={{
-          boxShadow: "inset 0 0 200px 80px rgba(0,0,0,0.6)",
-        }} />
+        {!hasAnyVideo && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/30 z-[5]" />
+            <div className="absolute inset-0 z-[4] pointer-events-none" style={{
+              boxShadow: "inset 0 0 200px 80px rgba(0,0,0,0.6)",
+            }} />
+          </>
+        )}
 
-        <div className="absolute inset-0 z-[8]">
-          <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
-        </div>
+        {!hasAnyVideo && (
+          <>
+            <div className="absolute inset-0 z-[8]">
+              <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
+            </div>
 
-        <Floating3DShape type="ring" size={60} color="#f59e0b" delay={0} x="10%" y="20%" duration={25} />
-        <Floating3DShape type="diamond" size={30} color="#06b6d4" delay={2} x="85%" y="30%" duration={18} />
-        <Floating3DShape type="hexagon" size={45} color="#8b5cf6" delay={4} x="75%" y="65%" duration={22} />
-        <Floating3DShape type="sphere" size={25} color="#10b981" delay={1} x="15%" y="70%" duration={20} />
-        <Floating3DShape type="cube" size={35} color="#f59e0b" delay={3} x="60%" y="15%" duration={28} />
+            <Floating3DShape type="ring" size={60} color="#f59e0b" delay={0} x="10%" y="20%" duration={25} />
+            <Floating3DShape type="diamond" size={30} color="#06b6d4" delay={2} x="85%" y="30%" duration={18} />
+            <Floating3DShape type="hexagon" size={45} color="#8b5cf6" delay={4} x="75%" y="65%" duration={22} />
+            <Floating3DShape type="sphere" size={25} color="#10b981" delay={1} x="15%" y="70%" duration={20} />
+            <Floating3DShape type="cube" size={35} color="#f59e0b" delay={3} x="60%" y="15%" duration={28} />
+          </>
+        )}
 
         <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none" data-testid="hero-watermark">
           <img src={hsquareLogo} alt="" className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert" />
