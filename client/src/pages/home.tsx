@@ -477,13 +477,16 @@ export default function Home() {
       .then(res => res.ok ? res.json() : [])
       .then((apiSlides: any[]) => {
         if (apiSlides.length > 0) {
-          setHeroSlides(apiSlides.map(s => ({
+          const mapped = apiSlides.map(s => ({
             image: s.imageUrl,
             title: s.title,
             subtitle: s.subtitle || "",
             caption: s.caption || "",
             videoUrl: s.videoUrl || null,
-          })));
+          }));
+          setHeroSlides(mapped);
+          const videoIndex = mapped.findIndex(s => s.videoUrl);
+          if (videoIndex >= 0) setCurrentSlide(videoIndex);
         }
       })
       .catch(() => {});
@@ -547,16 +550,17 @@ export default function Home() {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   }, [heroSlides.length]);
 
+  const hasAnyVideo = heroSlides.some(s => s.videoUrl);
+
   useEffect(() => {
-    if (isAutoPlaying) {
-      const currentHasVideo = heroSlides[currentSlide]?.videoUrl;
-      const delay = currentHasVideo ? 15000 : 6000;
-      slideInterval.current = setInterval(nextSlide, delay);
+    if (hasAnyVideo) return;
+    if (isAutoPlaying && heroSlides.length > 1) {
+      slideInterval.current = setInterval(nextSlide, 6000);
     }
     return () => {
       if (slideInterval.current) clearInterval(slideInterval.current);
     };
-  }, [isAutoPlaying, nextSlide, currentSlide, heroSlides]);
+  }, [isAutoPlaying, nextSlide, heroSlides.length, hasAnyVideo]);
 
   const handleSearchResults = (results: any) => {
     if (results.totalResults > 0 || results.interpretation) {
@@ -732,47 +736,51 @@ export default function Home() {
         <div className="absolute left-0 right-0 bottom-0 z-30">
           <div className="flex items-center justify-between px-4 md:px-8 py-4">
             <div className="flex items-center gap-3">
-              <button
-                onClick={prevSlide}
-                className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
-                data-testid="button-hero-prev"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={nextSlide}
-                className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
-                data-testid="button-hero-next"
-                aria-label="Next slide"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <div className="flex gap-2 ml-4">
-                {heroSlides.map((_, i) => (
+              {!hasAnyVideo && heroSlides.length > 1 && (
+                <>
                   <button
-                    key={i}
-                    onClick={() => { setSlideDirection(i > currentSlide ? 1 : -1); setCurrentSlide(i); }}
-                    className="relative h-1 rounded-full overflow-hidden transition-all duration-500"
-                    style={{ width: i === currentSlide ? "2.5rem" : "0.75rem" }}
-                    data-testid={`button-hero-dot-${i}`}
+                    onClick={prevSlide}
+                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
+                    data-testid="button-hero-prev"
+                    aria-label="Previous slide"
                   >
-                    <span className={`absolute inset-0 rounded-full ${i === currentSlide ? "bg-white/20" : "bg-white/10 hover:bg-white/30"}`} />
-                    {i === currentSlide && isAutoPlaying && (
-                      <motion.span
-                        className="absolute inset-0 rounded-full bg-white origin-left"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ duration: 6, ease: "linear" }}
-                        key={`progress-${currentSlide}`}
-                      />
-                    )}
-                    {i === currentSlide && !isAutoPlaying && (
-                      <span className="absolute inset-0 rounded-full bg-white" />
-                    )}
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
-                ))}
-              </div>
+                  <button
+                    onClick={nextSlide}
+                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
+                    data-testid="button-hero-next"
+                    aria-label="Next slide"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                  <div className="flex gap-2 ml-4">
+                    {heroSlides.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setSlideDirection(i > currentSlide ? 1 : -1); setCurrentSlide(i); }}
+                        className="relative h-1 rounded-full overflow-hidden transition-all duration-500"
+                        style={{ width: i === currentSlide ? "2.5rem" : "0.75rem" }}
+                        data-testid={`button-hero-dot-${i}`}
+                      >
+                        <span className={`absolute inset-0 rounded-full ${i === currentSlide ? "bg-white/20" : "bg-white/10 hover:bg-white/30"}`} />
+                        {i === currentSlide && isAutoPlaying && (
+                          <motion.span
+                            className="absolute inset-0 rounded-full bg-white origin-left"
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ duration: 6, ease: "linear" }}
+                            key={`progress-${currentSlide}`}
+                          />
+                        )}
+                        {i === currentSlide && !isAutoPlaying && (
+                          <span className="absolute inset-0 rounded-full bg-white" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             <button
