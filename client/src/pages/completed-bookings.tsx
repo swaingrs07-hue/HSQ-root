@@ -1480,9 +1480,45 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              {(selectedBooking.payments || []).length > 0 && (
+              {(selectedBooking.payments || []).length > 0 && (() => {
+                const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && p.status === "success");
+                const hasInstallments = (selectedBooking.installments || []).length > 0;
+                return (
                 <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
                   <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
+                  {orphanedPayments.length > 0 && hasInstallments && isAdmin && (
+                    <div className="mb-3 p-2.5 bg-amber-100 border border-amber-300 rounded-lg">
+                      <p className="text-xs text-amber-800 font-medium mb-1.5">{orphanedPayments.length} payment(s) not linked to any installment</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-200"
+                        onClick={async () => {
+                          try {
+                            const authData = localStorage.getItem("hsquare_auth");
+                            const token = authData ? JSON.parse(authData)?.token : null;
+                            const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/fix-orphaned-payments`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                              toast({ title: "Fixed", description: data.message });
+                              queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+                              setSelectedBooking(null);
+                            } else {
+                              toast({ title: "Error", description: data.error, variant: "destructive" });
+                            }
+                          } catch (err: any) {
+                            toast({ title: "Error", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                        data-testid="btn-fix-orphaned-payments"
+                      >
+                        Link to Installments
+                      </Button>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {selectedBooking.payments.map((p: any, idx: number) => (
                       <div key={p.id || idx} className="text-sm">
@@ -1541,7 +1577,8 @@ export default function CompletedBookings() {
                     ))}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {(() => {
                 const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];

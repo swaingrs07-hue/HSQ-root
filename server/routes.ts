@@ -3950,6 +3950,48 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/bookings/:id/fix-orphaned-payments", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const allPayments = await db.select().from(schema.payments)
+        .where(and(eq(schema.payments.bookingId, booking.id), eq(schema.payments.status, "success")));
+      const orphanedPayments = allPayments.filter(p => !p.installmentId);
+      if (orphanedPayments.length === 0) {
+        return res.json({ message: "No orphaned payments found", fixed: 0 });
+      }
+
+      const allInstallments = await db.select().from(schema.installments)
+        .where(eq(schema.installments.bookingId, booking.id))
+        .orderBy(schema.installments.createdAt);
+
+      let fixed = 0;
+      for (const payment of orphanedPayments) {
+        const linkedPayments = allPayments.filter(p => p.installmentId);
+        const updatedPayments = [...linkedPayments];
+
+        for (const inst of allInstallments) {
+          const instPayments = updatedPayments.filter(p => p.installmentId === inst.id);
+          const totalPaid = instPayments.reduce((s, p) => s + (p.amount || 0), 0);
+          if (totalPaid < inst.amount && !inst.paid) {
+            await db.update(schema.payments)
+              .set({ installmentId: inst.id })
+              .where(eq(schema.payments.id, payment.id));
+            updatedPayments.push({ ...payment, installmentId: inst.id });
+            fixed++;
+            break;
+          }
+        }
+      }
+
+      res.json({ message: `Fixed ${fixed} orphaned payments`, fixed });
+    } catch (error: any) {
+      console.error("Error fixing orphaned payments:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
