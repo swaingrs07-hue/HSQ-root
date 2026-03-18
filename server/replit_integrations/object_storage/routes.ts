@@ -118,12 +118,23 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
-  /**
-   * Serve public files via API path.
-   *
-   * Handles paths like /api/uploads/public/:id
-   * Maps to /objects/uploads/:id in object storage
-   */
+  app.get("/api/uploads/signed-url", async (req, res) => {
+    try {
+      const objectPath = req.query.path as string;
+      if (!objectPath || !objectPath.startsWith("/objects/")) {
+        return res.status(400).json({ error: "Invalid object path" });
+      }
+      const signedUrl = await objectStorageService.getSignedDownloadURL(objectPath, 3600);
+      res.json({ url: signedUrl });
+    } catch (error) {
+      console.error("Error generating signed URL:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "Object not found" });
+      }
+      return res.status(500).json({ error: "Failed to generate signed URL" });
+    }
+  });
+
   app.get("/api/uploads/public/:id", async (req, res) => {
     try {
       const objectPath = `/objects/uploads/${req.params.id}`;

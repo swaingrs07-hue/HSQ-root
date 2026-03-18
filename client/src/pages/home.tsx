@@ -553,14 +553,41 @@ export default function Home() {
 
   const hasAnyVideo = heroSlides.some(s => s.videoUrl);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const heroVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
+  const rawVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
   const [videoReady, setVideoReady] = useState(false);
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  const signedUrlCache = useRef<Record<string, { url: string; expires: number }>>({});
 
   useEffect(() => {
-    if (!heroVideoUrl || !heroVideoRef.current) return;
+    if (!rawVideoUrl) {
+      setResolvedVideoUrl(null);
+      return;
+    }
+    const cached = signedUrlCache.current[rawVideoUrl];
+    if (cached && cached.expires > Date.now()) {
+      setResolvedVideoUrl(cached.url);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/uploads/signed-url?path=${encodeURIComponent(rawVideoUrl)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data?.url) {
+          signedUrlCache.current[rawVideoUrl] = { url: data.url, expires: Date.now() + 50 * 60 * 1000 };
+          setResolvedVideoUrl(data.url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedVideoUrl(rawVideoUrl);
+      });
+    return () => { cancelled = true; };
+  }, [rawVideoUrl]);
+
+  useEffect(() => {
+    if (!resolvedVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
     setVideoReady(false);
-    video.src = heroVideoUrl;
+    video.src = resolvedVideoUrl;
     video.load();
 
     const onCanPlay = () => {
@@ -570,7 +597,7 @@ export default function Home() {
     };
     video.addEventListener("canplay", onCanPlay);
     return () => video.removeEventListener("canplay", onCanPlay);
-  }, [heroVideoUrl]);
+  }, [resolvedVideoUrl]);
 
   useEffect(() => {
     if (hasAnyVideo) return;
@@ -627,7 +654,7 @@ export default function Home() {
               muted
               loop
               playsInline
-              preload="auto"
+              preload="none"
             />
           </div>
         ) : (

@@ -206,6 +206,15 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  async getSignedDownloadURL(objectPath: string, ttlSec: number = 3600): Promise<string> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    const [metadata] = await objectFile.getMetadata();
+    const bucketName = objectFile.bucket.name;
+    const objectName = objectFile.name;
+    const signedUrl = await signObjectURL({ bucketName, objectName, method: "GET", ttlSec });
+    return signedUrl;
+  }
+
   // Tries to set the ACL policy for the object entity and return the normalized path.
   async trySetObjectEntityAclPolicy(
     rawPath: string,
