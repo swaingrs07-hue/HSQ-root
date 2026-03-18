@@ -594,7 +594,6 @@ export default function Home() {
           100% { transform: scale(1.5) translateZ(100px); }
         }
       `}</style>
-
       <section
         ref={heroRef}
         className="relative w-full h-screen overflow-hidden"
@@ -686,7 +685,7 @@ export default function Home() {
                   {heroSlides[currentSlide].subtitle}
                 </motion.p>
 
-                <h1 className="text-[clamp(2.5rem,8vw,8rem)] font-heading font-black text-white leading-[0.9] tracking-tighter [word-break:keep-all] [overflow-wrap:normal]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5), 0 0 120px rgba(255,255,255,0.05)" }}>
+                <h1 className="font-heading font-black text-white tracking-tighter [word-break:keep-all] [overflow-wrap:normal] text-[19px]" style={{ textShadow: "0 0 80px rgba(0,0,0,0.8), 0 4px 60px rgba(0,0,0,0.5), 0 0 120px rgba(255,255,255,0.05)" }}>
                   <CinematicText delay={0.3}>{heroSlides[currentSlide].title}</CinematicText>
                 </h1>
 
@@ -798,7 +797,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       <ImmersiveScene variant="aurora" className="py-28 md:py-36 bg-[#050505]">
         <div className="absolute inset-0">
           <ParticleBackground preset="section" className="absolute inset-0" id="stats-particles" />
@@ -830,9 +828,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-
       <WorldTransition color="cyan" />
-
       <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
         <Floating3DShape type="hexagon" size={50} color="#f59e0b" delay={0} x="88%" y="15%" duration={25} />
         <Floating3DShape type="sphere" size={30} color="#06b6d4" delay={2} x="8%" y="70%" duration={20} />
@@ -924,9 +920,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-
       <WorldTransition color="purple" />
-
       <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]">
         <Floating3DShape type="ring" size={55} color="#8b5cf6" delay={0} x="90%" y="20%" duration={24} />
         <Floating3DShape type="diamond" size={22} color="#f59e0b" delay={2} x="5%" y="40%" duration={18} />
@@ -1021,7 +1015,6 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-
       {featuredPlans.length > 0 && (() => {
         const propertyIds = [...new Set(featuredPlans.map((p: any) => p.propertyId).filter(Boolean))];
         const plansByProperty: Record<string, any[]> = {};
@@ -1293,7 +1286,6 @@ export default function Home() {
           </>
         );
       })()}
-
       {instagramPosts.length > 0 && (
         <>
           <WorldTransition color="purple" />
@@ -1458,7 +1450,6 @@ export default function Home() {
           </ImmersiveScene>
         </>
       )}
-
       {!propertiesLoading && properties.length > 0 && (
         <>
           <WorldTransition color="amber" />
@@ -1599,7 +1590,6 @@ export default function Home() {
           </ImmersiveScene>
         </>
       )}
-
       <section className="relative py-36 md:py-48 overflow-hidden">
         <div className="absolute inset-0">
           <motion.img
@@ -1698,7 +1688,6 @@ export default function Home() {
           </motion.div>
         </motion.div>
       </section>
-
       <AnimatePresence>
         {showScrollTop && (
           <motion.button
@@ -1714,7 +1703,6 @@ export default function Home() {
           </motion.button>
         )}
       </AnimatePresence>
-
       <PropertyTourModal
         isOpen={tourModalOpen}
         onClose={() => setTourModalOpen(false)}
