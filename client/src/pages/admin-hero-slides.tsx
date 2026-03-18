@@ -274,7 +274,7 @@ export default function AdminHeroSlides() {
     }
   };
 
-  const SlideForm = () => (
+  const slideFormContent = (
     <div className="overflow-y-auto max-h-[70vh] pr-1 -mr-1 space-y-5">
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-slate-700">Slide Image</Label>
@@ -516,7 +516,7 @@ export default function AdminHeroSlides() {
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-lg font-bold">Add New Slide</DialogTitle>
             </DialogHeader>
-            <SlideForm />
+            {slideFormContent}
           </DialogContent>
         </Dialog>
       </div>
@@ -657,7 +657,7 @@ export default function AdminHeroSlides() {
                         <DialogHeader className="flex-shrink-0">
                           <DialogTitle className="text-lg font-bold">Edit Slide</DialogTitle>
                         </DialogHeader>
-                        <SlideForm />
+                        {slideFormContent}
                       </DialogContent>
                     </Dialog>
                     <Button
