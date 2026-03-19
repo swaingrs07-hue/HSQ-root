@@ -79,6 +79,8 @@ function AppContent() {
   const [location] = useLocation();
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+
     const title = PAGE_TITLES[location] ||
       (location.startsWith("/properties/") ? "Property Details | Hsquareliving" :
       (location.startsWith("/admin") ? "Admin Panel | Hsquareliving" :
