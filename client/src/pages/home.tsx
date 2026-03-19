@@ -12,7 +12,7 @@ import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
-  ArrowUp
+  ArrowUp, GraduationCap, Navigation
 } from "lucide-react";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
@@ -1605,6 +1605,168 @@ export default function Home() {
           </ImmersiveScene>
         </>
       )}
+      <WorldTransition color="cyan" />
+      <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]">
+        <Floating3DShape type="hexagon" size={35} color="#06b6d4" delay={0} x="92%" y="15%" duration={24} />
+        <Floating3DShape type="sphere" size={25} color="#8b5cf6" delay={2} x="5%" y="70%" duration={20} />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="text-center mb-16"
+          >
+            <motion.p
+              className="text-cyan-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
+              initial={{ opacity: 0, y: -20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              Strategically Located
+            </motion.p>
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
+              <CinematicText delay={0.1}>Near Top</CinematicText>
+              {" "}
+              <CinematicText delay={0.3} gradient>Colleges</CinematicText>
+            </h2>
+            <motion.p
+              className="text-white/25 max-w-2xl mx-auto text-sm md:text-base leading-relaxed"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5 }}
+            >
+              Our hostels and co-living spaces are minutes away from Mumbai's top educational institutions, making your daily commute effortless.
+            </motion.p>
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.6 }}
+              className="w-32 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent mx-auto mt-8"
+            />
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="colleges-grid">
+            {[
+              { name: "NMIMS University", area: "Vile Parle West", distance: "5 min", color: "from-cyan-500 to-blue-500", glow: "rgba(6,182,212,0.2)" },
+              { name: "Mithibai College", area: "Vile Parle West", distance: "5 min", color: "from-violet-500 to-purple-500", glow: "rgba(139,92,246,0.2)" },
+              { name: "Mukesh Patel School of Technology", area: "Vile Parle West", distance: "5 min", color: "from-amber-500 to-orange-500", glow: "rgba(245,158,11,0.2)" },
+              { name: "Whistling Woods International", area: "Goregaon East", distance: "10 min", color: "from-emerald-500 to-green-500", glow: "rgba(16,185,129,0.2)" },
+              { name: "DJ Sanghvi College of Engineering", area: "Vile Parle West", distance: "8 min", color: "from-pink-500 to-rose-500", glow: "rgba(236,72,153,0.2)" },
+              { name: "NM College of Commerce", area: "Vile Parle West", distance: "5 min", color: "from-sky-500 to-cyan-500", glow: "rgba(14,165,233,0.2)" },
+            ].map((college, i) => (
+              <motion.div
+                key={college.name}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                className="group"
+                data-testid={`college-card-${i}`}
+              >
+                <div className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.04] transition-all duration-500 relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${college.glow} 0%, transparent 60%)` }} />
+                  <div className="flex items-start gap-4 relative z-10">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${college.color} flex items-center justify-center shrink-0`} style={{ boxShadow: `0 4px 20px ${college.glow}` }}>
+                      <GraduationCap className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-heading font-bold text-white text-sm md:text-base leading-tight mb-1 group-hover:text-cyan-400 transition-colors">{college.name}</h3>
+                      <p className="text-white/30 text-xs flex items-center gap-1">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        {college.area}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+                      <Navigation className="w-3 h-3 text-cyan-400" />
+                      <span className="text-cyan-400 text-xs font-semibold">{college.distance}</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.8 }}
+            className="mt-12 text-center"
+          >
+            <p className="text-white/20 text-xs max-w-3xl mx-auto leading-relaxed">
+              Also conveniently located near HR College, Jai Hind College, KC College, Narsee Monjee College, SP Jain, Goregaon Station, Andheri Station, and Nesco Exhibition Centre.
+            </p>
+          </motion.div>
+        </div>
+      </ImmersiveScene>
+
+      <WorldTransition color="emerald" />
+      <section className="py-20 md:py-28 bg-[#050505] relative overflow-hidden">
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.04) 0%, transparent 60%)" }} />
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="max-w-4xl mx-auto"
+          >
+            <motion.p
+              className="text-emerald-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6 text-center"
+              initial={{ opacity: 0, y: -20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              Your Second Home in Mumbai
+            </motion.p>
+            <h2 className="text-3xl md:text-5xl font-heading font-black text-white mb-10 tracking-tight leading-[1.2] text-center">
+              <CinematicText delay={0.1}>Premium Hostel &</CinematicText>
+              {" "}
+              <CinematicText delay={0.3} gradient>Co-Living in Mumbai</CinematicText>
+            </h2>
+
+            <div className="space-y-6 text-white/35 text-sm md:text-base leading-relaxed" data-testid="seo-content-block">
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+              >
+                Hsquare Hostel is a premium co-living and hostel brand in Mumbai offering comfortable, secure, and affordable stays for students, working professionals, and travelers. Located in prime areas like Goregaon, Juhu, and Andheri, Hsquare provides modern amenities including WiFi, housekeeping, laundry, security, and community living experiences.
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.4 }}
+              >
+                Whether you're looking for an affordable hostel in Mumbai for students near NMIMS, Mithibai College, or Mukesh Patel, or a premium hostel near Goregaon station with WiFi and food — Hsquare is your perfect second home. We offer single, double, and triple sharing hostel rooms with fully furnished interiors, daily housekeeping, and nutritious meals.
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.6 }}
+              >
+                Our co-living spaces in Andheri West and shared accommodation options come with gym access, study lounges, rooftop terraces, and 24/7 CCTV security. From short-term stays to long-term student accommodation, Hsquare offers the best hostel experience in Mumbai with flexible payment plans and a vibrant community of like-minded residents.
+              </motion.p>
+            </div>
+
+            <motion.div
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay: 0.8 }}
+              className="w-32 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent mx-auto mt-10"
+            />
+          </motion.div>
+        </div>
+      </section>
+
       <section className="relative py-36 md:py-48 overflow-hidden">
         <div className="absolute inset-0">
           <motion.img

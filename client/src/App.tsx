@@ -55,7 +55,7 @@ import About from "@/pages/about";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Hsquareliving - Premium Student Accommodation in Mumbai | Hostels & PG",
+  "/": "Hsquare Hostel Mumbai | Premium Hostel & Co-Living near NMIMS, Mithibai, Mukesh Patel",
   "/properties": "Explore Properties - Student Hostels & PG in Mumbai | Hsquareliving",
   "/auth": "Login | Hsquareliving",
   "/login": "Login | Hsquareliving",
@@ -85,7 +85,7 @@ function AppContent() {
       const title = PAGE_TITLES[location] ||
         (location.startsWith("/admin") ? "Admin Panel | Hsquareliving" :
         (location.startsWith("/sales") ? "Sales Dashboard | Hsquareliving" :
-        "Hsquareliving - Premium Student Accommodation in Mumbai"));
+        "Hsquare Hostel Mumbai | Premium Hostel & Co-Living"));
       document.title = title;
     }
 
