@@ -51,3 +51,7 @@ integrations = ["javascript_database:1.0.0", "javascript_object_storage:2.0.0", 
 
 [userenv.shared]
 HMS_API_URL = "https://hsquarehostels.com"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
