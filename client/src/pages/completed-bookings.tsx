@@ -342,11 +342,23 @@ export default function CompletedBookings() {
   };
 
   const startEditing = (booking: any) => {
+    const rd = booking.residentDetails || {};
     setEditForm({
       customerName: booking.customerName || "",
       customerPhone: booking.customerPhone || "",
       customerEmail: booking.customerEmail || "",
       status: booking.status || "draft",
+      dob: rd.dob || "",
+      gender: rd.gender || "",
+      institute: rd.institute || "",
+      course: rd.course || "",
+      moveInDate: rd.moveInDate || "",
+      checkOutDate: rd.checkOutDate || "",
+      dietaryPreference: rd.dietaryPreference || "",
+      parentName: rd.parentName || "",
+      parentPhone: rd.parentPhone || "",
+      parentEmail: rd.parentEmail || "",
+      parentRelation: rd.parentRelation || "",
     });
     setIsEditing(true);
   };
@@ -362,10 +374,15 @@ export default function CompletedBookings() {
     try {
       const authData = localStorage.getItem("hsquare_auth");
       const token = authData ? JSON.parse(authData)?.token : null;
+      const { dob, gender, institute, course, moveInDate, checkOutDate, dietaryPreference, parentName, parentPhone, parentEmail, parentRelation, ...bookingFields } = editForm;
+      const payload = {
+        ...bookingFields,
+        residentDetails: { dob, gender, institute, course, moveInDate, checkOutDate, dietaryPreference, parentName, parentPhone, parentEmail, parentRelation },
+      };
       const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -1971,6 +1988,135 @@ export default function CompletedBookings() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Date of Birth</Label>
+                    <Input
+                      type="date"
+                      value={editForm.dob}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, dob: e.target.value }))}
+                      data-testid="input-edit-dob"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Gender</Label>
+                    <select
+                      value={editForm.gender}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                      className="w-full mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      data-testid="select-edit-gender"
+                    >
+                      <option value="">Select</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Institute</Label>
+                    <Input
+                      value={editForm.institute}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, institute: e.target.value }))}
+                      data-testid="input-edit-institute"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Course</Label>
+                    <Input
+                      value={editForm.course}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, course: e.target.value }))}
+                      data-testid="input-edit-course"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Move-in Date</Label>
+                    <Input
+                      type="date"
+                      value={editForm.moveInDate}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, moveInDate: e.target.value }))}
+                      data-testid="input-edit-movein"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-slate-500">Check-out Date</Label>
+                    <Input
+                      type="date"
+                      value={editForm.checkOutDate}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, checkOutDate: e.target.value }))}
+                      data-testid="input-edit-checkout"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-500">Dietary Preference</Label>
+                  <select
+                    value={editForm.dietaryPreference}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, dietaryPreference: e.target.value }))}
+                    className="w-full mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    data-testid="select-edit-diet"
+                  >
+                    <option value="">Select</option>
+                    <option value="veg">Vegetarian</option>
+                    <option value="non_veg">Non-Vegetarian</option>
+                    <option value="jain">Jain</option>
+                    <option value="vegan">Vegan</option>
+                  </select>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200">
+                  <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-3">Parent / Guardian Details</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium text-slate-500">Parent Name</Label>
+                        <Input
+                          value={editForm.parentName}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, parentName: e.target.value }))}
+                          data-testid="input-edit-parent-name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-slate-500">Relation</Label>
+                        <select
+                          value={editForm.parentRelation}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, parentRelation: e.target.value }))}
+                          className="w-full mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                          data-testid="select-edit-parent-relation"
+                        >
+                          <option value="">Select</option>
+                          <option value="father">Father</option>
+                          <option value="mother">Mother</option>
+                          <option value="guardian">Guardian</option>
+                          <option value="sibling">Sibling</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium text-slate-500">Parent Phone</Label>
+                        <Input
+                          value={editForm.parentPhone}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, parentPhone: e.target.value }))}
+                          data-testid="input-edit-parent-phone"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-slate-500">Parent Email</Label>
+                        <Input
+                          value={editForm.parentEmail}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, parentEmail: e.target.value }))}
+                          data-testid="input-edit-parent-email"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                   <div>
                     <Label className="text-xs font-medium text-slate-500">Base Fee (₹)</Label>
                     <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-basefee">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
