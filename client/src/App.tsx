@@ -81,16 +81,19 @@ function AppContent() {
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    const title = PAGE_TITLES[location] ||
-      (location.startsWith("/properties/") ? "Property Details | Hsquareliving" :
-      (location.startsWith("/admin") ? "Admin Panel | Hsquareliving" :
-      (location.startsWith("/sales") ? "Sales Dashboard | Hsquareliving" :
-      "Hsquareliving - Premium Student Accommodation in Mumbai")));
-    document.title = title;
+    if (!location.startsWith("/properties/") || location === "/properties") {
+      const title = PAGE_TITLES[location] ||
+        (location.startsWith("/admin") ? "Admin Panel | Hsquareliving" :
+        (location.startsWith("/sales") ? "Sales Dashboard | Hsquareliving" :
+        "Hsquareliving - Premium Student Accommodation in Mumbai"));
+      document.title = title;
+    }
 
-    const canonicalEl = document.getElementById("canonical-link") as HTMLLinkElement | null;
-    if (canonicalEl) {
-      canonicalEl.href = `${SITE_URL}${location === "/" ? "/" : location}`;
+    if (!location.startsWith("/properties/") || location === "/properties") {
+      const canonicalEl = document.getElementById("canonical-link") as HTMLLinkElement | null;
+      if (canonicalEl) {
+        canonicalEl.href = `${SITE_URL}${location === "/" ? "/" : location}`;
+      }
     }
   }, [location]);
   const { user, isAdmin } = useAuth();

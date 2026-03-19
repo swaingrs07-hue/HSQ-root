@@ -2127,11 +2127,12 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const [roomTypes, enriched] = await Promise.all([
+      const [roomTypes, enriched, nearbyLocs] = await Promise.all([
         storage.getRoomTypesByProperty(property.id),
         enrichPropertyWithImages(property),
+        storage.getNearbyLocationsByProperty(property.id),
       ]);
-      res.json({ ...enriched, roomTypes });
+      res.json({ ...enriched, roomTypes, nearbyLocations: nearbyLocs });
     } catch (error) {
       console.error("Error fetching property:", error);
       res.status(500).json({ error: "Failed to fetch property" });

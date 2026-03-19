@@ -53,6 +53,7 @@ import {
   ChevronDown, Maximize2, Home, Grid3X3, Eye,
   ZoomIn, Navigation, Compass, Star, Wifi, Coffee,
   Crown, IndianRupee, CheckCircle2,
+  GraduationCap, Train, Landmark, Hospital, ShoppingBag, UtensilsCrossed, MapPinned,
 } from "lucide-react";
 import { ParticleBackground } from "@/components/particle-background";
 
@@ -1352,6 +1353,129 @@ function PropertyBooking() {
     enabled: !!propertyId,
   });
 
+  useEffect(() => {
+    if (!property) return;
+    const nearbyColleges = (property.nearbyLocations || [])
+      .filter((loc: any) => loc.category === "college")
+      .map((loc: any) => loc.placeName);
+    const nearbyLandmarks = (property.nearbyLocations || [])
+      .filter((loc: any) => loc.category !== "college")
+      .slice(0, 3)
+      .map((loc: any) => loc.placeName);
+    const area = property.location || property.city || "Mumbai";
+    const propName = property.displayName || property.name;
+    const categoryLabel = property.category === "hostel" ? "Hostel" : "PG";
+
+    const nearbyNames = [...nearbyColleges.slice(0, 2), ...nearbyLandmarks.slice(0, 1)].join(", ");
+    const seoTitle = nearbyNames
+      ? `Premium ${categoryLabel} Near ${nearbyNames} ${area} | Hsquareliving`
+      : `${propName} - Premium ${categoryLabel} in ${area} | Hsquareliving`;
+    document.title = seoTitle.length > 70 ? seoTitle.slice(0, 67) + "..." : seoTitle;
+
+    const lowestRoomPrice = property.roomTypes?.reduce((min: number, r: any) => {
+      const price = property.bookingMode === "academic_year"
+        ? (r.academicYearPrice || (r.basePrice ? r.basePrice * 11 : 0))
+        : (r.basePrice || 0);
+      return price > 0 ? Math.min(min, price) : min;
+    }, Infinity) || 0;
+    const priceText = lowestRoomPrice > 0 && lowestRoomPrice < Infinity
+      ? ` Starting ₹${lowestRoomPrice.toLocaleString("en-IN")}/${property.bookingMode === "academic_year" ? "yr" : "mo"}.`
+      : "";
+    const amenitiesList = (property.amenities || []).slice(0, 3).join(", ");
+    const amenitiesText = amenitiesList ? ` ${amenitiesList} included.` : "";
+    const collegesText = nearbyColleges.length > 0 ? ` Near ${nearbyColleges.slice(0, 3).join(", ")}.` : "";
+    const metaDesc = `${propName} — premium ${categoryLabel.toLowerCase()} in ${area}.${priceText}${amenitiesText}${collegesText} Book your room today!`;
+    const truncatedDesc = metaDesc.length > 160 ? metaDesc.slice(0, 157) + "..." : metaDesc;
+
+    const setMeta = (selector: string, attr: string, value: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute(attr, value);
+    };
+    setMeta('meta[name="description"]', "content", truncatedDesc);
+    setMeta('meta[property="og:title"]', "content", document.title);
+    setMeta('meta[property="og:description"]', "content", truncatedDesc);
+    setMeta('meta[property="og:url"]', "content", `https://hsquare.in/properties/${property.id}`);
+    setMeta('meta[name="twitter:title"]', "content", document.title);
+    setMeta('meta[name="twitter:description"]', "content", truncatedDesc);
+
+    const canonicalEl = document.getElementById("canonical-link") as HTMLLinkElement | null;
+    if (canonicalEl) {
+      canonicalEl.href = `https://hsquare.in/properties/${property.id}`;
+    }
+
+    const existingJsonLd = document.getElementById("property-jsonld");
+    if (existingJsonLd) existingJsonLd.remove();
+    const nearbyPois = (property.nearbyLocations || []).map((loc: any) => ({
+      "@type": "Place",
+      "name": loc.placeName,
+      "additionalType": loc.category,
+    }));
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "LodgingBusiness",
+      "name": propName,
+      "description": truncatedDesc,
+      "url": `https://hsquare.in/properties/${property.id}`,
+      "telephone": property.phone || "+91-6372294625",
+      "email": property.email || "support@hsquareliving.com",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": property.address || "",
+        "addressLocality": property.city || area,
+        "addressRegion": "Maharashtra",
+        "addressCountry": "IN",
+      },
+      ...(() => {
+        if (!property.mapsUrl) return {};
+        const latMatch = property.mapsUrl.match(/@(-?\d+\.\d+)/);
+        const lngMatch = property.mapsUrl.match(/@-?\d+\.\d+,(-?\d+\.\d+)/);
+        if (latMatch?.[1] && lngMatch?.[1]) {
+          return {
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": latMatch[1],
+              "longitude": lngMatch[1],
+            },
+          };
+        }
+        return {};
+      })(),
+      "priceRange": lowestRoomPrice > 0 && lowestRoomPrice < Infinity
+        ? `From ₹${lowestRoomPrice.toLocaleString("en-IN")}`
+        : "₹₹",
+      "image": property.imageUrl || "https://hsquare.in/opengraph.jpg",
+      "openingHours": "Mo-Su 00:00-23:59",
+      ...(nearbyPois.length > 0 ? { "containedInPlace": nearbyPois } : {}),
+      "amenityFeature": (property.amenities || []).map((am: string) => ({
+        "@type": "LocationFeatureSpecification",
+        "name": am,
+        "value": true,
+      })),
+    };
+    const script = document.createElement("script");
+    script.id = "property-jsonld";
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(jsonLd);
+    document.head.appendChild(script);
+
+    return () => {
+      const el = document.getElementById("property-jsonld");
+      if (el) el.remove();
+      const defaults = {
+        'meta[name="description"]': "Hsquareliving offers premium student accommodation in Mumbai — fully furnished hostels and PGs near top colleges with meals, WiFi, security, and community living. Book your room today.",
+        'meta[property="og:title"]': "Hsquareliving - Premium Student Accommodation in Mumbai",
+        'meta[property="og:description"]': "Find your perfect student home with Hsquareliving. Fully furnished hostels near top Mumbai colleges with meals, WiFi, 24/7 security, and vibrant community.",
+        'meta[property="og:url"]': "https://hsquare.in/",
+        'meta[name="twitter:title"]': "Hsquareliving - Premium Student Accommodation in Mumbai",
+        'meta[name="twitter:description"]': "Fully furnished hostels near top Mumbai colleges with meals, WiFi, 24/7 security. Book your room today.",
+      };
+      Object.entries(defaults).forEach(([selector, value]) => {
+        const el = document.querySelector(selector);
+        if (el) el.setAttribute("content", value);
+      });
+    };
+  }, [property]);
+
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [autoDetectedPlan, setAutoDetectedPlan] = useState<any>(null);
@@ -1650,6 +1774,65 @@ function PropertyBooking() {
                     </motion.div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {property.nearbyLocations?.length > 0 && (
+              <div data-testid="section-nearby-locations">
+                <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                  <MapPinned className="w-5 h-5 text-amber-500" />
+                  Nearby Colleges & Landmarks
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {property.nearbyLocations.map((loc: any, i: number) => {
+                    const categoryIcons: Record<string, any> = {
+                      college: GraduationCap,
+                      metro: Train,
+                      hospital: Hospital,
+                      mall: ShoppingBag,
+                      restaurant: UtensilsCrossed,
+                      office: Building2,
+                      other: Landmark,
+                    };
+                    const Icon = categoryIcons[loc.category] || Landmark;
+                    const categoryColors: Record<string, string> = {
+                      college: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+                      metro: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+                      hospital: "text-red-400 bg-red-500/10 border-red-500/20",
+                      mall: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+                      restaurant: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+                      office: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+                      other: "text-white/60 bg-white/[0.06] border-white/[0.1]",
+                    };
+                    const colorClass = categoryColors[loc.category] || categoryColors.other;
+                    return (
+                      <motion.div
+                        key={loc.id || i}
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl hover:border-amber-500/20 hover:bg-white/[0.05] transition-all"
+                        data-testid={`nearby-location-${loc.id || i}`}
+                      >
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", colorClass)}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white/80 truncate">{loc.placeName}</p>
+                          <p className="text-xs text-white/40 capitalize">{loc.category}</p>
+                        </div>
+                        <span className="text-xs text-amber-400 font-semibold whitespace-nowrap">{loc.distance}</span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                {property.address && (
+                  <p className="mt-3 text-sm text-white/40 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-amber-500/60 shrink-0" />
+                    {property.address}
+                  </p>
+                )}
               </div>
             )}
 
