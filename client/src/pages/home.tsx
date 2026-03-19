@@ -726,7 +726,7 @@ export default function Home() {
             <Link href="/properties">
               <Button
                 size="lg"
-                className="bg-white text-black hover:bg-white/90 border-none text-base px-12 h-14 rounded-full font-bold tracking-wider shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all uppercase"
+                className="text-black hover:bg-white/90 border-none text-base px-12 h-14 rounded-full font-bold tracking-wider shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all uppercase text-center bg-[#ffffff8a]"
                 data-testid="button-explore-properties"
               >
                 Explore Properties
