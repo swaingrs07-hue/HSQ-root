@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -52,8 +53,42 @@ import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
+const PAGE_TITLES: Record<string, string> = {
+  "/": "Hsquareliving - Premium Student Accommodation in Mumbai | Hostels & PG",
+  "/properties": "Explore Properties - Student Hostels & PG in Mumbai | Hsquareliving",
+  "/auth": "Login | Hsquareliving",
+  "/login": "Login | Hsquareliving",
+  "/admin/login": "Admin Login | Hsquareliving",
+  "/student/register": "Student Registration | Hsquareliving",
+  "/payment-plans": "Payment Plans | Hsquareliving",
+  "/payment-gateway": "Payment | Hsquareliving",
+  "/agreement": "Booking Agreement | Hsquareliving",
+  "/dashboard": "My Dashboard | Hsquareliving",
+  "/my-bookings": "My Bookings | Hsquareliving",
+  "/profile": "Profile | Hsquareliving",
+  "/settings": "Settings | Hsquareliving",
+  "/help": "Help & Support | Hsquareliving",
+  "/booking/generate": "Generate Booking | Hsquareliving",
+};
+
+const SITE_URL = "https://hsquare.in";
+
 function AppContent() {
   const [location] = useLocation();
+
+  useEffect(() => {
+    const title = PAGE_TITLES[location] ||
+      (location.startsWith("/properties/") ? "Property Details | Hsquareliving" :
+      (location.startsWith("/admin") ? "Admin Panel | Hsquareliving" :
+      (location.startsWith("/sales") ? "Sales Dashboard | Hsquareliving" :
+      "Hsquareliving - Premium Student Accommodation in Mumbai")));
+    document.title = title;
+
+    const canonicalEl = document.getElementById("canonical-link") as HTMLLinkElement | null;
+    if (canonicalEl) {
+      canonicalEl.href = `${SITE_URL}${location === "/" ? "/" : location}`;
+    }
+  }, [location]);
   const { user, isAdmin } = useAuth();
   
   const isResetPasswordPage = location.startsWith("/admin/reset-password") || location.startsWith("/reset-password");

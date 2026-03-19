@@ -252,6 +252,68 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
+  // ============ SEO: robots.txt & sitemap.xml ============
+
+  app.get("/robots.txt", (req, res) => {
+    const siteUrl = process.env.APP_PUBLIC_URL || "https://hsquare.in";
+    res.type("text/plain").send(
+`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /sales
+Disallow: /sales/*
+Disallow: /api/
+Disallow: /auth
+Disallow: /login
+Disallow: /booking/generate
+Disallow: /dashboard
+Disallow: /my-bookings
+Disallow: /profile
+Disallow: /settings
+
+Sitemap: ${siteUrl}/sitemap.xml`
+    );
+  });
+
+  app.get("/sitemap.xml", async (req, res) => {
+    const siteUrl = process.env.APP_PUBLIC_URL || "https://hsquare.in";
+    const now = new Date().toISOString().split("T")[0];
+
+    const staticPages = [
+      { loc: "/", priority: "1.0", changefreq: "weekly" },
+      { loc: "/properties", priority: "0.9", changefreq: "weekly" },
+    ];
+
+    let propertyEntries: { loc: string; lastmod: string; priority: string; changefreq: string }[] = [];
+    try {
+      const props = await db.select({
+        id: schema.properties.id,
+        updatedAt: schema.properties.updatedAt,
+      }).from(schema.properties);
+      propertyEntries = props.map(p => ({
+        loc: `/properties/${p.id}`,
+        lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : now,
+        priority: "0.8",
+        changefreq: "weekly",
+      }));
+    } catch (e) {}
+
+    const allPages = [...staticPages, ...propertyEntries];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allPages.map(p => `  <url>
+    <loc>${siteUrl}${p.loc}</loc>
+    <lastmod>${(p as any).lastmod || now}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`).join("\n")}
+</urlset>`;
+
+    res.type("application/xml").send(xml);
+  });
+
   // ============ HERO SLIDES ============
   
   app.get("/api/hero-slides", async (req, res) => {
