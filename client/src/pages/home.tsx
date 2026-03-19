@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import heroLobby from "@/assets/hero-lobby.jpg";
@@ -551,10 +551,22 @@ export default function Home() {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   }, [heroSlides.length]);
 
-  const hasAnyVideo = heroSlides.some(s => s.videoUrl);
+  const canPlayVideo = useMemo(() => {
+    if (typeof window === "undefined") return true;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) return false;
+    const testVideo = document.createElement("video");
+    const canWebm = testVideo.canPlayType('video/webm; codecs="vp8, vorbis"') !== "" ||
+                    testVideo.canPlayType('video/webm; codecs="vp9"') !== "";
+    const canMp4 = testVideo.canPlayType('video/mp4; codecs="avc1.42E01E"') !== "";
+    return canWebm || canMp4;
+  }, []);
+
+  const hasAnyVideo = heroSlides.some(s => s.videoUrl) && canPlayVideo;
   const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const rawVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
+  const rawVideoUrl = (canPlayVideo && heroSlides[currentSlide]?.videoUrl) || null;
   const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
   const signedUrlCache = useRef<Record<string, { url: string; expires: number }>>({});
 
@@ -591,6 +603,7 @@ export default function Home() {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
     setVideoReady(false);
+    setVideoFailed(false);
 
     video.src = resolvedVideoUrl;
     video.load();
@@ -600,7 +613,9 @@ export default function Home() {
       const playPromise = video.play();
       if (playPromise) playPromise.catch(() => {
         video.muted = true;
-        video.play().catch(() => {});
+        video.play().catch(() => {
+          setVideoFailed(true);
+        });
       });
     };
 
@@ -608,18 +623,30 @@ export default function Home() {
     const onLoadedData = () => {
       if (!videoReady) tryPlay();
     };
+    const onError = () => {
+      setVideoFailed(true);
+      setVideoReady(false);
+    };
 
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("loadeddata", onLoadedData);
+    video.addEventListener("error", onError);
 
-    const safariTimeout = setTimeout(() => {
-      if (!videoReady && video.readyState >= 2) tryPlay();
-    }, 2000);
+    const failsafeTimeout = setTimeout(() => {
+      if (!videoReady) {
+        if (video.readyState >= 2) {
+          tryPlay();
+        } else {
+          setVideoFailed(true);
+        }
+      }
+    }, 5000);
 
     return () => {
       video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("loadeddata", onLoadedData);
-      clearTimeout(safariTimeout);
+      video.removeEventListener("error", onError);
+      clearTimeout(failsafeTimeout);
     };
   }, [resolvedVideoUrl]);
 
@@ -669,7 +696,7 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {heroSlides[currentSlide].videoUrl ? (
+        {heroSlides[currentSlide].videoUrl && canPlayVideo && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
@@ -681,6 +708,13 @@ export default function Home() {
               playsInline
               preload="auto"
             />
+            {!videoReady && heroSlides[currentSlide].image && (
+              <img
+                src={heroSlides[currentSlide].image}
+                alt={heroSlides[currentSlide].title}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
           </div>
         ) : (
           <AnimatePresence initial={false}>
