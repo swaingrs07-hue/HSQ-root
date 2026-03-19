@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   HelpCircle, ChevronDown, ArrowRight, Search,
-  Building2, CreditCard, Shield, Users, Home, Utensils
+  Building2, CreditCard, Shield, Users, Home, Utensils,
+  Sparkles, Loader2, Bot, Send
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ParticleBackground } from "@/components/particle-background";
@@ -183,6 +184,10 @@ function FAQAccordion({ items }: { items: FAQItem[] }) {
 export default function FAQ() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = searchQuery.trim()
     ? FAQ_DATA.flatMap((cat) =>
@@ -193,6 +198,43 @@ export default function FAQ() {
         )
       )
     : null;
+
+  const askAI = useCallback(async (question: string) => {
+    if (!question.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiQuestion(question.trim());
+    setAiResponse(null);
+    try {
+      const res = await fetch("/api/chatbot/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: `FAQ question from website visitor: ${question.trim()}. Please give a concise, helpful answer about Hsquare Living hostel services.` }],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiResponse(data.response);
+      } else {
+        setAiResponse("Sorry, I couldn't process your question right now. Please try again or contact us directly at support@hsquareliving.com.");
+      }
+    } catch {
+      setAiResponse("Sorry, something went wrong. Please try again or reach out to our team.");
+    }
+    setAiLoading(false);
+  }, [aiLoading]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      askAI(searchQuery);
+    }
+  };
+
+  const clearAI = () => {
+    setAiResponse(null);
+    setAiQuestion("");
+    setSearchQuery("");
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden">
@@ -224,17 +266,33 @@ export default function FAQ() {
             Everything you need to know about Hsquare Living. Can't find your answer? Reach out to our team.
           </p>
 
-          <div className="relative max-w-md mx-auto">
+          <div className="relative max-w-lg mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
             <input
+              ref={searchInputRef}
               data-testid="input-faq-search"
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search questions..."
-              className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white placeholder:text-white/25 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
+              onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value.trim()) clearAI(); }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Ask anything about Hsquare Living..."
+              className="w-full pl-12 pr-28 py-3.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-white placeholder:text-white/25 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.07] transition-all"
             />
+            <button
+              data-testid="button-ask-ai"
+              onClick={() => askAI(searchQuery)}
+              disabled={!searchQuery.trim() || aiLoading}
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 text-xs font-medium hover:from-amber-500/30 hover:to-orange-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              Ask AI
+            </button>
           </div>
+          {!aiResponse && !aiLoading && (
+            <p className="text-xs text-white/20 mt-3 max-w-lg mx-auto">
+              Type your question and press Enter or click Ask AI for an instant answer powered by Gyan AI
+            </p>
+          )}
         </motion.div>
       </section>
 
@@ -242,7 +300,63 @@ export default function FAQ() {
 
       <section className="relative py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-6">
-          {filteredItems ? (
+          <AnimatePresence mode="wait">
+            {(aiResponse || aiLoading) && (
+              <motion.div
+                key="ai-answer"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.4 }}
+                className="mb-12"
+                data-testid="ai-response-card"
+              >
+                <div className="relative p-6 md:p-8 rounded-2xl bg-gradient-to-br from-amber-500/[0.06] to-orange-500/[0.03] border border-amber-500/20 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-black" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white/80">Gyan AI</p>
+                        <p className="text-xs text-white/30">Hsquare Living Assistant</p>
+                      </div>
+                      <div className="ml-auto">
+                        <button
+                          onClick={clearAI}
+                          className="text-xs text-white/30 hover:text-white/60 px-3 py-1 rounded-lg border border-white/[0.06] hover:border-white/[0.12] transition-all"
+                          data-testid="button-clear-ai"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {aiLoading ? (
+                      <div className="flex items-center gap-3 py-4">
+                        <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                        <p className="text-white/40 text-sm">Thinking about "{aiQuestion}"...</p>
+                      </div>
+                    ) : (
+                      <div className="text-white/60 leading-relaxed text-sm md:text-base whitespace-pre-line">
+                        {aiResponse}
+                      </div>
+                    )}
+
+                    {!aiLoading && aiResponse && (
+                      <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-center gap-2 text-xs text-white/20">
+                        <Sparkles className="w-3 h-3" />
+                        <span>Powered by Gyan AI — answers may vary. For detailed queries, <Link href="/contact" className="text-amber-400/60 hover:text-amber-400 transition-colors">contact our team</Link>.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {filteredItems && !aiLoading && !aiResponse ? (
             <motion.div {...fadeUp}>
               <p className="text-white/40 text-sm mb-6">{filteredItems.length} result{filteredItems.length !== 1 ? "s" : ""} found</p>
               {filteredItems.length > 0 ? (
@@ -250,11 +364,11 @@ export default function FAQ() {
               ) : (
                 <div className="text-center py-16">
                   <HelpCircle className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                  <p className="text-white/30">No matching questions found. Try a different search or <Link href="/contact" className="text-amber-400 hover:underline">contact us</Link>.</p>
+                  <p className="text-white/30">No matching questions found. Try pressing Enter to ask our AI, or <Link href="/contact" className="text-amber-400 hover:underline">contact us</Link>.</p>
                 </div>
               )}
             </motion.div>
-          ) : (
+          ) : !aiLoading && !aiResponse ? (
             <div className="grid lg:grid-cols-[240px_1fr] gap-10">
               <motion.div {...fadeUp} className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
                 {FAQ_DATA.map((cat, i) => {
@@ -285,7 +399,7 @@ export default function FAQ() {
                 <FAQAccordion items={FAQ_DATA[activeCategory].items} />
               </motion.div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
