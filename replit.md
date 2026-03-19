@@ -37,6 +37,8 @@ Preferred communication style: Simple, everyday language.
 - **Receptionist Role**: Limited admin access for front-desk staff — can view dashboard (without financial KPIs), manage bookings, view requests board, calendar, floors & beds, and booking tree. Cannot see revenue, pending payments, discounts, targets, reports, settings, or any system configuration. Financial data hidden on both frontend and backend.
 
 ### Core Features
+- **About Us Page**: Premium dark cinematic page (`/about`) with parallax hero, animated sections for company story, values (Curated Experiences, People First, Adaptive Design), Mission/Vision/Promise pillars, image gallery grid, and CTA section. Uses Framer Motion scroll animations, particle backgrounds, glassmorphism cards, and gradient accents matching the homepage design language.
+- **SEO Foundations**: Title tags, meta description, canonical URLs (dynamic per route), robots.txt, dynamic sitemap.xml (static pages + published properties from DB), JSON-LD structured data (Organization + LocalBusiness), Open Graph/Twitter Card tags, dynamic page titles per route.
 - **Sales Executive Panel**: Admin functions for sales executive and lead management, including lead sourcing, assignment, activity logging, follow-up systems, and deal closure.
 - **Kanban Requests Board**: Visual drag-and-drop pipeline for lead management with stages (Unqualified to Won), status indicators, and role-scoped access.
 - **Lead Scoring System**: Property-wise scoring (0-100) and priority classification (Cold, Warm, Hot) based on user actions.

@@ -290,6 +290,7 @@ Sitemap: ${siteUrl}/sitemap.xml`
     const staticPages: SitemapEntry[] = [
       { loc: "/", lastmod: now, priority: "1.0", changefreq: "weekly" },
       { loc: "/properties", lastmod: now, priority: "0.9", changefreq: "weekly" },
+      { loc: "/about", lastmod: now, priority: "0.7", changefreq: "monthly" },
     ];
 
     let propertyEntries: SitemapEntry[] = [];

@@ -51,6 +51,7 @@ import AdminLogoControl from "@/pages/admin-logo-control";
 import AdminAmenities from "@/pages/admin-amenities";
 import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
+import About from "@/pages/about";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -69,6 +70,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/settings": "Settings | Hsquareliving",
   "/help": "Help & Support | Hsquareliving",
   "/booking/generate": "Generate Booking | Hsquareliving",
+  "/about": "About Us - HSquare Living | Premium Hospitality",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -152,6 +154,7 @@ function AppContent() {
           <Layout>
             <Switch>
               <Route path="/" component={Home} />
+              <Route path="/about" component={About} />
               <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />

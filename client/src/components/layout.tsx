@@ -48,7 +48,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isHomePage = location === "/";
   const isPropertyPage = /^\/properties(\/[^/]+)?$/.test(location);
   const isMyBookingsPage = location === "/my-bookings";
-  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage;
+  const isAboutPage = location === "/about";
+  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage;
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
