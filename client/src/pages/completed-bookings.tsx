@@ -346,8 +346,6 @@ export default function CompletedBookings() {
       customerName: booking.customerName || "",
       customerPhone: booking.customerPhone || "",
       customerEmail: booking.customerEmail || "",
-      baseFee: booking.baseFee || 0,
-      discount: booking.discount || 0,
       status: booking.status || "draft",
     });
     setIsEditing(true);
@@ -1979,7 +1977,7 @@ export default function CompletedBookings() {
                   </div>
                   <div>
                     <Label className="text-xs font-medium text-slate-500">Discount (₹)</Label>
-                    <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-discount">{selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-discount">{selectedBooking.discount != null ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}</p>
                   </div>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-lg">
