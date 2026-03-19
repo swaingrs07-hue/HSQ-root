@@ -12,7 +12,7 @@ import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
-  ArrowUp, GraduationCap, Navigation
+  ArrowUp, GraduationCap, Navigation, Smartphone, Bell, Wallet, QrCode
 } from "lucide-react";
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
@@ -1865,6 +1865,124 @@ export default function Home() {
           </motion.div>
         </motion.div>
       </section>
+      <section className="relative py-20 md:py-28 overflow-hidden" data-testid="app-download-section">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-[#0a0808] to-[#050505]" />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-amber-500/8 via-orange-500/5 to-rose-500/8 rounded-full blur-3xl" />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-sm mb-6">
+                <Smartphone className="w-4 h-4 text-amber-400" />
+                <span className="text-xs uppercase tracking-[0.25em] text-white/60 font-medium">Mobile App</span>
+              </div>
+
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-black leading-[1.1] mb-5">
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/60">
+                  Your Living Experience,{" "}
+                </span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-orange-400">
+                  In Your Pocket
+                </span>
+              </h2>
+
+              <p className="text-white/40 text-base md:text-lg leading-relaxed mb-8 max-w-md">
+                Download HsquareConnect — your smart companion for seamless hostel living. Manage everything from your phone.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                {[
+                  { icon: Bell, label: "Instant Alerts", desc: "Stay updated" },
+                  { icon: Wallet, label: "Digital Wallet", desc: "Easy payments" },
+                  { icon: Utensils, label: "Meal Tracking", desc: "Daily menus" },
+                  { icon: QrCode, label: "Quick Check-in", desc: "Scan & go" },
+                ].map((f) => (
+                  <div key={f.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                      <f.icon className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white/70">{f.label}</p>
+                      <p className="text-[10px] text-white/30">{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                <a
+                  href="https://apps.apple.com/in/app/hsquareconnect-app/id6759179340"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-white text-black hover:bg-white/90 transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] group"
+                  data-testid="link-app-store-hero"
+                >
+                  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                  </svg>
+                  <div>
+                    <p className="text-[10px] leading-none opacity-60">Download on the</p>
+                    <p className="text-base font-bold leading-tight">App Store</p>
+                  </div>
+                </a>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="flex">
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                    ))}
+                  </div>
+                  <span className="text-xs text-white/40 ml-1">5.0 rating</span>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+              className="relative flex justify-center"
+            >
+              <div className="relative">
+                <div className="absolute -inset-8 bg-gradient-to-br from-amber-500/20 via-transparent to-orange-500/20 rounded-[3rem] blur-2xl" />
+                <div className="relative w-[260px] h-[520px] rounded-[2.5rem] bg-gradient-to-b from-stone-800 to-stone-900 border-2 border-stone-700 shadow-2xl overflow-hidden">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-b-2xl z-10" />
+
+                  <div className="w-full h-full bg-gradient-to-b from-[#8B1A4A] via-[#6B1540] to-[#4A0E2E] flex flex-col items-center justify-center p-8">
+                    <div className="w-20 h-20 rounded-2xl bg-white shadow-xl flex items-center justify-center mb-5">
+                      <img src={hsquareLogo} alt="Hsquare" className="w-14 h-14 object-contain" />
+                    </div>
+                    <h3 className="text-white font-heading font-bold text-lg text-center mb-1">HsquareConnect</h3>
+                    <p className="text-white/60 text-xs text-center mb-6">Your Smart Living Companion</p>
+
+                    <div className="w-full space-y-2.5">
+                      {["Dashboard", "My Room", "Meals", "Wallet", "Support"].map((item, i) => (
+                        <div key={item} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-sm">
+                          <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                            <div className="w-3 h-3 rounded-sm bg-white/40" />
+                          </div>
+                          <span className="text-white/80 text-xs font-medium">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-32 h-4 bg-black/20 rounded-full blur-md" />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <AnimatePresence>
         {showScrollTop && (
           <motion.button
