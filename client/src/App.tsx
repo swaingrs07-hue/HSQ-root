@@ -55,7 +55,7 @@ import About from "@/pages/about";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Hsquare Hostel Mumbai | Premium Hostel & Co-Living near NMIMS, Mithibai, Mukesh Patel",
+  "/": "Hsquare Hostel Mumbai | Hostel & Co-Living in Goregaon, Juhu & Andheri near NMIMS, Mithibai",
   "/properties": "Explore Properties - Student Hostels & PG in Mumbai | Hsquareliving",
   "/auth": "Login | Hsquareliving",
   "/login": "Login | Hsquareliving",
