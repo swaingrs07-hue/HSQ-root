@@ -562,6 +562,15 @@ export default function Home() {
     return testVideo.canPlayType(contentType) !== "";
   }, []);
 
+  const inferContentType = useCallback((url: string): string | null => {
+    const lower = url.toLowerCase();
+    if (lower.includes(".webm")) return "video/webm";
+    if (lower.includes(".mp4")) return "video/mp4";
+    if (lower.includes(".mov")) return "video/quicktime";
+    if (lower.includes(".ogg") || lower.includes(".ogv")) return "video/ogg";
+    return null;
+  }, []);
+
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const currentVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
   const [videoReady, setVideoReady] = useState(false);
@@ -580,7 +589,8 @@ export default function Home() {
     }
     const cached = signedUrlCache.current[currentVideoUrl];
     if (cached && cached.expires > Date.now()) {
-      const supported = cached.contentType ? browserCanPlay(cached.contentType) : true;
+      const ct = cached.contentType || inferContentType(currentVideoUrl);
+      const supported = ct ? browserCanPlay(ct) : true;
       setVideoSupported(supported);
       setResolvedVideoUrl(supported ? cached.url : null);
       if (!supported) setVideoFailed(true);
@@ -597,7 +607,7 @@ export default function Home() {
             expires: Date.now() + 50 * 60 * 1000,
             contentType: data.contentType,
           };
-          const ct = data.contentType || "";
+          const ct = data.contentType || inferContentType(currentVideoUrl) || "";
           const supported = ct ? browserCanPlay(ct) : true;
           setVideoSupported(supported);
           if (supported) {
