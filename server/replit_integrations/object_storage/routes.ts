@@ -125,7 +125,15 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(400).json({ error: "Invalid object path" });
       }
       const signedUrl = await objectStorageService.getSignedDownloadURL(objectPath, 3600);
-      res.json({ url: signedUrl });
+
+      let contentType: string | undefined;
+      try {
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        const [metadata] = await objectFile.getMetadata();
+        contentType = metadata.contentType as string;
+      } catch (_) {}
+
+      res.json({ url: signedUrl, ...(contentType ? { contentType } : {}) });
     } catch (error) {
       console.error("Error generating signed URL:", error);
       if (error instanceof ObjectNotFoundError) {

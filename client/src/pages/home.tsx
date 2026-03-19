@@ -551,53 +551,74 @@ export default function Home() {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   }, [heroSlides.length]);
 
-  const canPlayVideo = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) return false;
-    const testVideo = document.createElement("video");
-    const canWebm = testVideo.canPlayType('video/webm; codecs="vp8, vorbis"') !== "" ||
-                    testVideo.canPlayType('video/webm; codecs="vp9"') !== "";
-    const canMp4 = testVideo.canPlayType('video/mp4; codecs="avc1.42E01E"') !== "";
-    return canWebm || canMp4;
+  const isMobile = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   }, []);
 
-  const hasAnyVideo = heroSlides.some(s => s.videoUrl) && canPlayVideo;
+  const browserCanPlay = useCallback((contentType: string) => {
+    if (typeof window === "undefined") return true;
+    const testVideo = document.createElement("video");
+    return testVideo.canPlayType(contentType) !== "";
+  }, []);
+
   const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const rawVideoUrl = (canPlayVideo && heroSlides[currentSlide]?.videoUrl) || null;
+  const currentVideoUrl = heroSlides[currentSlide]?.videoUrl || null;
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
-  const signedUrlCache = useRef<Record<string, { url: string; expires: number }>>({});
+  const [videoSupported, setVideoSupported] = useState(false);
+  const signedUrlCache = useRef<Record<string, { url: string; expires: number; contentType?: string }>>({});
+
+  const hasAnyVideo = heroSlides.some(s => s.videoUrl) && !isMobile;
 
   useEffect(() => {
-    if (!rawVideoUrl) {
+    if (!currentVideoUrl || isMobile) {
       setResolvedVideoUrl(null);
+      setVideoSupported(false);
       return;
     }
-    const cached = signedUrlCache.current[rawVideoUrl];
+    const cached = signedUrlCache.current[currentVideoUrl];
     if (cached && cached.expires > Date.now()) {
-      setResolvedVideoUrl(cached.url);
+      const supported = cached.contentType ? browserCanPlay(cached.contentType) : true;
+      setVideoSupported(supported);
+      setResolvedVideoUrl(supported ? cached.url : null);
+      if (!supported) setVideoFailed(true);
       return;
     }
     let cancelled = false;
-    fetch(`/api/uploads/signed-url?path=${encodeURIComponent(rawVideoUrl)}`)
+    fetch(`/api/uploads/signed-url?path=${encodeURIComponent(currentVideoUrl)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!cancelled) {
-          if (data?.url) {
-            signedUrlCache.current[rawVideoUrl] = { url: data.url, expires: Date.now() + 50 * 60 * 1000 };
+        if (cancelled) return;
+        if (data?.url) {
+          signedUrlCache.current[currentVideoUrl] = {
+            url: data.url,
+            expires: Date.now() + 50 * 60 * 1000,
+            contentType: data.contentType,
+          };
+          const ct = data.contentType || "";
+          const supported = ct ? browserCanPlay(ct) : true;
+          setVideoSupported(supported);
+          if (supported) {
             setResolvedVideoUrl(data.url);
           } else {
-            setResolvedVideoUrl(rawVideoUrl);
+            setResolvedVideoUrl(null);
+            setVideoFailed(true);
           }
+        } else {
+          setVideoSupported(false);
+          setVideoFailed(true);
         }
       })
       .catch(() => {
-        if (!cancelled) setResolvedVideoUrl(rawVideoUrl);
+        if (!cancelled) {
+          setVideoSupported(false);
+          setVideoFailed(true);
+        }
       });
     return () => { cancelled = true; };
-  }, [rawVideoUrl]);
+  }, [currentVideoUrl, isMobile, browserCanPlay]);
 
   useEffect(() => {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
@@ -696,7 +717,7 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {heroSlides[currentSlide].videoUrl && canPlayVideo && !videoFailed ? (
+        {heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
