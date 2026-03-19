@@ -280,17 +280,24 @@ Sitemap: ${siteUrl}/sitemap.xml`
     const siteUrl = process.env.APP_PUBLIC_URL || "https://hsquare.in";
     const now = new Date().toISOString().split("T")[0];
 
-    const staticPages = [
-      { loc: "/", priority: "1.0", changefreq: "weekly" },
-      { loc: "/properties", priority: "0.9", changefreq: "weekly" },
+    interface SitemapEntry {
+      loc: string;
+      lastmod: string;
+      changefreq: string;
+      priority: string;
+    }
+
+    const staticPages: SitemapEntry[] = [
+      { loc: "/", lastmod: now, priority: "1.0", changefreq: "weekly" },
+      { loc: "/properties", lastmod: now, priority: "0.9", changefreq: "weekly" },
     ];
 
-    let propertyEntries: { loc: string; lastmod: string; priority: string; changefreq: string }[] = [];
+    let propertyEntries: SitemapEntry[] = [];
     try {
       const props = await db.select({
         id: schema.properties.id,
         updatedAt: schema.properties.updatedAt,
-      }).from(schema.properties);
+      }).from(schema.properties).where(eq(schema.properties.status, "published"));
       propertyEntries = props.map(p => ({
         loc: `/properties/${p.id}`,
         lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : now,
@@ -299,13 +306,13 @@ Sitemap: ${siteUrl}/sitemap.xml`
       }));
     } catch (e) {}
 
-    const allPages = [...staticPages, ...propertyEntries];
+    const allPages: SitemapEntry[] = [...staticPages, ...propertyEntries];
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${allPages.map(p => `  <url>
     <loc>${siteUrl}${p.loc}</loc>
-    <lastmod>${(p as any).lastmod || now}</lastmod>
+    <lastmod>${p.lastmod}</lastmod>
     <changefreq>${p.changefreq}</changefreq>
     <priority>${p.priority}</priority>
   </url>`).join("\n")}
