@@ -52,6 +52,10 @@ import AdminAmenities from "@/pages/admin-amenities";
 import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
 import About from "@/pages/about";
+import Contact from "@/pages/contact";
+import FAQ from "@/pages/faq";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -71,6 +75,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/help": "Help & Support | Hsquareliving",
   "/booking/generate": "Generate Booking | Hsquareliving",
   "/about": "About Us - HSquare Living | Premium Hospitality",
+  "/contact": "Contact Us - Hsquare Hostel Mumbai | Get In Touch",
+  "/faq": "FAQs - Hsquare Living | Frequently Asked Questions",
+  "/terms": "Terms & Conditions - Hsquare Harmony Living",
+  "/privacy": "Privacy Policy - Hsquare Harmony Living",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -160,6 +168,10 @@ function AppContent() {
             <Switch>
               <Route path="/" component={Home} />
               <Route path="/about" component={About} />
+              <Route path="/contact" component={Contact} />
+              <Route path="/faq" component={FAQ} />
+              <Route path="/terms" component={Terms} />
+              <Route path="/privacy" component={Privacy} />
               <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />

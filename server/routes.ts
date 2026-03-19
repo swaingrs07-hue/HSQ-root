@@ -252,6 +252,20 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const { name, email, phone, message } = req.body;
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: "Name, email, and message are required" });
+      }
+      console.log(`[Contact Form] Name: ${name}, Email: ${email}, Phone: ${phone || "N/A"}, Message: ${message.substring(0, 200)}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Contact Form] Error:", error);
+      res.status(500).json({ error: "Failed to process contact form" });
+    }
+  });
+
   // ============ SEO: robots.txt & sitemap.xml ============
 
   app.get("/robots.txt", (req, res) => {
@@ -291,6 +305,10 @@ Sitemap: ${siteUrl}/sitemap.xml`
       { loc: "/", lastmod: now, priority: "1.0", changefreq: "weekly" },
       { loc: "/properties", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/about", lastmod: now, priority: "0.7", changefreq: "monthly" },
+      { loc: "/contact", lastmod: now, priority: "0.7", changefreq: "monthly" },
+      { loc: "/faq", lastmod: now, priority: "0.6", changefreq: "monthly" },
+      { loc: "/terms", lastmod: now, priority: "0.4", changefreq: "yearly" },
+      { loc: "/privacy", lastmod: now, priority: "0.4", changefreq: "yearly" },
     ];
 
     let propertyEntries: SitemapEntry[] = [];
