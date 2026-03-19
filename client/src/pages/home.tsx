@@ -572,9 +572,13 @@ export default function Home() {
     fetch(`/api/uploads/signed-url?path=${encodeURIComponent(rawVideoUrl)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!cancelled && data?.url) {
-          signedUrlCache.current[rawVideoUrl] = { url: data.url, expires: Date.now() + 50 * 60 * 1000 };
-          setResolvedVideoUrl(data.url);
+        if (!cancelled) {
+          if (data?.url) {
+            signedUrlCache.current[rawVideoUrl] = { url: data.url, expires: Date.now() + 50 * 60 * 1000 };
+            setResolvedVideoUrl(data.url);
+          } else {
+            setResolvedVideoUrl(rawVideoUrl);
+          }
         }
       })
       .catch(() => {
@@ -587,16 +591,36 @@ export default function Home() {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
     setVideoReady(false);
+
     video.src = resolvedVideoUrl;
     video.load();
 
-    const onCanPlay = () => {
+    const tryPlay = () => {
       setVideoReady(true);
       const playPromise = video.play();
-      if (playPromise) playPromise.catch(() => {});
+      if (playPromise) playPromise.catch(() => {
+        video.muted = true;
+        video.play().catch(() => {});
+      });
     };
+
+    const onCanPlay = () => tryPlay();
+    const onLoadedData = () => {
+      if (!videoReady) tryPlay();
+    };
+
     video.addEventListener("canplay", onCanPlay);
-    return () => video.removeEventListener("canplay", onCanPlay);
+    video.addEventListener("loadeddata", onLoadedData);
+
+    const safariTimeout = setTimeout(() => {
+      if (!videoReady && video.readyState >= 2) tryPlay();
+    }, 2000);
+
+    return () => {
+      video.removeEventListener("canplay", onCanPlay);
+      video.removeEventListener("loadeddata", onLoadedData);
+      clearTimeout(safariTimeout);
+    };
   }, [resolvedVideoUrl]);
 
   useEffect(() => {
@@ -652,9 +676,10 @@ export default function Home() {
               className="w-full h-full object-cover transition-opacity duration-700"
               style={{ opacity: videoReady ? 1 : 0 }}
               muted
+              autoPlay
               loop
               playsInline
-              preload="none"
+              preload="auto"
             />
           </div>
         ) : (
