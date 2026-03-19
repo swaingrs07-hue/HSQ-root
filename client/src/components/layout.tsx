@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight } from "lucide-react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight, MessageSquare } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
@@ -49,7 +49,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isPropertyPage = /^\/properties(\/[^/]+)?$/.test(location);
   const isMyBookingsPage = location === "/my-bookings";
   const isAboutPage = location === "/about";
-  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage;
+  const isContactPage = location === "/contact";
+  const isFaqPage = location === "/faq";
+  const isTermsPage = location === "/terms";
+  const isPrivacyPage = location === "/privacy";
+  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage;
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
@@ -140,28 +144,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
         { name: "Sales Team", href: "/admin/sales-management", icon: Users },
+        { name: "Contact", href: "/contact", icon: MessageSquare },
       ]
     : isReceptionist
     ? [
         { name: "Home", href: "/", icon: Home },
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Contact", href: "/contact", icon: MessageSquare },
       ]
     : isSalesExec
     ? [
         { name: "Home", href: "/", icon: Home },
         { name: "Dashboard", href: "/sales", icon: Target },
         { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Contact", href: "/contact", icon: MessageSquare },
       ]
     : user
     ? [
         { name: "Home", href: "/", icon: Home },
         { name: "My Bookings", href: "/my-bookings", icon: LayoutDashboard },
         { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Contact", href: "/contact", icon: MessageSquare },
       ]
     : [
         { name: "Home", href: "/", icon: Home },
         { name: "Properties", href: "/properties", icon: Building2 },
+        { name: "Contact", href: "/contact", icon: MessageSquare },
       ];
 
   const userName = user?.name || "Guest";
