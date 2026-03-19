@@ -1975,26 +1975,16 @@ export default function CompletedBookings() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs font-medium text-slate-500">Base Fee (₹)</Label>
-                    <Input
-                      type="number"
-                      value={editForm.baseFee}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, baseFee: parseInt(e.target.value) || 0 }))}
-                      data-testid="input-edit-basefee"
-                    />
+                    <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-basefee">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
                   </div>
                   <div>
                     <Label className="text-xs font-medium text-slate-500">Discount (₹)</Label>
-                    <Input
-                      type="number"
-                      value={editForm.discount}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, discount: parseInt(e.target.value) || 0 }))}
-                      data-testid="input-edit-discount"
-                    />
+                    <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-discount">{selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}</p>
                   </div>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-lg">
-                  <p className="text-xs text-slate-500">Calculated Total</p>
-                  <p className="text-lg font-bold text-indigo-700">₹{((editForm.baseFee || 0) - (editForm.discount || 0)).toLocaleString("en-IN")}</p>
+                  <p className="text-xs text-slate-500">Total Fee</p>
+                  <p className="text-lg font-bold text-indigo-700">₹{(selectedBooking.totalFee || ((selectedBooking.baseFee || 0) - (selectedBooking.discount || 0))).toLocaleString("en-IN")}</p>
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-slate-500">Status</Label>

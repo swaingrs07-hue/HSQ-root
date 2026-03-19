@@ -3719,7 +3719,7 @@ export async function registerRoutes(
   });
 
   // Admin edit booking
-  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
@@ -3728,7 +3728,6 @@ export async function registerRoutes(
 
       const allowedFields = [
         "customerName", "customerPhone", "customerEmail",
-        "baseFee", "discount", "discountReason", "totalFee", "deposit",
         "status", "stayPlanType", "academicYearPeriod",
         "checkInDate", "checkOutDate", "durationMonths",
         "paymentType", "tokenAmount", "numberOfInstallments",
@@ -3751,15 +3750,6 @@ export async function registerRoutes(
       if (req.body.residentDetails && typeof req.body.residentDetails === "object") {
         const existingRd = (booking.residentDetails as Record<string, any>) || {};
         updates.residentDetails = { ...existingRd, ...req.body.residentDetails };
-      }
-
-      if (updates.baseFee !== undefined || updates.discount !== undefined) {
-        const base = updates.baseFee ?? booking.baseFee;
-        const disc = updates.discount ?? booking.discount;
-        const editProperty = await storage.getProperty(booking.propertyId);
-        const editMic = editProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
-        const editMicTotal = (editMic?.serviceLegalCharges || 0) || ((editMic?.policeVerification || 0) + (editMic?.agreement || 0));
-        updates.totalFee = base - disc + editMicTotal;
       }
 
       if (updates.status === "cancelled" && booking.status !== "cancelled") {
