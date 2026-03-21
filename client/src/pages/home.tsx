@@ -163,36 +163,52 @@ function ImmersiveScene({ children, className = "", variant = "default" }: {
 function CinematicText({ children, className = "", delay = 0, gradient = false }: {
   children: string; className?: string; delay?: number; gradient?: boolean;
 }) {
-  const words = children.split(" ");
-  let charIndex = 0;
+  const allChars: { char: string; isSpace: boolean }[] = [];
+  for (let i = 0; i < children.length; i++) {
+    allChars.push({ char: children[i], isSpace: children[i] === " " });
+  }
+
+  const containerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.03,
+        delayChildren: delay,
+      },
+    },
+  };
+
+  const charVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
+
   return (
-    <span className={className}>
-      {words.map((word, wi) => {
-        const chars = word.split("");
-        const wordElement = (
-          <span key={wi} className="inline-flex" style={{ whiteSpace: "nowrap" }}>
-            {chars.map((char) => {
-              const idx = charIndex++;
-              return (
-                <motion.span
-                  key={idx}
-                  className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: delay + idx * 0.03, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {char}
-                </motion.span>
-              );
-            })}
-            {wi < words.length - 1 && <span className="inline-block" style={{ width: "0.3em" }}>{"\u00A0"}</span>}
-          </span>
-        );
-        charIndex++;
-        return wordElement;
-      })}
-    </span>
+    <motion.span
+      className={`inline-flex flex-wrap ${className}`}
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.3 }}
+    >
+      {allChars.map((c, i) =>
+        c.isSpace ? (
+          <span key={i} style={{ width: "0.3em" }}>{"\u00A0"}</span>
+        ) : (
+          <motion.span
+            key={i}
+            className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
+            variants={charVariants}
+          >
+            {c.char}
+          </motion.span>
+        )
+      )}
+    </motion.span>
   );
 }
 
