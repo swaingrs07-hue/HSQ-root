@@ -267,6 +267,63 @@ export default function BookingGeneration() {
   }, [user, isRegularUser]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("prefill") !== "registration") return;
+    const name = params.get("name") || "";
+    const phone = params.get("phone") || "";
+    const email = params.get("email") || "";
+    const gender = params.get("gender") || "";
+    const propertyId = params.get("propertyId") || "";
+    const regId = params.get("regId") || "";
+
+    setFormData(prev => ({
+      ...prev,
+      customerType: "walk_in",
+      walkInName: name,
+      walkInPhone: phone,
+      walkInEmail: email,
+      residentName: name,
+      residentPhone: phone,
+      residentEmail: email,
+      residentGender: gender,
+      ...(propertyId ? { propertyId } : {}),
+    }));
+
+    if (regId && token) {
+      fetch(`/api/admin/registration-requests/${regId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(reg => {
+          if (!reg) return;
+          setFormData(prev => ({
+            ...prev,
+            residentDob: reg.dob || prev.residentDob,
+            residentDietaryPreference: reg.dietaryPreference || prev.residentDietaryPreference,
+            residentInstitute: reg.instituteName || prev.residentInstitute,
+            residentCourse: reg.courseName || prev.residentCourse,
+            residentMoveInDate: reg.moveInDate || prev.residentMoveInDate,
+            residentCheckOutDate: reg.checkOutDate || prev.residentCheckOutDate,
+            parentName: reg.parentName || prev.parentName,
+            parentPhone: reg.parentPhone || prev.parentPhone,
+            parentEmail: reg.parentEmail || prev.parentEmail,
+            parentRelation: reg.parentRelation || prev.parentRelation,
+            residentPhotoPath: reg.photoPath || prev.residentPhotoPath,
+          }));
+          if (reg.photoPath) {
+            fetch(`/api/uploads/signed-url?path=${encodeURIComponent(reg.photoPath)}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(data => { if (data?.url) setResidentPhotoUrl(data.url); })
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [token]);
+
+  useEffect(() => {
     if (isRegularUser) {
       const savedDraft = localStorage.getItem("hsquare_booking_draft");
       if (savedDraft) {
