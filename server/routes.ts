@@ -11004,6 +11004,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const unlinked = await db.select().from(schema.registrationRequests)
+        .where(sql`${schema.registrationRequests.bookingId} IS NULL AND ${schema.registrationRequests.status} != 'rejected'`);
+      for (const reg of unlinked) {
+        const phone = reg.phone?.replace(/[^0-9]/g, "").slice(-10);
+        if (!phone && !reg.email) continue;
+        const conditions = [];
+        if (phone) conditions.push(sql`REPLACE(REPLACE(${schema.bookings.walkInPhone}, '+91', ''), ' ', '') LIKE ${'%' + phone}`);
+        if (reg.email) conditions.push(sql`LOWER(${schema.bookings.walkInEmail}) = LOWER(${reg.email})`);
+        if (conditions.length === 0) continue;
+        const [matchingBooking] = await db.select({ id: schema.bookings.id })
+          .from(schema.bookings)
+          .where(sql`(${sql.join(conditions, sql` OR `)})`)
+          .orderBy(sql`${schema.bookings.createdAt} DESC`)
+          .limit(1);
+        if (matchingBooking) {
+          await db.update(schema.registrationRequests)
+            .set({ bookingId: matchingBooking.id, status: "booked", updatedAt: new Date() })
+            .where(eq(schema.registrationRequests.id, reg.id));
+        }
+      }
       const requests = await db.select({
         request: schema.registrationRequests,
         bookingCode: schema.bookings.bookingCode,
@@ -11019,12 +11039,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.patch("/api/admin/registration-requests/:id/status", authMiddleware, roleMiddleware("admin", "manager", "staff"), async (req: AuthRequest, res) => {
     try {
-      const { status, reviewNotes } = req.body;
+      const { status, reviewNotes, bookingId } = req.body;
       if (!["reviewed", "approved", "rejected", "booked"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
+      const updateData: any = { status, reviewNotes, reviewedBy: req.user!.userId, reviewedAt: new Date(), updatedAt: new Date() };
+      if (bookingId) updateData.bookingId = bookingId;
       const [updated] = await db.update(schema.registrationRequests)
-        .set({ status, reviewNotes, reviewedBy: req.user!.userId, reviewedAt: new Date(), updatedAt: new Date() })
+        .set(updateData)
         .where(eq(schema.registrationRequests.id, req.params.id))
         .returning();
       if (!updated) return res.status(404).json({ error: "Request not found" });
