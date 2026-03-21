@@ -86,6 +86,7 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
+  { name: "Registrations", href: "/admin/registrations", icon: FileText },
   { name: "Team", href: "/admin/users", icon: Users },
   { name: "Sales Management", href: "/admin/sales-management", icon: UserCog },
   { name: "Leads", href: "/admin/leads", icon: Target },
@@ -113,6 +114,7 @@ const adminNavItems: NavItem[] = [
 const receptionistNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
+  { name: "Registrations", href: "/admin/registrations", icon: FileText },
   { name: "Generate Booking", href: "/admin/booking/generate", icon: CalendarCheck },
   { name: "Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },

@@ -53,7 +53,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isFaqPage = location === "/faq";
   const isTermsPage = location === "/terms";
   const isPrivacyPage = location === "/privacy";
-  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage;
+  const isApplyPage = location === "/apply";
+  const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage || isApplyPage;
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }

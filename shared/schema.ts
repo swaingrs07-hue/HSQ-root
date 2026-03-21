@@ -1436,5 +1436,57 @@ export const bedHolds = pgTable("bed_holds", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Registration request status enum
+export const registrationRequestStatusEnum = pgEnum("registration_request_status", [
+  "pending",
+  "reviewed",
+  "approved",
+  "rejected",
+  "booked"
+]);
+
+// Registration Requests table (public form submissions)
+export const registrationRequests = pgTable("registration_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  fullName: text("full_name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email").notNull(),
+  gender: text("gender").notNull(),
+  dob: text("dob"),
+  dietaryPreference: text("dietary_preference"),
+  
+  instituteName: text("institute_name"),
+  courseName: text("course_name"),
+  moveInDate: text("move_in_date"),
+  checkOutDate: text("check_out_date"),
+  
+  parentName: text("parent_name"),
+  parentRelation: text("parent_relation"),
+  parentPhone: text("parent_phone"),
+  parentEmail: text("parent_email"),
+  
+  photoPath: text("photo_path"),
+  idProofPath: text("id_proof_path"),
+  
+  propertyId: varchar("property_id").references(() => properties.id),
+  propertyName: text("property_name"),
+  
+  notes: text("notes"),
+  
+  status: registrationRequestStatusEnum("status").default("pending").notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  bookingId: varchar("booking_id").references(() => bookings.id),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRegistrationRequestSchema = createInsertSchema(registrationRequests).omit({ id: true, createdAt: true, updatedAt: true, reviewedBy: true, reviewedAt: true, reviewNotes: true, bookingId: true });
+export type RegistrationRequest = typeof registrationRequests.$inferSelect;
+export type InsertRegistrationRequest = z.infer<typeof insertRegistrationRequestSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

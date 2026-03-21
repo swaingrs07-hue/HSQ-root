@@ -51,6 +51,8 @@ import AdminLogoControl from "@/pages/admin-logo-control";
 import AdminAmenities from "@/pages/admin-amenities";
 import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
+import AdminRegistrations from "@/pages/admin-registrations";
+import Apply from "@/pages/apply";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import FAQ from "@/pages/faq";
@@ -79,6 +81,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/faq": "FAQs - Hsquare Living | Frequently Asked Questions",
   "/terms": "Terms & Conditions - Hsquare Harmony Living",
   "/privacy": "Privacy Policy - Hsquare Harmony Living",
+  "/apply": "Pre-Registration | Hsquare Hostel Mumbai - Student Accommodation",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -149,6 +152,7 @@ function AppContent() {
               <Route path="/admin/hms-sync" component={AdminHmsSync} />
               <Route path="/admin/logo-control" component={AdminLogoControl} />
               <Route path="/admin/amenities" component={AdminAmenities} />
+              <Route path="/admin/registrations" component={AdminRegistrations} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
@@ -167,6 +171,7 @@ function AppContent() {
           <Layout>
             <Switch>
               <Route path="/" component={Home} />
+              <Route path="/apply" component={Apply} />
               <Route path="/about" component={About} />
               <Route path="/contact" component={Contact} />
               <Route path="/faq" component={FAQ} />

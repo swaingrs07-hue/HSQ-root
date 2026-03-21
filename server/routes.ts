@@ -10943,5 +10943,77 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ===== REGISTRATION REQUESTS (Public Form) =====
+  
+  app.get("/api/registration-requests/properties", async (req, res) => {
+    try {
+      const props = await db.select({
+        id: schema.properties.id,
+        name: schema.properties.name,
+        displayName: schema.properties.displayName,
+        location: schema.properties.location,
+      }).from(schema.properties)
+        .where(eq(schema.properties.active, true));
+      res.json(props);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  const registrationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Too many registration attempts. Please try again later." } });
+
+  app.post("/api/registration-requests", registrationLimiter, async (req, res) => {
+    try {
+      const { fullName, phone, email, gender, dob, dietaryPreference, instituteName, courseName, moveInDate, checkOutDate, parentName, parentRelation, parentPhone, parentEmail, photoPath, idProofPath, propertyId, propertyName, notes } = req.body;
+      if (!fullName || !phone || !email || !gender) {
+        return res.status(400).json({ error: "Full name, phone, email, and gender are required" });
+      }
+      const [request] = await db.insert(schema.registrationRequests).values({
+        fullName, phone, email, gender, dob: dob || null, dietaryPreference: dietaryPreference || null, instituteName: instituteName || null, courseName: courseName || null, moveInDate: moveInDate || null, checkOutDate: checkOutDate || null, parentName: parentName || null, parentRelation: parentRelation || null, parentPhone: parentPhone || null, parentEmail: parentEmail || null, photoPath: photoPath || null, idProofPath: idProofPath || null, propertyId: propertyId || null, propertyName: propertyName || null, notes: notes || null, status: "pending",
+      }).returning();
+      res.status(201).json(request);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to submit registration" });
+    }
+  });
+
+  app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const requests = await db.select().from(schema.registrationRequests)
+        .orderBy(sql`${schema.registrationRequests.createdAt} DESC`);
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/admin/registration-requests/:id/status", authMiddleware, roleMiddleware("admin", "manager", "staff"), async (req: AuthRequest, res) => {
+    try {
+      const { status, reviewNotes } = req.body;
+      if (!["reviewed", "approved", "rejected", "booked"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      const [updated] = await db.update(schema.registrationRequests)
+        .set({ status, reviewNotes, reviewedBy: req.user!.userId, reviewedAt: new Date(), updatedAt: new Date() })
+        .where(eq(schema.registrationRequests.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Request not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/registration-requests/:id", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const [request] = await db.select().from(schema.registrationRequests)
+        .where(eq(schema.registrationRequests.id, req.params.id));
+      if (!request) return res.status(404).json({ error: "Request not found" });
+      res.json(request);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }

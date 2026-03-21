@@ -21,12 +21,12 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage
 -   **Database**: PostgreSQL with Drizzle ORM.
--   **Key Entities**: Users, students, properties, rooms, bookings, payments, audit logs, leads, sales activities, packages.
+-   **Key Entities**: Users, students, properties, rooms, bookings, payments, audit logs, leads, sales activities, packages, registration requests.
 
 ### Authentication & Authorization
 -   **Roles**: "user", "admin", "manager", "staff", "sales_executive", "receptionist".
 -   **Security**: Hashed passwords, role-based access control.
--   **Receptionist Role**: Limited admin access focused on bookings, requests, calendar, floors & beds, and booking tree, without access to financial data or system configuration.
+-   **Receptionist Role**: Limited admin access focused on bookings, requests, registrations, calendar, floors & beds, and booking tree, without access to financial data or system configuration.
 
 ### Core Features
 -   **Student & Property Management**: Tools for managing properties, rooms, students, and their bookings.
@@ -43,6 +43,7 @@ Preferred communication style: Simple, everyday language.
 -   **Wallet Credit Auto-Renewal**: Automated monthly renewal of à la carte wallet credits.
 -   **Gyan AI Chatbot**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data.
 -   **Target & Achievement Dashboard**: Admin-only CRM tab for property-wise sales targets vs achievements, with KPIs, progress bars, and charts.
+-   **Public Registration Form**: Shareable `/apply` page for pre-registration; admin review and proceed-to-booking workflow at `/admin/registrations`.
 -   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, and keyword-rich content.
 
 ## External Dependencies
