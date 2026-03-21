@@ -3583,6 +3583,10 @@ ${allPages.map(p => `  <url>
             .limit(1);
           if (!existingReg) {
             registrationUpdateWarning = "Registration request not found";
+          } else if (existingReg.status === "booked") {
+            registrationUpdateWarning = "Registration already marked as booked";
+          } else if (!["pending", "reviewed", "approved"].includes(existingReg.status)) {
+            registrationUpdateWarning = `Cannot transition from status '${existingReg.status}' to booked`;
           } else {
             await db.update(schema.registrationRequests)
               .set({ status: "booked", bookingId: booking.id, updatedAt: new Date() })
