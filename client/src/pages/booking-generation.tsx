@@ -266,6 +266,8 @@ export default function BookingGeneration() {
     }
   }, [user, isRegularUser]);
 
+  const registrationPrefillRef = useRef<{ regId: string; propertyId: string } | null>(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("prefill") !== "registration") return;
@@ -275,6 +277,10 @@ export default function BookingGeneration() {
     const gender = params.get("gender") || "";
     const propertyId = params.get("propertyId") || "";
     const regId = params.get("regId") || "";
+
+    if (regId) {
+      registrationPrefillRef.current = { regId, propertyId };
+    }
 
     setFormData(prev => ({
       ...prev,
@@ -289,38 +295,45 @@ export default function BookingGeneration() {
       ...(propertyId ? { propertyId } : {}),
     }));
 
-    if (regId && token) {
-      fetch(`/api/admin/registration-requests/${regId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(reg => {
-          if (!reg) return;
-          setFormData(prev => ({
-            ...prev,
-            residentDob: reg.dob || prev.residentDob,
-            residentDietaryPreference: reg.dietaryPreference || prev.residentDietaryPreference,
-            residentInstitute: reg.instituteName || prev.residentInstitute,
-            residentCourse: reg.courseName || prev.residentCourse,
-            residentMoveInDate: reg.moveInDate || prev.residentMoveInDate,
-            residentCheckOutDate: reg.checkOutDate || prev.residentCheckOutDate,
-            parentName: reg.parentName || prev.parentName,
-            parentPhone: reg.parentPhone || prev.parentPhone,
-            parentEmail: reg.parentEmail || prev.parentEmail,
-            parentRelation: reg.parentRelation || prev.parentRelation,
-            residentPhotoPath: reg.photoPath || prev.residentPhotoPath,
-          }));
-          if (reg.photoPath) {
-            fetch(`/api/uploads/signed-url?path=${encodeURIComponent(reg.photoPath)}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(data => { if (data?.url) setResidentPhotoUrl(data.url); })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }
-
     window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    const prefill = registrationPrefillRef.current;
+    if (!prefill || !token) return;
+    registrationPrefillRef.current = null;
+
+    fetch(`/api/admin/registration-requests/${prefill.regId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(reg => {
+        if (!reg) {
+          console.warn("Registration prefill: failed to load registration details");
+          return;
+        }
+        setFormData(prev => ({
+          ...prev,
+          residentDob: reg.dob || prev.residentDob,
+          residentDietaryPreference: reg.dietaryPreference || prev.residentDietaryPreference,
+          residentInstitute: reg.instituteName || prev.residentInstitute,
+          residentCourse: reg.courseName || prev.residentCourse,
+          residentMoveInDate: reg.moveInDate || prev.residentMoveInDate,
+          residentCheckOutDate: reg.checkOutDate || prev.residentCheckOutDate,
+          parentName: reg.parentName || prev.parentName,
+          parentPhone: reg.parentPhone || prev.parentPhone,
+          parentEmail: reg.parentEmail || prev.parentEmail,
+          parentRelation: reg.parentRelation || prev.parentRelation,
+          residentPhotoPath: reg.photoPath || prev.residentPhotoPath,
+        }));
+        if (reg.photoPath) {
+          fetch(`/api/uploads/signed-url?path=${encodeURIComponent(reg.photoPath)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.url) setResidentPhotoUrl(data.url); })
+            .catch(err => console.warn("Registration prefill: failed to load photo", err));
+        }
+      })
+      .catch(err => console.warn("Registration prefill: fetch error", err));
   }, [token]);
 
   useEffect(() => {
