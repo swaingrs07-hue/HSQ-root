@@ -14,7 +14,7 @@ import {
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
   ArrowUp, GraduationCap, Navigation, Smartphone, Bell, Wallet, QrCode
 } from "lucide-react";
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useTransform, useMotionValue, useSpring } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
@@ -120,95 +120,42 @@ function Floating3DShape({ type, size, color, delay, x, y, duration = 20 }: {
   );
 }
 
-function ImmersiveScene({ children, className = "", variant = "default", parallaxIntensity = 0.3 }: {
+function ImmersiveScene({ children, className = "", variant = "default" }: {
   children: React.ReactNode; className?: string;
   variant?: "default" | "fog" | "grid" | "aurora" | "depth";
-  parallaxIntensity?: number;
+  [key: string]: any;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-  const bgY = useTransform(scrollYProgress, [0, 1], ["-20%", "20%"]);
-  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.95, 1, 0.95]);
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
-
   const backgrounds: Record<string, React.ReactNode> = {
     default: null,
     fog: (
-      <>
-        <motion.div className="absolute inset-0" style={{ y: bgY }}>
-          <div className="absolute bottom-0 left-0 right-0 h-[60%]" style={{
-            background: "linear-gradient(to top, rgba(100,60,180,0.15) 0%, rgba(100,60,180,0.05) 40%, transparent 100%)",
-          }} />
-        </motion.div>
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(ellipse at 50% 100%, rgba(120,80,200,0.12) 0%, transparent 60%)",
-        }} />
-      </>
+      <div className="absolute inset-0" style={{
+        background: "radial-gradient(ellipse at 50% 100%, rgba(120,80,200,0.12) 0%, transparent 60%)",
+      }} />
     ),
     grid: (
-      <>
-        <motion.div className="absolute inset-0" style={{ y: bgY, perspective: "800px" }}>
-          <div className="absolute inset-0" style={{
-            backgroundImage: `
-              linear-gradient(rgba(245,158,11,0.08) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(245,158,11,0.08) 1px, transparent 1px)
-            `,
-            backgroundSize: "40px 40px",
-            transform: "rotateX(60deg) translateY(-20%)",
-            transformOrigin: "center bottom",
-            maskImage: "linear-gradient(to top, white 0%, transparent 70%)",
-            WebkitMaskImage: "linear-gradient(to top, white 0%, transparent 70%)",
-          }} />
-        </motion.div>
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(ellipse at 50% 80%, rgba(245,158,11,0.1) 0%, transparent 50%)",
-        }} />
-      </>
+      <div className="absolute inset-0" style={{
+        background: "radial-gradient(ellipse at 50% 80%, rgba(245,158,11,0.1) 0%, transparent 50%)",
+      }} />
     ),
     aurora: (
-      <motion.div
-        className="absolute inset-0"
-        animate={{
-          background: [
-            "radial-gradient(ellipse at 20% 50%, rgba(0,255,200,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(120,0,255,0.08) 0%, transparent 50%)",
-            "radial-gradient(ellipse at 80% 30%, rgba(0,200,255,0.08) 0%, transparent 50%), radial-gradient(ellipse at 20% 70%, rgba(255,0,150,0.06) 0%, transparent 50%)",
-            "radial-gradient(ellipse at 20% 50%, rgba(0,255,200,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(120,0,255,0.08) 0%, transparent 50%)",
-          ],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
+      <div className="absolute inset-0" style={{
+        background: "radial-gradient(ellipse at 30% 50%, rgba(0,255,200,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 50%, rgba(120,0,255,0.06) 0%, transparent 50%)",
+      }} />
     ),
     depth: (
-      <>
-        <motion.div className="absolute inset-0" style={{ y: bgY }}>
-          <div className="absolute top-0 left-0 right-0 h-[40%]" style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%)",
-          }} />
-          <div className="absolute bottom-0 left-0 right-0 h-[40%]" style={{
-            background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)",
-          }} />
-        </motion.div>
-        <div className="absolute inset-0" style={{
-          boxShadow: "inset 0 0 200px 60px rgba(0,0,0,0.5)",
-        }} />
-      </>
+      <div className="absolute inset-0" style={{
+        boxShadow: "inset 0 0 200px 60px rgba(0,0,0,0.5)",
+      }} />
     ),
   };
 
   return (
-    <motion.section
-      ref={ref}
-      className={`relative ${className}`}
-      style={{ scale, opacity }}
-    >
+    <section className={`relative ${className}`}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {backgrounds[variant]}
       </div>
       {children}
-    </motion.section>
+    </section>
   );
 }
 
@@ -258,44 +205,20 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
   children: string; className?: string; delay?: number; gradient?: boolean;
 }) {
   const words = children.split(" ");
-  let charIndex = 0;
   return (
     <span className={className}>
-      {words.map((word, wi) => {
-        const wordChars = word.split("");
-        const wordElement = (
-          <span key={wi} className="inline-flex" style={{ whiteSpace: "nowrap" }}>
-            {wordChars.map((char, ci) => {
-              const idx = charIndex++;
-              return (
-                <motion.span
-                  key={idx}
-                  className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent bg-[length:200%_100%]" : ""}`}
-                  initial={{ opacity: 0, y: 30, filter: "blur(10px)", scale: 0.95 }}
-                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{
-                    duration: 0.7,
-                    delay: delay + idx * 0.035,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  style={gradient ? {
-                    animationName: "shimmerGradient",
-                    animationDuration: "4s",
-                    animationIterationCount: "infinite",
-                    animationTimingFunction: "linear",
-                  } : undefined}
-                >
-                  {char}
-                </motion.span>
-              );
-            })}
-            {wi < words.length - 1 && <span className="inline-block" style={{ width: "0.3em" }}>{"\u00A0"}</span>}
-          </span>
-        );
-        charIndex++;
-        return wordElement;
-      })}
+      {words.map((word, wi) => (
+        <motion.span
+          key={wi}
+          className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: delay + wi * 0.08, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {word}{wi < words.length - 1 ? "\u00A0" : ""}
+        </motion.span>
+      ))}
     </span>
   );
 }
@@ -460,12 +383,6 @@ export default function Home() {
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll();
-  const heroOpacity = useTransform(scrollY, [0, 600], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 800], [1, 1.3]);
-  const overlayY = useTransform(scrollY, [0, 500], [0, 150]);
-  const heroBlur = useTransform(scrollY, [0, 600], [0, 8]);
-  const heroBlurFilter = useTransform(heroBlur, (v) => `blur(${v}px)`);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 600);
@@ -756,7 +673,7 @@ export default function Home() {
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5, ease: "easeInOut" }}
               className="absolute inset-0"
-              style={{ scale: heroScale, filter: heroBlurFilter }}
+              style={{}}
             >
               <motion.img
                 src={heroSlides[currentSlide].image}
@@ -790,11 +707,9 @@ export default function Home() {
               <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
             </div>
 
-            <Floating3DShape type="ring" size={60} color="#f59e0b" delay={0} x="10%" y="20%" duration={25} />
-            <Floating3DShape type="diamond" size={30} color="#06b6d4" delay={2} x="85%" y="30%" duration={18} />
-            <Floating3DShape type="hexagon" size={45} color="#8b5cf6" delay={4} x="75%" y="65%" duration={22} />
-            <Floating3DShape type="sphere" size={25} color="#10b981" delay={1} x="15%" y="70%" duration={20} />
-            <Floating3DShape type="cube" size={35} color="#f59e0b" delay={3} x="60%" y="15%" duration={28} />
+            <Floating3DShape type="ring" size={50} color="#f59e0b" delay={0} x="10%" y="25%" duration={25} />
+            <Floating3DShape type="diamond" size={25} color="#06b6d4" delay={2} x="85%" y="35%" duration={20} />
+            <Floating3DShape type="hexagon" size={35} color="#8b5cf6" delay={4} x="75%" y="65%" duration={22} />
           </>
         )}
 
@@ -803,8 +718,7 @@ export default function Home() {
           <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">Hsquare Living</span>
         </div>
 
-        <motion.div
-          style={{ opacity: heroOpacity }}
+        <div
           className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4"
         >
           <motion.div
@@ -835,7 +749,7 @@ export default function Home() {
               </Button>
             </Link>
           </motion.div>
-        </motion.div>
+        </div>
 
         <div className="absolute left-0 right-0 bottom-0 z-30">
           <div className="flex items-center justify-between px-4 md:px-8 py-4">
@@ -903,12 +817,6 @@ export default function Home() {
         </div>
       </section>
       <ImmersiveScene variant="aurora" className="py-28 md:py-36 bg-[#050505]">
-        <div className="absolute inset-0">
-          <ParticleBackground preset="section" className="absolute inset-0" id="stats-particles" />
-        </div>
-        <Floating3DShape type="ring" size={40} color="#06b6d4" delay={0} x="5%" y="30%" duration={30} />
-        <Floating3DShape type="diamond" size={20} color="#8b5cf6" delay={3} x="92%" y="50%" duration={22} />
-
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             {STATS.map((stat, i) => (
@@ -935,10 +843,6 @@ export default function Home() {
       </ImmersiveScene>
       <WorldTransition color="cyan" />
       <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
-        <Floating3DShape type="hexagon" size={50} color="#f59e0b" delay={0} x="88%" y="15%" duration={25} />
-        <Floating3DShape type="sphere" size={30} color="#06b6d4" delay={2} x="8%" y="70%" duration={20} />
-        <Floating3DShape type="cube" size={25} color="#8b5cf6" delay={4} x="75%" y="80%" duration={28} />
-
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0 }}
@@ -1027,8 +931,6 @@ export default function Home() {
       </ImmersiveScene>
       <WorldTransition color="purple" />
       <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]">
-        <Floating3DShape type="ring" size={55} color="#8b5cf6" delay={0} x="90%" y="20%" duration={24} />
-        <Floating3DShape type="diamond" size={22} color="#f59e0b" delay={2} x="5%" y="40%" duration={18} />
 
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
@@ -1179,12 +1081,6 @@ export default function Home() {
           <>
             <WorldTransition color="emerald" />
             <ImmersiveScene variant="depth" className="py-28 md:py-40 bg-[#050505]" data-testid="section-housing-plans">
-              <div className="absolute inset-0">
-                <ParticleBackground preset="section" className="absolute inset-0" id="plans-particles" />
-              </div>
-              <Floating3DShape type="hexagon" size={55} color="#10b981" delay={0} x="5%" y="15%" duration={26} />
-              <Floating3DShape type="ring" size={35} color="#f59e0b" delay={2} x="92%" y="60%" duration={20} />
-              <Floating3DShape type="sphere" size={28} color="#8b5cf6" delay={4} x="80%" y="10%" duration={24} />
 
               <div className="container mx-auto px-4 relative z-10">
                 <motion.div
@@ -1559,8 +1455,6 @@ export default function Home() {
         <>
           <WorldTransition color="amber" />
           <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
-            <Floating3DShape type="cube" size={40} color="#f59e0b" delay={0} x="90%" y="25%" duration={22} />
-            <Floating3DShape type="ring" size={30} color="#06b6d4" delay={3} x="8%" y="60%" duration={26} />
 
             <div className="container mx-auto px-4 relative z-10">
               <motion.div
@@ -1697,8 +1591,6 @@ export default function Home() {
       )}
       <WorldTransition color="cyan" />
       <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]">
-        <Floating3DShape type="hexagon" size={35} color="#06b6d4" delay={0} x="92%" y="15%" duration={24} />
-        <Floating3DShape type="sphere" size={25} color="#8b5cf6" delay={2} x="5%" y="70%" duration={20} />
 
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
@@ -1871,26 +1763,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/90" />
           <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 250px 100px rgba(0,0,0,0.9)" }} />
         </div>
-        <div className="absolute inset-0 z-[1]">
-          <ParticleBackground preset="sparse" className="absolute inset-0" id="cta-particles" />
-        </div>
-
-        <Floating3DShape type="ring" size={70} color="#f59e0b" delay={0} x="10%" y="20%" duration={30} />
-        <Floating3DShape type="hexagon" size={45} color="#8b5cf6" delay={2} x="85%" y="30%" duration={22} />
-        <Floating3DShape type="diamond" size={30} color="#06b6d4" delay={4} x="15%" y="75%" duration={26} />
-        <Floating3DShape type="sphere" size={35} color="#10b981" delay={1} x="80%" y="70%" duration={18} />
-
-        <motion.div
-          className="absolute inset-0 z-[2] pointer-events-none"
-          animate={{
-            background: [
-              "radial-gradient(ellipse at 20% 40%, rgba(6,182,212,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 60%, rgba(139,92,246,0.08) 0%, transparent 50%)",
-              "radial-gradient(ellipse at 80% 30%, rgba(245,158,11,0.08) 0%, transparent 50%), radial-gradient(ellipse at 20% 70%, rgba(16,185,129,0.06) 0%, transparent 50%)",
-              "radial-gradient(ellipse at 20% 40%, rgba(6,182,212,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 60%, rgba(139,92,246,0.08) 0%, transparent 50%)",
-            ],
-          }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
+        <div className="absolute inset-0 z-[2] pointer-events-none" style={{
+          background: "radial-gradient(ellipse at 30% 40%, rgba(6,182,212,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(139,92,246,0.06) 0%, transparent 50%)",
+        }} />
 
         <motion.div
           initial={{ opacity: 0 }}
