@@ -267,6 +267,7 @@ export default function BookingGeneration() {
   }, [user, isRegularUser]);
 
   const registrationPrefillRef = useRef<{ regId: string; propertyId: string } | null>(null);
+  const [registrationRequestId, setRegistrationRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -280,6 +281,7 @@ export default function BookingGeneration() {
 
     if (regId) {
       registrationPrefillRef.current = { regId, propertyId };
+      setRegistrationRequestId(regId);
     }
 
     setFormData(prev => ({
@@ -981,6 +983,7 @@ export default function BookingGeneration() {
           },
           createdBy: user?.id,
           assignedSalesExecId: isSalesExec ? user?.id : null,
+          registrationRequestId: registrationRequestId || null,
         }),
       });
 

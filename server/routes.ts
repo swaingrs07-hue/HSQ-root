@@ -3316,6 +3316,7 @@ ${allPages.map(p => `  <url>
         createdBy,
         assignedSalesExecId,
         residentDetails,
+        registrationRequestId,
       } = req.body;
 
       let bookingEmail = walkInEmail || residentDetails?.email || null;
@@ -3571,6 +3572,16 @@ ${allPages.map(p => `  <url>
       // If lead conversion, update lead status
       if (customerType === "lead" && leadId) {
         await storage.updateLead(leadId, { status: "converted" });
+      }
+
+      if (registrationRequestId) {
+        try {
+          await db.update(schema.registrationRequests)
+            .set({ status: "booked", bookingId: booking.id, updatedAt: new Date() })
+            .where(eq(schema.registrationRequests.id, registrationRequestId));
+        } catch (e: any) {
+          console.error("Failed to update registration request status:", e.message);
+        }
       }
 
       res.json({ booking, requiresApproval: approvalRequired, installments: createdInstallments });
@@ -10979,9 +10990,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
     try {
-      const requests = await db.select().from(schema.registrationRequests)
+      const requests = await db.select({
+        request: schema.registrationRequests,
+        bookingCode: schema.bookings.bookingCode,
+      })
+        .from(schema.registrationRequests)
+        .leftJoin(schema.bookings, eq(schema.registrationRequests.bookingId, schema.bookings.id))
         .orderBy(sql`${schema.registrationRequests.createdAt} DESC`);
-      res.json(requests);
+      res.json(requests.map(r => ({ ...r.request, bookingCode: r.bookingCode })));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

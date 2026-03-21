@@ -197,6 +197,9 @@ export default function AdminRegistrations() {
                       </div>
                       <p className="text-xs text-slate-400 mt-1">
                         Submitted {new Date(req.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {req.status === "booked" && (req as any).bookingCode && (
+                          <span className="ml-2 text-violet-600 font-medium">Booking: {(req as any).bookingCode}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -209,7 +212,16 @@ export default function AdminRegistrations() {
                     >
                       <Eye className="w-4 h-4 mr-1" /> View
                     </Button>
-                    {(req.status === "pending" || req.status === "reviewed" || req.status === "approved") && (
+                    {req.status === "booked" && (req as any).bookingCode ? (
+                      <Button
+                        size="sm"
+                        className="bg-violet-600 hover:bg-violet-700 text-white"
+                        onClick={() => navigate(`/admin/bookings`)}
+                        data-testid={`button-view-booking-${req.id}`}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" /> View Booking ({(req as any).bookingCode})
+                      </Button>
+                    ) : (req.status === "pending" || req.status === "reviewed" || req.status === "approved") ? (
                       <Button
                         size="sm"
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -218,7 +230,7 @@ export default function AdminRegistrations() {
                       >
                         <ArrowRight className="w-4 h-4 mr-1" /> Proceed to Booking
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -343,13 +355,23 @@ export default function AdminRegistrations() {
                   <CheckCircle className="w-4 h-4 mr-1" /> Approve
                 </Button>
               )}
-              <Button
-                className="bg-violet-600 hover:bg-violet-700 text-white"
-                onClick={() => handleProceedToBooking(selectedRequest)}
-                data-testid="button-proceed-booking"
-              >
-                <ArrowRight className="w-4 h-4 mr-1" /> Proceed to Booking
-              </Button>
+              {selectedRequest.status === "booked" && (selectedRequest as any).bookingCode ? (
+                <Button
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={() => navigate(`/admin/bookings`)}
+                  data-testid="button-view-booking-dialog"
+                >
+                  <ExternalLink className="w-4 h-4 mr-1" /> View Booking ({(selectedRequest as any).bookingCode})
+                </Button>
+              ) : (
+                <Button
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={() => handleProceedToBooking(selectedRequest)}
+                  data-testid="button-proceed-booking"
+                >
+                  <ArrowRight className="w-4 h-4 mr-1" /> Proceed to Booking
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         )}
