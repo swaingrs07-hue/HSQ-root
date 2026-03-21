@@ -579,10 +579,10 @@ export default function Home() {
   const [videoSupported, setVideoSupported] = useState(false);
   const signedUrlCache = useRef<Record<string, { url: string; expires: number; contentType?: string }>>({});
 
-  const hasAnyVideo = heroSlides.some(s => s.videoUrl) && !isMobile;
+  const hasAnyVideo = heroSlides.some(s => s.videoUrl);
 
   useEffect(() => {
-    if (!currentVideoUrl || isMobile) {
+    if (!currentVideoUrl) {
       setResolvedVideoUrl(null);
       setVideoSupported(false);
       return;
@@ -628,7 +628,7 @@ export default function Home() {
         }
       });
     return () => { cancelled = true; };
-  }, [currentVideoUrl, isMobile, browserCanPlay]);
+  }, [currentVideoUrl, browserCanPlay, inferContentType]);
 
   useEffect(() => {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
