@@ -105,12 +105,33 @@ export default function Apply() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.email || !form.gender) {
-      toast({ title: "Please fill all required fields", variant: "destructive" });
+    const missing: string[] = [];
+    if (!form.fullName) missing.push("Full Name");
+    if (!form.phone) missing.push("Phone Number");
+    if (!form.email) missing.push("Email");
+    if (!form.gender) missing.push("Gender");
+    if (!form.dob) missing.push("Date of Birth");
+    if (!form.dietaryPreference) missing.push("Dietary Preference");
+    if (!form.instituteName) missing.push("Institute / Company Name");
+    if (!form.courseName) missing.push("Course / Job Title");
+    if (!form.moveInDate) missing.push("Move-in Date");
+    if (!form.checkOutDate) missing.push("Check-out Date");
+    if (!form.parentName) missing.push("Parent / Guardian Name");
+    if (!form.parentRelation) missing.push("Relation");
+    if (!form.parentPhone) missing.push("Parent Phone");
+    if (!form.parentEmail) missing.push("Parent Email");
+    if (!form.propertyId) missing.push("Preferred Property");
+    if (!form.photoPath) missing.push("Resident Photo");
+    if (missing.length > 0) {
+      toast({ title: `Please fill: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ` and ${missing.length - 3} more` : ""}`, variant: "destructive" });
       return;
     }
     if (!form.email.includes("@")) {
       toast({ title: "Please enter a valid email", variant: "destructive" });
+      return;
+    }
+    if (form.parentEmail && !form.parentEmail.includes("@")) {
+      toast({ title: "Please enter a valid parent email", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -246,7 +267,7 @@ export default function Apply() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Date of Birth</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Date of Birth <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-dob"
                     type="date"
@@ -256,7 +277,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Dietary Preference</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Dietary Preference <span className="text-red-400">*</span></label>
                   <Select value={form.dietaryPreference} onValueChange={v => updateField("dietaryPreference", v)}>
                     <SelectTrigger data-testid="select-dietary" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
                       <SelectValue placeholder="Select preference" />
@@ -272,7 +293,7 @@ export default function Apply() {
               </div>
 
               <div className="mt-6">
-                <label className="text-white/70 text-sm font-medium mb-2 block">Resident Photo</label>
+                <label className="text-white/70 text-sm font-medium mb-2 block">Resident Photo <span className="text-red-400">*</span></label>
                 <div className="flex items-center gap-4">
                   {photoPreview ? (
                     <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/[0.1]">
@@ -313,7 +334,7 @@ export default function Apply() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Institute / Company Name</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Institute / Company Name <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-institute"
                     placeholder="e.g. NMIMS, Mithibai College"
@@ -323,7 +344,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Course / Job Title</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Course / Job Title <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-course"
                     placeholder="e.g. B.Tech, MBA"
@@ -333,7 +354,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Move-in Date</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Move-in Date <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-moveIn"
                     type="date"
@@ -343,7 +364,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Check-out Date</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Check-out Date <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-checkOut"
                     type="date"
@@ -368,7 +389,7 @@ export default function Apply() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent / Guardian Name</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent / Guardian Name <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-parentName"
                     placeholder="Full name"
@@ -378,7 +399,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Relation</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Relation <span className="text-red-400">*</span></label>
                   <Select value={form.parentRelation} onValueChange={v => updateField("parentRelation", v)}>
                     <SelectTrigger data-testid="select-parentRelation" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
                       <SelectValue placeholder="Select relation" />
@@ -393,7 +414,7 @@ export default function Apply() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent Phone Number</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent Phone Number <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-parentPhone"
                     placeholder="+91 XXXXX XXXXX"
@@ -403,7 +424,7 @@ export default function Apply() {
                   />
                 </div>
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent Email</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Parent Email <span className="text-red-400">*</span></label>
                   <Input
                     data-testid="input-parentEmail"
                     type="email"
@@ -429,10 +450,10 @@ export default function Apply() {
 
               <div className="grid grid-cols-1 gap-5">
                 <div>
-                  <label className="text-white/70 text-sm font-medium mb-2 block">Preferred Property</label>
+                  <label className="text-white/70 text-sm font-medium mb-2 block">Preferred Property <span className="text-red-400">*</span></label>
                   <Select value={form.propertyId} onValueChange={handlePropertyChange}>
                     <SelectTrigger data-testid="select-property" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
-                      <SelectValue placeholder="Select a property (optional)" />
+                      <SelectValue placeholder="Select a property" />
                     </SelectTrigger>
                     <SelectContent>
                       {properties.map(p => (
