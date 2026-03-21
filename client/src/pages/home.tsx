@@ -159,66 +159,39 @@ function ImmersiveScene({ children, className = "", variant = "default" }: {
   );
 }
 
-function WorldTransition({ color = "amber" }: { color?: string }) {
-  const colors: Record<string, string> = {
-    amber: "from-amber-500/20 via-transparent to-transparent",
-    purple: "from-violet-500/20 via-transparent to-transparent",
-    cyan: "from-cyan-500/15 via-transparent to-transparent",
-    emerald: "from-emerald-500/15 via-transparent to-transparent",
-  };
-  return (
-    <div className="relative h-32 md:h-48 overflow-hidden">
-      <div className={`absolute inset-0 bg-gradient-to-b ${colors[color] || colors.amber}`} />
-      <motion.div
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(180deg, transparent 0%, rgba(10,10,10,1) 100%)",
-        }}
-      />
-      <motion.div
-        className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[2px] h-full"
-        style={{
-          background: `linear-gradient(to bottom, transparent 0%, ${color === "amber" ? "rgba(245,158,11,0.4)" : color === "purple" ? "rgba(139,92,246,0.4)" : color === "cyan" ? "rgba(0,200,255,0.4)" : "rgba(16,185,129,0.4)"} 50%, transparent 100%)`,
-        }}
-        initial={{ scaleY: 0 }}
-        whileInView={{ scaleY: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
-      />
-      <motion.div
-        className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2"
-        initial={{ scale: 0, opacity: 0 }}
-        whileInView={{ scale: 1, opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, delay: 0.6 }}
-      >
-        <div className="w-3 h-3 rounded-full" style={{
-          background: color === "amber" ? "rgba(245,158,11,0.6)" : color === "purple" ? "rgba(139,92,246,0.6)" : color === "cyan" ? "rgba(0,200,255,0.6)" : "rgba(16,185,129,0.6)",
-          boxShadow: `0 0 20px ${color === "amber" ? "rgba(245,158,11,0.4)" : color === "purple" ? "rgba(139,92,246,0.4)" : color === "cyan" ? "rgba(0,200,255,0.4)" : "rgba(16,185,129,0.4)"}`,
-        }} />
-      </motion.div>
-    </div>
-  );
-}
 
 function CinematicText({ children, className = "", delay = 0, gradient = false }: {
   children: string; className?: string; delay?: number; gradient?: boolean;
 }) {
   const words = children.split(" ");
+  let charIndex = 0;
   return (
     <span className={className}>
-      {words.map((word, wi) => (
-        <motion.span
-          key={wi}
-          className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: delay + wi * 0.08, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {word}{wi < words.length - 1 ? "\u00A0" : ""}
-        </motion.span>
-      ))}
+      {words.map((word, wi) => {
+        const chars = word.split("");
+        const wordElement = (
+          <span key={wi} className="inline-flex" style={{ whiteSpace: "nowrap" }}>
+            {chars.map((char) => {
+              const idx = charIndex++;
+              return (
+                <motion.span
+                  key={idx}
+                  className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: delay + idx * 0.03, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {char}
+                </motion.span>
+              );
+            })}
+            {wi < words.length - 1 && <span className="inline-block" style={{ width: "0.3em" }}>{"\u00A0"}</span>}
+          </span>
+        );
+        charIndex++;
+        return wordElement;
+      })}
     </span>
   );
 }
@@ -841,7 +814,6 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <WorldTransition color="cyan" />
       <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
@@ -929,7 +901,6 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <WorldTransition color="purple" />
       <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]">
 
         <div className="container mx-auto px-4 relative z-10">
@@ -1079,7 +1050,6 @@ export default function Home() {
         ];
         return (
           <>
-            <WorldTransition color="emerald" />
             <ImmersiveScene variant="depth" className="py-28 md:py-40 bg-[#050505]" data-testid="section-housing-plans">
 
               <div className="container mx-auto px-4 relative z-10">
@@ -1289,7 +1259,6 @@ export default function Home() {
       })()}
       {instagramPosts.length > 0 && (
         <>
-          <WorldTransition color="purple" />
           <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]"
             data-testid="instagram-feed-section"
           >
@@ -1453,7 +1422,6 @@ export default function Home() {
       )}
       {!propertiesLoading && properties.length > 0 && (
         <>
-          <WorldTransition color="amber" />
           <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
 
             <div className="container mx-auto px-4 relative z-10">
@@ -1589,7 +1557,6 @@ export default function Home() {
           </ImmersiveScene>
         </>
       )}
-      <WorldTransition color="cyan" />
       <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]">
 
         <div className="container mx-auto px-4 relative z-10">
@@ -1686,7 +1653,6 @@ export default function Home() {
         </div>
       </ImmersiveScene>
 
-      <WorldTransition color="emerald" />
       <section className="py-20 md:py-28 bg-[#050505] relative overflow-hidden">
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.04) 0%, transparent 60%)" }} />
         <div className="container mx-auto px-4 relative z-10">
