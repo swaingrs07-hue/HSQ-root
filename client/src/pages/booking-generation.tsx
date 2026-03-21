@@ -303,9 +303,9 @@ export default function BookingGeneration() {
     if (!prefill || !token) return;
     registrationPrefillRef.current = null;
 
-    fetch(`/api/admin/registration-requests/${prefill.regId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    fetch(`/api/admin/registration-requests/${prefill.regId}`, { headers: authHeaders })
       .then(r => r.ok ? r.json() : null)
       .then(reg => {
         if (!reg) {
@@ -331,6 +331,49 @@ export default function BookingGeneration() {
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data?.url) setResidentPhotoUrl(data.url); })
             .catch(err => console.warn("Registration prefill: failed to load photo", err));
+        }
+
+        const searchTerm = reg.phone || reg.email || reg.fullName || "";
+        if (searchTerm) {
+          fetch(`/api/admin/registered-students?search=${encodeURIComponent(searchTerm)}`, { headers: authHeaders })
+            .then(r => r.ok ? r.json() : null)
+            .then(students => {
+              if (!Array.isArray(students) || students.length === 0) return;
+              const match = students.find((s: any) =>
+                (reg.phone && s.phone && s.phone.replace(/\D/g, "").endsWith(reg.phone.replace(/\D/g, "").slice(-10))) ||
+                (reg.email && s.email && s.email.toLowerCase() === reg.email.toLowerCase()) ||
+                (reg.email && s.studentEmail && s.studentEmail.toLowerCase() === reg.email.toLowerCase()) ||
+                (reg.email && s.registeredEmail && s.registeredEmail.toLowerCase() === reg.email.toLowerCase())
+              );
+              if (match) {
+                const genderMap: Record<string, string> = { male: "male", female: "female", Male: "male", Female: "female", other: "other", Other: "other" };
+                const dietaryMap: Record<string, string> = { Veg: "veg", "Non-Veg": "non_veg", Jain: "jain", Vegan: "vegan", veg: "veg", "non-veg": "non_veg", jain: "jain", vegan: "vegan" };
+                const studentName = match.fullName || match.name || "";
+                const studentEmail = match.email || match.studentEmail || match.registeredEmail || "";
+                const studentCollege = match.collegeName || match.college || match.instituteName || "";
+                const studentCourse = match.course || match.courseName || "";
+                const studentRoom = match.roomNumber || match.room || "";
+                setSelectedStudent(match);
+                setRegisteredStudents(students);
+                setFormData(prev => ({
+                  ...prev,
+                  customerType: "student",
+                  studentId: match.id,
+                  walkInName: studentName || prev.walkInName,
+                  walkInPhone: match.phone || prev.walkInPhone,
+                  walkInEmail: studentEmail || prev.walkInEmail,
+                  residentName: studentName || prev.residentName,
+                  residentPhone: match.phone || prev.residentPhone,
+                  residentEmail: studentEmail || prev.residentEmail,
+                  residentRoomNo: studentRoom || prev.residentRoomNo,
+                  residentInstitute: studentCollege || prev.residentInstitute,
+                  residentCourse: studentCourse || prev.residentCourse,
+                  residentGender: (match.gender ? genderMap[match.gender] || match.gender.toLowerCase() : "") || prev.residentGender,
+                  residentDietaryPreference: (match.dietaryPreference ? dietaryMap[match.dietaryPreference] || match.dietaryPreference : "") || prev.residentDietaryPreference,
+                }));
+              }
+            })
+            .catch(err => console.warn("Registration prefill: student lookup failed", err));
         }
       })
       .catch(err => console.warn("Registration prefill: fetch error", err));
