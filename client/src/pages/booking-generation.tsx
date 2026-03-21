@@ -1005,6 +1005,13 @@ export default function BookingGeneration() {
             ? "Booking created and sent for admin approval."
             : `Booking ${data.booking.bookingCode} created successfully!`,
         });
+        if (data.registrationUpdateWarning) {
+          toast({
+            title: "Registration Update Warning",
+            description: data.registrationUpdateWarning,
+            variant: "destructive",
+          });
+        }
       } else {
         const error = await response.json();
         toast({
