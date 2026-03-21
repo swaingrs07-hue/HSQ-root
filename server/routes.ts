@@ -3284,7 +3284,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/bookings/generate", async (req, res) => {
+  app.post("/api/bookings/generate", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const {
         customerType,
@@ -3574,17 +3574,27 @@ ${allPages.map(p => `  <url>
         await storage.updateLead(leadId, { status: "converted" });
       }
 
+      let registrationUpdateWarning: string | undefined;
       if (registrationRequestId) {
         try {
-          await db.update(schema.registrationRequests)
-            .set({ status: "booked", bookingId: booking.id, updatedAt: new Date() })
-            .where(eq(schema.registrationRequests.id, registrationRequestId));
+          const [existingReg] = await db.select()
+            .from(schema.registrationRequests)
+            .where(eq(schema.registrationRequests.id, registrationRequestId))
+            .limit(1);
+          if (!existingReg) {
+            registrationUpdateWarning = "Registration request not found";
+          } else {
+            await db.update(schema.registrationRequests)
+              .set({ status: "booked", bookingId: booking.id, updatedAt: new Date() })
+              .where(eq(schema.registrationRequests.id, registrationRequestId));
+          }
         } catch (e: any) {
           console.error("Failed to update registration request status:", e.message);
+          registrationUpdateWarning = "Failed to update registration status: " + e.message;
         }
       }
 
-      res.json({ booking, requiresApproval: approvalRequired, installments: createdInstallments });
+      res.json({ booking, requiresApproval: approvalRequired, installments: createdInstallments, registrationUpdateWarning });
     } catch (error) {
       console.error("Error generating booking:", error);
       res.status(500).json({ error: "Failed to generate booking" });

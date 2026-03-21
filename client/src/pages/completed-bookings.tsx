@@ -126,7 +126,10 @@ export default function CompletedBookings() {
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin";
   const isReceptionist = user?.role === "receptionist";
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("search") || "";
+  });
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");

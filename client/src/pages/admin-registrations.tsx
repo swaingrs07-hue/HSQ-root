@@ -218,7 +218,7 @@ export default function AdminRegistrations() {
                       <Button
                         size="sm"
                         className="bg-violet-600 hover:bg-violet-700 text-white"
-                        onClick={() => navigate(`/admin/bookings/completed`)}
+                        onClick={() => navigate(`/admin/bookings/completed?search=${encodeURIComponent(req.bookingCode || req.bookingId!)}`)}
                         data-testid={`button-view-booking-${req.id}`}
                       >
                         <ExternalLink className="w-4 h-4 mr-1" /> View Booking {req.bookingCode ? `(${req.bookingCode})` : ""}
@@ -360,7 +360,7 @@ export default function AdminRegistrations() {
               {selectedRequest.status === "booked" && selectedRequest.bookingId ? (
                 <Button
                   className="bg-violet-600 hover:bg-violet-700 text-white"
-                  onClick={() => navigate(`/admin/bookings/completed`)}
+                  onClick={() => navigate(`/admin/bookings/completed?search=${encodeURIComponent(selectedRequest.bookingCode || selectedRequest.bookingId!)}`)}
                   data-testid="button-view-booking-dialog"
                 >
                   <ExternalLink className="w-4 h-4 mr-1" /> View Booking {selectedRequest.bookingCode ? `(${selectedRequest.bookingCode})` : ""}
