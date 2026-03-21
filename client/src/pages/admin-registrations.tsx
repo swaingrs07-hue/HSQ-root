@@ -16,6 +16,8 @@ import {
 import { useLocation } from "wouter";
 import type { RegistrationRequest } from "@shared/schema";
 
+type RegistrationRequestWithBooking = RegistrationRequest & { bookingCode?: string | null };
+
 const STATUS_STYLES: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock },
   reviewed: { label: "Reviewed", color: "bg-blue-100 text-blue-700 border-blue-200", icon: Eye },
@@ -36,11 +38,11 @@ export default function AdminRegistrations() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<RegistrationRequestWithBooking | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const { data: requests = [], isLoading } = useQuery<RegistrationRequest[]>({
+  const { data: requests = [], isLoading } = useQuery<RegistrationRequestWithBooking[]>({
     queryKey: ["/api/admin/registration-requests"],
     queryFn: async () => {
       const token = getToken();
@@ -197,8 +199,8 @@ export default function AdminRegistrations() {
                       </div>
                       <p className="text-xs text-slate-400 mt-1">
                         Submitted {new Date(req.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        {req.status === "booked" && (req as any).bookingCode && (
-                          <span className="ml-2 text-violet-600 font-medium">Booking: {(req as any).bookingCode}</span>
+                        {req.status === "booked" && req.bookingId && (
+                          <span className="ml-2 text-violet-600 font-medium">Booking: {req.bookingCode || req.bookingId.slice(0, 8)}</span>
                         )}
                       </p>
                     </div>
@@ -212,14 +214,14 @@ export default function AdminRegistrations() {
                     >
                       <Eye className="w-4 h-4 mr-1" /> View
                     </Button>
-                    {req.status === "booked" && (req as any).bookingCode ? (
+                    {req.status === "booked" && req.bookingId ? (
                       <Button
                         size="sm"
                         className="bg-violet-600 hover:bg-violet-700 text-white"
-                        onClick={() => navigate(`/admin/bookings`)}
+                        onClick={() => navigate(`/admin/bookings/completed`)}
                         data-testid={`button-view-booking-${req.id}`}
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" /> View Booking ({(req as any).bookingCode})
+                        <ExternalLink className="w-4 h-4 mr-1" /> View Booking {req.bookingCode ? `(${req.bookingCode})` : ""}
                       </Button>
                     ) : (req.status === "pending" || req.status === "reviewed" || req.status === "approved") ? (
                       <Button
@@ -355,13 +357,13 @@ export default function AdminRegistrations() {
                   <CheckCircle className="w-4 h-4 mr-1" /> Approve
                 </Button>
               )}
-              {selectedRequest.status === "booked" && (selectedRequest as any).bookingCode ? (
+              {selectedRequest.status === "booked" && selectedRequest.bookingId ? (
                 <Button
                   className="bg-violet-600 hover:bg-violet-700 text-white"
-                  onClick={() => navigate(`/admin/bookings`)}
+                  onClick={() => navigate(`/admin/bookings/completed`)}
                   data-testid="button-view-booking-dialog"
                 >
-                  <ExternalLink className="w-4 h-4 mr-1" /> View Booking ({(selectedRequest as any).bookingCode})
+                  <ExternalLink className="w-4 h-4 mr-1" /> View Booking {selectedRequest.bookingCode ? `(${selectedRequest.bookingCode})` : ""}
                 </Button>
               ) : (
                 <Button
