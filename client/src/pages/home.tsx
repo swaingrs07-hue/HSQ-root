@@ -14,7 +14,7 @@ import {
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
   ArrowUp, GraduationCap, Navigation, Smartphone, Bell, Wallet, QrCode
 } from "lucide-react";
-import { motion, AnimatePresence, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useTransform, useMotionValue, useSpring, useInView } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
@@ -163,52 +163,31 @@ function ImmersiveScene({ children, className = "", variant = "default" }: {
 function CinematicText({ children, className = "", delay = 0, gradient = false }: {
   children: string; className?: string; delay?: number; gradient?: boolean;
 }) {
-  const allChars: { char: string; isSpace: boolean }[] = [];
-  for (let i = 0; i < children.length; i++) {
-    allChars.push({ char: children[i], isSpace: children[i] === " " });
-  }
-
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.03,
-        delayChildren: delay,
-      },
-    },
-  };
-
-  const charVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
-    },
-  };
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.5 });
 
   return (
-    <motion.span
-      className={`inline-flex flex-wrap ${className}`}
-      variants={containerVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.3 }}
-    >
-      {allChars.map((c, i) =>
-        c.isSpace ? (
-          <span key={i} style={{ width: "0.3em" }}>{"\u00A0"}</span>
+    <span ref={ref} className={`inline ${className}`}>
+      {children.split("").map((char, i) =>
+        char === " " ? (
+          <span key={i}>{"\u00A0"}</span>
         ) : (
           <motion.span
             key={i}
             className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
-            variants={charVariants}
+            initial={{ opacity: 0, y: 30 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            transition={{
+              duration: 0.5,
+              delay: delay + i * 0.04,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           >
-            {c.char}
+            {char}
           </motion.span>
         )
       )}
-    </motion.span>
+    </span>
   );
 }
 
@@ -832,13 +811,7 @@ export default function Home() {
       </ImmersiveScene>
       <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
         <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
-            className="text-center mb-20"
-          >
+          <div className="text-center mb-20">
             <motion.p
               className="text-cyan-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
               initial={{ opacity: 0, y: -20 }}
@@ -868,7 +841,7 @@ export default function Home() {
             >
               An ecosystem thoughtfully designed for students to thrive, study, and build lifelong connections.
             </motion.p>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -920,13 +893,7 @@ export default function Home() {
       <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]">
 
         <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
-            className="text-center mb-20"
-          >
+          <div className="text-center mb-20">
             <motion.p
               className="text-violet-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
               initial={{ opacity: 0, y: -20 }}
@@ -947,7 +914,7 @@ export default function Home() {
               transition={{ duration: 1, delay: 0.4 }}
               className="w-24 h-[1px] bg-gradient-to-r from-transparent via-violet-500/60 to-transparent mx-auto"
             />
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {(dynamicAmenities.length > 0
@@ -1069,13 +1036,7 @@ export default function Home() {
             <ImmersiveScene variant="depth" className="py-28 md:py-40 bg-[#050505]" data-testid="section-housing-plans">
 
               <div className="container mx-auto px-4 relative z-10">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1 }}
-                  className="text-center mb-20"
-                >
+                <div className="text-center mb-20">
                   <motion.p
                     className="text-emerald-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
                     initial={{ opacity: 0, y: -20 }}
@@ -1105,7 +1066,7 @@ export default function Home() {
                     transition={{ duration: 1, delay: 0.6 }}
                     className="w-32 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent mx-auto mt-8"
                   />
-                </motion.div>
+                </div>
 
                 {propertyIds.map((propId, propIdx) => {
                   const plans = plansByProperty[propId] || [];
@@ -1441,13 +1402,7 @@ export default function Home() {
           <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
 
             <div className="container mx-auto px-4 relative z-10">
-              <motion.div
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1 }}
-                className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16"
-              >
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16">
                 <div>
                   <motion.p
                     className="text-amber-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
@@ -1468,7 +1423,7 @@ export default function Home() {
                     View All <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
-              </motion.div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {properties.slice(0, 3).map((property: any, i: number) => {
@@ -1576,13 +1531,7 @@ export default function Home() {
       <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]">
 
         <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
-            className="text-center mb-16"
-          >
+          <div className="text-center mb-16">
             <motion.p
               className="text-cyan-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
               initial={{ opacity: 0, y: -20 }}
@@ -1612,7 +1561,7 @@ export default function Home() {
               transition={{ duration: 1, delay: 0.6 }}
               className="w-32 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent mx-auto mt-8"
             />
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="colleges-grid">
             {[
@@ -1672,13 +1621,7 @@ export default function Home() {
       <section className="py-20 md:py-28 bg-[#050505] relative overflow-hidden">
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.04) 0%, transparent 60%)" }} />
         <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
-            className="max-w-4xl mx-auto"
-          >
+          <div className="max-w-4xl mx-auto">
             <motion.p
               className="text-emerald-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6 text-center"
               initial={{ opacity: 0, y: -20 }}
@@ -1727,7 +1670,7 @@ export default function Home() {
               transition={{ duration: 1, delay: 0.8 }}
               className="w-32 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent mx-auto mt-10"
             />
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -1749,13 +1692,7 @@ export default function Home() {
           background: "radial-gradient(ellipse at 30% 40%, rgba(6,182,212,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(139,92,246,0.06) 0%, transparent 50%)",
         }} />
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1.5 }}
-          className="relative z-10 container mx-auto px-4 text-center"
-        >
+        <div className="relative z-10 container mx-auto px-4 text-center">
           <motion.p
             className="text-cyan-400 text-xs tracking-[0.5em] uppercase font-medium mb-6"
             initial={{ opacity: 0, y: -20 }}
@@ -1810,7 +1747,7 @@ export default function Home() {
               </Button>
             </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
       <section className="relative py-20 md:py-28 overflow-hidden" data-testid="app-download-section">
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-[#0a0808] to-[#050505]" />
