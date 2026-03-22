@@ -1531,7 +1531,9 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "targets" && (
-              <TargetAchievementTab />
+              <div className="bg-[#050505] -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-6 rounded-2xl min-h-[60vh]">
+                <TargetAchievementTab />
+              </div>
             )}
 
             {activeTab === "leads" && (
