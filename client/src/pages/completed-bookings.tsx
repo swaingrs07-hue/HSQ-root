@@ -1106,9 +1106,28 @@ export default function CompletedBookings() {
                     <div className="flex items-start gap-4 flex-1">
                       {(() => {
                         const photoSrc = getBookingPhotoUrl(booking.residentDetails);
-                        return photoSrc ? (
-                          <img src={photoSrc} alt={booking.customerName || ""} className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm" data-testid={`img-avatar-${booking.id}`} />
-                        ) : (
+                        if (photoSrc) {
+                          return (
+                            <>
+                              <img
+                                src={photoSrc}
+                                alt={booking.customerName || ""}
+                                className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm"
+                                data-testid={`img-avatar-${booking.id}`}
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  img.style.display = "none";
+                                  const fallback = img.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.classList.remove("hidden");
+                                }}
+                              />
+                              <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm hidden`}>
+                                {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
+                              </div>
+                            </>
+                          );
+                        }
+                        return (
                           <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
                             {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
                           </div>
@@ -1216,9 +1235,28 @@ export default function CompletedBookings() {
                 <div className="flex items-center gap-3">
                   {(() => {
                     const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
-                    return photoSrc ? (
-                      <img src={photoSrc} alt={selectedBooking.customerName || ""} className="w-12 h-12 rounded-full object-cover shadow-sm" data-testid="img-booking-avatar" />
-                    ) : (
+                    if (photoSrc) {
+                      return (
+                        <>
+                          <img
+                            src={photoSrc}
+                            alt={selectedBooking.customerName || ""}
+                            className="w-12 h-12 rounded-full object-cover shadow-sm"
+                            data-testid="img-booking-avatar"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              img.style.display = "none";
+                              const fallback = img.nextElementSibling as HTMLElement | null;
+                              if (fallback) fallback.classList.remove("hidden");
+                            }}
+                          />
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg hidden">
+                            {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                        </>
+                      );
+                    }
+                    return (
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
                         {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
                       </div>
