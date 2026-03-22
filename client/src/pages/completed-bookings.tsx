@@ -75,6 +75,30 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
 
+interface ResidentDetails {
+  photoPath?: string;
+  photoUrl?: string;
+  photo?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  dob?: string;
+  gender?: string;
+  institute?: string;
+  course?: string;
+  moveInDate?: string;
+  checkOutDate?: string;
+  dietaryPreference?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  parentRelation?: string;
+  accommodationType?: string;
+  roomNo?: string;
+  bedNo?: string;
+  [key: string]: unknown;
+}
+
 interface CompletedBooking {
   id: string;
   bookingCode?: string;
@@ -92,7 +116,15 @@ interface CompletedBooking {
   createdAt: string;
   salesExecName?: string;
   assignedSalesExecId?: string;
-  residentDetails?: any;
+  residentDetails?: ResidentDetails;
+}
+
+function getBookingPhotoUrl(rd?: ResidentDetails): string | null {
+  const raw = rd?.photoPath || rd?.photoUrl || rd?.photo;
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("/objects/") || raw.startsWith("/")) return raw;
+  return null;
 }
 
 function getStatusBadge(status: string) {
@@ -1073,10 +1105,9 @@ export default function CompletedBookings() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
                       {(() => {
-                        const rd = booking.residentDetails as any;
-                        const photoSrc = rd?.photoPath || rd?.photoUrl || rd?.photo;
+                        const photoSrc = getBookingPhotoUrl(booking.residentDetails);
                         return photoSrc ? (
-                          <img src={photoSrc} alt={booking.customerName || ""} className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm" />
+                          <img src={photoSrc} alt={booking.customerName || ""} className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm" data-testid={`img-avatar-${booking.id}`} />
                         ) : (
                           <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
                             {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
@@ -1184,8 +1215,7 @@ export default function CompletedBookings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {(() => {
-                    const rd = selectedBooking.residentDetails as any;
-                    const photoSrc = rd?.photoPath || rd?.photoUrl || rd?.photo;
+                    const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
                     return photoSrc ? (
                       <img src={photoSrc} alt={selectedBooking.customerName || ""} className="w-12 h-12 rounded-full object-cover shadow-sm" data-testid="img-booking-avatar" />
                     ) : (
