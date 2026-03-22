@@ -92,6 +92,9 @@ import {
   walletLedger,
   propertyTargets,
   type PropertyTarget,
+  registrationRequests,
+  residentSeasonStatus,
+  bedAllocations,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -655,9 +658,16 @@ export class DatabaseStorage implements IStorage {
         await this.updateRoomTypeAvailability(booking.roomTypeId, 1);
       }
     }
+    await db.update(registrationRequests)
+      .set({ bookingId: null, status: 'approved' })
+      .where(eq(registrationRequests.bookingId, id));
+    await db.delete(packageUsage).where(eq(packageUsage.bookingId, id));
+    await db.delete(residentSeasonStatus).where(eq(residentSeasonStatus.bookingId, id));
+    await db.delete(bedAllocations).where(eq(bedAllocations.bookingId, id));
     await db.delete(walletLedger).where(eq(walletLedger.bookingId, id));
     await db.delete(payments).where(eq(payments.bookingId, id));
     await db.delete(installments).where(eq(installments.bookingId, id));
+    await db.delete(bookingPackages).where(eq(bookingPackages.bookingId, id));
     await db.delete(bookings).where(eq(bookings.id, id));
   }
 
