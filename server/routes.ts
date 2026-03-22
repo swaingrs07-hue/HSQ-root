@@ -4959,6 +4959,8 @@ ${allPages.map(p => `  <url>
         packageItemsMap.set(item.packageId, existing);
       });
 
+      const { resolvePublicUrl } = await import("./hms-sync.js");
+
       const result = allBookings.map((b: any) => {
         const prop = b.propertyId ? propertyMap.get(b.propertyId) : null;
         const rd = b.residentDetails as any;
@@ -4992,6 +4994,7 @@ ${allPages.map(p => `  <url>
             roomNo: rd?.roomNo || rd?.room,
             bedNo: rd?.bedNo,
             moveInDate: rd?.moveInDate || null,
+            photoUrl: resolvePublicUrl(rd?.photoPath || rd?.photoUrl || rd?.photo) || null,
           },
           stayPlan: {
             type: b.stayPlanType,
@@ -5214,6 +5217,8 @@ ${allPages.map(p => `  <url>
       const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
       const walletBalance = walletEntries.reduce((sum, w) => sum + (w.credit || 0) - (w.debit || 0), 0);
 
+      const { resolvePublicUrl: resolveUrl } = await import("./hms-sync.js");
+
       res.json({
         bookingCode: booking.bookingCode,
         status: booking.status,
@@ -5236,6 +5241,7 @@ ${allPages.map(p => `  <url>
           roomNo: rd?.roomNo || rd?.room,
           bedNo: rd?.bedNo,
           moveInDate: rd?.moveInDate || null,
+          photoUrl: resolveUrl(rd?.photoPath || rd?.photoUrl || rd?.photo) || null,
         },
         stayPlan: {
           type: booking.stayPlanType,
@@ -5392,6 +5398,7 @@ ${allPages.map(p => `  <url>
               moveInDate, checkInDate, checkOutDate, course, institute,
               dietaryPreference, accommodationType, guardianName, guardianPhone,
               guardianRelation, address, city, state, pincode, notes,
+              photoUrl,
               status: hmsStatus } = req.body;
 
       if (!phone && !email) {
@@ -5445,6 +5452,7 @@ ${allPages.map(p => `  <url>
         if (pincode) updatedRd.pincode = pincode;
         if (phone) updatedRd.phone = phone;
         if (email) updatedRd.email = email;
+        if (photoUrl) updatedRd.photoUrl = photoUrl;
 
         const updateData: any = {
           residentDetails: updatedRd,
