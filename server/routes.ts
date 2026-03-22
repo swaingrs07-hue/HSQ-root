@@ -6594,15 +6594,50 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             inArray(schema.beds.status, ['available', 'occupied', 'reserved'])
           ));
 
-        const totalBeds = propBeds.length;
+        let totalBeds = propBeds.length;
+        let totalBedValue = 0;
 
-        const bedPrices = propBeds.map(b => {
-          const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
-          const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
-          return bedPrice || roomPrice || 0;
-        });
+        if (totalBeds > 0) {
+          const bedPrices = propBeds.map(b => {
+            const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
+            const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
+            return bedPrice || roomPrice || 0;
+          });
+          totalBedValue = bedPrices.reduce((sum, p) => sum + p, 0);
+        }
 
-        const totalBedValue = bedPrices.reduce((sum, p) => sum + p, 0);
+        if (totalBedValue === 0) {
+          const propRoomTypes = await db.select().from(schema.roomTypes)
+            .where(eq(schema.roomTypes.propertyId, prop.id));
+
+          if (propRoomTypes.length > 0) {
+            let rtTotalBeds = 0;
+            let rtTotalValue = 0;
+            for (const rt of propRoomTypes) {
+              const beds = rt.totalBeds || 0;
+              const price = Number(rt.basePrice) || 0;
+              rtTotalBeds += beds;
+              rtTotalValue += beds * price;
+            }
+            if (totalBeds === 0) totalBeds = rtTotalBeds;
+            if (rtTotalValue > 0) totalBedValue = rtTotalValue;
+          }
+        }
+
+        if (totalBedValue === 0) {
+          const propPackages = await db.select().from(schema.packages)
+            .where(and(
+              eq(schema.packages.propertyId, prop.id),
+              eq(schema.packages.isActive, true),
+              eq(schema.packages.category, 'housing_plan')
+            ));
+
+          if (propPackages.length > 0) {
+            const avgPkgPrice = propPackages.reduce((s, p) => s + (Number(p.basePrice) || 0), 0) / propPackages.length;
+            totalBedValue = totalBeds * avgPkgPrice;
+          }
+        }
+
         const avgBedPrice = totalBeds > 0 ? Math.round(totalBedValue / totalBeds) : 0;
 
         const target = targetMap.get(prop.id);
