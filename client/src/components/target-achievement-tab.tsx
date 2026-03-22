@@ -144,17 +144,29 @@ export default function TargetAchievementTab() {
   const [editForm, setEditForm] = useState({ targetOccupancyPercent: 100, customTargetOverride: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const authData = localStorage.getItem("hsquare_auth");
+    if (authData) {
+      try {
+        const { token } = JSON.parse(authData);
+        if (token) return { Authorization: `Bearer ${token}` };
+      } catch {}
+    }
+    return {};
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
+      const headers = getAuthHeaders();
       const params = new URLSearchParams();
       if (filterProperty !== "all") params.set("propertyId", filterProperty);
       if (filterMonth !== "all") params.set("month", filterMonth);
       if (filterStatus !== "all") params.set("bookingStatus", filterStatus);
 
       const [targetRes, trendRes] = await Promise.all([
-        fetch(`/api/admin/targets?${params}`, { credentials: "include" }).then(r => r.json()),
-        fetch(`/api/admin/targets/trends?${filterProperty !== "all" ? `propertyId=${filterProperty}` : ""}`, { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/admin/targets?${params}`, { headers }).then(r => r.json()),
+        fetch(`/api/admin/targets/trends?${filterProperty !== "all" ? `propertyId=${filterProperty}` : ""}`, { headers }).then(r => r.json()),
       ]);
 
       setProperties(targetRes.properties || []);
@@ -190,8 +202,7 @@ export default function TargetAchievementTab() {
 
       await fetch(`/api/admin/targets/${editingProperty.propertyId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(body),
       });
 
