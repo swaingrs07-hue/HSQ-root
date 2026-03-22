@@ -3035,6 +3035,12 @@ ${allPages.map(p => `  <url>
           const exec = await storage.getUser(booking.assignedSalesExecId);
           if (exec) salesExecName = exec.fullName;
         }
+
+        let createdByName = null;
+        if (booking.createdBy) {
+          const creator = await storage.getUser(booking.createdBy);
+          if (creator) createdByName = creator.name;
+        }
         
         const bpWithPlan = await db.select({
           planName: schema.packages.name,
@@ -3073,6 +3079,7 @@ ${allPages.map(p => `  <url>
           customerPhone,
           customerEmail,
           salesExecName,
+          createdByName,
           installments,
           payments,
           housingPlanInfo,

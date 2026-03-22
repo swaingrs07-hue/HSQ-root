@@ -116,6 +116,7 @@ interface CompletedBooking {
   createdAt: string;
   salesExecName?: string;
   assignedSalesExecId?: string;
+  createdByName?: string;
   residentDetails?: ResidentDetails;
 }
 
@@ -1172,6 +1173,12 @@ export default function CompletedBookings() {
                               {booking.salesExecName}
                             </span>
                           )}
+                          {isAdmin && booking.createdByName && (
+                            <span className="flex items-center gap-1 text-indigo-500" data-testid={`text-booked-by-${booking.id}`}>
+                              <ClipboardCheck className="h-3.5 w-3.5" />
+                              Booked by {booking.createdByName}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1406,6 +1413,12 @@ export default function CompletedBookings() {
                   <span className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5" />
                     {selectedBooking.salesExecName}
+                  </span>
+                )}
+                {isAdmin && selectedBooking.createdByName && (
+                  <span className="flex items-center gap-1.5 text-indigo-600" data-testid="text-detail-booked-by">
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    Booked by {selectedBooking.createdByName}
                   </span>
                 )}
               </div>
