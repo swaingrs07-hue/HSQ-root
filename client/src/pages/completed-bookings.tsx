@@ -1072,9 +1072,17 @@ export default function CompletedBookings() {
                 <CardContent className="p-5">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
-                        {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
-                      </div>
+                      {(() => {
+                        const rd = booking.residentDetails as any;
+                        const photoSrc = rd?.photoPath || rd?.photoUrl || rd?.photo;
+                        return photoSrc ? (
+                          <img src={photoSrc} alt={booking.customerName || ""} className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm" />
+                        ) : (
+                          <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
+                            {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-slate-900" data-testid={`text-customer-name-${booking.id}`}>
@@ -1175,9 +1183,17 @@ export default function CompletedBookings() {
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                    {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
-                  </div>
+                  {(() => {
+                    const rd = selectedBooking.residentDetails as any;
+                    const photoSrc = rd?.photoPath || rd?.photoUrl || rd?.photo;
+                    return photoSrc ? (
+                      <img src={photoSrc} alt={selectedBooking.customerName || ""} className="w-12 h-12 rounded-full object-cover shadow-sm" data-testid="img-booking-avatar" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                        {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
+                      </div>
+                    );
+                  })()}
                   <div>
                     <h3 className="font-bold text-slate-900" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
                     {selectedBooking.bookingCode && (
