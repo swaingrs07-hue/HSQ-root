@@ -97,7 +97,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
   const propertyCoords = useMemo(() => {
     return properties
       .map(p => ({ property: p, coords: getCoords(p), key: resolvePropertyKey(p) }))
-      .filter((item): item is { property: Property; coords: [number, number]; key: string } => item.coords !== null && item.key !== null);
+      .filter((item): item is { property: Property; coords: [number, number]; key: string | null } => item.coords !== null);
   }, [properties]);
 
   useEffect(() => {
