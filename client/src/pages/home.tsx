@@ -1565,12 +1565,12 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="colleges-grid">
             {[
-              { name: "NMIMS University", area: "Vile Parle West", distance: "5 min", color: "from-cyan-500 to-blue-500", glow: "rgba(6,182,212,0.2)" },
-              { name: "Mithibai College", area: "Vile Parle West", distance: "5 min", color: "from-violet-500 to-purple-500", glow: "rgba(139,92,246,0.2)" },
-              { name: "Mukesh Patel School of Technology", area: "Vile Parle West", distance: "5 min", color: "from-amber-500 to-orange-500", glow: "rgba(245,158,11,0.2)" },
-              { name: "Whistling Woods International", area: "Goregaon East", distance: "10 min", color: "from-emerald-500 to-green-500", glow: "rgba(16,185,129,0.2)" },
-              { name: "DJ Sanghvi College of Engineering", area: "Vile Parle West", distance: "8 min", color: "from-pink-500 to-rose-500", glow: "rgba(236,72,153,0.2)" },
-              { name: "NM College of Commerce", area: "Vile Parle West", distance: "5 min", color: "from-sky-500 to-cyan-500", glow: "rgba(14,165,233,0.2)" },
+              { name: "NMIMS University", area: "Vile Parle West", distance: "5 min", color: "from-cyan-500 to-blue-500", glow: "rgba(6,182,212,0.2)", href: "/hostel-near-nmims" },
+              { name: "Mithibai College", area: "Vile Parle West", distance: "5 min", color: "from-violet-500 to-purple-500", glow: "rgba(139,92,246,0.2)", href: "/hostel-near-mithibai" },
+              { name: "Mukesh Patel School of Technology", area: "Vile Parle West", distance: "5 min", color: "from-amber-500 to-orange-500", glow: "rgba(245,158,11,0.2)", href: "/hostel-near-mukesh-patel" },
+              { name: "Whistling Woods International", area: "Goregaon East", distance: "10 min", color: "from-emerald-500 to-green-500", glow: "rgba(16,185,129,0.2)", href: "/hostel-near-whistling-woods" },
+              { name: "DJ Sanghvi College of Engineering", area: "Vile Parle West", distance: "8 min", color: "from-pink-500 to-rose-500", glow: "rgba(236,72,153,0.2)", href: "/hostel-near-dj-sanghvi" },
+              { name: "NM College of Commerce", area: "Vile Parle West", distance: "5 min", color: "from-sky-500 to-cyan-500", glow: "rgba(14,165,233,0.2)", href: "/hostel-near-nm-college" },
             ].map((college, i) => (
               <motion.div
                 key={college.name}
@@ -1581,7 +1581,8 @@ export default function Home() {
                 className="group"
                 data-testid={`college-card-${i}`}
               >
-                <div className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.04] transition-all duration-500 relative overflow-hidden">
+                <Link href={college.href}>
+                <div className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.04] transition-all duration-500 relative overflow-hidden cursor-pointer">
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${college.glow} 0%, transparent 60%)` }} />
                   <div className="flex items-start gap-4 relative z-10">
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${college.color} flex items-center justify-center shrink-0`} style={{ boxShadow: `0 4px 20px ${college.glow}` }}>
@@ -1600,6 +1601,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+                </Link>
               </motion.div>
             ))}
           </div>

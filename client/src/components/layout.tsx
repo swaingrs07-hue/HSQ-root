@@ -379,8 +379,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <footer className="bg-stone-900 text-stone-300" data-testid="site-footer">
         <div className="container mx-auto px-6 pt-16 pb-10">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
-            <div className="md:col-span-4 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-6">
+            <div className="md:col-span-3 space-y-5">
               <p className="text-sm text-stone-400 leading-relaxed max-w-xs">
                 {footer.companyDescription}
               </p>
@@ -453,7 +453,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            <div className="md:col-span-4">
+            <div className="md:col-span-2">
+              <h4 className="font-heading font-bold text-white text-sm uppercase tracking-widest mb-5">Hostels Near</h4>
+              <ul className="space-y-3">
+                {[
+                  { label: "NMIMS University", href: "/hostel-near-nmims" },
+                  { label: "Mithibai College", href: "/hostel-near-mithibai" },
+                  { label: "Mukesh Patel", href: "/hostel-near-mukesh-patel" },
+                  { label: "NM College", href: "/hostel-near-nm-college" },
+                  { label: "DJ Sanghvi", href: "/hostel-near-dj-sanghvi" },
+                  { label: "Whistling Woods", href: "/hostel-near-whistling-woods" },
+                  { label: "Vile Parle", href: "/hostel-in-vile-parle" },
+                  { label: "Goregaon", href: "/hostel-in-goregaon" },
+                ].map((link, i) => (
+                  <li key={i}>
+                    <Link href={link.href} className="text-sm text-stone-400 hover:text-amber-400 transition-colors duration-200 flex items-center gap-1.5 group">
+                      <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+                      <span>{link.label}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="md:col-span-3">
               <h4 className="font-heading font-bold text-white text-sm uppercase tracking-widest mb-5">Contact</h4>
               <ul className="space-y-4">
                 <li>

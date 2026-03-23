@@ -58,6 +58,7 @@ import Contact from "@/pages/contact";
 import FAQ from "@/pages/faq";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
+import CollegeLandingPage from "@/pages/college-landing";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -82,6 +83,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/terms": "Terms & Conditions - Hsquare Harmony Living",
   "/privacy": "Privacy Policy - Hsquare Harmony Living",
   "/apply": "Pre-Registration | Hsquare Hostel Mumbai - Student Accommodation",
+  "/hostel-near-nmims": "Hostel Near NMIMS Mumbai | Hsquare Living - Student PG & Accommodation",
+  "/hostel-near-mithibai": "Hostel Near Mithibai College Mumbai | Hsquare Living - Student PG",
+  "/hostel-near-mukesh-patel": "Hostel Near Mukesh Patel Mumbai | Hsquare Living - Student Accommodation",
+  "/hostel-near-nm-college": "Hostel Near NM College Mumbai | Hsquare Living - Student PG",
+  "/hostel-near-dj-sanghvi": "Hostel Near DJ Sanghvi College Mumbai | Hsquare Living - Student PG",
+  "/hostel-near-whistling-woods": "Hostel Near Whistling Woods Mumbai | Hsquare Living - Student PG",
+  "/hostel-in-vile-parle": "Best Hostel in Vile Parle Mumbai | Hsquare Living - Student Accommodation",
+  "/hostel-in-goregaon": "Best Hostel in Goregaon Mumbai | Hsquare Living - Student PG",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -177,6 +186,14 @@ function AppContent() {
               <Route path="/faq" component={FAQ} />
               <Route path="/terms" component={Terms} />
               <Route path="/privacy" component={Privacy} />
+              <Route path="/hostel-near-nmims" component={CollegeLandingPage} />
+              <Route path="/hostel-near-mithibai" component={CollegeLandingPage} />
+              <Route path="/hostel-near-mukesh-patel" component={CollegeLandingPage} />
+              <Route path="/hostel-near-nm-college" component={CollegeLandingPage} />
+              <Route path="/hostel-near-dj-sanghvi" component={CollegeLandingPage} />
+              <Route path="/hostel-near-whistling-woods" component={CollegeLandingPage} />
+              <Route path="/hostel-in-vile-parle" component={CollegeLandingPage} />
+              <Route path="/hostel-in-goregaon" component={CollegeLandingPage} />
               <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />
