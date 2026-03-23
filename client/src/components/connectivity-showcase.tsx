@@ -312,13 +312,13 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           50% { opacity: 0.25; }
         }
 
-        .energy-line-animated path {
+        path.energy-line-animated {
           animation: energyFlow 1.5s linear infinite;
         }
-        .energy-line-pulse path {
+        path.energy-line-pulse {
           animation: energyPulse 2s ease-in-out infinite;
         }
-        .energy-line-glow path {
+        path.energy-line-glow {
           animation: energyGlow 3s ease-in-out infinite;
         }
       `}</style>
