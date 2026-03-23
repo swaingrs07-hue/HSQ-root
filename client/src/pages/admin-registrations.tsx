@@ -11,7 +11,7 @@ import {
 import {
   User, Phone, Mail, Calendar, GraduationCap, Building2, Users,
   Eye, CheckCircle, XCircle, Clock, ArrowRight, Search, Filter,
-  Camera, Utensils, FileText, ExternalLink, Copy, Check
+  Camera, Utensils, FileText, ExternalLink, Copy, Check, RotateCcw
 } from "lucide-react";
 import { useLocation } from "wouter";
 import type { RegistrationRequest } from "@shared/schema";
@@ -76,8 +76,9 @@ export default function AdminRegistrations() {
   const filtered = requests.filter(r => {
     const matchSearch = !search || r.fullName.toLowerCase().includes(search.toLowerCase()) ||
       r.email.toLowerCase().includes(search.toLowerCase()) || r.phone.includes(search);
-    const matchStatus = statusFilter === "all" || r.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchStatus = (statusFilter === "all" || statusFilter === "retain") ? true : r.status === statusFilter;
+    const matchRetain = statusFilter === "retain" ? r.isRetain : true;
+    return matchSearch && matchStatus && matchRetain;
   });
 
   const pendingCount = requests.filter(r => r.status === "pending").length;
@@ -138,7 +139,7 @@ export default function AdminRegistrations() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {["all", "pending", "reviewed", "approved", "rejected", "booked"].map(s => (
+          {["all", "pending", "reviewed", "approved", "rejected", "booked", "retain"].map(s => (
             <Button
               key={s}
               variant={statusFilter === s ? "default" : "outline"}
@@ -186,6 +187,12 @@ export default function AdminRegistrations() {
                           <StatusIcon className="w-3 h-3 mr-1" />
                           {st.label}
                         </Badge>
+                        {req.isRetain && (
+                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs" data-testid={`badge-retain-${req.id}`}>
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Retain
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-slate-500">
                         <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{req.phone}</span>
@@ -245,16 +252,33 @@ export default function AdminRegistrations() {
         {selectedRequest && (
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-3">
+              <DialogTitle className="flex items-center gap-3 flex-wrap">
                 <User className="w-5 h-5 text-violet-600" />
                 {selectedRequest.fullName}
                 <Badge className={`${STATUS_STYLES[selectedRequest.status]?.color || ""} border text-xs`}>
                   {STATUS_STYLES[selectedRequest.status]?.label}
                 </Badge>
+                {selectedRequest.isRetain && (
+                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs">
+                    <RotateCcw className="w-3 h-3 mr-1" />
+                    Retain
+                  </Badge>
+                )}
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-5 pt-2">
+              {selectedRequest.isRetain && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold text-sm">
+                    <RotateCcw className="w-4 h-4" />
+                    Returning Student (Retain)
+                  </div>
+                  <p className="text-emerald-600 text-xs mt-1">
+                    Matched by: {selectedRequest.retainMatchedFields?.split(",").map(f => f.charAt(0).toUpperCase() + f.slice(1)).join(" & ") || "Multiple fields"}
+                  </p>
+                </div>
+              )}
               <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                 <h3 className="font-semibold text-slate-700 flex items-center gap-2 text-sm">
                   <User className="w-4 h-4" /> Personal Information

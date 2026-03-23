@@ -1473,6 +1473,9 @@ export const registrationRequests = pgTable("registration_requests", {
   propertyName: text("property_name"),
   
   notes: text("notes"),
+
+  isRetain: boolean("is_retain").default(false).notNull(),
+  retainMatchedFields: text("retain_matched_fields"),
   
   status: registrationRequestStatusEnum("status").default("pending").notNull(),
   reviewedBy: varchar("reviewed_by").references(() => users.id),
@@ -1484,7 +1487,7 @@ export const registrationRequests = pgTable("registration_requests", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertRegistrationRequestSchema = createInsertSchema(registrationRequests).omit({ id: true, createdAt: true, updatedAt: true, reviewedBy: true, reviewedAt: true, reviewNotes: true, bookingId: true });
+export const insertRegistrationRequestSchema = createInsertSchema(registrationRequests).omit({ id: true, createdAt: true, updatedAt: true, reviewedBy: true, reviewedAt: true, reviewNotes: true, bookingId: true, isRetain: true, retainMatchedFields: true });
 export type RegistrationRequest = typeof registrationRequests.$inferSelect;
 export type InsertRegistrationRequest = z.infer<typeof insertRegistrationRequestSchema>;
 

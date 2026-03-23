@@ -11052,8 +11052,69 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!fullName || !phone || !email || !gender) {
         return res.status(400).json({ error: "Full name, phone, email, and gender are required" });
       }
+
+      let isRetain = false;
+      const matchedFields: string[] = [];
+      const normPhone = phone?.replace(/[^0-9]/g, "").slice(-10);
+      const normName = fullName?.trim().toLowerCase();
+      const normEmail = email?.trim().toLowerCase();
+
+      try {
+        const existingStudents = await db.select({
+          name: schema.students.fullName,
+          phone: schema.students.phone,
+          email: schema.users.email,
+        }).from(schema.students)
+          .innerJoin(schema.users, eq(schema.students.userId, schema.users.id));
+
+        for (const s of existingStudents) {
+          const sName = s.name?.trim().toLowerCase();
+          const sEmail = s.email?.trim().toLowerCase();
+          const sPhone = s.phone?.replace(/[^0-9]/g, "").slice(-10);
+          let fieldMatches = 0;
+          const fields: string[] = [];
+          if (normName && sName && normName === sName) { fieldMatches++; fields.push("name"); }
+          if (normEmail && sEmail && normEmail === sEmail) { fieldMatches++; fields.push("email"); }
+          if (normPhone && sPhone && normPhone === sPhone) { fieldMatches++; fields.push("phone"); }
+          if (fieldMatches >= 2) {
+            isRetain = true;
+            matchedFields.push(...fields);
+            break;
+          }
+        }
+
+        if (!isRetain) {
+          const existingBookings = await db.select({
+            name: schema.bookings.walkInName,
+            phone: schema.bookings.walkInPhone,
+            email: schema.bookings.walkInEmail,
+          }).from(schema.bookings)
+            .where(sql`${schema.bookings.walkInName} IS NOT NULL OR ${schema.bookings.walkInEmail} IS NOT NULL OR ${schema.bookings.walkInPhone} IS NOT NULL`);
+
+          for (const b of existingBookings) {
+            const bName = b.name?.trim().toLowerCase();
+            const bEmail = b.email?.trim().toLowerCase();
+            const bPhone = b.phone?.replace(/[^0-9]/g, "").slice(-10);
+            let fieldMatches = 0;
+            const fields: string[] = [];
+            if (normName && bName && normName === bName) { fieldMatches++; fields.push("name"); }
+            if (normEmail && bEmail && normEmail === bEmail) { fieldMatches++; fields.push("email"); }
+            if (normPhone && bPhone && normPhone === bPhone) { fieldMatches++; fields.push("phone"); }
+            if (fieldMatches >= 2) {
+              isRetain = true;
+              matchedFields.push(...fields);
+              break;
+            }
+          }
+        }
+      } catch (retainErr) {
+        console.error("Retain check failed (non-blocking):", retainErr);
+      }
+
       const [request] = await db.insert(schema.registrationRequests).values({
         fullName, phone, email, gender, dob: dob || null, dietaryPreference: dietaryPreference || null, instituteName: instituteName || null, courseName: courseName || null, moveInDate: moveInDate || null, checkOutDate: checkOutDate || null, parentName: parentName || null, parentRelation: parentRelation || null, parentPhone: parentPhone || null, parentEmail: parentEmail || null, photoPath: photoPath || null, idProofPath: idProofPath || null, propertyId: propertyId || null, propertyName: propertyName || null, notes: notes || null, status: "pending",
+        isRetain,
+        retainMatchedFields: matchedFields.length > 0 ? matchedFields.join(",") : null,
       }).returning();
       res.status(201).json(request);
     } catch (error: any) {
@@ -11063,6 +11124,59 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const uncheckedRetain = await db.select().from(schema.registrationRequests)
+        .where(sql`${schema.registrationRequests.isRetain} = false`);
+      if (uncheckedRetain.length > 0) {
+        const allStudents = await db.select({
+          name: schema.students.fullName,
+          phone: schema.students.phone,
+          email: schema.users.email,
+        }).from(schema.students)
+          .innerJoin(schema.users, eq(schema.students.userId, schema.users.id));
+        const allBookings = await db.select({
+          name: schema.bookings.walkInName,
+          phone: schema.bookings.walkInPhone,
+          email: schema.bookings.walkInEmail,
+        }).from(schema.bookings)
+          .where(sql`${schema.bookings.walkInName} IS NOT NULL OR ${schema.bookings.walkInEmail} IS NOT NULL OR ${schema.bookings.walkInPhone} IS NOT NULL`);
+
+        for (const reg of uncheckedRetain) {
+          const normName = reg.fullName?.trim().toLowerCase();
+          const normEmail = reg.email?.trim().toLowerCase();
+          const normPhone = reg.phone?.replace(/[^0-9]/g, "").slice(-10);
+          let foundRetain = false;
+          const matchedFields: string[] = [];
+
+          for (const s of allStudents) {
+            const sName = s.name?.trim().toLowerCase();
+            const sEmail = s.email?.trim().toLowerCase();
+            const sPhone = s.phone?.replace(/[^0-9]/g, "").slice(-10);
+            let fm = 0; const flds: string[] = [];
+            if (normName && sName && normName === sName) { fm++; flds.push("name"); }
+            if (normEmail && sEmail && normEmail === sEmail) { fm++; flds.push("email"); }
+            if (normPhone && sPhone && normPhone === sPhone) { fm++; flds.push("phone"); }
+            if (fm >= 2) { foundRetain = true; matchedFields.push(...flds); break; }
+          }
+          if (!foundRetain) {
+            for (const b of allBookings) {
+              const bName = b.name?.trim().toLowerCase();
+              const bEmail = b.email?.trim().toLowerCase();
+              const bPhone = b.phone?.replace(/[^0-9]/g, "").slice(-10);
+              let fm = 0; const flds: string[] = [];
+              if (normName && bName && normName === bName) { fm++; flds.push("name"); }
+              if (normEmail && bEmail && normEmail === bEmail) { fm++; flds.push("email"); }
+              if (normPhone && bPhone && normPhone === bPhone) { fm++; flds.push("phone"); }
+              if (fm >= 2) { foundRetain = true; matchedFields.push(...flds); break; }
+            }
+          }
+          if (foundRetain) {
+            await db.update(schema.registrationRequests)
+              .set({ isRetain: true, retainMatchedFields: matchedFields.join(","), updatedAt: new Date() })
+              .where(eq(schema.registrationRequests.id, reg.id));
+          }
+        }
+      }
+
       const unlinked = await db.select().from(schema.registrationRequests)
         .where(sql`${schema.registrationRequests.bookingId} IS NULL AND ${schema.registrationRequests.status} != 'rejected'`);
       for (const reg of unlinked) {
