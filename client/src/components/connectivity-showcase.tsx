@@ -13,7 +13,7 @@ interface Property {
 }
 
 const PROPERTY_COORDS: Record<string, [number, number]> = {
-  "Hsquare Hostel Juhu": [19.1075, 72.8263],
+  "Hsquare Hostel Juhu": [19.0760, 72.8365],
   "Hsquare Vileparle": [19.0990, 72.8440],
   "Hsquare Bayview": [19.0880, 72.8310],
   "Hsquare Goregaon": [19.1663, 72.8526],
@@ -69,7 +69,7 @@ function getCoords(property: Property): [number, number] | null {
     }
   }
   const loc = property.location.toLowerCase();
-  if (loc.includes("juhu")) return [19.1075, 72.8263];
+  if (loc.includes("juhu")) return [19.0760, 72.8365];
   if (loc.includes("vile parle") || loc.includes("vileparle")) return [19.0990, 72.8440];
   if (loc.includes("goregaon")) return [19.1663, 72.8526];
   if (loc.includes("colaba")) return [19.0880, 72.8310];
