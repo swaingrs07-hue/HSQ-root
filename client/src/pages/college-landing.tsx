@@ -317,7 +317,7 @@ function CollegeLandingPage() {
                 </Button>
               </Link>
               <Link href="/apply">
-                <Button size="lg" variant="outline" className="border-white/10 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-apply-now">
+                <Button size="lg" className="bg-transparent border border-white/20 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-apply-now">
                   Apply Now
                 </Button>
               </Link>
@@ -461,7 +461,7 @@ function CollegeLandingPage() {
                 </Button>
               </Link>
               <Link href="/contact">
-                <Button size="lg" variant="outline" className="border-white/10 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-bottom-contact">
+                <Button size="lg" className="bg-transparent border border-white/20 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-bottom-contact">
                   <Phone className="mr-2 w-4 h-4" /> Contact Us
                 </Button>
               </Link>
