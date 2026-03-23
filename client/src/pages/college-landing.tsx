@@ -1,12 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   GraduationCap, MapPin, Wifi, UtensilsCrossed, Shield,
   ArrowRight, Building2, Clock, Star, CheckCircle2, Navigation,
   Phone, Mail, Sparkles, Users, Dumbbell, ShirtIcon, Zap,
-  Bus, BookOpen
+  Bus, BookOpen, Send, Loader2
 } from "lucide-react";
 import { ParticleBackground } from "@/components/particle-background";
 import { useQuery } from "@tanstack/react-query";
@@ -254,6 +256,122 @@ const AMENITIES = [
   { icon: Bus, label: "H-Express Shuttle", desc: "Campus commute service" },
 ];
 
+function EnquiryForm({ collegeName, slug }: { collegeName: string; slug: string }) {
+  const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError("Name and phone number are required.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/enquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || undefined,
+          notes: `[Landing Page: ${slug}] ${form.message.trim() || `Enquiry from ${collegeName} landing page`}`,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit");
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please try again or call us directly.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="p-10 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 text-center"
+      >
+        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+        </div>
+        <h3 className="text-2xl font-heading font-bold text-white mb-3" data-testid="enquiry-success-heading">Thank You!</h3>
+        <p className="text-white/50 mb-6">Our team will contact you within 24 hours to help you find the perfect room near {collegeName}.</p>
+        <Link href="/properties">
+          <Button className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl" data-testid="btn-explore-after-enquiry">
+            Explore Properties <ArrowRight className="ml-2 w-4 h-4" />
+          </Button>
+        </Link>
+      </motion.div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-8 md:p-10 rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm space-y-5" data-testid="enquiry-form">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label className="text-sm text-white/50 mb-2 block">Full Name *</label>
+          <Input
+            value={form.name}
+            onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="Your full name"
+            className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 h-12 rounded-xl"
+            data-testid="input-enquiry-name"
+          />
+        </div>
+        <div>
+          <label className="text-sm text-white/50 mb-2 block">Phone Number *</label>
+          <Input
+            value={form.phone}
+            onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
+            placeholder="+91 98765 43210"
+            className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 h-12 rounded-xl"
+            data-testid="input-enquiry-phone"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-white/50 mb-2 block">Email (optional)</label>
+        <Input
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+          placeholder="you@example.com"
+          className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 h-12 rounded-xl"
+          data-testid="input-enquiry-email"
+        />
+      </div>
+      <div>
+        <label className="text-sm text-white/50 mb-2 block">Message (optional)</label>
+        <Textarea
+          value={form.message}
+          onChange={(e) => setForm(f => ({ ...f, message: e.target.value }))}
+          placeholder="Tell us about your requirements — room type, move-in date, budget, etc."
+          rows={3}
+          className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 rounded-xl resize-none"
+          data-testid="input-enquiry-message"
+        />
+      </div>
+      {error && <p className="text-red-400 text-sm" data-testid="enquiry-error">{error}</p>}
+      <Button
+        type="submit"
+        disabled={submitting}
+        size="lg"
+        className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white py-6 text-base font-semibold rounded-xl shadow-lg shadow-cyan-500/20"
+        data-testid="btn-submit-enquiry"
+      >
+        {submitting ? <><Loader2 className="mr-2 w-5 h-5 animate-spin" /> Submitting...</> : <>Send Enquiry <Send className="ml-2 w-5 h-5" /></>}
+      </Button>
+      <p className="text-white/20 text-xs text-center">By submitting, you agree to be contacted by our team. No spam, we promise.</p>
+    </form>
+  );
+}
+
 function CollegeLandingPage() {
   const [, params] = useRoute("/:slug");
   const slug = params?.slug || "";
@@ -316,11 +434,14 @@ function CollegeLandingPage() {
                   Explore Rooms <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Link href="/apply">
-                <Button size="lg" className="bg-transparent border border-white/20 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-apply-now">
-                  Apply Now
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                className="bg-transparent border border-white/20 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl"
+                data-testid="cta-enquire-now"
+                onClick={() => document.getElementById("enquiry-form")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Enquire Now <Send className="ml-2 w-4 h-4" />
+              </Button>
             </div>
           </motion.div>
         </div>
@@ -442,30 +563,22 @@ function CollegeLandingPage() {
         </div>
       </section>
 
-      <section className="py-20 relative">
+      <section className="py-20 relative" id="enquiry-form">
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 30%, rgba(6,182,212,0.06) 0%, transparent 60%)" }} />
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="max-w-3xl mx-auto text-center p-10 rounded-3xl border border-cyan-500/10 bg-gradient-to-b from-cyan-500/5 to-transparent"
+            className="max-w-2xl mx-auto"
           >
-            <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">Ready to Move In?</h2>
-            <p className="text-white/40 mb-8 max-w-xl mx-auto">
-              Join 500+ students living at Hsquare. Book your spot near {pageData.collegeName} today — limited beds available for the upcoming academic year.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/apply">
-                <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-8 py-6 text-base font-semibold rounded-xl" data-testid="cta-bottom-apply">
-                  Apply Now <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button size="lg" className="bg-transparent border border-white/20 hover:bg-white/5 text-white px-8 py-6 text-base rounded-xl" data-testid="cta-bottom-contact">
-                  <Phone className="mr-2 w-4 h-4" /> Contact Us
-                </Button>
-              </Link>
+            <div className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">Get in Touch</h2>
+              <p className="text-white/40 max-w-xl mx-auto">
+                Interested in living near {pageData.collegeName}? Fill in your details and our team will reach out to you within 24 hours.
+              </p>
             </div>
+            <EnquiryForm collegeName={pageData.collegeName} slug={pageData.slug} />
           </motion.div>
         </div>
       </section>
