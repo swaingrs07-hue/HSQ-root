@@ -1,5 +1,8 @@
+import { useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Shield, GraduationCap, Sparkles, MapPin, Train, Plane, Waves, Building2, Navigation } from "lucide-react";
+import { Shield, GraduationCap, Sparkles, Navigation } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface Property {
   id: string;
@@ -9,19 +12,33 @@ interface Property {
   nearbyLocations?: string;
 }
 
-const HOTSPOTS = [
-  { name: "NMIMS", subtext: "Mithibai College", x: "50%", y: "48%", icon: GraduationCap, type: "university" },
-  { name: "Juhu Beach", subtext: "Coastal Lifestyle", x: "18%", y: "28%", icon: Waves, type: "lifestyle" },
-  { name: "Metro", subtext: "Andheri Station", x: "22%", y: "65%", icon: Train, type: "transit" },
-  { name: "Airport", subtext: "Domestic Terminal", x: "82%", y: "25%", icon: Plane, type: "transit" },
-  { name: "Oberoi Mall", subtext: "Shopping Zone", x: "80%", y: "72%", icon: Building2, type: "lifestyle" },
+const PROPERTY_COORDS: Record<string, [number, number]> = {
+  "Hsquare Hostel Juhu": [19.1075, 72.8263],
+  "Hsquare Vileparle": [19.0990, 72.8440],
+  "Hsquare Bayview": [19.0880, 72.8310],
+  "Hsquare Goregaon": [19.1663, 72.8526],
+  "Hotel Neelkamal": [19.0620, 72.8980],
+  "Hsquare Caledonia": [19.0980, 72.8480],
+  "Hsquare Utopia": [19.0750, 72.8700],
+};
+
+const FALLBACK_CENTER: [number, number] = [19.1050, 72.8500];
+
+const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
+  { name: "NMIMS University", lat: 19.1044, lng: 72.8370, type: "university" },
+  { name: "Mithibai College", lat: 19.1030, lng: 72.8390, type: "university" },
+  { name: "Juhu Beach", lat: 19.0988, lng: 72.8267, type: "lifestyle" },
+  { name: "ISKCON Temple", lat: 19.1124, lng: 72.8290, type: "lifestyle" },
+  { name: "Andheri Metro", lat: 19.1197, lng: 72.8464, type: "transit" },
+  { name: "Domestic Airport", lat: 19.0896, lng: 72.8656, type: "transit" },
+  { name: "Oberoi Mall", lat: 19.1710, lng: 72.8600, type: "lifestyle" },
 ];
 
 const FEATURES = [
   {
     icon: Shield,
     title: "Secure Triangle Zone",
-    text: "A safe and premium living area exclusively within Hsquare's strategic triangle of properties.",
+    text: "A safe and premium living area exclusively within Hsquare's strategic property network.",
     color: "emerald",
   },
   {
@@ -38,32 +55,150 @@ const FEATURES = [
   },
 ];
 
-function getPropertyPositions(count: number): Array<{ x: string; y: string }> {
-  if (count === 1) return [{ x: "50%", y: "30%" }];
-  if (count === 2) return [{ x: "30%", y: "30%" }, { x: "70%", y: "70%" }];
-  if (count === 3) return [{ x: "50%", y: "18%" }, { x: "82%", y: "75%" }, { x: "18%", y: "75%" }];
-  if (count === 4) return [{ x: "30%", y: "20%" }, { x: "70%", y: "20%" }, { x: "80%", y: "75%" }, { x: "20%", y: "75%" }];
-  if (count === 5) return [{ x: "50%", y: "15%" }, { x: "85%", y: "40%" }, { x: "75%", y: "80%" }, { x: "25%", y: "80%" }, { x: "15%", y: "40%" }];
-  const positions: Array<{ x: string; y: string }> = [];
-  for (let i = 0; i < count; i++) {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    const x = 50 + 35 * Math.cos(angle);
-    const y = 50 + 35 * Math.sin(angle);
-    positions.push({ x: `${x}%`, y: `${y}%` });
+function getCoords(property: Property): [number, number] | null {
+  const name = property.displayName || property.name;
+  if (PROPERTY_COORDS[name]) return PROPERTY_COORDS[name];
+  for (const [key, coords] of Object.entries(PROPERTY_COORDS)) {
+    if (name.toLowerCase().includes(key.toLowerCase().split(" ").pop()!) ||
+        key.toLowerCase().includes(name.toLowerCase().split(" ").pop()!)) {
+      return coords;
+    }
   }
-  return positions;
+  const loc = property.location.toLowerCase();
+  if (loc.includes("juhu")) return [19.1075, 72.8263];
+  if (loc.includes("vile parle") || loc.includes("vileparle")) return [19.0990, 72.8440];
+  if (loc.includes("goregaon")) return [19.1663, 72.8526];
+  if (loc.includes("colaba")) return [19.0880, 72.8310];
+  if (loc.includes("chembur")) return [19.0620, 72.8980];
+  if (loc.includes("andheri")) return [19.1197, 72.8464];
+  return null;
 }
 
-function getSvgPoints(count: number): string {
-  const positions = getPropertyPositions(count);
-  return positions.map(p => `${parseFloat(p.x)},${parseFloat(p.y)}`).join(" ");
+function PropertyMap({ properties }: { properties: Property[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  const propertyCoords = useMemo(() => {
+    return properties
+      .map(p => ({ property: p, coords: getCoords(p) }))
+      .filter((item): item is { property: Property; coords: [number, number] } => item.coords !== null);
+  }, [properties]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    let center = FALLBACK_CENTER;
+    if (propertyCoords.length > 0) {
+      const avgLat = propertyCoords.reduce((s, c) => s + c.coords[0], 0) / propertyCoords.length;
+      const avgLng = propertyCoords.reduce((s, c) => s + c.coords[1], 0) / propertyCoords.length;
+      center = [avgLat, avgLng];
+    }
+
+    const map = L.map(mapRef.current, {
+      center,
+      zoom: 13,
+      zoomControl: false,
+      attributionControl: false,
+      scrollWheelZoom: false,
+      dragging: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+    });
+
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(map);
+
+    const polygonCoords = propertyCoords.map(c => c.coords as L.LatLngExpression);
+    if (polygonCoords.length >= 3) {
+      L.polygon(polygonCoords, {
+        color: "rgba(103,232,249,0.8)",
+        weight: 2,
+        dashArray: "8, 4",
+        fillColor: "rgba(6,182,212,0.15)",
+        fillOpacity: 0.15,
+      }).addTo(map);
+    } else if (polygonCoords.length === 2) {
+      L.polyline(polygonCoords, {
+        color: "rgba(103,232,249,0.8)",
+        weight: 2,
+        dashArray: "8, 4",
+      }).addTo(map);
+    }
+
+    propertyCoords.forEach(({ property, coords }) => {
+      const icon = L.divIcon({
+        className: "custom-property-marker",
+        html: `
+          <div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+            <div style="width:24px;height:24px;position:relative;">
+              <div style="position:absolute;inset:0;border-radius:50%;background:#ef4444;box-shadow:0 0 20px rgba(239,68,68,0.6);"></div>
+              <div style="position:absolute;inset:3px;border-radius:50%;background:#dc2626;border:2px solid rgba(255,255,255,0.9);"></div>
+            </div>
+            <div style="margin-top:6px;min-width:120px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(10,15,26,0.95);backdrop-filter:blur(12px);padding:5px 8px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+              <div style="font-size:11px;font-weight:700;color:white;line-height:1.2;">${property.displayName || property.name}</div>
+              <div style="font-size:9px;color:rgba(103,232,249,0.6);margin-top:2px;">${property.location}</div>
+            </div>
+          </div>
+        `,
+        iconSize: [120, 70],
+        iconAnchor: [60, 12],
+      });
+      L.marker(coords, { icon, interactive: false }).addTo(map);
+    });
+
+    HOTSPOTS.forEach(spot => {
+      const icon = L.divIcon({
+        className: "custom-hotspot-marker",
+        html: `
+          <div style="display:flex;align-items:center;gap:4px;border-radius:20px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);padding:3px 8px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.6);flex-shrink:0;"></div>
+            <span style="font-size:10px;color:rgba(255,255,255,0.5);white-space:nowrap;">${spot.name}</span>
+          </div>
+        `,
+        iconSize: [100, 20],
+        iconAnchor: [50, 10],
+      });
+      L.marker([spot.lat, spot.lng], { icon, interactive: false }).addTo(map);
+    });
+
+    if (propertyCoords.length > 0) {
+      const bounds = L.latLngBounds(propertyCoords.map(c => c.coords));
+      HOTSPOTS.forEach(h => bounds.extend([h.lat, h.lng]));
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [propertyCoords]);
+
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] shadow-[0_0_80px_rgba(6,182,212,0.08)]">
+      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-square" style={{ background: "#0a0f1a" }} data-testid="connectivity-map" />
+      <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/60 backdrop-blur-lg p-3 z-[1000]">
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
+          <span className="rounded-full bg-cyan-400/10 text-cyan-300/70 px-2.5 py-1 border border-cyan-400/10">Safe Zone</span>
+          <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Academic Belt</span>
+          <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Airport Access</span>
+          <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Lifestyle Hub</span>
+        </div>
+      </div>
+      <style>{`
+        .custom-property-marker, .custom-hotspot-marker { background: none !important; border: none !important; }
+        .leaflet-container { background: #0a0f1a !important; }
+      `}</style>
+    </div>
+  );
 }
 
 export function ConnectivityShowcase({ properties }: { properties: Property[] }) {
   if (!properties || properties.length < 2) return null;
 
-  const positions = getPropertyPositions(properties.length);
-  const svgPoints = getSvgPoints(properties.length);
   const shapeLabel = properties.length === 3 ? "Triangle" : properties.length === 4 ? "Quadrilateral" : "Network";
 
   return (
@@ -92,124 +227,8 @@ export function ConnectivityShowcase({ properties }: { properties: Property[] })
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="relative"
           >
-            <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-slate-900/80 via-[#0a0f1a] to-cyan-950/30 p-4 md:p-6 shadow-[0_0_80px_rgba(6,182,212,0.08)]">
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute -top-10 -left-10 h-40 w-40 rounded-full bg-cyan-400 blur-3xl animate-pulse" />
-                <div className="absolute bottom-0 right-0 h-52 w-52 rounded-full bg-blue-500 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-              </div>
-
-              <div className="relative aspect-[4/5] md:aspect-square rounded-[20px] border border-white/[0.06] bg-[#060a14]/80 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.06),transparent_50%),linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:100%_100%,28px_28px,28px_28px]" />
-
-                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="triangleGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="rgba(6,182,212,0.15)" />
-                      <stop offset="100%" stopColor="rgba(99,102,241,0.08)" />
-                    </linearGradient>
-                    <filter id="glow">
-                      <feGaussianBlur stdDeviation="1.5" result="blur" />
-                      <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  <polygon
-                    points={svgPoints}
-                    fill="url(#triangleGlow)"
-                    stroke="rgba(103,232,249,0.7)"
-                    strokeWidth="0.5"
-                    strokeDasharray="4 2"
-                    filter="url(#glow)"
-                  >
-                    <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" />
-                  </polygon>
-
-                  {positions.map((pos, i) => {
-                    const nextPos = positions[(i + 1) % positions.length];
-                    return (
-                      <line
-                        key={`line-${i}`}
-                        x1={parseFloat(pos.x)}
-                        y1={parseFloat(pos.y)}
-                        x2={parseFloat(nextPos.x)}
-                        y2={parseFloat(nextPos.y)}
-                        stroke="rgba(103,232,249,0.5)"
-                        strokeWidth="0.3"
-                      />
-                    );
-                  })}
-
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="12"
-                    fill="rgba(6,182,212,0.08)"
-                    stroke="rgba(103,232,249,0.3)"
-                    strokeWidth="0.3"
-                  >
-                    <animate attributeName="r" values="11;13;11" dur="3s" repeatCount="indefinite" />
-                  </circle>
-                </svg>
-
-                <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none"
-                  style={{ left: "50%", top: "50%" }}
-                >
-                  <div className="text-[10px] md:text-xs font-semibold text-cyan-300/80 leading-tight">University Zone</div>
-                  <div className="text-[9px] md:text-[10px] text-white/30 mt-0.5">Premium Student Living</div>
-                </div>
-
-                {properties.map((property, i) => {
-                  const pos = positions[i];
-                  return (
-                    <div
-                      key={property.id}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
-                      style={{ left: pos.x, top: pos.y }}
-                      data-testid={`map-property-${property.id}`}
-                    >
-                      <div className="relative flex flex-col items-center">
-                        <span className="absolute h-12 w-12 rounded-full bg-red-500/20 blur-xl animate-ping" style={{ animationDuration: `${2 + i * 0.5}s` }} />
-                        <div className="relative w-6 h-6 md:w-7 md:h-7">
-                          <div className="absolute inset-0 rounded-full bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.6)]" />
-                          <div className="absolute inset-[3px] rounded-full bg-red-600 border-2 border-white/90" />
-                        </div>
-                        <div className="mt-2 min-w-[110px] md:min-w-[130px] rounded-xl border border-white/10 bg-[#0a0f1a]/95 backdrop-blur-md px-2.5 py-1.5 text-center shadow-xl">
-                          <div className="text-[11px] md:text-xs font-bold text-white leading-tight">{property.displayName || property.name}</div>
-                          <div className="text-[9px] md:text-[10px] text-cyan-300/60 mt-0.5">{property.location}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {HOTSPOTS.map((spot) => (
-                  <div
-                    key={spot.name}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
-                    style={{ left: spot.x, top: spot.y }}
-                  >
-                    <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/50 backdrop-blur-md px-2 py-1">
-                      <spot.icon className="w-2.5 h-2.5 text-white/60 shrink-0" />
-                      <span className="text-[9px] md:text-[10px] text-white/50 whitespace-nowrap">{spot.name}</span>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-lg p-3">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
-                    <span className="rounded-full bg-cyan-400/10 text-cyan-300/70 px-2.5 py-1 border border-cyan-400/10">Safe Zone</span>
-                    <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Academic Belt</span>
-                    <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Airport Access</span>
-                    <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Lifestyle Hub</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PropertyMap properties={properties} />
           </motion.div>
 
           <motion.div
