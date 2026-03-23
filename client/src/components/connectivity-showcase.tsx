@@ -78,26 +78,14 @@ function getCoords(property: Property): [number, number] | null {
   return null;
 }
 
-function resolvePropertyKey(property: Property): string | null {
-  const name = property.displayName || property.name;
-  if (PROPERTY_COORDS[name]) return name;
-  for (const key of Object.keys(PROPERTY_COORDS)) {
-    if (name.toLowerCase().includes(key.toLowerCase().split(" ").pop()!) ||
-        key.toLowerCase().includes(name.toLowerCase().split(" ").pop()!)) {
-      return key;
-    }
-  }
-  return null;
-}
-
 function PropertyMap({ properties }: { properties: Property[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   const propertyCoords = useMemo(() => {
     return properties
-      .map(p => ({ property: p, coords: getCoords(p), key: resolvePropertyKey(p) }))
-      .filter((item): item is { property: Property; coords: [number, number]; key: string | null } => item.coords !== null);
+      .map(p => ({ property: p, coords: getCoords(p) }))
+      .filter((item): item is { property: Property; coords: [number, number] } => item.coords !== null);
   }, [properties]);
 
   useEffect(() => {
