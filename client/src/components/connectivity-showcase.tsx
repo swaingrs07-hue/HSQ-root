@@ -22,6 +22,10 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
   "Hsquare Utopia": [19.0750, 72.8700],
 };
 
+const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
+const GOREGAON_KEY = "Hsquare Goregaon";
+const VILEPARLE_KEY = "Hsquare Vileparle";
+
 const FALLBACK_CENTER: [number, number] = [19.1050, 72.8500];
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
@@ -74,14 +78,26 @@ function getCoords(property: Property): [number, number] | null {
   return null;
 }
 
+function resolvePropertyKey(property: Property): string | null {
+  const name = property.displayName || property.name;
+  if (PROPERTY_COORDS[name]) return name;
+  for (const key of Object.keys(PROPERTY_COORDS)) {
+    if (name.toLowerCase().includes(key.toLowerCase().split(" ").pop()!) ||
+        key.toLowerCase().includes(name.toLowerCase().split(" ").pop()!)) {
+      return key;
+    }
+  }
+  return null;
+}
+
 function PropertyMap({ properties }: { properties: Property[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   const propertyCoords = useMemo(() => {
     return properties
-      .map(p => ({ property: p, coords: getCoords(p) }))
-      .filter((item): item is { property: Property; coords: [number, number] } => item.coords !== null);
+      .map(p => ({ property: p, coords: getCoords(p), key: resolvePropertyKey(p) }))
+      .filter((item): item is { property: Property; coords: [number, number]; key: string } => item.coords !== null && item.key !== null);
   }, [properties]);
 
   useEffect(() => {
@@ -99,31 +115,95 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       zoom: 13,
       zoomControl: false,
       attributionControl: false,
-      scrollWheelZoom: false,
-      dragging: false,
-      doubleClickZoom: false,
-      touchZoom: false,
+      scrollWheelZoom: true,
+      dragging: true,
+      doubleClickZoom: true,
+      touchZoom: true,
     });
+
+    L.control.zoom({ position: "bottomright" }).addTo(map);
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(map);
 
-    const polygonCoords = propertyCoords.map(c => c.coords as L.LatLngExpression);
-    if (polygonCoords.length >= 3) {
-      L.polygon(polygonCoords, {
-        color: "rgba(103,232,249,0.8)",
-        weight: 2,
-        dashArray: "8, 4",
-        fillColor: "rgba(6,182,212,0.15)",
-        fillOpacity: 0.15,
+    const triangleCoords: L.LatLngExpression[] = [];
+    const triangleCenter: [number, number] = [0, 0];
+    let triangleCount = 0;
+
+    for (const tk of TRIANGLE_KEYS) {
+      const c = PROPERTY_COORDS[tk];
+      if (c) {
+        triangleCoords.push(c);
+        triangleCenter[0] += c[0];
+        triangleCenter[1] += c[1];
+        triangleCount++;
+      }
+    }
+    if (triangleCount > 0) {
+      triangleCenter[0] /= triangleCount;
+      triangleCenter[1] /= triangleCount;
+    }
+
+    if (triangleCoords.length >= 3) {
+      L.polygon(triangleCoords, {
+        color: "rgba(103,232,249,0.9)",
+        weight: 2.5,
+        dashArray: "10, 5",
+        fillColor: "rgba(6,182,212,0.12)",
+        fillOpacity: 0.12,
+        className: "triangle-glow",
       }).addTo(map);
-    } else if (polygonCoords.length === 2) {
-      L.polyline(polygonCoords, {
-        color: "rgba(103,232,249,0.8)",
+
+      L.polygon(triangleCoords, {
+        color: "rgba(103,232,249,0.3)",
+        weight: 8,
+        fillColor: "transparent",
+        fillOpacity: 0,
+        className: "triangle-outer-glow",
+      }).addTo(map);
+    }
+
+    const vileparleCoords = PROPERTY_COORDS[VILEPARLE_KEY];
+    if (vileparleCoords && triangleCoords.length > 0) {
+      let closestDist = Infinity;
+      let closestCoord = triangleCoords[0] as [number, number];
+      for (const tc of triangleCoords) {
+        const tcArr = tc as [number, number];
+        const d = Math.sqrt(Math.pow(tcArr[0] - vileparleCoords[0], 2) + Math.pow(tcArr[1] - vileparleCoords[1], 2));
+        if (d < closestDist) { closestDist = d; closestCoord = tcArr; }
+      }
+      L.polyline([vileparleCoords, closestCoord], {
+        color: "rgba(103,232,249,0.6)",
         weight: 2,
-        dashArray: "8, 4",
+        dashArray: "6, 6",
+      }).addTo(map);
+    }
+
+    const goregaonCoords = PROPERTY_COORDS[GOREGAON_KEY];
+    if (goregaonCoords && triangleCount > 0) {
+      const juhuCoords = PROPERTY_COORDS["Hsquare Hostel Juhu"];
+      const energyFrom: [number, number] = juhuCoords || triangleCenter;
+
+      L.polyline([energyFrom, goregaonCoords], {
+        color: "rgba(103,232,249,0.15)",
+        weight: 12,
+        className: "energy-line-glow",
+      }).addTo(map);
+
+      L.polyline([energyFrom, goregaonCoords], {
+        color: "rgba(103,232,249,0.7)",
+        weight: 2.5,
+        dashArray: "12, 8",
+        className: "energy-line-animated",
+      }).addTo(map);
+
+      L.polyline([energyFrom, goregaonCoords], {
+        color: "rgba(103,232,249,0.4)",
+        weight: 1.5,
+        dashArray: "4, 16",
+        className: "energy-line-pulse",
       }).addTo(map);
     }
 
@@ -191,6 +271,56 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       <style>{`
         .custom-property-marker, .custom-hotspot-marker { background: none !important; border: none !important; }
         .leaflet-container { background: #0a0f1a !important; }
+
+        .leaflet-control-zoom {
+          border: 1px solid rgba(255,255,255,0.1) !important;
+          background: rgba(10,15,26,0.9) !important;
+          backdrop-filter: blur(8px);
+          border-radius: 8px !important;
+          overflow: hidden;
+          margin-bottom: 60px !important;
+          margin-right: 8px !important;
+        }
+        .leaflet-control-zoom a {
+          background: transparent !important;
+          color: rgba(255,255,255,0.7) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+          width: 32px !important;
+          height: 32px !important;
+          line-height: 32px !important;
+          font-size: 16px !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: rgba(103,232,249,0.1) !important;
+          color: rgba(103,232,249,0.9) !important;
+        }
+
+        .triangle-glow { filter: drop-shadow(0 0 8px rgba(6,182,212,0.4)); }
+        .triangle-outer-glow { filter: drop-shadow(0 0 16px rgba(6,182,212,0.2)); }
+
+        @keyframes energyFlow {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: -40; }
+        }
+        @keyframes energyPulse {
+          0% { stroke-dashoffset: 0; opacity: 0.4; }
+          50% { opacity: 0.8; }
+          100% { stroke-dashoffset: -40; opacity: 0.4; }
+        }
+        @keyframes energyGlow {
+          0%, 100% { opacity: 0.1; }
+          50% { opacity: 0.25; }
+        }
+
+        .energy-line-animated path {
+          animation: energyFlow 1.5s linear infinite;
+        }
+        .energy-line-pulse path {
+          animation: energyPulse 2s ease-in-out infinite;
+        }
+        .energy-line-glow path {
+          animation: energyGlow 3s ease-in-out infinite;
+        }
       `}</style>
     </div>
   );
