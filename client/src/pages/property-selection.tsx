@@ -19,6 +19,7 @@ import propertyExterior from "@/assets/property-exterior.png";
 import heroStudentLiving from "@/assets/hero-student-living.png";
 import { SmartSearch } from "@/components/smart-search";
 import { ParticleBackground } from "@/components/particle-background";
+import { ConnectivityShowcase } from "@/components/connectivity-showcase";
 
 const amenityIcons: Record<string, any> = {
   "Free Wifi": Wifi,
@@ -487,6 +488,10 @@ export default function PropertySelection() {
           </motion.div>
         </div>
       </div>
+
+      {!loading && properties.length >= 2 && (
+        <ConnectivityShowcase properties={properties} />
+      )}
 
       <div className="relative container mx-auto px-4 py-12 md:py-20">
         <ParticleBackground preset="sparse" className="z-0" />
