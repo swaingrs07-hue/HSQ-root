@@ -249,6 +249,8 @@ export const bookings = pgTable("bookings", {
   // Invoice
   invoiceGenerated: boolean("invoice_generated").default(false).notNull(),
   invoiceUrl: text("invoice_url"),
+
+  welcomeEmailSent: boolean("welcome_email_sent").default(false).notNull(),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

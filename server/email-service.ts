@@ -685,19 +685,14 @@ interface WelcomeEmailData {
   residentName: string;
   residentEmail: string;
   propertyName: string;
+  propertyPhone: string | null;
   roomNumber: string | null;
   moveInDate: string;
+  checkOutDate: string;
   bookingCode: string;
-  amountPaid: string;
 }
 
 function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
-  const moveInFormatted = data.moveInDate
-    ? new Date(data.moveInDate).toLocaleDateString("en-IN", {
-        weekday: "long", year: "numeric", month: "long", day: "numeric",
-      })
-    : "To be confirmed";
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -713,84 +708,75 @@ function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
           <tr>
             <td style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 50%,#b45309 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
               <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;">HSQUARE LIVING</h1>
-              <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:2px;text-transform:uppercase;">Harmony in Living</p>
+              <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:2px;text-transform:uppercase;">Welcome to ${data.propertyName}</p>
             </td>
           </tr>
+
           <tr>
             <td style="background-color:#111111;padding:32px 40px 24px;text-align:center;">
-              <div style="display:inline-block;background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1));border:1px solid rgba(16,185,129,0.3);border-radius:50px;padding:10px 28px;margin-bottom:16px;">
-                <span style="color:#10b981;font-size:14px;font-weight:600;letter-spacing:0.5px;">&#127881; WELCOME ABOARD!</span>
-              </div>
-              <h2 style="margin:16px 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Hello, ${data.residentName}!</h2>
-              <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.6);line-height:1.6;">Your first payment has been received and your stay is now confirmed. Welcome to the Hsquare Living family!</p>
+              <h2 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Hi ${data.residentName},</h2>
+              <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.6);line-height:1.6;">Your booking has been confirmed! Welcome to <strong style="color:#ffffff;">${data.propertyName}</strong>. Here are your booking details.</p>
             </td>
           </tr>
+
           <tr>
             <td style="background-color:#111111;padding:0 40px 32px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
                 <tr>
-                  <td style="padding:20px 24px;">
+                  <td style="padding:20px 24px 12px;">
+                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Booking Details</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 16px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                          <span style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Booking Code</span><br>
-                          <span style="font-size:16px;font-weight:700;color:#f59e0b;letter-spacing:1px;">${data.bookingCode}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                          <span style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Property</span><br>
-                          <span style="font-size:14px;font-weight:600;color:#ffffff;">${data.propertyName}</span>
-                        </td>
-                      </tr>
-                      ${data.roomNumber ? `<tr>
-                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                          <span style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Room</span><br>
-                          <span style="font-size:14px;font-weight:600;color:#ffffff;">${data.roomNumber}</span>
-                        </td>
-                      </tr>` : ""}
-                      <tr>
-                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-                          <span style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Move-in Date</span><br>
-                          <span style="font-size:14px;font-weight:600;color:#ffffff;">${moveInFormatted}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:8px 0;">
-                          <span style="font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;">Amount Paid</span><br>
-                          <span style="font-size:16px;font-weight:700;color:#10b981;">${data.amountPaid}</span>
-                        </td>
-                      </tr>
+                      <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Name</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.residentName}</span></td></tr>
+                      <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Email</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.residentEmail}</span></td></tr>
+                      ${data.roomNumber ? `<tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Room</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.roomNumber}</span></td></tr>` : ""}
+                      <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Property</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.propertyName}</span></td></tr>
+                      <tr><td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Move-in</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.moveInDate || "To be confirmed"}</span></td></tr>
+                      <tr><td style="padding:10px 0;"><span style="color:rgba(255,255,255,0.5);font-size:13px;">Check-out</span><br><span style="color:#ffffff;font-size:15px;font-weight:600;">${data.checkOutDate || "To be confirmed"}</span></td></tr>
                     </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
+
           <tr>
             <td style="background-color:#111111;padding:0 40px 32px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(217,119,6,0.05));border:1px solid rgba(245,158,11,0.2);border-radius:12px;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <h3 style="margin:0 0 12px;font-size:15px;font-weight:700;color:#f59e0b;">What's Next?</h3>
+                    <h3 style="margin:0 0 16px;font-size:15px;font-weight:700;color:#f59e0b;">How to get started:</h3>
                     <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding:4px 0;font-size:13px;color:rgba(255,255,255,0.7);">&#10003; Your room is being prepared for your arrival</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:4px 0;font-size:13px;color:rgba(255,255,255,0.7);">&#10003; Carry your ID proof and admission letter on move-in day</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:4px 0;font-size:13px;color:rgba(255,255,255,0.7);">&#10003; Contact us if you have any questions about your stay</td>
-                      </tr>
+                      <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 1:</span> Download the Hsquare Connect app from the Play Store</td></tr>
+                      <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 2:</span> Tap &ldquo;Create Account&rdquo; and enter your email: <strong style="color:#ffffff;">${data.residentEmail}</strong></td></tr>
+                      <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 3:</span> Set your password and you&rsquo;re all set!</td></tr>
                     </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
+
           <tr>
-            <td style="background-color:#111111;border-radius:0 0 16px 16px;padding:24px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <h3 style="margin:0 0 8px;font-size:15px;font-weight:700;color:#10b981;">Create Your Account</h3>
+                    <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.6;">Use your registered email (<strong style="color:#ffffff;">${data.residentEmail}</strong>) to create your account. You will be able to access the app from your move-in date (${data.moveInDate || "TBC"}). Once logged in, you can access meal services, gate QR, leave management, and more during your stay.</p>
+                    <p style="margin:12px 0 0;font-size:13px;color:rgba(255,255,255,0.5);">&#128203; If there are any changes in your move-in date, please let us know in advance.</p>
+                    ${data.propertyPhone ? `<p style="margin:10px 0 0;font-size:14px;color:rgba(255,255,255,0.6);">Contact ${data.propertyName}: <strong style="color:#f59e0b;">${data.propertyPhone}</strong></p>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-radius:0 0 16px 16px;padding:24px 40px;text-align:center;">
               <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Hsquareliving Pvt Ltd &bull; Premium Student Accommodation</p>
               <p style="margin:6px 0 0;font-size:11px;color:rgba(255,255,255,0.2);">This is an automated email. Please do not reply directly.</p>
             </td>
@@ -812,7 +798,7 @@ export async function sendWelcomeEmail(data: {
   moveInDate?: string;
   checkOutDate?: string;
   bookingCode: string;
-  amountPaid: number;
+  amountPaid?: number;
   paymentDate?: string;
 }, booking?: Booking | null): Promise<{ success: boolean; error?: string }> {
   try {
@@ -822,19 +808,22 @@ export async function sendWelcomeEmail(data: {
     }
 
     let propertyName = data.propertyCode || "Hsquare Living Property";
+    let propertyPhone: string | null = null;
     if (booking?.propertyId) {
       const property = await storage.getProperty(booking.propertyId);
       if (property?.name) propertyName = property.name;
+      if (property?.phone) propertyPhone = property.phone;
     }
 
     const emailData: WelcomeEmailData = {
       residentName: data.name || "Resident",
       residentEmail: data.email,
       propertyName,
+      propertyPhone,
       roomNumber: data.room || null,
       moveInDate: data.moveInDate || "",
+      checkOutDate: data.checkOutDate || "",
       bookingCode: data.bookingCode,
-      amountPaid: `₹${Number(data.amountPaid || 0).toLocaleString("en-IN")}`,
     };
 
     const html = buildWelcomeEmailHtml(emailData);
@@ -842,7 +831,7 @@ export async function sendWelcomeEmail(data: {
     const { data: resendData, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: data.email,
-      subject: `Welcome to Hsquare Living - ${data.bookingCode}`,
+      subject: `Welcome to ${propertyName} - Hsquare Living`,
       html,
     });
 
@@ -857,4 +846,55 @@ export async function sendWelcomeEmail(data: {
     console.error(`[Email] Welcome email error for ${data.bookingCode}:`, error.message);
     return { success: false, error: error.message || "Unexpected error" };
   }
+}
+
+export async function sendWelcomeEmailForBooking(booking: Booking): Promise<{ success: boolean; error?: string }> {
+  if (booking.welcomeEmailSent) {
+    console.log(`[Email] Welcome email already sent for booking ${booking.bookingCode || booking.id}, skipping`);
+    return { success: false, error: "Welcome email already sent" };
+  }
+
+  const rd = booking.residentDetails as Record<string, any> | null;
+  let residentName = rd?.name || booking.walkInName || "Resident";
+  let residentEmail = rd?.email || booking.walkInEmail || "";
+
+  if (booking.studentId) {
+    const student = await storage.getStudent(booking.studentId);
+    if (student) {
+      residentName = student.fullName || residentName;
+      const user = await storage.getUser(student.userId);
+      if (user?.email) residentEmail = user.email;
+    }
+  }
+
+  if (!residentEmail) {
+    console.log(`[Email] No email for welcome mail, booking ${booking.bookingCode || booking.id}`);
+    return { success: false, error: "No resident email address found" };
+  }
+
+  let roomNumber: string | null = rd?.roomNo || null;
+  if (!roomNumber && booking.bedId) {
+    const bed = await storage.getBed(booking.bedId);
+    if (bed?.roomId) {
+      const rooms = await storage.getRoomsByFloor(bed.floorId);
+      const room = rooms.find(r => r.id === bed.roomId);
+      if (room) roomNumber = room.roomNumber;
+    }
+  }
+
+  const result = await sendWelcomeEmail({
+    name: residentName,
+    email: residentEmail,
+    room: roomNumber || undefined,
+    moveInDate: booking.checkInDate || rd?.moveInDate || "",
+    checkOutDate: booking.checkOutDate || rd?.checkOutDate || "",
+    bookingCode: booking.bookingCode || booking.id,
+  }, booking);
+
+  if (result.success) {
+    await storage.updateBooking(booking.id, { welcomeEmailSent: true });
+    console.log(`[Email] Marked welcomeEmailSent=true for booking ${booking.bookingCode || booking.id}`);
+  }
+
+  return result;
 }

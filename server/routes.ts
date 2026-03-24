@@ -14,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail, sendWelcomeEmail } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendWelcomeEmail, sendWelcomeEmailForBooking } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -3820,6 +3820,12 @@ ${allPages.map(p => `  <url>
               console.error("[Email] Background parent email after online payment failed:", err);
             });
 
+            if (!updatedBooking.welcomeEmailSent) {
+              sendWelcomeEmailForBooking(updatedBooking).catch(err => {
+                console.error("[Email] Background welcome email after online payment failed:", err);
+              });
+            }
+
             autoSyncBookingToHMS(updatedBooking).catch(err => {
               console.error("[HMS Auto-Sync] Background sync after payment failed:", err);
             });
@@ -4054,6 +4060,12 @@ ${allPages.map(p => `  <url>
           autoSyncBookingToHMS(latestBooking).catch(err => {
             console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
           });
+
+          if (!latestBooking.welcomeEmailSent) {
+            sendWelcomeEmailForBooking(latestBooking).catch(err => {
+              console.error("[Email] Background welcome email after first payment failed:", err);
+            });
+          }
         }
 
         sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
@@ -5893,14 +5905,21 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const syncResult = await syncBookingToHMS(syncData);
       console.log(`[Sync First Payment] HMS sync result for ${resolvedBookingCode}:`, JSON.stringify(syncResult));
 
-      const welcomeResult = await sendWelcomeEmail({
-        name: residentName,
-        email: residentEmail,
-        phone: residentPhone,
-        room, propertyCode: resolvedPropertyCode, moveInDate, checkOutDate,
-        bookingCode: resolvedBookingCode,
-        amountPaid: amountPaid || 0, paymentDate,
-      }, booking);
+      let welcomeResult: { success: boolean; error?: string };
+      if (booking && !booking.welcomeEmailSent) {
+        welcomeResult = await sendWelcomeEmailForBooking(booking);
+      } else {
+        welcomeResult = await sendWelcomeEmail({
+          name: residentName,
+          email: residentEmail,
+          phone: residentPhone,
+          room, propertyCode: resolvedPropertyCode, moveInDate, checkOutDate,
+          bookingCode: resolvedBookingCode,
+        }, booking);
+        if (welcomeResult.success && booking) {
+          await storage.updateBooking(booking.id, { welcomeEmailSent: true });
+        }
+      }
       console.log(`[Sync First Payment] Welcome email result for ${resolvedBookingCode}:`, JSON.stringify(welcomeResult));
 
       res.json({
