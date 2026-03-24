@@ -3888,6 +3888,15 @@ ${allPages.map(p => `  <url>
         updates.residentDetails = { ...existingRd, ...req.body.residentDetails };
       }
 
+      if (updates.walkInName || updates.walkInPhone || updates.walkInEmail) {
+        const existingRd = (updates.residentDetails || booking.residentDetails || {}) as Record<string, any>;
+        const rdUpdates: Record<string, any> = {};
+        if (updates.walkInName) rdUpdates.name = updates.walkInName;
+        if (updates.walkInPhone) rdUpdates.phone = updates.walkInPhone;
+        if (updates.walkInEmail) rdUpdates.email = updates.walkInEmail;
+        updates.residentDetails = { ...existingRd, ...rdUpdates };
+      }
+
       if (updates.status === "cancelled" && booking.status !== "cancelled") {
         if (booking.bedId) {
           await storage.updateBedStatus(booking.bedId, "available");
