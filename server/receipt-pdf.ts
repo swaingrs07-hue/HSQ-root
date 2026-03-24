@@ -206,6 +206,16 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
     doc.text(`Rs. ${balance.toLocaleString("en-IN")}`, pw - m - 5, y, { align: "right" });
   }
 
+  const installmentsList = await storage.getInstallmentsByBooking(booking.id);
+  if (installmentsList.length > 0) {
+    y += 10;
+    drawHeader("EMI / INSTALLMENT PLAN");
+    for (const inst of installmentsList) {
+      const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
+      drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+    }
+  }
+
   if (payments.length > 0) {
     y += 10;
     drawHeader("PAYMENT HISTORY");

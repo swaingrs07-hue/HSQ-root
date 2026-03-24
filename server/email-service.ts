@@ -330,6 +330,13 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
   }
 }
 
+interface InstallmentInfo {
+  name: string;
+  amount: number;
+  dueDate: string;
+  paid: boolean;
+}
+
 interface ParentEmailData {
   parentName: string;
   parentEmail: string;
@@ -342,6 +349,7 @@ interface ParentEmailData {
   totalFee: string;
   amountPaid: string;
   receiptUrl: string;
+  installments: InstallmentInfo[];
 }
 
 function buildParentConfirmationEmailHtml(data: ParentEmailData): string {
@@ -443,6 +451,38 @@ function buildParentConfirmationEmailHtml(data: ParentEmailData): string {
             </td>
           </tr>
 
+          ${data.installments.length > 0 ? `<tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px 12px;">
+                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">EMI / Installment Plan</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 16px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      ${data.installments.map(inst => `<tr>
+                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color:#ffffff;font-size:14px;font-weight:600;">${inst.name}</td>
+                              <td style="text-align:right;color:${inst.paid ? '#10b981' : '#f59e0b'};font-size:14px;font-weight:700;">₹${inst.amount.toLocaleString("en-IN")}</td>
+                            </tr>
+                            <tr>
+                              <td style="color:rgba(255,255,255,0.4);font-size:12px;padding-top:2px;">Due: ${inst.dueDate}</td>
+                              <td style="text-align:right;padding-top:2px;"><span style="display:inline-block;background:${inst.paid ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'};color:${inst.paid ? '#10b981' : '#f59e0b'};font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;">${inst.paid ? 'PAID' : 'PENDING'}</span></td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>`).join("")}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>` : ""}
+
           <tr>
             <td style="background-color:#111111;padding:0 40px 32px;text-align:center;">
               <a href="${data.receiptUrl}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.5px;">Download Booking Receipt</a>
@@ -542,6 +582,14 @@ export async function sendParentBookingConfirmationEmail(
 
     const receiptUrl = getReceiptUrl(booking.id);
 
+    const installmentsList = await storage.getInstallmentsByBooking(booking.id);
+    const installments: InstallmentInfo[] = installmentsList.map(inst => ({
+      name: inst.name,
+      amount: inst.amount || 0,
+      dueDate: inst.dueDate || "",
+      paid: inst.paid,
+    }));
+
     const emailData: ParentEmailData = {
       parentName: parentName || "Parent / Guardian",
       parentEmail,
@@ -554,6 +602,7 @@ export async function sendParentBookingConfirmationEmail(
       totalFee,
       amountPaid,
       receiptUrl,
+      installments,
     };
 
     const html = buildParentConfirmationEmailHtml(emailData);
