@@ -5465,8 +5465,8 @@ ${allPages.map(p => `  <url>
 
       const matchedBookings = allBookings.filter((b: any) => {
         const rd = b.residentDetails as any;
-        const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
-        const bEmail = (b.walkInEmail || b.customerEmail || rd?.email || rd?.studentEmail || "").toLowerCase().trim();
+        const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+        const bEmail = (b.walkInEmail || rd?.email || "").toLowerCase().trim();
         if (normalizedPhone && normalizedPhone.length === 10 && bPhone === normalizedPhone) return true;
         if (normalizedEmail && bEmail === normalizedEmail) return true;
         return false;
@@ -5510,9 +5510,9 @@ ${allPages.map(p => `  <url>
           updatedAt: new Date(),
         };
 
-        if (name) updateData.customerName = name;
-        if (phone) updateData.customerPhone = phone;
-        if (email) updateData.customerEmail = email;
+        if (name) { updateData.walkInName = name; }
+        if (phone) { updateData.walkInPhone = phone; }
+        if (email) { updateData.walkInEmail = email; }
 
         if (hmsStatus) {
           const statusMap: Record<string, string> = {
