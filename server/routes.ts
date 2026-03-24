@@ -8463,14 +8463,28 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/export/bookings", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
     try {
       const rows = await db.select().from(schema.bookings).orderBy(schema.bookings.createdAt);
-      const header = ["Booking Code","Customer Type","Walk-in Name","Walk-in Phone","Walk-in Email","Property ID","Room Type ID","Stay Plan","Check-in","Check-out","Base Fee","Deposit","Discount","Discount Reason","Total Amount","Payment Type","Token Amount","Status","Approval Status","Approved By","Agreement Generated","Created At"];
-      const csv = [header.join(","), ...rows.map(r => csvRow([
-        r.bookingCode, r.customerType, r.walkInName, r.walkInPhone, r.walkInEmail,
-        r.propertyId, r.roomTypeId, r.stayPlanType, r.checkInDate, r.checkOutDate,
-        r.baseFee, r.deposit, r.discount, r.discountReason, r.totalAmount,
-        r.paymentType, r.tokenAmount, r.status, r.approvalStatus, r.approvedBy,
-        r.agreementGenerated, r.createdAt ? new Date(r.createdAt).toISOString() : ""
-      ]))].join("\n");
+      const allProperties = await db.select().from(schema.properties);
+      const allRooms = await db.select().from(schema.roomTypes);
+      const allUsers = await db.select().from(schema.users);
+      const propMap = new Map(allProperties.map(p => [p.id, p.name]));
+      const roomMap = new Map(allRooms.map(r => [r.id, r.name]));
+      const userMap = new Map(allUsers.map(u => [u.id, u.name]));
+
+      const header = ["Booking Code","Customer Type","Walk-in Name","Walk-in Phone","Walk-in Email","Property Name","Room / Bed","Stay Plan","Check-in","Check-out","Base Fee","Deposit","Discount","Discount Reason","Total Amount","Payment Type","Token Amount","Status","Approval Status","Approved By","Agreement Generated","Created At"];
+      const csv = [header.join(","), ...rows.map(r => {
+        const rd = r.residentDetails as any;
+        const roomLabel = rd?.roomNo ? (rd.bedNo ? `${rd.roomNo}-${rd.bedNo}` : rd.roomNo) : roomMap.get(r.roomTypeId || "") || r.roomTypeId || "";
+        return csvRow([
+          r.bookingCode, r.customerType, r.walkInName, r.walkInPhone, r.walkInEmail,
+          propMap.get(r.propertyId || "") || r.propertyId || "",
+          roomLabel,
+          r.stayPlanType, r.checkInDate, r.checkOutDate,
+          r.baseFee, r.deposit, r.discount, r.discountReason, r.totalAmount,
+          r.paymentType, r.tokenAmount, r.status, r.approvalStatus,
+          userMap.get(r.approvedBy || "") || r.approvedBy || "",
+          r.agreementGenerated, r.createdAt ? new Date(r.createdAt).toISOString() : ""
+        ]);
+      })].join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=bookings_${new Date().toISOString().split("T")[0]}.csv`);
       res.send(csv);
@@ -8482,10 +8496,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/export/leads", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
     try {
       const rows = await db.select().from(schema.leads).orderBy(schema.leads.createdAt);
+      const allUsers = await db.select().from(schema.users);
+      const userMap = new Map(allUsers.map(u => [u.id, u.name]));
       const header = ["Name","Email","Phone","Property Name","Source","Entry Source","Status","Notes","Assigned To","Priority","Budget Min","Budget Max","Follow-up Date","Follow-up Notes","Deal Amount","Deal Room Type","Deal Payment Plan","Converted At","Created At"];
       const csv = [header.join(","), ...rows.map(r => csvRow([
         r.name, r.email, r.phone, r.propertyName, r.source, r.entrySource, r.status, r.notes,
-        r.assignedToId, r.priority, r.budgetMin, r.budgetMax,
+        userMap.get(r.assignedToId || "") || r.assignedToId || "",
+        r.priority, r.budgetMin, r.budgetMax,
         r.followUpDate, r.followUpNotes, r.dealAmount, r.dealRoomType, r.dealPaymentPlan,
         r.convertedAt ? new Date(r.convertedAt).toISOString() : "",
         r.createdAt ? new Date(r.createdAt).toISOString() : ""
@@ -8519,9 +8536,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/export/payments", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
     try {
       const rows = await db.select().from(schema.payments).orderBy(schema.payments.createdAt);
-      const header = ["Booking ID","Installment ID","Amount","Status","Payment Method","Razorpay Order ID","Razorpay Payment ID","Failure Reason","Created At"];
+      const allBookings = await db.select().from(schema.bookings);
+      const bookingMap = new Map(allBookings.map(b => [b.id, b.bookingCode || b.id]));
+      const allInstallments = await db.select().from(schema.installments);
+      const instMap = new Map(allInstallments.map(i => [i.id, i.name || i.id]));
+      const header = ["Booking Code","Installment","Amount","Status","Payment Method","Razorpay Order ID","Razorpay Payment ID","Failure Reason","Created At"];
       const csv = [header.join(","), ...rows.map(r => csvRow([
-        r.bookingId, r.installmentId, r.amount, r.status,
+        bookingMap.get(r.bookingId || "") || r.bookingId,
+        instMap.get(r.installmentId || "") || r.installmentId || "",
+        r.amount, r.status,
         r.paymentMethod, r.razorpayOrderId, r.razorpayPaymentId, r.failureReason,
         r.createdAt ? new Date(r.createdAt).toISOString() : ""
       ]))].join("\n");
@@ -8536,9 +8559,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/export/installments", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
     try {
       const rows = await db.select().from(schema.installments).orderBy(schema.installments.createdAt);
-      const header = ["Booking ID","Name","Amount","Due Date","Paid","Paid At","Created At"];
+      const allBookings = await db.select().from(schema.bookings);
+      const bookingMap = new Map(allBookings.map(b => [b.id, b.bookingCode || b.id]));
+      const header = ["Booking Code","Name","Amount","Due Date","Paid","Paid At","Created At"];
       const csv = [header.join(","), ...rows.map(r => csvRow([
-        r.bookingId, r.name, r.amount, r.dueDate, r.paid,
+        bookingMap.get(r.bookingId || "") || r.bookingId,
+        r.name, r.amount, r.dueDate, r.paid,
         r.paidAt ? new Date(r.paidAt).toISOString() : "",
         r.createdAt ? new Date(r.createdAt).toISOString() : ""
       ]))].join("\n");
