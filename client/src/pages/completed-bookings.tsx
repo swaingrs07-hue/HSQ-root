@@ -173,6 +173,7 @@ export default function CompletedBookings() {
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [sendingParentEmail, setSendingParentEmail] = useState(false);
+  const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
@@ -2017,6 +2018,39 @@ export default function CompletedBookings() {
                   <Download className="h-4 w-4" />
                   Download Receipt (PDF)
                 </Button>
+
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-teal-600 border-teal-200 hover:bg-teal-50"
+                  disabled={sendingWelcomeEmail}
+                  data-testid="btn-resend-welcome-email"
+                  onClick={async () => {
+                    setSendingWelcomeEmail(true);
+                    try {
+                      const token = getAuthToken();
+                      const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/resend-welcome-email`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const result = await resp.json();
+                      if (resp.ok) {
+                        toast({ title: "Welcome email sent", description: result.message });
+                      } else {
+                        toast({ title: "Failed", description: result.error, variant: "destructive" });
+                      }
+                    } catch {
+                      toast({ title: "Error", description: "Failed to send welcome email", variant: "destructive" });
+                    } finally {
+                      setSendingWelcomeEmail(false);
+                    }
+                  }}
+                >
+                  {sendingWelcomeEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Resend Welcome Email
+                </Button>
+              )}
 
               {(isAdmin || isReceptionist) && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">

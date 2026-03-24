@@ -4148,6 +4148,29 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  app.post("/api/admin/bookings/:id/resend-welcome-email", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      await storage.updateBooking(booking.id, { welcomeEmailSent: false });
+      const refreshed = await storage.getBooking(booking.id);
+      if (!refreshed) return res.status(404).json({ error: "Booking not found" });
+
+      const result = await sendWelcomeEmailForBooking(refreshed);
+      if (result.success) {
+        const rd = refreshed.residentDetails as Record<string, any> | null;
+        const email = rd?.email || refreshed.walkInEmail || "resident";
+        res.json({ success: true, message: `Welcome email sent to ${email}` });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to send welcome email" });
+      }
+    } catch (error: any) {
+      console.error("Error resending welcome email:", error);
+      res.status(500).json({ error: error.message || "Failed to send welcome email" });
+    }
+  });
+
   app.get("/api/receipt/:bookingId", async (req, res) => {
     try {
       const { bookingId } = req.params;
