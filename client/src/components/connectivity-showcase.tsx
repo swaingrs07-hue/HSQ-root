@@ -135,36 +135,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: {
-        version: 8,
-        sources: {
-          "carto-dark": {
-            type: "raster",
-            tiles: [
-              "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-            ],
-            tileSize: 256,
-            maxzoom: 19,
-          },
-        },
-        layers: [
-          {
-            id: "carto-dark-layer",
-            type: "raster",
-            source: "carto-dark",
-            minzoom: 0,
-            maxzoom: 19,
-            paint: {
-              "raster-brightness-max": 0.85,
-              "raster-contrast": 0.15,
-              "raster-saturation": -0.3,
-            },
-          },
-        ],
-        glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
-      },
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center,
       zoom: 12.5,
       pitch: 50,
@@ -177,6 +148,97 @@ function PropertyMap({ properties }: { properties: Property[] }) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
 
     map.on("load", () => {
+      const style = map.getStyle();
+      if (style && style.layers) {
+        for (const layer of style.layers) {
+          if (layer.id.includes("road") || layer.id.includes("highway") || layer.id.includes("tunnel") || layer.id.includes("bridge") || layer.id.includes("path")) {
+            if (layer.type === "line") {
+              try {
+                map.setPaintProperty(layer.id, "line-color", "#f59e0b");
+                map.setPaintProperty(layer.id, "line-opacity", 0.5);
+              } catch (_) {}
+            }
+          }
+          if (layer.id.includes("building")) {
+            if (layer.type === "fill") {
+              try {
+                map.setPaintProperty(layer.id, "fill-color", "#0d1a30");
+                map.setPaintProperty(layer.id, "fill-opacity", 0.85);
+              } catch (_) {}
+            }
+          }
+          if (layer.id.includes("water") && layer.type === "fill") {
+            try {
+              map.setPaintProperty(layer.id, "fill-color", "#060d1a");
+            } catch (_) {}
+          }
+          if (layer.type === "background") {
+            try {
+              map.setPaintProperty(layer.id, "background-color", "#050510");
+            } catch (_) {}
+          }
+        }
+      }
+
+      const src = map.getSource("carto") as maplibregl.VectorTileSource | undefined;
+      const srcName = src ? "carto" : "openmaptiles";
+
+      const buildingSrcLayer = style?.layers?.find(l => l.id.includes("building") && (l as any)["source-layer"])
+        ? ((style.layers.find(l => l.id.includes("building") && (l as any)["source-layer"]) as any)["source-layer"])
+        : "building";
+      const roadSrcLayer = style?.layers?.find(l => l.id.includes("road") && (l as any)["source-layer"])
+        ? ((style.layers.find(l => l.id.includes("road") && (l as any)["source-layer"]) as any)["source-layer"])
+        : "transportation";
+      const actualSource = style?.layers?.find(l => (l as any).source)
+        ? ((style.layers.find(l => (l as any).source) as any).source)
+        : srcName;
+
+      try {
+        map.addLayer({
+          id: "road-neon-glow",
+          type: "line",
+          source: actualSource,
+          "source-layer": roadSrcLayer,
+          paint: {
+            "line-color": "#d97706",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 14, 10, 16, 18],
+            "line-opacity": 0.06,
+            "line-blur": 8,
+          },
+        });
+      } catch (_) {}
+
+      try {
+        map.addLayer({
+          id: "building-3d-extrusion",
+          type: "fill-extrusion",
+          source: actualSource,
+          "source-layer": buildingSrcLayer,
+          minzoom: 13,
+          paint: {
+            "fill-extrusion-color": "#0a1525",
+            "fill-extrusion-height": ["*", ["coalesce", ["get", "render_height"], 10], 1],
+            "fill-extrusion-base": 0,
+            "fill-extrusion-opacity": 0.8,
+          },
+        });
+      } catch (_) {}
+
+      try {
+        map.addLayer({
+          id: "building-edge-glow",
+          type: "line",
+          source: actualSource,
+          "source-layer": buildingSrcLayer,
+          minzoom: 14,
+          paint: {
+            "line-color": "#22d3ee",
+            "line-width": 0.5,
+            "line-opacity": 0.2,
+          },
+        });
+      } catch (_) {}
+
       const triangleCoordPairs: [number, number][] = [];
       for (const tk of TRIANGLE_KEYS) {
         const c = PROPERTY_COORDS[tk];
