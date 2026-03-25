@@ -23,13 +23,13 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 };
 
 const BUILDING_CONFIGS: Record<string, { floors: number; heightM: number; widthM: number; depthM: number; color: string; roofColor: string }> = {
-  "Hsquare Hostel Juhu": { floors: 8, heightM: 28, widthM: 25, depthM: 18, color: "#1a3a6a", roofColor: "#2a5a9a" },
-  "Hsquare Vileparle": { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" },
-  "Hsquare Bayview": { floors: 7, heightM: 24, widthM: 24, depthM: 17, color: "#1a3a6a", roofColor: "#2a5a9a" },
-  "Hsquare Goregaon": { floors: 9, heightM: 32, widthM: 28, depthM: 20, color: "#152d50", roofColor: "#2a4a7a" },
-  "Hotel Neelkamal": { floors: 5, heightM: 18, widthM: 20, depthM: 15, color: "#1a365d", roofColor: "#254a75" },
-  "Hsquare Caledonia": { floors: 7, heightM: 24, widthM: 24, depthM: 17, color: "#1a3a6a", roofColor: "#2a5a9a" },
-  "Hsquare Utopia": { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" },
+  "Hsquare Hostel Juhu": { floors: 8, heightM: 45, widthM: 30, depthM: 22, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hsquare Vileparle": { floors: 6, heightM: 35, widthM: 26, depthM: 20, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hsquare Bayview": { floors: 7, heightM: 40, widthM: 28, depthM: 21, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hsquare Goregaon": { floors: 9, heightM: 50, widthM: 32, depthM: 24, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hotel Neelkamal": { floors: 5, heightM: 28, widthM: 24, depthM: 18, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hsquare Caledonia": { floors: 7, heightM: 40, widthM: 28, depthM: 21, color: "#0e2a4a", roofColor: "#1a4a7a" },
+  "Hsquare Utopia": { floors: 6, heightM: 35, widthM: 26, depthM: 20, color: "#0e2a4a", roofColor: "#1a4a7a" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -138,32 +138,111 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       style: {
         version: 8,
         sources: {
-          "carto-dark": {
-            type: "raster",
-            tiles: [
-              "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-            ],
-            tileSize: 256,
-            maxzoom: 19,
+          "openmaptiles": {
+            type: "vector",
+            tiles: ["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],
+            maxzoom: 14,
           },
         },
         layers: [
+          { id: "background", type: "background", paint: { "background-color": "#050510" } },
           {
-            id: "carto-dark-layer",
-            type: "raster",
-            source: "carto-dark",
-            minzoom: 0,
-            maxzoom: 19,
+            id: "water",
+            type: "fill",
+            source: "openmaptiles",
+            "source-layer": "water",
+            paint: { "fill-color": "#060d1a", "fill-opacity": 0.9 },
+          },
+          {
+            id: "landuse",
+            type: "fill",
+            source: "openmaptiles",
+            "source-layer": "landuse",
+            paint: { "fill-color": "#080c14", "fill-opacity": 0.5 },
+          },
+          {
+            id: "road-glow",
+            type: "line",
+            source: "openmaptiles",
+            "source-layer": "transportation",
+            paint: {
+              "line-color": "#d97706",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 8, 16, 14],
+              "line-opacity": 0.08,
+              "line-blur": 6,
+            },
+          },
+          {
+            id: "road-mid",
+            type: "line",
+            source: "openmaptiles",
+            "source-layer": "transportation",
+            paint: {
+              "line-color": "#b45309",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 14, 3, 16, 5],
+              "line-opacity": 0.25,
+              "line-blur": 2,
+            },
+          },
+          {
+            id: "road-core",
+            type: "line",
+            source: "openmaptiles",
+            "source-layer": "transportation",
+            paint: {
+              "line-color": "#f59e0b",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 14, 0.8, 16, 1.5],
+              "line-opacity": 0.6,
+            },
+          },
+          {
+            id: "city-buildings-3d",
+            type: "fill-extrusion",
+            source: "openmaptiles",
+            "source-layer": "building",
+            minzoom: 13,
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate", ["linear"], ["zoom"],
+                13, "#0a1525",
+                16, "#0d1a30",
+              ],
+              "fill-extrusion-height": [
+                "interpolate", ["linear"], ["zoom"],
+                13, 0,
+                14, ["*", ["coalesce", ["get", "render_height"], 12], 1],
+              ],
+              "fill-extrusion-base": 0,
+              "fill-extrusion-opacity": [
+                "interpolate", ["linear"], ["zoom"],
+                13, 0,
+                14, 0.85,
+              ],
+            },
+          },
+          {
+            id: "building-edges",
+            type: "line",
+            source: "openmaptiles",
+            "source-layer": "building",
+            minzoom: 14,
+            paint: {
+              "line-color": "#22d3ee",
+              "line-width": 0.4,
+              "line-opacity": [
+                "interpolate", ["linear"], ["zoom"],
+                14, 0,
+                15, 0.25,
+              ],
+            },
           },
         ],
-        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+        glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
       },
       center,
-      zoom: 12.5,
-      pitch: 45,
-      bearing: -12,
+      zoom: 14,
+      pitch: 60,
+      bearing: -20,
       antialias: true,
       attributionControl: false,
       dragRotate: true,
@@ -261,21 +340,14 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       map.addSource("property-markers", { type: "geojson", data: { type: "FeatureCollection", features: markerFeatures } });
 
       map.addLayer({
-        id: "building-shadows",
-        type: "fill",
-        source: "property-buildings",
-        paint: { "fill-color": "#000000", "fill-opacity": 0.3, "fill-translate": [2, 2] },
-      });
-
-      map.addLayer({
         id: "building-extrusion",
         type: "fill-extrusion",
         source: "property-buildings",
         paint: {
-          "fill-extrusion-color": ["get", "color"],
-          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-color": "#0e2a4a",
+          "fill-extrusion-height": ["*", ["get", "height"], 2.5],
           "fill-extrusion-base": 0,
-          "fill-extrusion-opacity": 0.92,
+          "fill-extrusion-opacity": 0.95,
         },
       });
 
@@ -284,9 +356,9 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         type: "circle",
         source: "property-markers",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 13, 12, 16, 30],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 20, 16, 40],
           "circle-color": "#06b6d4",
-          "circle-opacity": 0.15,
+          "circle-opacity": 0.2,
           "circle-blur": 1,
         },
       });
@@ -295,10 +367,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         id: "property-dots",
         type: "circle",
         source: "property-markers",
-        maxzoom: 13,
+        maxzoom: 13.5,
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 13, 8],
-          "circle-color": "#67e8f9",
+          "circle-color": "#22d3ee",
           "circle-opacity": 0.9,
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 1.5,
@@ -436,7 +508,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         const bounds = new maplibregl.LngLatBounds();
         propertyCoords.forEach(c => bounds.extend([c.coords[1], c.coords[0]]));
         HOTSPOTS.forEach(h => bounds.extend([h.lng, h.lat]));
-        map.fitBounds(bounds, { padding: 60, pitch: 50, bearing: -15 });
+        map.fitBounds(bounds, { padding: 60, pitch: 60, bearing: -20, maxZoom: 14.5 });
       }
     });
 
@@ -451,7 +523,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] shadow-[0_0_80px_rgba(6,182,212,0.08)]">
-      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-square" style={{ background: "#050a14" }} data-testid="connectivity-map" />
+      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-[16/10]" style={{ background: "#050510" }} data-testid="connectivity-map" />
       <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/70 backdrop-blur-xl p-3 z-[10]">
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
           <span className="rounded-full bg-emerald-400/10 text-emerald-300/70 px-2.5 py-1 border border-emerald-400/10 flex items-center gap-1.5">
