@@ -4867,7 +4867,7 @@ ${allPages.map(p => `  <url>
         phone,
         room: roomNo,
         propertyCode: resolvedPropertyCode,
-        dietary: rd?.dietary || undefined,
+        dietary: rd?.dietaryPreference || rd?.dietary || undefined,
         college: college || undefined,
         instituteName: college || undefined,
         courseName: studentData?.course || rd?.course || undefined,
@@ -5917,7 +5917,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (rd?.gender) syncData.gender = rd.gender;
       if (rd?.dateOfBirth) syncData.dateOfBirth = rd.dateOfBirth;
       if (rd?.homeAddress || rd?.address) syncData.homeAddress = rd.homeAddress || rd.address;
-      if (rd?.dietary) syncData.dietary = rd.dietary;
+      if (rd?.dietaryPreference || rd?.dietary) syncData.dietary = rd.dietaryPreference || rd.dietary;
 
       const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
       const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
