@@ -384,23 +384,28 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           .addTo(map);
       });
 
-      function counterScale() {
-        const zoom = map.getZoom();
-        const diff = zoom - DESIGNED_ZOOM;
-        const scale = Math.pow(2, -diff);
-        const clamped = Math.max(0.25, Math.min(scale, 3));
-        for (const el of allMarkerEls) {
-          el.style.transform = `scale(${clamped})`;
-        }
-      }
-      map.on("zoom", counterScale);
-
       if (propertyCoords.length > 0) {
         const bounds = new maplibregl.LngLatBounds();
         propertyCoords.forEach(c => bounds.extend([c.coords[1], c.coords[0]]));
         HOTSPOTS.forEach(h => bounds.extend([h.lng, h.lat]));
         map.fitBounds(bounds, { padding: 60, pitch: 45, bearing: -12 });
       }
+
+      let baseZoom = 0;
+      map.once("idle", () => {
+        baseZoom = map.getZoom();
+      });
+
+      map.on("zoom", () => {
+        if (baseZoom === 0) return;
+        const zoom = map.getZoom();
+        const diff = zoom - baseZoom;
+        const scale = Math.pow(2, diff);
+        const clamped = Math.max(0.2, Math.min(scale, 2.5));
+        for (const el of allMarkerEls) {
+          el.style.transform = `scale(${clamped})`;
+        }
+      });
     });
 
     mapInstanceRef.current = map;
