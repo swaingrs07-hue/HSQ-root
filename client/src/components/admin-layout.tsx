@@ -42,6 +42,7 @@ import {
   Sparkles,
   UtensilsCrossed,
   Home,
+  Map,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -105,6 +106,7 @@ const adminNavItems: NavItem[] = [
   { name: "HMS Sync", href: "/admin/hms-sync", icon: Link2 },
   { name: "Hero Slides", href: "/admin/hero-slides", icon: ImageIcon },
   { name: "Amenities", href: "/admin/amenities", icon: Sparkles },
+  { name: "Map Design", href: "/admin/map-design", icon: Map },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
   { name: "Data Export", href: "/admin/data-export", icon: FileText },

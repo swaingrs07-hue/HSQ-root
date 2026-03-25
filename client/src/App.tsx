@@ -49,6 +49,7 @@ import AdminSeasons from "@/pages/admin-seasons";
 import AdminHmsSync from "@/pages/admin-hms-sync";
 import AdminLogoControl from "@/pages/admin-logo-control";
 import AdminAmenities from "@/pages/admin-amenities";
+import AdminMapDesign from "@/pages/admin-map-design";
 import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
 import AdminRegistrations from "@/pages/admin-registrations";
@@ -161,6 +162,7 @@ function AppContent() {
               <Route path="/admin/hms-sync" component={AdminHmsSync} />
               <Route path="/admin/logo-control" component={AdminLogoControl} />
               <Route path="/admin/amenities" component={AdminAmenities} />
+              <Route path="/admin/map-design" component={AdminMapDesign} />
               <Route path="/admin/registrations" component={AdminRegistrations} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />

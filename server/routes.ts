@@ -463,6 +463,66 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // ============ MAP SETTINGS ============
+
+  app.get("/api/map-settings", async (req, res) => {
+    try {
+      const settings = await storage.getMapSettings();
+      if (!settings) {
+        return res.json({
+          connectedPropertyIds: [],
+          pattern: "triangle",
+          lineColor: "#34d399",
+          fillColor: "#34d399",
+          fillOpacity: 0.15,
+          lineWidth: 2.5,
+          glowEnabled: true,
+          animationEnabled: true,
+        });
+      }
+      res.json({
+        connectedPropertyIds: JSON.parse(settings.connectedPropertyIds || "[]"),
+        pattern: settings.pattern,
+        lineColor: settings.lineColor,
+        fillColor: settings.fillColor,
+        fillOpacity: parseFloat(settings.fillOpacity),
+        lineWidth: parseFloat(settings.lineWidth),
+        glowEnabled: settings.glowEnabled === "true",
+        animationEnabled: settings.animationEnabled === "true",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch map settings" });
+    }
+  });
+
+  app.put("/api/admin/map-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const data = req.body;
+      const settings = await storage.upsertMapSettings({
+        connectedPropertyIds: JSON.stringify(data.connectedPropertyIds || []),
+        pattern: data.pattern || "triangle",
+        lineColor: data.lineColor || "#34d399",
+        fillColor: data.fillColor || "#34d399",
+        fillOpacity: String(data.fillOpacity ?? 0.15),
+        lineWidth: String(data.lineWidth ?? 2.5),
+        glowEnabled: String(data.glowEnabled ?? true),
+        animationEnabled: String(data.animationEnabled ?? true),
+      });
+      res.json({
+        connectedPropertyIds: JSON.parse(settings.connectedPropertyIds || "[]"),
+        pattern: settings.pattern,
+        lineColor: settings.lineColor,
+        fillColor: settings.fillColor,
+        fillOpacity: parseFloat(settings.fillOpacity),
+        lineWidth: parseFloat(settings.lineWidth),
+        glowEnabled: settings.glowEnabled === "true",
+        animationEnabled: settings.animationEnabled === "true",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update map settings" });
+    }
+  });
+
   // ============ LOGO SETTINGS ============
 
   app.get("/api/logo-settings", async (req, res) => {

@@ -1495,5 +1495,20 @@ export const insertRegistrationRequestSchema = createInsertSchema(registrationRe
 export type RegistrationRequest = typeof registrationRequests.$inferSelect;
 export type InsertRegistrationRequest = z.infer<typeof insertRegistrationRequestSchema>;
 
+export const mapSettings = pgTable("map_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  connectedPropertyIds: text("connected_property_ids").notNull().default("[]"),
+  pattern: text("pattern").notNull().default("triangle"),
+  lineColor: text("line_color").notNull().default("#34d399"),
+  fillColor: text("fill_color").notNull().default("#34d399"),
+  fillOpacity: text("fill_opacity").notNull().default("0.15"),
+  lineWidth: text("line_width").notNull().default("2.5"),
+  glowEnabled: text("glow_enabled").notNull().default("true"),
+  animationEnabled: text("animation_enabled").notNull().default("true"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type MapSettings = typeof mapSettings.$inferSelect;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

@@ -74,6 +74,8 @@ import {
   type InsertHeroSlide,
   type InstagramPost,
   type FooterSettings,
+  mapSettings,
+  type MapSettings,
   type Floor,
   type InsertFloor,
   type Room,
@@ -346,6 +348,10 @@ export interface IStorage {
   // Footer Settings
   getFooterSettings(): Promise<FooterSettings | null>;
   upsertFooterSettings(data: Partial<FooterSettings>): Promise<FooterSettings>;
+
+  // Map Settings
+  getMapSettings(): Promise<MapSettings | null>;
+  upsertMapSettings(data: Partial<MapSettings>): Promise<MapSettings>;
 
   // Homepage Amenities
   getHomepageAmenities(): Promise<HomepageAmenity[]>;
@@ -1959,6 +1965,21 @@ export class DatabaseStorage implements IStorage {
       return updated;
     }
     const [created] = await db.insert(footerSettings).values(data as any).returning();
+    return created;
+  }
+
+  async getMapSettings(): Promise<MapSettings | null> {
+    const [settings] = await db.select().from(mapSettings).limit(1);
+    return settings || null;
+  }
+
+  async upsertMapSettings(data: Partial<MapSettings>): Promise<MapSettings> {
+    const existing = await this.getMapSettings();
+    if (existing) {
+      const [updated] = await db.update(mapSettings).set({ ...data, updatedAt: new Date() }).where(eq(mapSettings.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(mapSettings).values(data as any).returning();
     return created;
   }
 
