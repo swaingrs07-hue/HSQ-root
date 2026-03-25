@@ -142,8 +142,8 @@ export default function AdminMapDesign() {
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="grid lg:grid-cols-[1fr_380px] gap-6">
-            <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <Card data-testid="card-property-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export default function AdminMapDesign() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
                     {properties.map((property) => {
                       const name = property.displayName || property.name;
                       const isSelected = current.connectedPropertyIds.includes(property.id);
@@ -163,25 +163,31 @@ export default function AdminMapDesign() {
                       return (
                         <label
                           key={property.id}
-                          className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                             isSelected
                               ? "border-emerald-500/40 bg-emerald-500/5"
                               : "border-border hover:border-muted-foreground/30"
-                          } ${!hasCoords ? "opacity-50" : ""}`}
+                          } ${!hasCoords ? "opacity-50 cursor-not-allowed" : ""}`}
                           data-testid={`property-toggle-${property.id}`}
                         >
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleProperty(property.id)}
                             disabled={!hasCoords}
+                            className="shrink-0"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{property.location}</p>
-                            {!hasCoords && (
-                              <p className="text-xs text-amber-500 mt-1">No coordinates set — add lat/lng in property settings first</p>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{name}</p>
+                              {hasCoords && (
+                                <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{property.location}</p>
                           </div>
+                          {!hasCoords && (
+                            <span className="shrink-0 text-[11px] text-amber-500 whitespace-nowrap">No coordinates</span>
+                          )}
                         </label>
                       );
                     })}
@@ -201,23 +207,25 @@ export default function AdminMapDesign() {
                   <CardDescription>Choose how the selected properties connect on the map.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid sm:grid-cols-3 gap-3">
+                  <div className="space-y-3">
                     {PATTERN_OPTIONS.map((option) => {
                       const isActive = current.pattern === option.value;
                       return (
                         <button
                           key={option.value}
                           onClick={() => updateField("pattern", option.value)}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all ${
+                          className={`w-full flex items-center gap-4 p-4 rounded-lg border text-left transition-all ${
                             isActive
                               ? "border-violet-500/40 bg-violet-500/5"
                               : "border-border hover:border-muted-foreground/30"
                           }`}
                           data-testid={`pattern-${option.value}`}
                         >
-                          <option.icon className={`w-8 h-8 ${isActive ? "text-violet-400" : "text-muted-foreground"}`} />
-                          <span className="font-medium text-sm">{option.label}</span>
-                          <span className="text-[11px] text-muted-foreground leading-tight">{option.desc}</span>
+                          <option.icon className={`w-7 h-7 shrink-0 ${isActive ? "text-violet-400" : "text-muted-foreground"}`} />
+                          <div className="min-w-0">
+                            <span className="font-medium text-sm block">{option.label}</span>
+                            <span className="text-xs text-muted-foreground">{option.desc}</span>
+                          </div>
                         </button>
                       );
                     })}
@@ -232,7 +240,7 @@ export default function AdminMapDesign() {
               </Card>
             </div>
 
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               <Card data-testid="card-styling">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -243,7 +251,7 @@ export default function AdminMapDesign() {
                 <CardContent className="space-y-5">
                   <div>
                     <Label className="text-xs font-medium mb-2 block">Line Color</Label>
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <div className="flex flex-wrap gap-2 mb-3">
                       {COLOR_PRESETS.map((preset) => (
                         <button
                           key={preset.value}
@@ -252,7 +260,7 @@ export default function AdminMapDesign() {
                             updateField("fillColor", preset.value);
                           }}
                           className={`w-8 h-8 rounded-full border-2 transition-all ${
-                            current.lineColor === preset.value ? "border-white scale-110" : "border-transparent"
+                            current.lineColor === preset.value ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-foreground/20" : "border-transparent hover:scale-105"
                           }`}
                           style={{ backgroundColor: preset.value }}
                           title={preset.name}
@@ -268,7 +276,7 @@ export default function AdminMapDesign() {
                           updateField("lineColor", e.target.value);
                           updateField("fillColor", e.target.value);
                         }}
-                        className="w-10 h-8 p-0 border-0 cursor-pointer"
+                        className="w-10 h-9 p-0.5 border rounded cursor-pointer"
                         data-testid="input-line-color"
                       />
                       <Input
@@ -278,14 +286,14 @@ export default function AdminMapDesign() {
                           updateField("lineColor", e.target.value);
                           updateField("fillColor", e.target.value);
                         }}
-                        className="flex-1 text-xs font-mono"
+                        className="flex-1 text-sm font-mono"
                         data-testid="input-line-color-text"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-xs font-medium mb-2 block">Line Width: {current.lineWidth}px</Label>
+                    <Label className="text-xs font-medium mb-3 block">Line Width: {current.lineWidth}px</Label>
                     <Slider
                       value={[current.lineWidth]}
                       onValueChange={([v]) => updateField("lineWidth", v)}
@@ -298,7 +306,7 @@ export default function AdminMapDesign() {
 
                   {current.pattern === "triangle" && (
                     <div>
-                      <Label className="text-xs font-medium mb-2 block">Fill Opacity: {Math.round(current.fillOpacity * 100)}%</Label>
+                      <Label className="text-xs font-medium mb-3 block">Fill Opacity: {Math.round(current.fillOpacity * 100)}%</Label>
                       <Slider
                         value={[current.fillOpacity]}
                         onValueChange={([v]) => updateField("fillOpacity", v)}
@@ -320,33 +328,35 @@ export default function AdminMapDesign() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
                       <Label className="text-sm font-medium">Glow Effect</Label>
                       <p className="text-xs text-muted-foreground">Adds a soft glow around the lines</p>
                     </div>
                     <Switch
                       checked={current.glowEnabled}
                       onCheckedChange={(v) => updateField("glowEnabled", v)}
+                      className="shrink-0"
                       data-testid="switch-glow"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
                       <Label className="text-sm font-medium">Animated Particle</Label>
                       <p className="text-xs text-muted-foreground">Moving dot along the connection lines</p>
                     </div>
                     <Switch
                       checked={current.animationEnabled}
                       onCheckedChange={(v) => updateField("animationEnabled", v)}
+                      className="shrink-0"
                       data-testid="switch-animation"
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-preview-info">
+              <Card data-testid="card-preview-info" className="md:col-span-2 xl:col-span-1">
                 <CardContent className="pt-5">
                   <div className="text-center space-y-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted text-xs font-medium">
