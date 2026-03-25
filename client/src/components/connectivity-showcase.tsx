@@ -215,8 +215,12 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       bearing: -12,
       antialias: true,
       attributionControl: false,
-      scrollZoom: true,
+      scrollZoom: false,
       dragRotate: false,
+      touchZoomRotate: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
