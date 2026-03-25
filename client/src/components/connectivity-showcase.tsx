@@ -23,13 +23,13 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 };
 
 const BUILDING_CONFIGS: Record<string, { floors: number; widthPx: number; heightPx: number; roofStyle: string }> = {
-  "Hsquare Hostel Juhu": { floors: 6, widthPx: 18, heightPx: 36, roofStyle: "pointed" },
-  "Hsquare Vileparle": { floors: 5, widthPx: 16, heightPx: 30, roofStyle: "flat" },
-  "Hsquare Bayview": { floors: 5, widthPx: 17, heightPx: 32, roofStyle: "pointed" },
-  "Hsquare Goregaon": { floors: 7, widthPx: 19, heightPx: 40, roofStyle: "antenna" },
-  "Hotel Neelkamal": { floors: 4, widthPx: 14, heightPx: 24, roofStyle: "flat" },
-  "Hsquare Caledonia": { floors: 5, widthPx: 17, heightPx: 33, roofStyle: "antenna" },
-  "Hsquare Utopia": { floors: 5, widthPx: 16, heightPx: 30, roofStyle: "flat" },
+  "Hsquare Hostel Juhu": { floors: 8, widthPx: 30, heightPx: 65, roofStyle: "pointed" },
+  "Hsquare Vileparle": { floors: 6, widthPx: 26, heightPx: 50, roofStyle: "flat" },
+  "Hsquare Bayview": { floors: 7, widthPx: 28, heightPx: 55, roofStyle: "pointed" },
+  "Hsquare Goregaon": { floors: 9, widthPx: 32, heightPx: 72, roofStyle: "antenna" },
+  "Hotel Neelkamal": { floors: 5, widthPx: 22, heightPx: 40, roofStyle: "flat" },
+  "Hsquare Caledonia": { floors: 7, widthPx: 28, heightPx: 58, roofStyle: "antenna" },
+  "Hsquare Utopia": { floors: 6, widthPx: 26, heightPx: 50, roofStyle: "flat" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -39,19 +39,18 @@ const VILEPARLE_KEY = "Hsquare Vileparle";
 const FALLBACK_CENTER: [number, number] = [72.8500, 19.1050];
 
 const HOTSPOT_ICONS: Record<string, string> = {
-  university: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
-  lifestyle: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
-  transit: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 17v4M8 21h8M9 7h6M9 11h6"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>`,
+  university: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+  lifestyle: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+  transit: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 17v4M8 21h8M9 7h6M9 11h6"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>`,
 };
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
-  { name: "NMIMS University", lat: 19.1044, lng: 72.8370, type: "university" },
-  { name: "Mithibai College", lat: 19.1030, lng: 72.8390, type: "university" },
-  { name: "Juhu Beach", lat: 19.0988, lng: 72.8267, type: "lifestyle" },
-  { name: "ISKCON Temple", lat: 19.1124, lng: 72.8290, type: "lifestyle" },
-  { name: "Andheri Metro", lat: 19.1197, lng: 72.8464, type: "transit" },
-  { name: "Domestic Airport", lat: 19.0896, lng: 72.8656, type: "transit" },
-  { name: "Oberoi Mall", lat: 19.1710, lng: 72.8600, type: "lifestyle" },
+  { name: "NMIMS", lat: 19.1044, lng: 72.8355, type: "university" },
+  { name: "Mithibai", lat: 19.1010, lng: 72.8415, type: "university" },
+  { name: "Juhu Beach", lat: 19.0930, lng: 72.8240, type: "lifestyle" },
+  { name: "Andheri Metro", lat: 19.1197, lng: 72.8500, type: "transit" },
+  { name: "Airport", lat: 19.0896, lng: 72.8680, type: "transit" },
+  { name: "Oberoi Mall", lat: 19.1730, lng: 72.8610, type: "lifestyle" },
 ];
 
 const FEATURES = [
