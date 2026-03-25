@@ -22,15 +22,6 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
   "Hsquare Utopia": [19.0750, 72.8700],
 };
 
-const BUILDING_CONFIGS: Record<string, { floors: number; heightM: number; widthM: number; depthM: number; color: string; roofColor: string }> = {
-  "Hsquare Hostel Juhu": { floors: 8, heightM: 45, widthM: 30, depthM: 22, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hsquare Vileparle": { floors: 6, heightM: 35, widthM: 26, depthM: 20, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hsquare Bayview": { floors: 7, heightM: 40, widthM: 28, depthM: 21, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hsquare Goregaon": { floors: 9, heightM: 50, widthM: 32, depthM: 24, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hotel Neelkamal": { floors: 5, heightM: 28, widthM: 24, depthM: 18, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hsquare Caledonia": { floors: 7, heightM: 40, widthM: 28, depthM: 21, color: "#0e2a4a", roofColor: "#1a4a7a" },
-  "Hsquare Utopia": { floors: 6, heightM: 35, widthM: 26, depthM: 20, color: "#0e2a4a", roofColor: "#1a4a7a" },
-};
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
 const GOREGAON_KEY = "Hsquare Goregaon";
@@ -114,19 +105,7 @@ function getCoords(property: Property): [number, number] | null {
   return null;
 }
 
-function makeBuildingFootprint(lat: number, lng: number, widthM: number, depthM: number): number[][] {
-  const mPerDegLat = 111320;
-  const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
-  const dLat = (depthM / 2) / mPerDegLat;
-  const dLng = (widthM / 2) / mPerDegLng;
-  return [
-    [lng - dLng, lat - dLat],
-    [lng + dLng, lat - dLat],
-    [lng + dLng, lat + dLat],
-    [lng - dLng, lat + dLat],
-    [lng - dLng, lat - dLat],
-  ];
-}
+
 
 function PropertyMap({ properties }: { properties: Property[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -327,18 +306,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
-      const buildingFeatures: GeoJSON.Feature[] = [];
       const markerFeatures: GeoJSON.Feature[] = [];
 
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
-        const config = BUILDING_CONFIGS[name] || { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" };
-        const footprint = makeBuildingFootprint(coords[0], coords[1], config.widthM, config.depthM);
-        buildingFeatures.push({
-          type: "Feature",
-          properties: { name, location: property.location, height: config.heightM, color: config.color, roofColor: config.roofColor },
-          geometry: { type: "Polygon", coordinates: [footprint] },
-        });
         markerFeatures.push({
           type: "Feature",
           properties: { name, location: property.location },
@@ -346,7 +317,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         });
       });
 
-      map.addSource("property-buildings", { type: "geojson", data: { type: "FeatureCollection", features: buildingFeatures } });
       map.addSource("property-markers", { type: "geojson", data: { type: "FeatureCollection", features: markerFeatures } });
 
       map.addLayer({
@@ -382,18 +352,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           "circle-color": "#67e8f9",
           "circle-opacity": 0.35,
           "circle-blur": 0.5,
-        },
-      });
-
-      map.addLayer({
-        id: "building-extrusion",
-        type: "fill-extrusion",
-        source: "property-buildings",
-        paint: {
-          "fill-extrusion-color": "#164e7a",
-          "fill-extrusion-height": ["*", ["get", "height"], 2.5],
-          "fill-extrusion-base": 0,
-          "fill-extrusion-opacity": 0.95,
         },
       });
 
