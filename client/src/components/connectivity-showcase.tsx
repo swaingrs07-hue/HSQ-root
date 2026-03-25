@@ -215,8 +215,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       antialias: true,
       attributionControl: false,
       dragRotate: false,
-      minZoom: 11,
-      maxZoom: 15,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
@@ -348,12 +346,16 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
+      const scalableEls: HTMLElement[] = [];
+
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
         const config = BUILDING_CONFIGS[name] || { floors: 6, widthPx: 38, heightPx: 70, roofStyle: "flat" };
         const el = document.createElement("div");
         el.className = "map-building-marker";
+        el.style.transformOrigin = "bottom center";
         el.innerHTML = createSkyscraperHTML(name, property.location, config);
+        scalableEls.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([coords[1], coords[0]])
           .addTo(map);
