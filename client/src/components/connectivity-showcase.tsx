@@ -42,15 +42,31 @@ const HOTSPOT_COLORS: Record<string, string> = {
   university: "#a78bfa",
   lifestyle: "#f472b6",
   transit: "#fbbf24",
+  market: "#34d399",
 };
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
-  { name: "NMIMS", lat: 19.1044, lng: 72.8355, type: "university" },
-  { name: "Mithibai", lat: 19.1010, lng: 72.8415, type: "university" },
+  { name: "NMIMS University", lat: 19.1044, lng: 72.8355, type: "university" },
+  { name: "Mithibai College", lat: 19.1010, lng: 72.8415, type: "university" },
+  { name: "Mukesh Patel School", lat: 19.1060, lng: 72.8370, type: "university" },
+  { name: "DJ Sanghvi College", lat: 19.1070, lng: 72.8365, type: "university" },
+  { name: "HR College", lat: 19.1020, lng: 72.8400, type: "university" },
+  { name: "Wilson College", lat: 19.0720, lng: 72.8250, type: "university" },
+  { name: "IIT Bombay", lat: 19.1334, lng: 72.9133, type: "university" },
+  { name: "Jai Hind College", lat: 19.0695, lng: 72.8295, type: "university" },
+  { name: "St. Xavier's College", lat: 19.0760, lng: 72.8290, type: "university" },
+  { name: "KC College", lat: 19.0690, lng: 72.8300, type: "university" },
   { name: "Juhu Beach", lat: 19.0930, lng: 72.8240, type: "lifestyle" },
   { name: "Andheri Metro", lat: 19.1197, lng: 72.8500, type: "transit" },
-  { name: "Airport", lat: 19.0896, lng: 72.8680, type: "transit" },
-  { name: "Oberoi Mall", lat: 19.1730, lng: 72.8610, type: "lifestyle" },
+  { name: "Mumbai Airport", lat: 19.0896, lng: 72.8680, type: "transit" },
+  { name: "Oberoi Mall", lat: 19.1730, lng: 72.8610, type: "market" },
+  { name: "Infinity Mall", lat: 19.1188, lng: 72.8460, type: "market" },
+  { name: "Linking Road Market", lat: 19.0740, lng: 72.8435, type: "market" },
+  { name: "Lokhandwala Market", lat: 19.1405, lng: 72.8340, type: "market" },
+  { name: "Vile Parle Station", lat: 19.0980, lng: 72.8445, type: "transit" },
+  { name: "Goregaon Station", lat: 19.1650, lng: 72.8490, type: "transit" },
+  { name: "Andheri Station", lat: 19.1190, lng: 72.8468, type: "transit" },
+  { name: "Bandra Station", lat: 19.0544, lng: 72.8402, type: "transit" },
 ];
 
 const FEATURES = [
@@ -328,26 +344,50 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       map.addSource("property-markers", { type: "geojson", data: { type: "FeatureCollection", features: markerFeatures } });
 
       map.addLayer({
-        id: "building-extrusion",
-        type: "fill-extrusion",
-        source: "property-buildings",
+        id: "building-glow-outer",
+        type: "circle",
+        source: "property-markers",
         paint: {
-          "fill-extrusion-color": "#0e2a4a",
-          "fill-extrusion-height": ["*", ["get", "height"], 2.5],
-          "fill-extrusion-base": 0,
-          "fill-extrusion-opacity": 0.95,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 13, 50, 16, 100],
+          "circle-color": "#06b6d4",
+          "circle-opacity": 0.12,
+          "circle-blur": 1,
         },
       });
 
       map.addLayer({
-        id: "building-glow-base",
+        id: "building-glow-mid",
         type: "circle",
         source: "property-markers",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 20, 16, 40],
-          "circle-color": "#06b6d4",
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 12, 13, 30, 16, 60],
+          "circle-color": "#22d3ee",
           "circle-opacity": 0.2,
-          "circle-blur": 1,
+          "circle-blur": 0.8,
+        },
+      });
+
+      map.addLayer({
+        id: "building-glow-inner",
+        type: "circle",
+        source: "property-markers",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 13, 16, 16, 35],
+          "circle-color": "#67e8f9",
+          "circle-opacity": 0.35,
+          "circle-blur": 0.5,
+        },
+      });
+
+      map.addLayer({
+        id: "building-extrusion",
+        type: "fill-extrusion",
+        source: "property-buildings",
+        paint: {
+          "fill-extrusion-color": "#164e7a",
+          "fill-extrusion-height": ["*", ["get", "height"], 2.5],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.95,
         },
       });
 
@@ -357,11 +397,11 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         source: "property-markers",
         maxzoom: 13.5,
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 13, 8],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 13, 10],
           "circle-color": "#22d3ee",
-          "circle-opacity": 0.9,
+          "circle-opacity": 0.95,
           "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 1.5,
+          "circle-stroke-width": 2,
         },
       });
 
@@ -369,10 +409,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         id: "property-labels",
         type: "symbol",
         source: "property-markers",
-        minzoom: 11,
+        minzoom: 10,
         layout: {
           "text-field": ["get", "name"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 11, 9, 14, 13, 16, 16],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 12, 13, 14, 15, 16, 18],
           "text-offset": [0, -2.5],
           "text-anchor": "bottom",
           "text-font": ["Open Sans Bold"],
@@ -381,8 +421,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         },
         paint: {
           "text-color": "#ffffff",
-          "text-halo-color": "rgba(5,8,18,0.9)",
-          "text-halo-width": 2,
+          "text-halo-color": "rgba(5,5,16,0.95)",
+          "text-halo-width": 2.5,
         },
       });
 
@@ -445,19 +485,20 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         id: "hotspot-labels",
         type: "symbol",
         source: "hotspots",
-        minzoom: 11.5,
+        minzoom: 10,
         layout: {
           "text-field": ["get", "name"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 11.5, 8, 14, 11],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 12, 10, 14, 12],
           "text-offset": [0, 1.2],
           "text-anchor": "top",
           "text-font": ["Open Sans Bold"],
-          "text-allow-overlap": false,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
         },
         paint: {
-          "text-color": "rgba(255,255,255,0.7)",
-          "text-halo-color": "rgba(5,8,18,0.9)",
-          "text-halo-width": 1.5,
+          "text-color": ["get", "color"],
+          "text-halo-color": "rgba(5,5,16,0.95)",
+          "text-halo-width": 2,
         },
       });
 
@@ -514,13 +555,26 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-[16/10]" style={{ background: "#050a14" }} data-testid="connectivity-map" />
       <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/70 backdrop-blur-xl p-3 z-[10]">
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
-          <span className="rounded-full bg-emerald-400/10 text-emerald-300/70 px-2.5 py-1 border border-emerald-400/10 flex items-center gap-1.5">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            Secure Triangle Zone
+          <span className="rounded-full bg-cyan-400/10 text-cyan-300/70 px-2.5 py-1 border border-cyan-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+            Hsquare Properties
           </span>
-          <span className="rounded-full bg-cyan-400/10 text-cyan-300/60 px-2.5 py-1 border border-cyan-400/10">Academic Belt</span>
-          <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Airport Access</span>
-          <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Lifestyle Hub</span>
+          <span className="rounded-full bg-violet-400/10 text-violet-300/70 px-2.5 py-1 border border-violet-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-violet-400" />
+            Universities
+          </span>
+          <span className="rounded-full bg-emerald-400/10 text-emerald-300/70 px-2.5 py-1 border border-emerald-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            Markets
+          </span>
+          <span className="rounded-full bg-yellow-400/10 text-yellow-300/70 px-2.5 py-1 border border-yellow-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-yellow-400" />
+            Transit
+          </span>
+          <span className="rounded-full bg-pink-400/10 text-pink-300/70 px-2.5 py-1 border border-pink-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-pink-400" />
+            Lifestyle
+          </span>
         </div>
       </div>
       <div className="absolute top-3 right-3 z-[10]">
