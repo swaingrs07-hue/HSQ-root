@@ -220,6 +220,66 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       } catch (_) {}
 
       try {
+        const mPerDegLat = 111320;
+        const goldenFeatures: GeoJSON.Feature[] = propertyCoords.map(({ coords }) => {
+          const lat = coords[0], lng = coords[1];
+          const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
+          const wM = 18, dM = 14;
+          const dLat = (dM / 2) / mPerDegLat;
+          const dLng = (wM / 2) / mPerDegLng;
+          return {
+            type: "Feature" as const,
+            properties: { height: 22 },
+            geometry: {
+              type: "Polygon" as const,
+              coordinates: [[
+                [lng - dLng, lat - dLat],
+                [lng + dLng, lat - dLat],
+                [lng + dLng, lat + dLat],
+                [lng - dLng, lat + dLat],
+                [lng - dLng, lat - dLat],
+              ]],
+            },
+          };
+        });
+
+        map.addSource("golden-buildings", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: goldenFeatures },
+        });
+
+        map.addLayer({
+          id: "golden-building-extrusion",
+          type: "fill-extrusion",
+          source: "golden-buildings",
+          minzoom: 13,
+          paint: {
+            "fill-extrusion-color": [
+              "interpolate", ["linear"], ["zoom"],
+              13, "#b8860b",
+              15, "#daa520",
+              17, "#ffd700"
+            ],
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-base": 0,
+            "fill-extrusion-opacity": 0.85,
+          },
+        });
+
+        map.addLayer({
+          id: "golden-building-outline",
+          type: "line",
+          source: "golden-buildings",
+          minzoom: 13,
+          paint: {
+            "line-color": "#ffd700",
+            "line-width": 2,
+            "line-opacity": 0.5,
+          },
+        });
+      } catch (_) {}
+
+      try {
         map.addLayer({
           id: "building-edge-glow",
           type: "line",
@@ -325,8 +385,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         source: "property-markers",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 13, 50, 16, 100],
-          "circle-color": "#06b6d4",
-          "circle-opacity": 0.12,
+          "circle-color": "#f59e0b",
+          "circle-opacity": 0.10,
           "circle-blur": 1,
         },
       });
@@ -337,8 +397,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         source: "property-markers",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 12, 13, 30, 16, 60],
-          "circle-color": "#22d3ee",
-          "circle-opacity": 0.2,
+          "circle-color": "#fbbf24",
+          "circle-opacity": 0.18,
           "circle-blur": 0.8,
         },
       });
@@ -349,8 +409,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         source: "property-markers",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 13, 16, 16, 35],
-          "circle-color": "#67e8f9",
-          "circle-opacity": 0.35,
+          "circle-color": "#fcd34d",
+          "circle-opacity": 0.3,
           "circle-blur": 0.5,
         },
       });
@@ -362,7 +422,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         maxzoom: 13.5,
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 13, 10],
-          "circle-color": "#22d3ee",
+          "circle-color": "#fbbf24",
           "circle-opacity": 0.95,
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 2,
@@ -519,8 +579,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-[16/7]" style={{ background: "#050a14" }} data-testid="connectivity-map" />
       <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/70 backdrop-blur-xl p-3 z-[10]">
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
-          <span className="rounded-full bg-cyan-400/10 text-cyan-300/70 px-2.5 py-1 border border-cyan-400/10 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+          <span className="rounded-full bg-amber-400/10 text-amber-300/70 px-2.5 py-1 border border-amber-400/10 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
             Hsquare Properties
           </span>
           <span className="rounded-full bg-violet-400/10 text-violet-300/70 px-2.5 py-1 border border-violet-400/10 flex items-center gap-1.5">
