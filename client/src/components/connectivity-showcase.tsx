@@ -110,9 +110,9 @@ function createSkyscraperHTML(name: string, location: string, cfg: { floors: num
     const lit2 = Math.random() > 0.3;
     const lit3 = Math.random() > 0.25;
     frontWindows += `<div style="position:absolute;top:${winY}px;left:4px;right:4px;height:${floorH - 2}px;display:flex;gap:2px;">
-      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};" class="skyscraper-win"></div>
     </div>`;
   }
 
@@ -152,7 +152,7 @@ function createSkyscraperHTML(name: string, location: string, cfg: { floors: num
         </div>
       </div>
       <div class="building-ground-glow" style="width:${widthPx + sideW + 16}px;height:6px;background:radial-gradient(ellipse,rgba(103,232,249,0.35) 0%,transparent 70%);margin-top:-1px;"></div>
-      <div style="margin-top:4px;min-width:${Math.max(widthPx + sideW + 20, 120)}px;border-radius:10px;border:1px solid rgba(103,232,249,0.2);background:rgba(5,8,18,0.95);backdrop-filter:blur(16px);padding:5px 10px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 20px rgba(6,182,212,0.08);">
+      <div class="building-label" style="display:none;margin-top:4px;min-width:${Math.max(widthPx + sideW + 20, 120)}px;border-radius:10px;border:1px solid rgba(103,232,249,0.2);background:rgba(5,8,18,0.95);backdrop-filter:blur(16px);padding:5px 10px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 20px rgba(6,182,212,0.08);">
         <div style="font-size:10.5px;font-weight:800;color:white;line-height:1.2;letter-spacing:0.03em;">${name}</div>
         <div style="font-size:8px;color:rgba(103,232,249,0.6);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;">${location}</div>
       </div>
@@ -355,6 +355,16 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         el.className = "map-building-marker";
         el.style.transformOrigin = "bottom center";
         el.innerHTML = createSkyscraperHTML(name, property.location, config);
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const label = el.querySelector(".building-label") as HTMLElement;
+          if (!label) return;
+          const isVisible = label.style.display !== "none";
+          document.querySelectorAll(".building-label").forEach((l) => {
+            (l as HTMLElement).style.display = "none";
+          });
+          if (!isVisible) label.style.display = "block";
+        });
         scalableEls.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([coords[1], coords[0]])
@@ -453,14 +463,9 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         .maplibregl-ctrl-group button span { filter: invert(1) brightness(0.6); }
         .maplibregl-ctrl-attrib { display: none !important; }
 
-        .map-building-marker, .map-hotspot-marker { cursor: default; }
-
-        @keyframes skyscraperWindowFlicker {
-          0%, 90%, 100% { opacity: 1; }
-          92% { opacity: 0.3; }
-          95% { opacity: 0.8; }
-          97% { opacity: 0.2; }
-        }
+        .map-building-marker { cursor: pointer; will-change: transform; }
+        .map-hotspot-marker { cursor: default; will-change: transform; }
+        .building-label { transition: opacity 0.2s ease; }
         .skyscraper-win {}
 
         @keyframes antennaBlink {
