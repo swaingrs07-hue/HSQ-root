@@ -372,7 +372,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
             </div>
           </div>
         `;
-        allMarkerEls.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([spot.lng, spot.lat])
           .addTo(map);
