@@ -23,13 +23,13 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 };
 
 const BUILDING_CONFIGS: Record<string, { floors: number; widthPx: number; heightPx: number; roofStyle: string }> = {
-  "Hsquare Hostel Juhu": { floors: 12, widthPx: 48, heightPx: 110, roofStyle: "pointed" },
-  "Hsquare Vileparle": { floors: 8, widthPx: 40, heightPx: 80, roofStyle: "flat" },
-  "Hsquare Bayview": { floors: 10, widthPx: 44, heightPx: 95, roofStyle: "pointed" },
-  "Hsquare Goregaon": { floors: 14, widthPx: 50, heightPx: 120, roofStyle: "antenna" },
-  "Hotel Neelkamal": { floors: 6, widthPx: 36, heightPx: 65, roofStyle: "flat" },
-  "Hsquare Caledonia": { floors: 10, widthPx: 44, heightPx: 100, roofStyle: "antenna" },
-  "Hsquare Utopia": { floors: 8, widthPx: 40, heightPx: 80, roofStyle: "flat" },
+  "Hsquare Hostel Juhu": { floors: 8, widthPx: 28, heightPx: 60, roofStyle: "pointed" },
+  "Hsquare Vileparle": { floors: 6, widthPx: 24, heightPx: 48, roofStyle: "flat" },
+  "Hsquare Bayview": { floors: 7, widthPx: 26, heightPx: 54, roofStyle: "pointed" },
+  "Hsquare Goregaon": { floors: 9, widthPx: 30, heightPx: 65, roofStyle: "antenna" },
+  "Hotel Neelkamal": { floors: 5, widthPx: 22, heightPx: 40, roofStyle: "flat" },
+  "Hsquare Caledonia": { floors: 7, widthPx: 26, heightPx: 55, roofStyle: "antenna" },
+  "Hsquare Utopia": { floors: 6, widthPx: 24, heightPx: 48, roofStyle: "flat" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -392,16 +392,20 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       }
 
       let baseZoom = 0;
-      map.once("idle", () => {
+      let baseReady = false;
+      const captureBase = () => {
         baseZoom = map.getZoom();
-      });
+        baseReady = true;
+        map.off("moveend", captureBase);
+      };
+      map.on("moveend", captureBase);
 
       map.on("zoom", () => {
-        if (baseZoom === 0) return;
+        if (!baseReady) return;
         const zoom = map.getZoom();
         const diff = zoom - baseZoom;
-        const scale = Math.pow(2, diff);
-        const clamped = Math.max(0.2, Math.min(scale, 2.5));
+        const scale = Math.pow(2, diff * 0.5);
+        const clamped = Math.max(0.3, Math.min(scale, 1.8));
         for (const el of allMarkerEls) {
           el.style.transform = `scale(${clamped})`;
         }
