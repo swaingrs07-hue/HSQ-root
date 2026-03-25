@@ -66,10 +66,10 @@ const HOTSPOT_COLORS: Record<string, string> = {
 };
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
-  { name: "NMIMS University", lat: 19.1048, lng: 72.8371, type: "university" },
-  { name: "Mithibai College", lat: 19.1069, lng: 72.8388, type: "university" },
-  { name: "Mukesh Patel School", lat: 19.1066, lng: 72.8375, type: "university" },
-  { name: "DJ Sanghvi College", lat: 19.1073, lng: 72.8369, type: "university" },
+  { name: "NMIMS University", lat: 19.1030, lng: 72.8371, type: "university" },
+  { name: "Mithibai College", lat: 19.1037, lng: 72.8393, type: "university" },
+  { name: "Mukesh Patel School", lat: 19.1055, lng: 72.8379, type: "university" },
+  { name: "DJ Sanghvi College", lat: 19.1068, lng: 72.8366, type: "university" },
   { name: "HR College", lat: 18.9327, lng: 72.8280, type: "university" },
   { name: "Wilson College", lat: 18.9552, lng: 72.7975, type: "university" },
   { name: "IIT Bombay", lat: 19.1334, lng: 72.9133, type: "university" },
