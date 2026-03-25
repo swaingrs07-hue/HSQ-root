@@ -24,8 +24,6 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
-const GOREGAON_KEY = "Hsquare Goregaon";
-const VILEPARLE_KEY = "Hsquare Vileparle";
 
 const FALLBACK_CENTER: [number, number] = [72.8500, 19.1050];
 
@@ -285,27 +283,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           animFrameRef.current = requestAnimationFrame(animateAll);
         }
         animateAll();
-      }
-
-      const vileparleC = resolvedCoords[VILEPARLE_KEY] || (PROPERTY_COORDS[VILEPARLE_KEY] ? [PROPERTY_COORDS[VILEPARLE_KEY][1], PROPERTY_COORDS[VILEPARLE_KEY][0]] : null);
-      if (vileparleC && triangleCoordPairs.length > 0) {
-        let closestDist = Infinity; let closestIdx = 0;
-        for (let i = 0; i < triangleCoordPairs.length; i++) {
-          const tc = triangleCoordPairs[i];
-          const d = Math.sqrt(Math.pow(tc[0] - vileparleC[0], 2) + Math.pow(tc[1] - vileparleC[1], 2));
-          if (d < closestDist) { closestDist = d; closestIdx = i; }
-        }
-        map.addSource("vileparle-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [vileparleC, triangleCoordPairs[closestIdx]] } } });
-        map.addLayer({ id: "vileparle-glow", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
-        map.addLayer({ id: "vileparle-connector", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
-      }
-
-      const goregaonC = resolvedCoords[GOREGAON_KEY] || (PROPERTY_COORDS[GOREGAON_KEY] ? [PROPERTY_COORDS[GOREGAON_KEY][1], PROPERTY_COORDS[GOREGAON_KEY][0]] : null);
-      const juhuC = resolvedCoords["Hsquare Hostel Juhu"] || (PROPERTY_COORDS["Hsquare Hostel Juhu"] ? [PROPERTY_COORDS["Hsquare Hostel Juhu"][1], PROPERTY_COORDS["Hsquare Hostel Juhu"][0]] : null);
-      if (goregaonC && juhuC) {
-        map.addSource("goregaon-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [juhuC, goregaonC] } } });
-        map.addLayer({ id: "goregaon-glow", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
-        map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
       const markerFeatures: GeoJSON.Feature[] = [];
