@@ -465,11 +465,25 @@ ${allPages.map(p => `  <url>
 
   // ============ MAP SETTINGS ============
 
+  const formatMapGroup = (settings: any) => ({
+    id: settings.id,
+    name: settings.name || "Connection 1",
+    connectedPropertyIds: JSON.parse(settings.connectedPropertyIds || "[]"),
+    pattern: settings.pattern,
+    lineColor: settings.lineColor,
+    fillColor: settings.fillColor,
+    fillOpacity: parseFloat(settings.fillOpacity),
+    lineWidth: parseFloat(settings.lineWidth),
+    glowEnabled: settings.glowEnabled === "true",
+    animationEnabled: settings.animationEnabled === "true",
+  });
+
   app.get("/api/map-settings", async (req, res) => {
     try {
-      const settings = await storage.getMapSettings();
-      if (!settings) {
+      const allSettings = await storage.getAllMapSettings();
+      if (allSettings.length === 0) {
         return res.json({
+          groups: [],
           connectedPropertyIds: [],
           pattern: "triangle",
           lineColor: "#34d399",
@@ -480,15 +494,11 @@ ${allPages.map(p => `  <url>
           animationEnabled: true,
         });
       }
+      const groups = allSettings.map(formatMapGroup);
+      const first = groups[0];
       res.json({
-        connectedPropertyIds: JSON.parse(settings.connectedPropertyIds || "[]"),
-        pattern: settings.pattern,
-        lineColor: settings.lineColor,
-        fillColor: settings.fillColor,
-        fillOpacity: parseFloat(settings.fillOpacity),
-        lineWidth: parseFloat(settings.lineWidth),
-        glowEnabled: settings.glowEnabled === "true",
-        animationEnabled: settings.animationEnabled === "true",
+        groups,
+        ...first,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch map settings" });
@@ -498,6 +508,44 @@ ${allPages.map(p => `  <url>
   app.put("/api/admin/map-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const data = req.body;
+      if (data.groups && Array.isArray(data.groups)) {
+        const existingGroups = await storage.getAllMapSettings();
+        const existingIds = new Set(existingGroups.map(g => g.id));
+        const incomingIds = new Set(data.groups.filter((g: any) => g.id).map((g: any) => g.id));
+
+        for (const eg of existingGroups) {
+          if (!incomingIds.has(eg.id)) {
+            await storage.deleteMapSettingsGroup(eg.id);
+          }
+        }
+
+        const results = [];
+        for (const group of data.groups) {
+          const groupData = {
+            name: group.name || "Connection",
+            connectedPropertyIds: JSON.stringify(group.connectedPropertyIds || []),
+            pattern: group.pattern || "triangle",
+            lineColor: group.lineColor || "#34d399",
+            fillColor: group.fillColor || "#34d399",
+            fillOpacity: String(group.fillOpacity ?? 0.15),
+            lineWidth: String(group.lineWidth ?? 2.5),
+            glowEnabled: String(group.glowEnabled ?? true),
+            animationEnabled: String(group.animationEnabled ?? true),
+          };
+
+          if (group.id && existingIds.has(group.id)) {
+            const updated = await storage.updateMapSettingsGroup(group.id, groupData);
+            results.push(formatMapGroup(updated));
+          } else {
+            const created = await storage.createMapSettingsGroup(groupData);
+            results.push(formatMapGroup(created));
+          }
+        }
+
+        const first = results[0] || { connectedPropertyIds: [], pattern: "triangle", lineColor: "#34d399", fillColor: "#34d399", fillOpacity: 0.15, lineWidth: 2.5, glowEnabled: true, animationEnabled: true };
+        return res.json({ groups: results, ...first });
+      }
+
       const settings = await storage.upsertMapSettings({
         connectedPropertyIds: JSON.stringify(data.connectedPropertyIds || []),
         pattern: data.pattern || "triangle",
@@ -508,16 +556,8 @@ ${allPages.map(p => `  <url>
         glowEnabled: String(data.glowEnabled ?? true),
         animationEnabled: String(data.animationEnabled ?? true),
       });
-      res.json({
-        connectedPropertyIds: JSON.parse(settings.connectedPropertyIds || "[]"),
-        pattern: settings.pattern,
-        lineColor: settings.lineColor,
-        fillColor: settings.fillColor,
-        fillOpacity: parseFloat(settings.fillOpacity),
-        lineWidth: parseFloat(settings.lineWidth),
-        glowEnabled: settings.glowEnabled === "true",
-        animationEnabled: settings.animationEnabled === "true",
-      });
+      const formatted = formatMapGroup(settings);
+      res.json({ groups: [formatted], ...formatted });
     } catch (error) {
       res.status(500).json({ error: "Failed to update map settings" });
     }

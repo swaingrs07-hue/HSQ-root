@@ -15,7 +15,21 @@ interface Property {
   mapLongitude?: string | null;
 }
 
+interface ConnectionGroup {
+  id?: string;
+  name?: string;
+  connectedPropertyIds: string[];
+  pattern: string;
+  lineColor: string;
+  fillColor: string;
+  fillOpacity: number;
+  lineWidth: number;
+  glowEnabled: boolean;
+  animationEnabled: boolean;
+}
+
 interface MapSettingsData {
+  groups?: ConnectionGroup[];
   connectedPropertyIds: string[];
   pattern: string;
   lineColor: string;
@@ -387,39 +401,49 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         });
       } catch (_) {}
 
-      const lineColor = mapConfig?.lineColor || "#34d399";
-      const fillColor = mapConfig?.fillColor || "#34d399";
-      const fillOpacity = mapConfig?.fillOpacity ?? 0.15;
-      const lineWidth = mapConfig?.lineWidth ?? 2.5;
-      const glowEnabled = mapConfig?.glowEnabled ?? true;
-      const animationEnabled = mapConfig?.animationEnabled ?? true;
-      const pattern = mapConfig?.pattern || "triangle";
-      const connectedIds = mapConfig?.connectedPropertyIds || [];
+      const connectionGroups: ConnectionGroup[] = mapConfig?.groups && mapConfig.groups.length > 0
+        ? mapConfig.groups
+        : mapConfig?.connectedPropertyIds?.length
+          ? [{ connectedPropertyIds: mapConfig.connectedPropertyIds, pattern: mapConfig.pattern, lineColor: mapConfig.lineColor, fillColor: mapConfig.fillColor, fillOpacity: mapConfig.fillOpacity, lineWidth: mapConfig.lineWidth, glowEnabled: mapConfig.glowEnabled, animationEnabled: mapConfig.animationEnabled }]
+          : [];
 
-      const connectedCoords: [number, number][] = [];
-      if (connectedIds.length >= 2) {
-        for (const pid of connectedIds) {
-          const match = propertyCoords.find(({ property }) => property.id === pid);
-          if (match) connectedCoords.push([match.coords[1], match.coords[0]]);
-        }
-      }
-      if (connectedCoords.length < 2) {
-        const FALLBACK_NAMES = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Vileparle"];
-        for (const tk of FALLBACK_NAMES) {
-          const match = propertyCoords.find(({ property }) => (property.displayName || property.name) === tk);
-          if (match) connectedCoords.push([match.coords[1], match.coords[0]]);
-        }
-      }
+      const allGroupAnimations: Array<{ lineCoordinates: [number, number][]; particleSource: string; fillLayer?: string; glowLayer?: string; fillOpacity: number; glowEnabled: boolean; pattern: string }> = [];
 
-      if (connectedCoords.length >= 2) {
+      connectionGroups.forEach((group, gi) => {
+        const lineColor = group.lineColor || "#34d399";
+        const fillColor = group.fillColor || "#34d399";
+        const fillOpacity = group.fillOpacity ?? 0.15;
+        const lineWidth = group.lineWidth ?? 2.5;
+        const glowEnabled = group.glowEnabled ?? true;
+        const animationEnabled = group.animationEnabled ?? true;
+        const pattern = group.pattern || "triangle";
+        const connectedIds = group.connectedPropertyIds || [];
+
+        const connectedCoords: [number, number][] = [];
+        if (connectedIds.length >= 2) {
+          for (const pid of connectedIds) {
+            const match = propertyCoords.find(({ property }) => property.id === pid);
+            if (match) connectedCoords.push([match.coords[1], match.coords[0]]);
+          }
+        }
+        if (gi === 0 && connectedCoords.length < 2) {
+          const FALLBACK_NAMES = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Vileparle"];
+          for (const tk of FALLBACK_NAMES) {
+            const match = propertyCoords.find(({ property }) => (property.displayName || property.name) === tk);
+            if (match) connectedCoords.push([match.coords[1], match.coords[0]]);
+          }
+        }
+
+        if (connectedCoords.length < 2) return;
+
+        const prefix = `g${gi}`;
         let lineCoordinates: [number, number][];
 
         if (pattern === "triangle" && connectedCoords.length >= 3) {
           const closed = [...connectedCoords.slice(0, connectedCoords.length), connectedCoords[0]];
           lineCoordinates = closed;
-
-          map.addSource("triangle-fill", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
-          map.addLayer({ id: "triangle-fill-layer", type: "fill", source: "triangle-fill", paint: { "fill-color": fillColor, "fill-opacity": fillOpacity } });
+          map.addSource(`${prefix}-tri-fill`, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
+          map.addLayer({ id: `${prefix}-tri-fill-layer`, type: "fill", source: `${prefix}-tri-fill`, paint: { "fill-color": fillColor, "fill-opacity": fillOpacity } });
         } else if (pattern === "network") {
           const lineFeatures: GeoJSON.Feature[] = [];
           for (let i = 0; i < connectedCoords.length; i++) {
@@ -427,12 +451,12 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
               lineFeatures.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [connectedCoords[i], connectedCoords[j]] } });
             }
           }
-          map.addSource("property-network-multi", { type: "geojson", data: { type: "FeatureCollection", features: lineFeatures } });
+          map.addSource(`${prefix}-net`, { type: "geojson", data: { type: "FeatureCollection", features: lineFeatures } });
           if (glowEnabled) {
-            map.addLayer({ id: "network-glow-wide-multi", type: "line", source: "property-network-multi", paint: { "line-color": lineColor, "line-width": lineWidth * 7, "line-opacity": 0.1, "line-blur": 14 } });
-            map.addLayer({ id: "network-glow-mid-multi", type: "line", source: "property-network-multi", paint: { "line-color": lineColor, "line-width": lineWidth * 3, "line-opacity": 0.18, "line-blur": 4 } });
+            map.addLayer({ id: `${prefix}-net-glow-wide`, type: "line", source: `${prefix}-net`, paint: { "line-color": lineColor, "line-width": lineWidth * 7, "line-opacity": 0.1, "line-blur": 14 } });
+            map.addLayer({ id: `${prefix}-net-glow-mid`, type: "line", source: `${prefix}-net`, paint: { "line-color": lineColor, "line-width": lineWidth * 3, "line-opacity": 0.18, "line-blur": 4 } });
           }
-          map.addLayer({ id: "network-edge-solid-multi", type: "line", source: "property-network-multi", paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 } });
+          map.addLayer({ id: `${prefix}-net-solid`, type: "line", source: `${prefix}-net`, paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 } });
           lineCoordinates = connectedCoords;
         } else {
           const dist = (a: [number, number], b: [number, number]) => Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2));
@@ -451,52 +475,65 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         }
 
         if (pattern !== "network") {
-          map.addSource("property-network", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: lineCoordinates } } });
+          map.addSource(`${prefix}-line`, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: lineCoordinates } } });
           if (glowEnabled) {
-            map.addLayer({ id: "network-glow-wide", type: "line", source: "property-network", paint: { "line-color": lineColor, "line-width": lineWidth * 7, "line-opacity": 0.1, "line-blur": 14 } });
-            map.addLayer({ id: "network-glow-mid", type: "line", source: "property-network", paint: { "line-color": lineColor, "line-width": lineWidth * 3, "line-opacity": 0.18, "line-blur": 4 } });
+            map.addLayer({ id: `${prefix}-line-glow-wide`, type: "line", source: `${prefix}-line`, paint: { "line-color": lineColor, "line-width": lineWidth * 7, "line-opacity": 0.1, "line-blur": 14 } });
+            map.addLayer({ id: `${prefix}-line-glow-mid`, type: "line", source: `${prefix}-line`, paint: { "line-color": lineColor, "line-width": lineWidth * 3, "line-opacity": 0.18, "line-blur": 4 } });
           }
-          map.addLayer({ id: "network-edge-solid", type: "line", source: "property-network", paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 } });
+          map.addLayer({ id: `${prefix}-line-solid`, type: "line", source: `${prefix}-line`, paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 } });
         }
 
         if (animationEnabled && lineCoordinates.length >= 2) {
-          map.addSource("net-particle", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: lineCoordinates[0] } } });
+          const particleSrc = `${prefix}-particle`;
+          map.addSource(particleSrc, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: lineCoordinates[0] } } });
           if (glowEnabled) {
-            map.addLayer({ id: "net-particle-glow", type: "circle", source: "net-particle", paint: { "circle-radius": 12, "circle-color": lineColor, "circle-opacity": 0.25, "circle-blur": 1 } });
+            map.addLayer({ id: `${prefix}-particle-glow`, type: "circle", source: particleSrc, paint: { "circle-radius": 12, "circle-color": lineColor, "circle-opacity": 0.25, "circle-blur": 1 } });
           }
-          map.addLayer({ id: "net-particle-dot", type: "circle", source: "net-particle", paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.95 } });
+          map.addLayer({ id: `${prefix}-particle-dot`, type: "circle", source: particleSrc, paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.95 } });
 
-          let particlePhase = 0;
-          let fillPhase = 0;
-          const totalSegs = lineCoordinates.length - 1;
-          function animateAll() {
-            particlePhase += 0.003;
-            if (particlePhase > 1) particlePhase = 0;
-            fillPhase += 0.012;
+          allGroupAnimations.push({
+            lineCoordinates,
+            particleSource: particleSrc,
+            fillLayer: pattern === "triangle" ? `${prefix}-tri-fill-layer` : undefined,
+            glowLayer: glowEnabled ? (pattern === "network" ? `${prefix}-net-glow-wide` : `${prefix}-line-glow-wide`) : undefined,
+            fillOpacity,
+            glowEnabled,
+            pattern,
+          });
+        }
+      });
 
-            const progress = particlePhase * totalSegs;
+      if (allGroupAnimations.length > 0) {
+        const phases = allGroupAnimations.map(() => ({ particle: 0, fill: 0 }));
+        function animateAllGroups() {
+          allGroupAnimations.forEach((anim, ai) => {
+            phases[ai].particle += 0.003;
+            if (phases[ai].particle > 1) phases[ai].particle = 0;
+            phases[ai].fill += 0.012;
+
+            const totalSegs = anim.lineCoordinates.length - 1;
+            const progress = phases[ai].particle * totalSegs;
             const segIdx = Math.min(Math.floor(progress), totalSegs - 1);
             const segT = progress - segIdx;
-            const from = lineCoordinates[segIdx];
-            const to = lineCoordinates[segIdx + 1];
+            const from = anim.lineCoordinates[segIdx];
+            const to = anim.lineCoordinates[segIdx + 1];
             const pLng = from[0] + (to[0] - from[0]) * segT;
             const pLat = from[1] + (to[1] - from[1]) * segT;
-            const src = map.getSource("net-particle") as maplibregl.GeoJSONSource;
+            const src = map.getSource(anim.particleSource) as maplibregl.GeoJSONSource;
             if (src) src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [pLng, pLat] } });
 
-            if (pattern === "triangle") {
-              const fOp = (fillOpacity - 0.03) + Math.sin(fillPhase) * 0.06;
-              if (map.getLayer("triangle-fill-layer")) map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.04, fOp));
+            if (anim.fillLayer && anim.pattern === "triangle") {
+              const fOp = (anim.fillOpacity - 0.03) + Math.sin(phases[ai].fill) * 0.06;
+              if (map.getLayer(anim.fillLayer)) map.setPaintProperty(anim.fillLayer, "fill-opacity", Math.max(0.04, fOp));
             }
-            if (glowEnabled) {
-              const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.06;
-              const glowLayer = pattern === "network" ? "network-glow-wide-multi" : "network-glow-wide";
-              if (map.getLayer(glowLayer)) map.setPaintProperty(glowLayer, "line-opacity", glowOp);
+            if (anim.glowLayer && anim.glowEnabled) {
+              const glowOp = 0.08 + Math.sin(phases[ai].fill * 0.7) * 0.06;
+              if (map.getLayer(anim.glowLayer)) map.setPaintProperty(anim.glowLayer, "line-opacity", glowOp);
             }
-            animFrameRef.current = requestAnimationFrame(animateAll);
-          }
-          animateAll();
+          });
+          animFrameRef.current = requestAnimationFrame(animateAllGroups);
         }
+        animateAllGroups();
       }
 
       const markerFeatures: GeoJSON.Feature[] = [];
@@ -799,8 +836,8 @@ export function ConnectivityShowcase({ properties }: { properties: Property[] })
 
   if (!properties || properties.length < 2) return null;
 
-  const patternName = mapConfig?.pattern === "chain" ? "Chain" : mapConfig?.pattern === "network" ? "Network" : "Triangle";
-  const shapeLabel = patternName;
+  const groupCount = mapConfig?.groups?.length || 1;
+  const shapeLabel = groupCount > 1 ? "Network" : (mapConfig?.pattern === "chain" ? "Chain" : mapConfig?.pattern === "network" ? "Network" : "Triangle");
 
   return (
     <section className="w-full bg-[#050505] text-white py-16 md:py-24 relative overflow-hidden" data-testid="connectivity-showcase">

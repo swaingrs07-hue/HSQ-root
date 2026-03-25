@@ -351,7 +351,11 @@ export interface IStorage {
 
   // Map Settings
   getMapSettings(): Promise<MapSettings | null>;
+  getAllMapSettings(): Promise<MapSettings[]>;
   upsertMapSettings(data: Partial<MapSettings>): Promise<MapSettings>;
+  createMapSettingsGroup(data: Partial<MapSettings>): Promise<MapSettings>;
+  updateMapSettingsGroup(id: string, data: Partial<MapSettings>): Promise<MapSettings>;
+  deleteMapSettingsGroup(id: string): Promise<void>;
 
   // Homepage Amenities
   getHomepageAmenities(): Promise<HomepageAmenity[]>;
@@ -1973,6 +1977,10 @@ export class DatabaseStorage implements IStorage {
     return settings || null;
   }
 
+  async getAllMapSettings(): Promise<MapSettings[]> {
+    return await db.select().from(mapSettings).orderBy(mapSettings.updatedAt);
+  }
+
   async upsertMapSettings(data: Partial<MapSettings>): Promise<MapSettings> {
     const existing = await this.getMapSettings();
     if (existing) {
@@ -1981,6 +1989,20 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(mapSettings).values(data as any).returning();
     return created;
+  }
+
+  async createMapSettingsGroup(data: Partial<MapSettings>): Promise<MapSettings> {
+    const [created] = await db.insert(mapSettings).values(data as any).returning();
+    return created;
+  }
+
+  async updateMapSettingsGroup(id: string, data: Partial<MapSettings>): Promise<MapSettings> {
+    const [updated] = await db.update(mapSettings).set({ ...data, updatedAt: new Date() }).where(eq(mapSettings.id, id)).returning();
+    return updated;
+  }
+
+  async deleteMapSettingsGroup(id: string): Promise<void> {
+    await db.delete(mapSettings).where(eq(mapSettings.id, id));
   }
 
   async getInstagramPosts(): Promise<InstagramPost[]> {

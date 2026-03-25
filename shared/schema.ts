@@ -1497,6 +1497,7 @@ export type InsertRegistrationRequest = z.infer<typeof insertRegistrationRequest
 
 export const mapSettings = pgTable("map_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().default("Connection 1"),
   connectedPropertyIds: text("connected_property_ids").notNull().default("[]"),
   pattern: text("pattern").notNull().default("triangle"),
   lineColor: text("line_color").notNull().default("#34d399"),
