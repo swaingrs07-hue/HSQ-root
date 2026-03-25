@@ -37,7 +37,12 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 };
 
 
-const FALLBACK_CENTER: [number, number] = [72.8500, 19.1050];
+const FALLBACK_CENTER: [number, number] = [72.8700, 19.0900];
+
+const MUMBAI_BOUNDS: [[number, number], [number, number]] = [
+  [72.7200, 18.8800],
+  [73.0500, 19.2800],
+];
 
 const HOTSPOT_COLORS: Record<string, string> = {
   university: "#a78bfa",
@@ -57,17 +62,47 @@ const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> 
   { name: "Jai Hind College", lat: 19.0695, lng: 72.8295, type: "university" },
   { name: "St. Xavier's College", lat: 19.0760, lng: 72.8290, type: "university" },
   { name: "KC College", lat: 19.0690, lng: 72.8300, type: "university" },
+  { name: "Mumbai University", lat: 19.0225, lng: 72.8558, type: "university" },
+  { name: "SIES College", lat: 19.0440, lng: 72.8890, type: "university" },
+  { name: "Thakur College", lat: 19.2150, lng: 72.8718, type: "university" },
+  { name: "Rizvi College", lat: 19.0660, lng: 72.8400, type: "university" },
+  { name: "Sophia College", lat: 19.0455, lng: 72.8145, type: "university" },
+  { name: "TISS", lat: 19.0430, lng: 72.8610, type: "university" },
+  { name: "ICT Mumbai", lat: 19.0220, lng: 72.8560, type: "university" },
+  { name: "VJTI", lat: 19.0230, lng: 72.8555, type: "university" },
   { name: "Juhu Beach", lat: 19.0930, lng: 72.8240, type: "lifestyle" },
+  { name: "Marine Drive", lat: 18.9432, lng: 72.8235, type: "lifestyle" },
+  { name: "Bandra-Worli Sea Link", lat: 19.0300, lng: 72.8150, type: "lifestyle" },
+  { name: "Gateway of India", lat: 18.9220, lng: 72.8347, type: "lifestyle" },
+  { name: "Powai Lake", lat: 19.1260, lng: 72.9050, type: "lifestyle" },
+  { name: "Hiranandani Gardens", lat: 19.1210, lng: 72.9085, type: "lifestyle" },
+  { name: "Versova Beach", lat: 19.1350, lng: 72.8120, type: "lifestyle" },
+  { name: "Carter Road", lat: 19.0600, lng: 72.8220, type: "lifestyle" },
   { name: "Andheri Metro", lat: 19.1197, lng: 72.8500, type: "transit" },
   { name: "Mumbai Airport", lat: 19.0896, lng: 72.8680, type: "transit" },
-  { name: "Oberoi Mall", lat: 19.1730, lng: 72.8610, type: "market" },
-  { name: "Infinity Mall", lat: 19.1188, lng: 72.8460, type: "market" },
-  { name: "Linking Road Market", lat: 19.0740, lng: 72.8435, type: "market" },
-  { name: "Lokhandwala Market", lat: 19.1405, lng: 72.8340, type: "market" },
   { name: "Vile Parle Station", lat: 19.0980, lng: 72.8445, type: "transit" },
   { name: "Goregaon Station", lat: 19.1650, lng: 72.8490, type: "transit" },
   { name: "Andheri Station", lat: 19.1190, lng: 72.8468, type: "transit" },
   { name: "Bandra Station", lat: 19.0544, lng: 72.8402, type: "transit" },
+  { name: "Dadar Station", lat: 19.0190, lng: 72.8438, type: "transit" },
+  { name: "CST (VT) Station", lat: 18.9398, lng: 72.8355, type: "transit" },
+  { name: "Borivali Station", lat: 19.2285, lng: 72.8565, type: "transit" },
+  { name: "Thane Station", lat: 19.1860, lng: 72.9752, type: "transit" },
+  { name: "Malad Station", lat: 19.1870, lng: 72.8483, type: "transit" },
+  { name: "Kurla Station", lat: 19.0655, lng: 72.8792, type: "transit" },
+  { name: "Churchgate Station", lat: 18.9350, lng: 72.8272, type: "transit" },
+  { name: "Lower Parel", lat: 18.9980, lng: 72.8310, type: "transit" },
+  { name: "Oberoi Mall", lat: 19.1730, lng: 72.8610, type: "market" },
+  { name: "Infinity Mall", lat: 19.1188, lng: 72.8460, type: "market" },
+  { name: "Linking Road Market", lat: 19.0740, lng: 72.8435, type: "market" },
+  { name: "Lokhandwala Market", lat: 19.1405, lng: 72.8340, type: "market" },
+  { name: "Phoenix Mall (Lower Parel)", lat: 18.9948, lng: 72.8283, type: "market" },
+  { name: "R City Mall (Ghatkopar)", lat: 19.0910, lng: 72.9166, type: "market" },
+  { name: "Inorbit Mall (Malad)", lat: 19.1780, lng: 72.8388, type: "market" },
+  { name: "Viviana Mall (Thane)", lat: 19.2095, lng: 72.9710, type: "market" },
+  { name: "Colaba Causeway", lat: 18.9230, lng: 72.8320, type: "market" },
+  { name: "Crawford Market", lat: 18.9478, lng: 72.8340, type: "market" },
+  { name: "BKC", lat: 19.0580, lng: 72.8650, type: "lifestyle" },
 ];
 
 const FEATURES = [
@@ -142,12 +177,15 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
       container: mapRef.current,
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center,
-      zoom: 12.5,
-      pitch: 50,
+      zoom: 11.5,
+      pitch: 45,
       bearing: -15,
       antialias: true,
       attributionControl: false,
       dragRotate: true,
+      maxBounds: MUMBAI_BOUNDS,
+      minZoom: 10.5,
+      maxZoom: 17,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
