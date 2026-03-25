@@ -157,9 +157,9 @@ function PropertyMap({ properties }: { properties: Property[] }) {
             minzoom: 0,
             maxzoom: 19,
             paint: {
-              "raster-brightness-max": 0.45,
-              "raster-contrast": 0.3,
-              "raster-saturation": -0.6,
+              "raster-brightness-max": 0.85,
+              "raster-contrast": 0.15,
+              "raster-saturation": -0.3,
             },
           },
         ],
