@@ -22,14 +22,14 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
   "Hsquare Utopia": [19.0750, 72.8700],
 };
 
-const BUILDING_CONFIGS: Record<string, { floors: number; color: string; accent: string }> = {
-  "Hsquare Hostel Juhu": { floors: 8, color: "#1a365d", accent: "#67e8f9" },
-  "Hsquare Vileparle": { floors: 6, color: "#1e3a5f", accent: "#67e8f9" },
-  "Hsquare Bayview": { floors: 7, color: "#1a365d", accent: "#34d399" },
-  "Hsquare Goregaon": { floors: 10, color: "#1e3a5f", accent: "#67e8f9" },
-  "Hotel Neelkamal": { floors: 5, color: "#2d1b4e", accent: "#a78bfa" },
-  "Hsquare Caledonia": { floors: 6, color: "#1a365d", accent: "#34d399" },
-  "Hsquare Utopia": { floors: 7, color: "#1e3a5f", accent: "#67e8f9" },
+const BUILDING_CONFIGS: Record<string, { floors: number; widthPx: number; heightPx: number; roofStyle: string }> = {
+  "Hsquare Hostel Juhu": { floors: 12, widthPx: 48, heightPx: 110, roofStyle: "pointed" },
+  "Hsquare Vileparle": { floors: 8, widthPx: 40, heightPx: 80, roofStyle: "flat" },
+  "Hsquare Bayview": { floors: 10, widthPx: 44, heightPx: 95, roofStyle: "pointed" },
+  "Hsquare Goregaon": { floors: 14, widthPx: 50, heightPx: 120, roofStyle: "antenna" },
+  "Hotel Neelkamal": { floors: 6, widthPx: 36, heightPx: 65, roofStyle: "flat" },
+  "Hsquare Caledonia": { floors: 10, widthPx: 44, heightPx: 100, roofStyle: "antenna" },
+  "Hsquare Utopia": { floors: 8, widthPx: 40, heightPx: 80, roofStyle: "flat" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -37,6 +37,12 @@ const GOREGAON_KEY = "Hsquare Goregaon";
 const VILEPARLE_KEY = "Hsquare Vileparle";
 
 const FALLBACK_CENTER: [number, number] = [72.8500, 19.1050];
+
+const HOTSPOT_ICONS: Record<string, string> = {
+  university: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+  lifestyle: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+  transit: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 17v4M8 21h8M9 7h6M9 11h6"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>`,
+};
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
   { name: "NMIMS University", lat: 19.1044, lng: 72.8370, type: "university" },
@@ -88,37 +94,63 @@ function getCoords(property: Property): [number, number] | null {
   return null;
 }
 
-function create3DBuildingHTML(name: string, location: string, config: { floors: number; color: string; accent: string }) {
-  const { floors, color, accent } = config;
-  const buildingH = Math.min(floors * 8, 80);
-  const buildingW = 36;
+function createSkyscraperHTML(name: string, location: string, cfg: { floors: number; widthPx: number; heightPx: number; roofStyle: string }) {
+  const { floors, widthPx, heightPx, roofStyle } = cfg;
+  const floorH = Math.floor(heightPx / floors);
+  const sideW = Math.floor(widthPx * 0.35);
 
-  let windowRows = "";
-  for (let f = 0; f < Math.min(floors, 8); f++) {
-    const y = f * (buildingH / Math.min(floors, 8)) + 2;
-    windowRows += `
-      <div style="position:absolute;left:3px;right:3px;top:${y}px;height:${Math.max(buildingH / Math.min(floors, 8) - 3, 4)}px;display:flex;gap:2px;justify-content:center;align-items:center;">
-        <div class="building-window" style="width:4px;height:${Math.max(buildingH / Math.min(floors, 8) - 5, 3)}px;background:rgba(103,232,249,${0.3 + Math.random() * 0.5});border-radius:1px;"></div>
-        <div class="building-window" style="width:4px;height:${Math.max(buildingH / Math.min(floors, 8) - 5, 3)}px;background:rgba(103,232,249,${0.3 + Math.random() * 0.5});border-radius:1px;"></div>
-        <div class="building-window" style="width:4px;height:${Math.max(buildingH / Math.min(floors, 8) - 5, 3)}px;background:rgba(103,232,249,${0.3 + Math.random() * 0.5});border-radius:1px;"></div>
-        <div class="building-window" style="width:4px;height:${Math.max(buildingH / Math.min(floors, 8) - 5, 3)}px;background:rgba(52,211,153,${0.2 + Math.random() * 0.4});border-radius:1px;"></div>
-      </div>
+  let frontWindows = "";
+  for (let f = 0; f < floors; f++) {
+    const winY = f * floorH + 1;
+    const lit1 = Math.random() > 0.25;
+    const lit2 = Math.random() > 0.3;
+    const lit3 = Math.random() > 0.25;
+    frontWindows += `<div style="position:absolute;top:${winY}px;left:4px;right:4px;height:${floorH - 2}px;display:flex;gap:2px;">
+      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};transition:opacity 2s;" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};" class="skyscraper-win"></div>
+    </div>`;
+  }
+
+  let sideWindows = "";
+  for (let f = 0; f < floors; f++) {
+    const winY = f * floorH + 1;
+    const lit = Math.random() > 0.4;
+    sideWindows += `<div style="position:absolute;top:${winY}px;left:3px;right:2px;height:${floorH - 2}px;background:${lit ? 'rgba(103,232,249,0.3)' : 'rgba(20,35,60,0.4)'};border-radius:1px;" class="skyscraper-win"></div>`;
+  }
+
+  let roofHTML = "";
+  if (roofStyle === "pointed") {
+    roofHTML = `
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:${widthPx / 3}px solid transparent;border-right:${widthPx / 3}px solid transparent;border-bottom:12px solid #1a3a6a;filter:drop-shadow(0 -2px 6px rgba(103,232,249,0.4));"></div>
+      <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:2px;height:8px;background:rgba(103,232,249,0.9);box-shadow:0 0 6px rgba(103,232,249,0.8);border-radius:1px;"></div>
     `;
+  } else if (roofStyle === "antenna") {
+    roofHTML = `
+      <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:2px;height:20px;background:linear-gradient(to top,#2a4a7a,rgba(103,232,249,0.8));box-shadow:0 0 8px rgba(103,232,249,0.5);"></div>
+      <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:rgba(239,68,68,0.9);box-shadow:0 0 10px rgba(239,68,68,0.8);" class="antenna-blink"></div>
+    `;
+  } else {
+    roofHTML = `<div style="position:absolute;top:-3px;left:2px;right:2px;height:3px;background:linear-gradient(90deg,#2a4a7a,rgba(103,232,249,0.5),#2a4a7a);border-radius:1px 1px 0 0;box-shadow:0 -1px 8px rgba(103,232,249,0.3);"></div>`;
   }
 
   return `
-    <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 0 12px ${accent}40);">
-      <div class="building-3d" style="position:relative;width:${buildingW}px;height:${buildingH}px;transform:perspective(200px) rotateX(2deg);">
-        <div style="position:absolute;inset:0;background:linear-gradient(180deg,${color},${color}dd);border:1px solid ${accent}40;border-radius:2px 2px 0 0;box-shadow:inset -8px 0 12px rgba(0,0,0,0.4),inset 2px 0 8px ${accent}15;">
-          ${windowRows}
+    <div class="skyscraper-marker" style="display:flex;flex-direction:column;align-items:center;">
+      <div class="skyscraper-body" style="position:relative;display:flex;filter:drop-shadow(0 4px 20px rgba(6,182,212,0.25)) drop-shadow(0 0 40px rgba(6,182,212,0.1));">
+        <div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:linear-gradient(180deg,#0d2240 0%,#152d50 40%,#1a365d 100%);border:1px solid rgba(103,232,249,0.2);border-radius:2px 2px 0 0;overflow:hidden;">
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,transparent 50%,rgba(0,0,0,0.15) 100%);pointer-events:none;"></div>
+          <div style="position:absolute;top:0;left:0;width:2px;height:100%;background:linear-gradient(180deg,rgba(103,232,249,0.4),transparent);"></div>
+          ${frontWindows}
+          ${roofHTML}
         </div>
-        <div style="position:absolute;top:-4px;left:2px;right:2px;height:4px;background:${accent};border-radius:1px 1px 0 0;box-shadow:0 -2px 8px ${accent}60;"></div>
-        <div style="position:absolute;top:-8px;left:30%;right:30%;height:5px;background:${accent}80;border-radius:2px 2px 0 0;"></div>
-        <div class="building-glow" style="position:absolute;bottom:0;left:-4px;right:-4px;height:8px;background:linear-gradient(to top,${accent}30,transparent);border-radius:0 0 4px 4px;"></div>
+        <div style="width:${sideW}px;height:${heightPx}px;background:linear-gradient(180deg,#091a33 0%,#0d2240 100%);border-right:1px solid rgba(103,232,249,0.1);border-radius:0 2px 0 0;position:relative;overflow:hidden;transform:skewY(-8deg);transform-origin:top left;margin-top:0;">
+          ${sideWindows}
+        </div>
       </div>
-      <div style="margin-top:6px;min-width:120px;border-radius:10px;border:1px solid ${accent}30;background:rgba(5,8,18,0.95);backdrop-filter:blur(16px);padding:5px 10px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.7),0 0 15px ${accent}15;">
-        <div style="font-size:10px;font-weight:800;color:white;line-height:1.2;letter-spacing:0.03em;">${name}</div>
-        <div style="font-size:8px;color:${accent};margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.7;">${location}</div>
+      <div class="building-ground-glow" style="width:${widthPx + sideW + 16}px;height:6px;background:radial-gradient(ellipse,rgba(103,232,249,0.35) 0%,transparent 70%);margin-top:-1px;"></div>
+      <div style="margin-top:4px;min-width:${Math.max(widthPx + sideW + 20, 120)}px;border-radius:10px;border:1px solid rgba(103,232,249,0.2);background:rgba(5,8,18,0.95);backdrop-filter:blur(16px);padding:5px 10px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 20px rgba(6,182,212,0.08);">
+        <div style="font-size:10.5px;font-weight:800;color:white;line-height:1.2;letter-spacing:0.03em;">${name}</div>
+        <div style="font-size:8px;color:rgba(103,232,249,0.6);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;">${location}</div>
       </div>
     </div>
   `;
@@ -174,8 +206,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       },
       center,
       zoom: 12.5,
-      pitch: 50,
-      bearing: -15,
+      pitch: 45,
+      bearing: -12,
       antialias: true,
       attributionControl: false,
     });
@@ -194,55 +226,110 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
         map.addSource("triangle-fill", {
           type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "Polygon", coordinates: [closed] },
-          },
+          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } },
         });
-
         map.addLayer({
           id: "triangle-fill-layer",
           type: "fill",
           source: "triangle-fill",
-          paint: {
-            "fill-color": "#10b981",
-            "fill-opacity": 0.08,
-          },
+          paint: { "fill-color": "#10b981", "fill-opacity": 0.06 },
         });
 
         map.addSource("triangle-edges", {
           type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "LineString", coordinates: closed },
-          },
+          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: closed } },
         });
 
         map.addLayer({
-          id: "triangle-glow",
+          id: "triangle-glow-wide",
           type: "line",
           source: "triangle-edges",
-          paint: {
-            "line-color": "#67e8f9",
-            "line-width": 10,
-            "line-opacity": 0.12,
-            "line-blur": 8,
-          },
+          paint: { "line-color": "#67e8f9", "line-width": 18, "line-opacity": 0.08, "line-blur": 12 },
+        });
+        map.addLayer({
+          id: "triangle-glow-mid",
+          type: "line",
+          source: "triangle-edges",
+          paint: { "line-color": "#67e8f9", "line-width": 8, "line-opacity": 0.15, "line-blur": 4 },
+        });
+        map.addLayer({
+          id: "triangle-edge-solid",
+          type: "line",
+          source: "triangle-edges",
+          paint: { "line-color": "#67e8f9", "line-width": 2.5, "line-opacity": 0.9 },
         });
 
-        map.addLayer({
-          id: "triangle-edge-line",
-          type: "line",
-          source: "triangle-edges",
-          paint: {
-            "line-color": "#67e8f9",
-            "line-width": 2.5,
-            "line-opacity": 0.85,
-            "line-dasharray": [3, 1.5],
-          },
-        });
+        for (let i = 0; i < 3; i++) {
+          const from = triangleCoordPairs[i];
+          const to = triangleCoordPairs[(i + 1) % 3];
+          map.addSource(`triangle-particle-${i}`, {
+            type: "geojson",
+            data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: from } },
+          });
+          map.addLayer({
+            id: `triangle-particle-glow-${i}`,
+            type: "circle",
+            source: `triangle-particle-${i}`,
+            paint: { "circle-radius": 12, "circle-color": "#34d399", "circle-opacity": 0.2, "circle-blur": 1 },
+          });
+          map.addLayer({
+            id: `triangle-particle-${i}`,
+            type: "circle",
+            source: `triangle-particle-${i}`,
+            paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.9 },
+          });
+        }
+
+        let particlePhase = 0;
+        function animateParticles() {
+          particlePhase += 0.004;
+          if (particlePhase > 1) particlePhase = 0;
+
+          for (let i = 0; i < 3; i++) {
+            const from = triangleCoordPairs[i];
+            const to = triangleCoordPairs[(i + 1) % 3];
+            const t = (particlePhase + i * 0.33) % 1;
+            const lng = from[0] + (to[0] - from[0]) * t;
+            const lat = from[1] + (to[1] - from[1]) * t;
+            const src = map.getSource(`triangle-particle-${i}`) as maplibregl.GeoJSONSource;
+            if (src) {
+              src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lng, lat] } });
+            }
+          }
+          animFrameRef.current = requestAnimationFrame(animateParticles);
+        }
+
+        let fillPhase = 0;
+        const origAnimate = animateParticles;
+        function animateAll() {
+          particlePhase += 0.004;
+          if (particlePhase > 1) particlePhase = 0;
+          fillPhase += 0.012;
+
+          for (let i = 0; i < 3; i++) {
+            const from = triangleCoordPairs[i];
+            const to = triangleCoordPairs[(i + 1) % 3];
+            const t = (particlePhase + i * 0.33) % 1;
+            const lng = from[0] + (to[0] - from[0]) * t;
+            const lat = from[1] + (to[1] - from[1]) * t;
+            const src = map.getSource(`triangle-particle-${i}`) as maplibregl.GeoJSONSource;
+            if (src) {
+              src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lng, lat] } });
+            }
+          }
+
+          const fillOp = 0.04 + Math.sin(fillPhase) * 0.04;
+          if (map.getLayer("triangle-fill-layer")) {
+            map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.02, fillOp));
+          }
+          const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.07;
+          if (map.getLayer("triangle-glow-wide")) {
+            map.setPaintProperty("triangle-glow-wide", "line-opacity", glowOp);
+          }
+
+          animFrameRef.current = requestAnimationFrame(animateAll);
+        }
+        animateAll();
       }
 
       const vileparleCoords = PROPERTY_COORDS[VILEPARLE_KEY];
@@ -256,21 +343,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         }
         map.addSource("vileparle-line", {
           type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: [[vileparleCoords[1], vileparleCoords[0]], triangleCoordPairs[closestIdx]],
-            },
-          },
+          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[vileparleCoords[1], vileparleCoords[0]], triangleCoordPairs[closestIdx]] } },
         });
-        map.addLayer({
-          id: "vileparle-connector",
-          type: "line",
-          source: "vileparle-line",
-          paint: { "line-color": "#67e8f9", "line-width": 2, "line-opacity": 0.5, "line-dasharray": [2, 2] },
-        });
+        map.addLayer({ id: "vileparle-glow", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
+        map.addLayer({ id: "vileparle-connector", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
       const goregaonCoords = PROPERTY_COORDS[GOREGAON_KEY];
@@ -278,52 +354,38 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       if (goregaonCoords && juhuCoords) {
         map.addSource("goregaon-line", {
           type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: [[juhuCoords[1], juhuCoords[0]], [goregaonCoords[1], goregaonCoords[0]]],
-            },
-          },
+          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[juhuCoords[1], juhuCoords[0]], [goregaonCoords[1], goregaonCoords[0]]] } },
         });
-        map.addLayer({
-          id: "goregaon-glow",
-          type: "line",
-          source: "goregaon-line",
-          paint: { "line-color": "#67e8f9", "line-width": 12, "line-opacity": 0.08, "line-blur": 6 },
-        });
-        map.addLayer({
-          id: "goregaon-connector",
-          type: "line",
-          source: "goregaon-line",
-          paint: { "line-color": "#67e8f9", "line-width": 2.5, "line-opacity": 0.6, "line-dasharray": [3, 2] },
-        });
+        map.addLayer({ id: "goregaon-glow", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
+        map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
-        const config = BUILDING_CONFIGS[name] || { floors: 5, color: "#1a365d", accent: "#67e8f9" };
-
+        const config = BUILDING_CONFIGS[name] || { floors: 6, widthPx: 38, heightPx: 70, roofStyle: "flat" };
         const el = document.createElement("div");
         el.className = "map-building-marker";
-        el.innerHTML = create3DBuildingHTML(name, property.location, config);
-
+        el.innerHTML = createSkyscraperHTML(name, property.location, config);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([coords[1], coords[0]])
           .addTo(map);
       });
 
       HOTSPOTS.forEach(spot => {
+        const iconSvg = HOTSPOT_ICONS[spot.type] || HOTSPOT_ICONS.lifestyle;
         const el = document.createElement("div");
         el.className = "map-hotspot-marker";
         el.innerHTML = `
-          <div style="display:flex;align-items:center;gap:4px;border-radius:20px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);padding:3px 8px;">
-            <div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.5);flex-shrink:0;"></div>
-            <span style="font-size:9px;color:rgba(255,255,255,0.45);white-space:nowrap;letter-spacing:0.03em;">${spot.name}</span>
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div class="hotspot-pin" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(239,68,68,0.5),0 2px 8px rgba(0,0,0,0.4);">
+              ${iconSvg}
+            </div>
+            <div style="margin-top:3px;border-radius:8px;background:rgba(5,8,18,0.9);backdrop-filter:blur(8px);padding:2px 7px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+              <div style="font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.7);white-space:nowrap;letter-spacing:0.02em;">${spot.name}</div>
+            </div>
           </div>
         `;
-        new maplibregl.Marker({ element: el, anchor: "center" })
+        new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([spot.lng, spot.lat])
           .addTo(map);
       });
@@ -332,23 +394,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         const bounds = new maplibregl.LngLatBounds();
         propertyCoords.forEach(c => bounds.extend([c.coords[1], c.coords[0]]));
         HOTSPOTS.forEach(h => bounds.extend([h.lng, h.lat]));
-        map.fitBounds(bounds, { padding: 60, pitch: 50, bearing: -15 });
+        map.fitBounds(bounds, { padding: 60, pitch: 45, bearing: -12 });
       }
-
-      let fillPhase = 0;
-      function animateTriangle() {
-        fillPhase += 0.015;
-        const opacity = 0.05 + Math.sin(fillPhase) * 0.05;
-        if (map.getLayer("triangle-fill-layer")) {
-          map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.02, opacity));
-        }
-        if (map.getLayer("triangle-glow")) {
-          const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.06;
-          map.setPaintProperty("triangle-glow", "line-opacity", glowOp);
-        }
-        animFrameRef.current = requestAnimationFrame(animateTriangle);
-      }
-      animateTriangle();
     });
 
     mapInstanceRef.current = map;
@@ -362,16 +409,19 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] shadow-[0_0_80px_rgba(6,182,212,0.08)]">
-      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-square" style={{ background: "#0a0f1a" }} data-testid="connectivity-map" />
-      <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/60 backdrop-blur-lg p-3 z-[10]">
+      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-square" style={{ background: "#050a14" }} data-testid="connectivity-map" />
+      <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/70 backdrop-blur-xl p-3 z-[10]">
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
-          <span className="rounded-full bg-emerald-400/10 text-emerald-300/70 px-2.5 py-1 border border-emerald-400/10">Safe Zone</span>
+          <span className="rounded-full bg-emerald-400/10 text-emerald-300/70 px-2.5 py-1 border border-emerald-400/10 flex items-center gap-1.5">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Secure Triangle Zone
+          </span>
           <span className="rounded-full bg-cyan-400/10 text-cyan-300/60 px-2.5 py-1 border border-cyan-400/10">Academic Belt</span>
           <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Airport Access</span>
           <span className="rounded-full bg-white/[0.04] px-2.5 py-1 border border-white/[0.06]">Lifestyle Hub</span>
         </div>
       </div>
-      <div className="absolute top-3 right-3 z-[10] flex flex-col gap-1 items-end">
+      <div className="absolute top-3 right-3 z-[10]">
         <div className="rounded-lg bg-black/70 backdrop-blur-lg border border-white/[0.06] px-2.5 py-1.5 text-[9px] text-white/30 font-medium tracking-wider uppercase">
           3D View
         </div>
@@ -379,59 +429,56 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       <style>{`
         .maplibregl-canvas { outline: none; }
         .maplibregl-ctrl-group {
-          background: rgba(10,15,26,0.9) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
+          background: rgba(5,10,20,0.92) !important;
+          border: 1px solid rgba(103,232,249,0.1) !important;
           border-radius: 8px !important;
           overflow: hidden;
-          backdrop-filter: blur(8px);
+          backdrop-filter: blur(12px);
+          margin-bottom: 60px !important;
         }
         .maplibregl-ctrl-group button {
           background: transparent !important;
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.04) !important;
           width: 32px !important;
           height: 32px !important;
         }
-        .maplibregl-ctrl-group button:hover {
-          background: rgba(103,232,249,0.1) !important;
-        }
-        .maplibregl-ctrl-group button span {
-          filter: invert(1) brightness(0.7);
-        }
+        .maplibregl-ctrl-group button:hover { background: rgba(103,232,249,0.08) !important; }
+        .maplibregl-ctrl-group button span { filter: invert(1) brightness(0.6); }
         .maplibregl-ctrl-attrib { display: none !important; }
 
-        .map-building-marker, .map-hotspot-marker {
-          cursor: default;
-        }
+        .map-building-marker, .map-hotspot-marker { cursor: default; }
 
-        @keyframes windowFlicker {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+        @keyframes skyscraperWindowFlicker {
+          0%, 90%, 100% { opacity: 1; }
+          92% { opacity: 0.3; }
+          95% { opacity: 0.8; }
+          97% { opacity: 0.2; }
         }
-        @keyframes buildingGlow {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.8; }
+        .skyscraper-win {
+          animation: skyscraperWindowFlicker 4s ease-in-out infinite;
+          animation-delay: calc(var(--wd, 0) * 1s);
         }
+        .skyscraper-body .skyscraper-win:nth-child(1) { --wd: 0.5; }
+        .skyscraper-body .skyscraper-win:nth-child(2) { --wd: 1.8; }
+        .skyscraper-body .skyscraper-win:nth-child(3) { --wd: 3.1; }
 
-        .building-window {
-          animation: windowFlicker 3s ease-in-out infinite;
-          animation-delay: calc(var(--delay, 0) * 1s);
+        @keyframes antennaBlink {
+          0%, 70%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(239,68,68,0.8); }
+          75% { opacity: 0.2; box-shadow: 0 0 4px rgba(239,68,68,0.3); }
         }
-        .building-3d .building-window:nth-child(1) { --delay: 0; }
-        .building-3d .building-window:nth-child(2) { --delay: 0.8; }
-        .building-3d .building-window:nth-child(3) { --delay: 1.6; }
-        .building-3d .building-window:nth-child(4) { --delay: 2.4; }
+        .antenna-blink { animation: antennaBlink 2s ease-in-out infinite; }
 
-        .building-glow {
-          animation: buildingGlow 4s ease-in-out infinite;
+        @keyframes groundGlowPulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
         }
+        .building-ground-glow { animation: groundGlowPulse 3s ease-in-out infinite; }
 
-        .building-3d {
-          animation: buildingFloat 6s ease-in-out infinite;
+        @keyframes hotspotPulse {
+          0%, 100% { box-shadow: 0 0 12px rgba(239,68,68,0.5), 0 2px 8px rgba(0,0,0,0.4); }
+          50% { box-shadow: 0 0 20px rgba(239,68,68,0.7), 0 2px 12px rgba(0,0,0,0.5); }
         }
-        @keyframes buildingFloat {
-          0%, 100% { transform: perspective(200px) rotateX(2deg) translateY(0); }
-          50% { transform: perspective(200px) rotateX(2deg) translateY(-2px); }
-        }
+        .hotspot-pin { animation: hotspotPulse 3s ease-in-out infinite; }
       `}</style>
     </div>
   );
