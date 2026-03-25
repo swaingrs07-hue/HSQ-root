@@ -14,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail, sendWelcomeEmail, sendWelcomeEmailForBooking } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -3916,9 +3916,17 @@ ${allPages.map(p => `  <url>
           if (updatedBooking) {
             const allPayments = await storage.getPaymentsByBooking(bookingId);
             const successPayments = allPayments.filter(p => p.status === "success");
-            sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
-              console.error("[Email] Background parent email after online payment failed:", err);
-            });
+            const previousSuccessful = successPayments.filter(p => p.id !== payment.id);
+
+            if (previousSuccessful.length === 0) {
+              sendParentBookingConfirmationEmail(updatedBooking, payAmount).catch(err => {
+                console.error("[Email] Background parent email after online payment failed:", err);
+              });
+            } else {
+              sendPaymentReceivedEmail(updatedBooking, payAmount).catch(err => {
+                console.error("[Email] Background payment received email after online payment failed:", err);
+              });
+            }
 
             if (!updatedBooking.welcomeEmailSent) {
               sendWelcomeEmailForBooking(updatedBooking).catch(err => {
@@ -4177,9 +4185,15 @@ ${allPages.map(p => `  <url>
           }
         }
 
-        sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
-          console.error("[Email] Background parent email after payment failed:", err);
-        });
+        if (previousSuccessful.length === 0) {
+          sendParentBookingConfirmationEmail(latestBooking, paymentAmount).catch(err => {
+            console.error("[Email] Background parent email after first payment failed:", err);
+          });
+        } else {
+          sendPaymentReceivedEmail(latestBooking, paymentAmount).catch(err => {
+            console.error("[Email] Background payment received email after payment failed:", err);
+          });
+        }
       }
 
       res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment });

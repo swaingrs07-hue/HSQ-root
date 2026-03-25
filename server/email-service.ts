@@ -681,6 +681,302 @@ export async function sendParentBookingConfirmationEmail(
   }
 }
 
+interface PaymentReceivedEmailData {
+  parentName: string;
+  parentEmail: string;
+  residentName: string;
+  propertyName: string;
+  bookingCode: string;
+  amountPaid: string;
+  totalFee: string;
+  totalPaidSoFar: string;
+  remainingBalance: string;
+  receiptUrl: string;
+  installments: InstallmentInfo[];
+}
+
+function buildPaymentReceivedEmailHtml(data: PaymentReceivedEmailData): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Received - Hsquare Living</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0a;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 50%,#b45309 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;">HSQUARE LIVING</h1>
+              <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:2px;text-transform:uppercase;">Harmony in Living</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#111111;padding:32px 40px 24px;text-align:center;">
+              <div style="display:inline-block;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(6,182,212,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:50px;padding:10px 28px;margin-bottom:16px;">
+                <span style="color:#3b82f6;font-size:14px;font-weight:600;letter-spacing:0.5px;">&#10003; PAYMENT RECEIVED</span>
+              </div>
+              <h2 style="margin:16px 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Dear ${data.parentName},</h2>
+              <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.6);line-height:1.6;">We have received a payment of <strong style="color:#10b981;">${data.amountPaid}</strong> for <strong style="color:#ffffff;">${data.residentName}</strong>'s booking at Hsquare Living.</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px 12px;">
+                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Payment Summary</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 16px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Booking ID</span><br>
+                          <span style="color:#f59e0b;font-size:15px;font-weight:700;letter-spacing:0.5px;">${data.bookingCode}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Property</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.propertyName}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">This Payment</span><br>
+                          <span style="color:#10b981;font-size:18px;font-weight:700;">${data.amountPaid}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Total Paid So Far</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.totalPaidSoFar}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Total Fee</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.totalFee}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Remaining Balance</span><br>
+                          <span style="color:#f59e0b;font-size:16px;font-weight:700;">${data.remainingBalance}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${data.installments.length > 0 ? `<tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px 12px;">
+                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">EMI / Installment Status</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 16px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      ${data.installments.map(inst => `<tr>
+                        <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color:#ffffff;font-size:14px;font-weight:600;">${inst.name}</td>
+                              <td style="text-align:right;color:${inst.paid ? '#10b981' : '#f59e0b'};font-size:14px;font-weight:700;">₹${inst.amount.toLocaleString("en-IN")}</td>
+                            </tr>
+                            <tr>
+                              <td style="color:rgba(255,255,255,0.4);font-size:12px;padding-top:2px;">Due: ${inst.dueDate}</td>
+                              <td style="text-align:right;padding-top:2px;"><span style="display:inline-block;background:${inst.paid ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'};color:${inst.paid ? '#10b981' : '#f59e0b'};font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;">${inst.paid ? 'PAID' : 'PENDING'}</span></td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>`).join("")}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>` : ""}
+
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;text-align:center;">
+              <a href="${data.receiptUrl}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.5px;">Download Payment Receipt</a>
+              <p style="margin:12px 0 0;font-size:12px;color:rgba(255,255,255,0.4);">Click the button above to view and download the payment receipt</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-radius:0 0 16px 16px;padding:28px 40px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:13px;color:rgba(255,255,255,0.4);">Need help? Contact us at</p>
+              <a href="mailto:support@hsquareliving.com" style="color:#f59e0b;font-size:14px;font-weight:600;text-decoration:none;">support@hsquareliving.com</a>
+              <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);">
+                <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.25);line-height:1.5;">
+                  Hsquareliving Pvt Ltd<br>
+                  Mumbai, India<br><br>
+                  This is an automated payment notification. Please do not reply directly to this message.
+                </p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendPaymentReceivedEmail(
+  booking: Booking,
+  paymentAmount: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const rd = booking.residentDetails as Record<string, any> | null;
+    const parentEmail = rd?.parentEmail || rd?.guardianEmail;
+    const parentName = rd?.parentName || rd?.guardianName;
+
+    if (!parentEmail) {
+      console.log(`[Email] No parent email found for booking ${booking.bookingCode || booking.id}`);
+      return { success: false, error: "No parent email address found" };
+    }
+
+    let residentName = rd?.name || booking.walkInName || "Resident";
+
+    const property = await storage.getProperty(booking.propertyId);
+    const propertyName = property?.name || "Hsquare Living Property";
+
+    const totalFee = booking.totalFee
+      ? `₹${Number(booking.totalFee).toLocaleString("en-IN")}`
+      : "As per agreement";
+
+    const amountPaid = `₹${Number(paymentAmount).toLocaleString("en-IN")}`;
+
+    const allPayments = await storage.getPaymentsByBooking(booking.id);
+    const totalPaidNum = allPayments
+      .filter(p => p.status === "success")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalPaidSoFar = `₹${totalPaidNum.toLocaleString("en-IN")}`;
+
+    const totalFeeNum = Number(booking.totalFee || 0);
+    const remainingNum = Math.max(0, totalFeeNum - totalPaidNum);
+    const remainingBalance = remainingNum > 0
+      ? `₹${remainingNum.toLocaleString("en-IN")}`
+      : "Fully Paid";
+
+    const receiptUrl = getReceiptUrl(booking.id);
+
+    const installmentsList = await storage.getInstallmentsByBooking(booking.id);
+    const installments: InstallmentInfo[] = installmentsList.map(inst => ({
+      name: inst.name,
+      amount: inst.amount || 0,
+      dueDate: inst.dueDate || "",
+      paid: inst.paid,
+    }));
+
+    const emailData: PaymentReceivedEmailData = {
+      parentName: parentName || "Parent / Guardian",
+      parentEmail,
+      residentName,
+      propertyName,
+      bookingCode: booking.bookingCode || booking.id,
+      amountPaid,
+      totalFee,
+      totalPaidSoFar,
+      remainingBalance,
+      receiptUrl,
+      installments,
+    };
+
+    const html = buildPaymentReceivedEmailHtml(emailData);
+
+    let receiptPdf: Buffer | null = null;
+    try {
+      receiptPdf = await generateBookingReceiptPdf(booking);
+    } catch (pdfErr) {
+      console.error(`[Email] Failed to generate receipt PDF for payment received email ${emailData.bookingCode}:`, pdfErr);
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: parentEmail,
+      subject: `Payment Received for ${residentName} - ${emailData.bookingCode} | Hsquare Living`,
+      html,
+      attachments: receiptPdf ? [{
+        content: receiptPdf,
+        filename: `Payment-Receipt-${emailData.bookingCode}.pdf`,
+        contentType: "application/pdf",
+      }] : undefined,
+    });
+
+    if (error) {
+      console.error(`[Email] Failed to send payment received email for ${emailData.bookingCode}:`, error);
+      await logActivity({
+        actor: { name: "System", role: "SYSTEM" },
+        actionType: "UPDATE",
+        entityType: "BOOKING",
+        entityId: booking.id,
+        entityLabel: emailData.bookingCode,
+        propertyId: booking.propertyId,
+        propertyName,
+        metadata: {
+          emailEvent: "payment_received_email_failed",
+          recipientEmail: parentEmail,
+          recipientName: parentName,
+          error: error.message || String(error),
+        },
+      });
+      return { success: false, error: error.message || "Email send failed" };
+    }
+
+    console.log(`[Email] Payment received email sent to ${parentEmail} for booking ${emailData.bookingCode} (messageId: ${data?.id})`);
+    await logActivity({
+      actor: { name: "System", role: "SYSTEM" },
+      actionType: "UPDATE",
+      entityType: "BOOKING",
+      entityId: booking.id,
+      entityLabel: emailData.bookingCode,
+      propertyId: booking.propertyId,
+      propertyName,
+      metadata: {
+        emailEvent: "payment_received_email_sent",
+        recipientEmail: parentEmail,
+        recipientName: parentName || "Parent/Guardian",
+        resendMessageId: data?.id,
+        paymentAmount: amountPaid,
+      },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Email] Error sending payment received email:`, error);
+    await logActivity({
+      actor: { name: "System", role: "SYSTEM" },
+      actionType: "UPDATE",
+      entityType: "BOOKING",
+      entityId: booking.id,
+      entityLabel: booking.bookingCode || booking.id,
+      metadata: {
+        emailEvent: "payment_received_email_error",
+        error: error.message || String(error),
+      },
+    });
+    return { success: false, error: error.message || "Unexpected error" };
+  }
+}
+
 interface WelcomeEmailData {
   residentName: string;
   residentEmail: string;
