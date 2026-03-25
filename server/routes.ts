@@ -4821,7 +4821,7 @@ ${allPages.map(p => `  <url>
       const name = studentData?.fullName || rd?.fullName || rd?.name || booking.walkInName || booking.customerName || booking.bookingCode || "Unknown";
       const phone = studentData?.phone || booking.walkInPhone || booking.customerPhone || rd?.phone || "";
       const email = studentData?.email || booking.customerEmail || rd?.email || rd?.studentEmail;
-      const college = studentData?.collegeName || rd?.college || rd?.instituteName;
+      const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
       const roomNo = rd?.roomNo || rd?.room || "";
 
       let activeSeasons = await db.select().from(schema.seasons).where(
@@ -5911,8 +5911,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (rd?.parentName || rd?.guardianName) syncData.parentName = rd.parentName || rd.guardianName;
       if (rd?.parentPhone || rd?.guardianPhone) syncData.parentPhone = rd.parentPhone || rd.guardianPhone;
       if (rd?.parentEmail || rd?.guardianEmail) syncData.parentEmail = rd.parentEmail || rd.guardianEmail;
-      if (rd?.college || rd?.instituteName) syncData.college = rd.college || rd.instituteName;
-      if (rd?.courseName) syncData.courseName = rd.courseName;
+      if (rd?.institute || rd?.college || rd?.instituteName) syncData.college = rd.institute || rd.college || rd.instituteName;
+      if (rd?.course || rd?.courseName) syncData.courseName = rd.course || rd.courseName;
       if (rd?.courseYear) syncData.courseYear = rd.courseYear;
       if (rd?.gender) syncData.gender = rd.gender;
       if (rd?.dateOfBirth) syncData.dateOfBirth = rd.dateOfBirth;
