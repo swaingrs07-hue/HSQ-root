@@ -175,6 +175,9 @@ export default function CompletedBookings() {
   const [sendingParentEmail, setSendingParentEmail] = useState(false);
   const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
   const [syncingHMS, setSyncingHMS] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkSyncProgress, setBulkSyncProgress] = useState({ done: 0, total: 0, errors: 0 });
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
@@ -1076,6 +1079,76 @@ export default function CompletedBookings() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {isAdmin && filtered.length > 0 && (
+            <div className="flex items-center gap-3 px-2 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                  checked={bulkSelectedIds.size === filtered.length && filtered.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setBulkSelectedIds(new Set(filtered.map((b: any) => b.id)));
+                    } else {
+                      setBulkSelectedIds(new Set());
+                    }
+                  }}
+                  data-testid="checkbox-select-all"
+                />
+                Select All ({filtered.length})
+              </label>
+              {bulkSelectedIds.size > 0 && (
+                <>
+                  <span className="text-sm text-indigo-600 font-medium">{bulkSelectedIds.size} selected</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+                    disabled={bulkSyncing}
+                    data-testid="btn-bulk-resync-hms"
+                    onClick={async () => {
+                      const ids = Array.from(bulkSelectedIds);
+                      setBulkSyncing(true);
+                      setBulkSyncProgress({ done: 0, total: ids.length, errors: 0 });
+                      let errors = 0;
+                      for (let i = 0; i < ids.length; i++) {
+                        try {
+                          const token = getAuthToken();
+                          const resp = await fetch(`/api/admin/bookings/${ids[i]}/resync-hms`, {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          if (!resp.ok) errors++;
+                        } catch {
+                          errors++;
+                        }
+                        setBulkSyncProgress({ done: i + 1, total: ids.length, errors });
+                      }
+                      setBulkSyncing(false);
+                      setBulkSelectedIds(new Set());
+                      toast({
+                        title: "Bulk HMS Sync Complete",
+                        description: `${ids.length - errors} synced successfully${errors > 0 ? `, ${errors} failed` : ""}`,
+                        variant: errors > 0 ? "destructive" : "default",
+                      });
+                    }}
+                  >
+                    {bulkSyncing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Syncing {bulkSyncProgress.done}/{bulkSyncProgress.total}...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Re-sync {bulkSelectedIds.size} to HMS
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           {filtered.map((booking: any) => {
             const plan = booking.housingPlanInfo;
             const pt = plan?.tierLevel ?? null;
@@ -1107,6 +1180,24 @@ export default function CompletedBookings() {
                 <CardContent className="p-5">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
+                      {isAdmin && (
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 mt-1 shrink-0"
+                          checked={bulkSelectedIds.has(booking.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setBulkSelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(booking.id);
+                              else next.delete(booking.id);
+                              return next;
+                            });
+                          }}
+                          data-testid={`checkbox-booking-${booking.id}`}
+                        />
+                      )}
                       {(() => {
                         const photoSrc = getBookingPhotoUrl(booking.residentDetails);
                         if (photoSrc) {
