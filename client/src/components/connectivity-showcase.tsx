@@ -103,6 +103,110 @@ const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> 
   { name: "Colaba Causeway", lat: 18.9230, lng: 72.8320, type: "market" },
   { name: "Crawford Market", lat: 18.9478, lng: 72.8340, type: "market" },
   { name: "BKC", lat: 19.0580, lng: 72.8650, type: "lifestyle" },
+
+  // Navi Mumbai
+  { name: "Vashi Station", lat: 19.0770, lng: 72.9985, type: "transit" },
+  { name: "Panvel Station", lat: 18.9930, lng: 73.1175, type: "transit" },
+  { name: "Nerul Station", lat: 19.0330, lng: 73.0190, type: "transit" },
+  { name: "Belapur Station", lat: 19.0220, lng: 73.0380, type: "transit" },
+  { name: "Kharghar Station", lat: 19.0450, lng: 73.0680, type: "transit" },
+  { name: "Seawoods Grand Central", lat: 19.0220, lng: 73.0175, type: "market" },
+  { name: "Inorbit Mall (Vashi)", lat: 19.0680, lng: 73.0010, type: "market" },
+  { name: "Raghuleela Mall (Vashi)", lat: 19.0740, lng: 72.9980, type: "market" },
+  { name: "Little World Mall (Kharghar)", lat: 19.0420, lng: 73.0700, type: "market" },
+  { name: "D Y Patil University", lat: 19.0450, lng: 73.0230, type: "university" },
+  { name: "Pillai College (Panvel)", lat: 19.0020, lng: 73.1130, type: "university" },
+  { name: "Terna Engineering", lat: 19.0350, lng: 73.0250, type: "university" },
+  { name: "CDAC Kharghar", lat: 19.0380, lng: 73.0750, type: "university" },
+  { name: "NRI Complex (Seawoods)", lat: 19.0200, lng: 73.0100, type: "lifestyle" },
+  { name: "Palm Beach Road", lat: 19.0500, lng: 73.0100, type: "lifestyle" },
+  { name: "Navi Mumbai Airport (upcoming)", lat: 18.9900, lng: 73.1300, type: "transit" },
+  { name: "Wonders Park (Nerul)", lat: 19.0350, lng: 73.0150, type: "lifestyle" },
+
+  // Extended Thane & Kalyan-Dombivli
+  { name: "Kalyan Station", lat: 19.2440, lng: 73.1290, type: "transit" },
+  { name: "Dombivli Station", lat: 19.2180, lng: 73.0870, type: "transit" },
+  { name: "Badlapur Station", lat: 19.1680, lng: 73.2410, type: "transit" },
+  { name: "Metro Junction Mall (Kalyan)", lat: 19.2430, lng: 73.1340, type: "market" },
+  { name: "Korum Mall (Thane)", lat: 19.1930, lng: 72.9680, type: "market" },
+  { name: "Birla College (Kalyan)", lat: 19.2430, lng: 73.1250, type: "university" },
+  { name: "Saket College (Kalyan)", lat: 19.2500, lng: 73.1350, type: "university" },
+  { name: "Upvan Lake (Thane)", lat: 19.2100, lng: 72.9600, type: "lifestyle" },
+  { name: "Tikuji-ni-Wadi", lat: 19.2500, lng: 72.9880, type: "lifestyle" },
+
+  // Pune (major landmarks)
+  { name: "Pune Station", lat: 18.5285, lng: 73.8740, type: "transit" },
+  { name: "Pune Airport", lat: 18.5820, lng: 73.9197, type: "transit" },
+  { name: "Hinjewadi IT Park", lat: 18.5912, lng: 73.7390, type: "lifestyle" },
+  { name: "Shivajinagar", lat: 18.5310, lng: 73.8470, type: "transit" },
+  { name: "Fergusson College", lat: 18.5240, lng: 73.8380, type: "university" },
+  { name: "Savitribai Phule University", lat: 18.5570, lng: 73.8270, type: "university" },
+  { name: "Symbiosis University", lat: 18.5720, lng: 73.7680, type: "university" },
+  { name: "COEP Pune", lat: 18.5290, lng: 73.8500, type: "university" },
+  { name: "MIT Pune", lat: 18.5180, lng: 73.8070, type: "university" },
+  { name: "Phoenix Marketcity (Pune)", lat: 18.5600, lng: 73.9160, type: "market" },
+  { name: "Seasons Mall (Pune)", lat: 18.4870, lng: 73.8600, type: "market" },
+  { name: "Aga Khan Palace", lat: 18.5530, lng: 73.9020, type: "lifestyle" },
+  { name: "Koregaon Park", lat: 18.5370, lng: 73.8930, type: "lifestyle" },
+
+  // Lonavala / between Mumbai-Pune
+  { name: "Lonavala Station", lat: 18.7520, lng: 73.4070, type: "transit" },
+  { name: "Lonavala", lat: 18.7500, lng: 73.4050, type: "lifestyle" },
+  { name: "Karjat Station", lat: 18.9100, lng: 73.3230, type: "transit" },
+
+  // Gujarat side landmarks
+  { name: "Surat Station", lat: 21.2060, lng: 72.8410, type: "transit" },
+  { name: "Surat Airport", lat: 21.1140, lng: 72.7418, type: "transit" },
+  { name: "SVNIT Surat", lat: 21.1635, lng: 72.7835, type: "university" },
+  { name: "VT Choksi Mall (Surat)", lat: 21.1950, lng: 72.8300, type: "market" },
+  { name: "Ahmedabad Station", lat: 23.0270, lng: 72.6000, type: "transit" },
+  { name: "IIM Ahmedabad", lat: 23.0330, lng: 72.5270, type: "university" },
+  { name: "Gujarat University", lat: 23.0385, lng: 72.5460, type: "university" },
+  { name: "Sabarmati Ashram", lat: 23.0610, lng: 72.5800, type: "lifestyle" },
+
+  // Goa landmarks
+  { name: "Goa Airport (Dabolim)", lat: 15.3809, lng: 73.8312, type: "transit" },
+  { name: "Madgaon Station", lat: 15.2770, lng: 73.9510, type: "transit" },
+  { name: "Goa University", lat: 15.4570, lng: 73.8770, type: "university" },
+  { name: "Calangute Beach", lat: 15.5440, lng: 73.7550, type: "lifestyle" },
+  { name: "Baga Beach", lat: 15.5560, lng: 73.7510, type: "lifestyle" },
+
+  // Karnataka / Bangalore
+  { name: "Bangalore Airport", lat: 13.1989, lng: 77.7068, type: "transit" },
+  { name: "Bangalore Station", lat: 12.9785, lng: 77.5714, type: "transit" },
+  { name: "IISc Bangalore", lat: 13.0210, lng: 77.5664, type: "university" },
+  { name: "Christ University", lat: 12.9347, lng: 77.6065, type: "university" },
+  { name: "Whitefield IT Hub", lat: 12.9698, lng: 77.7500, type: "lifestyle" },
+  { name: "MG Road Bangalore", lat: 12.9753, lng: 77.6065, type: "lifestyle" },
+  { name: "Orion Mall (Bangalore)", lat: 13.0105, lng: 77.5556, type: "market" },
+
+  // Delhi NCR
+  { name: "Delhi Airport (IGI)", lat: 28.5562, lng: 77.1000, type: "transit" },
+  { name: "New Delhi Station", lat: 28.6427, lng: 77.2200, type: "transit" },
+  { name: "DLF Cybercity Gurgaon", lat: 28.4945, lng: 77.0880, type: "lifestyle" },
+  { name: "JNU Delhi", lat: 28.5402, lng: 77.1670, type: "university" },
+  { name: "Delhi University", lat: 28.6885, lng: 77.2095, type: "university" },
+  { name: "IIT Delhi", lat: 28.5459, lng: 77.1926, type: "university" },
+  { name: "Select Citywalk (Delhi)", lat: 28.5287, lng: 77.2195, type: "market" },
+  { name: "Connaught Place", lat: 28.6315, lng: 77.2167, type: "lifestyle" },
+
+  // Hyderabad
+  { name: "Hyderabad Airport", lat: 17.2403, lng: 78.4294, type: "transit" },
+  { name: "HITEC City", lat: 17.4484, lng: 78.3908, type: "lifestyle" },
+  { name: "University of Hyderabad", lat: 17.4608, lng: 78.3340, type: "university" },
+  { name: "Charminar", lat: 17.3616, lng: 78.4747, type: "lifestyle" },
+
+  // Chennai
+  { name: "Chennai Airport", lat: 12.9941, lng: 80.1709, type: "transit" },
+  { name: "IIT Madras", lat: 12.9916, lng: 80.2336, type: "university" },
+  { name: "Anna University", lat: 13.0108, lng: 80.2350, type: "university" },
+  { name: "Marina Beach", lat: 13.0500, lng: 80.2824, type: "lifestyle" },
+
+  // Kolkata
+  { name: "Kolkata Airport", lat: 22.6547, lng: 88.4467, type: "transit" },
+  { name: "Howrah Station", lat: 22.5835, lng: 88.3425, type: "transit" },
+  { name: "Jadavpur University", lat: 22.4984, lng: 88.3714, type: "university" },
+  { name: "Victoria Memorial", lat: 22.5449, lng: 88.3426, type: "lifestyle" },
 ];
 
 const FEATURES = [
@@ -183,7 +287,7 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
       antialias: true,
       attributionControl: false,
       dragRotate: true,
-      minZoom: 9,
+      minZoom: 4,
       maxZoom: 17,
     });
 
@@ -526,7 +630,7 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         type: "circle",
         source: "hotspots",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 14],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 8, 5, 10, 6, 14, 14],
           "circle-color": ["get", "color"],
           "circle-opacity": 0.15,
           "circle-blur": 1,
@@ -538,7 +642,7 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         type: "circle",
         source: "hotspots",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 6],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 2, 8, 3, 10, 3, 14, 6],
           "circle-color": ["get", "color"],
           "circle-opacity": 0.9,
           "circle-stroke-color": "#ffffff",
@@ -550,15 +654,15 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         id: "hotspot-labels",
         type: "symbol",
         source: "hotspots",
-        minzoom: 10,
+        minzoom: 7,
         layout: {
           "text-field": ["get", "name"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 12, 10, 14, 12],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 7, 7, 10, 8, 12, 10, 14, 12],
           "text-offset": [0, 1.2],
           "text-anchor": "top",
           "text-font": ["Open Sans Bold"],
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
+          "text-allow-overlap": false,
+          "text-ignore-placement": false,
         },
         paint: {
           "text-color": ["get", "color"],
