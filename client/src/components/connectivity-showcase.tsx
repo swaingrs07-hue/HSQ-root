@@ -106,9 +106,9 @@ function createSkyscraperHTML(name: string, location: string, cfg: { floors: num
     const lit2 = Math.random() > 0.3;
     const lit3 = Math.random() > 0.25;
     frontWindows += `<div style="position:absolute;top:${winY}px;left:4px;right:4px;height:${floorH - 2}px;display:flex;gap:2px;">
-      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};transition:opacity 2s;" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
+      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};animation:skyscraperWindowFlicker 4s ease-in-out infinite ${(Math.random() * 4).toFixed(1)}s;" class="skyscraper-win"></div>
     </div>`;
   }
 
@@ -281,26 +281,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         }
 
         let particlePhase = 0;
-        function animateParticles() {
-          particlePhase += 0.004;
-          if (particlePhase > 1) particlePhase = 0;
-
-          for (let i = 0; i < 3; i++) {
-            const from = triangleCoordPairs[i];
-            const to = triangleCoordPairs[(i + 1) % 3];
-            const t = (particlePhase + i * 0.33) % 1;
-            const lng = from[0] + (to[0] - from[0]) * t;
-            const lat = from[1] + (to[1] - from[1]) * t;
-            const src = map.getSource(`triangle-particle-${i}`) as maplibregl.GeoJSONSource;
-            if (src) {
-              src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lng, lat] } });
-            }
-          }
-          animFrameRef.current = requestAnimationFrame(animateParticles);
-        }
-
         let fillPhase = 0;
-        const origAnimate = animateParticles;
         function animateAll() {
           particlePhase += 0.004;
           if (particlePhase > 1) particlePhase = 0;
@@ -454,13 +435,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           95% { opacity: 0.8; }
           97% { opacity: 0.2; }
         }
-        .skyscraper-win {
-          animation: skyscraperWindowFlicker 4s ease-in-out infinite;
-          animation-delay: calc(var(--wd, 0) * 1s);
-        }
-        .skyscraper-body .skyscraper-win:nth-child(1) { --wd: 0.5; }
-        .skyscraper-body .skyscraper-win:nth-child(2) { --wd: 1.8; }
-        .skyscraper-body .skyscraper-win:nth-child(3) { --wd: 3.1; }
+        .skyscraper-win {}
 
         @keyframes antennaBlink {
           0%, 70%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(239,68,68,0.8); }
