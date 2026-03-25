@@ -15,10 +15,10 @@ interface Property {
 const PROPERTY_COORDS: Record<string, [number, number]> = {
   "Hsquare Hostel Juhu": [19.0760, 72.8365],
   "Hsquare Vileparle": [19.0990, 72.8440],
-  "Hsquare Bayview": [19.0880, 72.8310],
+  "Hsquare Bayview": [19.0945, 72.8395],
   "Hsquare Goregaon": [19.1663, 72.8526],
   "Hotel Neelkamal": [19.0620, 72.8980],
-  "Hsquare Caledonia": [19.0980, 72.8480],
+  "Hsquare Caledonia": [19.1005, 72.8430],
   "Hsquare Utopia": [19.0750, 72.8700],
 };
 
