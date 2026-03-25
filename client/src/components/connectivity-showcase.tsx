@@ -347,17 +347,12 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
-      const allMarkerEls: HTMLElement[] = [];
-      const DESIGNED_ZOOM = 12.5;
-
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
         const config = BUILDING_CONFIGS[name] || { floors: 6, widthPx: 38, heightPx: 70, roofStyle: "flat" };
         const el = document.createElement("div");
         el.className = "map-building-marker";
-        el.style.transformOrigin = "bottom center";
         el.innerHTML = createSkyscraperHTML(name, property.location, config);
-        allMarkerEls.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([coords[1], coords[0]])
           .addTo(map);
@@ -367,7 +362,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         const iconSvg = HOTSPOT_ICONS[spot.type] || HOTSPOT_ICONS.lifestyle;
         const el = document.createElement("div");
         el.className = "map-hotspot-marker";
-        el.style.transformOrigin = "bottom center";
         el.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;">
             <div class="hotspot-pin" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(239,68,68,0.5),0 2px 8px rgba(0,0,0,0.4);">
@@ -391,25 +385,6 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         map.fitBounds(bounds, { padding: 60, pitch: 45, bearing: -12 });
       }
 
-      let baseZoom = 0;
-      let baseReady = false;
-      const captureBase = () => {
-        baseZoom = map.getZoom();
-        baseReady = true;
-        map.off("moveend", captureBase);
-      };
-      map.on("moveend", captureBase);
-
-      map.on("zoom", () => {
-        if (!baseReady) return;
-        const zoom = map.getZoom();
-        const diff = zoom - baseZoom;
-        const scale = Math.pow(2, diff * 0.5);
-        const clamped = Math.max(0.3, Math.min(scale, 1.8));
-        for (const el of allMarkerEls) {
-          el.style.transform = `scale(${clamped})`;
-        }
-      });
     });
 
     mapInstanceRef.current = map;
