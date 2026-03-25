@@ -1,0 +1,75 @@
+Build a premium realistic 3D property map for Hsquare.
+
+MAIN REQUIREMENT:
+I want a real map experience, not a fake floating UI map.
+
+The buildings / property markers must stay FIXED to their real geographic coordinates on the map.
+When the user zooms in or zooms out:
+- the property should remain anchored to the exact location
+- the marker/building should scale naturally with the map
+- it should NOT grow randomly or look like an overlay stuck on the screen
+- it should feel like a realistic 3D world map
+
+USE:
+- Mapbox GL JS or MapLibre with 3D support
+- Real latitude / longitude positions for each property
+- Custom layers or 3D models anchored to coordinates
+- Smooth zoom, pitch, bearing, and pan controls
+
+PROPERTIES:
+- Hsquare Hostel Juhu
+- Hsquare Goregaon
+- Hotel Neelkamal Chembur
+- optional: Hsquare Bay View
+
+BEHAVIOR:
+1. Each property must be placed by actual coordinates
+2. On zoom:
+   - buildings scale according to map perspective naturally
+   - no screen-fixed growth
+   - no UI overlay effect
+3. On pan:
+   - buildings move with the map correctly
+4. On tilt/pitch:
+   - buildings stay grounded on map surface
+5. On rotate:
+   - buildings maintain proper perspective and orientation
+
+VISUAL STYLE:
+- Realistic dark premium map
+- 3D world feel
+- subtle glow only
+- realistic shadows under buildings
+- premium night mode
+- clean labels
+- not cartoonish
+
+TECHNICAL REQUIREMENT:
+- Use map coordinates, not absolute CSS left/top positioning
+- Do NOT place buildings as normal HTML cards floating above the map
+- Render properties using geo-referenced markers, symbol layers, custom WebGL layers, or 3D model layers
+- If using cards/tooltips, only show them on hover/click, but the actual property anchor must stay geo-fixed
+
+ZOOM LOGIC:
+- At far zoom: show small clean marker/pin only
+- At medium zoom: show marker + property label
+- At close zoom: reveal realistic 3D building model or extruded building highlight
+- Transition between zoom levels must be smooth
+
+INTERACTION:
+- Hover: soft highlight
+- Click: open premium info card with property details and CTA
+- Optional: animated route / connectivity lines between properties
+
+IMPORTANT:
+I do NOT want fake scaling.
+I want real map scaling based on zoom and perspective.
+Everything must behave like it exists inside the map world.
+
+If needed, use:
+- Mapbox custom layers
+- Three.js with map synchronization
+- geoJSON sources
+- MercatorCoordinate conversion for 3D objects
+
+Make the final result feel like a high-end real estate map experience.

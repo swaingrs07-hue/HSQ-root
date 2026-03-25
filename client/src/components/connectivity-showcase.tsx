@@ -22,14 +22,14 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
   "Hsquare Utopia": [19.0750, 72.8700],
 };
 
-const BUILDING_CONFIGS: Record<string, { floors: number; widthPx: number; heightPx: number; roofStyle: string }> = {
-  "Hsquare Hostel Juhu": { floors: 8, widthPx: 30, heightPx: 65, roofStyle: "pointed" },
-  "Hsquare Vileparle": { floors: 6, widthPx: 26, heightPx: 50, roofStyle: "flat" },
-  "Hsquare Bayview": { floors: 7, widthPx: 28, heightPx: 55, roofStyle: "pointed" },
-  "Hsquare Goregaon": { floors: 9, widthPx: 32, heightPx: 72, roofStyle: "antenna" },
-  "Hotel Neelkamal": { floors: 5, widthPx: 22, heightPx: 40, roofStyle: "flat" },
-  "Hsquare Caledonia": { floors: 7, widthPx: 28, heightPx: 58, roofStyle: "antenna" },
-  "Hsquare Utopia": { floors: 6, widthPx: 26, heightPx: 50, roofStyle: "flat" },
+const BUILDING_CONFIGS: Record<string, { floors: number; heightM: number; widthM: number; depthM: number; color: string; roofColor: string }> = {
+  "Hsquare Hostel Juhu": { floors: 8, heightM: 28, widthM: 25, depthM: 18, color: "#1a3a6a", roofColor: "#2a5a9a" },
+  "Hsquare Vileparle": { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" },
+  "Hsquare Bayview": { floors: 7, heightM: 24, widthM: 24, depthM: 17, color: "#1a3a6a", roofColor: "#2a5a9a" },
+  "Hsquare Goregaon": { floors: 9, heightM: 32, widthM: 28, depthM: 20, color: "#152d50", roofColor: "#2a4a7a" },
+  "Hotel Neelkamal": { floors: 5, heightM: 18, widthM: 20, depthM: 15, color: "#1a365d", roofColor: "#254a75" },
+  "Hsquare Caledonia": { floors: 7, heightM: 24, widthM: 24, depthM: 17, color: "#1a3a6a", roofColor: "#2a5a9a" },
+  "Hsquare Utopia": { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -38,10 +38,10 @@ const VILEPARLE_KEY = "Hsquare Vileparle";
 
 const FALLBACK_CENTER: [number, number] = [72.8500, 19.1050];
 
-const HOTSPOT_ICONS: Record<string, string> = {
-  university: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
-  lifestyle: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
-  transit: `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 17v4M8 21h8M9 7h6M9 11h6"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg>`,
+const HOTSPOT_COLORS: Record<string, string> = {
+  university: "#a78bfa",
+  lifestyle: "#f472b6",
+  transit: "#fbbf24",
 };
 
 const HOTSPOTS: Array<{ name: string; lat: number; lng: number; type: string }> = [
@@ -98,66 +98,18 @@ function getCoords(property: Property): [number, number] | null {
   return null;
 }
 
-function createSkyscraperHTML(name: string, location: string, cfg: { floors: number; widthPx: number; heightPx: number; roofStyle: string }) {
-  const { floors, widthPx, heightPx, roofStyle } = cfg;
-  const floorH = Math.floor(heightPx / floors);
-  const sideW = Math.floor(widthPx * 0.35);
-
-  let frontWindows = "";
-  for (let f = 0; f < floors; f++) {
-    const winY = f * floorH + 1;
-    const lit1 = Math.random() > 0.25;
-    const lit2 = Math.random() > 0.3;
-    const lit3 = Math.random() > 0.25;
-    frontWindows += `<div style="position:absolute;top:${winY}px;left:4px;right:4px;height:${floorH - 2}px;display:flex;gap:2px;">
-      <div style="flex:1;background:${lit1 ? 'rgba(103,232,249,0.6)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit1 ? '0 0 4px rgba(103,232,249,0.4)' : 'none'};" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit2 ? 'rgba(167,139,250,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit2 ? '0 0 4px rgba(167,139,250,0.3)' : 'none'};" class="skyscraper-win"></div>
-      <div style="flex:1;background:${lit3 ? 'rgba(52,211,153,0.5)' : 'rgba(30,50,80,0.5)'};border-radius:1px;box-shadow:${lit3 ? '0 0 4px rgba(52,211,153,0.3)' : 'none'};" class="skyscraper-win"></div>
-    </div>`;
-  }
-
-  let sideWindows = "";
-  for (let f = 0; f < floors; f++) {
-    const winY = f * floorH + 1;
-    const lit = Math.random() > 0.4;
-    sideWindows += `<div style="position:absolute;top:${winY}px;left:3px;right:2px;height:${floorH - 2}px;background:${lit ? 'rgba(103,232,249,0.3)' : 'rgba(20,35,60,0.4)'};border-radius:1px;" class="skyscraper-win"></div>`;
-  }
-
-  let roofHTML = "";
-  if (roofStyle === "pointed") {
-    roofHTML = `
-      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:${widthPx / 3}px solid transparent;border-right:${widthPx / 3}px solid transparent;border-bottom:12px solid #1a3a6a;filter:drop-shadow(0 -2px 6px rgba(103,232,249,0.4));"></div>
-      <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:2px;height:8px;background:rgba(103,232,249,0.9);box-shadow:0 0 6px rgba(103,232,249,0.8);border-radius:1px;"></div>
-    `;
-  } else if (roofStyle === "antenna") {
-    roofHTML = `
-      <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);width:2px;height:20px;background:linear-gradient(to top,#2a4a7a,rgba(103,232,249,0.8));box-shadow:0 0 8px rgba(103,232,249,0.5);"></div>
-      <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:rgba(239,68,68,0.9);box-shadow:0 0 10px rgba(239,68,68,0.8);" class="antenna-blink"></div>
-    `;
-  } else {
-    roofHTML = `<div style="position:absolute;top:-3px;left:2px;right:2px;height:3px;background:linear-gradient(90deg,#2a4a7a,rgba(103,232,249,0.5),#2a4a7a);border-radius:1px 1px 0 0;box-shadow:0 -1px 8px rgba(103,232,249,0.3);"></div>`;
-  }
-
-  return `
-    <div class="skyscraper-marker" style="display:flex;flex-direction:column;align-items:center;">
-      <div class="skyscraper-body" style="position:relative;display:flex;filter:drop-shadow(0 4px 20px rgba(6,182,212,0.25)) drop-shadow(0 0 40px rgba(6,182,212,0.1));">
-        <div style="position:relative;width:${widthPx}px;height:${heightPx}px;background:linear-gradient(180deg,#0d2240 0%,#152d50 40%,#1a365d 100%);border:1px solid rgba(103,232,249,0.2);border-radius:2px 2px 0 0;overflow:hidden;">
-          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,transparent 50%,rgba(0,0,0,0.15) 100%);pointer-events:none;"></div>
-          <div style="position:absolute;top:0;left:0;width:2px;height:100%;background:linear-gradient(180deg,rgba(103,232,249,0.4),transparent);"></div>
-          ${frontWindows}
-          ${roofHTML}
-        </div>
-        <div style="width:${sideW}px;height:${heightPx}px;background:linear-gradient(180deg,#091a33 0%,#0d2240 100%);border-right:1px solid rgba(103,232,249,0.1);border-radius:0 2px 0 0;position:relative;overflow:hidden;transform:skewY(-8deg);transform-origin:top left;margin-top:0;">
-          ${sideWindows}
-        </div>
-      </div>
-      <div class="building-ground-glow" style="width:${widthPx + sideW + 16}px;height:6px;background:radial-gradient(ellipse,rgba(103,232,249,0.35) 0%,transparent 70%);margin-top:-1px;"></div>
-      <div class="building-label" style="display:none;margin-top:4px;min-width:${Math.max(widthPx + sideW + 20, 120)}px;border-radius:10px;border:1px solid rgba(103,232,249,0.2);background:rgba(5,8,18,0.95);backdrop-filter:blur(16px);padding:5px 10px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 20px rgba(6,182,212,0.08);">
-        <div style="font-size:10.5px;font-weight:800;color:white;line-height:1.2;letter-spacing:0.03em;">${name}</div>
-        <div style="font-size:8px;color:rgba(103,232,249,0.6);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;">${location}</div>
-      </div>
-    </div>
-  `;
+function makeBuildingFootprint(lat: number, lng: number, widthM: number, depthM: number): number[][] {
+  const mPerDegLat = 111320;
+  const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
+  const dLat = (depthM / 2) / mPerDegLat;
+  const dLng = (widthM / 2) / mPerDegLng;
+  return [
+    [lng - dLng, lat - dLat],
+    [lng + dLng, lat - dLat],
+    [lng + dLng, lat + dLat],
+    [lng - dLng, lat + dLat],
+    [lng - dLng, lat - dLat],
+  ];
 }
 
 function PropertyMap({ properties }: { properties: Property[] }) {
@@ -214,7 +166,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       bearing: -12,
       antialias: true,
       attributionControl: false,
-      dragRotate: false,
+      dragRotate: true,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
@@ -228,91 +180,38 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
       if (triangleCoordPairs.length >= 3) {
         const closed = [...triangleCoordPairs, triangleCoordPairs[0]];
-
-        map.addSource("triangle-fill", {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } },
-        });
-        map.addLayer({
-          id: "triangle-fill-layer",
-          type: "fill",
-          source: "triangle-fill",
-          paint: { "fill-color": "#10b981", "fill-opacity": 0.06 },
-        });
-
-        map.addSource("triangle-edges", {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: closed } },
-        });
-
-        map.addLayer({
-          id: "triangle-glow-wide",
-          type: "line",
-          source: "triangle-edges",
-          paint: { "line-color": "#67e8f9", "line-width": 18, "line-opacity": 0.08, "line-blur": 12 },
-        });
-        map.addLayer({
-          id: "triangle-glow-mid",
-          type: "line",
-          source: "triangle-edges",
-          paint: { "line-color": "#67e8f9", "line-width": 8, "line-opacity": 0.15, "line-blur": 4 },
-        });
-        map.addLayer({
-          id: "triangle-edge-solid",
-          type: "line",
-          source: "triangle-edges",
-          paint: { "line-color": "#67e8f9", "line-width": 2.5, "line-opacity": 0.9 },
-        });
+        map.addSource("triangle-fill", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
+        map.addLayer({ id: "triangle-fill-layer", type: "fill", source: "triangle-fill", paint: { "fill-color": "#10b981", "fill-opacity": 0.06 } });
+        map.addSource("triangle-edges", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: closed } } });
+        map.addLayer({ id: "triangle-glow-wide", type: "line", source: "triangle-edges", paint: { "line-color": "#67e8f9", "line-width": 18, "line-opacity": 0.08, "line-blur": 12 } });
+        map.addLayer({ id: "triangle-glow-mid", type: "line", source: "triangle-edges", paint: { "line-color": "#67e8f9", "line-width": 8, "line-opacity": 0.15, "line-blur": 4 } });
+        map.addLayer({ id: "triangle-edge-solid", type: "line", source: "triangle-edges", paint: { "line-color": "#67e8f9", "line-width": 2.5, "line-opacity": 0.9 } });
 
         for (let i = 0; i < 3; i++) {
           const from = triangleCoordPairs[i];
-          const to = triangleCoordPairs[(i + 1) % 3];
-          map.addSource(`triangle-particle-${i}`, {
-            type: "geojson",
-            data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: from } },
-          });
-          map.addLayer({
-            id: `triangle-particle-glow-${i}`,
-            type: "circle",
-            source: `triangle-particle-${i}`,
-            paint: { "circle-radius": 12, "circle-color": "#34d399", "circle-opacity": 0.2, "circle-blur": 1 },
-          });
-          map.addLayer({
-            id: `triangle-particle-${i}`,
-            type: "circle",
-            source: `triangle-particle-${i}`,
-            paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.9 },
-          });
+          map.addSource(`triangle-particle-${i}`, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: from } } });
+          map.addLayer({ id: `triangle-particle-glow-${i}`, type: "circle", source: `triangle-particle-${i}`, paint: { "circle-radius": 12, "circle-color": "#34d399", "circle-opacity": 0.2, "circle-blur": 1 } });
+          map.addLayer({ id: `triangle-particle-${i}`, type: "circle", source: `triangle-particle-${i}`, paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.9 } });
         }
-
         let particlePhase = 0;
         let fillPhase = 0;
         function animateAll() {
           particlePhase += 0.004;
           if (particlePhase > 1) particlePhase = 0;
           fillPhase += 0.012;
-
           for (let i = 0; i < 3; i++) {
             const from = triangleCoordPairs[i];
             const to = triangleCoordPairs[(i + 1) % 3];
             const t = (particlePhase + i * 0.33) % 1;
-            const lng = from[0] + (to[0] - from[0]) * t;
-            const lat = from[1] + (to[1] - from[1]) * t;
+            const pLng = from[0] + (to[0] - from[0]) * t;
+            const pLat = from[1] + (to[1] - from[1]) * t;
             const src = map.getSource(`triangle-particle-${i}`) as maplibregl.GeoJSONSource;
-            if (src) {
-              src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lng, lat] } });
-            }
+            if (src) src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [pLng, pLat] } });
           }
-
           const fillOp = 0.04 + Math.sin(fillPhase) * 0.04;
-          if (map.getLayer("triangle-fill-layer")) {
-            map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.02, fillOp));
-          }
+          if (map.getLayer("triangle-fill-layer")) map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.02, fillOp));
           const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.07;
-          if (map.getLayer("triangle-glow-wide")) {
-            map.setPaintProperty("triangle-glow-wide", "line-opacity", glowOp);
-          }
-
+          if (map.getLayer("triangle-glow-wide")) map.setPaintProperty("triangle-glow-wide", "line-opacity", glowOp);
           animFrameRef.current = requestAnimationFrame(animateAll);
         }
         animateAll();
@@ -320,17 +219,13 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
       const vileparleCoords = PROPERTY_COORDS[VILEPARLE_KEY];
       if (vileparleCoords && triangleCoordPairs.length > 0) {
-        let closestDist = Infinity;
-        let closestIdx = 0;
+        let closestDist = Infinity; let closestIdx = 0;
         for (let i = 0; i < triangleCoordPairs.length; i++) {
           const tc = triangleCoordPairs[i];
           const d = Math.sqrt(Math.pow(tc[0] - vileparleCoords[1], 2) + Math.pow(tc[1] - vileparleCoords[0], 2));
           if (d < closestDist) { closestDist = d; closestIdx = i; }
         }
-        map.addSource("vileparle-line", {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[vileparleCoords[1], vileparleCoords[0]], triangleCoordPairs[closestIdx]] } },
-        });
+        map.addSource("vileparle-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[vileparleCoords[1], vileparleCoords[0]], triangleCoordPairs[closestIdx]] } } });
         map.addLayer({ id: "vileparle-glow", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
         map.addLayer({ id: "vileparle-connector", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
@@ -338,81 +233,211 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       const goregaonCoords = PROPERTY_COORDS[GOREGAON_KEY];
       const juhuCoords = PROPERTY_COORDS["Hsquare Hostel Juhu"];
       if (goregaonCoords && juhuCoords) {
-        map.addSource("goregaon-line", {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[juhuCoords[1], juhuCoords[0]], [goregaonCoords[1], goregaonCoords[0]]] } },
-        });
+        map.addSource("goregaon-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[juhuCoords[1], juhuCoords[0]], [goregaonCoords[1], goregaonCoords[0]]] } } });
         map.addLayer({ id: "goregaon-glow", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
-      const scalableEls: HTMLElement[] = [];
+      const buildingFeatures: GeoJSON.Feature[] = [];
+      const markerFeatures: GeoJSON.Feature[] = [];
 
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
-        const config = BUILDING_CONFIGS[name] || { floors: 6, widthPx: 38, heightPx: 70, roofStyle: "flat" };
-        const el = document.createElement("div");
-        el.className = "map-building-marker";
-        el.style.transformOrigin = "bottom center";
-        el.innerHTML = createSkyscraperHTML(name, property.location, config);
-        el.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const label = el.querySelector(".building-label") as HTMLElement;
-          if (!label) return;
-          const isVisible = label.style.display !== "none";
-          document.querySelectorAll(".building-label").forEach((l) => {
-            (l as HTMLElement).style.display = "none";
-          });
-          if (!isVisible) label.style.display = "block";
+        const config = BUILDING_CONFIGS[name] || { floors: 6, heightM: 21, widthM: 22, depthM: 16, color: "#1a365d", roofColor: "#2a4a7a" };
+        const footprint = makeBuildingFootprint(coords[0], coords[1], config.widthM, config.depthM);
+        buildingFeatures.push({
+          type: "Feature",
+          properties: { name, location: property.location, height: config.heightM, color: config.color, roofColor: config.roofColor },
+          geometry: { type: "Polygon", coordinates: [footprint] },
         });
-        scalableEls.push(el);
-        new maplibregl.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([coords[1], coords[0]])
+        markerFeatures.push({
+          type: "Feature",
+          properties: { name, location: property.location },
+          geometry: { type: "Point", coordinates: [coords[1], coords[0]] },
+        });
+      });
+
+      map.addSource("property-buildings", { type: "geojson", data: { type: "FeatureCollection", features: buildingFeatures } });
+      map.addSource("property-markers", { type: "geojson", data: { type: "FeatureCollection", features: markerFeatures } });
+
+      map.addLayer({
+        id: "building-shadows",
+        type: "fill",
+        source: "property-buildings",
+        paint: { "fill-color": "#000000", "fill-opacity": 0.3, "fill-translate": [2, 2] },
+      });
+
+      map.addLayer({
+        id: "building-extrusion",
+        type: "fill-extrusion",
+        source: "property-buildings",
+        paint: {
+          "fill-extrusion-color": ["get", "color"],
+          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.92,
+        },
+      });
+
+      map.addLayer({
+        id: "building-glow-base",
+        type: "circle",
+        source: "property-markers",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 13, 12, 16, 30],
+          "circle-color": "#06b6d4",
+          "circle-opacity": 0.15,
+          "circle-blur": 1,
+        },
+      });
+
+      map.addLayer({
+        id: "property-dots",
+        type: "circle",
+        source: "property-markers",
+        maxzoom: 13,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 13, 8],
+          "circle-color": "#67e8f9",
+          "circle-opacity": 0.9,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.5,
+        },
+      });
+
+      map.addLayer({
+        id: "property-labels",
+        type: "symbol",
+        source: "property-markers",
+        minzoom: 11,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 11, 9, 14, 13, 16, 16],
+          "text-offset": [0, -2.5],
+          "text-anchor": "bottom",
+          "text-font": ["Open Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(5,8,18,0.9)",
+          "text-halo-width": 2,
+        },
+      });
+
+      map.addLayer({
+        id: "property-sublabels",
+        type: "symbol",
+        source: "property-markers",
+        minzoom: 12.5,
+        layout: {
+          "text-field": ["get", "location"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 12.5, 7, 16, 10],
+          "text-offset": [0, -1.6],
+          "text-anchor": "bottom",
+          "text-font": ["Open Sans Regular"],
+          "text-transform": "uppercase",
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "rgba(103,232,249,0.6)",
+          "text-halo-color": "rgba(5,8,18,0.8)",
+          "text-halo-width": 1.5,
+        },
+      });
+
+      const hotspotFeatures: GeoJSON.Feature[] = HOTSPOTS.map(spot => ({
+        type: "Feature",
+        properties: { name: spot.name, type: spot.type, color: HOTSPOT_COLORS[spot.type] || "#f472b6" },
+        geometry: { type: "Point", coordinates: [spot.lng, spot.lat] },
+      }));
+
+      map.addSource("hotspots", { type: "geojson", data: { type: "FeatureCollection", features: hotspotFeatures } });
+
+      map.addLayer({
+        id: "hotspot-glow",
+        type: "circle",
+        source: "hotspots",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 14],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.15,
+          "circle-blur": 1,
+        },
+      });
+
+      map.addLayer({
+        id: "hotspot-dots",
+        type: "circle",
+        source: "hotspots",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 6],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.9,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1,
+        },
+      });
+
+      map.addLayer({
+        id: "hotspot-labels",
+        type: "symbol",
+        source: "hotspots",
+        minzoom: 11.5,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 11.5, 8, 14, 11],
+          "text-offset": [0, 1.2],
+          "text-anchor": "top",
+          "text-font": ["Open Sans Bold"],
+          "text-allow-overlap": false,
+        },
+        paint: {
+          "text-color": "rgba(255,255,255,0.7)",
+          "text-halo-color": "rgba(5,8,18,0.9)",
+          "text-halo-width": 1.5,
+        },
+      });
+
+      const activePopup = { current: null as maplibregl.Popup | null };
+
+      map.on("click", "building-extrusion", (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+        if (!e.features || e.features.length === 0) return;
+        const f = e.features[0];
+        const name = f.properties?.name || "";
+        const location = f.properties?.location || "";
+        if (activePopup.current) activePopup.current.remove();
+        activePopup.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true, className: "hsquare-popup", maxWidth: "220px", offset: [0, -10] })
+          .setLngLat(e.lngLat)
+          .setHTML(`<div style="padding:8px 4px;text-align:center;"><div style="font-size:13px;font-weight:800;color:white;margin-bottom:2px;">${name}</div><div style="font-size:10px;color:rgba(103,232,249,0.7);text-transform:uppercase;letter-spacing:0.05em;">${location}</div></div>`)
           .addTo(map);
       });
 
-      HOTSPOTS.forEach(spot => {
-        const iconSvg = HOTSPOT_ICONS[spot.type] || HOTSPOT_ICONS.lifestyle;
-        const el = document.createElement("div");
-        el.className = "map-hotspot-marker";
-        el.style.transformOrigin = "bottom center";
-        scalableEls.push(el);
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="hotspot-pin" style="width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:1.5px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(239,68,68,0.5),0 1px 4px rgba(0,0,0,0.4);">
-              ${iconSvg}
-            </div>
-            <div style="margin-top:2px;border-radius:6px;background:rgba(5,8,18,0.9);backdrop-filter:blur(8px);padding:1px 5px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 1px 4px rgba(0,0,0,0.5);">
-              <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,0.7);white-space:nowrap;letter-spacing:0.02em;">${spot.name}</div>
-            </div>
-          </div>
-        `;
-        new maplibregl.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([spot.lng, spot.lat])
+      map.on("click", "property-dots", (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+        if (!e.features || e.features.length === 0) return;
+        const f = e.features[0];
+        const name = f.properties?.name || "";
+        const location = f.properties?.location || "";
+        if (activePopup.current) activePopup.current.remove();
+        activePopup.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true, className: "hsquare-popup", maxWidth: "220px" })
+          .setLngLat(e.lngLat)
+          .setHTML(`<div style="padding:8px 4px;text-align:center;"><div style="font-size:13px;font-weight:800;color:white;margin-bottom:2px;">${name}</div><div style="font-size:10px;color:rgba(103,232,249,0.7);text-transform:uppercase;letter-spacing:0.05em;">${location}</div></div>`)
           .addTo(map);
       });
+
+      map.on("mouseenter", "building-extrusion", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "building-extrusion", () => { map.getCanvas().style.cursor = ""; });
+      map.on("mouseenter", "property-dots", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "property-dots", () => { map.getCanvas().style.cursor = ""; });
 
       if (propertyCoords.length > 0) {
         const bounds = new maplibregl.LngLatBounds();
         propertyCoords.forEach(c => bounds.extend([c.coords[1], c.coords[0]]));
         HOTSPOTS.forEach(h => bounds.extend([h.lng, h.lat]));
-        map.fitBounds(bounds, { padding: 60, pitch: 45, bearing: -12 });
+        map.fitBounds(bounds, { padding: 60, pitch: 50, bearing: -15 });
       }
-
-      let referenceZoom = 0;
-      map.once("moveend", () => {
-        referenceZoom = map.getZoom();
-      });
-      map.on("zoom", () => {
-        if (!referenceZoom) return;
-        const z = map.getZoom();
-        const s = Math.pow(2, (z - referenceZoom) * 0.7);
-        const c = Math.max(0.15, Math.min(s, 2.5));
-        for (const el of scalableEls) {
-          el.style.transform = `scale(${c})`;
-        }
-      });
-
     });
 
     mapInstanceRef.current = map;
@@ -463,28 +488,17 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         .maplibregl-ctrl-group button span { filter: invert(1) brightness(0.6); }
         .maplibregl-ctrl-attrib { display: none !important; }
 
-        .map-building-marker { cursor: pointer; will-change: transform; }
-        .map-hotspot-marker { cursor: default; will-change: transform; }
-        .building-label { transition: opacity 0.2s ease; }
-        .skyscraper-win {}
-
-        @keyframes antennaBlink {
-          0%, 70%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(239,68,68,0.8); }
-          75% { opacity: 0.2; box-shadow: 0 0 4px rgba(239,68,68,0.3); }
+        .maplibregl-popup-content {
+          background: rgba(5,10,20,0.95) !important;
+          border: 1px solid rgba(103,232,249,0.2) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(6,182,212,0.1) !important;
+          backdrop-filter: blur(16px);
+          padding: 4px !important;
         }
-        .antenna-blink { animation: antennaBlink 2s ease-in-out infinite; }
-
-        @keyframes groundGlowPulse {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
-        }
-        .building-ground-glow { animation: groundGlowPulse 3s ease-in-out infinite; }
-
-        @keyframes hotspotPulse {
-          0%, 100% { box-shadow: 0 0 12px rgba(239,68,68,0.5), 0 2px 8px rgba(0,0,0,0.4); }
-          50% { box-shadow: 0 0 20px rgba(239,68,68,0.7), 0 2px 12px rgba(0,0,0,0.5); }
-        }
-        .hotspot-pin { animation: hotspotPulse 3s ease-in-out infinite; }
+        .maplibregl-popup-tip { border-top-color: rgba(5,10,20,0.95) !important; }
+        .maplibregl-popup-close-button { color: rgba(255,255,255,0.5); font-size: 16px; padding: 2px 6px; }
+        .maplibregl-popup-close-button:hover { color: white; background: transparent; }
       `}</style>
     </div>
   );
