@@ -58,6 +58,7 @@ import {
   Gem,
   Upload,
   ImageIcon,
+  Camera,
   RefreshCw,
   Send,
 } from "lucide-react";
@@ -193,6 +194,7 @@ export default function CompletedBookings() {
   });
   const [markingPayment, setMarkingPayment] = useState(false);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [bookingPackages, setBookingPackages] = useState<any>(null);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [showPackages, setShowPackages] = useState(false);
@@ -438,6 +440,43 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const uploadProfilePhoto = async (file: File) => {
+    if (!selectedBooking) return;
+    setProfilePhotoUploading(true);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Failed to upload photo");
+
+      const existingRd = selectedBooking.residentDetails || {};
+      const payload = {
+        residentDetails: { ...existingRd, photoPath: objectPath },
+      };
+      const saveRes = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!saveRes.ok) throw new Error("Failed to save photo");
+      const updated = await saveRes.json();
+      setSelectedBooking({ ...selectedBooking, ...updated, residentDetails: { ...existingRd, photoPath: objectPath } });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Profile photo updated" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setProfilePhotoUploading(false);
     }
   };
 
@@ -1335,31 +1374,51 @@ export default function CompletedBookings() {
                 <div className="flex items-center gap-3">
                   {(() => {
                     const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
-                    if (photoSrc) {
-                      return (
-                        <>
-                          <img
-                            src={photoSrc}
-                            alt={selectedBooking.customerName || ""}
-                            className="w-12 h-12 rounded-full object-cover shadow-sm"
-                            data-testid="img-booking-avatar"
-                            onError={(e) => {
-                              const img = e.currentTarget;
-                              img.style.display = "none";
-                              const fallback = img.nextElementSibling as HTMLElement | null;
-                              if (fallback) fallback.classList.remove("hidden");
-                            }}
-                          />
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg hidden">
-                            {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                        </>
-                      );
-                    }
-                    return (
+                    const avatarContent = photoSrc ? (
+                      <>
+                        <img
+                          src={photoSrc}
+                          alt={selectedBooking.customerName || ""}
+                          className="w-12 h-12 rounded-full object-cover shadow-sm"
+                          data-testid="img-booking-avatar"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            img.style.display = "none";
+                            const fallback = img.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.classList.remove("hidden");
+                          }}
+                        />
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg hidden">
+                          {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                      </>
+                    ) : (
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
                         {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
                       </div>
+                    );
+                    return (
+                      <label className="relative group cursor-pointer" data-testid="btn-upload-profile-photo">
+                        {avatarContent}
+                        <div className="absolute inset-0 w-12 h-12 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          {profilePhotoUploading ? (
+                            <Loader2 className="h-4 w-4 text-white animate-spin" />
+                          ) : (
+                            <Camera className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={profilePhotoUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadProfilePhoto(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
                     );
                   })()}
                   <div>
@@ -2220,6 +2279,44 @@ export default function CompletedBookings() {
           {selectedBooking && isEditing && (
             <div className="space-y-4">
               <div className="space-y-3">
+                <div className="flex items-center gap-4 pb-2">
+                  {(() => {
+                    const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
+                    return (
+                      <label className="relative group cursor-pointer shrink-0" data-testid="btn-edit-profile-photo">
+                        {photoSrc ? (
+                          <img src={photoSrc} alt="" className="w-16 h-16 rounded-full object-cover shadow-sm border-2 border-indigo-200" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl border-2 border-indigo-200">
+                            {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                        )}
+                        <div className="absolute inset-0 w-16 h-16 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          {profilePhotoUploading ? (
+                            <Loader2 className="h-5 w-5 text-white animate-spin" />
+                          ) : (
+                            <Camera className="h-5 w-5 text-white" />
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={profilePhotoUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadProfilePhoto(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    );
+                  })()}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-700">{selectedBooking.customerName}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Click photo to upload new image</p>
+                  </div>
+                </div>
                 <div>
                   <Label className="text-xs font-medium text-slate-500">Customer Name</Label>
                   <Input
