@@ -365,6 +365,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         const iconSvg = HOTSPOT_ICONS[spot.type] || HOTSPOT_ICONS.lifestyle;
         const el = document.createElement("div");
         el.className = "map-hotspot-marker";
+        el.style.transformOrigin = "bottom center";
+        scalableEls.push(el);
         el.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;">
             <div class="hotspot-pin" style="width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:1.5px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(239,68,68,0.5),0 1px 4px rgba(0,0,0,0.4);">
@@ -386,6 +388,20 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         HOTSPOTS.forEach(h => bounds.extend([h.lng, h.lat]));
         map.fitBounds(bounds, { padding: 60, pitch: 45, bearing: -12 });
       }
+
+      let referenceZoom = 0;
+      map.once("moveend", () => {
+        referenceZoom = map.getZoom();
+      });
+      map.on("zoom", () => {
+        if (!referenceZoom) return;
+        const z = map.getZoom();
+        const s = Math.pow(2, (z - referenceZoom) * 0.7);
+        const c = Math.max(0.15, Math.min(s, 2.5));
+        for (const el of scalableEls) {
+          el.style.transform = `scale(${c})`;
+        }
+      });
 
     });
 
