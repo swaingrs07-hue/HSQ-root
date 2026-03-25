@@ -136,20 +136,73 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
     if (triangleCoords.length >= 3) {
       L.polygon(triangleCoords, {
-        color: "rgba(103,232,249,0.9)",
-        weight: 2.5,
-        dashArray: "10, 5",
-        fillColor: "rgba(6,182,212,0.12)",
-        fillOpacity: 0.12,
-        className: "triangle-glow",
+        color: "transparent",
+        weight: 0,
+        fillColor: "rgba(16,185,129,0.06)",
+        fillOpacity: 1,
+        className: "triangle-fill-base",
       }).addTo(map);
 
       L.polygon(triangleCoords, {
-        color: "rgba(103,232,249,0.3)",
-        weight: 8,
+        color: "transparent",
+        weight: 0,
+        fillColor: "rgba(16,185,129,0.10)",
+        fillOpacity: 1,
+        className: "triangle-fill-pulse",
+      }).addTo(map);
+
+      L.polygon(triangleCoords, {
+        color: "transparent",
+        weight: 0,
+        fillColor: "rgba(16,185,129,0.15)",
+        fillOpacity: 1,
+        className: "triangle-fill-wave",
+      }).addTo(map);
+
+      L.polygon(triangleCoords, {
+        color: "rgba(103,232,249,0.15)",
+        weight: 12,
         fillColor: "transparent",
         fillOpacity: 0,
         className: "triangle-outer-glow",
+      }).addTo(map);
+
+      L.polyline([triangleCoords[0], triangleCoords[1]], {
+        color: "rgba(103,232,249,0.85)",
+        weight: 2.5,
+        dashArray: "12, 6",
+        className: "triangle-edge-0",
+      }).addTo(map);
+      L.polyline([triangleCoords[1], triangleCoords[2]], {
+        color: "rgba(103,232,249,0.85)",
+        weight: 2.5,
+        dashArray: "12, 6",
+        className: "triangle-edge-1",
+      }).addTo(map);
+      L.polyline([triangleCoords[2], triangleCoords[0]], {
+        color: "rgba(103,232,249,0.85)",
+        weight: 2.5,
+        dashArray: "12, 6",
+        className: "triangle-edge-2",
+      }).addTo(map);
+
+      L.polyline([triangleCoords[0], triangleCoords[1]], {
+        color: "rgba(52,211,153,0.9)",
+        weight: 3,
+        dashArray: "4, 30",
+        className: "triangle-particle-0",
+      }).addTo(map);
+      L.polyline([triangleCoords[1], triangleCoords[2]], {
+        color: "rgba(52,211,153,0.9)",
+        weight: 3,
+        dashArray: "4, 30",
+        className: "triangle-particle-1",
+      }).addTo(map);
+      L.polyline([triangleCoords[2], triangleCoords[0]], {
+        color: "rgba(52,211,153,0.9)",
+        weight: 3,
+        dashArray: "4, 30",
+        className: "triangle-particle-2",
       }).addTo(map);
     }
 
@@ -163,9 +216,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         if (d < closestDist) { closestDist = d; closestCoord = tcArr; }
       }
       L.polyline([vileparleCoords, closestCoord], {
-        color: "rgba(103,232,249,0.6)",
+        color: "rgba(103,232,249,0.5)",
         weight: 2,
         dashArray: "6, 6",
+        className: "connector-line-anim",
       }).addTo(map);
     }
 
@@ -175,23 +229,23 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       const energyFrom: [number, number] = juhuCoords || triangleCenter;
 
       L.polyline([energyFrom, goregaonCoords], {
-        color: "rgba(103,232,249,0.15)",
-        weight: 12,
+        color: "rgba(103,232,249,0.10)",
+        weight: 14,
         className: "energy-line-glow",
       }).addTo(map);
 
       L.polyline([energyFrom, goregaonCoords], {
-        color: "rgba(103,232,249,0.7)",
+        color: "rgba(103,232,249,0.6)",
         weight: 2.5,
         dashArray: "12, 8",
         className: "energy-line-animated",
       }).addTo(map);
 
       L.polyline([energyFrom, goregaonCoords], {
-        color: "rgba(103,232,249,0.4)",
-        weight: 1.5,
-        dashArray: "4, 16",
-        className: "energy-line-pulse",
+        color: "rgba(52,211,153,0.8)",
+        weight: 3,
+        dashArray: "4, 30",
+        className: "energy-particle",
       }).addTo(map);
     }
 
@@ -200,18 +254,20 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         className: "custom-property-marker",
         html: `
           <div style="position:relative;display:flex;flex-direction:column;align-items:center;">
-            <div style="width:24px;height:24px;position:relative;">
-              <div style="position:absolute;inset:0;border-radius:50%;background:#ef4444;box-shadow:0 0 20px rgba(239,68,68,0.6);"></div>
-              <div style="position:absolute;inset:3px;border-radius:50%;background:#dc2626;border:2px solid rgba(255,255,255,0.9);"></div>
+            <div style="width:28px;height:28px;position:relative;">
+              <div class="marker-ring-outer" style="position:absolute;inset:-8px;border-radius:50%;border:1.5px solid rgba(103,232,249,0.3);"></div>
+              <div class="marker-ring-inner" style="position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(52,211,153,0.4);"></div>
+              <div style="position:absolute;inset:0;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 24px rgba(239,68,68,0.6),0 0 48px rgba(239,68,68,0.2);"></div>
+              <div style="position:absolute;inset:4px;border-radius:50%;background:#dc2626;border:2px solid rgba(255,255,255,0.95);"></div>
             </div>
-            <div style="margin-top:6px;min-width:120px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(10,15,26,0.95);backdrop-filter:blur(12px);padding:5px 8px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-              <div style="font-size:11px;font-weight:700;color:white;line-height:1.2;">${property.displayName || property.name}</div>
-              <div style="font-size:9px;color:rgba(103,232,249,0.6);margin-top:2px;">${property.location}</div>
+            <div style="margin-top:8px;min-width:130px;border-radius:12px;border:1px solid rgba(103,232,249,0.15);background:rgba(5,10,20,0.95);backdrop-filter:blur(16px);padding:6px 10px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.6),0 0 20px rgba(6,182,212,0.08);">
+              <div style="font-size:11px;font-weight:700;color:white;line-height:1.3;letter-spacing:0.02em;">${property.displayName || property.name}</div>
+              <div style="font-size:9px;color:rgba(103,232,249,0.5);margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">${property.location}</div>
             </div>
           </div>
         `,
-        iconSize: [120, 70],
-        iconAnchor: [60, 12],
+        iconSize: [130, 80],
+        iconAnchor: [65, 14],
       });
       L.marker(coords, { icon, interactive: false }).addTo(map);
     });
@@ -258,6 +314,21 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       </div>
       <style>{`
         .custom-property-marker, .custom-hotspot-marker { background: none !important; border: none !important; }
+
+        @keyframes markerRingPulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.4); opacity: 0; }
+        }
+        @keyframes markerRingInnerPulse {
+          0%, 100% { transform: scale(1); opacity: 0.4; }
+          50% { transform: scale(1.2); opacity: 0.1; }
+        }
+        .marker-ring-outer {
+          animation: markerRingPulse 3s ease-in-out infinite;
+        }
+        .marker-ring-inner {
+          animation: markerRingInnerPulse 2.5s ease-in-out infinite 0.5s;
+        }
         .leaflet-container { background: #0a0f1a !important; }
 
         .leaflet-control-zoom {
@@ -283,31 +354,98 @@ function PropertyMap({ properties }: { properties: Property[] }) {
           color: rgba(103,232,249,0.9) !important;
         }
 
-        .triangle-glow { filter: drop-shadow(0 0 8px rgba(6,182,212,0.4)); }
-        .triangle-outer-glow { filter: drop-shadow(0 0 16px rgba(6,182,212,0.2)); }
+        path.triangle-outer-glow {
+          filter: drop-shadow(0 0 20px rgba(6,182,212,0.3));
+          animation: outerGlowPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes outerGlowPulse {
+          0%, 100% { opacity: 0.3; filter: drop-shadow(0 0 20px rgba(6,182,212,0.2)); }
+          50% { opacity: 0.7; filter: drop-shadow(0 0 30px rgba(6,182,212,0.5)); }
+        }
+
+        @keyframes triangleFillPulse {
+          0%, 100% { fill-opacity: 0.04; }
+          50% { fill-opacity: 0.12; }
+        }
+        @keyframes triangleFillWave {
+          0%, 100% { fill-opacity: 0; }
+          30% { fill-opacity: 0.18; }
+          60% { fill-opacity: 0.05; }
+        }
+
+        path.triangle-fill-base {
+          fill: rgba(16,185,129,0.05);
+        }
+        path.triangle-fill-pulse {
+          animation: triangleFillPulse 3s ease-in-out infinite;
+        }
+        path.triangle-fill-wave {
+          animation: triangleFillWave 5s ease-in-out infinite;
+        }
+
+        @keyframes edgeFlow {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: -36; }
+        }
+        @keyframes particleFlow {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: -68; }
+        }
+
+        path.triangle-edge-0 {
+          animation: edgeFlow 2s linear infinite;
+          filter: drop-shadow(0 0 6px rgba(103,232,249,0.5));
+        }
+        path.triangle-edge-1 {
+          animation: edgeFlow 2s linear infinite 0.3s;
+          filter: drop-shadow(0 0 6px rgba(103,232,249,0.5));
+        }
+        path.triangle-edge-2 {
+          animation: edgeFlow 2s linear infinite 0.6s;
+          filter: drop-shadow(0 0 6px rgba(103,232,249,0.5));
+        }
+
+        path.triangle-particle-0 {
+          animation: particleFlow 1.8s linear infinite;
+          filter: drop-shadow(0 0 8px rgba(52,211,153,0.8));
+        }
+        path.triangle-particle-1 {
+          animation: particleFlow 1.8s linear infinite 0.6s;
+          filter: drop-shadow(0 0 8px rgba(52,211,153,0.8));
+        }
+        path.triangle-particle-2 {
+          animation: particleFlow 1.8s linear infinite 1.2s;
+          filter: drop-shadow(0 0 8px rgba(52,211,153,0.8));
+        }
+
+        @keyframes connectorDash {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: -24; }
+        }
+        path.connector-line-anim {
+          animation: connectorDash 2s linear infinite;
+        }
 
         @keyframes energyFlow {
           0% { stroke-dashoffset: 0; }
           100% { stroke-dashoffset: -40; }
         }
-        @keyframes energyPulse {
-          0% { stroke-dashoffset: 0; opacity: 0.4; }
-          50% { opacity: 0.8; }
-          100% { stroke-dashoffset: -40; opacity: 0.4; }
-        }
         @keyframes energyGlow {
-          0%, 100% { opacity: 0.1; }
-          50% { opacity: 0.25; }
+          0%, 100% { opacity: 0.08; }
+          50% { opacity: 0.2; }
         }
 
         path.energy-line-animated {
           animation: energyFlow 1.5s linear infinite;
-        }
-        path.energy-line-pulse {
-          animation: energyPulse 2s ease-in-out infinite;
+          filter: drop-shadow(0 0 6px rgba(103,232,249,0.5));
         }
         path.energy-line-glow {
           animation: energyGlow 3s ease-in-out infinite;
+        }
+        path.energy-particle {
+          animation: particleFlow 2s linear infinite;
+          filter: drop-shadow(0 0 8px rgba(52,211,153,0.8));
         }
       `}</style>
     </div>
