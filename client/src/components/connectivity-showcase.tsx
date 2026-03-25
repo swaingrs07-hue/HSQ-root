@@ -183,8 +183,7 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
       antialias: true,
       attributionControl: false,
       dragRotate: true,
-      maxBounds: MUMBAI_BOUNDS,
-      minZoom: 10.5,
+      minZoom: 9,
       maxZoom: 17,
     });
 
