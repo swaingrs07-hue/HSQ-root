@@ -234,52 +234,69 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         });
       } catch (_) {}
 
-      const resolvedCoords: Record<string, [number, number]> = {};
-      propertyCoords.forEach(({ property, coords }) => {
-        const name = property.displayName || property.name;
-        resolvedCoords[name] = [coords[1], coords[0]];
-      });
+      const allPropertyLngLat: [number, number][] = propertyCoords.map(({ coords }) => [coords[1], coords[0]]);
 
-      const triangleCoordPairs: [number, number][] = [];
-      for (const tk of TRIANGLE_KEYS) {
-        const c = resolvedCoords[tk] || (PROPERTY_COORDS[tk] ? [PROPERTY_COORDS[tk][1], PROPERTY_COORDS[tk][0]] : null);
-        if (c) triangleCoordPairs.push(c);
-      }
-
-      if (triangleCoordPairs.length >= 3) {
-        const closed = [...triangleCoordPairs, triangleCoordPairs[0]];
-        map.addSource("triangle-fill", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
-        map.addLayer({ id: "triangle-fill-layer", type: "fill", source: "triangle-fill", paint: { "fill-color": "#34d399", "fill-opacity": 0.15 } });
-        map.addSource("triangle-edges", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: closed } } });
-        map.addLayer({ id: "triangle-glow-wide", type: "line", source: "triangle-edges", paint: { "line-color": "#34d399", "line-width": 24, "line-opacity": 0.12, "line-blur": 14 } });
-        map.addLayer({ id: "triangle-glow-mid", type: "line", source: "triangle-edges", paint: { "line-color": "#34d399", "line-width": 10, "line-opacity": 0.2, "line-blur": 5 } });
-        map.addLayer({ id: "triangle-edge-solid", type: "line", source: "triangle-edges", paint: { "line-color": "#34d399", "line-width": 2.5, "line-opacity": 0.95 } });
-
-        for (let i = 0; i < 3; i++) {
-          const from = triangleCoordPairs[i];
-          map.addSource(`triangle-particle-${i}`, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: from } } });
-          map.addLayer({ id: `triangle-particle-glow-${i}`, type: "circle", source: `triangle-particle-${i}`, paint: { "circle-radius": 12, "circle-color": "#34d399", "circle-opacity": 0.2, "circle-blur": 1 } });
-          map.addLayer({ id: `triangle-particle-${i}`, type: "circle", source: `triangle-particle-${i}`, paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.9 } });
+      if (allPropertyLngLat.length >= 2) {
+        const lineFeatures: GeoJSON.Feature[] = [];
+        for (let i = 0; i < allPropertyLngLat.length; i++) {
+          for (let j = i + 1; j < allPropertyLngLat.length; j++) {
+            lineFeatures.push({
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: [allPropertyLngLat[i], allPropertyLngLat[j]] },
+            });
+          }
         }
+
+        map.addSource("property-network", { type: "geojson", data: { type: "FeatureCollection", features: lineFeatures } });
+        map.addLayer({ id: "network-glow-wide", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 18, "line-opacity": 0.08, "line-blur": 12 } });
+        map.addLayer({ id: "network-glow-mid", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 8, "line-opacity": 0.15, "line-blur": 4 } });
+        map.addLayer({ id: "network-edge-solid", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 2, "line-opacity": 0.85 } });
+
+        if (allPropertyLngLat.length >= 3) {
+          const triangleCoords = TRIANGLE_KEYS
+            .map(tk => {
+              const match = propertyCoords.find(({ property }) => (property.displayName || property.name) === tk);
+              return match ? [match.coords[1], match.coords[0]] as [number, number] : null;
+            })
+            .filter((c): c is [number, number] => c !== null);
+
+          if (triangleCoords.length >= 3) {
+            const closed = [...triangleCoords, triangleCoords[0]];
+            map.addSource("triangle-fill", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
+            map.addLayer({ id: "triangle-fill-layer", type: "fill", source: "triangle-fill", paint: { "fill-color": "#34d399", "fill-opacity": 0.15 } });
+          }
+        }
+
+        const numEdges = lineFeatures.length;
+        for (let i = 0; i < Math.min(numEdges, 6); i++) {
+          const edge = lineFeatures[i].geometry as GeoJSON.LineString;
+          const from = edge.coordinates[0] as [number, number];
+          map.addSource(`net-particle-${i}`, { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: from } } });
+          map.addLayer({ id: `net-particle-glow-${i}`, type: "circle", source: `net-particle-${i}`, paint: { "circle-radius": 10, "circle-color": "#34d399", "circle-opacity": 0.2, "circle-blur": 1 } });
+          map.addLayer({ id: `net-particle-${i}`, type: "circle", source: `net-particle-${i}`, paint: { "circle-radius": 3, "circle-color": "#67e8f9", "circle-opacity": 0.9 } });
+        }
+
         let particlePhase = 0;
         let fillPhase = 0;
         function animateAll() {
           particlePhase += 0.004;
           if (particlePhase > 1) particlePhase = 0;
           fillPhase += 0.012;
-          for (let i = 0; i < 3; i++) {
-            const from = triangleCoordPairs[i];
-            const to = triangleCoordPairs[(i + 1) % 3];
-            const t = (particlePhase + i * 0.33) % 1;
+          for (let i = 0; i < Math.min(numEdges, 6); i++) {
+            const edge = lineFeatures[i].geometry as GeoJSON.LineString;
+            const from = edge.coordinates[0] as [number, number];
+            const to = edge.coordinates[1] as [number, number];
+            const t = (particlePhase + i * (1 / numEdges)) % 1;
             const pLng = from[0] + (to[0] - from[0]) * t;
             const pLat = from[1] + (to[1] - from[1]) * t;
-            const src = map.getSource(`triangle-particle-${i}`) as maplibregl.GeoJSONSource;
+            const src = map.getSource(`net-particle-${i}`) as maplibregl.GeoJSONSource;
             if (src) src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [pLng, pLat] } });
           }
           const fillOp = 0.14 + Math.sin(fillPhase) * 0.06;
           if (map.getLayer("triangle-fill-layer")) map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.08, fillOp));
           const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.07;
-          if (map.getLayer("triangle-glow-wide")) map.setPaintProperty("triangle-glow-wide", "line-opacity", glowOp);
+          if (map.getLayer("network-glow-wide")) map.setPaintProperty("network-glow-wide", "line-opacity", glowOp);
           animFrameRef.current = requestAnimationFrame(animateAll);
         }
         animateAll();
