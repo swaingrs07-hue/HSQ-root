@@ -23,13 +23,13 @@ const PROPERTY_COORDS: Record<string, [number, number]> = {
 };
 
 const BUILDING_CONFIGS: Record<string, { floors: number; widthPx: number; heightPx: number; roofStyle: string }> = {
-  "Hsquare Hostel Juhu": { floors: 8, widthPx: 28, heightPx: 60, roofStyle: "pointed" },
-  "Hsquare Vileparle": { floors: 6, widthPx: 24, heightPx: 48, roofStyle: "flat" },
-  "Hsquare Bayview": { floors: 7, widthPx: 26, heightPx: 54, roofStyle: "pointed" },
-  "Hsquare Goregaon": { floors: 9, widthPx: 30, heightPx: 65, roofStyle: "antenna" },
-  "Hotel Neelkamal": { floors: 5, widthPx: 22, heightPx: 40, roofStyle: "flat" },
-  "Hsquare Caledonia": { floors: 7, widthPx: 26, heightPx: 55, roofStyle: "antenna" },
-  "Hsquare Utopia": { floors: 6, widthPx: 24, heightPx: 48, roofStyle: "flat" },
+  "Hsquare Hostel Juhu": { floors: 6, widthPx: 18, heightPx: 36, roofStyle: "pointed" },
+  "Hsquare Vileparle": { floors: 5, widthPx: 16, heightPx: 30, roofStyle: "flat" },
+  "Hsquare Bayview": { floors: 5, widthPx: 17, heightPx: 32, roofStyle: "pointed" },
+  "Hsquare Goregaon": { floors: 7, widthPx: 19, heightPx: 40, roofStyle: "antenna" },
+  "Hotel Neelkamal": { floors: 4, widthPx: 14, heightPx: 24, roofStyle: "flat" },
+  "Hsquare Caledonia": { floors: 5, widthPx: 17, heightPx: 33, roofStyle: "antenna" },
+  "Hsquare Utopia": { floors: 5, widthPx: 16, heightPx: 30, roofStyle: "flat" },
 };
 
 const TRIANGLE_KEYS = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Caledonia"];
@@ -216,6 +216,8 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       antialias: true,
       attributionControl: false,
       dragRotate: false,
+      minZoom: 11,
+      maxZoom: 15,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
@@ -364,11 +366,11 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         el.className = "map-hotspot-marker";
         el.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="hotspot-pin" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(239,68,68,0.5),0 2px 8px rgba(0,0,0,0.4);">
+            <div class="hotspot-pin" style="width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:1.5px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(239,68,68,0.5),0 1px 4px rgba(0,0,0,0.4);">
               ${iconSvg}
             </div>
-            <div style="margin-top:3px;border-radius:8px;background:rgba(5,8,18,0.9);backdrop-filter:blur(8px);padding:2px 7px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 2px 8px rgba(0,0,0,0.5);">
-              <div style="font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.7);white-space:nowrap;letter-spacing:0.02em;">${spot.name}</div>
+            <div style="margin-top:2px;border-radius:6px;background:rgba(5,8,18,0.9);backdrop-filter:blur(8px);padding:1px 5px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 1px 4px rgba(0,0,0,0.5);">
+              <div style="font-size:7px;font-weight:700;color:rgba(255,255,255,0.7);white-space:nowrap;letter-spacing:0.02em;">${spot.name}</div>
             </div>
           </div>
         `;
