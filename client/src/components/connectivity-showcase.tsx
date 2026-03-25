@@ -219,65 +219,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         });
       } catch (_) {}
 
-      try {
-        const mPerDegLat = 111320;
-        const goldenFeatures: GeoJSON.Feature[] = propertyCoords.map(({ coords }) => {
-          const lat = coords[0], lng = coords[1];
-          const mPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
-          const wM = 18, dM = 14;
-          const dLat = (dM / 2) / mPerDegLat;
-          const dLng = (wM / 2) / mPerDegLng;
-          return {
-            type: "Feature" as const,
-            properties: { height: 22 },
-            geometry: {
-              type: "Polygon" as const,
-              coordinates: [[
-                [lng - dLng, lat - dLat],
-                [lng + dLng, lat - dLat],
-                [lng + dLng, lat + dLat],
-                [lng - dLng, lat + dLat],
-                [lng - dLng, lat - dLat],
-              ]],
-            },
-          };
-        });
-
-        map.addSource("golden-buildings", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: goldenFeatures },
-        });
-
-        map.addLayer({
-          id: "golden-building-extrusion",
-          type: "fill-extrusion",
-          source: "golden-buildings",
-          minzoom: 13,
-          paint: {
-            "fill-extrusion-color": [
-              "interpolate", ["linear"], ["zoom"],
-              13, "#b8860b",
-              15, "#daa520",
-              17, "#ffd700"
-            ],
-            "fill-extrusion-height": ["get", "height"],
-            "fill-extrusion-base": 0,
-            "fill-extrusion-opacity": 0.85,
-          },
-        });
-
-        map.addLayer({
-          id: "golden-building-outline",
-          type: "line",
-          source: "golden-buildings",
-          minzoom: 13,
-          paint: {
-            "line-color": "#ffd700",
-            "line-width": 2,
-            "line-opacity": 0.5,
-          },
-        });
-      } catch (_) {}
+      
 
       try {
         map.addLayer({
@@ -380,14 +322,26 @@ function PropertyMap({ properties }: { properties: Property[] }) {
       map.addSource("property-markers", { type: "geojson", data: { type: "FeatureCollection", features: markerFeatures } });
 
       map.addLayer({
+        id: "building-glow-wide",
+        type: "circle",
+        source: "property-markers",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 25, 13, 70, 15, 120, 17, 200],
+          "circle-color": "#f59e0b",
+          "circle-opacity": 0.08,
+          "circle-blur": 1,
+        },
+      });
+
+      map.addLayer({
         id: "building-glow-outer",
         type: "circle",
         source: "property-markers",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 20, 13, 50, 16, 100],
-          "circle-color": "#f59e0b",
-          "circle-opacity": 0.10,
-          "circle-blur": 1,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 16, 13, 45, 15, 80, 17, 140],
+          "circle-color": "#fbbf24",
+          "circle-opacity": 0.12,
+          "circle-blur": 0.9,
         },
       });
 
@@ -396,10 +350,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         type: "circle",
         source: "property-markers",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 12, 13, 30, 16, 60],
-          "circle-color": "#fbbf24",
-          "circle-opacity": 0.18,
-          "circle-blur": 0.8,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 10, 13, 28, 15, 50, 17, 90],
+          "circle-color": "#fcd34d",
+          "circle-opacity": 0.2,
+          "circle-blur": 0.7,
         },
       });
 
@@ -408,10 +362,10 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         type: "circle",
         source: "property-markers",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 13, 16, 16, 35],
-          "circle-color": "#fcd34d",
-          "circle-opacity": 0.3,
-          "circle-blur": 0.5,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 5, 13, 14, 15, 30, 17, 50],
+          "circle-color": "#fde68a",
+          "circle-opacity": 0.35,
+          "circle-blur": 0.4,
         },
       });
 
