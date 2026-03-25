@@ -2294,7 +2294,7 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "tourOverviewImages", "includedServices", "moveInCharges"];
+      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "tourOverviewImages", "includedServices", "moveInCharges", "mapLatitude", "mapLongitude"];
       const updates: any = {};
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {

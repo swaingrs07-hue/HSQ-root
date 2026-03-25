@@ -76,6 +76,11 @@ const FEATURES = [
 ];
 
 function getCoords(property: Property): [number, number] | null {
+  if (property.mapLatitude && property.mapLongitude) {
+    const lat = parseFloat(property.mapLatitude);
+    const lng = parseFloat(property.mapLongitude);
+    if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+  }
   const name = property.displayName || property.name;
   if (PROPERTY_COORDS[name]) return PROPERTY_COORDS[name];
   for (const [key, coords] of Object.entries(PROPERTY_COORDS)) {
@@ -341,21 +346,28 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
+      const markerElements: HTMLElement[] = [];
+      const BASE_ZOOM = 13;
+
       propertyCoords.forEach(({ property, coords }) => {
         const name = property.displayName || property.name;
         const config = BUILDING_CONFIGS[name] || { floors: 6, widthPx: 38, heightPx: 70, roofStyle: "flat" };
         const el = document.createElement("div");
         el.className = "map-building-marker";
         el.innerHTML = createSkyscraperHTML(name, property.location, config);
+        el.style.transformOrigin = "bottom center";
+        markerElements.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([coords[1], coords[0]])
           .addTo(map);
       });
 
+      const hotspotElements: HTMLElement[] = [];
       HOTSPOTS.forEach(spot => {
         const iconSvg = HOTSPOT_ICONS[spot.type] || HOTSPOT_ICONS.lifestyle;
         const el = document.createElement("div");
         el.className = "map-hotspot-marker";
+        el.style.transformOrigin = "bottom center";
         el.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;">
             <div class="hotspot-pin" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(239,68,68,0.5),0 2px 8px rgba(0,0,0,0.4);">
@@ -366,10 +378,22 @@ function PropertyMap({ properties }: { properties: Property[] }) {
             </div>
           </div>
         `;
+        hotspotElements.push(el);
         new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([spot.lng, spot.lat])
           .addTo(map);
       });
+
+      function updateMarkerScale() {
+        const zoom = map.getZoom();
+        const scale = Math.pow(2, zoom - BASE_ZOOM);
+        const clampedScale = Math.max(0.3, Math.min(scale, 1.5));
+        const allEls = [...markerElements, ...hotspotElements];
+        for (const el of allEls) {
+          el.style.transform = `scale(${clampedScale})`;
+        }
+      }
+      map.on("zoom", updateMarkerScale);
 
       if (propertyCoords.length > 0) {
         const bounds = new maplibregl.LngLatBounds();

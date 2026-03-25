@@ -504,6 +504,7 @@ export default function AdminDashboard() {
     location: "", address: "", city: "", phone: "", email: "",
     amenities: "" as string, rules: "", mapsUrl: "", status: "draft",
     virtualTourUrl: "", virtualTourProvider: "", highlights: "",
+    mapLatitude: "", mapLongitude: "",
   });
   const [editPropertyImages, setEditPropertyImages] = useState<any[]>([]);
   const [editImagesLoading, setEditImagesLoading] = useState(false);
@@ -755,6 +756,8 @@ export default function AdminDashboard() {
       virtualTourUrl: property.virtualTourUrl || "",
       virtualTourProvider: property.virtualTourProvider || "",
       highlights: (property.highlights || []).join(", "),
+      mapLatitude: property.mapLatitude || "",
+      mapLongitude: property.mapLongitude || "",
     });
     setEditImagesLoading(true);
     try {
@@ -2013,6 +2016,32 @@ export default function AdminDashboard() {
                     data-testid="input-edit-maps-url"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" /> Map Latitude
+                    </Label>
+                    <Input
+                      value={editForm.mapLatitude}
+                      onChange={(e) => setEditForm(f => ({ ...f, mapLatitude: e.target.value }))}
+                      placeholder="e.g. 19.1163"
+                      data-testid="input-edit-map-latitude"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" /> Map Longitude
+                    </Label>
+                    <Input
+                      value={editForm.mapLongitude}
+                      onChange={(e) => setEditForm(f => ({ ...f, mapLongitude: e.target.value }))}
+                      placeholder="e.g. 72.8364"
+                      data-testid="input-edit-map-longitude"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Set exact coordinates for the homepage connectivity map. Find coordinates from Google Maps (right-click → Copy coordinates).</p>
               </TabsContent>
 
               <TabsContent value="features" className="space-y-4 mt-0">
