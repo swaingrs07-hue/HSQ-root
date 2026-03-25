@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Shield, GraduationCap, Sparkles, Navigation } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -274,6 +274,30 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const animFrameRef = useRef<number>(0);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const handleLocateMe = () => {
+    const map = mapInstanceRef.current;
+    if (!map || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (userMarkerRef.current) userMarkerRef.current.remove();
+        const el = document.createElement("div");
+        el.innerHTML = `<div style="position:relative;width:24px;height:24px;">
+          <div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.25);animation:pulse-ring 2s ease-out infinite;"></div>
+          <div style="position:absolute;inset:4px;border-radius:50%;background:#3b82f6;border:2.5px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div>
+        </div>`;
+        userMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([longitude, latitude]).addTo(map);
+        map.flyTo({ center: [longitude, latitude], zoom: 13, pitch: 50, duration: 1800 });
+        setLocating(false);
+      },
+      () => { setLocating(false); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const propertyCoords = useMemo(() => {
     return properties
@@ -783,7 +807,21 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
           </span>
         </div>
       </div>
-      <div className="absolute top-3 right-3 z-[10]">
+      <div className="absolute top-3 right-3 z-[10] flex items-center gap-2">
+        <button
+          onClick={handleLocateMe}
+          disabled={locating}
+          className="rounded-lg bg-black/70 backdrop-blur-lg border border-white/[0.06] px-2.5 py-1.5 text-[10px] text-white/50 font-medium tracking-wider uppercase hover:bg-white/[0.06] hover:text-cyan-300 hover:border-cyan-400/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+          title="Show my location"
+          data-testid="button-locate-me"
+        >
+          {locating ? (
+            <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="32" strokeDashoffset="12" /></svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          )}
+          My Location
+        </button>
         <div className="rounded-lg bg-black/70 backdrop-blur-lg border border-white/[0.06] px-2.5 py-1.5 text-[9px] text-white/30 font-medium tracking-wider uppercase">
           3D View
         </div>
@@ -819,6 +857,11 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
         .maplibregl-popup-tip { border-top-color: rgba(5,10,20,0.95) !important; }
         .maplibregl-popup-close-button { color: rgba(255,255,255,0.5); font-size: 16px; padding: 2px 6px; }
         .maplibregl-popup-close-button:hover { color: white; background: transparent; }
+
+        @keyframes pulse-ring {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(2.5); opacity: 0; }
+        }
       `}</style>
     </div>
   );
