@@ -255,10 +255,16 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         });
       } catch (_) {}
 
+      const resolvedCoords: Record<string, [number, number]> = {};
+      propertyCoords.forEach(({ property, coords }) => {
+        const name = property.displayName || property.name;
+        resolvedCoords[name] = [coords[1], coords[0]];
+      });
+
       const triangleCoordPairs: [number, number][] = [];
       for (const tk of TRIANGLE_KEYS) {
-        const c = PROPERTY_COORDS[tk];
-        if (c) triangleCoordPairs.push([c[1], c[0]]);
+        const c = resolvedCoords[tk] || (PROPERTY_COORDS[tk] ? [PROPERTY_COORDS[tk][1], PROPERTY_COORDS[tk][0]] : null);
+        if (c) triangleCoordPairs.push(c);
       }
 
       if (triangleCoordPairs.length >= 3) {
@@ -300,23 +306,23 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         animateAll();
       }
 
-      const vileparleCoords = PROPERTY_COORDS[VILEPARLE_KEY];
-      if (vileparleCoords && triangleCoordPairs.length > 0) {
+      const vileparleC = resolvedCoords[VILEPARLE_KEY] || (PROPERTY_COORDS[VILEPARLE_KEY] ? [PROPERTY_COORDS[VILEPARLE_KEY][1], PROPERTY_COORDS[VILEPARLE_KEY][0]] : null);
+      if (vileparleC && triangleCoordPairs.length > 0) {
         let closestDist = Infinity; let closestIdx = 0;
         for (let i = 0; i < triangleCoordPairs.length; i++) {
           const tc = triangleCoordPairs[i];
-          const d = Math.sqrt(Math.pow(tc[0] - vileparleCoords[1], 2) + Math.pow(tc[1] - vileparleCoords[0], 2));
+          const d = Math.sqrt(Math.pow(tc[0] - vileparleC[0], 2) + Math.pow(tc[1] - vileparleC[1], 2));
           if (d < closestDist) { closestDist = d; closestIdx = i; }
         }
-        map.addSource("vileparle-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[vileparleCoords[1], vileparleCoords[0]], triangleCoordPairs[closestIdx]] } } });
+        map.addSource("vileparle-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [vileparleC, triangleCoordPairs[closestIdx]] } } });
         map.addLayer({ id: "vileparle-glow", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
         map.addLayer({ id: "vileparle-connector", type: "line", source: "vileparle-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
 
-      const goregaonCoords = PROPERTY_COORDS[GOREGAON_KEY];
-      const juhuCoords = PROPERTY_COORDS["Hsquare Hostel Juhu"];
-      if (goregaonCoords && juhuCoords) {
-        map.addSource("goregaon-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[juhuCoords[1], juhuCoords[0]], [goregaonCoords[1], goregaonCoords[0]]] } } });
+      const goregaonC = resolvedCoords[GOREGAON_KEY] || (PROPERTY_COORDS[GOREGAON_KEY] ? [PROPERTY_COORDS[GOREGAON_KEY][1], PROPERTY_COORDS[GOREGAON_KEY][0]] : null);
+      const juhuC = resolvedCoords["Hsquare Hostel Juhu"] || (PROPERTY_COORDS["Hsquare Hostel Juhu"] ? [PROPERTY_COORDS["Hsquare Hostel Juhu"][1], PROPERTY_COORDS["Hsquare Hostel Juhu"][0]] : null);
+      if (goregaonC && juhuC) {
+        map.addSource("goregaon-line", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [juhuC, goregaonC] } } });
         map.addLayer({ id: "goregaon-glow", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 10, "line-opacity": 0.06, "line-blur": 6 } });
         map.addLayer({ id: "goregaon-connector", type: "line", source: "goregaon-line", paint: { "line-color": "#67e8f9", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 3] } });
       }
@@ -552,7 +558,7 @@ function PropertyMap({ properties }: { properties: Property[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] shadow-[0_0_80px_rgba(6,182,212,0.08)]">
-      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-[16/10]" style={{ background: "#050a14" }} data-testid="connectivity-map" />
+      <div ref={mapRef} className="w-full aspect-[4/5] md:aspect-[16/7]" style={{ background: "#050a14" }} data-testid="connectivity-map" />
       <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/[0.06] bg-black/70 backdrop-blur-xl p-3 z-[10]">
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs text-white/40">
           <span className="rounded-full bg-cyan-400/10 text-cyan-300/70 px-2.5 py-1 border border-cyan-400/10 flex items-center gap-1.5">
@@ -643,71 +649,66 @@ export function ConnectivityShowcase({ properties }: { properties: Property[] })
           </p>
         </motion.div>
 
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_1.1fr] gap-10 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <PropertyMap properties={properties} />
-          </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-7xl mx-auto"
+        >
+          <PropertyMap properties={properties} />
+        </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="space-y-6"
-          >
+        <div className="max-w-6xl mx-auto mt-12">
+          <div className="flex items-center justify-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/5 text-sm text-cyan-300 font-medium">
               <Navigation className="w-3.5 h-3.5" />
               Strategic Property Network
             </div>
+          </div>
 
-            <p className="text-white/40 text-base md:text-lg leading-relaxed max-w-xl">
-              Our properties are not randomly placed. They form a smart location network across Mumbai — surrounding major universities, lifestyle zones, and transport corridors. That means safer access, faster commutes, and a better daily living experience.
-            </p>
+          <p className="text-white/40 text-base md:text-lg leading-relaxed max-w-3xl mx-auto text-center mb-10">
+            Our properties are not randomly placed. They form a smart location network across Mumbai — surrounding major universities, lifestyle zones, and transport corridors. That means safer access, faster commutes, and a better daily living experience.
+          </p>
 
-            <div className="grid gap-4">
-              {FEATURES.map((feature, i) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 15 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.1 * i }}
-                  className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors"
-                  data-testid={`feature-card-${i}`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      feature.color === "emerald" ? "bg-emerald-500/10 text-emerald-400" :
-                      feature.color === "cyan" ? "bg-cyan-500/10 text-cyan-400" :
-                      "bg-violet-500/10 text-violet-400"
-                    }`}>
-                      <feature.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-heading font-bold text-white text-sm md:text-base mb-1">{feature.title}</h3>
-                      <p className="text-white/30 text-sm leading-relaxed">{feature.text}</p>
-                    </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {FEATURES.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 * i }}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors"
+                data-testid={`feature-card-${i}`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    feature.color === "emerald" ? "bg-emerald-500/10 text-emerald-400" :
+                    feature.color === "cyan" ? "bg-cyan-500/10 text-cyan-400" :
+                    "bg-violet-500/10 text-violet-400"
+                  }`}>
+                    <feature.icon className="w-5 h-5" />
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-white text-sm md:text-base mb-1">{feature.title}</h3>
+                    <p className="text-white/30 text-sm leading-relaxed">{feature.text}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              {["NMIMS", "Mithibai College", "Juhu Beach", "Airport", "Andheri Metro", "Oberoi Mall", "ISKCON Temple", "Hospitals"].map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-white/30"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </motion.div>
+          <div className="flex flex-wrap justify-center gap-2 pt-6">
+            {["NMIMS", "Mithibai College", "Juhu Beach", "Airport", "Andheri Metro", "Oberoi Mall", "ISKCON Temple", "Hospitals"].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-white/30"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </section>
