@@ -4180,6 +4180,90 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+      if (!booking.propertyId) return res.status(400).json({ error: "Booking has no property assigned" });
+
+      const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
+      if (!property) return res.status(400).json({ error: "Property not found" });
+
+      const { syncBookingToHMS, getPropertyCode, resolvePublicUrl } = await import("./hms-sync.js");
+
+      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
+      if (!resolvedPropertyCode) return res.status(400).json({ error: `Cannot determine property code for "${property.name}"` });
+
+      const rd = booking.residentDetails as any || {};
+      let studentData: any = null;
+      if (booking.studentId) {
+        const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
+        studentData = student || null;
+      }
+
+      const name = studentData?.fullName || rd?.fullName || rd?.name || booking.walkInName || "Unknown";
+      const phone = studentData?.phone || booking.walkInPhone || rd?.phone || "";
+      const email = studentData?.email || rd?.email || booking.walkInEmail || "";
+      const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
+      const roomNo = rd?.roomNo || rd?.room || "";
+
+      const syncData: any = {
+        name,
+        email: email || undefined,
+        phone,
+        room: roomNo,
+        propertyCode: resolvedPropertyCode,
+        dietary: rd?.dietaryPreference || rd?.dietary || undefined,
+        college: college || undefined,
+        instituteName: college || undefined,
+        courseName: studentData?.course || rd?.course || rd?.courseName || undefined,
+        courseYear: studentData?.year || rd?.year || undefined,
+        moveInDate: rd?.moveInDate || (booking.checkInDate ? String(booking.checkInDate) : undefined),
+        checkOutDate: rd?.checkOutDate || (booking.checkOutDate ? String(booking.checkOutDate) : undefined),
+        accommodationType: rd?.accommodationType || rd?.roomType || undefined,
+        parentName: rd?.parentName || rd?.guardianName || undefined,
+        parentPhone: rd?.parentPhone || rd?.guardianPhone || undefined,
+        parentEmail: rd?.parentEmail || rd?.guardianEmail || undefined,
+        parentRelation: rd?.parentRelation || rd?.guardianRelation || undefined,
+        homeAddress: rd?.homeAddress || rd?.address || undefined,
+        gender: rd?.gender || studentData?.gender || undefined,
+        dateOfBirth: rd?.dateOfBirth || rd?.dob || studentData?.dateOfBirth || undefined,
+        studentEmail: rd?.studentEmail || email || undefined,
+        bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
+        accessLevel: "FULL",
+      };
+
+      const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
+      const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
+      if (idProofUrl) syncData.idProofUrl = idProofUrl;
+      if (photoUrl) syncData.photoUrl = photoUrl;
+
+      const rawDocs = rd?.documentUrls || rd?.documents || [];
+      if (Array.isArray(rawDocs)) {
+        const docUrls: string[] = [];
+        for (const doc of rawDocs) {
+          const resolved = resolvePublicUrl(typeof doc === "string" ? doc : doc?.url);
+          if (resolved) docUrls.push(resolved);
+        }
+        if (docUrls.length > 0) syncData.documentUrls = docUrls;
+      }
+
+      console.log(`[Admin Re-sync HMS] Syncing booking ${booking.bookingCode} to HMS...`);
+      const result = await syncBookingToHMS(syncData);
+
+      if (result.success) {
+        console.log(`[Admin Re-sync HMS] Success for ${booking.bookingCode}: ${result.action}`);
+        res.json({ success: true, message: `Booking ${booking.bookingCode} synced to HMS (${result.action})` });
+      } else {
+        console.error(`[Admin Re-sync HMS] Failed for ${booking.bookingCode}: ${result.error}`);
+        res.status(500).json({ error: result.error || "HMS sync failed" });
+      }
+    } catch (error: any) {
+      console.error("Error re-syncing to HMS:", error);
+      res.status(500).json({ error: error.message || "Failed to sync to HMS" });
+    }
+  });
+
   app.get("/api/receipt/:bookingId", async (req, res) => {
     try {
       const { bookingId } = req.params;

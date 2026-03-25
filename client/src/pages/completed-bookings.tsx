@@ -174,6 +174,7 @@ export default function CompletedBookings() {
   const [saving, setSaving] = useState(false);
   const [sendingParentEmail, setSendingParentEmail] = useState(false);
   const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
+  const [syncingHMS, setSyncingHMS] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
@@ -2049,6 +2050,39 @@ export default function CompletedBookings() {
                 >
                   {sendingWelcomeEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                   Resend Welcome Email
+                </Button>
+              )}
+
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+                  disabled={syncingHMS}
+                  data-testid="btn-resync-hms"
+                  onClick={async () => {
+                    setSyncingHMS(true);
+                    try {
+                      const token = getAuthToken();
+                      const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/resync-hms`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const result = await resp.json();
+                      if (resp.ok) {
+                        toast({ title: "HMS Sync Complete", description: result.message });
+                      } else {
+                        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+                      }
+                    } catch {
+                      toast({ title: "Error", description: "Failed to sync to HMS", variant: "destructive" });
+                    } finally {
+                      setSyncingHMS(false);
+                    }
+                  }}
+                >
+                  {syncingHMS ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Re-sync to HMS
                 </Button>
               )}
 
