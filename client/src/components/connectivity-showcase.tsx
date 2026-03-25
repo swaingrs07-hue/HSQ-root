@@ -232,55 +232,52 @@ function PropertyMap({ properties }: { properties: Property[] }) {
         });
       } catch (_) {}
 
-      const allPropertyLngLat: [number, number][] = propertyCoords.map(({ coords }) => [coords[1], coords[0]]);
-
-      if (allPropertyLngLat.length >= 2) {
-        const dist = (a: [number, number], b: [number, number]) =>
-          Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2));
-
-        const remaining = [...allPropertyLngLat];
-        const chain: [number, number][] = [remaining.shift()!];
-        while (remaining.length > 0) {
-          const last = chain[chain.length - 1];
-          let nearestIdx = 0;
-          let nearestDist = Infinity;
-          for (let i = 0; i < remaining.length; i++) {
-            const d = dist(last, remaining[i]);
-            if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
-          }
-          chain.push(remaining.splice(nearestIdx, 1)[0]);
-        }
-
-        map.addSource("property-network", {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: chain } },
+      const TRIANGLE_NAMES = ["Hsquare Hostel Juhu", "Hsquare Bayview", "Hsquare Vileparle"];
+      const triangleCoords: [number, number][] = [];
+      for (const tk of TRIANGLE_NAMES) {
+        const match = propertyCoords.find(({ property }) => {
+          const name = property.displayName || property.name;
+          return name === tk;
         });
+        if (match) {
+          triangleCoords.push([match.coords[1], match.coords[0]]);
+        }
+      }
+
+      if (triangleCoords.length >= 3) {
+        const closed = [...triangleCoords, triangleCoords[0]];
+
+        map.addSource("triangle-fill", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [closed] } } });
+        map.addLayer({ id: "triangle-fill-layer", type: "fill", source: "triangle-fill", paint: { "fill-color": "#34d399", "fill-opacity": 0.15 } });
+
+        map.addSource("property-network", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: closed } } });
         map.addLayer({ id: "network-glow-wide", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 20, "line-opacity": 0.1, "line-blur": 14 } });
         map.addLayer({ id: "network-glow-mid", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 8, "line-opacity": 0.18, "line-blur": 4 } });
         map.addLayer({ id: "network-edge-solid", type: "line", source: "property-network", paint: { "line-color": "#34d399", "line-width": 2.5, "line-opacity": 0.9 } });
 
-        map.addSource("net-particle", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: chain[0] } } });
+        map.addSource("net-particle", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: triangleCoords[0] } } });
         map.addLayer({ id: "net-particle-glow", type: "circle", source: "net-particle", paint: { "circle-radius": 12, "circle-color": "#34d399", "circle-opacity": 0.25, "circle-blur": 1 } });
         map.addLayer({ id: "net-particle-dot", type: "circle", source: "net-particle", paint: { "circle-radius": 4, "circle-color": "#67e8f9", "circle-opacity": 0.95 } });
 
         let particlePhase = 0;
         let fillPhase = 0;
-        const totalSegments = chain.length - 1;
         function animateAll() {
-          particlePhase += 0.002;
+          particlePhase += 0.003;
           if (particlePhase > 1) particlePhase = 0;
           fillPhase += 0.012;
 
-          const progress = particlePhase * totalSegments;
-          const segIdx = Math.min(Math.floor(progress), totalSegments - 1);
+          const progress = particlePhase * 3;
+          const segIdx = Math.min(Math.floor(progress), 2);
           const segT = progress - segIdx;
-          const from = chain[segIdx];
-          const to = chain[segIdx + 1];
+          const from = closed[segIdx];
+          const to = closed[segIdx + 1];
           const pLng = from[0] + (to[0] - from[0]) * segT;
           const pLat = from[1] + (to[1] - from[1]) * segT;
           const src = map.getSource("net-particle") as maplibregl.GeoJSONSource;
           if (src) src.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [pLng, pLat] } });
 
+          const fillOp = 0.12 + Math.sin(fillPhase) * 0.06;
+          if (map.getLayer("triangle-fill-layer")) map.setPaintProperty("triangle-fill-layer", "fill-opacity", Math.max(0.06, fillOp));
           const glowOp = 0.08 + Math.sin(fillPhase * 0.7) * 0.06;
           if (map.getLayer("network-glow-wide")) map.setPaintProperty("network-glow-wide", "line-opacity", glowOp);
           animFrameRef.current = requestAnimationFrame(animateAll);
