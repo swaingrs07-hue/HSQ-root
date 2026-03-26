@@ -1,0 +1,2 @@
+attached_assets/Hsquare_Connect_Android__1774521029222.apk filter=lfs diff=lfs merge=lfs -text
+server/downloads/HsquareConnect.apk filter=lfs diff=lfs merge=lfs -text

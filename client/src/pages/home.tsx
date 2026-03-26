@@ -716,6 +716,17 @@ export default function Home() {
                 Virtual Tour
               </Button>
             </Link>
+            <a href="/download/android" download>
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-emerald-500/10 backdrop-blur-md border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
+                data-testid="button-download-app"
+              >
+                <Smartphone className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                Download App
+              </Button>
+            </a>
           </motion.div>
         </div>
 
@@ -1802,7 +1813,7 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="flex flex-col sm:flex-row items-start gap-4 flex-wrap">
                 <a
                   href="https://apps.apple.com/in/app/hsquareconnect-app/id6759179340"
                   target="_blank"
@@ -1819,7 +1830,23 @@ export default function Home() {
                   </div>
                 </a>
 
-                <div className="flex items-center gap-1.5">
+                <a
+                  href="/download/android"
+                  download
+                  className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-sm group"
+                  data-testid="link-android-download"
+                >
+                  <svg className="w-7 h-7 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.523 15.3414c-.5 0-.9.4-.9.9v4.3c0 .5-.4.9-.9.9h-7.8c-.5 0-.9-.4-.9-.9v-4.3c0-.5-.4-.9-.9-.9s-.9.4-.9.9v4.3c0 1.5 1.2 2.7 2.7 2.7h7.8c1.5 0 2.7-1.2 2.7-2.7v-4.3c0-.5-.4-.9-.9-.9z"/>
+                    <path d="M11.323 17.6414c.1.1.3.2.5.2h.4c.2 0 .3-.1.5-.2l3.6-3.6c.4-.4.4-.9 0-1.3s-.9-.4-1.3 0l-2 2v-11.7c0-.5-.4-.9-.9-.9s-.9.4-.9.9v11.7l-2-2c-.4-.4-.9-.4-1.3 0s-.4.9 0 1.3z"/>
+                  </svg>
+                  <div>
+                    <p className="text-[10px] leading-none text-white/50">Download for</p>
+                    <p className="text-base font-bold leading-tight">Android</p>
+                  </div>
+                </a>
+
+                <div className="flex items-center gap-1.5 self-center">
                   <div className="flex">
                     {[1,2,3,4,5].map(s => (
                       <Star key={s} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />

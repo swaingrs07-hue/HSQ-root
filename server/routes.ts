@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
+import path from "path";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
@@ -250,6 +251,18 @@ export async function registerRoutes(
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.get("/download/android", (req, res) => {
+    const apkPath = path.resolve("server/downloads/HsquareConnect.apk");
+    res.download(apkPath, "HsquareConnect.apk", (err) => {
+      if (err) {
+        console.error("[Download] APK download error:", err);
+        if (!res.headersSent) {
+          res.status(404).json({ error: "File not found" });
+        }
+      }
+    });
   });
 
   app.post("/api/contact", async (req, res) => {
