@@ -3126,6 +3126,9 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
       if (res.ok) {
         const data = await res.json();
         setBeds(data.filter((b: AvailableBed) => b.id !== booking.bedId));
+      } else {
+        const err = await res.json().catch(() => ({ error: "Failed to load beds" }));
+        toast({ title: "Error", description: err.error || "Failed to load available beds", variant: "destructive" });
       }
     } catch {
       toast({ title: "Failed to load available beds", variant: "destructive" });
