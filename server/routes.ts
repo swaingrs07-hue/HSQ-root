@@ -4090,7 +4090,13 @@ ${allPages.map(p => `  <url>
           await tx.update(schema.beds).set({ status: "available" }).where(eq(schema.beds.id, booking.bedId));
         }
 
-        await tx.update(schema.beds).set({ status: "reserved" }).where(eq(schema.beds.id, newBedId));
+        const [reserveResult] = await tx.update(schema.beds)
+          .set({ status: "reserved" })
+          .where(and(eq(schema.beds.id, newBedId), eq(schema.beds.status, "available")))
+          .returning({ id: schema.beds.id });
+        if (!reserveResult) {
+          throw new Error("Target bed is no longer available (concurrent allocation)");
+        }
 
         const updatedRd = {
           ...existingRd,
