@@ -1584,7 +1584,13 @@ export default function CompletedBookings() {
                     <AdminDetailRow label="Email" value={selectedBooking.residentDetails.email} />
                     <AdminDetailRow label="Gender" value={selectedBooking.residentDetails.gender} capitalize />
                     <AdminDetailRow label="Date of Birth" value={selectedBooking.residentDetails.dob} />
-                    <AdminDetailRow label="Room No." value={selectedBooking.residentDetails.roomNo} />
+                    <EditableRoomNo
+                      bookingId={selectedBooking.id}
+                      currentValue={selectedBooking.residentDetails.roomNo}
+                      onUpdated={() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                      }}
+                    />
                     <AdminDetailRow label="Bed No." value={selectedBooking.residentDetails.bedNo} />
                     <EditableMoveInDate
                       bookingId={selectedBooking.id}
@@ -3072,6 +3078,66 @@ function EditableMoveInDate({ bookingId, currentValue, onUpdated }: { bookingId:
       <span className="text-slate-500">Move-in Date:</span>{" "}
       <span className="font-medium">{currentValue || "—"}</span>
       <button onClick={() => { setValue(currentValue || ""); setEditing(true); }} className="text-indigo-400 hover:text-indigo-600 ml-1" data-testid="button-edit-move-in">
+        <Pencil className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function EditableRoomNo({ bookingId, currentValue, onUpdated }: { bookingId: string; currentValue?: string; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentValue || "");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const handleSave = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    try {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ residentDetails: { roomNo: value.trim() }, syncHMS: true }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast({ title: "Room number updated & HMS sync triggered" });
+      setEditing(false);
+      onUpdated();
+    } catch (err) {
+      toast({ title: "Error updating room number", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="col-span-2 flex items-center gap-2">
+        <span className="text-slate-500 text-sm whitespace-nowrap">Room No.:</span>
+        <Input
+          type="text"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          className="h-7 text-sm w-28"
+          data-testid="input-room-no"
+        />
+        <button onClick={handleSave} disabled={saving} className="text-green-600 hover:text-green-800" data-testid="button-save-room-no">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+        </button>
+        <button onClick={() => { setEditing(false); setValue(currentValue || ""); }} className="text-slate-400 hover:text-slate-600" data-testid="button-cancel-room-no">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-slate-500">Room No.:</span>{" "}
+      <span className="font-medium">{currentValue || "—"}</span>
+      <button onClick={() => { setValue(currentValue || ""); setEditing(true); }} className="text-indigo-400 hover:text-indigo-600 ml-1" data-testid="button-edit-room-no">
         <Pencil className="h-3 w-3" />
       </button>
     </div>

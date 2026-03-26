@@ -4026,7 +4026,9 @@ ${allPages.map(p => `  <url>
 
       const updated = await storage.updateBooking(req.params.id, updates);
 
-      if (updates.status && (updates.status === "active" || updates.status === "confirmed" || updates.status === "completed") && booking.status !== updates.status) {
+      const shouldSyncHMS = req.body.syncHMS === true ||
+        (updates.status && (updates.status === "active" || updates.status === "confirmed" || updates.status === "completed") && booking.status !== updates.status);
+      if (shouldSyncHMS) {
         autoSyncBookingToHMS(updated).catch(err => {
           console.error("[HMS Auto-Sync] Background sync after admin edit failed:", err);
         });
