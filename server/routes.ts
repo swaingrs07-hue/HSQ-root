@@ -253,48 +253,8 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
-  app.get("/download/android", async (req, res) => {
-    try {
-      const { objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
-      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-      if (!bucketId) {
-        res.status(500).json({ error: "Storage not configured" });
-        return;
-      }
-      const bucket = objectStorageClient.bucket(bucketId);
-      const file = bucket.file("public/downloads/HsquareConnect.apk");
-      const [exists] = await file.exists();
-      if (!exists) {
-        const localPath = path.resolve("server/downloads/HsquareConnect.apk");
-        const fs = await import("fs");
-        if (fs.existsSync(localPath)) {
-          res.download(localPath, "HsquareConnect.apk");
-          return;
-        }
-        res.status(404).json({ error: "File not found" });
-        return;
-      }
-      const [metadata] = await file.getMetadata();
-      res.set({
-        "Content-Type": "application/vnd.android.package-archive",
-        "Content-Length": metadata.size?.toString() || "",
-        "Content-Disposition": "attachment; filename=\"HsquareConnect.apk\"",
-        "Cache-Control": "public, max-age=86400",
-      });
-      const stream = file.createReadStream();
-      stream.on("error", (err) => {
-        console.error("[Download] APK stream error:", err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Download failed" });
-        }
-      });
-      stream.pipe(res);
-    } catch (err: any) {
-      console.error("[Download] APK download error:", err.message);
-      if (!res.headersSent) {
-        res.status(404).json({ error: "File not found" });
-      }
-    }
+  app.get("/download/android", (req, res) => {
+    res.redirect("https://drive.google.com/uc?export=download&id=1VaE-FQ0yRBWYzhG-h8kzDbpAjzBhu5y7");
   });
 
   app.post("/api/contact", async (req, res) => {
