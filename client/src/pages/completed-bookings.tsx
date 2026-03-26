@@ -61,6 +61,7 @@ import {
   Camera,
   RefreshCw,
   Send,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1584,14 +1585,19 @@ export default function CompletedBookings() {
                     <AdminDetailRow label="Email" value={selectedBooking.residentDetails.email} />
                     <AdminDetailRow label="Gender" value={selectedBooking.residentDetails.gender} capitalize />
                     <AdminDetailRow label="Date of Birth" value={selectedBooking.residentDetails.dob} />
-                    <EditableRoomNo
-                      bookingId={selectedBooking.id}
-                      currentValue={selectedBooking.residentDetails.roomNo}
-                      onUpdated={() => {
-                        queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
-                      }}
-                    />
+                    <AdminDetailRow label="Room No." value={selectedBooking.residentDetails.roomNo} />
                     <AdminDetailRow label="Bed No." value={selectedBooking.residentDetails.bedNo} />
+                    {(isAdmin || isReceptionist) && (
+                      <div className="col-span-2">
+                        <BedShiftSelector
+                          booking={selectedBooking}
+                          onShifted={(updated) => {
+                            setSelectedBooking({ ...selectedBooking, ...updated });
+                            queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+                          }}
+                        />
+                      </div>
+                    )}
                     <EditableMoveInDate
                       bookingId={selectedBooking.id}
                       currentValue={selectedBooking.residentDetails.moveInDate}
@@ -3084,63 +3090,192 @@ function EditableMoveInDate({ bookingId, currentValue, onUpdated }: { bookingId:
   );
 }
 
-function EditableRoomNo({ bookingId, currentValue, onUpdated }: { bookingId: string; currentValue?: string; onUpdated: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(currentValue || "");
-  const [saving, setSaving] = useState(false);
+interface AvailableBed {
+  id: string;
+  bedNumber: string;
+  floorId: string;
+  floorName: string;
+  floorNumber: number;
+  roomId: string;
+  roomNumber: string;
+  roomTypeId: string;
+}
+
+function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (updated: any) => void }) {
+  const [open, setOpen] = useState(false);
+  const [beds, setBeds] = useState<AvailableBed[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [shifting, setShifting] = useState(false);
+  const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleSave = async () => {
-    if (!value.trim()) return;
-    setSaving(true);
-    try {
-      const authData = localStorage.getItem("hsquare_auth");
-      const token = authData ? JSON.parse(authData)?.token : null;
-      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ residentDetails: { roomNo: value.trim() }, syncHMS: true }),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      toast({ title: "Room number updated & HMS sync triggered" });
-      setEditing(false);
-      onUpdated();
-    } catch (err) {
-      toast({ title: "Error updating room number", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+  const getAuthToken = () => {
+    const authData = localStorage.getItem("hsquare_auth");
+    return authData ? JSON.parse(authData)?.token : null;
   };
 
-  if (editing) {
-    return (
-      <div className="col-span-2 flex items-center gap-2">
-        <span className="text-slate-500 text-sm whitespace-nowrap">Room No.:</span>
-        <Input
-          type="text"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          className="h-7 text-sm w-28"
-          data-testid="input-room-no"
-        />
-        <button onClick={handleSave} disabled={saving} className="text-green-600 hover:text-green-800" data-testid="button-save-room-no">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-        </button>
-        <button onClick={() => { setEditing(false); setValue(currentValue || ""); }} className="text-slate-400 hover:text-slate-600" data-testid="button-cancel-room-no">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
+  const fetchAvailableBeds = async () => {
+    if (!booking.propertyId || !booking.roomTypeId) return;
+    setLoading(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/properties/${booking.propertyId}/available-beds?roomTypeId=${booking.roomTypeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBeds(data.filter((b: AvailableBed) => b.id !== booking.bedId));
+      }
+    } catch {
+      toast({ title: "Failed to load available beds", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+    setSelectedBedId(null);
+    fetchAvailableBeds();
+  };
+
+  const handleShift = async () => {
+    if (!selectedBedId) return;
+    setShifting(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${booking.id}/shift-bed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newBedId: selectedBedId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to shift bed");
+      }
+      const updated = await res.json();
+      toast({ title: "Bed shifted successfully", description: "HMS sync triggered" });
+      setOpen(false);
+      onShifted(updated);
+    } catch (error: any) {
+      toast({ title: "Bed shift failed", description: error.message, variant: "destructive" });
+    }
+    setShifting(false);
+  };
+
+  const selectedBed = beds.find(b => b.id === selectedBedId);
+
+  const grouped = beds.reduce<Record<string, AvailableBed[]>>((acc, bed) => {
+    const key = `${bed.floorName}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(bed);
+    return acc;
+  }, {});
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-slate-500">Room No.:</span>{" "}
-      <span className="font-medium">{currentValue || "—"}</span>
-      <button onClick={() => { setValue(currentValue || ""); setEditing(true); }} className="text-indigo-400 hover:text-indigo-600 ml-1" data-testid="button-edit-room-no">
-        <Pencil className="h-3 w-3" />
-      </button>
-    </div>
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleOpen}
+        className="h-7 text-xs gap-1.5 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+        data-testid="button-shift-bed"
+      >
+        <ArrowRightLeft className="h-3 w-3" />
+        Shift Bed
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4" />
+              Shift Bed / Room Transfer
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-slate-50 rounded-lg text-sm">
+              <div className="font-medium text-slate-700 mb-1">Current Assignment</div>
+              <div className="text-slate-500">
+                Room: <span className="font-medium text-slate-800">{booking.residentDetails?.roomNo || "—"}</span>
+                {" | "}
+                Bed: <span className="font-medium text-slate-800">{booking.residentDetails?.bedNo || "—"}</span>
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                {booking.roomTypeName} &middot; {booking.propertyName}
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                <span className="ml-2 text-sm text-slate-400">Loading available beds...</span>
+              </div>
+            ) : beds.length === 0 ? (
+              <div className="text-center py-6 text-sm text-slate-400">
+                No available beds in this room type
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto space-y-3">
+                {Object.entries(grouped).map(([floorName, floorBeds]) => (
+                  <div key={floorName}>
+                    <div className="text-xs font-semibold text-slate-500 uppercase mb-1.5 sticky top-0 bg-white py-1">
+                      {floorName}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {floorBeds.map(bed => (
+                        <button
+                          key={bed.id}
+                          onClick={() => setSelectedBedId(bed.id)}
+                          className={`p-2 rounded-lg border text-left text-xs transition-all ${
+                            selectedBedId === bed.id
+                              ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200"
+                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                          data-testid={`bed-option-${bed.id}`}
+                        >
+                          <div className="font-medium text-slate-700">
+                            Bed {bed.bedNumber}
+                          </div>
+                          <div className="text-slate-400">
+                            Room {bed.roomNumber}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedBed && (
+              <div className="p-3 bg-indigo-50 rounded-lg text-sm border border-indigo-100">
+                <div className="font-medium text-indigo-700">Transfer to:</div>
+                <div className="text-indigo-600">
+                  {selectedBed.floorName} &rarr; Room {selectedBed.roomNumber} &rarr; Bed {selectedBed.bedNumber}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)} data-testid="button-cancel-shift">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleShift}
+                disabled={!selectedBedId || shifting}
+                className="bg-indigo-600 hover:bg-indigo-700"
+                data-testid="button-confirm-shift"
+              >
+                {shifting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <ArrowRightLeft className="h-3.5 w-3.5 mr-1.5" />}
+                Confirm Shift
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

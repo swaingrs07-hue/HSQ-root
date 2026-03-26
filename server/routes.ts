@@ -4054,6 +4054,121 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Admin bed shift / room transfer
+  app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const { newBedId } = req.body;
+      if (!newBedId) return res.status(400).json({ error: "newBedId is required" });
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const allowedStatuses = ["confirmed", "active", "completed", "pending_payment"];
+      if (!allowedStatuses.includes(booking.status)) {
+        return res.status(400).json({ error: `Cannot shift bed for booking in '${booking.status}' status` });
+      }
+
+      const newBed = await storage.getBed(newBedId);
+      if (!newBed) return res.status(404).json({ error: "Target bed not found" });
+
+      if (newBed.propertyId !== booking.propertyId) {
+        return res.status(400).json({ error: "Target bed must belong to the same property" });
+      }
+
+      if (newBed.status !== "available") return res.status(400).json({ error: "Target bed is not available" });
+
+      if (newBed.roomTypeId !== booking.roomTypeId) {
+        return res.status(400).json({ error: "Target bed must be in the same room type category" });
+      }
+
+      const newRoom = newBed.roomId ? await db.select().from(schema.rooms).where(eq(schema.rooms.id, newBed.roomId)).then(r => r[0]) : null;
+      const newFloor = await db.select().from(schema.floors).where(eq(schema.floors.id, newBed.floorId)).then(r => r[0]);
+      const existingRd = (booking.residentDetails as Record<string, any>) || {};
+
+      await db.transaction(async (tx) => {
+        if (booking.bedId) {
+          await tx.update(schema.beds).set({ status: "available" }).where(eq(schema.beds.id, booking.bedId));
+        }
+
+        await tx.update(schema.beds).set({ status: "reserved" }).where(eq(schema.beds.id, newBedId));
+
+        const updatedRd = {
+          ...existingRd,
+          roomNo: newRoom?.roomNumber || existingRd.roomNo || "",
+          bedNo: newBed.bedNumber || "",
+        };
+
+        await tx.update(schema.bookings).set({
+          bedId: newBedId,
+          roomId: newBed.roomId || booking.roomId,
+          floorId: newBed.floorId,
+          residentDetails: updatedRd,
+          bedAllocated: true,
+          updatedAt: new Date(),
+        }).where(eq(schema.bookings.id, req.params.id));
+
+        const affectedFloorIds = new Set<string>();
+        if (booking.floorId) affectedFloorIds.add(booking.floorId);
+        if (newBed.floorId) affectedFloorIds.add(newBed.floorId);
+        for (const fid of affectedFloorIds) {
+          const floorBeds = await tx.select().from(schema.beds).where(eq(schema.beds.floorId, fid));
+          const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+          await tx.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, fid));
+        }
+
+        await tx.insert(schema.auditLogs).values({
+          adminId: req.user!.userId,
+          action: "BED_SHIFT",
+          entityType: "booking",
+          entityId: req.params.id,
+          details: JSON.stringify({
+            bookingCode: booking.bookingCode,
+            oldBedId: booking.bedId,
+            newBedId,
+            oldRoomNo: existingRd.roomNo,
+            newRoomNo: newRoom?.roomNumber,
+            newBedNo: newBed.bedNumber,
+            newFloor: newFloor?.name,
+          }),
+        });
+      });
+
+      const updated = await storage.getBooking(req.params.id);
+
+      autoSyncBookingToHMS(updated).catch(err => {
+        console.error("[HMS Auto-Sync] Background sync after bed shift failed:", err);
+      });
+
+      let customerName = updated?.walkInName || "";
+      let customerPhone = updated?.walkInPhone || "";
+      let customerEmail = updated?.walkInEmail || "";
+      if (updated?.studentId) {
+        const student = await storage.getStudent(updated.studentId);
+        if (student) {
+          customerName = student.fullName;
+          customerPhone = student.phone || "";
+        }
+      } else if (updated?.leadId) {
+        const lead = await storage.getLead(updated.leadId);
+        if (lead) {
+          customerName = lead.name;
+          customerPhone = lead.phone || "";
+          customerEmail = lead.email || "";
+        }
+      }
+
+      res.json({
+        ...updated,
+        customerName,
+        customerPhone,
+        customerEmail,
+      });
+    } catch (error: any) {
+      console.error("Error shifting bed:", error);
+      res.status(500).json({ error: error.message || "Failed to shift bed" });
+    }
+  });
+
   // Admin mark payment done
   app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
@@ -8851,6 +8966,44 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // ============ FLOORS & BEDS ============
+
+  app.get("/api/properties/:id/available-beds", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.params.id;
+      const roomTypeId = req.query.roomTypeId as string;
+      if (!roomTypeId) return res.status(400).json({ error: "roomTypeId query param is required" });
+
+      const allBeds = await storage.getBedsByProperty(propertyId);
+      const availableBeds = allBeds.filter((b: any) => b.roomTypeId === roomTypeId && b.status === "available");
+
+      const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
+      const roomIds = [...new Set(availableBeds.map(b => b.roomId).filter(Boolean))];
+
+      const floorsList = floorIds.length > 0 ? await db.select().from(schema.floors).where(inArray(schema.floors.id, floorIds)) : [];
+      const roomsList = roomIds.length > 0 ? await db.select().from(schema.rooms).where(inArray(schema.rooms.id, roomIds as string[])) : [];
+
+      const floorMap = Object.fromEntries(floorsList.map(f => [f.id, f]));
+      const roomMap = Object.fromEntries(roomsList.map(r => [r.id, r]));
+
+      const enriched = availableBeds.map(bed => ({
+        id: bed.id,
+        bedNumber: bed.bedNumber,
+        floorId: bed.floorId,
+        floorName: floorMap[bed.floorId]?.name || `Floor ${floorMap[bed.floorId]?.floorNumber || "?"}`,
+        floorNumber: floorMap[bed.floorId]?.floorNumber || 0,
+        roomId: bed.roomId,
+        roomNumber: bed.roomId ? roomMap[bed.roomId]?.roomNumber || "" : "",
+        roomTypeId: bed.roomTypeId,
+      }));
+
+      enriched.sort((a, b) => a.floorNumber - b.floorNumber || a.roomNumber.localeCompare(b.roomNumber) || a.bedNumber.localeCompare(b.bedNumber));
+
+      res.json(enriched);
+    } catch (error: any) {
+      console.error("Error fetching available beds:", error);
+      res.status(500).json({ error: "Failed to fetch available beds" });
+    }
+  });
 
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
