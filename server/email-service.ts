@@ -986,6 +986,7 @@ interface WelcomeEmailData {
   moveInDate: string;
   checkOutDate: string;
   bookingCode: string;
+  baseUrl: string;
 }
 
 function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
@@ -1046,9 +1047,32 @@ function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
                   <td style="padding:20px 24px;">
                     <h3 style="margin:0 0 16px;font-size:15px;font-weight:700;color:#f59e0b;">How to get started:</h3>
                     <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 1:</span> Download the Hsquare Connect app from the Play Store</td></tr>
+                      <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 1:</span> Download the HsquareConnect app (available on App Store &amp; Android)</td></tr>
                       <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 2:</span> Tap &ldquo;Create Account&rdquo; and enter your email: <strong style="color:#ffffff;">${data.residentEmail}</strong></td></tr>
                       <tr><td style="padding:6px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;"><span style="color:#f59e0b;font-weight:700;">Step 3:</span> Set your password and you&rsquo;re all set!</td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <h3 style="margin:0 0 12px;font-size:15px;font-weight:700;color:#10b981;">Download the App</h3>
+                    <p style="margin:0 0 16px;font-size:14px;color:rgba(255,255,255,0.5);line-height:1.6;">Get HsquareConnect to manage your hostel experience — meals, gate QR, leave management, and more.</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-right:8px;" width="50%">
+                          <a href="https://apps.apple.com/in/app/hsquareconnect-app/id6759179340" target="_blank" style="display:block;text-align:center;background:#ffffff;color:#000000;text-decoration:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;">&#63743; App Store</a>
+                        </td>
+                        <td style="padding-left:8px;" width="50%">
+                          <a href="${data.baseUrl}/download/android" target="_blank" style="display:block;text-align:center;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;text-decoration:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;">&#9660; Android</a>
+                        </td>
+                      </tr>
                     </table>
                   </td>
                 </tr>
@@ -1068,6 +1092,13 @@ function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
                   </td>
                 </tr>
               </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;text-align:center;">
+              <a href="${data.baseUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.5px;">Visit Our Website</a>
+              <p style="margin:10px 0 0;font-size:12px;color:rgba(255,255,255,0.35);">${data.baseUrl}</p>
             </td>
           </tr>
 
@@ -1111,6 +1142,7 @@ export async function sendWelcomeEmail(data: {
       if (property?.phone) propertyPhone = property.phone;
     }
 
+    const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
     const emailData: WelcomeEmailData = {
       residentName: data.name || "Resident",
       residentEmail: data.email,
@@ -1120,6 +1152,7 @@ export async function sendWelcomeEmail(data: {
       moveInDate: data.moveInDate || "",
       checkOutDate: data.checkOutDate || "",
       bookingCode: data.bookingCode,
+      baseUrl,
     };
 
     const html = buildWelcomeEmailHtml(emailData);

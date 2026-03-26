@@ -716,17 +716,19 @@ export default function Home() {
                 Virtual Tour
               </Button>
             </Link>
-            <a href="/download/android" download>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-emerald-500/10 backdrop-blur-md border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
-                data-testid="button-download-app"
-              >
-                <Smartphone className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Download App
-              </Button>
-            </a>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-emerald-500/10 backdrop-blur-md border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
+              data-testid="button-download-app"
+              onClick={() => {
+                const el = document.getElementById("app-download-section");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              <Smartphone className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+              Resident App
+            </Button>
           </motion.div>
         </div>
 
@@ -1762,7 +1764,7 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
-      <section className="relative py-20 md:py-28 overflow-hidden" data-testid="app-download-section">
+      <section id="app-download-section" className="relative py-20 md:py-28 overflow-hidden" data-testid="app-download-section">
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-[#0a0808] to-[#050505]" />
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-amber-500/8 via-orange-500/5 to-rose-500/8 rounded-full blur-3xl" />
