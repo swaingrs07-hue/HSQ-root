@@ -8985,16 +8985,73 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const floorMap = Object.fromEntries(floorsList.map(f => [f.id, f]));
       const roomMap = Object.fromEntries(roomsList.map(r => [r.id, r]));
 
-      const enriched = availableBeds.map(bed => ({
-        id: bed.id,
-        bedNumber: bed.bedNumber,
-        floorId: bed.floorId,
-        floorName: floorMap[bed.floorId]?.name || `Floor ${floorMap[bed.floorId]?.floorNumber || "?"}`,
-        floorNumber: floorMap[bed.floorId]?.floorNumber || 0,
-        roomId: bed.roomId,
-        roomNumber: bed.roomId ? roomMap[bed.roomId]?.roomNumber || "" : "",
-        roomTypeId: bed.roomTypeId,
-      }));
+      const roomBedIds = availableBeds.filter(b => b.roomId).map(b => b.roomId as string);
+      const siblingBedIds = roomBedIds.length > 0
+        ? await db.select({ id: schema.beds.id, roomId: schema.beds.roomId }).from(schema.beds).where(inArray(schema.beds.roomId, roomBedIds))
+        : [];
+      const siblingBookings = siblingBedIds.length > 0
+        ? await db.select({
+            bedId: schema.bookings.bedId,
+            bookingId: schema.bookings.id,
+          }).from(schema.bookings).where(
+            and(
+              inArray(schema.bookings.bedId, siblingBedIds.map(b => b.id)),
+              inArray(schema.bookings.status, ["confirmed", "active", "completed", "pending_payment"])
+            )
+          )
+        : [];
+      const bookingIds = siblingBookings.map(b => b.bookingId);
+      const activePackages = bookingIds.length > 0
+        ? await db.select({
+            bookingId: schema.bookingPackages.bookingId,
+            packageName: schema.packages.name,
+            tierLevel: schema.packages.tierLevel,
+          })
+          .from(schema.bookingPackages)
+          .innerJoin(schema.packages, eq(schema.bookingPackages.packageId, schema.packages.id))
+          .where(and(
+            inArray(schema.bookingPackages.bookingId, bookingIds),
+            eq(schema.bookingPackages.status, "ACTIVE"),
+            eq(schema.packages.category, "housing_plan"),
+          ))
+        : [];
+
+      const bedBookingMap: Record<string, string> = {};
+      for (const sb of siblingBookings) {
+        if (sb.bedId) bedBookingMap[sb.bedId] = sb.bookingId;
+      }
+      const bookingPackageMap: Record<string, string> = {};
+      for (const ap of activePackages) {
+        bookingPackageMap[ap.bookingId] = ap.packageName;
+      }
+
+      const roomPackageMap: Record<string, Set<string>> = {};
+      for (const sib of siblingBedIds) {
+        if (sib.roomId) {
+          const bkId = bedBookingMap[sib.id];
+          if (bkId && bookingPackageMap[bkId]) {
+            if (!roomPackageMap[sib.roomId]) roomPackageMap[sib.roomId] = new Set();
+            roomPackageMap[sib.roomId].add(bookingPackageMap[bkId]);
+          }
+        }
+      }
+
+      const enriched = availableBeds.map(bed => {
+        const packageNames = bed.roomId && roomPackageMap[bed.roomId]
+          ? [...roomPackageMap[bed.roomId]]
+          : [];
+        return {
+          id: bed.id,
+          bedNumber: bed.bedNumber,
+          floorId: bed.floorId,
+          floorName: floorMap[bed.floorId]?.name || `Floor ${floorMap[bed.floorId]?.floorNumber || "?"}`,
+          floorNumber: floorMap[bed.floorId]?.floorNumber || 0,
+          roomId: bed.roomId,
+          roomNumber: bed.roomId ? roomMap[bed.roomId]?.roomNumber || "" : "",
+          roomTypeId: bed.roomTypeId,
+          linkedPackages: packageNames,
+        };
+      });
 
       enriched.sort((a, b) => a.floorNumber - b.floorNumber || a.roomNumber.localeCompare(b.roomNumber) || a.bedNumber.localeCompare(b.bedNumber));
 

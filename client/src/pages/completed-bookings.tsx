@@ -3099,6 +3099,7 @@ interface AvailableBed {
   roomId: string;
   roomNumber: string;
   roomTypeId: string;
+  linkedPackages: string[];
 }
 
 function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (updated: any) => void }) {
@@ -3238,8 +3239,18 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                             Bed {bed.bedNumber}
                           </div>
                           <div className="text-slate-400">
-                            Room {bed.roomNumber}
+                            Room {bed.roomNumber} &middot; F{bed.floorNumber}
                           </div>
+                          {bed.linkedPackages.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {bed.linkedPackages.map((pkg, i) => (
+                                <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium" data-testid={`badge-package-${bed.id}`}>
+                                  <Tag className="h-2.5 w-2.5" />
+                                  {pkg}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </button>
                       ))}
                     </div>
