@@ -254,7 +254,7 @@ export async function registerRoutes(
   });
 
   app.get("/download/android", (req, res) => {
-    res.redirect("https://drive.google.com/uc?export=download&id=1VaE-FQ0yRBWYzhG-h8kzDbpAjzBhu5y7");
+    res.redirect("https://drive.google.com/file/d/1VaE-FQ0yRBWYzhG-h8kzDbpAjzBhu5y7/view?usp=sharing");
   });
 
   app.post("/api/contact", async (req, res) => {
