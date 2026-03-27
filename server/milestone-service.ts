@@ -396,6 +396,23 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
 
       if (existing.length > 0) continue;
 
+      try {
+        await db.insert(schema.propertyMilestones).values({
+          propertyId,
+          milestoneType: milestone.type,
+          milestoneValue: milestone.value,
+          totalBookings,
+          occupancyPercent,
+        });
+      } catch (insertErr: unknown) {
+        const dbErr = insertErr as { code?: string };
+        if (dbErr.code === "23505") {
+          console.log(`[Milestone] Duplicate detected for ${propertyName} ${milestone.type}=${milestone.value}, skipping`);
+          continue;
+        }
+        throw insertErr;
+      }
+
       const messages = milestone.type === "occupancy_percent"
         ? OCCUPANCY_MILESTONE
         : (BOOKING_MILESTONES[milestone.value] || getDefaultMilestoneMessages(milestone.value));
@@ -424,23 +441,6 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
         console.log(`[Milestone] Sent ${milestone.type}=${milestone.value} email for ${propertyName} to ${adminEmails.length} admin(s)`);
       } catch (emailErr) {
         console.error(`[Milestone] Failed to send email for ${propertyName}:`, emailErr);
-        continue;
-      }
-
-      try {
-        await db.insert(schema.propertyMilestones).values({
-          propertyId,
-          milestoneType: milestone.type,
-          milestoneValue: milestone.value,
-          totalBookings,
-          occupancyPercent,
-        });
-      } catch (insertErr: any) {
-        if (insertErr?.code === "23505") {
-          console.log(`[Milestone] Duplicate detected for ${propertyName} ${milestone.type}=${milestone.value}, skipping`);
-          continue;
-        }
-        throw insertErr;
       }
     }
   } catch (err) {

@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1519,7 +1519,9 @@ export const propertyMilestones = pgTable("property_milestones", {
   totalBookings: integer("total_bookings").notNull(),
   occupancyPercent: integer("occupancy_percent"),
   sentAt: timestamp("sent_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("property_milestone_unique").on(table.propertyId, table.milestoneType, table.milestoneValue),
+]);
 
 export type PropertyMilestone = typeof propertyMilestones.$inferSelect;
 
