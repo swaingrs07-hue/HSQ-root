@@ -365,7 +365,8 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
     const totalBeds = roomTypesList.reduce((sum, rt) => sum + (rt.totalBeds || 0), 0);
     const availableBeds = roomTypesList.reduce((sum, rt) => sum + (rt.availableBeds || 0), 0);
     const occupiedBeds = totalBeds - availableBeds;
-    const occupancyPercent = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+    const exactOccupancyRatio = totalBeds > 0 ? (occupiedBeds * 100) / totalBeds : 0;
+    const occupancyPercent = totalBeds > 0 ? Math.round(exactOccupancyRatio) : 0;
 
     const milestonesToCheck: { type: "booking_count" | "occupancy_percent"; value: number }[] = [];
 
@@ -374,7 +375,7 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
       milestonesToCheck.push({ type: "booking_count", value: bookingMilestone });
     }
 
-    if (occupancyPercent >= 99 && totalBeds > 0) {
+    if (exactOccupancyRatio >= 99 && totalBeds > 0) {
       milestonesToCheck.push({ type: "occupancy_percent", value: 99 });
     }
 
@@ -394,23 +395,31 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
         )
       );
 
-      if (existing.length > 0) continue;
+      const alreadySent = existing.length > 0 && existing[0].emailSent;
+      if (alreadySent) continue;
 
-      try {
-        await db.insert(schema.propertyMilestones).values({
-          propertyId,
-          milestoneType: milestone.type,
-          milestoneValue: milestone.value,
-          totalBookings,
-          occupancyPercent,
-        });
-      } catch (insertErr: unknown) {
-        const dbErr = insertErr as { code?: string };
-        if (dbErr.code === "23505") {
-          console.log(`[Milestone] Duplicate detected for ${propertyName} ${milestone.type}=${milestone.value}, skipping`);
-          continue;
+      let milestoneId: string;
+      if (existing.length > 0) {
+        milestoneId = existing[0].id;
+      } else {
+        try {
+          const [inserted] = await db.insert(schema.propertyMilestones).values({
+            propertyId,
+            milestoneType: milestone.type,
+            milestoneValue: milestone.value,
+            totalBookings,
+            occupancyPercent,
+            emailSent: false,
+          }).returning({ id: schema.propertyMilestones.id });
+          milestoneId = inserted.id;
+        } catch (insertErr: unknown) {
+          const dbErr = insertErr as { code?: string };
+          if (dbErr.code === "23505") {
+            console.log(`[Milestone] Duplicate detected for ${propertyName} ${milestone.type}=${milestone.value}, skipping`);
+            continue;
+          }
+          throw insertErr;
         }
-        throw insertErr;
       }
 
       const messages = milestone.type === "occupancy_percent"
@@ -438,6 +447,9 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
           subject,
           html,
         });
+        await db.update(schema.propertyMilestones)
+          .set({ emailSent: true, sentAt: new Date() })
+          .where(eq(schema.propertyMilestones.id, milestoneId));
         console.log(`[Milestone] Sent ${milestone.type}=${milestone.value} email for ${propertyName} to ${adminEmails.length} admin(s)`);
       } catch (emailErr) {
         console.error(`[Milestone] Failed to send email for ${propertyName}:`, emailErr);
