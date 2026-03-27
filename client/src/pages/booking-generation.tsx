@@ -294,8 +294,20 @@ export default function BookingGeneration() {
       residentPhone: phone,
       residentEmail: email,
       residentGender: gender,
+      residentDob: "",
+      residentInstitute: "",
+      residentCourse: "",
+      residentMoveInDate: "",
+      residentCheckOutDate: "",
+      residentDietaryPreference: "",
+      residentPhotoPath: "",
+      parentName: "",
+      parentPhone: "",
+      parentEmail: "",
+      parentRelation: "",
       ...(propertyId ? { propertyId } : {}),
     }));
+    setResidentPhotoUrl(null);
 
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
@@ -316,17 +328,17 @@ export default function BookingGeneration() {
         }
         setFormData(prev => ({
           ...prev,
-          residentDob: reg.dob || prev.residentDob,
-          residentDietaryPreference: reg.dietaryPreference || prev.residentDietaryPreference,
-          residentInstitute: reg.instituteName || prev.residentInstitute,
-          residentCourse: reg.courseName || prev.residentCourse,
-          residentMoveInDate: reg.moveInDate || prev.residentMoveInDate,
-          residentCheckOutDate: reg.checkOutDate || prev.residentCheckOutDate,
-          parentName: reg.parentName || prev.parentName,
-          parentPhone: reg.parentPhone || prev.parentPhone,
-          parentEmail: reg.parentEmail || prev.parentEmail,
-          parentRelation: reg.parentRelation || prev.parentRelation,
-          residentPhotoPath: reg.photoPath || prev.residentPhotoPath,
+          residentDob: reg.dob || "",
+          residentDietaryPreference: reg.dietaryPreference || "",
+          residentInstitute: reg.instituteName || "",
+          residentCourse: reg.courseName || "",
+          residentMoveInDate: reg.moveInDate || "",
+          residentCheckOutDate: reg.checkOutDate || "",
+          parentName: reg.parentName || "",
+          parentPhone: reg.parentPhone || "",
+          parentEmail: reg.parentEmail || "",
+          parentRelation: reg.parentRelation || "",
+          residentPhotoPath: reg.photoPath || "",
         }));
         if (reg.photoPath) {
           fetch(`/api/uploads/signed-url?path=${encodeURIComponent(reg.photoPath)}`)
