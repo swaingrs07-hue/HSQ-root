@@ -1519,7 +1519,7 @@ export const propertyMilestones = pgTable("property_milestones", {
   totalBookings: integer("total_bookings").notNull(),
   occupancyPercent: integer("occupancy_percent"),
   emailSent: boolean("email_sent").default(false).notNull(),
-  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  sentAt: timestamp("sent_at"),
 }, (table) => [
   uniqueIndex("property_milestone_unique").on(table.propertyId, table.milestoneType, table.milestoneValue),
 ]);
