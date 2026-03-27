@@ -19,6 +19,7 @@ import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelco
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
+import { checkAndSendMilestone } from "./milestone-service";
 
 const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -3835,6 +3836,10 @@ ${allPages.map(p => `  <url>
         autoSyncBookingToHMS(confirmed).catch(err => {
           console.error("[HMS Auto-Sync] Background sync failed:", err);
         });
+
+        checkAndSendMilestone(confirmed.propertyId).catch(err => {
+          console.error("[Milestone] Background check failed:", err);
+        });
       }
 
       res.json(confirmed);
@@ -3941,6 +3946,10 @@ ${allPages.map(p => `  <url>
 
             autoSyncBookingToHMS(updatedBooking).catch(err => {
               console.error("[HMS Auto-Sync] Background sync after payment failed:", err);
+            });
+
+            checkAndSendMilestone(updatedBooking.propertyId).catch(err => {
+              console.error("[Milestone] Background check after payment failed:", err);
             });
           }
         }
@@ -4322,6 +4331,10 @@ ${allPages.map(p => `  <url>
             console.error("[Email] Background payment received email after payment failed:", err);
           });
         }
+
+        checkAndSendMilestone(latestBooking.propertyId).catch(err => {
+          console.error("[Milestone] Background check after manual payment failed:", err);
+        });
       }
 
       res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment });

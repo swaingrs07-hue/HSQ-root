@@ -1511,5 +1511,17 @@ export const mapSettings = pgTable("map_settings", {
 
 export type MapSettings = typeof mapSettings.$inferSelect;
 
+export const propertyMilestones = pgTable("property_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  milestoneType: text("milestone_type").notNull(),
+  milestoneValue: integer("milestone_value").notNull(),
+  totalBookings: integer("total_bookings").notNull(),
+  occupancyPercent: integer("occupancy_percent"),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
+export type PropertyMilestone = typeof propertyMilestones.$inferSelect;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";
