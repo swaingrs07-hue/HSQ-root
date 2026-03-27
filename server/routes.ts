@@ -1261,7 +1261,7 @@ ${allPages.map(p => `  <url>
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
         const emailResult = await resend.emails.send({
-          from: "Hsquare Living <booking@hsquarehostels.com>",
+          from: "Hsquare Living <noreply@hsquarehostels.com>",
           to: email.toLowerCase().trim(),
           subject: "Reset Your Password - Hsquare Living",
           html: `

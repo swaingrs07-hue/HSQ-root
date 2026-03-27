@@ -18,7 +18,7 @@ function getReceiptUrl(bookingId: string): string {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = "Hsquare Living <booking@hsquarehostels.com>";
+const FROM_EMAIL = "Hsquare Living <noreply@hsquarehostels.com>";
 
 interface BookingEmailData {
   residentName: string;
