@@ -74,7 +74,7 @@ const SECTIONS = [
   },
   {
     title: "16. Contact Information",
-    content: `For questions about these Terms & Conditions:\n\nHsquare Harmony Living\nEmail: support@hsquareliving.com\nPhone: +91 93210 00000\nWorking Hours: Monday – Saturday, 10:00 AM – 6:00 PM IST`,
+    content: `For questions about these Terms & Conditions:\n\nHsquare Harmony Living\nEmail: support@hsquareliving.com\nPhone: +91 6372294625\nWorking Hours: Monday – Saturday, 10:00 AM – 6:00 PM IST`,
   },
 ];
 

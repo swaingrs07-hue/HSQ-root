@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ParticleBackground } from "@/components/particle-background";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const fadeUp = {
@@ -20,19 +20,16 @@ const LOCATIONS = [
   {
     area: "Goregaon",
     address: "Hsquare Living, Goregaon West, Mumbai – 400062",
-    phone: "+91 93210 00000",
     nearby: "Near Whistling Woods International",
   },
   {
     area: "Juhu / Vile Parle",
     address: "Hsquare Living, Vile Parle West, Mumbai – 400056",
-    phone: "+91 93210 00000",
     nearby: "Near NMIMS, Mukesh Patel, DJ Sanghvi, Mithibai, NM College",
   },
   {
     area: "Andheri",
     address: "Hsquare Living, Andheri West, Mumbai – 400053",
-    phone: "+91 93210 00000",
     nearby: "Near DN Nagar Metro, Lokhandwala",
   },
 ];
@@ -41,6 +38,17 @@ export default function Contact() {
   const { toast } = useToast();
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
   const [sending, setSending] = useState(false);
+  const [contactInfo, setContactInfo] = useState({ phone: "+91 6372294625", email: "support@hsquareliving.com" });
+
+  useEffect(() => {
+    fetch("/api/footer-settings")
+      .then(r => r.json())
+      .then(data => {
+        if (data.phone) setContactInfo(prev => ({ ...prev, phone: data.phone }));
+        if (data.email) setContactInfo(prev => ({ ...prev, email: data.email }));
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,8 +189,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-white/40 mb-1">Email</p>
-                    <a href="mailto:support@hsquareliving.com" className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-email">
-                      support@hsquareliving.com
+                    <a href={`mailto:${contactInfo.email}`} className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-email">
+                      {contactInfo.email}
                     </a>
                   </div>
                 </div>
@@ -193,8 +201,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-white/40 mb-1">Phone</p>
-                    <a href="tel:+919321000000" className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-phone">
-                      +91 93210 00000
+                    <a href={`tel:${contactInfo.phone.replace(/\s/g, '')}`} className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-phone">
+                      {contactInfo.phone}
                     </a>
                   </div>
                 </div>
@@ -256,8 +264,8 @@ export default function Contact() {
                 <h3 className="text-xl font-heading font-bold text-white mb-2">{loc.area}</h3>
                 <p className="text-white/40 text-sm mb-3">{loc.address}</p>
                 <p className="text-amber-400/70 text-xs mb-3">{loc.nearby}</p>
-                <a href={`tel:${loc.phone.replace(/\s/g, "")}`} className="text-sm text-white/50 hover:text-amber-400 transition-colors">
-                  {loc.phone}
+                <a href={`tel:${contactInfo.phone.replace(/\s/g, "")}`} className="text-sm text-white/50 hover:text-amber-400 transition-colors">
+                  {contactInfo.phone}
                 </a>
               </motion.div>
             ))}
