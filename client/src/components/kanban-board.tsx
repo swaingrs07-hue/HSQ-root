@@ -297,6 +297,24 @@ interface RequestCardProps {
   currentStage?: KanbanStage;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  hsquare_dynamics: "Hsquare Dynamics",
+  walk_in: "Walk-in",
+  phone_inquiry: "Phone",
+  social_media: "Social Media",
+  google_ads: "Google Ads",
+  email_campaign: "Email",
+  website: "Website",
+  referral: "Referral",
+  chatbot: "Chatbot",
+};
+
+const PRIORITY_STYLES: Record<string, { dot: string; text: string }> = {
+  hot: { dot: "bg-red-500", text: "text-red-600" },
+  warm: { dot: "bg-amber-500", text: "text-amber-600" },
+  cold: { dot: "bg-slate-400", text: "text-slate-500" },
+};
+
 const RequestCard = memo(function RequestCard({
   lead,
   onView,
@@ -307,61 +325,51 @@ const RequestCard = memo(function RequestCard({
   currentStage,
 }: RequestCardProps) {
   const stage = currentStage || mapLeadStatusToStage(lead.status);
-  const column = KANBAN_COLUMNS.find((c) => c.id === stage);
   const monthlyValue = lead.budgetMax || lead.budgetMin || 0;
-  
-  const stageColorBar: Record<KanbanStage, string> = {
-    unqualified: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)",
-    qualified: "linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)",
-    viewing: "linear-gradient(135deg, #818cf8 0%, #6366f1 100%)",
-    negotiating: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-    won: "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
-  };
+  const priorityStyle = PRIORITY_STYLES[lead.priority || "cold"] || PRIORITY_STYLES.cold;
 
-  const sourceLabel = (s: string) => {
-    const map: Record<string, string> = {
-      hsquare_dynamics: "Hsquare Dynamics",
-      walk_in: "Walk-in",
-      phone_inquiry: "Phone",
-      social_media: "Social",
-      google_ads: "Google Ads",
-      email_campaign: "Email",
-      website: "Website",
-      referral: "Referral",
-      chatbot: "Chatbot",
-    };
-    return map[s] || s;
+  const stageLeftBorder: Record<KanbanStage, string> = {
+    unqualified: "#94a3b8",
+    qualified: "#3b82f6",
+    viewing: "#6366f1",
+    negotiating: "#f59e0b",
+    won: "#10b981",
   };
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-      whileHover={{ y: -2, boxShadow: "0 8px 30px -6px rgba(0,0,0,0.1)" }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`group relative bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden cursor-grab active:cursor-grabbing ${
-        isDragging ? "ring-2 ring-indigo-500 shadow-2xl shadow-indigo-500/20 z-50" : "hover:border-slate-300/80"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      whileHover={{ y: -1, boxShadow: "0 4px 20px -4px rgba(0,0,0,0.08)" }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      className={`group relative bg-white rounded-lg shadow-sm overflow-hidden cursor-grab active:cursor-grabbing border border-slate-200/60 ${
+        isDragging ? "ring-2 ring-indigo-500 shadow-xl z-50 rotate-1" : "hover:shadow-md"
       }`}
+      style={{ borderLeft: `3px solid ${stageLeftBorder[stage]}` }}
       data-testid={`kanban-card-${lead.id}`}
     >
-      <div
-        className="h-[3px]"
-        style={{ background: stageColorBar[stage] }}
-      />
-
-      <div className="px-3.5 pt-3 pb-3">
-        <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-slate-800 truncate text-sm leading-snug" data-testid={`card-name-${lead.id}`}>
-              {lead.name}
-            </h4>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-semibold text-[13px] text-slate-800 truncate leading-tight" data-testid={`card-name-${lead.id}`}>
+                {lead.name}
+              </h4>
+              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityStyle.dot}`} title={lead.priority || "cold"} />
+            </div>
+            <div className="flex items-center gap-2.5 mt-1">
               {lead.phone && (
                 <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <Phone className="w-3 h-3 flex-shrink-0" />
+                  <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
                   {lead.phone}
+                </span>
+              )}
+              {lead.email && !lead.phone && (
+                <span className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
+                  <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{lead.email}</span>
                 </span>
               )}
             </div>
@@ -372,7 +380,7 @@ const RequestCard = memo(function RequestCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-slate-100 rounded-md flex-shrink-0"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100 rounded flex-shrink-0 -mt-0.5 -mr-1"
                 data-testid={`card-menu-${lead.id}`}
               >
                 <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
@@ -404,24 +412,16 @@ const RequestCard = memo(function RequestCard({
                             : "opacity-40 cursor-not-allowed text-slate-400"
                         }`}
                       >
-                        <div
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ background: col.iconColor }}
-                        />
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: col.iconColor }} />
                         <span>{col.title}</span>
-                        {!canMove && (
-                          <span className="text-xs text-slate-400 ml-auto">Too far</span>
-                        )}
+                        {!canMove && <span className="text-xs text-slate-400 ml-auto">Too far</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-600 rounded-lg focus:bg-red-50 focus:text-red-600"
-                onClick={() => onDelete?.(lead)}
-              >
+              <DropdownMenuItem className="text-red-600 rounded-lg focus:bg-red-50 focus:text-red-600" onClick={() => onDelete?.(lead)}>
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </DropdownMenuItem>
@@ -430,53 +430,49 @@ const RequestCard = memo(function RequestCard({
         </div>
 
         {lead.propertyName && (
-          <div className="flex items-center gap-1.5 mb-2">
-            <Building2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-            <span className="text-xs text-slate-600 font-medium truncate">{lead.propertyName}</span>
+          <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-slate-50/80 rounded">
+            <Building2 className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+            <span className="text-[11px] text-slate-600 font-medium truncate">{lead.propertyName}</span>
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-          {lead.createdAt && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 rounded px-1.5 py-0.5">
-              <Calendar className="w-2.5 h-2.5" />
-              {new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-            </span>
-          )}
-          {lead.source && (
-            <span className={`inline-flex items-center text-[10px] font-medium rounded px-1.5 py-0.5 ${lead.source === 'hsquare_dynamics' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500'}`}>
-              {sourceLabel(lead.source)}
-            </span>
-          )}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100/60">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {lead.createdAt && (
+              <span className="text-[10px] text-slate-400 flex items-center gap-0.5 flex-shrink-0">
+                <Calendar className="w-2.5 h-2.5" />
+                {new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+              </span>
+            )}
+            {lead.source && (
+              <span className={`text-[10px] font-medium px-1.5 py-px rounded-sm flex-shrink-0 ${
+                lead.source === 'hsquare_dynamics' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {SOURCE_LABELS[lead.source] || lead.source}
+              </span>
+            )}
+          </div>
           {monthlyValue > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded px-1.5 py-0.5">
+            <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 flex-shrink-0">
               <IndianRupee className="w-2.5 h-2.5" />
               {monthlyValue.toLocaleString("en-IN")}/mo
             </span>
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+        <div className="flex items-center justify-between mt-1.5">
           <div className="flex items-center gap-1.5">
-            <Avatar className="h-5 w-5">
-              <AvatarFallback className={`text-[9px] font-medium ${lead.assignedToId ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                {lead.assignedToId ? "SE" : <User className="w-2.5 h-2.5" />}
+            <Avatar className="h-4.5 w-4.5" style={{ width: 18, height: 18 }}>
+              <AvatarFallback className={`text-[8px] font-medium ${lead.assignedToId ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {lead.assignedToId ? "SE" : <User className="w-2 h-2" />}
               </AvatarFallback>
             </Avatar>
-            <span className={`text-[11px] font-medium ${lead.assignedToId ? 'text-slate-600' : 'text-slate-400'}`}>
+            <span className={`text-[10px] ${lead.assignedToId ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
               {lead.assignedToId ? "Assigned" : "Unassigned"}
             </span>
           </div>
-          <span
-            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-              lead.priority === "hot"
-                ? "text-red-600 bg-red-50"
-                : lead.priority === "warm"
-                ? "text-amber-600 bg-amber-50"
-                : "text-slate-500 bg-slate-50"
-            }`}
-          >
-            {lead.priority}
+          <span className={`text-[10px] font-semibold capitalize ${priorityStyle.text}`}>
+            {lead.priority || "cold"}
           </span>
         </div>
       </div>
@@ -561,40 +557,34 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`sticky top-0 z-10 p-4 rounded-t-2xl border border-b-0 bg-gradient-to-r ${column.gradient} ${column.borderColor}`}
+        className="sticky top-0 z-10 bg-white rounded-t-xl border border-b-0 border-slate-200 px-3.5 py-3 shadow-sm"
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
+            <div
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ background: column.iconColor }}
             />
-            <h3 className={`font-semibold text-sm ${column.color} truncate`}>{column.title}</h3>
-            <Badge 
-              variant="secondary" 
-              className="h-5 px-2 text-xs bg-white/60 backdrop-blur-sm font-medium flex-shrink-0"
-            >
+            <h3 className="font-semibold text-[13px] text-slate-700">{column.title}</h3>
+            <span className="text-[11px] font-medium text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
               {leads.length}
-            </Badge>
+            </span>
           </div>
-        </div>
-        <div className="flex items-center gap-1 text-sm text-slate-600">
-          <IndianRupee className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="font-semibold truncate">
+          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-0.5">
+            <IndianRupee className="w-3 h-3" />
             {totalValue.toLocaleString("en-IN")}
           </span>
         </div>
       </motion.div>
 
       <div
-        className={`flex-1 p-3 space-y-3 overflow-y-auto ${column.bgColor} bg-opacity-40 rounded-b-2xl border-x border-b ${column.borderColor} transition-all duration-200 ${
-          isOver && validDrop 
-            ? "ring-2 ring-inset ring-indigo-400 bg-indigo-50/50" 
-            : isOver && !validDrop 
-            ? "ring-2 ring-inset ring-red-300 bg-red-50/30" 
+        className={`flex-1 p-2 space-y-2 overflow-y-auto bg-slate-50/60 rounded-b-xl border-x border-b border-slate-200 transition-all duration-200 ${
+          isOver && validDrop
+            ? "ring-2 ring-inset ring-indigo-400 bg-indigo-50/40"
+            : isOver && !validDrop
+            ? "ring-2 ring-inset ring-red-300 bg-red-50/30"
             : ""
-        } ${showDropIndicator && validDrop ? "bg-opacity-60" : ""}`}
-        style={{ minHeight: "200px" }}
+        } ${showDropIndicator && validDrop ? "bg-indigo-50/20" : ""}`}
       >
         <SortableContext
           items={leads.map((l) => l.id)}
@@ -605,13 +595,13 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center h-full min-h-[300px] text-slate-400"
+                className="flex flex-col items-center justify-center py-12 text-slate-400"
               >
-                <div className={`w-14 h-14 rounded-2xl ${column.bgColor} flex items-center justify-center mb-4 shadow-sm`}>
-                  <Sparkles className="w-6 h-6" style={{ color: column.iconColor }} />
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mb-3">
+                  <Sparkles className="w-5 h-5" style={{ color: column.iconColor }} />
                 </div>
-                <p className="text-sm font-medium text-slate-500">No requests</p>
-                <p className="text-xs text-slate-400 mt-1">Drag cards here to move</p>
+                <p className="text-xs font-medium text-slate-400">No requests</p>
+                <p className="text-[10px] text-slate-300 mt-0.5">Drag cards here</p>
               </motion.div>
             ) : (
               leads.map((lead) => (
@@ -627,14 +617,14 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
             )}
           </AnimatePresence>
         </SortableContext>
-        
+
         {showDropIndicator && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`mt-2 p-4 rounded-xl border-2 border-dashed flex items-center justify-center ${
-              validDrop 
-                ? "border-indigo-300 bg-indigo-50/50 text-indigo-600" 
+            className={`mt-1 p-3 rounded-lg border-2 border-dashed flex items-center justify-center ${
+              validDrop
+                ? "border-indigo-300 bg-indigo-50/50 text-indigo-600"
                 : "border-red-200 bg-red-50/50 text-red-500"
             }`}
           >
