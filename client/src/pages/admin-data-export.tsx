@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileSpreadsheet, Users, Target, CreditCard, Building2, GraduationCap, Receipt, Loader2, Database } from "lucide-react";
+import { Download, FileSpreadsheet, Users, Target, CreditCard, Building2, GraduationCap, Receipt, Loader2, Database, Layers, BedDouble } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ExportCategory {
@@ -23,6 +23,8 @@ const EXPORT_CATEGORIES: ExportCategory[] = [
   { key: "installments", label: "Installments", description: "Payment installment schedules with due dates and payment status", icon: Receipt, endpoint: "/api/admin/export/installments", countKey: "installments" },
   { key: "users", label: "Users & Team", description: "User accounts including admins, sales executives and their roles", icon: Users, endpoint: "/api/admin/export/users", countKey: "users" },
   { key: "properties", label: "Properties", description: "Property listings with address, amenities and booking mode", icon: Building2, endpoint: "/api/admin/export/properties", countKey: "properties" },
+  { key: "floors", label: "Floors", description: "Floor plan data with property, bed counts and availability", icon: Layers, endpoint: "/api/admin/export/floors", countKey: "floors" },
+  { key: "beds", label: "Beds", description: "Individual bed records with room, floor, status and pricing", icon: BedDouble, endpoint: "/api/admin/export/beds", countKey: "beds" },
 ];
 
 export default function AdminDataExport() {

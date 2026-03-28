@@ -9033,6 +9033,62 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.get("/api/admin/export/floors", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select({
+        id: schema.floors.id,
+        propertyId: schema.floors.propertyId,
+        floorNumber: schema.floors.floorNumber,
+        name: schema.floors.name,
+        totalBeds: schema.floors.totalBeds,
+        availableBeds: schema.floors.availableBeds,
+        createdAt: schema.floors.createdAt,
+        propertyName: schema.properties.name,
+      }).from(schema.floors).leftJoin(schema.properties, eq(schema.floors.propertyId, schema.properties.id));
+      const header = ["Floor Name","Floor Number","Property","Total Beds","Available Beds","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.name, r.floorNumber, r.propertyName || "", r.totalBeds, r.availableBeds,
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=floors_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
+  app.get("/api/admin/export/beds", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db.select({
+        id: schema.beds.id,
+        bedNumber: schema.beds.bedNumber,
+        status: schema.beds.status,
+        monthlyPrice: schema.beds.monthlyPrice,
+        blockedReason: schema.beds.blockedReason,
+        blockedCategory: schema.beds.blockedCategory,
+        createdAt: schema.beds.createdAt,
+        propertyName: schema.properties.name,
+        floorName: schema.floors.name,
+        roomNumber: schema.rooms.roomNumber,
+      }).from(schema.beds)
+        .leftJoin(schema.properties, eq(schema.beds.propertyId, schema.properties.id))
+        .leftJoin(schema.floors, eq(schema.beds.floorId, schema.floors.id))
+        .leftJoin(schema.rooms, eq(schema.beds.roomId, schema.rooms.id));
+      const header = ["Bed Number","Property","Floor","Room","Status","Monthly Price","Blocked Reason","Blocked Category","Created At"];
+      const csv = [header.join(","), ...rows.map(r => csvRow([
+        r.bedNumber, r.propertyName || "", r.floorName || "", r.roomNumber || "",
+        r.status, r.monthlyPrice || "", r.blockedReason || "", r.blockedCategory || "",
+        r.createdAt ? new Date(r.createdAt).toISOString() : ""
+      ]))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=beds_${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Export failed" });
+    }
+  });
+
   app.get("/api/admin/export/summary", authMiddleware, roleMiddleware("admin"), async (_req: AuthRequest, res) => {
     try {
       const [bookingCount] = await db.select({ count: sql`count(*)` }).from(schema.bookings);
@@ -9042,6 +9098,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const [installmentCount] = await db.select({ count: sql`count(*)` }).from(schema.installments);
       const [userCount] = await db.select({ count: sql`count(*)` }).from(schema.users);
       const [propertyCount] = await db.select({ count: sql`count(*)` }).from(schema.properties);
+      const [floorCount] = await db.select({ count: sql`count(*)` }).from(schema.floors);
+      const [bedCount] = await db.select({ count: sql`count(*)` }).from(schema.beds);
       res.json({
         bookings: Number(bookingCount.count),
         leads: Number(leadCount.count),
@@ -9050,6 +9108,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         installments: Number(installmentCount.count),
         users: Number(userCount.count),
         properties: Number(propertyCount.count),
+        floors: Number(floorCount.count),
+        beds: Number(bedCount.count),
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch summary" });
