@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 -   **Gyan AI Chatbot**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data.
 -   **Target & Achievement Dashboard**: Admin-only CRM tab for property-wise sales targets vs achievements, with KPIs, progress bars, and charts.
 -   **Public Registration Form**: Shareable `/apply` page for pre-registration; admin review and proceed-to-booking workflow at `/admin/registrations`.
--   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, and keyword-rich content.
+-   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, keyword-rich content, and server-side meta tag injection (`server/seo-meta.ts`) for all public pages to ensure Google crawls unique title/description/canonical per route.
 
 ## External Dependencies
 
