@@ -55,7 +55,6 @@ import {
   Crown, IndianRupee, CheckCircle2,
   GraduationCap, Train, Landmark, Hospital, ShoppingBag, UtensilsCrossed, MapPinned,
 } from "lucide-react";
-import { ParticleBackground } from "@/components/particle-background";
 
 function parseImages(json: string | null | undefined): string[] {
   if (!json) return [];
@@ -82,8 +81,6 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [showRoomNav, setShowRoomNav] = useState(true);
   const [cursorPos, setCursorPos] = useState({ x: 50, y: 50 });
   const [isZoomed, setIsZoomed] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -107,8 +104,6 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
   useEffect(() => {
     setCurrentIndex(0);
-    setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 600);
   }, [activeRoom]);
 
   useEffect(() => {
@@ -220,7 +215,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
   if (showGrid) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn("bg-black/98 z-50", isFullscreen ? "fixed inset-0" : "relative")}>
+      <div className={cn("bg-black/98 z-50", isFullscreen ? "fixed inset-0" : "relative")}>
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Grid3X3 className="w-5 h-5 text-amber-500" />
@@ -244,37 +239,35 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 </div>
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {roomImages.map((img, i) => (
-                    <motion.button key={i} whileHover={{ scale: 1.03 }} onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }} className="relative aspect-[4/3] overflow-hidden group rounded-lg" data-testid={`grid-image-${room.id}-${i}`}>
+                    <button key={i} onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }} className="relative aspect-[4/3] overflow-hidden group rounded-lg hover:scale-[1.03] transition-transform" data-testid={`grid-image-${room.id}-${i}`}>
                       <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                         <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                    </motion.button>
+                    </button>
                   ))}
                 </div>
               </div>
             );
           })}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (isFullscreen) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 bg-black">
+      <div className="fixed inset-0 z-50 bg-black">
         <div className="absolute inset-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onMouseMove={handleMouseMove} ref={containerRef}>
-          <AnimatePresence mode="wait">
-            <motion.div key={`fs-${activeRoom}-${currentIndex}`} initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }} className="absolute inset-0">
-              <motion.img src={images[currentIndex]} alt="" className="w-full h-full object-cover" style={isZoomed ? { transform: "scale(2)", transformOrigin: `${cursorPos.x}% ${cursorPos.y}%` } : {}} initial={{ scale: 1.08 }} animate={{ scale: 1 }} transition={{ duration: 12, ease: "linear" }} />
-            </motion.div>
-          </AnimatePresence>
+          <div className="absolute inset-0">
+            <img src={images[currentIndex]} alt="" className="w-full h-full object-cover transition-opacity duration-500" style={isZoomed ? { transform: "scale(2)", transformOrigin: `${cursorPos.x}% ${cursorPos.y}%` } : {}} />
+          </div>
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
         </div>
 
         <div className="absolute top-0 left-0 right-0 z-10">
           <div className="h-[3px] bg-white/10">
-            <motion.div className="h-full bg-gradient-to-r from-amber-500 to-amber-400" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
+            <div className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
@@ -344,7 +337,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -356,35 +349,23 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={() => images.length > 0 && setIsFullscreen(true)}
-        onMouseEnter={() => setShowRoomNav(true)}
       >
         {images.length > 0 ? (
           <>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`tour-${activeRoom}-${currentIndex}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-                className="absolute inset-0"
-              >
-                <motion.img
-                  src={images[currentIndex]}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  initial={{ scale: 1.05 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 10, ease: "linear" }}
-                />
-              </motion.div>
-            </AnimatePresence>
+            <div className="absolute inset-0">
+              <img
+                src={images[currentIndex]}
+                alt=""
+                className="w-full h-full object-cover transition-opacity duration-500"
+                loading="eager"
+              />
+            </div>
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/50 pointer-events-none" />
 
             <div className="absolute top-[72px] left-0 right-0 z-[5]">
               <div className="h-[2px] bg-white/10">
-                <motion.div className="h-full bg-gradient-to-r from-amber-500 to-amber-400" animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
+                <div className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-400" style={{ width: `${progress}%` }} />
               </div>
             </div>
 
@@ -1706,7 +1687,6 @@ function PropertyBooking() {
 
   return (
     <div className="min-h-screen bg-[#050505] relative">
-      <ParticleBackground preset="sparse" />
       <div className="relative">
         <ImmersiveTour property={property} onStartBooking={scrollToFloors} />
       </div>
@@ -1759,20 +1739,16 @@ function PropertyBooking() {
                   Amenities & Facilities
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {property.amenities.map((am: string, i: number) => (
-                    <motion.div
+                  {property.amenities.map((am: string) => (
+                    <div
                       key={am}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.02 }}
                       className="flex items-center gap-2.5 px-3 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white/70 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group"
                     >
                       <div className="w-6 h-6 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
                         <Check className="w-3.5 h-3.5 text-amber-500" />
                       </div>
                       {am}
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1807,12 +1783,8 @@ function PropertyBooking() {
                     };
                     const colorClass = categoryColors[loc.category] || categoryColors.other;
                     return (
-                      <motion.div
+                      <div
                         key={loc.id || i}
-                        initial={{ opacity: 0, y: 10 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: i * 0.03 }}
                         className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl hover:border-amber-500/20 hover:bg-white/[0.05] transition-all"
                         data-testid={`nearby-location-${loc.id || i}`}
                       >
@@ -1824,7 +1796,7 @@ function PropertyBooking() {
                           <p className="text-xs text-white/40 capitalize">{loc.category}</p>
                         </div>
                         <span className="text-xs text-amber-400 font-semibold whitespace-nowrap">{loc.distance}</span>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
@@ -1851,13 +1823,9 @@ function PropertyBooking() {
                 Room Types & Pricing
               </h2>
               <div className="space-y-3">
-                {property.roomTypes?.map((room: any, i: number) => (
-                  <motion.div
+                {property.roomTypes?.map((room: any) => (
+                  <div
                     key={room.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.05 }}
                     className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 hover:border-amber-500/20 hover:bg-white/[0.05] transition-all group backdrop-blur-sm"
                     data-testid={`room-card-${room.id}`}
                   >
@@ -1919,7 +1887,7 @@ function PropertyBooking() {
                         </Button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
