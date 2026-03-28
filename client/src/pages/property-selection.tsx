@@ -208,7 +208,7 @@ export default function PropertySelection() {
 
   const handlePropertySelect = (property: any) => {
     trackPropertyView(property);
-    setLocation(`/properties/${property.id}`);
+    setLocation(`/properties/${property.slug || property.id}`);
   };
 
   const closePropertyDetail = () => {

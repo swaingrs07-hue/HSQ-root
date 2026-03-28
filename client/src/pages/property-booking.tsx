@@ -1394,13 +1394,14 @@ function PropertyBooking() {
     setMeta('meta[name="description"]', "content", truncatedDesc);
     setMeta('meta[property="og:title"]', "content", document.title);
     setMeta('meta[property="og:description"]', "content", truncatedDesc);
-    setMeta('meta[property="og:url"]', "content", `https://hsquare.in/properties/${property.id}`);
+    const propertyUrl = `https://hsquare.in/properties/${property.slug || property.id}`;
+    setMeta('meta[property="og:url"]', "content", propertyUrl);
     setMeta('meta[name="twitter:title"]', "content", document.title);
     setMeta('meta[name="twitter:description"]', "content", truncatedDesc);
 
     const canonicalEl = document.getElementById("canonical-link") as HTMLLinkElement | null;
     if (canonicalEl) {
-      canonicalEl.href = `https://hsquare.in/properties/${property.id}`;
+      canonicalEl.href = propertyUrl;
     }
 
     const existingJsonLd = document.getElementById("property-jsonld");
@@ -1415,7 +1416,7 @@ function PropertyBooking() {
       "@type": "LodgingBusiness",
       "name": propName,
       "description": truncatedDesc,
-      "url": `https://hsquare.in/properties/${property.id}`,
+      "url": propertyUrl,
       "telephone": property.phone || "+91-6372294625",
       "email": property.email || "support@hsquareliving.com",
       "address": {

@@ -1475,7 +1475,7 @@ export default function Home() {
                         whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                         className="h-full"
                       >
-                        <Link href={`/properties/${property.id}`}>
+                        <Link href={`/properties/${property.slug || property.id}`}>
                           <div className={`p-6 md:p-8 rounded-2xl border ${pc.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${pc.glow} 0%, transparent 60%)` }} />
 

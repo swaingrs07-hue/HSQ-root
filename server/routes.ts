@@ -395,10 +395,11 @@ Sitemap: ${siteUrl}/sitemap.xml`
     try {
       const props = await db.select({
         id: schema.properties.id,
+        slug: schema.properties.slug,
         updatedAt: schema.properties.updatedAt,
       }).from(schema.properties).where(eq(schema.properties.status, "published"));
       propertyEntries = props.map(p => ({
-        loc: `/properties/${p.id}`,
+        loc: `/properties/${p.slug || p.id}`,
         lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : now,
         priority: "0.8",
         changefreq: "weekly",
@@ -2318,10 +2319,10 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Get single property
+  // Get single property (by ID or slug)
   app.get("/api/properties/:id", async (req, res) => {
     try {
-      const property = await storage.getProperty(req.params.id);
+      const property = await storage.getPropertyByIdOrSlug(req.params.id);
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
@@ -2850,8 +2851,14 @@ ${allPages.map(p => `  <url>
       } = req.body;
 
       // Create the property
+      let slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const existing = await db.select({ id: schema.properties.id }).from(schema.properties).where(eq(schema.properties.slug, slug));
+      if (existing.length > 0) {
+        slug = `${slug}-${Date.now().toString(36)}`;
+      }
       const property = await storage.createProperty({
         name,
+        slug,
         displayName,
         category,
         bookingMode: bookingMode || "monthly",

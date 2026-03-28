@@ -474,6 +474,7 @@ async function buildPropertyMeta(propSlug: string, pathname: string): Promise<Pa
       .select({
         id: schema.properties.id,
         name: schema.properties.name,
+        slug: schema.properties.slug,
         city: schema.properties.city,
         location: schema.properties.location,
         address: schema.properties.address,
@@ -485,7 +486,11 @@ async function buildPropertyMeta(propSlug: string, pathname: string): Promise<Pa
         imageUrl: schema.properties.imageUrl,
       })
       .from(schema.properties)
-      .where(eq(schema.properties.id, propSlug))
+      .where(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(propSlug)
+          ? eq(schema.properties.id, propSlug)
+          : eq(schema.properties.slug, propSlug)
+      )
       .limit(1);
 
     if (!prop) return fallback;
@@ -504,7 +509,7 @@ async function buildPropertyMeta(propSlug: string, pathname: string): Promise<Pa
       "@type": "LodgingBusiness",
       "name": propName,
       "description": desc,
-      "url": `${SITE_URL}/properties/${prop.id}`,
+      "url": `${SITE_URL}/properties/${prop.slug || prop.id}`,
       "telephone": prop.phone || "+91-6372294625",
       "email": prop.email || "support@hsquareliving.com",
       "address": {
@@ -542,11 +547,11 @@ async function buildPropertyMeta(propSlug: string, pathname: string): Promise<Pa
     return {
       title: title.length > 70 ? title.slice(0, 67) + "..." : title,
       description: desc.length > 160 ? desc.slice(0, 157) + "..." : desc,
-      canonical: `${SITE_URL}/properties/${prop.id}`,
+      canonical: `${SITE_URL}/properties/${prop.slug || prop.id}`,
       breadcrumbs: [
         { name: "Home", url: `${SITE_URL}/` },
         { name: "Properties", url: `${SITE_URL}/properties` },
-        { name: propName, url: `${SITE_URL}/properties/${prop.id}` },
+        { name: propName, url: `${SITE_URL}/properties/${prop.slug || prop.id}` },
       ],
       jsonLd: [jsonLdObj],
     };

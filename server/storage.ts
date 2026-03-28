@@ -123,6 +123,8 @@ export interface IStorage {
   
   // Properties
   getProperty(id: string): Promise<Property | undefined>;
+  getPropertyBySlug(slug: string): Promise<Property | undefined>;
+  getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined>;
   getAllProperties(): Promise<Property[]>;
   getAllPropertiesIncludingInactive(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
@@ -475,6 +477,19 @@ export class DatabaseStorage implements IStorage {
   async getProperty(id: string): Promise<Property | undefined> {
     const [property] = await db.select().from(properties).where(eq(properties.id, id));
     return property || undefined;
+  }
+
+  async getPropertyBySlug(slug: string): Promise<Property | undefined> {
+    const [property] = await db.select().from(properties).where(eq(properties.slug, slug));
+    return property || undefined;
+  }
+
+  async getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+    if (isUuid) {
+      return this.getProperty(idOrSlug);
+    }
+    return this.getPropertyBySlug(idOrSlug);
   }
 
   async getAllProperties(): Promise<Property[]> {

@@ -69,6 +69,7 @@ export const students = pgTable("students", {
 export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  slug: varchar("slug", { length: 255 }),
   displayName: text("display_name"),
   propertyCode: text("property_code"),
   hmsPropertyId: integer("hms_property_id"),

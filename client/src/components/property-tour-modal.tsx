@@ -243,7 +243,8 @@ export function PropertyTourModal({ isOpen, onClose, initialPropertyId }: Proper
   const handleBookClick = () => {
     trackEvent("tour_book_clicked", { propertyId: selectedPropertyId });
     onClose();
-    window.location.href = `/properties/${selectedPropertyId}`;
+    const selectedProp = properties.find((p: any) => p.id === selectedPropertyId);
+    window.location.href = `/properties/${selectedProp?.slug || selectedPropertyId}`;
   };
 
   const handleEnquireClick = () => {
