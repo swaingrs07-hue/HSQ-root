@@ -68,6 +68,23 @@ app.use((req, res, next) => {
   const { seedDatabase } = await import("./seed");
   await seedDatabase();
 
+  // Auto-generate slugs for properties that don't have one
+  try {
+    const { db } = await import("./db");
+    const { properties } = await import("../shared/schema");
+    const { isNull, eq } = await import("drizzle-orm");
+    const propsWithoutSlug = await db.select({ id: properties.id, name: properties.name }).from(properties).where(isNull(properties.slug));
+    for (const p of propsWithoutSlug) {
+      let slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const existing = await db.select({ id: properties.id }).from(properties).where(eq(properties.slug, slug));
+      if (existing.length > 0) slug = `${slug}-${Date.now().toString(36)}`;
+      await db.update(properties).set({ slug }).where(eq(properties.id, p.id));
+      console.log(`Generated slug: ${p.name} -> ${slug}`);
+    }
+  } catch (e) {
+    console.error("Failed to generate property slugs:", e);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
