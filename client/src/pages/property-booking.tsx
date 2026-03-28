@@ -77,32 +77,44 @@ type RoomId = typeof TOUR_ROOMS[number]["id"];
 function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBooking: () => void }) {
   const [activeRoom, setActiveRoom] = useState<RoomId>("overview");
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [prevIndex, setPrevIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
-  const [cursorPos, setCursorPos] = useState({ x: 50, y: 50 });
   const [isZoomed, setIsZoomed] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef({ x: 50, y: 50 });
+  const rafRef = useRef<number | null>(null);
+  const [cursorPos, setCursorPos] = useState({ x: 50, y: 50 });
 
-  const getImages = useCallback((room: RoomId): string[] => {
-    if (!property) return [];
-    switch (room) {
-      case "overview": return parseImages(property.tourOverviewImages);
-      case "rooms": return parseImages(property.tourRoomsImages);
-      case "amenities": return parseImages(property.tourAmenitiesImages);
-      case "location": return parseImages(property.tourLocationImages);
-      default: return [];
-    }
+  const imagesByRoom = useMemo(() => {
+    if (!property) return {} as Record<RoomId, string[]>;
+    return {
+      overview: parseImages(property.tourOverviewImages),
+      rooms: parseImages(property.tourRoomsImages),
+      amenities: parseImages(property.tourAmenitiesImages),
+      location: parseImages(property.tourLocationImages),
+    } as Record<RoomId, string[]>;
   }, [property]);
 
-  const images = getImages(activeRoom);
-  const allImages = TOUR_ROOMS.flatMap(r => getImages(r.id));
+  const getImages = useCallback((room: RoomId): string[] => {
+    return imagesByRoom[room] || [];
+  }, [imagesByRoom]);
+
+  const images = useMemo(() => getImages(activeRoom), [getImages, activeRoom]);
+  const allImages = useMemo(() => TOUR_ROOMS.flatMap(r => getImages(r.id)), [getImages]);
+
+  const activeRoomsWithImages = useMemo(() =>
+    TOUR_ROOMS.filter(r => getImages(r.id).length > 0),
+    [getImages]
+  );
 
   useEffect(() => {
     setCurrentIndex(0);
+    setPrevIndex(null);
   }, [activeRoom]);
 
   useEffect(() => {
@@ -110,6 +122,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     if (isPlaying && images.length > 1 && !isFullscreen) {
       autoPlayRef.current = setInterval(() => {
         setCurrentIndex(prev => {
+          setPrevIndex(prev);
           const next = (prev + 1) % images.length;
           if (next === 0) {
             const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
@@ -128,12 +141,27 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     return () => { if (autoPlayRef.current) { clearInterval(autoPlayRef.current); autoPlayRef.current = null; } };
   }, [isPlaying, images.length, activeRoom, isFullscreen, getImages]);
 
-  const goTo = (index: number) => {
+  useEffect(() => {
+    if (prevIndex !== null) {
+      const t = setTimeout(() => setPrevIndex(null), 600);
+      return () => clearTimeout(t);
+    }
+  }, [prevIndex]);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const nextIdx = (currentIndex + 1) % images.length;
+    const img = new Image();
+    img.src = images[nextIdx];
+  }, [currentIndex, images]);
+
+  const goTo = useCallback((index: number) => {
+    setPrevIndex(currentIndex);
     setCurrentIndex(index);
     setIsPlaying(false);
-  };
+  }, [currentIndex]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (images.length === 0) return;
     if (currentIndex === 0) {
       const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
@@ -151,9 +179,9 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
       }
     }
     goTo(currentIndex === 0 ? images.length - 1 : currentIndex - 1);
-  };
+  }, [images, currentIndex, activeRoom, getImages, goTo]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (images.length === 0) return;
     if (currentIndex === images.length - 1) {
       const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
@@ -168,7 +196,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
       }
     }
     goTo((currentIndex + 1) % images.length);
-  };
+  }, [images, currentIndex, activeRoom, getImages, goTo]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -185,14 +213,24 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     touchStartY.current = null;
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!containerRef.current || !isZoomed) return;
     const rect = containerRef.current.getBoundingClientRect();
-    setCursorPos({
+    cursorRef.current = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
-    });
-  };
+    };
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        setCursorPos({ ...cursorRef.current });
+        rafRef.current = null;
+      });
+    }
+  }, [isZoomed]);
+
+  useEffect(() => {
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -205,12 +243,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [images.length, isFullscreen, isPlaying, showGrid, currentIndex]);
+  }, [handlePrev, handleNext, isFullscreen, isPlaying, showGrid]);
 
-  const globalIndex = TOUR_ROOMS.slice(0, TOUR_ROOMS.findIndex(r => r.id === activeRoom))
-    .reduce((s, r) => s + getImages(r.id).length, 0) + currentIndex;
+  const globalIndex = useMemo(() =>
+    TOUR_ROOMS.slice(0, TOUR_ROOMS.findIndex(r => r.id === activeRoom))
+      .reduce((s, r) => s + getImages(r.id).length, 0) + currentIndex,
+    [activeRoom, currentIndex, getImages]
+  );
   const currentRoom = TOUR_ROOMS.find(r => r.id === activeRoom)!;
-  const progress = allImages.length > 0 ? ((globalIndex + 1) / allImages.length) * 100 : 0;
+  const progress = useMemo(() =>
+    allImages.length > 0 ? ((globalIndex + 1) / allImages.length) * 100 : 0,
+    [globalIndex, allImages.length]
+  );
 
   if (showGrid) {
     return (
@@ -239,7 +283,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {roomImages.map((img, i) => (
                     <button key={i} onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }} className="relative aspect-[4/3] overflow-hidden group rounded-lg hover:scale-[1.03] transition-transform" data-testid={`grid-image-${room.id}-${i}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                         <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
@@ -259,7 +303,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
       <div className="fixed inset-0 z-50 bg-black">
         <div className="absolute inset-0" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onMouseMove={handleMouseMove} ref={containerRef}>
           <div className="absolute inset-0">
-            <img src={images[currentIndex]} alt="" className="w-full h-full object-cover transition-opacity duration-500" style={isZoomed ? { transform: "scale(2)", transformOrigin: `${cursorPos.x}% ${cursorPos.y}%` } : {}} />
+            {prevIndex !== null && prevIndex !== currentIndex && images[prevIndex] && (
+              <img src={images[prevIndex]} alt="" className="absolute inset-0 w-full h-full object-cover z-[1]" />
+            )}
+            <img key={currentIndex} src={images[currentIndex]} alt="" className="absolute inset-0 w-full h-full object-cover z-[2] animate-[imgFadeIn_0.5s_ease-in-out]" style={isZoomed ? { transform: "scale(2)", transformOrigin: `${cursorPos.x}% ${cursorPos.y}%` } : {}} />
           </div>
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
         </div>
@@ -296,10 +343,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
         {images.length > 1 && (
           <>
-            <button onClick={handlePrev} aria-label="Previous image" className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-prev">
+            <button onClick={handlePrev} aria-label="Previous image" className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-prev">
               <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
             </button>
-            <button onClick={handleNext} aria-label="Next image" className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-next">
+            <button onClick={handleNext} aria-label="Next image" className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-14 h-14 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/20 group" data-testid="button-fs-next">
               <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </>
@@ -307,17 +354,13 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
         <div className="absolute bottom-0 left-0 right-0 z-10">
           <div className="flex items-end justify-between px-6 pb-4">
-            <div className="flex gap-1.5 bg-black/30 backdrop-blur-xl rounded-full p-1.5 border border-white/10">
-              {TOUR_ROOMS.map(room => {
-                const hasImages = getImages(room.id).length > 0;
-                if (!hasImages) return null;
-                return (
-                  <button key={room.id} onClick={() => setActiveRoom(room.id)} className={cn("flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/30" : "text-white/50 hover:text-white hover:bg-white/10")} data-testid={`fs-tab-${room.id}`}>
-                    <room.icon className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{room.label}</span>
-                  </button>
-                );
-              })}
+            <div className="flex gap-1.5 bg-black/60 rounded-full p-1.5 border border-white/10">
+              {activeRoomsWithImages.map(room => (
+                <button key={room.id} onClick={() => setActiveRoom(room.id)} className={cn("flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/30" : "text-white/50 hover:text-white hover:bg-white/10")} data-testid={`fs-tab-${room.id}`}>
+                  <room.icon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{room.label}</span>
+                </button>
+              ))}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-white/40 text-xs font-mono">{String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}</span>
@@ -330,7 +373,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
             <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20">
               {images.map((img, i) => (
                 <button key={i} onClick={() => goTo(i)} className={cn("flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2 rounded-lg", i === currentIndex ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20" : "w-16 border-transparent opacity-40 hover:opacity-70")} data-testid={`fs-thumb-${i}`}>
-                  <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="112px" />
                 </button>
               ))}
             </div>
@@ -352,10 +395,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
         {images.length > 0 ? (
           <>
             <div className="absolute inset-0">
+              {prevIndex !== null && prevIndex !== currentIndex && images[prevIndex] && (
+                <img
+                  src={images[prevIndex]}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover z-[1]"
+                />
+              )}
               <img
+                key={currentIndex}
                 src={images[currentIndex]}
                 alt=""
-                className="w-full h-full object-cover transition-opacity duration-500"
+                className="absolute inset-0 w-full h-full object-cover z-[2] animate-[imgFadeIn_0.5s_ease-in-out]"
                 loading="eager"
               />
             </div>
@@ -369,7 +420,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
             </div>
 
             <div className="absolute top-20 left-4 right-4 z-[5] flex items-start justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="bg-black/30 backdrop-blur-2xl rounded-2xl px-4 py-2.5 border border-white/10">
+              <div className="bg-black/60 rounded-2xl px-4 py-2.5 border border-white/10">
                 <div className="flex items-center gap-2">
                   <currentRoom.icon className="w-4 h-4 text-amber-400" />
                   <div>
@@ -379,13 +430,13 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <button onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }} className={cn("p-2 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400 border border-amber-500/30" : "bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10")} data-testid="button-autoplay-toggle" aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}>
+                <button onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }} className={cn("p-2 rounded-full transition-all", isPlaying ? "bg-amber-500/30 text-amber-400 border border-amber-500/30" : "bg-black/60 text-white/60 hover:text-white border border-white/10")} data-testid="button-autoplay-toggle" aria-label={isPlaying ? "Pause autoplay" : "Start autoplay"}>
                   {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setShowGrid(true); }} className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-show-grid" aria-label="Show photo grid">
+                <button onClick={(e) => { e.stopPropagation(); setShowGrid(true); }} className="p-2 rounded-full bg-black/60 text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-show-grid" aria-label="Show photo grid">
                   <Grid3X3 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }} className="p-2 rounded-full bg-black/30 backdrop-blur-xl text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-fullscreen" aria-label="Enter fullscreen">
+                <button onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }} className="p-2 rounded-full bg-black/60 text-white/60 hover:text-white border border-white/10 transition-all" data-testid="button-fullscreen" aria-label="Enter fullscreen">
                   <Maximize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -393,10 +444,10 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
             {images.length > 1 && (
               <>
-                <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-prev-image" aria-label="Previous image">
+                <button onClick={(e) => { e.stopPropagation(); handlePrev(); }} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-prev-image" aria-label="Previous image">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/20 backdrop-blur-xl hover:bg-black/40 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-next-image" aria-label="Next image">
+                <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/60 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10" data-testid="button-next-image" aria-label="Next image">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </>
@@ -404,17 +455,13 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
             <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
               <div className="flex items-end justify-between">
-                <div className="flex gap-1 bg-black/30 backdrop-blur-2xl rounded-full p-1 border border-white/10">
-                  {TOUR_ROOMS.map(room => {
-                    const hasImages = getImages(room.id).length > 0;
-                    if (!hasImages) return null;
-                    return (
-                      <button key={room.id} onClick={(e) => { e.stopPropagation(); setActiveRoom(room.id); }} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all tracking-wider uppercase", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/20" : "text-white/40 hover:text-white/70 hover:bg-white/10")} data-testid={`tab-tour-${room.id}`}>
-                        <room.icon className="w-3 h-3" />
-                        <span className="hidden sm:inline">{room.label}</span>
-                      </button>
-                    );
-                  })}
+                <div className="flex gap-1 bg-black/60 rounded-full p-1 border border-white/10">
+                  {activeRoomsWithImages.map(room => (
+                    <button key={room.id} onClick={(e) => { e.stopPropagation(); setActiveRoom(room.id); }} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all tracking-wider uppercase", activeRoom === room.id ? "bg-amber-500/90 text-white shadow-lg shadow-amber-500/20" : "text-white/40 hover:text-white/70 hover:bg-white/10")} data-testid={`tab-tour-${room.id}`}>
+                      <room.icon className="w-3 h-3" />
+                      <span className="hidden sm:inline">{room.label}</span>
+                    </button>
+                  ))}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-white/30 text-xs font-mono tracking-wider">{String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}</span>
@@ -425,7 +472,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 <div className="flex gap-1 mt-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20">
                   {images.map((img, i) => (
                     <button key={i} onClick={(e) => { e.stopPropagation(); goTo(i); }} className={cn("flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border rounded-md", i === currentIndex ? "w-20 border-amber-500 opacity-100" : "w-12 border-white/10 opacity-30 hover:opacity-60")} data-testid={`thumbnail-${i}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="80px" />
                     </button>
                   ))}
                 </div>
@@ -448,7 +495,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
         <div className="flex items-center gap-3">
           <Camera className="w-4 h-4 text-amber-500" />
           <span className="text-white/80 text-sm font-medium tracking-wide">Virtual Tour</span>
-          <span className="text-white/30 text-xs">{allImages.length} photos across {TOUR_ROOMS.filter(r => getImages(r.id).length > 0).length} categories</span>
+          <span className="text-white/30 text-xs">{allImages.length} photos across {activeRoomsWithImages.length} categories</span>
         </div>
         <div className="flex items-center gap-3">
           {allImages.length > 0 && (
