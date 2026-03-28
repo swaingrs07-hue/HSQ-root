@@ -21,13 +21,13 @@ const LOCATIONS = [
     area: "Goregaon",
     address: "Hsquare Living, Goregaon West, Mumbai – 400062",
     phone: "+91 93210 00000",
-    nearby: "Near NMIMS, Mukesh Patel, DJ Sanghvi",
+    nearby: "Near Whistling Woods International",
   },
   {
     area: "Juhu / Vile Parle",
     address: "Hsquare Living, Vile Parle West, Mumbai – 400056",
     phone: "+91 93210 00000",
-    nearby: "Near Mithibai, NM College, Whistling Woods",
+    nearby: "Near NMIMS, Mukesh Patel, DJ Sanghvi, Mithibai, NM College",
   },
   {
     area: "Andheri",
