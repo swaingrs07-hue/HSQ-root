@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -547,24 +546,20 @@ function MultiPlanBedOverlay({ plans }: { plans: Array<{ tierLevel: number }> })
 
   return (
     <>
-      <motion.div
-        className="absolute inset-0 rounded-[10px] pointer-events-none"
-        animate={{ background: bgKeyframes, opacity: [0.7, 0.9, 0.7] }}
-        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+      <div
+        className="absolute inset-0 rounded-[10px] pointer-events-none animate-pulse"
+        style={{ background: planBgs[0], opacity: 0.8 }}
       />
-      <motion.div
+      <div
         className="absolute inset-[-2px] rounded-xl pointer-events-none"
-        style={{ border: "2px solid transparent" }}
-        animate={{ borderColor: borderKeyframes }}
-        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+        style={{ border: `2px solid ${planBorders[0]}` }}
       />
-      <motion.div
+      <div
         className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-md z-10 border border-white/80"
-        animate={{ background: bgKeyframes, opacity: [0.7, 1, 0.7] }}
-        transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
+        style={{ background: planBgs[0] }}
       >
         <Crown className="w-3 h-3 text-white/90" />
-      </motion.div>
+      </div>
     </>
   );
 }
@@ -769,17 +764,16 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
       ? { bg: "bg-gradient-to-br from-orange-300/60 to-orange-500/60", border: "border-orange-400/40", label: "Booking in progress", cursor: "cursor-not-allowed", dot: "bg-orange-400" }
       : (statusConfig[bed.status] || statusConfig.maintenance);
     return (
-      <motion.button
+      <button
         key={bed.id}
-        whileHover={(isAvailable && matchesPlanFilter) ? { scale: 1.15, y: -6, transition: { type: "spring", stiffness: 400, damping: 15 } } : {}}
-        whileTap={(isAvailable && matchesPlanFilter) ? { scale: 0.93 } : {}}
         onClick={() => {
           if (!isAvailable || !matchesPlanFilter) return;
           setSelectedBedId(bed.id);
           onSelectBed(bed, floor, room);
         }}
         className={cn(
-          "relative p-2 border-2 rounded-xl text-center transition-all duration-300",
+          "relative p-2 border-2 rounded-xl text-center transition-all duration-200",
+          (isAvailable && matchesPlanFilter) && "hover:scale-110 hover:-translate-y-1 active:scale-95",
           isPlanHighlighted && tierColors
             ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
             : hasMultiPlan
@@ -798,17 +792,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
       >
         {isPlanHighlighted && !isSelected && tierColors && (
           <>
-            <motion.div
-              className={cn("absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-br rounded-full flex items-center justify-center shadow-lg z-10 border border-white", tierColors.crownColor)}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            >
+            <div className={cn("absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-br rounded-full flex items-center justify-center shadow-lg z-10 border border-white animate-pulse", tierColors.crownColor)}>
               <Crown className="w-3 h-3 text-white" />
-            </motion.div>
-            <motion.div
-              className="absolute inset-0 rounded-[10px] pointer-events-none"
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            </div>
+            <div
+              className="absolute inset-0 rounded-[10px] pointer-events-none opacity-50"
               style={{ background: `linear-gradient(135deg, ${tierColors.overlay} 0%, transparent 50%, ${tierColors.overlay} 100%)` }}
             />
           </>
@@ -825,19 +813,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
         <Bed className={cn("w-4 h-4 mx-auto drop-shadow-sm relative z-[1]", (isPlanHighlighted || (hasPassivePlan && !hasMultiPlan)) && tierColors ? tierColors.iconText : hasMultiPlan ? "text-white" : isSelected ? "text-white" : "text-white/90")} />
         <span className={cn("text-[9px] font-bold block mt-0.5 truncate drop-shadow-sm relative z-[1]", (isPlanHighlighted || (hasPassivePlan && !hasMultiPlan)) && tierColors ? tierColors.text : hasMultiPlan ? "text-white" : isSelected ? "text-white" : "text-white/90")}>{bed.bedNumber}</span>
         {isSelected && (
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 15 }}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 z-10"
-          >
+          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30 z-10">
             <Check className="w-3.5 h-3.5 text-amber-600" />
-          </motion.div>
+          </div>
         )}
         {isAvailable && matchesPlanFilter && !isPlanHighlighted && !hasPassivePlan && (
           <div className="absolute inset-0 rounded-[10px] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         )}
-      </motion.button>
+      </button>
     );
   };
 
@@ -847,18 +830,12 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
       {selectedPlan && activeTierColors && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
+        <div
           className={cn("flex items-center gap-3 rounded-xl p-3.5 shadow-md border-2", activeTierColors.bannerBg, activeTierColors.bannerBorder)}
         >
-          <motion.div
-            className={cn("w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg", activeTierColors.crownColor)}
-            animate={{ rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
+          <div className={cn("w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg", activeTierColors.crownColor)}>
             <Crown className="w-5 h-5 text-white" />
-          </motion.div>
+          </div>
           <div className="flex-1">
             <p className={cn("text-sm font-bold", activeTierColors.text)}>{selectedPlan.name}</p>
             <p className={cn("text-xs", activeTierColors.bannerSubText)}>
@@ -875,7 +852,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
               </>
             )}
           </div>
-        </motion.div>
+        </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.03] p-4 rounded-xl border border-white/[0.08]">
         <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
@@ -906,11 +883,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           const occupancyPct = totalBeds > 0 ? Math.round((availBeds / totalBeds) * 100) : 0;
 
           return (
-            <motion.div
+            <div
               key={floor.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: fi * 0.05 }}
               className="relative pl-10 mb-3"
               data-testid={`floor-card-${floor.id}`}
             >
@@ -941,15 +915,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                   <div className="flex items-center gap-3">
                     {availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
                     {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-xs font-bold">Full</Badge>}
-                    <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                    <div className={cn("transition-transform duration-200", isExpanded && "rotate-180")}>
                       <ChevronDown className="w-5 h-5 text-white/40" />
-                    </motion.div>
+                    </div>
                   </div>
                 </button>
 
-                <AnimatePresence>
-                  {isExpanded && (beds.length > 0 || rooms.length > 0) && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                {isExpanded && (beds.length > 0 || rooms.length > 0) && (
+                    <div className="overflow-hidden">
                       <div className="px-4 pb-4 border-t border-white/[0.06] mt-1">
                         {hasRooms ? (
                           <div className="space-y-3 mt-3">
@@ -1047,11 +1020,10 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                           </div>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   )}
-                </AnimatePresence>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -1112,13 +1084,7 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
   const maxTier = Math.max(...plans.map((p: any) => p.tierLevel ?? 0));
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      data-testid="housing-plans-section"
-    >
+    <div data-testid="housing-plans-section">
       <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
         <Crown className="w-5 h-5 text-amber-500" />
         Housing Plans & Features
@@ -1130,12 +1096,8 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
           const tierNum = plan.tierLevel ?? 0;
           const isTop = tierNum >= maxTier;
           return (
-            <motion.div
+            <div
               key={plan.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: pi * 0.08 }}
               className={cn(
                 "rounded-xl border overflow-hidden relative flex flex-col flex-shrink-0",
                 plans.length <= 3 ? "flex-1 min-w-[200px]" : "min-w-[220px] w-[260px]",
@@ -1143,11 +1105,6 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
               )}
               data-testid={`plan-card-${plan.id}`}
             >
-              <motion.div
-                className={cn("absolute inset-0 bg-gradient-to-r pointer-events-none rounded-xl", style.shimmer)}
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-              />
               {plan.isHighlighted && (
                 <div className={cn("text-white text-center text-[9px] font-bold uppercase tracking-wider py-1 relative flex items-center justify-center gap-1", style.badge)}>
                   <Sparkles className="h-3 w-3" /> Most Popular
@@ -1190,11 +1147,11 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                     );
                   })}
                 </div>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="mt-3">
+                <div className="mt-3">
                   <Button
                     onClick={() => onSelectPlan(plan)}
                     className={cn(
-                      "w-full rounded-lg h-9 font-semibold tracking-wider uppercase text-xs text-white shadow-lg relative overflow-hidden",
+                      "w-full rounded-lg h-9 font-semibold tracking-wider uppercase text-xs text-white shadow-lg relative overflow-hidden hover:scale-[1.03] active:scale-[0.97] transition-transform",
                       style.btnGradient, style.btnHover, style.glow
                     )}
                     data-testid={`button-book-plan-${plan.id}`}
@@ -1202,15 +1159,10 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                     <span className="relative z-10 flex items-center justify-center gap-1.5">
                       Explore & Book <ArrowRight className="w-3.5 h-3.5" />
                     </span>
-                    <motion.div
-                      className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
-                      animate={{ x: ["-100%", "200%"] }}
-                      transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-                    />
                   </Button>
-                </motion.div>
+                </div>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -1221,23 +1173,14 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
           const tierNum = plan.tierLevel ?? 0;
           const isTop = tierNum >= maxTier;
           return (
-            <motion.div
+            <div
               key={plan.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: pi * 0.1 }}
               className={cn(
                 "rounded-xl border overflow-hidden relative",
                 style.border, style.cardBg, style.glow
               )}
               data-testid={`plan-card-${plan.id}`}
             >
-              <motion.div
-                className={cn("absolute inset-0 bg-gradient-to-r pointer-events-none rounded-xl", style.shimmer)}
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-              />
               {plan.isHighlighted && (
                 <div className={cn("text-white text-center text-[9px] font-bold uppercase tracking-wider py-1 relative flex items-center justify-center gap-1", style.badge)}>
                   <Sparkles className="h-3 w-3" /> Most Popular
@@ -1278,11 +1221,11 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                     </div>
                   );
                 })}
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-3">
+                <div className="mt-3">
                   <Button
                     onClick={() => onSelectPlan(plan)}
                     className={cn(
-                      "w-full rounded-lg h-9 font-semibold tracking-wider uppercase text-xs text-white shadow-lg relative overflow-hidden",
+                      "w-full rounded-lg h-9 font-semibold tracking-wider uppercase text-xs text-white shadow-lg relative overflow-hidden hover:scale-[1.02] active:scale-[0.98] transition-transform",
                       style.btnGradient, style.btnHover, style.glow
                     )}
                     data-testid={`button-book-plan-${plan.id}`}
@@ -1290,19 +1233,14 @@ function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSele
                     <span className="relative z-10 flex items-center justify-center gap-1.5">
                       Explore & Book <ArrowRight className="w-3.5 h-3.5" />
                     </span>
-                    <motion.div
-                      className={cn("absolute inset-0 bg-gradient-to-r opacity-60", style.shimmer)}
-                      animate={{ x: ["-100%", "200%"] }}
-                      transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-                    />
                   </Button>
-                </motion.div>
+                </div>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -1909,11 +1847,7 @@ function PropertyBooking() {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden rounded-xl"
-              >
+              <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden rounded-xl">
                 <div className="bg-gradient-to-r from-white/[0.06] to-white/[0.03] p-4 flex items-center justify-between border-b border-white/[0.06]">
                   <h3 className="text-white font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
                   {selectedBed && (
@@ -1932,7 +1866,7 @@ function PropertyBooking() {
                   </div>
 
                   {selectedBed && selectedFloor && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-3">
+                    <div className="space-y-3">
                       <div className="border-t border-white/[0.06] pt-3 flex items-center gap-3">
                         <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-center shrink-0">
                           <Layers className="w-5 h-5 text-amber-500" />
@@ -1976,9 +1910,7 @@ function PropertyBooking() {
                             const planTierColors = getBedTierColors(effectivePlan.tierLevel ?? 0, maxPlanTier);
                             const planPrice = Number(effectivePlan.basePrice || 0);
                             return (
-                              <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
+                              <div
                                 className={cn("border-2 rounded-xl p-3 relative overflow-hidden", planTierColors.roomBorder)}
                                 data-testid="summary-active-plan"
                               >
@@ -2035,7 +1967,7 @@ function PropertyBooking() {
                                     </div>
                                   )}
                                 </div>
-                              </motion.div>
+                              </div>
                             );
                             } catch (e) { console.error("[PropertyBooking] Plan render error:", e); return null; }
                           })()}
@@ -2098,7 +2030,7 @@ function PropertyBooking() {
                       <Button onClick={handleBookSelectedBed} className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl h-12 font-semibold tracking-wider uppercase shadow-lg shadow-amber-600/30" data-testid="button-proceed-booking">
                         Proceed to Book <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
-                    </motion.div>
+                    </div>
                   )}
 
                   {!selectedBed && (
@@ -2139,7 +2071,7 @@ function PropertyBooking() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
 
               <Dialog open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
                 <DialogContent className="max-w-md bg-[#0a0a0a] border-white/[0.08]">
@@ -2155,12 +2087,8 @@ function PropertyBooking() {
                         const planPrice = Number(plan.basePrice || 0);
                         const isAcademic = property?.bookingMode === "academic_year";
                         return (
-                          <motion.button
+                          <button
                             key={plan.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
                             onClick={() => {
                               setSelectedPlan(plan);
                               setAutoDetectedPlan(null);
@@ -2199,7 +2127,7 @@ function PropertyBooking() {
                               toast({ title: `${plan.name} selected`, description: "Now select a bed to complete your booking." });
                             }}
                             className={cn(
-                              "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md relative overflow-hidden bg-white/[0.02]",
+                              "w-full text-left border-2 rounded-xl p-4 transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden bg-white/[0.02]",
                               colors.roomBorder
                             )}
                             data-testid={`plan-picker-${plan.id}`}
@@ -2234,7 +2162,7 @@ function PropertyBooking() {
                                 ))}
                               </div>
                             )}
-                          </motion.button>
+                          </button>
                         );
                       })}
                   </div>
