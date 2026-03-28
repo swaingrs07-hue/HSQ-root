@@ -318,47 +318,64 @@ const RequestCard = memo(function RequestCard({
     won: "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
   };
 
+  const sourceLabel = (s: string) => {
+    const map: Record<string, string> = {
+      hsquare_dynamics: "Hsquare Dynamics",
+      walk_in: "Walk-in",
+      phone_inquiry: "Phone",
+      social_media: "Social",
+      google_ads: "Google Ads",
+      email_campaign: "Email",
+      website: "Website",
+      referral: "Referral",
+      chatbot: "Chatbot",
+    };
+    return map[s] || s;
+  };
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-      whileHover={{ y: -4, boxShadow: "0 12px 40px -8px rgba(0,0,0,0.12)" }}
+      whileHover={{ y: -2, boxShadow: "0 8px 30px -6px rgba(0,0,0,0.1)" }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`group relative bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all cursor-grab active:cursor-grabbing ${
-        isDragging ? "ring-2 ring-indigo-500 shadow-2xl shadow-indigo-500/20 z-50" : ""
+      className={`group relative bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden cursor-grab active:cursor-grabbing ${
+        isDragging ? "ring-2 ring-indigo-500 shadow-2xl shadow-indigo-500/20 z-50" : "hover:border-slate-300/80"
       }`}
       data-testid={`kanban-card-${lead.id}`}
     >
       <div
-        className="h-1.5"
+        className="h-[3px]"
         style={{ background: stageColorBar[stage] }}
       />
-      
-      <div className="p-4 space-y-3">
-        <div className="flex items-start justify-between">
+
+      <div className="px-3.5 pt-3 pb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-slate-800 truncate text-[15px]" data-testid={`card-name-${lead.id}`}>
+            <h4 className="font-semibold text-slate-800 truncate text-sm leading-snug" data-testid={`card-name-${lead.id}`}>
               {lead.name}
             </h4>
-            {lead.phone && (
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
-                <Phone className="w-3 h-3" />
-                {lead.phone}
-              </p>
-            )}
+            <div className="flex items-center gap-2 mt-1">
+              {lead.phone && (
+                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <Phone className="w-3 h-3 flex-shrink-0" />
+                  {lead.phone}
+                </span>
+              )}
+            </div>
           </div>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-slate-100 rounded-lg"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-slate-100 rounded-md flex-shrink-0"
                 data-testid={`card-menu-${lead.id}`}
               >
-                <MoreVertical className="h-4 w-4 text-slate-500" />
+                <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52 rounded-xl shadow-xl border-slate-100">
@@ -382,13 +399,13 @@ const RequestCard = memo(function RequestCard({
                         onClick={() => canMove && onMove?.(lead, col.id)}
                         disabled={!canMove}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                          canMove 
-                            ? "hover:bg-slate-50 cursor-pointer text-slate-700" 
+                          canMove
+                            ? "hover:bg-slate-50 cursor-pointer text-slate-700"
                             : "opacity-40 cursor-not-allowed text-slate-400"
                         }`}
                       >
-                        <div 
-                          className="w-2.5 h-2.5 rounded-full" 
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
                           style={{ background: col.iconColor }}
                         />
                         <span>{col.title}</span>
@@ -413,59 +430,54 @@ const RequestCard = memo(function RequestCard({
         </div>
 
         {lead.propertyName && (
-          <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-2.5 py-1.5">
-            <Building2 className="w-4 h-4 text-indigo-500" />
-            <span className="truncate font-medium">{lead.propertyName}</span>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Building2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+            <span className="text-xs text-slate-600 font-medium truncate">{lead.propertyName}</span>
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
           {lead.createdAt && (
-            <div className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {new Date(lead.createdAt).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-              })}
-            </div>
+            <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 rounded px-1.5 py-0.5">
+              <Calendar className="w-2.5 h-2.5" />
+              {new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+            </span>
           )}
           {lead.source && (
-            <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 rounded-full ${lead.source === 'hsquare_dynamics' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-              {lead.source === 'hsquare_dynamics' ? 'Hsquare Dynamics' : lead.source === 'walk_in' ? 'Walk-in' : lead.source === 'phone_inquiry' ? 'Phone' : lead.source === 'social_media' ? 'Social Media' : lead.source === 'google_ads' ? 'Google Ads' : lead.source === 'email_campaign' ? 'Email' : lead.source}
-            </Badge>
+            <span className={`inline-flex items-center text-[10px] font-medium rounded px-1.5 py-0.5 ${lead.source === 'hsquare_dynamics' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500'}`}>
+              {sourceLabel(lead.source)}
+            </span>
+          )}
+          {monthlyValue > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded px-1.5 py-0.5">
+              <IndianRupee className="w-2.5 h-2.5" />
+              {monthlyValue.toLocaleString("en-IN")}/mo
+            </span>
           )}
         </div>
 
-        {monthlyValue > 0 && (
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 bg-emerald-50 rounded-lg px-2.5 py-1.5">
-            <IndianRupee className="w-3.5 h-3.5" />
-            {monthlyValue.toLocaleString("en-IN")}/mo
-          </div>
-        )}
-
-        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6 ring-2 ring-white shadow-sm">
-              <AvatarFallback className="text-[10px] bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-medium">
-                {lead.assignedToId ? "SE" : <User className="w-3 h-3" />}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+          <div className="flex items-center gap-1.5">
+            <Avatar className="h-5 w-5">
+              <AvatarFallback className={`text-[9px] font-medium ${lead.assignedToId ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {lead.assignedToId ? "SE" : <User className="w-2.5 h-2.5" />}
               </AvatarFallback>
             </Avatar>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className={`text-[11px] font-medium ${lead.assignedToId ? 'text-slate-600' : 'text-slate-400'}`}>
               {lead.assignedToId ? "Assigned" : "Unassigned"}
             </span>
           </div>
-          <Badge
-            variant="outline"
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          <span
+            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               lead.priority === "hot"
-                ? "border-red-200 text-red-600 bg-red-50"
+                ? "text-red-600 bg-red-50"
                 : lead.priority === "warm"
-                ? "border-amber-200 text-amber-600 bg-amber-50"
-                : "border-slate-200 text-slate-600 bg-slate-50"
+                ? "text-amber-600 bg-amber-50"
+                : "text-slate-500 bg-slate-50"
             }`}
           >
             {lead.priority}
-          </Badge>
+          </span>
         </div>
       </div>
     </motion.div>
