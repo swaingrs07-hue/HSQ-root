@@ -961,7 +961,9 @@ export function KanbanBoard({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
+      <div className="flex-shrink-0">
+        <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
+      </div>
       
       <DndContext
         sensors={sensors}
@@ -970,7 +972,7 @@ export function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         <div 
-          className="flex-1 min-h-0 overflow-x-auto px-4 sm:px-6 py-4"
+          className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4"
         >
           <div
             className="flex gap-4 pb-4 h-full"

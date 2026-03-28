@@ -526,7 +526,7 @@ export default function RequestsBoard() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm rounded-t-xl relative z-30 ${isMobile ? 'hidden' : ''}`}
+        className={`flex-shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 shadow-sm rounded-t-xl relative z-30 ${isMobile ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
