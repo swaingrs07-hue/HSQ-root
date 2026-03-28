@@ -368,7 +368,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <div className={cn(
-        "flex-1 flex flex-col h-screen transition-all duration-300",
+        "flex-1 flex flex-col h-screen min-w-0 transition-all duration-300",
         collapsed ? "lg:ml-20" : "lg:ml-64"
       )}>
         {/* Top Header */}
@@ -532,7 +532,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto min-h-0">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
           {children}
         </main>
       </div>
