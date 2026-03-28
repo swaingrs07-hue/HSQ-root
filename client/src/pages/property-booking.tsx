@@ -149,11 +149,27 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   }, [prevIndex]);
 
   useEffect(() => {
-    if (images.length <= 1) return;
-    const nextIdx = (currentIndex + 1) % images.length;
-    const img = new Image();
-    img.src = images[nextIdx];
-  }, [currentIndex, images]);
+    if (images.length === 0) return;
+    if (images.length > 1) {
+      const nextIdx = (currentIndex + 1) % images.length;
+      const img = new Image();
+      img.src = images[nextIdx];
+    }
+    if (currentIndex === images.length - 1) {
+      const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
+      for (let i = 1; i <= TOUR_ROOMS.length; i++) {
+        const checkIdx = (roomIdx + i) % TOUR_ROOMS.length;
+        if (checkIdx !== roomIdx) {
+          const nextRoomImages = getImages(TOUR_ROOMS[checkIdx].id);
+          if (nextRoomImages.length > 0) {
+            const preImg = new Image();
+            preImg.src = nextRoomImages[0];
+            break;
+          }
+        }
+      }
+    }
+  }, [currentIndex, images, activeRoom, getImages]);
 
   const goTo = useCallback((index: number) => {
     setPrevIndex(currentIndex);
