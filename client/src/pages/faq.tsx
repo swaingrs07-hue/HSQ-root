@@ -426,6 +426,24 @@ export default function FAQ() {
               </Button>
             </Link>
           </motion.div>
+          <div className="flex flex-wrap justify-center gap-3 mt-10 text-sm">
+            {[
+              { href: "/properties", label: "Browse Properties" },
+              { href: "/about", label: "About Hsquare" },
+              { href: "/apply", label: "Apply Now" },
+              { href: "/hostel-near-nmims", label: "Hostel Near NMIMS" },
+              { href: "/hostel-near-mithibai", label: "Hostel Near Mithibai" },
+              { href: "/hostel-near-mukesh-patel", label: "Hostel Near Mukesh Patel" },
+              { href: "/hostel-in-vile-parle", label: "Hostel in Vile Parle" },
+              { href: "/hostel-in-goregaon", label: "Hostel in Goregaon" },
+            ].map((link) => (
+              <Link key={link.href} href={link.href}>
+                <span className="inline-block px-4 py-2 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/40 hover:text-amber-400 hover:border-amber-500/20 transition-all duration-300 cursor-pointer" data-testid={`link-faq-${link.href.slice(1)}`}>
+                  {link.label}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </div>

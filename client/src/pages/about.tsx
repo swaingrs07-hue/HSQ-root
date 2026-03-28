@@ -330,6 +330,45 @@ export default function About() {
         </div>
       </section>
 
+      <section className="relative py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          <motion.div {...fadeUp}>
+            <h2 className="text-2xl md:text-3xl font-heading font-bold mb-8 text-center">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">Hostels Near </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">Top Mumbai Colleges</span>
+            </h2>
+          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { href: "/hostel-near-nmims", label: "Hostel Near NMIMS", desc: "5 min from campus" },
+              { href: "/hostel-near-mithibai", label: "Hostel Near Mithibai", desc: "Vile Parle West" },
+              { href: "/hostel-near-mukesh-patel", label: "Hostel Near Mukesh Patel", desc: "MPSTME campus" },
+              { href: "/hostel-near-nm-college", label: "Hostel Near NM College", desc: "Commerce hub" },
+              { href: "/hostel-near-dj-sanghvi", label: "Hostel Near DJ Sanghvi", desc: "Engineering students" },
+              { href: "/hostel-near-whistling-woods", label: "Hostel Near Whistling Woods", desc: "Film students" },
+            ].map((link) => (
+              <Link key={link.href} href={link.href}>
+                <div className="group p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-amber-500/20 hover:bg-white/[0.04] transition-all duration-300 cursor-pointer" data-testid={`link-${link.href.slice(1)}`}>
+                  <p className="text-sm font-semibold text-white/80 group-hover:text-amber-400 transition-colors">{link.label}</p>
+                  <p className="text-xs text-white/30 mt-1">{link.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
+            <Link href="/hostel-in-vile-parle" className="text-white/40 hover:text-amber-400 transition-colors" data-testid="link-hostel-in-vile-parle">Hostel in Vile Parle</Link>
+            <span className="text-white/10">|</span>
+            <Link href="/hostel-in-goregaon" className="text-white/40 hover:text-amber-400 transition-colors" data-testid="link-hostel-in-goregaon">Hostel in Goregaon</Link>
+            <span className="text-white/10">|</span>
+            <Link href="/faq" className="text-white/40 hover:text-amber-400 transition-colors" data-testid="link-faq">FAQs</Link>
+            <span className="text-white/10">|</span>
+            <Link href="/contact" className="text-white/40 hover:text-amber-400 transition-colors" data-testid="link-contact">Contact Us</Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+
       <section className="relative py-24 md:py-32 px-6" data-testid="about-cta">
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <motion.div {...fadeUp}>

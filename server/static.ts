@@ -16,8 +16,8 @@ export function serveStatic(app: Express) {
   const indexPath = path.resolve(distPath, "index.html");
   const baseHtml = fs.readFileSync(indexPath, "utf-8");
 
-  app.use("/{*path}", (req, res) => {
-    const html = injectMetaTags(baseHtml, req.originalUrl);
+  app.use("/{*path}", async (req, res) => {
+    const html = await injectMetaTags(baseHtml, req.originalUrl);
     res.status(200).set({ "Content-Type": "text/html" }).send(html);
   });
 }
