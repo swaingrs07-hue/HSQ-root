@@ -551,7 +551,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-[280px] min-w-[280px] flex flex-col h-full"
+      className="flex-shrink-0 w-[280px] min-w-[280px] flex flex-col"
       data-testid={`kanban-column-${column.id}`}
     >
       <motion.div
@@ -578,7 +578,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
       </motion.div>
 
       <div
-        className={`flex-1 p-2 space-y-2 overflow-y-auto bg-slate-50/60 rounded-b-xl border-x border-b border-slate-200 transition-all duration-200 ${
+        className={`flex-1 p-2 space-y-2 bg-slate-50/60 rounded-b-xl border-x border-b border-slate-200 transition-all duration-200 ${
           isOver && validDrop
             ? "ring-2 ring-inset ring-indigo-400 bg-indigo-50/40"
             : isOver && !validDrop
@@ -962,10 +962,8 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div className="flex-shrink-0">
-        <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
-      </div>
+    <div className="flex flex-col">
+      <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
       
       <DndContext
         sensors={sensors}
@@ -974,10 +972,10 @@ export function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         <div 
-          className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 sm:px-6 py-4"
+          className="overflow-x-auto px-4 sm:px-6 py-4"
         >
           <div
-            className="flex gap-4 pb-4 h-full"
+            className="flex gap-4 pb-4"
             style={{ minWidth: "max-content" }}
             data-testid="kanban-board"
           >

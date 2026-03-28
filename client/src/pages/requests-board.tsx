@@ -522,7 +522,7 @@ export default function RequestsBoard() {
   ];
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6 overflow-hidden" style={{ height: "calc(100vh - 4rem)" }}>
+    <div className="bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
