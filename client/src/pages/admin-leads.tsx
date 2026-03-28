@@ -394,111 +394,111 @@ export default function AdminLeads() {
   const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
 
   return (
-    <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Lead Management</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage, assign, and track all leads</p>
+    <div className="flex flex-col -m-4 lg:-m-6 p-4 lg:p-6 overflow-hidden" style={{ height: "calc(100vh - 4rem)" }}>
+        <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">Lead Management</h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Manage, assign, and track all leads</p>
           </div>
-          <Button onClick={() => refetchLeads()} variant="outline" size="sm" data-testid="button-refresh-leads">
+          <Button onClick={() => refetchLeads()} variant="outline" size="sm" className="flex-shrink-0" data-testid="button-refresh-leads">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="w-5 h-5 text-blue-600" />
+        <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-4">
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
+                  <Users className="w-4 h-4 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                  <p className="text-xs text-slate-500">Total Leads</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.assigned}</p>
-                  <p className="text-xs text-slate-500">Assigned</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-tight">{stats.total}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">Total Leads</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-green-100 rounded-lg flex-shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.unassigned}</p>
-                  <p className="text-xs text-slate-500">Unassigned</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-rose-100 rounded-lg">
-                  <Target className="w-5 h-5 text-rose-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.hot}</p>
-                  <p className="text-xs text-slate-500">Hot Leads</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-tight">{stats.assigned}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">Assigned</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-amber-100 rounded-lg flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.converted}</p>
-                  <p className="text-xs text-slate-500">Converted</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-tight">{stats.unassigned}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">Unassigned</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-rose-100 rounded-lg flex-shrink-0">
+                  <Target className="w-4 h-4 text-rose-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-tight">{stats.hot}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">Hot Leads</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm col-span-2 sm:col-span-1">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-100 rounded-lg flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-xl font-bold leading-tight">{stats.converted}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">Converted</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1 max-w-sm">
+        <Card className="flex-1 min-h-0 flex flex-col shadow-sm">
+          <CardHeader className="flex-shrink-0 pb-3 px-3 sm:px-6 pt-3 sm:pt-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search by name, email, phone..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 h-9"
                     data-testid="input-search-leads"
                   />
                 </div>
                 {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="flex-shrink-0 h-9">
                     <X className="w-4 h-4 mr-1" />
                     Clear
                   </Button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-thin">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
+                  <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs flex-shrink-0" data-testid="select-status-filter">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -510,7 +510,7 @@ export default function AdminLeads() {
                 </Select>
 
                 <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-assignment-filter">
+                  <SelectTrigger className="w-[110px] sm:w-[130px] h-8 text-xs flex-shrink-0" data-testid="select-assignment-filter">
                     <SelectValue placeholder="Assignment" />
                   </SelectTrigger>
                   <SelectContent>
@@ -521,7 +521,7 @@ export default function AdminLeads() {
                 </Select>
 
                 <Select value={deviceFilter} onValueChange={setDeviceFilter}>
-                  <SelectTrigger className="w-[130px]" data-testid="select-device-filter">
+                  <SelectTrigger className="w-[110px] sm:w-[130px] h-8 text-xs flex-shrink-0" data-testid="select-device-filter">
                     <SelectValue placeholder="Device" />
                   </SelectTrigger>
                   <SelectContent>
@@ -533,7 +533,7 @@ export default function AdminLeads() {
                 </Select>
 
                 <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                  <SelectTrigger className="w-[140px]" data-testid="select-source-filter">
+                  <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs flex-shrink-0" data-testid="select-source-filter">
                     <SelectValue placeholder="Source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -590,8 +590,8 @@ export default function AdminLeads() {
             )}
           </AnimatePresence>
 
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
+          <CardContent className="flex-1 min-h-0 p-0 overflow-auto">
+            <div className="min-w-[900px]">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50">
