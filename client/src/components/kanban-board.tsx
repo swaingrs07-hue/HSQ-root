@@ -961,7 +961,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col flex-1 min-h-0">
       <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
       
       <DndContext
@@ -971,8 +971,7 @@ export function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         <div 
-          className="overflow-x-auto px-4 sm:px-6 py-6"
-          style={{ minHeight: "500px" }}
+          className="flex-1 overflow-x-auto overflow-y-auto px-4 sm:px-6 py-6"
         >
           <div
             className="inline-flex gap-4 pb-4"

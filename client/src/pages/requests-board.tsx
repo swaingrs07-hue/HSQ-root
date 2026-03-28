@@ -522,7 +522,7 @@ export default function RequestsBoard() {
   ];
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 -m-4 lg:-m-6 p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -803,7 +803,7 @@ export default function RequestsBoard() {
       </motion.div>
 
       {isMobile ? (
-        <div className="h-[calc(100vh-100px)]">
+        <div className="flex-1 min-h-0">
           <MobileKanban
             leads={filteredLeads}
             loading={loading}
