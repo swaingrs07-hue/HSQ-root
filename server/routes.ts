@@ -264,11 +264,76 @@ export async function registerRoutes(
       if (!name || !email || !message) {
         return res.status(400).json({ error: "Name, email, and message are required" });
       }
-      console.log(`[Contact Form] Name: ${name}, Email: ${email}, Phone: ${phone || "N/A"}, Message: ${message.substring(0, 200)}`);
+      const saved = await storage.createContactMessage({ name, email, phone: phone || null, message });
+      console.log(`[Contact Form] Saved message ${saved.id} from ${name} <${email}>`);
+
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: "Hsquare Living <noreply@hsquarehostels.com>",
+          to: "support@hsquareliving.com",
+          subject: `New Contact Form Message from ${name}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #333;">New Contact Form Submission</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${email}">${email}</a></td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Phone</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${phone || "Not provided"}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Message</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${message}</td></tr>
+              </table>
+              <p style="color: #666; font-size: 12px; margin-top: 20px;">View all messages at <a href="${process.env.APP_PUBLIC_URL || "https://hsquare.in"}/admin/contact-messages">Admin Dashboard</a></p>
+            </div>
+          `,
+        });
+        console.log(`[Contact Form] Email notification sent for message ${saved.id}`);
+      } catch (emailErr) {
+        console.error("[Contact Form] Email notification failed:", emailErr);
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error("[Contact Form] Error:", error);
       res.status(500).json({ error: "Failed to process contact form" });
+    }
+  });
+
+  app.get("/api/admin/contact-messages", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
+      const jwt = await import("jsonwebtoken");
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
+      const user = await storage.getUser(decoded.userId);
+      if (!user || !["admin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      const messages = await storage.getAllContactMessages();
+      const unreadCount = await storage.getUnreadContactMessageCount();
+      res.json({ messages, unreadCount });
+    } catch (error) {
+      console.error("[Contact Messages] Error:", error);
+      res.status(500).json({ error: "Failed to fetch contact messages" });
+    }
+  });
+
+  app.patch("/api/admin/contact-messages/:id/status", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
+      const jwt = await import("jsonwebtoken");
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
+      const user = await storage.getUser(decoded.userId);
+      if (!user || !["admin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      const { status } = req.body;
+      if (!["new", "read", "replied", "archived"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+      const updated = await storage.updateContactMessageStatus(req.params.id, status, status === "replied" ? user.id : undefined);
+      if (!updated) return res.status(404).json({ error: "Message not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("[Contact Messages] Error updating status:", error);
+      res.status(500).json({ error: "Failed to update message status" });
     }
   });
 

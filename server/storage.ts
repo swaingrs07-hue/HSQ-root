@@ -97,6 +97,9 @@ import {
   registrationRequests,
   residentSeasonStatus,
   bedAllocations,
+  contactMessages,
+  type ContactMessage,
+  type InsertContactMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
@@ -391,6 +394,13 @@ export interface IStorage {
   // Property Targets
   getPropertyTargets(propertyId?: string, seasonId?: string): Promise<any[]>;
   upsertPropertyTarget(data: { propertyId: string; targetOccupancyPercent?: number; customTargetOverride?: number | null; seasonId?: string | null; notes?: string | null }): Promise<any>;
+
+  // Contact Messages
+  createContactMessage(msg: InsertContactMessage): Promise<ContactMessage>;
+  getAllContactMessages(): Promise<ContactMessage[]>;
+  getContactMessage(id: string): Promise<ContactMessage | undefined>;
+  updateContactMessageStatus(id: string, status: string, repliedBy?: string): Promise<ContactMessage | undefined>;
+  getUnreadContactMessageCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2399,6 +2409,35 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return created;
+  }
+
+  async createContactMessage(msg: InsertContactMessage): Promise<ContactMessage> {
+    const [created] = await db.insert(contactMessages).values(msg).returning();
+    return created;
+  }
+
+  async getAllContactMessages(): Promise<ContactMessage[]> {
+    return db.select().from(contactMessages).orderBy(desc(contactMessages.createdAt));
+  }
+
+  async getContactMessage(id: string): Promise<ContactMessage | undefined> {
+    const [msg] = await db.select().from(contactMessages).where(eq(contactMessages.id, id));
+    return msg;
+  }
+
+  async updateContactMessageStatus(id: string, status: string, repliedBy?: string): Promise<ContactMessage | undefined> {
+    const updateData: any = { status };
+    if (status === "replied" && repliedBy) {
+      updateData.repliedBy = repliedBy;
+      updateData.repliedAt = new Date();
+    }
+    const [updated] = await db.update(contactMessages).set(updateData).where(eq(contactMessages.id, id)).returning();
+    return updated;
+  }
+
+  async getUnreadContactMessageCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(contactMessages).where(eq(contactMessages.status, "new"));
+    return result?.count || 0;
   }
 }
 

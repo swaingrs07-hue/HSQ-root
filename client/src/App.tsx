@@ -53,6 +53,7 @@ import AdminMapDesign from "@/pages/admin-map-design";
 import PropertyBooking from "@/pages/property-booking";
 import ResetPasswordPage from "@/pages/admin-reset-password";
 import AdminRegistrations from "@/pages/admin-registrations";
+import AdminContactMessages from "@/pages/admin-contact-messages";
 import Apply from "@/pages/apply";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
@@ -164,6 +165,7 @@ function AppContent() {
               <Route path="/admin/amenities" component={AdminAmenities} />
               <Route path="/admin/map-design" component={AdminMapDesign} />
               <Route path="/admin/registrations" component={AdminRegistrations} />
+              <Route path="/admin/contact-messages" component={AdminContactMessages} />
               <Route path="/admin/data-export" component={AdminDataExport} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />

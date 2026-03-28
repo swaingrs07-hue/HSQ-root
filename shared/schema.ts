@@ -1526,5 +1526,23 @@ export const propertyMilestones = pgTable("property_milestones", {
 
 export type PropertyMilestone = typeof propertyMilestones.$inferSelect;
 
+export const contactMessageStatusEnum = pgEnum("contact_message_status", ["new", "read", "replied", "archived"]);
+
+export const contactMessages = pgTable("contact_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  message: text("message").notNull(),
+  status: contactMessageStatusEnum("status").default("new").notNull(),
+  repliedBy: varchar("replied_by"),
+  repliedAt: timestamp("replied_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertContactMessageSchema = createInsertSchema(contactMessages).omit({ id: true, status: true, repliedBy: true, repliedAt: true, createdAt: true });
+export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+export type ContactMessage = typeof contactMessages.$inferSelect;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

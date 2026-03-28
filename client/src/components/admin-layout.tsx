@@ -43,6 +43,7 @@ import {
   UtensilsCrossed,
   Home,
   Map,
+  MessageSquare,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -109,6 +110,7 @@ const adminNavItems: NavItem[] = [
   { name: "Map Design", href: "/admin/map-design", icon: Map },
   { name: "Footer", href: "/admin/footer-settings", icon: PanelBottom },
   { name: "AI Chatbot", href: "/admin/ai-chatbot", icon: Bot },
+  { name: "Contact Messages", href: "/admin/contact-messages", icon: MessageSquare },
   { name: "Data Export", href: "/admin/data-export", icon: FileText },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
