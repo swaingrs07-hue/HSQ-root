@@ -543,8 +543,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-[280px] min-w-[280px] flex flex-col"
-      style={{ minHeight: "500px" }}
+      className="flex-shrink-0 w-[280px] min-w-[280px] flex flex-col h-full"
       data-testid={`kanban-column-${column.id}`}
     >
       <motion.div
@@ -583,7 +582,7 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
             ? "ring-2 ring-inset ring-red-300 bg-red-50/30" 
             : ""
         } ${showDropIndicator && validDrop ? "bg-opacity-60" : ""}`}
-        style={{ minHeight: "400px" }}
+        style={{ minHeight: "200px" }}
       >
         <SortableContext
           items={leads.map((l) => l.id)}
@@ -961,7 +960,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <PipelineAnalytics leads={leads} groupedLeads={groupedLeads} />
       
       <DndContext
@@ -971,10 +970,10 @@ export function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         <div 
-          className="flex-1 overflow-x-auto overflow-y-auto px-4 sm:px-6 py-6"
+          className="flex-1 min-h-0 overflow-x-auto px-4 sm:px-6 py-4"
         >
           <div
-            className="inline-flex gap-4 pb-4"
+            className="flex gap-4 pb-4 h-full"
             style={{ minWidth: "max-content" }}
             data-testid="kanban-board"
           >
