@@ -506,6 +506,7 @@ ${allPages.map(p => `  <url>
         ...settings,
         quickLinks: JSON.parse(settings.quickLinks || "[]"),
         supportLinks: JSON.parse(settings.supportLinks || "[]"),
+        androidDownloadUrl: settings.androidDownloadUrl || "",
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch footer settings" });
