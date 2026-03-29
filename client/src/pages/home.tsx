@@ -344,6 +344,7 @@ export default function Home() {
   const [igCurrentSlide, setIgCurrentSlide] = useState(0);
   const [igAutoPlaying, setIgAutoPlaying] = useState(true);
   const [footerPhone, setFooterPhone] = useState("+91 6372294625");
+  const [androidDownloadUrl, setAndroidDownloadUrl] = useState("");
   const [dynamicAmenities, setDynamicAmenities] = useState<any[]>([]);
   const [featuredPlans, setFeaturedPlans] = useState<any[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -390,6 +391,7 @@ export default function Home() {
       .then(res => res.ok ? res.json() : null)
       .then((data: any) => {
         if (data?.phone) setFooterPhone(data.phone);
+        if (data?.androidDownloadUrl) setAndroidDownloadUrl(data.androidDownloadUrl);
       })
       .catch(() => {});
     fetch("/api/homepage-amenities")
@@ -1832,9 +1834,11 @@ export default function Home() {
                   </div>
                 </a>
 
+                {androidDownloadUrl && (
                 <a
-                  href="/download/android"
-                  download
+                  href={androidDownloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-sm group"
                   data-testid="link-android-download"
                 >
@@ -1847,6 +1851,7 @@ export default function Home() {
                     <p className="text-base font-bold leading-tight">Android</p>
                   </div>
                 </a>
+                )}
 
                 <div className="flex items-center gap-1.5 self-center">
                   <div className="flex">

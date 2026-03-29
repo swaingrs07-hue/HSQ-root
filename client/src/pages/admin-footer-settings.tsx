@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon } from "lucide-react";
+import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Smartphone } from "lucide-react";
 
 interface FooterLink {
   label: string;
@@ -24,6 +24,7 @@ interface FooterData {
   socialFacebook?: string;
   socialTwitter?: string;
   socialLinkedin?: string;
+  androidDownloadUrl?: string;
 }
 
 export default function AdminFooterSettings() {
@@ -58,6 +59,7 @@ export default function AdminFooterSettings() {
           socialFacebook: settings.socialFacebook || "",
           socialTwitter: settings.socialTwitter || "",
           socialLinkedin: settings.socialLinkedin || "",
+          androidDownloadUrl: settings.androidDownloadUrl || "",
         });
         setLoading(false);
       })
@@ -91,6 +93,7 @@ export default function AdminFooterSettings() {
         socialFacebook: updated.socialFacebook || "",
         socialTwitter: updated.socialTwitter || "",
         socialLinkedin: updated.socialLinkedin || "",
+        androidDownloadUrl: updated.androidDownloadUrl || "",
       });
       setSaved(true);
       toast({ title: "Saved", description: "Footer settings updated successfully. Changes will appear on the website." });
@@ -318,6 +321,26 @@ export default function AdminFooterSettings() {
                     data-testid="input-social-linkedin"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Smartphone className="w-4 h-4" /> App Downloads
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Android APK Download URL</label>
+                <Input
+                  value={data.androidDownloadUrl || ""}
+                  onChange={e => setData(prev => ({ ...prev, androidDownloadUrl: e.target.value }))}
+                  placeholder="https://drive.google.com/file/d/... or direct APK link"
+                  data-testid="input-android-download-url"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Paste the download link for the Android APK. This will be used for the Android download button on the homepage and footer. Leave empty to hide the button.</p>
               </div>
             </CardContent>
           </Card>

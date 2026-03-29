@@ -254,8 +254,17 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
-  app.get("/download/android", (req, res) => {
-    res.redirect("https://drive.google.com/file/d/1VaE-FQ0yRBWYzhG-h8kzDbpAjzBhu5y7/view?usp=sharing");
+  app.get("/download/android", async (req, res) => {
+    try {
+      const settings = await storage.getFooterSettings();
+      const url = settings?.androidDownloadUrl;
+      if (url) {
+        return res.redirect(url);
+      }
+      return res.redirect("/");
+    } catch {
+      return res.redirect("/");
+    }
   });
 
   app.post("/api/contact", async (req, res) => {
@@ -490,6 +499,7 @@ ${allPages.map(p => `  <url>
           copyrightText: "Hsquareliving Pvt Ltd. All rights reserved.",
           quickLinks: [{ label: "Properties", href: "/properties" }, { label: "About Us", href: "/about" }, { label: "Contact", href: "/contact" }],
           supportLinks: [{ label: "FAQs", href: "/faq" }, { label: "Terms & Conditions", href: "/terms" }, { label: "Privacy Policy", href: "/privacy" }],
+          androidDownloadUrl: "",
         });
       }
       res.json({
@@ -514,6 +524,7 @@ ${allPages.map(p => `  <url>
     socialFacebook: z.string().nullable().optional(),
     socialTwitter: z.string().nullable().optional(),
     socialLinkedin: z.string().nullable().optional(),
+    androidDownloadUrl: z.string().nullable().optional(),
   });
 
   app.put("/api/footer-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {

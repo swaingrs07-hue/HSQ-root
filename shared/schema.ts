@@ -1026,6 +1026,7 @@ export const footerSettings = pgTable("footer_settings", {
   headerLogo: text("header_logo"),
   footerLogo: text("footer_logo"),
   adminLogo: text("admin_logo"),
+  androidDownloadUrl: text("android_download_url"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
