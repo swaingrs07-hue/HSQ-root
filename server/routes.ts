@@ -1639,8 +1639,8 @@ ${allPages.map(p => `  <url>
       
       const allLeads = await storage.getAllLeads(propertyId);
       
-      // Get staff emails to filter out
-      const staffUsers = await storage.getUsersByRole(["admin", "sales_executive"]);
+      // Get staff emails to filter out (all internal team roles)
+      const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
       const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
       
