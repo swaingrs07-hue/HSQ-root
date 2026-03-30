@@ -254,9 +254,17 @@ export async function getLeadRecommendations(forceRefresh = false, limit = 8): P
   const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
   const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
 
+  const seenPhones = new Set<string>();
+  const seenEmails = new Set<string>();
   const activeLeads = allActiveLeads.filter(lead => {
-    if (lead.email && staffEmails.has(lead.email.toLowerCase())) return false;
-    if (lead.phone && staffPhones.has(lead.phone)) return false;
+    const email = lead.email?.toLowerCase();
+    const phone = lead.phone;
+    if (email && staffEmails.has(email)) return false;
+    if (phone && staffPhones.has(phone)) return false;
+    if (phone && seenPhones.has(phone)) return false;
+    if (email && seenEmails.has(email)) return false;
+    if (phone) seenPhones.add(phone);
+    if (email) seenEmails.add(email);
     return true;
   }).slice(0, 30);
 
