@@ -938,15 +938,18 @@ ${allPages.map(p => `  <url>
 
         // Auto-assign to sales executive if property is specified
         let assignedToId: string | null = null;
-        let assignmentType: "auto" | "manual" | "unassigned" = "unassigned";
+        let assignmentType: "property_auto" | "admin_manual" | "unassigned" = "unassigned";
         
         if (propertyId) {
           // Find sales executive assigned to this property with round-robin load balancing
           const assignments = await db.select({
-            salesExecId: schema.salesExecProperties.salesExecId,
+            salesExecId: schema.salesExecProperties.userId,
           })
             .from(schema.salesExecProperties)
-            .where(eq(schema.salesExecProperties.propertyId, propertyId));
+            .where(and(
+              eq(schema.salesExecProperties.propertyId, propertyId),
+              eq(schema.salesExecProperties.isActive, true)
+            ));
           
           if (assignments.length > 0) {
             // Get lead counts for each sales exec to do load balancing
@@ -977,7 +980,7 @@ ${allPages.map(p => `  <url>
             }
             
             assignedToId = selectedExecId;
-            assignmentType = "auto";
+            assignmentType = "property_auto";
           }
         }
 
@@ -1105,7 +1108,10 @@ ${allPages.map(p => `  <url>
           propertyName = prop.name;
           const assignments = await db.select({ userId: schema.salesExecProperties.userId })
             .from(schema.salesExecProperties)
-            .where(eq(schema.salesExecProperties.propertyId, propertyId));
+            .where(and(
+              eq(schema.salesExecProperties.propertyId, propertyId),
+              eq(schema.salesExecProperties.isActive, true)
+            ));
           if (assignments.length > 0) {
             const salesExecIds = assignments.map(a => a.userId);
             const leadCounts = await db.select({
@@ -1704,7 +1710,7 @@ ${allPages.map(p => `  <url>
         budgetMin: budgetMin || null,
         budgetMax: budgetMax || null,
         assignedToId: req.user?.role === "sales_executive" ? req.user.userId : null,
-        assignmentType: req.user?.role === "sales_executive" ? "auto" : "unassigned",
+        assignmentType: req.user?.role === "sales_executive" ? "property_auto" : "unassigned",
       });
 
       await storage.createAuditLog({
@@ -8069,24 +8075,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (error) {
       console.error("Error assigning lead:", error);
       res.status(500).json({ error: "Failed to assign lead" });
-    }
-  });
-
-  // Reassign lead (admin only)
-  app.post("/api/admin/leads/:id/reassign", authMiddleware, roleMiddleware("admin"), async (req, res) => {
-    try {
-      const { userId } = req.body;
-      const authReq = req as AuthRequest;
-      
-      const lead = await storage.reassignLead(req.params.id as string, userId, authReq.user!.userId);
-      if (!lead) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
-      
-      res.json(lead);
-    } catch (error) {
-      console.error("Error reassigning lead:", error);
-      res.status(500).json({ error: "Failed to reassign lead" });
     }
   });
 

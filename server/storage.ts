@@ -1696,6 +1696,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(leads).set({
       assignedToId: userId,
       assignedAt: new Date(),
+      assignmentType: "admin_manual",
     }).where(eq(leads.id, leadId)).returning();
     
     if (updated) {
@@ -1717,6 +1718,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(leads).set({
       assignedToId: newUserId,
       assignedAt: new Date(),
+      assignmentType: "admin_manual",
     }).where(eq(leads.id, leadId)).returning();
     
     if (updated) {
