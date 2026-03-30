@@ -718,6 +718,15 @@ export class DatabaseStorage implements IStorage {
     
     // Decrease available beds
     await this.updateRoomTypeAvailability(booking.roomTypeId, -1);
+
+    if (booking.bedId) {
+      await this.updateBedStatus(booking.bedId, "occupied");
+      if (booking.floorId) {
+        const floorBeds = await this.getBedsByFloor(booking.floorId);
+        const availCount = floorBeds.filter(b => b.status === "available").length;
+        await db.update(floors).set({ availableBeds: availCount }).where(eq(floors.id, booking.floorId));
+      }
+    }
     
     // Update booking status to confirmed
     const [updated] = await db

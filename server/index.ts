@@ -85,6 +85,43 @@ app.use((req, res, next) => {
     console.error("Failed to generate property slugs:", e);
   }
 
+  // One-time data correction: sync bed statuses for confirmed/active bookings
+  try {
+    const { inArray } = await import("drizzle-orm");
+    const activeBookings = await db.select({
+      bedId: schema.bookings.bedId,
+      floorId: schema.bookings.floorId,
+      status: schema.bookings.status,
+    }).from(schema.bookings).where(
+      and(
+        inArray(schema.bookings.status, ["confirmed", "active"]),
+      )
+    );
+    const bookingsWithBeds = activeBookings.filter(b => b.bedId);
+    if (bookingsWithBeds.length > 0) {
+      const bedIds = bookingsWithBeds.map(b => b.bedId!);
+      const staleResults = await db.select({ id: schema.beds.id }).from(schema.beds).where(
+        and(
+          inArray(schema.beds.id, bedIds),
+          inArray(schema.beds.status, ["available", "reserved"])
+        )
+      );
+      if (staleResults.length > 0) {
+        const staleIds = staleResults.map(b => b.id);
+        await db.update(schema.beds).set({ status: "occupied" as any }).where(inArray(schema.beds.id, staleIds));
+        console.log(`[Startup] Fixed ${staleResults.length} bed(s) to "occupied" status for confirmed/active bookings`);
+        const affectedFloorIds = new Set(bookingsWithBeds.filter(b => b.floorId && staleIds.some(sid => sid === b.bedId)).map(b => b.floorId!));
+        for (const fid of affectedFloorIds) {
+          const floorBeds = await db.select({ status: schema.beds.status }).from(schema.beds).where(eq(schema.beds.floorId, fid));
+          const availCount = floorBeds.filter(b => b.status === "available").length;
+          await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, fid));
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[Startup] Failed to sync bed occupancy statuses:", e);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

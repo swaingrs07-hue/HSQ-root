@@ -4034,6 +4034,15 @@ ${allPages.map(p => `  <url>
             status: "active",
           });
 
+          if (booking.bedId) {
+            await storage.updateBedStatus(booking.bedId, "occupied");
+            if (booking.floorId) {
+              const floorBeds = await storage.getBedsByFloor(booking.floorId);
+              const availCount = floorBeds.filter(b => b.status === "available").length;
+              await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+            }
+          }
+
           const updatedBooking = await storage.getBooking(bookingId);
           if (updatedBooking) {
             const allPayments = await storage.getPaymentsByBooking(bookingId);
@@ -4145,6 +4154,15 @@ ${allPages.map(p => `  <url>
         }
       }
 
+      if (updates.status && (updates.status === "confirmed" || updates.status === "active") && booking.status !== updates.status && booking.bedId) {
+        await storage.updateBedStatus(booking.bedId, "occupied");
+        if (booking.floorId) {
+          const floorBeds = await storage.getBedsByFloor(booking.floorId);
+          const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+          await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+        }
+      }
+
       const updated = await storage.updateBooking(req.params.id, updates);
 
       const shouldSyncHMS = req.body.syncHMS === true ||
@@ -4211,8 +4229,9 @@ ${allPages.map(p => `  <url>
           await tx.update(schema.beds).set({ status: "available" }).where(eq(schema.beds.id, booking.bedId));
         }
 
+        const newBedStatus = (booking.status === "confirmed" || booking.status === "active") ? "occupied" : "reserved";
         const [reserveResult] = await tx.update(schema.beds)
-          .set({ status: "reserved" })
+          .set({ status: newBedStatus as any })
           .where(and(eq(schema.beds.id, newBedId), eq(schema.beds.status, "available")))
           .returning({ id: schema.beds.id });
         if (!reserveResult) {
@@ -4401,6 +4420,15 @@ ${allPages.map(p => `  <url>
       const updated = await storage.updateBooking(req.params.id, {
         status: bookingStatus,
       });
+
+      if ((bookingStatus === "confirmed" || bookingStatus === "active") && booking.bedId) {
+        await storage.updateBedStatus(booking.bedId, "occupied");
+        if (booking.floorId) {
+          const floorBeds = await storage.getBedsByFloor(booking.floorId);
+          const availCount = floorBeds.filter(b => b.status === "available").length;
+          await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+        }
+      }
 
       await storage.createAuditLog({
         adminId: req.user!.userId,
