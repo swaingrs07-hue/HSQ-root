@@ -158,6 +158,10 @@ export default function AdminLeads() {
     queryKey: ["/api/admin/sales-executives"],
   });
 
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/users"],
+  });
+
   const salesExecs = useMemo(() => {
     return rawSalesExecs.map(exec => {
       const assignedLeads = leads.filter(l => l.assignedToId === exec.id);
@@ -168,6 +172,22 @@ export default function AdminLeads() {
       } as SalesExecWithCounts;
     });
   }, [rawSalesExecs, leads]);
+
+  const assignableUsers = useMemo(() => {
+    const salesExecIds = new Set(salesExecs.map(e => e.id));
+    const adminsAndManagers = allUsers
+      .filter((u: any) => ["admin", "manager"].includes(u.role) && u.isActive && !salesExecIds.has(u.id))
+      .map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive,
+        leadCount: leads.filter(l => l.assignedToId === u.id).length,
+        activeLeadCount: leads.filter(l => l.assignedToId === u.id && !["converted", "lost", "deal_closed"].includes(l.status)).length,
+      }));
+    return adminsAndManagers;
+  }, [allUsers, salesExecs, leads]);
 
   const { data: properties = [] } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
@@ -380,7 +400,15 @@ export default function AdminLeads() {
     const exec = salesExecs.find((e) => e.id === userId);
     if (exec) return exec.name;
     const rawExec = rawSalesExecs.find((e: any) => e.id === userId);
-    return rawExec?.name || "Unknown";
+    if (rawExec) return rawExec.name;
+    const user = allUsers.find((u: any) => u.id === userId);
+    return user?.name || "Unknown";
+  };
+
+  const getExecRole = (userId: string | null) => {
+    if (!userId) return null;
+    const user = allUsers.find((u: any) => u.id === userId);
+    return user?.role || null;
   };
 
   const clearFilters = () => {
@@ -758,16 +786,36 @@ export default function AdminLeads() {
                                 </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
-                                {salesExecs.filter((e) => e.isActive).map((exec) => (
-                                  <SelectItem key={exec.id} value={exec.id}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span>{exec.name}</span>
-                                      <Badge variant="secondary" className="text-[10px]">
-                                        {exec.activeLeadCount}
-                                      </Badge>
-                                    </div>
-                                  </SelectItem>
-                                ))}
+                                {salesExecs.filter((e) => e.isActive).length > 0 && (
+                                  <>
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
+                                    {salesExecs.filter((e) => e.isActive).map((exec) => (
+                                      <SelectItem key={exec.id} value={exec.id}>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span>{exec.name}</span>
+                                          <Badge variant="secondary" className="text-[10px]">
+                                            {exec.activeLeadCount}
+                                          </Badge>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                )}
+                                {assignableUsers.length > 0 && (
+                                  <>
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
+                                    {assignableUsers.map((user) => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span>{user.name}</span>
+                                          <Badge variant="outline" className="text-[10px] capitalize">
+                                            {user.role}
+                                          </Badge>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -860,19 +908,39 @@ export default function AdminLeads() {
           <div className="py-4">
             <Select value={selectedExecId} onValueChange={setSelectedExecId}>
               <SelectTrigger data-testid="select-bulk-exec">
-                <SelectValue placeholder="Select Sales Executive" />
+                <SelectValue placeholder="Select team member" />
               </SelectTrigger>
               <SelectContent>
-                {salesExecs.filter((e) => e.isActive).map((exec) => (
-                  <SelectItem key={exec.id} value={exec.id}>
-                    <div className="flex items-center justify-between gap-4 w-full">
-                      <span>{exec.name}</span>
-                      <span className="text-xs text-slate-500">
-                        {exec.activeLeadCount} active leads
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {salesExecs.filter((e) => e.isActive).length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
+                    {salesExecs.filter((e) => e.isActive).map((exec) => (
+                      <SelectItem key={exec.id} value={exec.id}>
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span>{exec.name}</span>
+                          <span className="text-xs text-slate-500">
+                            {exec.activeLeadCount} active leads
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+                {assignableUsers.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
+                    {assignableUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span>{user.name}</span>
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {user.role}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
