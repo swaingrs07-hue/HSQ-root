@@ -3,6 +3,7 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq, and, isNull, isNotNull, desc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { storage } from "./storage";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -248,25 +249,28 @@ export async function getLeadRecommendations(forceRefresh = false, limit = 8): P
     .orderBy(desc(schema.leads.score))
     .limit(50);
 
-  const staffUsers = await db.select({ email: schema.users.email, phone: schema.users.phone })
-    .from(schema.users)
-    .where(inArray(schema.users.role, ["admin", "manager", "staff", "sales_executive", "receptionist"]));
+  const allVisibleLeads = await storage.getAllLeads();
+  const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
   const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
   const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
-
   const seenPhones = new Set<string>();
   const seenEmails = new Set<string>();
-  const activeLeads = allActiveLeads.filter(lead => {
+  const visibleLeadIds = new Set<string>();
+  for (const lead of allVisibleLeads) {
     const email = lead.email?.toLowerCase();
     const phone = lead.phone;
-    if (email && staffEmails.has(email)) return false;
-    if (phone && staffPhones.has(phone)) return false;
-    if (phone && seenPhones.has(phone)) return false;
-    if (email && seenEmails.has(email)) return false;
+    if (email && staffEmails.has(email)) continue;
+    if (phone && staffPhones.has(phone)) continue;
+    if (phone && seenPhones.has(phone)) continue;
+    if (email && seenEmails.has(email)) continue;
     if (phone) seenPhones.add(phone);
     if (email) seenEmails.add(email);
-    return true;
-  }).slice(0, 30);
+    visibleLeadIds.add(lead.id);
+  }
+
+  const activeLeads = allActiveLeads
+    .filter(lead => visibleLeadIds.has(lead.id))
+    .slice(0, 30);
 
   if (activeLeads.length === 0) {
     return {
