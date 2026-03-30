@@ -116,6 +116,16 @@ app.use((req, res, next) => {
           const availCount = floorBeds.filter(b => b.status === "available").length;
           await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, fid));
         }
+        const affectedRoomTypeIds = new Set<string>();
+        for (const sid of staleIds) {
+          const [bedRow] = await db.select({ roomTypeId: schema.beds.roomTypeId }).from(schema.beds).where(eq(schema.beds.id, sid));
+          if (bedRow?.roomTypeId) affectedRoomTypeIds.add(bedRow.roomTypeId);
+        }
+        for (const rtId of affectedRoomTypeIds) {
+          const rtBeds = await db.select({ status: schema.beds.status }).from(schema.beds).where(eq(schema.beds.roomTypeId, rtId));
+          const rtAvail = rtBeds.filter(b => b.status === "available").length;
+          await db.update(schema.roomTypes).set({ availableBeds: rtAvail }).where(eq(schema.roomTypes.id, rtId));
+        }
       }
     }
   } catch (e) {
