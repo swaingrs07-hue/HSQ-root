@@ -439,7 +439,7 @@ export default function AdminLeads() {
   const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
 
   return (
-    <div className="flex flex-col -m-4 lg:-m-6 p-4 lg:p-6 overflow-hidden" style={{ height: "calc(100vh - 4rem)" }}>
+    <div className="space-y-4">
         <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">Lead Management</h1>
@@ -519,7 +519,7 @@ export default function AdminLeads() {
           </Card>
         </div>
 
-        <Card className="flex-1 min-h-0 flex flex-col shadow-sm">
+        <Card className="flex flex-col shadow-sm">
           <CardHeader className="flex-shrink-0 pb-3 px-3 sm:px-6 pt-3 sm:pt-4">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
@@ -635,7 +635,7 @@ export default function AdminLeads() {
             )}
           </AnimatePresence>
 
-          <CardContent className="flex-1 min-h-0 p-0 overflow-auto">
+          <CardContent className="p-0 overflow-x-auto">
             <div className="min-w-[900px]">
               <Table>
                 <TableHeader>
