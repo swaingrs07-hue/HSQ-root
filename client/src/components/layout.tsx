@@ -5,6 +5,7 @@ import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, U
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { useAuthGuard } from "@/contexts/auth-guard-context";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
@@ -45,6 +46,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const searchRef = useRef<HTMLDivElement>(null);
   const [, setNav] = useLocation();
   const { user, logout, isAdmin } = useAuth();
+  const { openAuthModal } = useAuthGuard();
 
   const isHomePage = location === "/";
   const isPropertyPage = /^\/properties(\/[^/]+)?$/.test(location);
@@ -337,9 +339,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
               <div
-                className="w-full max-w-sm mt-6 pt-6 border-t border-white/10 opacity-0 translate-y-8"
+                className="w-full max-w-sm mt-4 opacity-0 translate-y-8"
                 style={{
                   animation: `mobileMenuItemReveal 0.5s ease-out ${navItems.length * 0.1}s forwards`,
+                }}
+              >
+                {!user ? (
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); openAuthModal("access your account"); }}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl text-2xl font-bold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 transition-all duration-300"
+                    data-testid="button-sign-in-mobile"
+                  >
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-400/20">
+                      <User className="w-6 h-6" />
+                    </div>
+                    Sign In
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-400/20 text-amber-400 font-bold text-lg">
+                      {user.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "U"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold truncate">{user.name}</p>
+                      <p className="text-white/50 text-sm truncate">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={() => { setMobileMenuOpen(false); logout(); }}
+                      className="p-2 rounded-lg text-red-400 hover:bg-red-400/10 transition-colors"
+                      data-testid="button-logout-mobile-menu"
+                    >
+                      <LogOut className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div
+                className="w-full max-w-sm mt-6 pt-6 border-t border-white/10 opacity-0 translate-y-8"
+                style={{
+                  animation: `mobileMenuItemReveal 0.5s ease-out ${(navItems.length + (user ? 0 : 1)) * 0.1}s forwards`,
                 }}
               >
                 <SmartSearch
