@@ -346,6 +346,26 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SEO: 301 redirect UUID property URLs to slug URLs ============
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  app.get("/properties/:idOrSlug", async (req, res, next) => {
+    const param = req.params.idOrSlug;
+    if (!UUID_PATTERN.test(param)) return next();
+
+    try {
+      const [prop] = await db.select({ slug: schema.properties.slug })
+        .from(schema.properties)
+        .where(eq(schema.properties.id, param))
+        .limit(1);
+
+      if (prop?.slug) {
+        return res.redirect(301, `/properties/${prop.slug}`);
+      }
+    } catch {}
+    next();
+  });
+
   // ============ SEO: robots.txt & sitemap.xml ============
 
   app.get("/robots.txt", (req, res) => {
