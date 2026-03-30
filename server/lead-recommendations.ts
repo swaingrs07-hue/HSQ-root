@@ -231,7 +231,11 @@ Output JSON schema:
 
     const parsed = JSON.parse(content);
     const validated = recommendationSchema.parse(parsed);
-    return validated.recommendations;
+    const validLeadIds = new Set(leads.map(l => l.id));
+    const leadNameMap = new Map(leads.map(l => [l.id, l.name]));
+    return validated.recommendations
+      .filter(rec => validLeadIds.has(rec.leadId))
+      .map(rec => ({ ...rec, leadName: leadNameMap.get(rec.leadId) || rec.leadName }));
   } catch (error) {
     console.error("AI recommendation generation failed, using heuristic fallback:", error);
     return heuristicRecs;
