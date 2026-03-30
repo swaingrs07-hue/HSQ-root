@@ -155,6 +155,7 @@ function buildMilestoneEmailHtml(data: {
   totalBookings: number;
   occupancyPercent: number;
   totalBeds: number;
+  occupiedBeds: number;
   messages: MilestoneMessages;
 }): string {
   const headline = escapeHtml(pickRandom(data.messages.headlines));
@@ -303,7 +304,7 @@ function buildMilestoneEmailHtml(data: {
                       <div style="background:linear-gradient(90deg,${accent},#10b981);width:${Math.min(data.occupancyPercent, 100)}%;height:100%;border-radius:8px;"></div>
                     </div>
                     <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.5);">
-                      <span style="color:#ffffff;font-weight:700;">${data.totalBeds - Math.round(data.totalBeds * (1 - data.occupancyPercent / 100))}</span> of <span style="color:#ffffff;font-weight:700;">${data.totalBeds}</span> beds occupied
+                      <span style="color:#ffffff;font-weight:700;">${data.occupiedBeds}</span> of <span style="color:#ffffff;font-weight:700;">${data.totalBeds}</span> beds occupied
                     </p>
                   </td>
                 </tr>
@@ -361,10 +362,9 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
     if (!property.length) return;
     const propertyName = property[0].name;
 
-    const roomTypesList = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.propertyId, propertyId));
-    const totalBeds = roomTypesList.reduce((sum, rt) => sum + (rt.totalBeds || 0), 0);
-    const availableBeds = roomTypesList.reduce((sum, rt) => sum + (rt.availableBeds || 0), 0);
-    const occupiedBeds = totalBeds - availableBeds;
+    const allBeds = await db.select({ status: schema.beds.status }).from(schema.beds).where(eq(schema.beds.propertyId, propertyId));
+    const totalBeds = allBeds.length;
+    const occupiedBeds = allBeds.filter(b => b.status === "occupied" || b.status === "reserved").length;
     const exactOccupancyRatio = totalBeds > 0 ? (occupiedBeds * 100) / totalBeds : 0;
     const occupancyPercent = totalBeds > 0 ? Math.round(exactOccupancyRatio) : 0;
 
@@ -433,6 +433,7 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
         totalBookings,
         occupancyPercent,
         totalBeds,
+        occupiedBeds,
         messages,
       });
 
