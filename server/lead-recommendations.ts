@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and, isNull, isNotNull, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const openai = new OpenAI({
@@ -240,13 +240,25 @@ Output JSON schema:
 export async function getLeadRecommendations(forceRefresh = false, limit = 8): Promise<CachedRecommendations> {
   const now = Date.now();
 
-  const activeLeads = await db.select().from(schema.leads)
+  const allActiveLeads = await db.select().from(schema.leads)
     .where(and(
       isNull(schema.leads.dealClosedAt),
       isNull(schema.leads.convertedAt),
     ))
     .orderBy(desc(schema.leads.score))
-    .limit(30);
+    .limit(50);
+
+  const staffUsers = await db.select({ email: schema.users.email, phone: schema.users.phone })
+    .from(schema.users)
+    .where(inArray(schema.users.role, ["admin", "manager", "staff", "sales_executive", "receptionist"]));
+  const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
+  const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
+
+  const activeLeads = allActiveLeads.filter(lead => {
+    if (lead.email && staffEmails.has(lead.email.toLowerCase())) return false;
+    if (lead.phone && staffPhones.has(lead.phone)) return false;
+    return true;
+  }).slice(0, 30);
 
   if (activeLeads.length === 0) {
     return {
