@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and, isNull, isNotNull, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, isNull, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "./storage";
 
