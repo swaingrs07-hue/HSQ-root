@@ -427,12 +427,14 @@ Sitemap: ${siteUrl}/sitemap.xml`
         slug: schema.properties.slug,
         updatedAt: schema.properties.updatedAt,
       }).from(schema.properties).where(eq(schema.properties.status, "published"));
-      propertyEntries = props.map(p => ({
-        loc: `/properties/${p.slug || p.id}`,
-        lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : now,
-        priority: "0.8",
-        changefreq: "weekly",
-      }));
+      propertyEntries = props
+        .filter(p => p.slug)
+        .map(p => ({
+          loc: `/properties/${p.slug}`,
+          lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : now,
+          priority: "0.8",
+          changefreq: "weekly",
+        }));
     } catch (e) {}
 
     const allPages: SitemapEntry[] = [...staticPages, ...propertyEntries];
@@ -10487,7 +10489,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           .where(inArray(schema.packageItems.packageId, planIds))
           .orderBy(schema.packageItems.sortOrder),
         propertyIds.length > 0
-          ? db.select({ id: schema.properties.id, name: schema.properties.name, displayName: schema.properties.displayName })
+          ? db.select({ id: schema.properties.id, name: schema.properties.name, displayName: schema.properties.displayName, slug: schema.properties.slug })
               .from(schema.properties).where(inArray(schema.properties.id, propertyIds))
           : Promise.resolve([]),
       ]);
@@ -10503,6 +10505,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         items: itemsByPlan[plan.id] || [],
         propertyName: plan.propertyId && propsMap[plan.propertyId]
           ? (propsMap[plan.propertyId].displayName || propsMap[plan.propertyId].name)
+          : null,
+        propertySlug: plan.propertyId && propsMap[plan.propertyId]
+          ? propsMap[plan.propertyId].slug
           : null,
       }));
       res.json(result);

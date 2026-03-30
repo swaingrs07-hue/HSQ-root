@@ -1216,7 +1216,7 @@ export default function Home() {
                                   )}
 
                                   <div className="mt-7">
-                                    <Link href={plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}>
+                                    <Link href={plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}>
                                       <motion.button
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
