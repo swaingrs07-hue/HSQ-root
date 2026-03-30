@@ -141,13 +141,18 @@ export default function AdminLeads() {
   
   const { selectedPropertyId } = useProperty();
 
+  const getAuthHeaders = useCallback(() => {
+    const auth = JSON.parse(localStorage.getItem("hsquare_auth") || "{}");
+    return auth.token ? { Authorization: `Bearer ${auth.token}` } : {};
+  }, []);
+
   const { data: leads = [], isLoading: leadsLoading, refetch: refetchLeads } = useQuery<Lead[]>({
     queryKey: ["/api/leads", selectedPropertyId],
     queryFn: async () => {
       const url = selectedPropertyId 
         ? `/api/leads?propertyId=${selectedPropertyId}` 
         : "/api/leads";
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch leads");
       return res.json();
     },
@@ -156,10 +161,20 @@ export default function AdminLeads() {
 
   const { data: rawSalesExecs = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/sales-executives"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/sales-executives", { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch sales executives");
+      return res.json();
+    },
   });
 
   const { data: allUsers = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users", { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
   });
 
   const salesExecs = useMemo(() => {
@@ -195,6 +210,11 @@ export default function AdminLeads() {
 
   const { data: leadHistory = [] } = useQuery<LeadActivity[]>({
     queryKey: [`/api/admin/leads/${selectedLeadForHistory?.id}/history`],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/leads/${selectedLeadForHistory?.id}/history`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch lead history");
+      return res.json();
+    },
     enabled: !!selectedLeadForHistory?.id,
   });
 
@@ -202,9 +222,8 @@ export default function AdminLeads() {
     mutationFn: async ({ leadId, userId }: { leadId: string; userId: string }) => {
       const res = await fetch(`/api/admin/leads/${leadId}/assign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ userId }),
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to assign lead");
       return res.json();
@@ -231,9 +250,8 @@ export default function AdminLeads() {
     mutationFn: async ({ leadIds, userId }: { leadIds: string[]; userId: string }) => {
       const res = await fetch("/api/admin/leads/bulk-assign", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ leadIds, userId }),
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to bulk assign");
       return res.json();
@@ -263,9 +281,8 @@ export default function AdminLeads() {
     mutationFn: async ({ leadId, status }: { leadId: string; status: string }) => {
       const res = await fetch(`/api/leads/${leadId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ status }),
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update status");
       return res.json();
