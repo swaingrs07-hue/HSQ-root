@@ -18,7 +18,7 @@ import { format, parseISO, isAfter, isBefore, addDays } from "date-fns";
 
 interface Lead {
   id: string;
-  studentName: string;
+  name: string;
   email: string;
   phone: string;
   alternatePhone?: string;
@@ -36,6 +36,8 @@ interface Lead {
   createdAt: string;
   createdByName?: string | null;
   assignedToName?: string | null;
+  convertedByName?: string | null;
+  linkedBooking?: { status: string; confirmedByName: string | null; confirmedAt: string | null } | null;
 }
 
 interface Property {
@@ -72,7 +74,7 @@ export default function SalesDashboard() {
   const [leadDetail, setLeadDetail] = useState<any>(null);
 
   const [newLeadForm, setNewLeadForm] = useState({
-    studentName: "",
+    name: "",
     email: "",
     phone: "",
     alternatePhone: "",
@@ -185,7 +187,7 @@ export default function SalesDashboard() {
       toast({ title: "Success", description: "Lead created successfully" });
       setCreateLeadDialogOpen(false);
       setNewLeadForm({
-        studentName: "",
+        name: "",
         email: "",
         phone: "",
         alternatePhone: "",
@@ -352,26 +354,26 @@ export default function SalesDashboard() {
   };
 
   return (
-    <div className="container mx-auto py-6 md:py-8 px-3 md:px-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 md:mb-8">
+    <div className="container mx-auto py-4 md:py-8 px-3 md:px-4 max-w-5xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Sales Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
+          <h1 className="text-xl md:text-3xl font-bold">Sales Dashboard</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={() => window.location.href = "/booking/generate"}
-            className="bg-orange-500 hover:bg-orange-600 text-xs sm:text-sm"
+            className="bg-orange-500 hover:bg-orange-600 text-xs sm:text-sm h-8 md:h-9"
             size="sm"
             data-testid="button-generate-booking"
           >
-            <Plus className="mr-1 sm:mr-2 h-4 w-4" />
+            <Plus className="mr-1 sm:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Generate</span> Booking
           </Button>
           <Dialog open={createLeadDialogOpen} onOpenChange={setCreateLeadDialogOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-create-lead" size="sm" className="text-xs sm:text-sm">
-                <Plus className="mr-1 sm:mr-2 h-4 w-4" />
+              <Button data-testid="button-create-lead" size="sm" className="text-xs sm:text-sm h-8 md:h-9">
+                <Plus className="mr-1 sm:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
                 <span className="hidden sm:inline">Add New</span> Lead
               </Button>
             </DialogTrigger>
@@ -383,12 +385,12 @@ export default function SalesDashboard() {
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="studentName">Student Name *</Label>
+                  <Label htmlFor="leadName">Student Name *</Label>
                   <Input
-                    id="studentName"
+                    id="leadName"
                     data-testid="input-lead-name"
-                    value={newLeadForm.studentName}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, studentName: e.target.value })}
+                    value={newLeadForm.name}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -496,7 +498,7 @@ export default function SalesDashboard() {
         </div>
       </div>
 
-      <div className="flex md:grid md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6 md:mb-8 overflow-x-auto pb-2 md:pb-0 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory md:snap-none">
+      <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3 mb-5 md:mb-8">
         {[
           { key: "all", label: "Total", value: stats.total, color: "", hoverBorder: "hover:border-primary" },
           { key: "hot", label: "Hot", value: stats.hot, color: "text-red-500", hoverBorder: "hover:border-red-500" },
@@ -509,33 +511,32 @@ export default function SalesDashboard() {
         ].map((stat) => (
           <Card
             key={stat.key}
-            className={`cursor-pointer min-w-[100px] md:min-w-0 snap-start flex-shrink-0 md:flex-shrink ${stat.hoverBorder} ${activeTab === stat.key ? "border-primary ring-1 ring-primary/30" : ""}`}
+            className={`cursor-pointer transition-all ${stat.hoverBorder} ${activeTab === stat.key ? "border-primary ring-1 ring-primary/30 shadow-sm" : ""}`}
             onClick={() => stat.hoverBorder && setActiveTab(stat.key)}
             data-testid={`card-stat-${stat.key}`}
           >
-            <CardHeader className="pb-1 pt-3 px-3 md:pb-2 md:pt-4 md:px-4">
-              <CardTitle className={`text-xs md:text-sm font-medium ${stat.color}`}>{stat.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-3 px-3 md:pb-4 md:px-4">
-              <div className={`text-xl md:text-2xl font-bold ${stat.color}`} data-testid={`text-stats-${stat.key === "all" ? "total" : stat.key}`}>{stat.value}</div>
-            </CardContent>
+            <div className="px-2.5 py-2 md:px-4 md:py-3">
+              <p className={`text-[10px] md:text-sm font-medium ${stat.color} leading-tight`}>{stat.label}</p>
+              <p className={`text-lg md:text-2xl font-bold ${stat.color} mt-0.5`} data-testid={`text-stats-${stat.key === "all" ? "total" : stat.key}`}>{stat.value}</p>
+            </div>
           </Card>
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3 md:pb-4 px-3.5 md:px-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Target className="h-4 w-4 md:h-5 md:w-5" />
             {activeTab === "all" ? "All Leads" : 
              activeTab === "hot" ? "Hot Leads" :
              activeTab === "warm" ? "Warm Leads" :
              activeTab === "cold" ? "Cold Leads" :
              activeTab === "upcoming" ? "Upcoming Follow-ups" :
              "Overdue Follow-ups"}
+            <Badge variant="secondary" className="ml-auto text-xs">{getFilteredLeads().length}</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-3 md:px-6">
+        <CardContent className="px-3 md:px-6 pt-0">
           {loading ? (
             <p className="text-center py-8">Loading...</p>
           ) : getFilteredLeads().length === 0 ? (
@@ -561,7 +562,7 @@ export default function SalesDashboard() {
                     {getFilteredLeads().map((lead) => (
                       <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`}>
                         <TableCell>
-                          <div className="font-medium">{lead.studentName}</div>
+                          <div className="font-medium">{lead.name}</div>
                           {lead.createdByName && (
                             <p className="text-[10px] text-indigo-400 font-medium" data-testid={`text-lead-by-${lead.id}`}>
                               Lead by {lead.createdByName}
@@ -616,63 +617,90 @@ export default function SalesDashboard() {
                 </Table>
               </div>
 
-              <div className="md:hidden space-y-3">
+              <div className="md:hidden space-y-2.5">
                 {getFilteredLeads().map((lead) => (
                   <div
                     key={lead.id}
-                    className="border rounded-lg p-3 space-y-2"
+                    className="border rounded-xl p-3.5 space-y-2.5 bg-card shadow-sm active:bg-accent/50 transition-colors"
                     data-testid={`card-lead-${lead.id}`}
                     onClick={() => { setSelectedLead(lead); loadLeadDetail(lead.id); }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">{lead.studentName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{lead.phone} · {lead.email}</p>
-                        {lead.createdByName && (
-                          <p className="text-[10px] text-indigo-400 font-medium">Lead by {lead.createdByName}</p>
-                        )}
-                        {lead.convertedByName && (
-                          <p className="text-[10px] text-green-400 font-medium">Booking by {lead.convertedByName}</p>
-                        )}
-                        {lead.linkedBooking?.confirmedByName && (
-                          <p className="text-[10px] text-emerald-400 font-medium">Confirmed by {lead.linkedBooking.confirmedByName}</p>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-[15px] truncate">{lead.name}</p>
+                          {lead.isLocked && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Locked</Badge>}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs text-muted-foreground truncate">{lead.phone}</span>
+                          {lead.email && (
+                            <>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="text-xs text-muted-foreground truncate">{lead.email}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-1 items-center flex-shrink-0">
+                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
                         {getPriorityBadge(lead.priority)}
                         {getStatusBadge(lead.status)}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{lead.propertyName || "No property"} · {getSourceLabel(lead.source)}</span>
-                      <span>Score: {lead.leadScore}</span>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {lead.propertyName && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md px-2 py-0.5">
+                          <Building2 className="h-3 w-3" />
+                          {lead.propertyName}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">{getSourceLabel(lead.source)}</span>
+                      {lead.leadScore > 0 && (
+                        <span className="text-xs font-medium text-amber-600">Score: {lead.leadScore}</span>
+                      )}
                     </div>
-                    {lead.followUpAt && (
-                      <div className={`text-xs flex items-center gap-1 ${isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : "text-muted-foreground"}`}>
-                        <Clock className="h-3 w-3" />
-                        {format(parseISO(lead.followUpAt), "MMM d, h:mm a")}
-                        {isBefore(parseISO(lead.followUpAt), new Date()) && <span className="font-medium">(Overdue)</span>}
+
+                    {(lead.createdByName || lead.convertedByName || lead.linkedBooking?.confirmedByName) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                        {lead.createdByName && (
+                          <span className="text-[10px] text-indigo-500 font-medium">Lead by {lead.createdByName}</span>
+                        )}
+                        {lead.convertedByName && (
+                          <span className="text-[10px] text-green-500 font-medium">Booking by {lead.convertedByName}</span>
+                        )}
+                        {lead.linkedBooking?.confirmedByName && (
+                          <span className="text-[10px] text-emerald-500 font-medium">Confirmed by {lead.linkedBooking.confirmedByName}</span>
+                        )}
                       </div>
                     )}
+
+                    {lead.followUpAt && (
+                      <div className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded-md ${isBefore(parseISO(lead.followUpAt), new Date()) ? "bg-red-50 dark:bg-red-950 text-red-600" : "bg-slate-50 dark:bg-slate-800 text-muted-foreground"}`}>
+                        <Clock className="h-3 w-3 flex-shrink-0" />
+                        <span>{format(parseISO(lead.followUpAt), "MMM d, h:mm a")}</span>
+                        {isBefore(parseISO(lead.followUpAt), new Date()) && <span className="font-semibold ml-auto">Overdue</span>}
+                      </div>
+                    )}
+
                     {!lead.isLocked && (
-                      <div className="flex gap-1 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} data-testid={`button-status-lead-m-${lead.id}`}>
-                          <TrendingUp className="h-3 w-3 mr-1" /> Status
+                      <div className="flex gap-1 pt-1.5 border-t" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} data-testid={`button-status-lead-m-${lead.id}`}>
+                          <TrendingUp className="h-3.5 w-3.5 mr-1" /> Status
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} data-testid={`button-followup-lead-m-${lead.id}`}>
-                          <Calendar className="h-3 w-3 mr-1" /> Follow-up
+                        <Button variant="ghost" size="sm" className="h-8 text-xs flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} data-testid={`button-followup-lead-m-${lead.id}`}>
+                          <Calendar className="h-3.5 w-3.5 mr-1" /> Follow-up
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} data-testid={`button-remark-lead-m-${lead.id}`}>
-                          <MessageSquare className="h-3 w-3 mr-1" /> Remark
+                        <Button variant="ghost" size="sm" className="h-8 text-xs flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} data-testid={`button-remark-lead-m-${lead.id}`}>
+                          <MessageSquare className="h-3.5 w-3.5 mr-1" /> Remark
                         </Button>
                         {lead.status !== "deal_closed" && lead.status !== "lost" && (
-                          <Button variant="ghost" size="sm" className="h-7 text-xs text-green-500 flex-1" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} data-testid={`button-close-lead-m-${lead.id}`}>
-                            <CheckCircle className="h-3 w-3 mr-1" /> Close
+                          <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} data-testid={`button-close-lead-m-${lead.id}`}>
+                            <CheckCircle className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
                     )}
-                    {lead.isLocked && <Badge variant="outline" className="text-xs">Locked</Badge>}
                   </div>
                 ))}
               </div>
@@ -684,7 +712,7 @@ export default function SalesDashboard() {
       <Dialog open={leadDetailDialogOpen} onOpenChange={setLeadDetailDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Lead Details: {selectedLead?.studentName}</DialogTitle>
+            <DialogTitle>Lead Details: {selectedLead?.name}</DialogTitle>
           </DialogHeader>
           {leadDetail && (
             <div className="space-y-6">
@@ -904,7 +932,7 @@ export default function SalesDashboard() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Close Deal</DialogTitle>
-            <DialogDescription>Confirm deal closure for {selectedLead?.studentName}</DialogDescription>
+            <DialogDescription>Confirm deal closure for {selectedLead?.name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid gap-2">
