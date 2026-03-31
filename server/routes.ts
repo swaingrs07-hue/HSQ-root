@@ -1677,9 +1677,12 @@ ${allPages.map(p => `  <url>
       }
       const phoneVariants = [last10, `+91${last10}`, `91${last10}`];
       const allLeads = await db.select().from(schema.leads)
-        .where(or(
-          inArray(schema.leads.phone, phoneVariants),
-          sql`RIGHT(REGEXP_REPLACE(${schema.leads.phone}, '[^0-9]', '', 'g'), 10) = ${last10}`
+        .where(and(
+          or(
+            inArray(schema.leads.phone, phoneVariants),
+            sql`RIGHT(REGEXP_REPLACE(${schema.leads.phone}, '[^0-9]', '', 'g'), 10) = ${last10}`
+          ),
+          sql`NOT (${schema.leads.isManualEntry} = false AND ${schema.leads.createdBy} IS NULL AND ${schema.leads.assignedToId} IS NULL AND ${schema.leads.entrySource} IS NULL)`
         ))
         .orderBy(desc(schema.leads.lastActivityAt));
       if (allLeads.length === 0) {
