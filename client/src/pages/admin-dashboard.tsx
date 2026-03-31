@@ -280,8 +280,12 @@ export default function AdminDashboard() {
     const errors: typeof chartsError = {};
     
     try {
-      const [analyticsRes, propertiesRes, salesExecsRes] = await Promise.allSettled([
-        fetch("/api/leads/analytics/summary").then(r => {
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const [analyticsRes, propertiesRes, bookingsRes, salesExecsRes] = await Promise.allSettled([
+        fetch("/api/leads/analytics/summary", {
+          headers: authHeaders
+        }).then(r => {
           if (!r.ok) throw new Error("Failed to load leads analytics");
           return r.json();
         }),
@@ -289,8 +293,14 @@ export default function AdminDashboard() {
           if (!r.ok) throw new Error("Failed to load properties");
           return r.json();
         }),
+        fetch("/api/bookings", {
+          headers: authHeaders
+        }).then(r => {
+          if (!r.ok) throw new Error("Failed to load bookings");
+          return r.json();
+        }),
         token ? fetch("/api/admin/sales-executives", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: authHeaders
         }).then(r => {
           if (!r.ok) throw new Error("Failed to load sales executives");
           return r.json();
@@ -299,17 +309,26 @@ export default function AdminDashboard() {
       
       const analytics = analyticsRes.status === 'fulfilled' ? analyticsRes.value : null;
       const propertiesData = propertiesRes.status === 'fulfilled' ? propertiesRes.value : [];
+      const bookingsData = bookingsRes.status === 'fulfilled' ? bookingsRes.value : [];
       const salesExecsData = salesExecsRes.status === 'fulfilled' ? salesExecsRes.value : [];
       
       if (analyticsRes.status === 'rejected') {
         errors.leadsTrend = "Unable to load leads trend";
         errors.leadSources = "Unable to load lead sources";
       }
-      if (propertiesRes.status === 'rejected') {
+      if (propertiesRes.status === 'rejected' && bookingsRes.status === 'rejected') {
         errors.propertyBookings = "Unable to load property data";
       }
       if (salesExecsRes.status === 'rejected') {
         errors.salesPerformance = "Unable to load sales data";
+      }
+      
+      const bookingCountsByProperty: Record<string, number> = {};
+      if (Array.isArray(bookingsData)) {
+        bookingsData.forEach((b: any) => {
+          const propId = b.propertyId;
+          bookingCountsByProperty[propId] = (bookingCountsByProperty[propId] || 0) + 1;
+        });
       }
       
       setChartData({
@@ -317,7 +336,7 @@ export default function AdminDashboard() {
         leadSources: analytics?.leadsBySource || [],
         propertyBookings: propertiesData?.slice(0, 6).map((p: any) => ({
           name: p.name?.split(' ').slice(0, 2).join(' ') || 'Property',
-          bookings: p.roomTypes?.reduce((sum: number, rt: any) => sum + (rt.totalBeds - rt.availableBeds), 0) || 0
+          bookings: bookingCountsByProperty[p.id] || 0
         })) || [],
         salesPerformance: salesExecsData?.map((exec: any) => ({
           name: exec.name?.split(' ')[0] || 'Exec',
