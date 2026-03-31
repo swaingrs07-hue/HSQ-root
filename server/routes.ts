@@ -268,18 +268,11 @@ export async function registerRoutes(
   
   (async () => {
     try {
-      const legacyMap: Record<string, string> = {
-        visit_scheduled: "site_visit",
-        deal_closed: "converted",
-        cold: "new",
-        warm: "new",
-        hot: "new",
-      };
-      for (const [oldStatus, newStatus] of Object.entries(legacyMap)) {
-        await db.update(schema.leads)
-          .set({ status: newStatus as any })
-          .where(eq(schema.leads.status, oldStatus as any));
-      }
+      await db.execute(sql`
+        UPDATE leads SET status = 'site_visit' WHERE status = 'visit_scheduled';
+        UPDATE leads SET status = 'converted' WHERE status = 'deal_closed';
+        UPDATE leads SET status = 'new' WHERE status IN ('cold', 'warm', 'hot');
+      `);
     } catch (e) {
       console.error("Lead status normalization error:", e);
     }
@@ -1993,13 +1986,23 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  const validLeadStatuses = [
+    "new", "contacted", "interested", "site_visit", "negotiation",
+    "converted", "lost"
+  ];
+
   // Update lead (update status, notes, source)
   app.patch("/api/leads/:id", async (req, res) => {
     try {
       const { status, notes, source } = req.body;
-      const updateData: any = {};
+      const updateData: Partial<{ status: string; notes: string; source: string }> = {};
       
-      if (status) updateData.status = status;
+      if (status) {
+        if (!validLeadStatuses.includes(status)) {
+          return res.status(400).json({ error: "Invalid status value" });
+        }
+        updateData.status = status;
+      }
       if (notes !== undefined) updateData.notes = notes;
       if (source) updateData.source = source;
       
@@ -2013,12 +2016,6 @@ ${allPages.map(p => `  <url>
       res.status(500).json({ error: "Failed to update lead" });
     }
   });
-
-  // Update lead status only (for Kanban board drag-drop)
-  const validLeadStatuses = [
-    "new", "contacted", "interested", "site_visit", "negotiation",
-    "converted", "lost"
-  ];
   
   app.patch("/api/leads/:id/status", authMiddleware, async (req, res) => {
     try {
