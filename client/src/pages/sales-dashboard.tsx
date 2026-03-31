@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Phone, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download } from "lucide-react";
+import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
@@ -205,7 +205,7 @@ export default function SalesDashboard() {
 
   const loadLeadDetail = async (leadId: string) => {
     try {
-      const response = await fetch(`/api/sales/leads/${leadId}`, {
+      const response = await fetch(`/api/sales/leads/${leadId}/details`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       if (!response.ok) throw new Error("Failed to fetch lead details");
@@ -646,6 +646,20 @@ export default function SalesDashboard() {
                         {getPriorityBadge(lead.priority)}
                         {getStatusBadge(lead.status)}
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs font-medium bg-green-50 dark:bg-green-950 text-green-600 rounded-lg px-2.5 py-1.5" data-testid={`button-call-${lead.id}`}>
+                        <PhoneCall className="h-3.5 w-3.5" /> Call
+                      </a>
+                      <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '').replace(/^0+/, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-lg px-2.5 py-1.5" data-testid={`button-whatsapp-${lead.id}`}>
+                        <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                      </a>
+                      {lead.email && lead.email !== "noemail@gmail.com" && (
+                        <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-lg px-2.5 py-1.5" data-testid={`button-email-${lead.id}`}>
+                          <Mail className="h-3.5 w-3.5" /> Email
+                        </a>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
