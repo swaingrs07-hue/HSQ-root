@@ -1687,15 +1687,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]> {
-    if (propertyIds.length === 0) return [];
-    
     return await db.select().from(leads)
-      .where(
-        and(
-          inArray(leads.propertyId, propertyIds),
-          eq(leads.assignedToId, userId)
-        )
-      )
+      .where(eq(leads.assignedToId, userId))
       .orderBy(desc(leads.createdAt));
   }
 

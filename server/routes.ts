@@ -8451,28 +8451,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const propertyId = req.query.propertyId as string | undefined;
       const isAdmin = authReq.user!.role === "admin";
       
-      let assignedPropertyIds: string[];
+      let fetchedLeads: any[];
       if (isAdmin) {
         const allProperties = await storage.getAllProperties();
-        assignedPropertyIds = allProperties.map(p => p.id);
+        const assignedPropertyIds = allProperties.map(p => p.id);
+        const targetPropertyIds = propertyId ? [propertyId] : assignedPropertyIds;
+        fetchedLeads = await storage.getLeadsByPropertyIds(targetPropertyIds);
       } else {
-        const assignedProperties = await storage.getAssignedPropertiesForUser(userId);
-        assignedPropertyIds = assignedProperties.map(p => p.id);
+        fetchedLeads = await storage.getLeadsForAssignedProperties(userId, []);
+        if (propertyId) {
+          fetchedLeads = fetchedLeads.filter(l => l.propertyId === propertyId);
+        }
       }
-      
-      if (assignedPropertyIds.length === 0) {
-        return res.json([]);
-      }
-      
-      if (!isAdmin && propertyId && !assignedPropertyIds.includes(propertyId)) {
-        return res.status(403).json({ error: "Not authorized for this property" });
-      }
-      
-      const targetPropertyIds = propertyId ? [propertyId] : assignedPropertyIds;
-      
-      const fetchedLeads = isAdmin 
-        ? await storage.getLeadsByPropertyIds(targetPropertyIds)
-        : await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
       
       const userIds = new Set<string>();
       fetchedLeads.forEach(l => {
