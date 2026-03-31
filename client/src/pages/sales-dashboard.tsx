@@ -72,6 +72,7 @@ export default function SalesDashboard() {
   const [remarkDialogOpen, setRemarkDialogOpen] = useState(false);
   const [closeDealDialogOpen, setCloseDealDialogOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [newLeadForm, setNewLeadForm] = useState({
     name: "",
@@ -208,6 +209,9 @@ export default function SalesDashboard() {
   };
 
   const loadLeadDetail = async (leadId: string) => {
+    setLeadDetail(null);
+    setLoadingDetail(true);
+    setLeadDetailDialogOpen(true);
     try {
       const response = await fetch(`/api/sales/leads/${leadId}/details`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
@@ -215,9 +219,11 @@ export default function SalesDashboard() {
       if (!response.ok) throw new Error("Failed to fetch lead details");
       const data = await response.json();
       setLeadDetail(data);
-      setLeadDetailDialogOpen(true);
     } catch (error) {
       toast({ title: "Error", description: "Failed to load lead details", variant: "destructive" });
+      setLeadDetailDialogOpen(false);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -732,7 +738,12 @@ export default function SalesDashboard() {
           <DialogHeader>
             <DialogTitle>Lead Details: {selectedLead?.name}</DialogTitle>
           </DialogHeader>
-          {leadDetail && (
+          {loadingDetail && (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
+          {leadDetail && !loadingDetail && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
