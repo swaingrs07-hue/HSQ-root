@@ -1771,7 +1771,7 @@ ${allPages.map(p => `  <url>
         const phone = lead.phone;
         const email = lead.email?.toLowerCase();
         
-        if (!lead.isManualEntry && !lead.createdBy) {
+        if (!lead.isManualEntry) {
           if (email && staffEmails.has(email)) {
             return false;
           }
