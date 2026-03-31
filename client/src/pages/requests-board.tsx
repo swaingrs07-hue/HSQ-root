@@ -826,10 +826,8 @@ export default function RequestsBoard() {
             onFilterClick={() => setShowFilters(!showFilters)}
             onSearchClick={() => setMobileSearchOpen(!mobileSearchOpen)}
             onCardView={(lead) => {
-              toast({
-                title: lead.name,
-                description: `${lead.phone} • ${lead.propertyName || "No property"}`,
-              });
+              setSelectedLead(lead);
+              setEditModalOpen(true);
             }}
           />
         </div>
