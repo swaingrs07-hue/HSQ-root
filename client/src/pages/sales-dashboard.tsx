@@ -79,7 +79,7 @@ export default function SalesDashboard() {
     phone: "",
     alternatePhone: "",
     propertyId: "",
-    source: "walk_in",
+    entrySource: "walk_in" as string,
     budgetMin: "",
     budgetMax: "",
     notes: ""
@@ -174,10 +174,14 @@ export default function SalesDashboard() {
           Authorization: `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({
-          ...newLeadForm,
+          name: newLeadForm.name,
+          phone: newLeadForm.phone,
+          email: newLeadForm.email || undefined,
+          propertyId: newLeadForm.propertyId || undefined,
+          entrySource: newLeadForm.entrySource,
           budgetMin: newLeadForm.budgetMin ? parseInt(newLeadForm.budgetMin) : undefined,
           budgetMax: newLeadForm.budgetMax ? parseInt(newLeadForm.budgetMax) : undefined,
-          propertyId: newLeadForm.propertyId || undefined
+          notes: newLeadForm.notes || undefined
         })
       });
       if (!response.ok) {
@@ -192,7 +196,7 @@ export default function SalesDashboard() {
         phone: "",
         alternatePhone: "",
         propertyId: "",
-        source: "walk_in",
+        entrySource: "walk_in",
         budgetMin: "",
         budgetMax: "",
         notes: ""
@@ -427,7 +431,7 @@ export default function SalesDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="source">Source</Label>
-                  <Select value={newLeadForm.source} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, source: v })}>
+                  <Select value={newLeadForm.entrySource} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, entrySource: v })}>
                     <SelectTrigger data-testid="select-lead-source">
                       <SelectValue />
                     </SelectTrigger>
