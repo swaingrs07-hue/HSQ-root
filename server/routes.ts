@@ -1659,16 +1659,23 @@ ${allPages.map(p => `  <url>
       }
       const user = authenticatedUser || req.session?.user;
       
-      // If sales executive, only show assigned property leads
-      if (user?.role === "sales_executive" && propertyId) {
+      // If sales executive, enforce scoping to assigned properties only
+      let effectivePropertyId = propertyId;
+      if (user?.role === "sales_executive") {
         const assignments = await storage.getSalesExecPropertyAssignments(user.id);
         const assignedPropertyIds = assignments.map(a => a.propertyId);
-        if (!assignedPropertyIds.includes(propertyId)) {
-          return res.status(403).json({ error: "You do not have access to this property" });
+        if (propertyId) {
+          if (!assignedPropertyIds.includes(propertyId)) {
+            return res.status(403).json({ error: "You do not have access to this property" });
+          }
+        } else if (assignedPropertyIds.length > 0) {
+          effectivePropertyId = assignedPropertyIds[0];
+        } else {
+          return res.json([]);
         }
       }
       
-      const allLeads = await storage.getAllLeads(propertyId);
+      const allLeads = await storage.getAllLeads(effectivePropertyId);
       
       // Get staff emails to filter out (all internal team roles)
       const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
