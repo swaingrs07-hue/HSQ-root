@@ -2338,7 +2338,7 @@ ${allPages.map(p => `  <url>
           }
         }
 
-        if (lead.status === 'visit_scheduled' || lead.status === 'site_visit') {
+        if (lead.status === 'site_visit') {
           const visitDate = lead.followUpAt ? new Date(lead.followUpAt) : new Date(lead.createdAt);
           if (visitDate >= from && visitDate <= to) {
             const endDate = new Date(visitDate.getTime() + 60 * 60 * 1000);
