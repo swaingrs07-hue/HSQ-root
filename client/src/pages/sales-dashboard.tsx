@@ -626,12 +626,16 @@ export default function SalesDashboard() {
                     </div>
 
                     <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs font-medium bg-green-50 dark:bg-green-950 text-green-600 rounded-lg px-2.5 py-1.5" data-testid={`button-call-${lead.id}`}>
-                        <PhoneCall className="h-3.5 w-3.5" /> Call
-                      </a>
-                      <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '').replace(/^0+/, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-lg px-2.5 py-1.5" data-testid={`button-whatsapp-${lead.id}`}>
-                        <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
-                      </a>
+                      {lead.phone && (
+                        <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs font-medium bg-green-50 dark:bg-green-950 text-green-600 rounded-lg px-2.5 py-1.5" data-testid={`button-call-${lead.id}`}>
+                          <PhoneCall className="h-3.5 w-3.5" /> Call
+                        </a>
+                      )}
+                      {lead.phone && (
+                        <a href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '').replace(/^0+/, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-lg px-2.5 py-1.5" data-testid={`button-whatsapp-${lead.id}`}>
+                          <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                        </a>
+                      )}
                       {lead.email && lead.email !== "noemail@gmail.com" && (
                         <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-lg px-2.5 py-1.5" data-testid={`button-email-${lead.id}`}>
                           <Mail className="h-3.5 w-3.5" /> Email

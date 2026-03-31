@@ -1744,7 +1744,7 @@ ${allPages.map(p => `  <url>
       // If sales executive, enforce scoping to assigned properties only
       let effectivePropertyId = propertyId;
       if (user?.role === "sales_executive") {
-        const assignments = await storage.getSalesExecPropertyAssignments(user.id);
+        const assignments = await storage.getPropertyAssignments(user.id);
         const assignedPropertyIds = assignments.map(a => a.propertyId);
         if (propertyId) {
           if (!assignedPropertyIds.includes(propertyId)) {
@@ -8523,7 +8523,41 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const authReq = req as AuthRequest;
       const propertyId = req.query.propertyId as string | undefined;
       const leads = await storage.getLeadsForSalesExec(authReq.user!.userId, propertyId);
-      res.json(leads);
+      
+      const userIds = new Set<string>();
+      leads.forEach(l => {
+        if (l.createdBy) userIds.add(l.createdBy);
+        if (l.assignedToId) userIds.add(l.assignedToId);
+        if (l.convertedByUserId) userIds.add(l.convertedByUserId);
+      });
+      const userMap = new Map<string, string>();
+      for (const uid of userIds) {
+        const u = await storage.getUser(uid);
+        if (u) userMap.set(uid, u.name);
+      }
+      const bookingIds = leads.map(l => l.linkedBookingId).filter(Boolean) as string[];
+      const bookingMap = new Map<string, { status: string; confirmedBy: string | null; confirmedByName: string | null; confirmedAt: Date | null }>();
+      for (const bid of bookingIds) {
+        const booking = await storage.getBooking(bid);
+        if (booking) {
+          let confirmedByName: string | null = null;
+          if (booking.confirmedBy) {
+            const confirmer = await storage.getUser(booking.confirmedBy);
+            if (confirmer) confirmedByName = confirmer.name;
+          }
+          bookingMap.set(bid, { status: booking.status, confirmedBy: booking.confirmedBy, confirmedByName, confirmedAt: booking.confirmedAt });
+        }
+      }
+      const enriched = leads.map(l => ({
+        ...l,
+        createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
+        assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+        convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
+        linkedBooking: l.linkedBookingId && bookingMap.has(l.linkedBookingId)
+          ? { status: bookingMap.get(l.linkedBookingId)!.status, confirmedByName: bookingMap.get(l.linkedBookingId)!.confirmedByName, confirmedAt: bookingMap.get(l.linkedBookingId)!.confirmedAt }
+          : null,
+      }));
+      res.json(enriched);
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ error: "Failed to fetch leads" });

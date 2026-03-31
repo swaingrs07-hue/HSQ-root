@@ -81,6 +81,13 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     ? properties.find((p) => p.id === selectedPropertyId) || null
     : null;
 
+  useEffect(() => {
+    if (selectedPropertyId && properties.length > 0 && !properties.find((p) => p.id === selectedPropertyId)) {
+      setSelectedPropertyId(null);
+      localStorage.setItem(STORAGE_KEY, "null");
+    }
+  }, [selectedPropertyId, properties]);
+
   const setSelectedProperty = useCallback((propertyId: string | null) => {
     const previousId = selectedPropertyId;
     setSelectedPropertyId(propertyId);
