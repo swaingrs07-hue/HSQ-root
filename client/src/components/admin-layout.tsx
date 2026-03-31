@@ -506,11 +506,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => setLocation("/admin/profile")}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setLocation(user?.role === "sales_executive" ? "/profile" : "/admin/profile")}>
                   <User className="w-4 h-4 mr-2" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => setLocation("/admin/settings")}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setLocation(user?.role === "sales_executive" ? "/settings" : "/admin/settings")}>
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </DropdownMenuItem>

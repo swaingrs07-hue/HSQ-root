@@ -1759,36 +1759,38 @@ ${allPages.map(p => `  <url>
       
       const allLeads = await storage.getAllLeads(effectivePropertyId);
       
-      // Get staff emails to filter out (all internal team roles)
       const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
       const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
       
-      // Filter out staff and deduplicate leads by phone/email (keep most recent)
+      const placeholderEmails = new Set(["noemail@gmail.com", "no@email.com", "na@na.com", "none@none.com", ""]);
+      
       const seenPhones = new Set<string>();
       const seenEmails = new Set<string>();
       const uniqueLeads = allLeads.filter(lead => {
         const phone = lead.phone;
         const email = lead.email?.toLowerCase();
         
-        // Skip staff members
-        if (email && staffEmails.has(email)) {
-          return false;
-        }
-        if (phone && staffPhones.has(phone)) {
-          return false;
+        if (!lead.isManualEntry && !lead.createdBy) {
+          if (email && staffEmails.has(email)) {
+            return false;
+          }
+          if (phone && staffPhones.has(phone)) {
+            return false;
+          }
         }
         
-        // Skip if we've already seen this phone or email
+        const isPlaceholderEmail = !email || placeholderEmails.has(email);
+        
         if (phone && seenPhones.has(phone)) {
           return false;
         }
-        if (email && seenEmails.has(email)) {
+        if (!isPlaceholderEmail && email && seenEmails.has(email)) {
           return false;
         }
         
         if (phone) seenPhones.add(phone);
-        if (email) seenEmails.add(email);
+        if (!isPlaceholderEmail && email) seenEmails.add(email);
         return true;
       });
       
