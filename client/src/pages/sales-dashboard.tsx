@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, CheckCircle, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail } from "lucide-react";
+import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
@@ -70,7 +70,6 @@ export default function SalesDashboard() {
   const [updateStatusDialogOpen, setUpdateStatusDialogOpen] = useState(false);
   const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
   const [remarkDialogOpen, setRemarkDialogOpen] = useState(false);
-  const [closeDealDialogOpen, setCloseDealDialogOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -98,12 +97,6 @@ export default function SalesDashboard() {
   });
 
   const [remarkText, setRemarkText] = useState("");
-
-  const [closeDealForm, setCloseDealForm] = useState({
-    roomTypeId: "",
-    finalAmount: "",
-    paymentPlan: "full"
-  });
 
   const getAuthToken = () => token || "";
 
@@ -284,29 +277,6 @@ export default function SalesDashboard() {
       setRemarkText("");
     } catch (error) {
       toast({ title: "Error", description: "Failed to add remark", variant: "destructive" });
-    }
-  };
-
-  const closeDeal = async () => {
-    if (!selectedLead) return;
-    try {
-      const response = await fetch(`/api/sales/leads/${selectedLead.id}/close`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          ...closeDealForm,
-          finalAmount: parseInt(closeDealForm.finalAmount)
-        })
-      });
-      if (!response.ok) throw new Error("Failed to close deal");
-      toast({ title: "Success", description: "Deal closed successfully!" });
-      setCloseDealDialogOpen(false);
-      loadLeads();
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to close deal", variant: "destructive" });
     }
   };
 
@@ -613,9 +583,6 @@ export default function SalesDashboard() {
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} title="Update Status" data-testid={`button-status-lead-${lead.id}`}><TrendingUp className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} title="Schedule Follow-up" data-testid={`button-followup-lead-${lead.id}`}><Calendar className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} title="Add Remark" data-testid={`button-remark-lead-${lead.id}`}><MessageSquare className="h-4 w-4" /></Button>
-                                {lead.status !== "deal_closed" && lead.status !== "lost" && (
-                                  <Button variant="ghost" size="icon" className="text-green-500 hover:text-green-700" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} title="Close Deal" data-testid={`button-close-lead-${lead.id}`}><CheckCircle className="h-4 w-4" /></Button>
-                                )}
                               </>
                             )}
                             {lead.isLocked && <Badge variant="outline" className="text-xs">Locked</Badge>}
@@ -718,11 +685,6 @@ export default function SalesDashboard() {
                         <Button variant="ghost" size="sm" className="h-8 text-xs flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} data-testid={`button-remark-lead-m-${lead.id}`}>
                           <MessageSquare className="h-3.5 w-3.5 mr-1" /> Remark
                         </Button>
-                        {lead.status !== "deal_closed" && lead.status !== "lost" && (
-                          <Button variant="ghost" size="sm" className="h-8 text-xs text-green-600 flex-1 rounded-lg" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} data-testid={`button-close-lead-m-${lead.id}`}>
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -957,57 +919,6 @@ export default function SalesDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={closeDealDialogOpen} onOpenChange={setCloseDealDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Close Deal</DialogTitle>
-            <DialogDescription>Confirm deal closure for {selectedLead?.name}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label>Room Type</Label>
-              <Select value={closeDealForm.roomTypeId} onValueChange={(v) => setCloseDealForm({ ...closeDealForm, roomTypeId: v })}>
-                <SelectTrigger data-testid="select-room-type">
-                  <SelectValue placeholder="Select room type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">Single Room</SelectItem>
-                  <SelectItem value="double">Double Sharing</SelectItem>
-                  <SelectItem value="triple">Triple Sharing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Final Amount (₹)</Label>
-              <Input
-                type="number"
-                data-testid="input-final-amount"
-                value={closeDealForm.finalAmount}
-                onChange={(e) => setCloseDealForm({ ...closeDealForm, finalAmount: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Payment Plan</Label>
-              <Select value={closeDealForm.paymentPlan} onValueChange={(v) => setCloseDealForm({ ...closeDealForm, paymentPlan: v })}>
-                <SelectTrigger data-testid="select-payment-plan">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full">Full Payment</SelectItem>
-                  <SelectItem value="two_installments">2 Installments</SelectItem>
-                  <SelectItem value="three_installments">3 Installments</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCloseDealDialogOpen(false)} data-testid="button-cancel-close-deal">Cancel</Button>
-            <Button onClick={closeDeal} className="bg-green-500 hover:bg-green-600" data-testid="button-confirm-close-deal">
-              Close Deal
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
