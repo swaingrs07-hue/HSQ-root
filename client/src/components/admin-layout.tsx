@@ -492,6 +492,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" data-testid="button-user-menu">
                   <Avatar className="h-8 w-8 bg-gradient-to-br from-indigo-500 to-purple-600">
+                    {user?.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={userName} className="object-cover" />
+                    ) : null}
                     <AvatarFallback className="bg-transparent text-white text-sm font-medium">
                       {userInitials}
                     </AvatarFallback>

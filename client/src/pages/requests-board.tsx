@@ -465,7 +465,8 @@ export default function RequestsBoard() {
         }
         
         if (nlpFilters.source?.length) {
-          if (!lead.source || !nlpFilters.source.includes(lead.source)) return false;
+          const leadSource = (lead as any).entrySource || lead.source;
+          if (!leadSource || !nlpFilters.source.includes(leadSource)) return false;
         }
         
         if (nlpFilters.assigned === true && !lead.assignedToId) return false;
@@ -693,6 +694,7 @@ export default function RequestsBoard() {
               className="overflow-hidden"
             >
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
+                {authUser?.role !== "sales_executive" && (
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-slate-600 whitespace-nowrap">Sales Exec:</Label>
                   <Select 
@@ -712,6 +714,7 @@ export default function RequestsBoard() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-slate-600 whitespace-nowrap">Date:</Label>
