@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,7 @@ export default function RequestsBoard() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { selectedPropertyId } = useProperty();
+  const { user: authUser } = useAuth();
   const [leads, setLeads] = useState<EnrichedLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,9 +197,7 @@ export default function RequestsBoard() {
     setError(null);
     try {
       const token = getAuthToken();
-      const authData = localStorage.getItem("hsquare_auth");
-      const user = authData ? JSON.parse(authData)?.user : null;
-      const isSalesExec = user?.role === "sales_executive";
+      const isSalesExec = authUser?.role === "sales_executive";
       
       let url = isSalesExec 
         ? `/api/sales/my-leads`
@@ -220,7 +220,7 @@ export default function RequestsBoard() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthToken, selectedPropertyId]);
+  }, [getAuthToken, selectedPropertyId, authUser]);
 
   const loadFilters = useCallback(async () => {
     try {

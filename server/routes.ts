@@ -1741,23 +1741,30 @@ ${allPages.map(p => `  <url>
       }
       const user = authenticatedUser || req.session?.user;
       
-      // If sales executive, enforce scoping to assigned properties only
-      let effectivePropertyId = propertyId;
+      // If sales executive, only show leads assigned to them
       if (user?.role === "sales_executive") {
-        const assignments = await storage.getPropertyAssignments(user.id);
-        const assignedPropertyIds = assignments.map(a => a.propertyId);
-        if (propertyId) {
-          if (!assignedPropertyIds.includes(propertyId)) {
-            return res.status(403).json({ error: "You do not have access to this property" });
-          }
-        } else if (assignedPropertyIds.length > 0) {
-          effectivePropertyId = assignedPropertyIds[0];
-        } else {
-          return res.json([]);
+        const myLeads = await storage.getLeadsForSalesExec(user.id, propertyId || undefined);
+        const userIds = new Set<string>();
+        myLeads.forEach(l => {
+          if (l.createdBy) userIds.add(l.createdBy);
+          if (l.assignedToId) userIds.add(l.assignedToId);
+          if (l.convertedByUserId) userIds.add(l.convertedByUserId);
+        });
+        const userMap = new Map<string, string>();
+        for (const uid of userIds) {
+          const u = await storage.getUser(uid);
+          if (u) userMap.set(uid, u.name);
         }
+        const enriched = myLeads.map(l => ({
+          ...l,
+          createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
+          assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+          convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
+        }));
+        return res.json(enriched);
       }
       
-      const allLeads = await storage.getAllLeads(effectivePropertyId);
+      const allLeads = await storage.getAllLeads(propertyId);
       
       const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
