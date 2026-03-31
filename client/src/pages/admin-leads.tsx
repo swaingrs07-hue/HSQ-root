@@ -159,6 +159,8 @@ export default function AdminLeads() {
     assignToUserId: "",
   });
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [duplicateLeads, setDuplicateLeads] = useState<any[]>([]);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   
   const { selectedPropertyId } = useProperty();
 
@@ -379,6 +381,7 @@ export default function AdminLeads() {
       toast({ title: "Lead Created", description: "New lead has been created successfully" });
       setCreateLeadOpen(false);
       setCreateLeadForm({ name: "", email: "", phone: "", propertyId: "", entrySource: "walk_in", budgetMin: "", budgetMax: "", notes: "", assignToUserId: "" });
+      setDuplicateLeads([]);
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1258,7 +1261,21 @@ export default function AdminLeads() {
                 <Input
                   data-testid="input-admin-lead-phone"
                   value={createLeadForm.phone}
-                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, phone: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCreateLeadForm({ ...createLeadForm, phone: val });
+                    const cleaned = val.replace(/\D/g, "");
+                    if (cleaned.length >= 10) {
+                      setCheckingDuplicate(true);
+                      fetch("/api/leads/check-duplicate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                        body: JSON.stringify({ phone: val })
+                      }).then(r => r.json()).then(data => {
+                        setDuplicateLeads(data.duplicate ? data.leads : []);
+                      }).catch(() => setDuplicateLeads([])).finally(() => setCheckingDuplicate(false));
+                    } else { setDuplicateLeads([]); }
+                  }}
                   placeholder="Phone number"
                 />
               </div>
@@ -1280,6 +1297,26 @@ export default function AdminLeads() {
                 </Select>
               </div>
             </div>
+            {duplicateLeads.length > 0 && (
+              <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3" data-testid="admin-duplicate-lead-warning">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-amber-500">Lead with this phone already exists</span>
+                </div>
+                {duplicateLeads.map((dl: any) => (
+                  <div key={dl.id} className="text-xs text-muted-foreground border-t border-amber-500/20 pt-2 mt-2 space-y-0.5">
+                    <div><span className="font-medium text-foreground">{dl.name}</span> — {dl.propertyName || "No property"}</div>
+                    <div className="flex items-center gap-1 flex-wrap">Status: <Badge variant="outline" className="text-xs h-5">{dl.status}</Badge>
+                      {dl.assignedToName && <span className="ml-2">Assigned to: {dl.assignedToName}</span>}
+                    </div>
+                    {dl.createdByName && <div>Created by: {dl.createdByName}</div>}
+                    {dl.bookingStatus && <div className="flex items-center gap-1">Booking: <Badge variant="outline" className="text-xs h-5">{dl.bookingStatus}</Badge></div>}
+                    <div>Created: {dl.createdAt ? new Date(dl.createdAt).toLocaleDateString() : "N/A"}</div>
+                  </div>
+                ))}
+                <p className="text-xs text-amber-500/80 mt-2">You can still create a new lead if needed.</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Property *</label>

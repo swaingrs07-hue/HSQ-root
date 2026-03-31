@@ -1664,6 +1664,65 @@ ${allPages.map(p => `  <url>
 
   // ============ LEADS (Admin) ============
 
+  app.post("/api/leads/check-duplicate", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ error: "Phone is required" });
+      }
+      const digits = phone.replace(/\D/g, "");
+      const last10 = digits.slice(-10);
+      if (last10.length < 10) {
+        return res.json({ duplicate: false, leads: [] });
+      }
+      const phoneVariants = [last10, `+91${last10}`, `91${last10}`];
+      const allLeads = await db.select().from(schema.leads)
+        .where(or(
+          inArray(schema.leads.phone, phoneVariants),
+          sql`RIGHT(REGEXP_REPLACE(${schema.leads.phone}, '[^0-9]', '', 'g'), 10) = ${last10}`
+        ))
+        .orderBy(desc(schema.leads.lastActivityAt));
+      if (allLeads.length === 0) {
+        return res.json({ duplicate: false, leads: [] });
+      }
+      const enriched = await Promise.all(allLeads.map(async (lead) => {
+        let createdByName: string | null = null;
+        let assignedToName: string | null = null;
+        if (lead.createdBy) {
+          const u = await storage.getUser(lead.createdBy);
+          if (u) createdByName = u.name;
+        }
+        if (lead.assignedToId) {
+          const u = await storage.getUser(lead.assignedToId);
+          if (u) assignedToName = u.name;
+        }
+        let bookingStatus: string | null = null;
+        if (lead.linkedBookingId) {
+          const b = await storage.getBooking(lead.linkedBookingId);
+          if (b) bookingStatus = b.status;
+        }
+        return {
+          id: lead.id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email,
+          status: lead.status,
+          propertyName: lead.propertyName,
+          entrySource: lead.entrySource,
+          createdByName,
+          assignedToName,
+          linkedBookingId: lead.linkedBookingId,
+          bookingStatus,
+          createdAt: lead.createdAt,
+        };
+      }));
+      return res.json({ duplicate: true, leads: enriched });
+    } catch (error: any) {
+      console.error("Error checking duplicate leads:", error);
+      res.status(500).json({ error: "Failed to check duplicate" });
+    }
+  });
+
   app.post("/api/leads/match", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const { phone, email } = req.body;
