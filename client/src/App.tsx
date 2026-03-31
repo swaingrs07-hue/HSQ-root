@@ -122,9 +122,9 @@ function AppContent() {
   
   const isResetPasswordPage = location.startsWith("/admin/reset-password") || location.startsWith("/reset-password");
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || isResetPasswordPage;
-  const isAdminRoute = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate");
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
+  const isAdminRoute = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isReceptionist) && (location === "/profile" || location === "/settings" || location === "/help")));
   const useAdminLayout = (isAdmin || isSalesExec || isReceptionist) && isAdminRoute;
 
   return (
