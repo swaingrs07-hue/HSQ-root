@@ -266,18 +266,6 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  (async () => {
-    try {
-      await db.execute(sql`
-        UPDATE leads SET status = 'site_visit' WHERE status = 'visit_scheduled';
-        UPDATE leads SET status = 'converted' WHERE status = 'deal_closed';
-        UPDATE leads SET status = 'new' WHERE status IN ('cold', 'warm', 'hot');
-      `);
-    } catch (e) {
-      console.error("Lead status normalization error:", e);
-    }
-  })();
-
   // Register object storage routes for image uploads
   registerObjectStorageRoutes(app);
   
@@ -2040,8 +2028,20 @@ ${allPages.map(p => `  <url>
         return res.status(403).json({ error: "You can only update leads assigned to you" });
       }
       
+      let newScore = existingLead.score;
+      let newPriority = existingLead.priority;
+      
+      if (status === "contacted") { newScore = Math.min(100, Math.max(newScore, 10)); newPriority = newScore > 60 ? "hot" : newScore > 30 ? "warm" : "cold"; }
+      else if (status === "interested") { newScore = Math.min(100, Math.max(newScore, 20)); newPriority = newScore > 60 ? "hot" : "warm"; }
+      else if (status === "site_visit") { newScore = Math.min(100, Math.max(newScore + 25, 40)); newPriority = newScore > 60 ? "hot" : "warm"; }
+      else if (status === "negotiation") { newScore = Math.min(100, Math.max(newScore + 30, 60)); newPriority = "hot"; }
+      else if (status === "converted") { newScore = 100; newPriority = "hot"; }
+      else if (status === "lost") { newScore = 0; newPriority = "cold"; }
+
       const lead = await storage.updateLead(req.params.id as string, { 
         status,
+        score: newScore,
+        priority: newPriority,
         lastActivityAt: new Date()
       });
       res.json(lead);
