@@ -949,7 +949,7 @@ export default function AdminLeads() {
               <SelectTrigger data-testid="select-bulk-exec">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {salesExecs.filter((e) => e.isActive).length > 0 && (
                   <>
                     <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
