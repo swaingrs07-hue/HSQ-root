@@ -2020,7 +2020,7 @@ ${allPages.map(p => `  <url>
       
       // Sales executives can only update their assigned leads
       const user = (req as any).user;
-      if (user?.role === "sales_executive" && existingLead.assignedToId !== user.id) {
+      if (user?.role === "sales_executive" && existingLead.assignedToId !== user.userId) {
         return res.status(403).json({ error: "You can only update leads assigned to you" });
       }
       
@@ -8746,6 +8746,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const { status, lostReason, lostNotes } = req.body;
       const authReq = req as AuthRequest;
+      
+      if (!status || !validLeadStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
       
       const lead = await storage.getLead(req.params.id as string);
       if (!lead) {

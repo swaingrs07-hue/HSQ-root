@@ -334,11 +334,16 @@ export default function SalesDashboard() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { color: string; label: string }> = {
       new: { color: "bg-blue-100 text-blue-800", label: "New" },
+      cold: { color: "bg-slate-100 text-slate-800", label: "Cold" },
+      warm: { color: "bg-amber-100 text-amber-800", label: "Warm" },
+      hot: { color: "bg-red-100 text-red-800", label: "Hot" },
       contacted: { color: "bg-purple-100 text-purple-800", label: "Contacted" },
-      site_visit_scheduled: { color: "bg-yellow-100 text-yellow-800", label: "Visit Scheduled" },
-      site_visit_completed: { color: "bg-green-100 text-green-800", label: "Visit Done" },
-      booking_initiated: { color: "bg-indigo-100 text-indigo-800", label: "Booking Started" },
-      deal_closed: { color: "bg-green-500 text-white", label: "Closed" },
+      interested: { color: "bg-cyan-100 text-cyan-800", label: "Interested" },
+      visit_scheduled: { color: "bg-yellow-100 text-yellow-800", label: "Visit Scheduled" },
+      site_visit: { color: "bg-orange-100 text-orange-800", label: "Site Visit" },
+      negotiation: { color: "bg-indigo-100 text-indigo-800", label: "Negotiation" },
+      converted: { color: "bg-emerald-100 text-emerald-800", label: "Converted" },
+      deal_closed: { color: "bg-green-500 text-white", label: "Deal Closed" },
       lost: { color: "bg-red-100 text-red-800", label: "Lost" }
     };
     const s = statusMap[status] || { color: "bg-gray-100 text-gray-800", label: status };
@@ -841,10 +846,16 @@ export default function SalesDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="cold">Cold</SelectItem>
+                  <SelectItem value="warm">Warm</SelectItem>
+                  <SelectItem value="hot">Hot</SelectItem>
                   <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="site_visit_scheduled">Site Visit Scheduled</SelectItem>
-                  <SelectItem value="site_visit_completed">Site Visit Completed</SelectItem>
-                  <SelectItem value="booking_initiated">Booking Initiated</SelectItem>
+                  <SelectItem value="interested">Interested</SelectItem>
+                  <SelectItem value="visit_scheduled">Visit Scheduled</SelectItem>
+                  <SelectItem value="site_visit">Site Visit</SelectItem>
+                  <SelectItem value="negotiation">Negotiation</SelectItem>
+                  <SelectItem value="converted">Converted</SelectItem>
+                  <SelectItem value="deal_closed">Deal Closed</SelectItem>
                   <SelectItem value="lost">Lost</SelectItem>
                 </SelectContent>
               </Select>
