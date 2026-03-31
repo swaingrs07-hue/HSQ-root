@@ -49,6 +49,13 @@ import { KanbanBoard, mapStageToLeadStatus, mapLeadStatusToStage, type KanbanSta
 import { MobileKanban } from "@/components/kanban-mobile";
 import { EditLeadModal } from "@/components/edit-lead-modal";
 import type { Lead } from "@shared/schema";
+
+type EnrichedLead = Lead & {
+  createdByName?: string | null;
+  assignedToName?: string | null;
+  convertedByName?: string | null;
+  linkedBooking?: { status: string; confirmedByName: string | null; confirmedAt: string | null } | null;
+};
 import { format, isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { parseNaturalLanguageQuery, getSearchSuggestions, describeFilters, type ParsedSearchFilters } from "@/lib/nlp-search";
@@ -108,7 +115,7 @@ export default function RequestsBoard() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { selectedPropertyId } = useProperty();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<EnrichedLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -116,7 +123,7 @@ export default function RequestsBoard() {
   const [showFilters, setShowFilters] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<EnrichedLead | null>(null);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   
   const [nlpQuery, setNlpQuery] = useState("");
@@ -346,7 +353,7 @@ export default function RequestsBoard() {
     }
   };
 
-  const handleDelete = async (lead: Lead) => {
+  const handleDelete = async (lead: EnrichedLead) => {
     if (!confirm("Are you sure you want to delete this request?")) return;
 
     try {

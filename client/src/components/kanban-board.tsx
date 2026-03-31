@@ -62,6 +62,13 @@ import {
 } from "lucide-react";
 import type { Lead } from "@shared/schema";
 
+type EnrichedLead = Lead & {
+  createdByName?: string | null;
+  assignedToName?: string | null;
+  convertedByName?: string | null;
+  linkedBooking?: { status: string; confirmedByName: string | null; confirmedAt: string | null } | null;
+};
+
 export type KanbanStage = "unqualified" | "qualified" | "viewing" | "negotiating" | "won";
 
 export interface KanbanColumn {
@@ -197,8 +204,8 @@ function AnimatedNumber({ value, prefix = "" }: { value: number; prefix?: string
 }
 
 interface PipelineAnalyticsProps {
-  leads: Lead[];
-  groupedLeads: Record<KanbanStage, Lead[]>;
+  leads: EnrichedLead[];
+  groupedLeads: Record<KanbanStage, EnrichedLead[]>;
 }
 
 const PipelineAnalytics = memo(function PipelineAnalytics({ leads, groupedLeads }: PipelineAnalyticsProps) {
@@ -288,11 +295,11 @@ const PipelineAnalytics = memo(function PipelineAnalytics({ leads, groupedLeads 
 });
 
 interface RequestCardProps {
-  lead: Lead;
-  onView?: (lead: Lead) => void;
-  onEdit?: (lead: Lead) => void;
-  onDelete?: (lead: Lead) => void;
-  onMove?: (lead: Lead, stage: KanbanStage) => void;
+  lead: EnrichedLead;
+  onView?: (lead: EnrichedLead) => void;
+  onEdit?: (lead: EnrichedLead) => void;
+  onDelete?: (lead: EnrichedLead) => void;
+  onMove?: (lead: EnrichedLead, stage: KanbanStage) => void;
   isDragging?: boolean;
   currentStage?: KanbanStage;
 }
@@ -468,13 +475,20 @@ const RequestCard = memo(function RequestCard({
               </AvatarFallback>
             </Avatar>
             <span className={`text-[10px] ${lead.assignedToId ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
-              {lead.assignedToId ? "Assigned" : "Unassigned"}
+              {lead.assignedToName || (lead.assignedToId ? "Assigned" : "Unassigned")}
             </span>
           </div>
           <span className={`text-[10px] font-semibold capitalize ${priorityStyle.text}`}>
             {lead.priority || "cold"}
           </span>
         </div>
+        {lead.createdByName && (
+          <div className="mt-1.5 flex items-center gap-1">
+            <span className="text-[10px] text-indigo-500 font-medium">
+              Lead by {lead.createdByName}
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -518,12 +532,12 @@ function SortableRequestCard({
 
 interface KanbanColumnProps {
   column: KanbanColumn;
-  leads: Lead[];
+  leads: EnrichedLead[];
   totalValue: number;
-  onView?: (lead: Lead) => void;
-  onEdit?: (lead: Lead) => void;
-  onDelete?: (lead: Lead) => void;
-  onMove?: (lead: Lead, stage: KanbanStage) => void;
+  onView?: (lead: EnrichedLead) => void;
+  onEdit?: (lead: EnrichedLead) => void;
+  onDelete?: (lead: EnrichedLead) => void;
+  onMove?: (lead: EnrichedLead, stage: KanbanStage) => void;
   isDropTarget?: boolean;
   canDrop?: boolean;
   activeStage?: KanbanStage | null;
@@ -639,10 +653,10 @@ const KanbanColumnComponent = memo(function KanbanColumnComponent({
 });
 
 interface LeadDetailDrawerProps {
-  lead: Lead | null;
+  lead: EnrichedLead | null;
   open: boolean;
   onClose: () => void;
-  onEdit?: (lead: Lead) => void;
+  onEdit?: (lead: EnrichedLead) => void;
 }
 
 function LeadDetailDrawer({ lead, open, onClose, onEdit }: LeadDetailDrawerProps) {
@@ -813,13 +827,13 @@ function KanbanSkeleton() {
 }
 
 interface KanbanBoardProps {
-  leads: Lead[];
+  leads: EnrichedLead[];
   loading?: boolean;
   error?: string;
   onStageChange?: (leadId: string, newStage: KanbanStage, oldStage: KanbanStage) => void;
-  onView?: (lead: Lead) => void;
-  onEdit?: (lead: Lead) => void;
-  onDelete?: (lead: Lead) => void;
+  onView?: (lead: EnrichedLead) => void;
+  onEdit?: (lead: EnrichedLead) => void;
+  onDelete?: (lead: EnrichedLead) => void;
 }
 
 export function KanbanBoard({
@@ -925,14 +939,14 @@ export function KanbanBoard({
     }
   }, [leads, onStageChange]);
 
-  const handleMove = useCallback((lead: Lead, newStage: KanbanStage) => {
+  const handleMove = useCallback((lead: EnrichedLead, newStage: KanbanStage) => {
     const oldStage = mapLeadStatusToStage(lead.status);
     if (newStage !== oldStage && isValidMove(oldStage, newStage)) {
       onStageChange?.(lead.id, newStage, oldStage);
     }
   }, [onStageChange]);
 
-  const handleView = useCallback((lead: Lead) => {
+  const handleView = useCallback((lead: EnrichedLead) => {
     setSelectedLead(lead);
     setDrawerOpen(true);
   }, []);

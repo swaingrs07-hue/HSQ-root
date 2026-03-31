@@ -22,13 +22,20 @@ import {
 import type { Lead } from "@shared/schema";
 import { KANBAN_COLUMNS, type KanbanStage, mapLeadStatusToStage, mapStageToLeadStatus } from "./kanban-board";
 
+type EnrichedLead = Lead & {
+  createdByName?: string | null;
+  assignedToName?: string | null;
+  convertedByName?: string | null;
+  linkedBooking?: { status: string; confirmedByName: string | null; confirmedAt: string | null } | null;
+};
+
 interface MobileKanbanProps {
-  leads: Lead[];
+  leads: EnrichedLead[];
   onStageChange: (leadId: string, newStage: KanbanStage) => Promise<void>;
   onAddClick: () => void;
   onFilterClick: () => void;
   onSearchClick: () => void;
-  onCardView?: (lead: Lead) => void;
+  onCardView?: (lead: EnrichedLead) => void;
   loading?: boolean;
   canEdit?: boolean;
 }
@@ -38,7 +45,7 @@ const SWIPE_THRESHOLD = 80;
 const SWIPE_VELOCITY_THRESHOLD = 500;
 
 interface CompactCardProps {
-  lead: Lead;
+  lead: EnrichedLead;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   onTap: () => void;
@@ -225,6 +232,11 @@ const CompactCard = memo(function CompactCard({
                   <User className="w-3.5 h-3.5" />
                   <span>{lead.assignedToId ? "Assigned" : "Unassigned"}</span>
                 </div>
+                {lead.createdByName && (
+                  <div className="text-[11px] text-indigo-500 font-medium pt-0.5">
+                    Lead by {lead.createdByName}
+                  </div>
+                )}
                 
                 <Button
                   size="sm"
@@ -249,11 +261,11 @@ const CompactCard = memo(function CompactCard({
 const ITEM_HEIGHT = 130;
 
 interface VirtualizedListProps {
-  items: Lead[];
+  items: EnrichedLead[];
   currentStage: KanbanStage;
-  onSwipeLeft: (lead: Lead) => void;
-  onSwipeRight: (lead: Lead) => void;
-  onCardView: (lead: Lead) => void;
+  onSwipeLeft: (lead: EnrichedLead) => void;
+  onSwipeRight: (lead: EnrichedLead) => void;
+  onCardView: (lead: EnrichedLead) => void;
   onScroll: (scrollTop: number) => void;
   canEdit: boolean;
 }
@@ -389,7 +401,7 @@ export function MobileKanban({
   }, [currentStageIndex, isTransitioning]);
   
   const handleSwipeCard = useCallback(
-    async (lead: Lead, direction: "prev" | "next") => {
+    async (lead: EnrichedLead, direction: "prev" | "next") => {
       if (!canEdit) {
         toast({
           title: "Permission Denied",
