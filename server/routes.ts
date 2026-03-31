@@ -266,6 +266,25 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  (async () => {
+    try {
+      const legacyMap: Record<string, string> = {
+        visit_scheduled: "site_visit",
+        deal_closed: "converted",
+        cold: "new",
+        warm: "new",
+        hot: "new",
+      };
+      for (const [oldStatus, newStatus] of Object.entries(legacyMap)) {
+        await db.update(schema.leads)
+          .set({ status: newStatus as any })
+          .where(eq(schema.leads.status, oldStatus as any));
+      }
+    } catch (e) {
+      console.error("Lead status normalization error:", e);
+    }
+  })();
+
   // Register object storage routes for image uploads
   registerObjectStorageRoutes(app);
   
