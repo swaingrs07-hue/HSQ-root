@@ -73,7 +73,12 @@ import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
 import { useProperty } from "@/contexts/property-context";
 
-type EnrichedLead = Lead & { createdByName?: string | null; assignedToName?: string | null };
+type EnrichedLead = Lead & {
+  createdByName?: string | null;
+  assignedToName?: string | null;
+  convertedByName?: string | null;
+  linkedBooking?: { status: string; confirmedByName: string | null; confirmedAt: string | null } | null;
+};
 
 interface SalesExecWithCounts {
   id: string;
@@ -729,6 +734,16 @@ export default function AdminLeads() {
                                 {lead.createdByName && (
                                   <p className="text-[10px] text-indigo-500 font-medium" data-testid={`text-lead-by-${lead.id}`}>
                                     Lead by {lead.createdByName}
+                                  </p>
+                                )}
+                                {lead.convertedByName && (
+                                  <p className="text-[10px] text-green-600 font-medium" data-testid={`text-converted-by-${lead.id}`}>
+                                    Booking by {lead.convertedByName}
+                                  </p>
+                                )}
+                                {lead.linkedBooking?.confirmedByName && (
+                                  <p className="text-[10px] text-emerald-600 font-medium" data-testid={`text-confirmed-by-${lead.id}`}>
+                                    Confirmed by {lead.linkedBooking.confirmedByName}
                                   </p>
                                 )}
                               </div>

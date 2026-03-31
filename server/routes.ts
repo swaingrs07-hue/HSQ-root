@@ -123,6 +123,26 @@ function normalizeEmail(email: string | undefined): string | undefined {
   return email.trim().toLowerCase();
 }
 
+async function matchLeadByContact(phone?: string | null, email?: string | null) {
+  if (!phone && !email) return null;
+  const conditions = [];
+  if (phone) {
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone) conditions.push(eq(schema.leads.phone, normalizedPhone));
+  }
+  if (email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail) conditions.push(eq(schema.leads.email, normalizedEmail));
+  }
+  if (conditions.length === 0) return null;
+  const [matched] = await db.select()
+    .from(schema.leads)
+    .where(or(...conditions))
+    .orderBy(desc(schema.leads.lastActivityAt))
+    .limit(1);
+  return matched || null;
+}
+
 // Payment plan definitions (matching frontend logic)
 const PAYMENT_PLANS = [
   {
@@ -1643,7 +1663,69 @@ ${allPages.map(p => `  <url>
   });
 
   // ============ LEADS (Admin) ============
-  
+
+  app.post("/api/leads/match", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { phone, email } = req.body;
+      if (!phone && !email) {
+        return res.status(400).json({ error: "Phone or email required" });
+      }
+      const matchedLead = await matchLeadByContact(phone, email);
+      if (!matchedLead) {
+        return res.json({ matched: false, lead: null });
+      }
+      let createdByName: string | null = null;
+      let assignedToName: string | null = null;
+      let convertedByName: string | null = null;
+      if (matchedLead.createdBy) {
+        const creator = await storage.getUser(matchedLead.createdBy);
+        if (creator) createdByName = creator.name;
+      }
+      if (matchedLead.assignedToId) {
+        const assignee = await storage.getUser(matchedLead.assignedToId);
+        if (assignee) assignedToName = assignee.name;
+      }
+      if (matchedLead.convertedByUserId) {
+        const converter = await storage.getUser(matchedLead.convertedByUserId);
+        if (converter) convertedByName = converter.name;
+      }
+      let bookingInfo = null;
+      if (matchedLead.linkedBookingId) {
+        const booking = await storage.getBooking(matchedLead.linkedBookingId);
+        if (booking) {
+          let confirmedByName: string | null = null;
+          if (booking.confirmedBy) {
+            const confirmer = await storage.getUser(booking.confirmedBy);
+            if (confirmer) confirmedByName = confirmer.name;
+          }
+          bookingInfo = {
+            id: booking.id,
+            status: booking.status,
+            propertyId: booking.propertyId,
+            confirmedBy: confirmedByName,
+            confirmedAt: booking.confirmedAt,
+            createdAt: booking.createdAt,
+          };
+        }
+      }
+      const activities = await storage.getLeadActivities(matchedLead.id);
+      res.json({
+        matched: true,
+        lead: {
+          ...matchedLead,
+          createdByName,
+          assignedToName,
+          convertedByName,
+        },
+        booking: bookingInfo,
+        recentActivities: activities.slice(0, 5),
+      });
+    } catch (error) {
+      console.error("Error matching lead:", error);
+      res.status(500).json({ error: "Failed to match lead" });
+    }
+  });
+
   // Get all leads (with optional propertyId filter)
   app.get("/api/leads", async (req, res) => {
     try {
@@ -1716,16 +1798,36 @@ ${allPages.map(p => `  <url>
         uniqueLeads.forEach(l => {
           if (l.createdBy) userIds.add(l.createdBy);
           if (l.assignedToId) userIds.add(l.assignedToId);
+          if (l.convertedByUserId) userIds.add(l.convertedByUserId);
         });
         const userMap = new Map<string, string>();
         for (const uid of userIds) {
           const u = await storage.getUser(uid);
           if (u) userMap.set(uid, u.name);
         }
+        const bookingIds = uniqueLeads.map(l => l.linkedBookingId).filter(Boolean) as string[];
+        const bookingMap = new Map<string, { status: string; confirmedBy: string | null; confirmedByName: string | null; confirmedAt: Date | null }>();
+        for (const bid of bookingIds) {
+          const b = await storage.getBooking(bid);
+          if (b) {
+            let confirmedByName: string | null = null;
+            if (b.confirmedBy) {
+              if (userMap.has(b.confirmedBy)) {
+                confirmedByName = userMap.get(b.confirmedBy)!;
+              } else {
+                const cu = await storage.getUser(b.confirmedBy);
+                if (cu) { confirmedByName = cu.name; userMap.set(b.confirmedBy, cu.name); }
+              }
+            }
+            bookingMap.set(bid, { status: b.status, confirmedBy: b.confirmedBy, confirmedByName, confirmedAt: b.confirmedAt });
+          }
+        }
         const enrichedLeads = uniqueLeads.map(l => ({
           ...l,
           createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
           assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+          convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
+          linkedBooking: l.linkedBookingId ? bookingMap.get(l.linkedBookingId) || null : null,
         }));
         return res.json(enrichedLeads);
       }
@@ -3840,9 +3942,27 @@ ${allPages.map(p => `  <url>
         createdInstallments = await storage.createInstallments(installmentRecords);
       }
 
-      // If lead conversion, update lead status
       if (customerType === "lead" && leadId) {
-        await storage.updateLead(leadId, { status: "converted" });
+        const authUser = (req as AuthRequest).user!;
+        await storage.updateLead(leadId, {
+          status: "deal_closed",
+          bookingInitiated: true,
+          linkedBookingId: booking.id,
+          convertedByUserId: authUser.userId,
+          convertedAt: new Date(),
+        });
+      } else if (walkInPhone || walkInEmail) {
+        const matchedLead = await matchLeadByContact(walkInPhone, walkInEmail);
+        if (matchedLead) {
+          const authUser = (req as AuthRequest).user!;
+          await storage.updateLead(matchedLead.id, {
+            status: "deal_closed",
+            bookingInitiated: true,
+            linkedBookingId: booking.id,
+            convertedByUserId: authUser.userId,
+            convertedAt: new Date(),
+          });
+        }
       }
 
       let registrationUpdateWarning: string | undefined;
@@ -3979,9 +4099,40 @@ ${allPages.map(p => `  <url>
         return res.status(400).json({ error: "Booking cannot be confirmed in current status" });
       }
 
+      const authUser = (req as AuthRequest).user!;
       const confirmed = await storage.confirmBooking(req.params.id, approvedBy);
 
       if (confirmed && confirmed.status === "confirmed") {
+        await db.update(schema.bookings)
+          .set({ confirmedBy: authUser.userId, confirmedAt: new Date() })
+          .where(eq(schema.bookings.id, confirmed.id));
+
+        if (confirmed.leadId) {
+          await storage.updateLead(confirmed.leadId, {
+            status: "converted",
+            bookingConfirmed: true,
+            convertedByUserId: authUser.userId,
+            convertedAt: new Date(),
+            linkedBookingId: confirmed.id,
+          });
+        } else {
+          const residentDetails = confirmed.residentDetails as any;
+          const contactPhone = confirmed.walkInPhone || residentDetails?.phone;
+          const contactEmail = confirmed.walkInEmail || residentDetails?.email;
+          if (contactPhone || contactEmail) {
+            const matchedLead = await matchLeadByContact(contactPhone, contactEmail);
+            if (matchedLead && matchedLead.status !== "converted") {
+              await storage.updateLead(matchedLead.id, {
+                status: "converted",
+                bookingConfirmed: true,
+                convertedByUserId: authUser.userId,
+                convertedAt: new Date(),
+                linkedBookingId: confirmed.id,
+              });
+            }
+          }
+        }
+
         autoSyncBookingToHMS(confirmed).catch(err => {
           console.error("[HMS Auto-Sync] Background sync failed:", err);
         });
@@ -4009,6 +4160,33 @@ ${allPages.map(p => `  <url>
       }
 
       const cancelled = await storage.cancelBooking(req.params.id, reason);
+
+      if (cancelled) {
+        if (cancelled.leadId) {
+          await storage.updateLead(cancelled.leadId, {
+            status: "lost",
+            bookingConfirmed: false,
+            linkedBookingId: null,
+            convertedByUserId: null,
+          });
+        } else {
+          const residentDetails = cancelled.residentDetails as any;
+          const contactPhone = cancelled.walkInPhone || residentDetails?.phone;
+          const contactEmail = cancelled.walkInEmail || residentDetails?.email;
+          if (contactPhone || contactEmail) {
+            const matchedLead = await matchLeadByContact(contactPhone, contactEmail);
+            if (matchedLead && matchedLead.linkedBookingId === cancelled.id) {
+              await storage.updateLead(matchedLead.id, {
+                status: "lost",
+                bookingConfirmed: false,
+                linkedBookingId: null,
+                convertedByUserId: null,
+              });
+            }
+          }
+        }
+      }
+
       res.json(cancelled);
     } catch (error) {
       console.error("Error cancelling booking:", error);
@@ -8289,16 +8467,36 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       fetchedLeads.forEach(l => {
         if (l.createdBy) userIds.add(l.createdBy);
         if (l.assignedToId) userIds.add(l.assignedToId);
+        if (l.convertedByUserId) userIds.add(l.convertedByUserId);
       });
       const userMap = new Map<string, string>();
       for (const uid of userIds) {
         const u = await storage.getUser(uid);
         if (u) userMap.set(uid, u.name);
       }
+      const bookingIds = fetchedLeads.map(l => l.linkedBookingId).filter(Boolean) as string[];
+      const bookingMap = new Map<string, { status: string; confirmedByName: string | null; confirmedAt: Date | null }>();
+      for (const bid of bookingIds) {
+        const b = await storage.getBooking(bid);
+        if (b) {
+          let confirmedByName: string | null = null;
+          if (b.confirmedBy) {
+            if (userMap.has(b.confirmedBy)) {
+              confirmedByName = userMap.get(b.confirmedBy)!;
+            } else {
+              const cu = await storage.getUser(b.confirmedBy);
+              if (cu) { confirmedByName = cu.name; userMap.set(b.confirmedBy, cu.name); }
+            }
+          }
+          bookingMap.set(bid, { status: b.status, confirmedByName, confirmedAt: b.confirmedAt });
+        }
+      }
       const enrichedLeads = fetchedLeads.map(l => ({
         ...l,
         createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
         assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+        convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
+        linkedBooking: l.linkedBookingId ? bookingMap.get(l.linkedBookingId) || null : null,
       }));
       res.json(enrichedLeads);
     } catch (error) {

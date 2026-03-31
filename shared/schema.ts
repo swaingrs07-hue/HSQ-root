@@ -254,6 +254,9 @@ export const bookings = pgTable("bookings", {
   invoiceUrl: text("invoice_url"),
 
   welcomeEmailSent: boolean("welcome_email_sent").default(false).notNull(),
+
+  confirmedBy: varchar("confirmed_by").references(() => users.id),
+  confirmedAt: timestamp("confirmed_at"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -443,6 +446,8 @@ export const leads = pgTable("leads", {
   convertedToStudent: boolean("converted_to_student").default(false).notNull(),
   convertedAt: timestamp("converted_at"),
   studentId: varchar("student_id").references(() => students.id),
+  convertedByUserId: varchar("converted_by_user_id").references(() => users.id),
+  linkedBookingId: varchar("linked_booking_id"),
   
   // Lead Scoring (auto-calculated)
   score: integer("score").default(0).notNull(),

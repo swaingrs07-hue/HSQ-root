@@ -567,6 +567,16 @@ export default function SalesDashboard() {
                               Lead by {lead.createdByName}
                             </p>
                           )}
+                          {lead.convertedByName && (
+                            <p className="text-[10px] text-green-400 font-medium" data-testid={`text-converted-by-${lead.id}`}>
+                              Booking by {lead.convertedByName}
+                            </p>
+                          )}
+                          {lead.linkedBooking?.confirmedByName && (
+                            <p className="text-[10px] text-emerald-400 font-medium" data-testid={`text-confirmed-by-${lead.id}`}>
+                              Confirmed by {lead.linkedBooking.confirmedByName}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">{lead.phone}</div>
@@ -620,6 +630,12 @@ export default function SalesDashboard() {
                         <p className="text-xs text-muted-foreground truncate">{lead.phone} · {lead.email}</p>
                         {lead.createdByName && (
                           <p className="text-[10px] text-indigo-400 font-medium">Lead by {lead.createdByName}</p>
+                        )}
+                        {lead.convertedByName && (
+                          <p className="text-[10px] text-green-400 font-medium">Booking by {lead.convertedByName}</p>
+                        )}
+                        {lead.linkedBooking?.confirmedByName && (
+                          <p className="text-[10px] text-emerald-400 font-medium">Confirmed by {lead.linkedBooking.confirmedByName}</p>
                         )}
                       </div>
                       <div className="flex gap-1 items-center flex-shrink-0">

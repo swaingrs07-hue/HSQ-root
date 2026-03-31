@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -161,6 +161,46 @@ export default function BookingGeneration() {
   const [availability, setAvailability] = useState<{ totalBeds: number; availableBeds: number; bookedBeds: number } | null>(null);
   const [residentPhotoUrl, setResidentPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  const [matchedLeadInfo, setMatchedLeadInfo] = useState<{
+    matched: boolean;
+    lead: any;
+    booking: any;
+    recentActivities: any[];
+  } | null>(null);
+  const [matchingLead, setMatchingLead] = useState(false);
+  const matchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const checkLeadMatch = useCallback(async (phone: string, email: string) => {
+    if (!phone && !email) {
+      setMatchedLeadInfo(null);
+      return;
+    }
+    if ((phone && phone.length >= 10) || (email && email.includes("@"))) {
+      setMatchingLead(true);
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch("/api/leads/match", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ phone, email }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMatchedLeadInfo(data);
+        }
+      } catch {
+      } finally {
+        setMatchingLead(false);
+      }
+    }
+  }, [token]);
+
+  const debouncedLeadMatch = useCallback((phone: string, email: string) => {
+    if (matchTimeoutRef.current) clearTimeout(matchTimeoutRef.current);
+    matchTimeoutRef.current = setTimeout(() => checkLeadMatch(phone, email), 600);
+  }, [checkLeadMatch]);
 
   const [floors, setFloors] = useState<any[]>([]);
   const [floorsLoading, setFloorsLoading] = useState(false);
@@ -1329,7 +1369,11 @@ export default function BookingGeneration() {
                             <Input
                               id="walkInPhone"
                               value={formData.walkInPhone}
-                              onChange={(e) => setFormData(prev => ({ ...prev, walkInPhone: e.target.value }))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData(prev => ({ ...prev, walkInPhone: val }));
+                                debouncedLeadMatch(val, formData.walkInEmail);
+                              }}
                               className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                               placeholder="Enter phone number"
                               data-testid="input-walkin-phone"
@@ -1346,7 +1390,11 @@ export default function BookingGeneration() {
                             type="email"
                             required
                             value={formData.walkInEmail}
-                            onChange={(e) => setFormData(prev => ({ ...prev, walkInEmail: e.target.value }))}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData(prev => ({ ...prev, walkInEmail: val }));
+                              debouncedLeadMatch(formData.walkInPhone, val);
+                            }}
                             className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                             placeholder="Enter email address"
                             data-testid="input-walkin-email"
@@ -1354,6 +1402,94 @@ export default function BookingGeneration() {
                         </div>
                       </div>
                     </motion.div>
+                  )}
+
+                  {formData.customerType === "walk_in" && matchedLeadInfo?.matched && matchedLeadInfo.lead && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 shadow-sm"
+                      data-testid="matched-lead-card"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-amber-100 rounded-lg">
+                          <Users className="h-5 w-5 text-amber-700" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-amber-900 text-sm">Existing Lead Found</h4>
+                            <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                              {matchedLeadInfo.lead.status?.replace(/_/g, " ")}
+                            </Badge>
+                            {matchedLeadInfo.lead.priority && (
+                              <Badge variant="outline" className={`text-xs ${
+                                matchedLeadInfo.lead.priority === "hot" ? "bg-red-100 text-red-800 border-red-300" :
+                                matchedLeadInfo.lead.priority === "warm" ? "bg-orange-100 text-orange-800 border-orange-300" :
+                                "bg-blue-100 text-blue-800 border-blue-300"
+                              }`}>
+                                {matchedLeadInfo.lead.priority}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-amber-800 mt-1">
+                            <span className="font-medium">{matchedLeadInfo.lead.name}</span>
+                            {matchedLeadInfo.lead.phone && <span className="ml-2 text-amber-600">{matchedLeadInfo.lead.phone}</span>}
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {matchedLeadInfo.lead.createdByName && (
+                              <p className="text-xs text-amber-700">
+                                <span className="font-medium">Lead created by:</span> {matchedLeadInfo.lead.createdByName}
+                              </p>
+                            )}
+                            {matchedLeadInfo.lead.assignedToName && (
+                              <p className="text-xs text-amber-700">
+                                <span className="font-medium">Assigned to:</span> {matchedLeadInfo.lead.assignedToName}
+                              </p>
+                            )}
+                            {matchedLeadInfo.lead.convertedByName && (
+                              <p className="text-xs text-green-700">
+                                <span className="font-medium">Booking completed by:</span> {matchedLeadInfo.lead.convertedByName}
+                              </p>
+                            )}
+                            {matchedLeadInfo.lead.source && (
+                              <p className="text-xs text-amber-600">
+                                <span className="font-medium">Source:</span> {matchedLeadInfo.lead.source}
+                              </p>
+                            )}
+                          </div>
+                          {matchedLeadInfo.booking && (
+                            <div className="mt-2 p-2 bg-white/60 rounded-lg border border-amber-200/50">
+                              <p className="text-xs font-medium text-amber-900">Linked Booking</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-xs">
+                                  {matchedLeadInfo.booking.status}
+                                </Badge>
+                                {matchedLeadInfo.booking.confirmedBy && (
+                                  <span className="text-xs text-green-700">Confirmed by {matchedLeadInfo.booking.confirmedBy}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {matchedLeadInfo.recentActivities?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-amber-200/50">
+                              <p className="text-xs font-medium text-amber-800 mb-1">Recent Activity</p>
+                              {matchedLeadInfo.recentActivities.slice(0, 3).map((act: any, idx: number) => (
+                                <p key={idx} className="text-xs text-amber-600 truncate">
+                                  {act.type?.replace(/_/g, " ")} — {act.notes || act.description || ""}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {matchingLead && formData.customerType === "walk_in" && (
+                    <div className="flex items-center gap-2 text-xs text-slate-500 px-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Checking for existing lead...
+                    </div>
                   )}
 
                   {formData.customerType === "lead" && (

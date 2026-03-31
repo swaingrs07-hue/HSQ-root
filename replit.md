@@ -47,6 +47,7 @@ Preferred communication style: Simple, everyday language.
 -   **Property URL Slugs**: Human-readable URL slugs for properties (e.g., `/properties/hsquare-bayview` instead of UUIDs). Auto-generated on creation with duplicate protection. Used in sitemap, canonical URLs, JSON-LD, and all frontend links.
 -   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, keyword-rich content, and server-side meta tag injection (`server/seo-meta.ts`) for all public pages to ensure Google crawls unique title/description/canonical per route.
 -   **Sales Lead Visibility Scoping**: Sales execs only see their assigned properties in the property switcher (via `/api/sales/properties`). Leads are scoped to assigned properties. "Lead by [name]" attribution shown on admin and sales lead views. Leads have `createdBy` field tracking who created them.
+-   **Lead-to-Booking Attribution Chain**: Full attribution tracking from lead creation through booking completion. Real-time lead matching by phone/email during walk-in booking (via `/api/leads/match`). Auto-links leads to bookings with `linkedBookingId`. Tracks `convertedByUserId` (who initiated booking) and `confirmedBy` (who confirmed). Shows "Lead by", "Booking by", and "Confirmed by" attribution labels in admin and sales views. Lead status auto-updates on booking confirmation (`converted`) and cancellation (`lost`).
 
 ## External Dependencies
 
