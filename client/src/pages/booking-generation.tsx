@@ -705,7 +705,7 @@ export default function BookingGeneration() {
       });
       if (response.ok) {
         const data = await response.json();
-        setLeads(data.filter((l: any) => l.status !== "closed" && l.status !== "lost" && l.status !== "deal_closed"));
+        setLeads(data.filter((l: any) => l.status !== "closed" && l.status !== "lost" && l.status !== "converted"));
       }
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -719,7 +719,7 @@ export default function BookingGeneration() {
       });
       if (response.ok) {
         const data = await response.json();
-        setLeads(data.filter((l: any) => l.status !== "closed" && l.status !== "lost" && l.status !== "deal_closed"));
+        setLeads(data.filter((l: any) => l.status !== "closed" && l.status !== "lost" && l.status !== "converted"));
       }
     } catch (error) {
       console.error("Error fetching leads:", error);

@@ -1998,7 +1998,7 @@ ${allPages.map(p => `  <url>
   // Update lead status only (for Kanban board drag-drop)
   const validLeadStatuses = [
     "new", "contacted", "interested", "site_visit", "negotiation",
-    "converted", "lost", "cold", "warm", "hot", "visit_scheduled", "deal_closed"
+    "converted", "lost"
   ];
   
   app.patch("/api/leads/:id/status", authMiddleware, async (req, res) => {
@@ -4016,7 +4016,7 @@ ${allPages.map(p => `  <url>
       if (customerType === "lead" && leadId) {
         const authUser = (req as AuthRequest).user!;
         await storage.updateLead(leadId, {
-          status: "deal_closed",
+          status: "converted",
           bookingInitiated: true,
           linkedBookingId: booking.id,
           convertedByUserId: authUser.userId,
@@ -4027,7 +4027,7 @@ ${allPages.map(p => `  <url>
         if (matchedLead) {
           const authUser = (req as AuthRequest).user!;
           await storage.updateLead(matchedLead.id, {
-            status: "deal_closed",
+            status: "converted",
             bookingInitiated: true,
             linkedBookingId: booking.id,
             convertedByUserId: authUser.userId,
@@ -8129,7 +8129,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .from(schema.leads)
         .where(and(
           eq(schema.leads.assignedToId, id),
-          inArray(schema.leads.status, ["new", "contacted", "warm", "interested", "hot", "site_visit", "visit_scheduled", "negotiation"])
+          inArray(schema.leads.status, ["new", "contacted", "interested", "site_visit", "negotiation"])
         ));
 
       const properties = await db.select({ count: sql<number>`count(*)::int` })
@@ -8484,7 +8484,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         return {
           ...exec,
           leadCount: assignedLeads.length,
-          activeLeadCount: assignedLeads.filter(l => !["converted", "lost", "deal_closed"].includes(l.status)).length
+          activeLeadCount: assignedLeads.filter(l => !["converted", "lost"].includes(l.status)).length
         };
       });
       
@@ -8772,11 +8772,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let newScore = lead.score;
       let newPriority = lead.priority;
       
-      if (status === "cold") { newScore = Math.max(0, newScore); newPriority = "cold"; }
-      else if (status === "warm") { newScore = Math.min(60, Math.max(31, newScore + 10)); newPriority = "warm"; }
-      else if (status === "hot") { newScore = Math.min(100, Math.max(61, newScore + 20)); newPriority = "hot"; }
-      else if (status === "visit_scheduled") { newScore = Math.min(100, newScore + 25); newPriority = newScore > 60 ? "hot" : "warm"; }
-      else if (status === "negotiation") { newScore = Math.min(100, newScore + 30); newPriority = "hot"; }
+      if (status === "contacted") { newScore = Math.min(100, Math.max(newScore, 10)); newPriority = newScore > 60 ? "hot" : newScore > 30 ? "warm" : "cold"; }
+      else if (status === "interested") { newScore = Math.min(100, Math.max(newScore, 20)); newPriority = newScore > 60 ? "hot" : "warm"; }
+      else if (status === "site_visit") { newScore = Math.min(100, Math.max(newScore + 25, 40)); newPriority = newScore > 60 ? "hot" : "warm"; }
+      else if (status === "negotiation") { newScore = Math.min(100, Math.max(newScore + 30, 60)); newPriority = "hot"; }
+      else if (status === "converted") { newScore = 100; newPriority = "hot"; }
       else if (status === "lost") { newScore = 0; newPriority = "cold"; }
       
       const updateData: any = {

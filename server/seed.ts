@@ -105,13 +105,13 @@ async function ensureTestLeads() {
     { name: "Ravi Mehta", phone: "9988776603", email: "ravi.m@email.com", budgetMin: 10000, budgetMax: 15000, status: "site_visit", notes: "Visited yesterday, liked the property" },
     { name: "Neha Kapoor", phone: "9988776604", email: "neha.k@email.com", budgetMin: 20000, budgetMax: 30000, status: "negotiation", notes: "Negotiating on price" },
     { name: "Arjun Reddy", phone: "9988776605", email: "arjun.r@email.com", budgetMin: 18000, budgetMax: 22000, status: "converted", notes: "Booking confirmed!" },
-    { name: "Meera Joshi", phone: "9988776606", email: "meera@email.com", budgetMin: 8000, budgetMax: 12000, status: "cold", notes: "Not responding to calls" },
-    { name: "Karan Malhotra", phone: "9988776607", email: "karan.m@email.com", budgetMin: 14000, budgetMax: 20000, status: "warm", notes: "Will visit next week" },
-    { name: "Pooja Agarwal", phone: "9988776608", email: "pooja.a@email.com", budgetMin: 16000, budgetMax: 24000, status: "hot", notes: "Very interested, follow up tomorrow" },
+    { name: "Meera Joshi", phone: "9988776606", email: "meera@email.com", budgetMin: 8000, budgetMax: 12000, status: "new", notes: "Not responding to calls" },
+    { name: "Karan Malhotra", phone: "9988776607", email: "karan.m@email.com", budgetMin: 14000, budgetMax: 20000, status: "contacted", notes: "Will visit next week" },
+    { name: "Pooja Agarwal", phone: "9988776608", email: "pooja.a@email.com", budgetMin: 16000, budgetMax: 24000, status: "interested", notes: "Very interested, follow up tomorrow" },
     { name: "Sanjay Verma", phone: "9988776609", email: "sanjay.v@email.com", budgetMin: 11000, budgetMax: 16000, status: "interested", notes: "Asked for more details" },
-    { name: "Divya Nair", phone: "9988776610", email: "divya.n@email.com", budgetMin: 13000, budgetMax: 19000, status: "visit_scheduled", notes: "Visit scheduled for Saturday" },
+    { name: "Divya Nair", phone: "9988776610", email: "divya.n@email.com", budgetMin: 13000, budgetMax: 19000, status: "site_visit", notes: "Visit scheduled for Saturday" },
     { name: "Rohit Saxena", phone: "9988776611", email: "rohit.s@email.com", budgetMin: 9000, budgetMax: 14000, status: "new", notes: "Just inquired" },
-    { name: "Shreya Pandey", phone: "9988776612", email: "shreya.p@email.com", budgetMin: 17000, budgetMax: 25000, status: "deal_closed", notes: "Payment received" },
+    { name: "Shreya Pandey", phone: "9988776612", email: "shreya.p@email.com", budgetMin: 17000, budgetMax: 25000, status: "converted", notes: "Payment received" },
   ];
   
   for (let i = 0; i < testLeads.length; i++) {

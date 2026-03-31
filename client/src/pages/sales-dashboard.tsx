@@ -172,13 +172,13 @@ export default function SalesDashboard() {
       hot: leadsList.filter(l => l.priority === "hot").length,
       warm: leadsList.filter(l => l.priority === "warm").length,
       cold: leadsList.filter(l => l.priority === "cold").length,
-      closed: leadsList.filter(l => l.status === "closed" || l.status === "deal_closed").length,
+      closed: leadsList.filter(l => l.status === "converted").length,
       lost: leadsList.filter(l => l.status === "lost").length,
       upcomingFollowUps: leadsList.filter(l => 
         l.followUpAt && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
       ).length,
       overdueFollowUps: leadsList.filter(l => 
-        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "closed" && l.status !== "deal_closed" && l.status !== "lost"
+        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
       ).length
     });
   };
@@ -317,7 +317,7 @@ export default function SalesDashboard() {
         l.followUpAt && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
       );
       case "overdue": return leads.filter(l => 
-        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "closed" && l.status !== "deal_closed" && l.status !== "lost"
+        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
       );
       default: return leads;
     }
@@ -334,16 +334,11 @@ export default function SalesDashboard() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { color: string; label: string }> = {
       new: { color: "bg-blue-100 text-blue-800", label: "New" },
-      cold: { color: "bg-slate-100 text-slate-800", label: "Cold" },
-      warm: { color: "bg-amber-100 text-amber-800", label: "Warm" },
-      hot: { color: "bg-red-100 text-red-800", label: "Hot" },
       contacted: { color: "bg-purple-100 text-purple-800", label: "Contacted" },
       interested: { color: "bg-cyan-100 text-cyan-800", label: "Interested" },
-      visit_scheduled: { color: "bg-yellow-100 text-yellow-800", label: "Visit Scheduled" },
       site_visit: { color: "bg-orange-100 text-orange-800", label: "Site Visit" },
       negotiation: { color: "bg-indigo-100 text-indigo-800", label: "Negotiation" },
       converted: { color: "bg-emerald-100 text-emerald-800", label: "Converted" },
-      deal_closed: { color: "bg-green-500 text-white", label: "Deal Closed" },
       lost: { color: "bg-red-100 text-red-800", label: "Lost" }
     };
     const s = statusMap[status] || { color: "bg-gray-100 text-gray-800", label: status };
@@ -846,16 +841,11 @@ export default function SalesDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="cold">Cold</SelectItem>
-                  <SelectItem value="warm">Warm</SelectItem>
-                  <SelectItem value="hot">Hot</SelectItem>
                   <SelectItem value="contacted">Contacted</SelectItem>
                   <SelectItem value="interested">Interested</SelectItem>
-                  <SelectItem value="visit_scheduled">Visit Scheduled</SelectItem>
                   <SelectItem value="site_visit">Site Visit</SelectItem>
                   <SelectItem value="negotiation">Negotiation</SelectItem>
                   <SelectItem value="converted">Converted</SelectItem>
-                  <SelectItem value="deal_closed">Deal Closed</SelectItem>
                   <SelectItem value="lost">Lost</SelectItem>
                 </SelectContent>
               </Select>

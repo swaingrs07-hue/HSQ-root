@@ -110,14 +110,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
   contacted: { label: "Contacted", color: "text-cyan-700", bgColor: "bg-cyan-50 border-cyan-200" },
   interested: { label: "Interested", color: "text-emerald-700", bgColor: "bg-emerald-50 border-emerald-200" },
   site_visit: { label: "Site Visit", color: "text-violet-700", bgColor: "bg-violet-50 border-violet-200" },
-  visit_scheduled: { label: "Visit Scheduled", color: "text-purple-700", bgColor: "bg-purple-50 border-purple-200" },
   negotiation: { label: "Negotiating", color: "text-orange-700", bgColor: "bg-orange-50 border-orange-200" },
   converted: { label: "Converted", color: "text-green-700", bgColor: "bg-green-50 border-green-200" },
   lost: { label: "Lost", color: "text-red-700", bgColor: "bg-red-50 border-red-200" },
-  cold: { label: "Cold", color: "text-slate-600", bgColor: "bg-slate-50 border-slate-200" },
-  warm: { label: "Warm", color: "text-amber-700", bgColor: "bg-amber-50 border-amber-200" },
-  hot: { label: "Hot", color: "text-rose-700", bgColor: "bg-rose-50 border-rose-200" },
-  deal_closed: { label: "Deal Closed", color: "text-green-800", bgColor: "bg-green-100 border-green-300" },
 };
 
 const DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -206,7 +201,7 @@ export default function AdminLeads() {
       return {
         ...exec,
         leadCount: assignedLeads.length,
-        activeLeadCount: assignedLeads.filter(l => !["converted", "lost", "deal_closed"].includes(l.status)).length
+        activeLeadCount: assignedLeads.filter(l => !["converted", "lost"].includes(l.status)).length
       } as SalesExecWithCounts;
     });
   }, [rawSalesExecs, leads]);
@@ -222,7 +217,7 @@ export default function AdminLeads() {
         role: u.role,
         isActive: u.isActive,
         leadCount: leads.filter(l => l.assignedToId === u.id).length,
-        activeLeadCount: leads.filter(l => l.assignedToId === u.id && !["converted", "lost", "deal_closed"].includes(l.status)).length,
+        activeLeadCount: leads.filter(l => l.assignedToId === u.id && !["converted", "lost"].includes(l.status)).length,
       }));
     return adminsAndManagers;
   }, [allUsers, salesExecs, leads]);
@@ -446,7 +441,7 @@ export default function AdminLeads() {
     const assigned = leads.filter((l) => l.assignedToId).length;
     const unassigned = total - assigned;
     const hot = leads.filter((l) => l.priority === "hot").length;
-    const converted = leads.filter((l) => l.status === "converted" || l.status === "deal_closed").length;
+    const converted = leads.filter((l) => l.status === "converted").length;
     return { total, assigned, unassigned, hot, converted };
   }, [leads]);
 

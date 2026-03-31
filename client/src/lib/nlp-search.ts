@@ -21,15 +21,10 @@ interface PatternMatch {
 const STATUS_KEYWORDS: Record<string, string[]> = {
   new: ["new", "fresh", "recent enquiry", "just added", "new enquiry", "new lead"],
   contacted: ["contacted", "called", "reached out", "follow up"],
-  warm: ["warm", "showing interest", "moderate interest"],
-  hot: ["hot", "very interested", "ready to close", "urgent", "ready to book"],
-  cold: ["cold", "not responding", "inactive", "dead", "no response"],
-  site_visit: ["site visit", "visited", "property visit", "viewing", "site viewing"],
-  visit_scheduled: ["visit scheduled", "scheduled visit", "upcoming visit", "scheduled"],
-  negotiation: ["negotiating", "negotiation", "price discussion", "deal in progress"],
-  converted: ["converted", "won", "booked", "confirmed", "deal won"],
-  deal_closed: ["deal closed", "closed deal", "successful", "closed"],
   interested: ["interested", "keen", "showing interest"],
+  site_visit: ["site visit", "visited", "property visit", "viewing", "site viewing", "visit scheduled", "scheduled visit", "upcoming visit"],
+  negotiation: ["negotiating", "negotiation", "price discussion", "deal in progress"],
+  converted: ["converted", "won", "booked", "confirmed", "deal won", "deal closed", "closed deal", "successful", "closed"],
   lost: ["lost", "rejected", "cancelled", "dropped"],
 };
 

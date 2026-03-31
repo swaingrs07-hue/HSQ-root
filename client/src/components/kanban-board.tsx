@@ -140,20 +140,15 @@ function isValidMove(fromStage: KanbanStage, toStage: KanbanStage): boolean {
 export function mapLeadStatusToStage(status: string): KanbanStage {
   switch (status) {
     case "new":
-    case "cold":
       return "unqualified";
     case "contacted":
-    case "warm":
     case "interested":
       return "qualified";
     case "site_visit":
-    case "visit_scheduled":
       return "viewing";
     case "negotiation":
-    case "hot":
       return "negotiating";
     case "converted":
-    case "deal_closed":
       return "won";
     default:
       return "unqualified";

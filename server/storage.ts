@@ -1791,7 +1791,7 @@ export class DatabaseStorage implements IStorage {
   // Deal Closure
   async closeDeal(leadId: string, data: { finalPrice: number; moveInDate: string; selectedRoomTypeId: string; paymentMode: string }, closedBy: string): Promise<Lead | undefined> {
     const [updated] = await db.update(leads).set({
-      status: "deal_closed",
+      status: "converted",
       dealClosedAt: new Date(),
       finalPrice: data.finalPrice,
       moveInDate: data.moveInDate,
@@ -1838,9 +1838,9 @@ export class DatabaseStorage implements IStorage {
     const hotLeads = userLeads.filter(l => l.priority === "hot").length;
     const warmLeads = userLeads.filter(l => l.priority === "warm").length;
     const coldLeads = userLeads.filter(l => l.priority === "cold").length;
-    const closedDeals = userLeads.filter(l => l.status === "deal_closed").length;
+    const closedDeals = userLeads.filter(l => l.status === "converted").length;
     const revenue = userLeads
-      .filter(l => l.status === "deal_closed" && l.finalPrice)
+      .filter(l => l.status === "converted" && l.finalPrice)
       .reduce((sum, l) => sum + (l.finalPrice || 0), 0);
     
     return { totalLeads, hotLeads, warmLeads, coldLeads, closedDeals, revenue };
