@@ -26,7 +26,7 @@ interface Lead {
   propertyName: string | null;
   status: string;
   priority: string;
-  leadScore: number;
+  score: number;
   source: string;
   budgetMin?: number;
   budgetMax?: number;
@@ -566,7 +566,7 @@ export default function SalesDashboard() {
                         <TableCell>{lead.propertyName || "-"}</TableCell>
                         <TableCell>{getSourceLabel(lead.source)}</TableCell>
                         <TableCell>{getPriorityBadge(lead.priority)}</TableCell>
-                        <TableCell>{lead.leadScore}</TableCell>
+                        <TableCell>{lead.score}</TableCell>
                         <TableCell>{getStatusBadge(lead.status)}</TableCell>
                         <TableCell>
                           {lead.followUpAt ? (
@@ -651,8 +651,8 @@ export default function SalesDashboard() {
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground">{getSourceLabel(lead.source)}</span>
-                      {lead.leadScore > 0 && (
-                        <span className="text-xs font-medium text-amber-600">Score: {lead.leadScore}</span>
+                      {lead.score > 0 && (
+                        <span className="text-xs font-medium text-amber-600">Score: {lead.score}</span>
                       )}
                     </div>
 
@@ -742,8 +742,8 @@ export default function SalesDashboard() {
                       <div key={idx} className="flex items-start gap-3 p-2 bg-muted rounded">
                         <div className="w-2 h-2 rounded-full bg-primary mt-2" />
                         <div className="flex-1">
-                          <p className="text-sm">{activity.activityType.replace(/_/g, " ")}</p>
-                          {activity.details && <p className="text-xs text-muted-foreground">{activity.details}</p>}
+                          <p className="text-sm">{(activity.actionType || "").replace(/_/g, " ")}</p>
+                          {activity.description && <p className="text-xs text-muted-foreground">{activity.description}</p>}
                           <p className="text-xs text-muted-foreground">
                             {format(parseISO(activity.createdAt), "MMM d, yyyy h:mm a")}
                           </p>

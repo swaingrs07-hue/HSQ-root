@@ -8427,10 +8427,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ============ SALES EXECUTIVE DASHBOARD ============
 
   // Get assigned properties for current sales exec (alias for frontend compatibility)
-  app.get("/api/sales/properties", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+  app.get("/api/sales/properties", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const properties = await storage.getAssignedPropertiesForUser(authReq.user!.userId);
+      const isAdmin = authReq.user!.role === "admin";
+      const properties = isAdmin
+        ? await storage.getAllProperties()
+        : await storage.getAssignedPropertiesForUser(authReq.user!.userId);
       res.json(properties);
     } catch (error) {
       console.error("Error fetching assigned properties:", error);
@@ -8439,29 +8442,35 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Get leads scoped to sales exec's assigned properties
-  app.get("/api/sales/leads", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+  app.get("/api/sales/leads", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.user!.userId;
       const propertyId = req.query.propertyId as string | undefined;
+      const isAdmin = authReq.user!.role === "admin";
       
-      // Get assigned property IDs for this sales exec
-      const assignedProperties = await storage.getAssignedPropertiesForUser(userId);
-      const assignedPropertyIds = assignedProperties.map(p => p.id);
+      let assignedPropertyIds: string[];
+      if (isAdmin) {
+        const allProperties = await storage.getAllProperties();
+        assignedPropertyIds = allProperties.map(p => p.id);
+      } else {
+        const assignedProperties = await storage.getAssignedPropertiesForUser(userId);
+        assignedPropertyIds = assignedProperties.map(p => p.id);
+      }
       
       if (assignedPropertyIds.length === 0) {
         return res.json([]);
       }
       
-      // If propertyId is specified, verify the exec is assigned to it
-      if (propertyId && !assignedPropertyIds.includes(propertyId)) {
+      if (!isAdmin && propertyId && !assignedPropertyIds.includes(propertyId)) {
         return res.status(403).json({ error: "Not authorized for this property" });
       }
       
-      // Filter to specified property or use all assigned properties
       const targetPropertyIds = propertyId ? [propertyId] : assignedPropertyIds;
       
-      const fetchedLeads = await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
+      const fetchedLeads = isAdmin 
+        ? await storage.getLeadsByPropertyIds(targetPropertyIds)
+        : await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
       
       const userIds = new Set<string>();
       fetchedLeads.forEach(l => {
@@ -8506,10 +8515,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Get assigned properties for current sales exec
-  app.get("/api/sales/my-properties", authMiddleware, roleMiddleware("sales_executive"), async (req, res) => {
+  app.get("/api/sales/my-properties", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const properties = await storage.getAssignedPropertiesForUser(authReq.user!.userId);
+      const isAdmin = authReq.user!.role === "admin";
+      const properties = isAdmin 
+        ? await storage.getAllProperties()
+        : await storage.getAssignedPropertiesForUser(authReq.user!.userId);
       res.json(properties);
     } catch (error) {
       console.error("Error fetching assigned properties:", error);
