@@ -76,7 +76,11 @@ export function registerObjectStorageRoutes(app: Express): void {
       const contentType = (metadata.contentType as string) || "application/octet-stream";
       const fileSize = parseInt(metadata.size as string, 10);
 
-      if (contentType.startsWith("video/") && req.headers.range) {
+      const isImage = contentType.startsWith("image/");
+      const isVideo = contentType.startsWith("video/");
+      const cacheMaxAge = isImage ? 2592000 : 86400;
+
+      if (isVideo && req.headers.range) {
         const range = req.headers.range;
         const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
@@ -89,7 +93,7 @@ export function registerObjectStorageRoutes(app: Express): void {
           "Accept-Ranges": "bytes",
           "Content-Length": String(chunkSize),
           "Content-Type": contentType,
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": `public, max-age=${cacheMaxAge}, immutable`,
         });
 
         const stream = objectFile.createReadStream({ start, end });
@@ -99,13 +103,13 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
         stream.pipe(res);
       } else {
-        if (contentType.startsWith("video/")) {
-          res.set({
-            "Accept-Ranges": "bytes",
-            "Content-Type": contentType,
-            "Content-Length": String(fileSize),
-            "Cache-Control": "public, max-age=86400",
-          });
+        res.set({
+          "Content-Type": contentType,
+          "Content-Length": String(fileSize),
+          "Cache-Control": `public, max-age=${cacheMaxAge}${isImage ? ", immutable" : ""}`,
+        });
+        if (isVideo) {
+          res.set("Accept-Ranges", "bytes");
         }
         await objectStorageService.downloadObject(objectFile, res);
       }

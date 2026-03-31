@@ -70,19 +70,18 @@ function Floating3DShape({ type, size, color, delay, x, y, duration = 20 }: {
 }) {
   const shapes: Record<string, React.ReactNode> = {
     cube: (
-      <div style={{ width: size, height: size, transformStyle: "preserve-3d" as any }} className="relative">
-        <div className="absolute inset-0 border rounded-lg" style={{ borderColor: color, background: `${color}15`, transform: "translateZ(0px)" }} />
-        <div className="absolute inset-0 border rounded-lg" style={{ borderColor: color, background: `${color}08`, transform: `rotateY(90deg) translateZ(${size/2}px)`, width: size, height: size }} />
+      <div style={{ width: size, height: size }} className="relative">
+        <div className="absolute inset-0 border rounded-lg" style={{ borderColor: color, background: `${color}15` }} />
       </div>
     ),
     ring: (
-      <div className="rounded-full border-2" style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${size/2}px ${color}40, inset 0 0 ${size/3}px ${color}20` }} />
+      <div className="rounded-full border-2" style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${size/2}px ${color}40` }} />
     ),
     sphere: (
-      <div className="rounded-full" style={{ width: size, height: size, background: `radial-gradient(circle at 30% 30%, ${color}60, ${color}10, transparent)`, boxShadow: `0 0 ${size}px ${color}30` }} />
+      <div className="rounded-full" style={{ width: size, height: size, background: `radial-gradient(circle at 30% 30%, ${color}60, ${color}10, transparent)` }} />
     ),
     diamond: (
-      <div style={{ width: size, height: size, transform: "rotate(45deg)", border: `2px solid ${color}`, background: `${color}10`, boxShadow: `0 0 ${size/2}px ${color}30` }} />
+      <div style={{ width: size, height: size, transform: "rotate(45deg)", border: `2px solid ${color}`, background: `${color}10` }} />
     ),
     hexagon: (
       <svg width={size} height={size} viewBox="0 0 100 100">
@@ -94,13 +93,10 @@ function Floating3DShape({ type, size, color, delay, x, y, duration = 20 }: {
   return (
     <motion.div
       className="absolute pointer-events-none z-[3]"
-      style={{ left: x, top: y }}
+      style={{ left: x, top: y, willChange: "transform, opacity" }}
       animate={{
-        y: [0, -30, 0, 20, 0],
-        x: [0, 15, -10, 5, 0],
-        rotateX: [0, 360],
-        rotateY: [0, 360],
-        rotateZ: [0, 180],
+        y: [0, -20, 0, 15, 0],
+        opacity: [0.3, 0.6, 0.3],
       }}
       transition={{
         duration,
@@ -109,13 +105,7 @@ function Floating3DShape({ type, size, color, delay, x, y, duration = 20 }: {
         ease: "easeInOut",
       }}
     >
-      <motion.div
-        animate={{ opacity: [0.3, 0.7, 0.3] }}
-        transition={{ duration: duration / 2, delay, repeat: Infinity, ease: "easeInOut" }}
-        style={{ transformStyle: "preserve-3d" as any }}
-      >
-        {shapes[type]}
-      </motion.div>
+      {shapes[type]}
     </motion.div>
   );
 }
@@ -166,27 +156,25 @@ function CinematicText({ children, className = "", delay = 0, gradient = false }
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, amount: 0.5 });
 
+  const words = children.split(" ");
+
   return (
     <span ref={ref} className={`inline ${className}`}>
-      {children.split("").map((char, i) =>
-        char === " " ? (
-          <span key={i}>{"\u00A0"}</span>
-        ) : (
-          <motion.span
-            key={i}
-            className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
-            initial={{ opacity: 0, y: 30 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{
-              duration: 0.5,
-              delay: delay + i * 0.04,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            {char}
-          </motion.span>
-        )
-      )}
+      {words.map((word, i) => (
+        <motion.span
+          key={i}
+          className={`inline-block ${gradient ? "bg-gradient-to-r from-emerald-400 via-amber-400 to-violet-400 bg-clip-text text-transparent" : ""}`}
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{
+            duration: 0.4,
+            delay: delay + i * 0.08,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        >
+          {word}{i < words.length - 1 ? "\u00A0" : ""}
+        </motion.span>
+      ))}
     </span>
   );
 }

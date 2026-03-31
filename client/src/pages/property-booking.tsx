@@ -74,6 +74,41 @@ const TOUR_ROOMS = [
 
 type RoomId = typeof TOUR_ROOMS[number]["id"];
 
+function LazyImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const imgRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={imgRef} className={className} style={{ minHeight: isVisible ? undefined : 80 }}>
+      {isVisible && (
+        <img
+          src={src}
+          alt={alt}
+          className={cn("w-full h-full object-cover transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0")}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+        />
+      )}
+      {isVisible && !loaded && (
+        <div className="absolute inset-0 bg-white/5 animate-pulse" />
+      )}
+    </div>
+  );
+}
+
 function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBooking: () => void }) {
   const [activeRoom, setActiveRoom] = useState<RoomId>("overview");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -149,27 +184,15 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
   }, [prevIndex]);
 
   useEffect(() => {
-    if (images.length === 0) return;
-    if (images.length > 1) {
-      const nextIdx = (currentIndex + 1) % images.length;
-      const img = new Image();
-      img.src = images[nextIdx];
-    }
-    if (currentIndex === images.length - 1) {
-      const roomIdx = TOUR_ROOMS.findIndex(r => r.id === activeRoom);
-      for (let i = 1; i <= TOUR_ROOMS.length; i++) {
-        const checkIdx = (roomIdx + i) % TOUR_ROOMS.length;
-        if (checkIdx !== roomIdx) {
-          const nextRoomImages = getImages(TOUR_ROOMS[checkIdx].id);
-          if (nextRoomImages.length > 0) {
-            const preImg = new Image();
-            preImg.src = nextRoomImages[0];
-            break;
-          }
-        }
-      }
-    }
-  }, [currentIndex, images, activeRoom, getImages]);
+    if (images.length <= 1) return;
+    const nextIdx = (currentIndex + 1) % images.length;
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.as = "image";
+    link.href = images[nextIdx];
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, [currentIndex, images]);
 
   const goTo = useCallback((index: number) => {
     setPrevIndex(currentIndex);
@@ -299,7 +322,7 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {roomImages.map((img, i) => (
                     <button key={i} onClick={() => { setActiveRoom(room.id); setCurrentIndex(i); setShowGrid(false); }} className="relative aspect-[4/3] overflow-hidden group rounded-lg hover:scale-[1.03] transition-transform" data-testid={`grid-image-${room.id}-${i}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw" />
+                      <LazyImage src={img} alt="" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                         <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
@@ -387,11 +410,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
           </div>
           <div className="px-6 pb-6">
             <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20">
-              {images.map((img, i) => (
-                <button key={i} onClick={() => goTo(i)} className={cn("flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2 rounded-lg", i === currentIndex ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20" : "w-16 border-transparent opacity-40 hover:opacity-70")} data-testid={`fs-thumb-${i}`}>
-                  <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="112px" />
-                </button>
-              ))}
+              {images.map((img, i) => {
+                const nearCurrent = Math.abs(i - currentIndex) <= 5;
+                return (
+                  <button key={i} onClick={() => goTo(i)} className={cn("flex-shrink-0 h-16 overflow-hidden transition-all duration-300 border-2 rounded-lg", i === currentIndex ? "w-28 border-amber-500 opacity-100 shadow-lg shadow-amber-500/20" : "w-16 border-transparent opacity-40 hover:opacity-70")} data-testid={`fs-thumb-${i}`}>
+                    {nearCurrent ? (
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    ) : (
+                      <div className="w-full h-full bg-white/5" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -424,6 +454,8 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover z-[2] animate-[imgFadeIn_0.5s_ease-in-out]"
                 loading="eager"
+                decoding="async"
+                style={{ willChange: "opacity" }}
               />
             </div>
 
@@ -486,11 +518,18 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
 
               {images.length > 4 && (
                 <div className="flex gap-1 mt-3 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20">
-                  {images.map((img, i) => (
-                    <button key={i} onClick={(e) => { e.stopPropagation(); goTo(i); }} className={cn("flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border rounded-md", i === currentIndex ? "w-20 border-amber-500 opacity-100" : "w-12 border-white/10 opacity-30 hover:opacity-60")} data-testid={`thumbnail-${i}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" sizes="80px" />
-                    </button>
-                  ))}
+                  {images.map((img, i) => {
+                    const nearCurrent = Math.abs(i - currentIndex) <= 5;
+                    return (
+                      <button key={i} onClick={(e) => { e.stopPropagation(); goTo(i); }} className={cn("flex-shrink-0 h-12 overflow-hidden transition-all duration-300 border rounded-md", i === currentIndex ? "w-20 border-amber-500 opacity-100" : "w-12 border-white/10 opacity-30 hover:opacity-60")} data-testid={`thumbnail-${i}`}>
+                        {nearCurrent ? (
+                          <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                        ) : (
+                          <div className="w-full h-full bg-white/5" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

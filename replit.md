@@ -10,7 +10,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend
 -   **Framework**: React with TypeScript, using Vite.
--   **UI/UX**: shadcn/ui built on Radix UI, styled with Tailwind CSS. Features a premium dark 3D immersive homepage (`bg-[#0a0a0a]`) with canvas particle backgrounds, glassmorphism cards, animated counters, gradient glow dividers, and scroll-triggered Framer Motion animations. Consistent dark themes for all user-facing pages.
+-   **UI/UX**: shadcn/ui built on Radix UI, styled with Tailwind CSS. Features a premium dark 3D immersive homepage (`bg-[#0a0a0a]`) with optimized canvas particle backgrounds (frame-skipping, reduced particle counts), glassmorphism cards, animated counters, gradient glow dividers, and scroll-triggered Framer Motion animations. Consistent dark themes for all user-facing pages.
+-   **Performance**: Image lazy loading via IntersectionObserver (`LazyImage` component in property-booking.tsx), `decoding="async"` on images, thumbnail windowing (only renders thumbnails near current index), word-level text animations instead of per-character, 30-day immutable cache headers for images, simplified particle system (no radial gradients/shooting stars/aurora per frame).
 -   **State Management**: TanStack React Query.
 -   **Forms**: React Hook Form with Zod validation.
 
