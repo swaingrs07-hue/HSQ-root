@@ -5,7 +5,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -130,6 +130,21 @@ app.use((req, res, next) => {
     }
   } catch (e) {
     console.error("[Startup] Failed to sync bed occupancy statuses:", e);
+  }
+
+  try {
+    const backfillResult = await db.execute(sql`
+      UPDATE leads 
+      SET created_by = assigned_to_id 
+      WHERE is_manual_entry = true 
+        AND assigned_to_id IS NOT NULL 
+        AND created_by IS NULL
+    `);
+    if (backfillResult.rowCount && backfillResult.rowCount > 0) {
+      console.log(`[Startup] Backfilled created_by for ${backfillResult.rowCount} manual lead(s)`);
+    }
+  } catch (e) {
+    console.error("[Startup] Failed to backfill lead created_by:", e);
   }
 
   await registerRoutes(httpServer, app);

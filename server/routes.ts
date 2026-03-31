@@ -1648,15 +1648,14 @@ ${allPages.map(p => `  <url>
   app.get("/api/leads", async (req, res) => {
     try {
       const propertyId = req.query.propertyId as string | undefined;
-      let authenticatedUser: { userId: string; role: string } | null = null;
+      let authenticatedUser: { id: string; role: string } | null = null;
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith("Bearer ")) {
-        try {
-          const token = authHeader.substring(7);
-          const jwt = await import("jsonwebtoken");
-          const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "hsquare-jwt-secret-2024") as any;
-          authenticatedUser = { userId: decoded.userId, role: decoded.role };
-        } catch {}
+        const tokenStr = authHeader.substring(7);
+        const payload = verifyToken(tokenStr);
+        if (payload) {
+          authenticatedUser = { id: payload.userId, role: payload.role };
+        }
       }
       const user = authenticatedUser || req.session?.user;
       
@@ -3715,7 +3714,7 @@ ${allPages.map(p => `  <url>
         status: initialStatus,
         approvalRequired,
         approvalStatus: approvalRequired ? "pending" : "not_required",
-        createdBy: createdBy || null,
+        createdBy: (req as AuthRequest).user!.userId,
         assignedSalesExecId: assignedSalesExecId || null,
         agreementUrl: null,
         signatureData: null,
