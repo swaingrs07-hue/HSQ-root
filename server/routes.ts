@@ -3151,7 +3151,7 @@ ${allPages.map(p => `  <url>
   // ============ BOOKINGS ============
   
   // Create booking
-  app.post("/api/bookings", async (req, res) => {
+  app.post("/api/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId } = req.body;
 
@@ -3168,7 +3168,6 @@ ${allPages.map(p => `  <url>
       const legacyMicTotal = (legacyMic?.serviceLegalCharges || 0) || ((legacyMic?.policeVerification || 0) + (legacyMic?.agreement || 0));
       const totalFee = baseFee - totalDiscount + legacyMicTotal;
 
-      // Create booking
       const booking = await storage.createBooking({
         studentId,
         propertyId,
@@ -3182,6 +3181,7 @@ ${allPages.map(p => `  <url>
         discountApprovedAt: null,
         agreementUrl: null,
         signatureData: null,
+        createdBy: (req as AuthRequest).user!.userId,
       });
 
       // Create installments
