@@ -350,26 +350,27 @@ export default function SalesDashboard() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-8">
+    <div className="container mx-auto py-6 md:py-8 px-3 md:px-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Sales Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Sales Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={() => window.location.href = "/booking/generate"}
-            className="bg-orange-500 hover:bg-orange-600"
+            className="bg-orange-500 hover:bg-orange-600 text-xs sm:text-sm"
+            size="sm"
             data-testid="button-generate-booking"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Generate Booking
+            <Plus className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Generate</span> Booking
           </Button>
           <Dialog open={createLeadDialogOpen} onOpenChange={setCreateLeadDialogOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-create-lead">
-                <Plus className="mr-2 h-4 w-4" />
-                Add New Lead
+              <Button data-testid="button-create-lead" size="sm" className="text-xs sm:text-sm">
+                <Plus className="mr-1 sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Add New</span> Lead
               </Button>
             </DialogTrigger>
           <DialogContent className="max-w-lg">
@@ -378,7 +379,7 @@ export default function SalesDashboard() {
               <DialogDescription>Enter lead details for manual entry</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="studentName">Student Name *</Label>
                   <Input
@@ -399,7 +400,7 @@ export default function SalesDashboard() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone *</Label>
                   <Input
@@ -419,7 +420,7 @@ export default function SalesDashboard() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="source">Source</Label>
                   <Select value={newLeadForm.source} onValueChange={(v) => setNewLeadForm({ ...newLeadForm, source: v })}>
@@ -451,7 +452,7 @@ export default function SalesDashboard() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="budgetMin">Budget Min (₹)</Label>
                   <Input
@@ -493,71 +494,31 @@ export default function SalesDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
-        <Card className="cursor-pointer hover:border-primary" onClick={() => setActiveTab("all")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-stats-total">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-red-500" onClick={() => setActiveTab("hot")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-500">Hot</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500" data-testid="text-stats-hot">{stats.hot}</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-orange-500" onClick={() => setActiveTab("warm")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-orange-500">Warm</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500" data-testid="text-stats-warm">{stats.warm}</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-blue-500" onClick={() => setActiveTab("cold")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-500">Cold</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500" data-testid="text-stats-cold">{stats.cold}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-500">Closed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500" data-testid="text-stats-closed">{stats.closed}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-400">Lost</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-400" data-testid="text-stats-lost">{stats.lost}</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-yellow-500" onClick={() => setActiveTab("upcoming")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">Upcoming</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600" data-testid="text-stats-upcoming">{stats.upcomingFollowUps}</div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-red-700" onClick={() => setActiveTab("overdue")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700" data-testid="text-stats-overdue">{stats.overdueFollowUps}</div>
-          </CardContent>
-        </Card>
+      <div className="flex md:grid md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6 md:mb-8 overflow-x-auto pb-2 md:pb-0 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory md:snap-none">
+        {[
+          { key: "all", label: "Total", value: stats.total, color: "", hoverBorder: "hover:border-primary" },
+          { key: "hot", label: "Hot", value: stats.hot, color: "text-red-500", hoverBorder: "hover:border-red-500" },
+          { key: "warm", label: "Warm", value: stats.warm, color: "text-orange-500", hoverBorder: "hover:border-orange-500" },
+          { key: "cold", label: "Cold", value: stats.cold, color: "text-blue-500", hoverBorder: "hover:border-blue-500" },
+          { key: "closed", label: "Closed", value: stats.closed, color: "text-green-500", hoverBorder: "" },
+          { key: "lost", label: "Lost", value: stats.lost, color: "text-red-400", hoverBorder: "" },
+          { key: "upcoming", label: "Upcoming", value: stats.upcomingFollowUps, color: "text-yellow-600", hoverBorder: "hover:border-yellow-500" },
+          { key: "overdue", label: "Overdue", value: stats.overdueFollowUps, color: "text-red-700", hoverBorder: "hover:border-red-700" },
+        ].map((stat) => (
+          <Card
+            key={stat.key}
+            className={`cursor-pointer min-w-[100px] md:min-w-0 snap-start flex-shrink-0 md:flex-shrink ${stat.hoverBorder} ${activeTab === stat.key ? "border-primary ring-1 ring-primary/30" : ""}`}
+            onClick={() => stat.hoverBorder && setActiveTab(stat.key)}
+            data-testid={`card-stat-${stat.key}`}
+          >
+            <CardHeader className="pb-1 pt-3 px-3 md:pb-2 md:pt-4 md:px-4">
+              <CardTitle className={`text-xs md:text-sm font-medium ${stat.color}`}>{stat.label}</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-3 px-3 md:pb-4 md:px-4">
+              <div className={`text-xl md:text-2xl font-bold ${stat.color}`} data-testid={`text-stats-${stat.key === "all" ? "total" : stat.key}`}>{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Card>
@@ -572,126 +533,122 @@ export default function SalesDashboard() {
              "Overdue Follow-ups"}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 md:px-6">
           {loading ? (
             <p className="text-center py-8">Loading...</p>
           ) : getFilteredLeads().length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No leads found</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Follow-up</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {getFilteredLeads().map((lead) => (
-                  <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`}>
-                    <TableCell className="font-medium">{lead.studentName}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">{lead.phone}</div>
-                      <div className="text-xs text-muted-foreground">{lead.email}</div>
-                    </TableCell>
-                    <TableCell>{lead.propertyName || "-"}</TableCell>
-                    <TableCell>{getSourceLabel(lead.source)}</TableCell>
-                    <TableCell>{getPriorityBadge(lead.priority)}</TableCell>
-                    <TableCell>{lead.leadScore}</TableCell>
-                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                    <TableCell>
-                      {lead.followUpAt ? (
-                        <div className={`text-sm ${isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : ""}`}>
-                          {format(parseISO(lead.followUpAt), "MMM d, h:mm a")}
-                        </div>
-                      ) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedLead(lead);
-                            loadLeadDetail(lead.id);
-                          }}
-                          title="View Details"
-                          data-testid={`button-view-lead-${lead.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {!lead.isLocked && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" });
-                                setUpdateStatusDialogOpen(true);
-                              }}
-                              title="Update Status"
-                              data-testid={`button-status-lead-${lead.id}`}
-                            >
-                              <TrendingUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setFollowUpForm({ followUpAt: "", notes: "" });
-                                setFollowUpDialogOpen(true);
-                              }}
-                              title="Schedule Follow-up"
-                              data-testid={`button-followup-lead-${lead.id}`}
-                            >
-                              <Calendar className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setRemarkDialogOpen(true);
-                              }}
-                              title="Add Remark"
-                              data-testid={`button-remark-lead-${lead.id}`}
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                            {lead.status !== "deal_closed" && lead.status !== "lost" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-green-500 hover:text-green-700"
-                                onClick={() => {
-                                  setSelectedLead(lead);
-                                  setCloseDealDialogOpen(true);
-                                }}
-                                title="Close Deal"
-                                data-testid={`button-close-lead-${lead.id}`}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
+            <>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Follow-up</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {getFilteredLeads().map((lead) => (
+                      <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`}>
+                        <TableCell className="font-medium">{lead.studentName}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">{lead.phone}</div>
+                          <div className="text-xs text-muted-foreground">{lead.email}</div>
+                        </TableCell>
+                        <TableCell>{lead.propertyName || "-"}</TableCell>
+                        <TableCell>{getSourceLabel(lead.source)}</TableCell>
+                        <TableCell>{getPriorityBadge(lead.priority)}</TableCell>
+                        <TableCell>{lead.leadScore}</TableCell>
+                        <TableCell>{getStatusBadge(lead.status)}</TableCell>
+                        <TableCell>
+                          {lead.followUpAt ? (
+                            <div className={`text-sm ${isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : ""}`}>
+                              {format(parseISO(lead.followUpAt), "MMM d, h:mm a")}
+                            </div>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); loadLeadDetail(lead.id); }} title="View Details" data-testid={`button-view-lead-${lead.id}`}><Eye className="h-4 w-4" /></Button>
+                            {!lead.isLocked && (
+                              <>
+                                <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} title="Update Status" data-testid={`button-status-lead-${lead.id}`}><TrendingUp className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} title="Schedule Follow-up" data-testid={`button-followup-lead-${lead.id}`}><Calendar className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} title="Add Remark" data-testid={`button-remark-lead-${lead.id}`}><MessageSquare className="h-4 w-4" /></Button>
+                                {lead.status !== "deal_closed" && lead.status !== "lost" && (
+                                  <Button variant="ghost" size="icon" className="text-green-500 hover:text-green-700" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} title="Close Deal" data-testid={`button-close-lead-${lead.id}`}><CheckCircle className="h-4 w-4" /></Button>
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
-                        {lead.isLocked && (
-                          <Badge variant="outline" className="text-xs">Locked</Badge>
+                            {lead.isLocked && <Badge variant="outline" className="text-xs">Locked</Badge>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="md:hidden space-y-3">
+                {getFilteredLeads().map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="border rounded-lg p-3 space-y-2"
+                    data-testid={`card-lead-${lead.id}`}
+                    onClick={() => { setSelectedLead(lead); loadLeadDetail(lead.id); }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{lead.studentName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{lead.phone} · {lead.email}</p>
+                      </div>
+                      <div className="flex gap-1 items-center flex-shrink-0">
+                        {getPriorityBadge(lead.priority)}
+                        {getStatusBadge(lead.status)}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{lead.propertyName || "No property"} · {getSourceLabel(lead.source)}</span>
+                      <span>Score: {lead.leadScore}</span>
+                    </div>
+                    {lead.followUpAt && (
+                      <div className={`text-xs flex items-center gap-1 ${isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : "text-muted-foreground"}`}>
+                        <Clock className="h-3 w-3" />
+                        {format(parseISO(lead.followUpAt), "MMM d, h:mm a")}
+                        {isBefore(parseISO(lead.followUpAt), new Date()) && <span className="font-medium">(Overdue)</span>}
+                      </div>
+                    )}
+                    {!lead.isLocked && (
+                      <div className="flex gap-1 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} data-testid={`button-status-lead-m-${lead.id}`}>
+                          <TrendingUp className="h-3 w-3 mr-1" /> Status
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} data-testid={`button-followup-lead-m-${lead.id}`}>
+                          <Calendar className="h-3 w-3 mr-1" /> Follow-up
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} data-testid={`button-remark-lead-m-${lead.id}`}>
+                          <MessageSquare className="h-3 w-3 mr-1" /> Remark
+                        </Button>
+                        {lead.status !== "deal_closed" && lead.status !== "lost" && (
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-green-500 flex-1" onClick={() => { setSelectedLead(lead); setCloseDealDialogOpen(true); }} data-testid={`button-close-lead-m-${lead.id}`}>
+                            <CheckCircle className="h-3 w-3 mr-1" /> Close
+                          </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    )}
+                    {lead.isLocked && <Badge variant="outline" className="text-xs">Locked</Badge>}
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -703,7 +660,7 @@ export default function SalesDashboard() {
           </DialogHeader>
           {leadDetail && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Email</Label>
                   <p>{leadDetail.lead.email}</p>
