@@ -733,6 +733,7 @@ export const manualLeadSchema = z.object({
   budgetMax: z.number().optional(),
   entrySource: z.enum(["walk_in", "call", "whatsapp", "website", "referral", "social_media", "other"]),
   notes: z.string().optional(),
+  assignToUserId: z.string().optional(),
 });
 
 // Deal closure schema

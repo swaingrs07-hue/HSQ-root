@@ -8613,6 +8613,39 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // Get property name
       const property = await storage.getProperty(data.propertyId);
       
+      let assignToId = authReq.user!.userId;
+      let assignType: "admin_manual" | "property_auto" = authReq.user!.role === "admin" ? "admin_manual" : "property_auto";
+      
+      if (authReq.user!.role === "admin" && data.assignToUserId) {
+        assignToId = data.assignToUserId;
+        assignType = "admin_manual";
+      } else if (authReq.user!.role === "admin" && !data.assignToUserId) {
+        const assignments = await db.select({ salesExecId: schema.salesExecProperties.userId })
+          .from(schema.salesExecProperties)
+          .where(and(
+            eq(schema.salesExecProperties.propertyId, data.propertyId),
+            eq(schema.salesExecProperties.isActive, true)
+          ));
+        if (assignments.length > 0) {
+          const salesExecIds = assignments.map(a => a.salesExecId);
+          const leadCounts = await db.select({
+            assignedToId: schema.leads.assignedToId,
+            count: sql<number>`count(*)::int`,
+          }).from(schema.leads)
+            .where(and(inArray(schema.leads.assignedToId, salesExecIds), isNull(schema.leads.dealClosedAt)))
+            .groupBy(schema.leads.assignedToId);
+          const countMap = new Map(leadCounts.map(l => [l.assignedToId, l.count]));
+          let minLeads = Infinity;
+          let selectedExecId = salesExecIds[0];
+          for (const execId of salesExecIds) {
+            const count = countMap.get(execId) || 0;
+            if (count < minLeads) { minLeads = count; selectedExecId = execId; }
+          }
+          assignToId = selectedExecId;
+          assignType = "admin_manual";
+        }
+      }
+
       const lead = await storage.createLead({
         name: data.name,
         phone: data.phone,
@@ -8625,9 +8658,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         notes: data.notes,
         source: "walk_in",
         isManualEntry: true,
-        assignedToId: authReq.user!.userId,
+        assignedToId: assignToId,
         assignedAt: new Date(),
-        assignmentType: authReq.user!.role === "admin" ? "admin_manual" : "property_auto",
+        assignmentType: assignType,
         createdBy: authReq.user!.userId,
         score: 5,
         priority: "cold",

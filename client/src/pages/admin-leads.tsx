@@ -68,6 +68,7 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  Plus,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
@@ -145,6 +146,19 @@ export default function AdminLeads() {
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
   const [deleteLeadName, setDeleteLeadName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [createLeadOpen, setCreateLeadOpen] = useState(false);
+  const [createLeadForm, setCreateLeadForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    propertyId: "",
+    entrySource: "walk_in" as string,
+    budgetMin: "",
+    budgetMax: "",
+    notes: "",
+    assignToUserId: "",
+  });
+  const [isCreatingLead, setIsCreatingLead] = useState(false);
   
   const { selectedPropertyId } = useProperty();
 
@@ -336,6 +350,49 @@ export default function AdminLeads() {
     }
   };
 
+  const handleCreateLead = async () => {
+    if (!createLeadForm.name || !createLeadForm.phone || !createLeadForm.propertyId) {
+      toast({ title: "Error", description: "Name, phone, and property are required", variant: "destructive" });
+      return;
+    }
+    setIsCreatingLead(true);
+    try {
+      const res = await fetch("/api/sales/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: createLeadForm.name,
+          phone: createLeadForm.phone,
+          email: createLeadForm.email || undefined,
+          propertyId: createLeadForm.propertyId,
+          entrySource: createLeadForm.entrySource,
+          budgetMin: createLeadForm.budgetMin ? parseInt(createLeadForm.budgetMin) : undefined,
+          budgetMax: createLeadForm.budgetMax ? parseInt(createLeadForm.budgetMax) : undefined,
+          notes: createLeadForm.notes || undefined,
+          assignToUserId: createLeadForm.assignToUserId || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create lead");
+      }
+      toast({ title: "Lead Created", description: "New lead has been created successfully" });
+      setCreateLeadOpen(false);
+      setCreateLeadForm({ name: "", email: "", phone: "", propertyId: "", entrySource: "walk_in", budgetMin: "", budgetMax: "", notes: "", assignToUserId: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsCreatingLead(false);
+    }
+  };
+
+  const allAssignableStaff = useMemo(() => {
+    const execs = salesExecs.filter(e => e.isActive).map(e => ({ id: e.id, name: e.name, role: "sales_executive" as string, activeLeadCount: e.activeLeadCount }));
+    const others = assignableUsers.map(u => ({ id: u.id, name: u.name, role: u.role, activeLeadCount: u.activeLeadCount }));
+    return [...execs, ...others];
+  }, [salesExecs, assignableUsers]);
+
   const filteredLeads = useMemo(() => {
     let result = [...leads];
 
@@ -452,10 +509,16 @@ export default function AdminLeads() {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">Lead Management</h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Manage, assign, and track all leads</p>
           </div>
-          <Button onClick={() => refetchLeads()} variant="outline" size="sm" className="flex-shrink-0" data-testid="button-refresh-leads">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button onClick={() => setCreateLeadOpen(true)} size="sm" data-testid="button-add-lead">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Lead
+            </Button>
+            <Button onClick={() => refetchLeads()} variant="outline" size="sm" data-testid="button-refresh-leads">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-4">
@@ -1156,6 +1219,140 @@ export default function AdminLeads() {
             >
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               {isDeleting ? "Deleting..." : "Delete Lead"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createLeadOpen} onOpenChange={setCreateLeadOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Lead</DialogTitle>
+            <DialogDescription>Enter lead details and assign to a sales executive</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Student Name *</label>
+                <Input
+                  data-testid="input-admin-lead-name"
+                  value={createLeadForm.name}
+                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, name: e.target.value })}
+                  placeholder="Full name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  data-testid="input-admin-lead-email"
+                  value={createLeadForm.email}
+                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Phone *</label>
+                <Input
+                  data-testid="input-admin-lead-phone"
+                  value={createLeadForm.phone}
+                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, phone: e.target.value })}
+                  placeholder="Phone number"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Source</label>
+                <Select value={createLeadForm.entrySource} onValueChange={(v) => setCreateLeadForm({ ...createLeadForm, entrySource: v })}>
+                  <SelectTrigger data-testid="select-admin-lead-source">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="walk_in">Walk-in</SelectItem>
+                    <SelectItem value="call">Phone Call</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="website">Website</SelectItem>
+                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="social_media">Social Media</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Property *</label>
+                <Select value={createLeadForm.propertyId} onValueChange={(v) => setCreateLeadForm({ ...createLeadForm, propertyId: v })}>
+                  <SelectTrigger data-testid="select-admin-lead-property">
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties.map((prop: any) => (
+                      <SelectItem key={prop.id} value={prop.id}>{prop.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Assign To</label>
+                <Select value={createLeadForm.assignToUserId} onValueChange={(v) => setCreateLeadForm({ ...createLeadForm, assignToUserId: v })}>
+                  <SelectTrigger data-testid="select-admin-lead-assign">
+                    <SelectValue placeholder="Auto-assign (round robin)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allAssignableStaff.length > 0 && allAssignableStaff.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{staff.name}</span>
+                          <Badge variant="secondary" className="text-[10px] ml-2 capitalize">
+                            {staff.role === "sales_executive" ? "SE" : staff.role} ({staff.activeLeadCount})
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-slate-400">Leave empty to auto-assign based on property mapping</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Budget Min (₹)</label>
+                <Input
+                  type="number"
+                  data-testid="input-admin-lead-budget-min"
+                  value={createLeadForm.budgetMin}
+                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, budgetMin: e.target.value })}
+                  placeholder="Min budget"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Budget Max (₹)</label>
+                <Input
+                  type="number"
+                  data-testid="input-admin-lead-budget-max"
+                  value={createLeadForm.budgetMax}
+                  onChange={(e) => setCreateLeadForm({ ...createLeadForm, budgetMax: e.target.value })}
+                  placeholder="Max budget"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Input
+                data-testid="input-admin-lead-notes"
+                value={createLeadForm.notes}
+                onChange={(e) => setCreateLeadForm({ ...createLeadForm, notes: e.target.value })}
+                placeholder="Any additional notes..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateLeadOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateLead} disabled={isCreatingLead} data-testid="button-submit-admin-lead">
+              {isCreatingLead ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {isCreatingLead ? "Creating..." : "Create Lead"}
             </Button>
           </DialogFooter>
         </DialogContent>
