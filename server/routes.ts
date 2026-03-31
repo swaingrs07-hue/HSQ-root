@@ -9189,7 +9189,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const roomMap = new Map(allRooms.map(r => [r.id, r.name]));
       const userMap = new Map(allUsers.map(u => [u.id, u.name]));
 
-      const header = ["Booking Code","Customer Type","Walk-in Name","Walk-in Phone","Walk-in Email","Property Name","Room / Bed","Stay Plan","Check-in","Check-out","Base Fee","Deposit","Discount","Discount Reason","Total Amount","Payment Type","Token Amount","Status","Approval Status","Approved By","Agreement Generated","Created At"];
+      const header = ["Booking Code","Customer Type","Walk-in Name","Walk-in Phone","Walk-in Email","Property Name","Room / Bed","Stay Plan","Check-in","Check-out","Base Fee","Deposit","Discount","Discount Reason","Total Amount","Payment Type","Token Amount","Status","Approval Status","Approved By","Created By","Confirmed By","Confirmed At","Agreement Generated","Created At"];
       const csv = [header.join(","), ...rows.map(r => {
         const rd = r.residentDetails as any;
         const roomLabel = rd?.roomNo ? (rd.bedNo ? `${rd.roomNo}-${rd.bedNo}` : rd.roomNo) : roomMap.get(r.roomTypeId || "") || r.roomTypeId || "";
@@ -9201,6 +9201,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           r.baseFee, r.deposit, r.discount, r.discountReason, r.totalAmount,
           r.paymentType, r.tokenAmount, r.status, r.approvalStatus,
           userMap.get(r.approvedBy || "") || r.approvedBy || "",
+          userMap.get(r.createdBy || "") || r.createdBy || "",
+          userMap.get(r.confirmedBy || "") || r.confirmedBy || "",
+          r.confirmedAt ? new Date(r.confirmedAt).toISOString() : "",
           r.agreementGenerated, r.createdAt ? new Date(r.createdAt).toISOString() : ""
         ]);
       })].join("\n");
@@ -9217,15 +9220,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const rows = await db.select().from(schema.leads).orderBy(schema.leads.createdAt);
       const allUsers = await db.select().from(schema.users);
       const userMap = new Map(allUsers.map(u => [u.id, u.name]));
-      const header = ["Name","Email","Phone","Property Name","Source","Entry Source","Status","Notes","Assigned To","Priority","Budget Min","Budget Max","Follow-up Date","Follow-up Notes","Deal Amount","Deal Room Type","Deal Payment Plan","Converted At","Created At"];
-      const csv = [header.join(","), ...rows.map(r => csvRow([
-        r.name, r.email, r.phone, r.propertyName, r.source, r.entrySource, r.status, r.notes,
-        userMap.get(r.assignedToId || "") || r.assignedToId || "",
-        r.priority, r.budgetMin, r.budgetMax,
-        r.followUpDate, r.followUpNotes, r.dealAmount, r.dealRoomType, r.dealPaymentPlan,
-        r.convertedAt ? new Date(r.convertedAt).toISOString() : "",
-        r.createdAt ? new Date(r.createdAt).toISOString() : ""
-      ]))].join("\n");
+      const allBookings = await db.select().from(schema.bookings);
+      const bookingMap = new Map(allBookings.map(b => [b.id, b]));
+      const header = ["Name","Email","Phone","Property Name","Source","Entry Source","Status","Notes","Assigned To","Lead Created By","Priority","Budget Min","Budget Max","Follow-up Date","Follow-up Notes","Deal Amount","Deal Room Type","Deal Payment Plan","Booking Initiated By","Booking Confirmed By","Booking Status","Converted At","Created At"];
+      const csv = [header.join(","), ...rows.map(r => {
+        const linkedBooking = r.linkedBookingId ? bookingMap.get(r.linkedBookingId) : null;
+        return csvRow([
+          r.name, r.email, r.phone, r.propertyName, r.source, r.entrySource, r.status, r.notes,
+          userMap.get(r.assignedToId || "") || r.assignedToId || "",
+          userMap.get(r.createdBy || "") || r.createdBy || "",
+          r.priority, r.budgetMin, r.budgetMax,
+          r.followUpDate, r.followUpNotes, r.dealAmount, r.dealRoomType, r.dealPaymentPlan,
+          userMap.get(r.convertedByUserId || "") || "",
+          linkedBooking ? (userMap.get(linkedBooking.confirmedBy || "") || "") : "",
+          linkedBooking ? linkedBooking.status : "",
+          r.convertedAt ? new Date(r.convertedAt).toISOString() : "",
+          r.createdAt ? new Date(r.createdAt).toISOString() : ""
+        ]);
+      })].join("\n");
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=leads_${new Date().toISOString().split("T")[0]}.csv`);
       res.send(csv);
