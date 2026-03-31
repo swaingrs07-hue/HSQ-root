@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type UserRole = "user" | "admin" | "manager" | "staff" | "sales_executive";
 
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [location, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     initializeAuth();
@@ -198,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setToken(null);
     localStorage.removeItem(STORAGE_KEY);
+    queryClient.clear();
     setLocation("/auth");
   }
 

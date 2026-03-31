@@ -63,7 +63,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   });
 
   const { data: properties = [], isLoading } = useQuery<Property[]>({
-    queryKey: [propertiesEndpoint],
+    queryKey: [propertiesEndpoint, user?.id || "anonymous"],
     queryFn: async () => {
       const headers: Record<string, string> = {};
       if (isSalesExec && token) {
