@@ -34,6 +34,8 @@ interface Lead {
   followUpNotes: string | null;
   isLocked: boolean;
   createdAt: string;
+  createdByName?: string | null;
+  assignedToName?: string | null;
 }
 
 interface Property {
@@ -558,7 +560,14 @@ export default function SalesDashboard() {
                   <TableBody>
                     {getFilteredLeads().map((lead) => (
                       <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`}>
-                        <TableCell className="font-medium">{lead.studentName}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{lead.studentName}</div>
+                          {lead.createdByName && (
+                            <p className="text-[10px] text-indigo-400 font-medium" data-testid={`text-lead-by-${lead.id}`}>
+                              Lead by {lead.createdByName}
+                            </p>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="text-sm">{lead.phone}</div>
                           <div className="text-xs text-muted-foreground">{lead.email}</div>
@@ -609,6 +618,9 @@ export default function SalesDashboard() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm truncate">{lead.studentName}</p>
                         <p className="text-xs text-muted-foreground truncate">{lead.phone} · {lead.email}</p>
+                        {lead.createdByName && (
+                          <p className="text-[10px] text-indigo-400 font-medium">Lead by {lead.createdByName}</p>
+                        )}
                       </div>
                       <div className="flex gap-1 items-center flex-shrink-0">
                         {getPriorityBadge(lead.priority)}

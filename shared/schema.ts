@@ -463,6 +463,8 @@ export const leads = pgTable("leads", {
   utmContent: text("utm_content"),
   pageUrl: text("page_url"),
   message: text("message"),
+
+  createdBy: varchar("created_by").references(() => users.id),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

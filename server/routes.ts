@@ -1648,7 +1648,17 @@ ${allPages.map(p => `  <url>
   app.get("/api/leads", async (req, res) => {
     try {
       const propertyId = req.query.propertyId as string | undefined;
-      const user = req.session?.user;
+      let authenticatedUser: { userId: string; role: string } | null = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.substring(7);
+          const jwt = await import("jsonwebtoken");
+          const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "hsquare-jwt-secret-2024") as any;
+          authenticatedUser = { userId: decoded.userId, role: decoded.role };
+        } catch {}
+      }
+      const user = authenticatedUser || req.session?.user;
       
       // If sales executive, only show assigned property leads
       if (user?.role === "sales_executive" && propertyId) {
@@ -1694,6 +1704,26 @@ ${allPages.map(p => `  <url>
         return true;
       });
       
+      const isPrivilegedUser = user && ["admin", "manager", "receptionist"].includes(user.role);
+      if (isPrivilegedUser) {
+        const userIds = new Set<string>();
+        uniqueLeads.forEach(l => {
+          if (l.createdBy) userIds.add(l.createdBy);
+          if (l.assignedToId) userIds.add(l.assignedToId);
+        });
+        const userMap = new Map<string, string>();
+        for (const uid of userIds) {
+          const u = await storage.getUser(uid);
+          if (u) userMap.set(uid, u.name);
+        }
+        const enrichedLeads = uniqueLeads.map(l => ({
+          ...l,
+          createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
+          assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+        }));
+        return res.json(enrichedLeads);
+      }
+      
       res.json(uniqueLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -1733,6 +1763,7 @@ ${allPages.map(p => `  <url>
         budgetMax: budgetMax || null,
         assignedToId: req.user?.role === "sales_executive" ? req.user.userId : null,
         assignmentType: req.user?.role === "sales_executive" ? "property_auto" : "unassigned",
+        createdBy: req.user?.userId || null,
       });
 
       await storage.createAuditLog({
@@ -8246,11 +8277,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // Filter to specified property or use all assigned properties
       const targetPropertyIds = propertyId ? [propertyId] : assignedPropertyIds;
       
-      // Get leads that are either:
-      // 1. Assigned to this sales exec, OR
-      // 2. For their assigned properties (even if not yet assigned to them)
-      const leads = await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
-      res.json(leads);
+      const fetchedLeads = await storage.getLeadsForAssignedProperties(userId, targetPropertyIds);
+      
+      const userIds = new Set<string>();
+      fetchedLeads.forEach(l => {
+        if (l.createdBy) userIds.add(l.createdBy);
+        if (l.assignedToId) userIds.add(l.assignedToId);
+      });
+      const userMap = new Map<string, string>();
+      for (const uid of userIds) {
+        const u = await storage.getUser(uid);
+        if (u) userMap.set(uid, u.name);
+      }
+      const enrichedLeads = fetchedLeads.map(l => ({
+        ...l,
+        createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
+        assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
+      }));
+      res.json(enrichedLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ error: "Failed to fetch leads" });
@@ -8331,7 +8375,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         isManualEntry: true,
         assignedToId: authReq.user!.userId,
         assignedAt: new Date(),
-        assignmentType: authReq.user!.role === "admin" ? "admin_manual" : "property_auto", // Sales exec creates = auto assignment, Admin creates = manual
+        assignmentType: authReq.user!.role === "admin" ? "admin_manual" : "property_auto",
+        createdBy: authReq.user!.userId,
         score: 5,
         priority: "cold",
       });

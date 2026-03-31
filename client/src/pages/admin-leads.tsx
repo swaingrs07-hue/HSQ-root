@@ -73,6 +73,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
 import { useProperty } from "@/contexts/property-context";
 
+type EnrichedLead = Lead & { createdByName?: string | null; assignedToName?: string | null };
+
 interface SalesExecWithCounts {
   id: string;
   name: string;
@@ -146,7 +148,7 @@ export default function AdminLeads() {
     return auth.token ? { Authorization: `Bearer ${auth.token}` } : {};
   }, []);
 
-  const { data: leads = [], isLoading: leadsLoading, refetch: refetchLeads } = useQuery<Lead[]>({
+  const { data: leads = [], isLoading: leadsLoading, refetch: refetchLeads } = useQuery<EnrichedLead[]>({
     queryKey: ["/api/leads", selectedPropertyId],
     queryFn: async () => {
       const url = selectedPropertyId 
@@ -722,6 +724,11 @@ export default function AdminLeads() {
                                 ) : (
                                   <p className="text-xs text-slate-500">
                                     {lead.isManualEntry ? `via ${lead.entrySource || "manual"}` : lead.source}
+                                  </p>
+                                )}
+                                {lead.createdByName && (
+                                  <p className="text-[10px] text-indigo-500 font-medium" data-testid={`text-lead-by-${lead.id}`}>
+                                    Lead by {lead.createdByName}
                                   </p>
                                 )}
                               </div>

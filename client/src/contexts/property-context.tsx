@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Property {
   id: string;
@@ -33,6 +34,10 @@ const MAX_RECENT = 5;
 export function PropertyProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, token } = useAuth();
+  
+  const isSalesExec = user?.role === "sales_executive";
+  const propertiesEndpoint = isSalesExec ? "/api/sales/properties" : "/api/properties";
   
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -58,8 +63,18 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   });
 
   const { data: properties = [], isLoading } = useQuery<Property[]>({
-    queryKey: ["/api/properties"],
+    queryKey: [propertiesEndpoint],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (isSalesExec && token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(propertiesEndpoint, { headers });
+      if (!res.ok) throw new Error("Failed to fetch properties");
+      return res.json();
+    },
     staleTime: 5 * 60 * 1000,
+    enabled: !isSalesExec || !!token,
   });
 
   const selectedProperty = selectedPropertyId
