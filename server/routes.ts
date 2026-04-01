@@ -336,7 +336,7 @@ export async function registerRoutes(
       const token = authHeader.split(" ")[1];
       const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
       const user = await storage.getUser(decoded.userId);
-      if (!user || !["admin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
       const messages = await storage.getAllContactMessages();
       const unreadCount = await storage.getUnreadContactMessageCount();
       res.json({ messages, unreadCount });
@@ -354,7 +354,7 @@ export async function registerRoutes(
       const token = authHeader.split(" ")[1];
       const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
       const user = await storage.getUser(decoded.userId);
-      if (!user || !["admin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
       const { status } = req.body;
       if (!["new", "read", "replied", "archived"].includes(status)) return res.status(400).json({ error: "Invalid status" });
       const updated = await storage.updateContactMessageStatus(req.params.id, status, status === "replied" ? user.id : undefined);
@@ -1130,7 +1130,7 @@ ${allPages.map(p => `  <url>
           });
         }
         if (isNewLead) {
-          const adminUsers = await storage.getUsersByRole(["admin"]);
+          const adminUsers = await storage.getUsersByRole(["admin", "superadmin"]);
           for (const admin of adminUsers) {
             await storage.createNotification({
               userId: admin.id,
@@ -1228,7 +1228,7 @@ ${allPages.map(p => `  <url>
           actionUrl: "/sales/requests",
         });
       }
-      const enquiryAdmins = await storage.getUsersByRole(["admin"]);
+      const enquiryAdmins = await storage.getUsersByRole(["admin", "superadmin"]);
       for (const admin of enquiryAdmins) {
         await storage.createNotification({
           userId: admin.id,
@@ -1870,7 +1870,7 @@ ${allPages.map(p => `  <url>
       
       const allLeads = await storage.getAllLeads(propertyId);
       
-      const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
+      const staffUsers = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
       const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
       
@@ -1905,7 +1905,7 @@ ${allPages.map(p => `  <url>
         return true;
       });
       
-      const isPrivilegedUser = user && ["admin", "manager", "receptionist"].includes(user.role);
+      const isPrivilegedUser = user && ["admin", "superadmin", "manager", "receptionist"].includes(user.role);
       if (isPrivilegedUser) {
         const userIds = new Set<string>();
         uniqueLeads.forEach(l => {
@@ -2484,7 +2484,7 @@ ${allPages.map(p => `  <url>
     return crypto.timingSafeEqual(tokenBuf, expectedBuf);
   }
 
-  const CALENDAR_FEED_ALLOWED_ROLES = ["admin", "manager", "sales_executive"];
+  const CALENDAR_FEED_ALLOWED_ROLES = ["admin", "superadmin", "manager", "sales_executive"];
 
   app.get("/api/calendar/feed-url", authMiddleware, async (req: AuthRequest, res) => {
     try {
