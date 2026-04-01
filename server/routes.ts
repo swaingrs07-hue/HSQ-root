@@ -1117,7 +1117,10 @@ ${allPages.map(p => `  <url>
           });
         }
 
-        if (assignedToId) {
+        const isNewLead = !existingLead;
+        const assignmentChanged = existingLead && !existingLead.assignedToId && assignedToId;
+
+        if (assignedToId && (isNewLead || assignmentChanged)) {
           await storage.createNotification({
             userId: assignedToId,
             title: "New Website Lead",
@@ -1126,15 +1129,17 @@ ${allPages.map(p => `  <url>
             actionUrl: "/sales/requests",
           });
         }
-        const adminUsers = await storage.getUsersByRole(["admin"]);
-        for (const admin of adminUsers) {
-          await storage.createNotification({
-            userId: admin.id,
-            title: "New Website Lead",
-            message: `New lead "${data.name}" received from website${propertyName ? ` for ${propertyName}` : ""}.`,
-            type: "lead",
-            actionUrl: "/admin/leads",
-          });
+        if (isNewLead) {
+          const adminUsers = await storage.getUsersByRole(["admin"]);
+          for (const admin of adminUsers) {
+            await storage.createNotification({
+              userId: admin.id,
+              title: "New Website Lead",
+              message: `New lead "${data.name}" received from website${propertyName ? ` for ${propertyName}` : ""}.`,
+              type: "lead",
+              actionUrl: "/admin/leads",
+            });
+          }
         }
 
         res.json({ 
@@ -8462,10 +8467,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       if (userId && (!existingLead || existingLead.assignedToId !== userId)) {
+        const isReassign = existingLead?.assignedToId && existingLead.assignedToId !== userId;
         await storage.createNotification({
           userId,
-          title: existingLead?.assignedToId ? "Lead Reassigned to You" : "New Lead Assigned",
-          message: `Lead "${lead.name}" has been assigned to you by admin.`,
+          title: isReassign ? "Lead Reassigned to You" : "New Lead Assigned",
+          message: isReassign
+            ? `Lead "${lead.name}" has been reassigned to you by admin.`
+            : `Lead "${lead.name}" has been assigned to you by admin.`,
           type: "lead",
           actionUrl: "/sales/requests",
         });
