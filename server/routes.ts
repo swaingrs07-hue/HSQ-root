@@ -11224,9 +11224,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:propertyId/plans", async (req, res) => {
     try {
+      const prop = await storage.getPropertyByIdOrSlug(req.params.propertyId);
+      const resolvedId = prop?.id || req.params.propertyId;
       const plans = await db.select().from(schema.packages)
         .where(and(
-          eq(schema.packages.propertyId, req.params.propertyId),
+          eq(schema.packages.propertyId, resolvedId),
           eq(schema.packages.isActive, true),
           eq(schema.packages.category, "housing_plan")
         ))
