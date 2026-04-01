@@ -332,7 +332,7 @@ function AdminUsersContent() {
   const stats = {
     total: users.length,
     active: users.filter(u => u.isActive).length,
-    admins: users.filter(u => u.role === "admin").length,
+    admins: users.filter(u => u.role === "admin" || u.role === "superadmin").length,
     salesExecs: users.filter(u => u.role === "sales_executive").length
   };
 
@@ -840,7 +840,7 @@ function AdminUsersContent() {
                 <p className="text-sm text-slate-600">
                   Are you sure you want to remove this user? This action cannot be undone.
                 </p>
-                {selectedUser?.role === "admin" && (
+                {(selectedUser?.role === "admin" || selectedUser?.role === "superadmin") && (
                   <div className="space-y-2">
                     <Label className="text-sm text-red-600 font-medium">
                       Type DELETE to confirm admin removal
@@ -866,7 +866,7 @@ function AdminUsersContent() {
                 deleting || 
                 isLastAdmin || 
                 !canDelete ||
-                (selectedUser?.role === "admin" && deleteConfirmText !== "DELETE")
+                ((selectedUser?.role === "admin" || selectedUser?.role === "superadmin") && deleteConfirmText !== "DELETE")
               }
               variant="destructive"
               data-testid="button-confirm-delete"

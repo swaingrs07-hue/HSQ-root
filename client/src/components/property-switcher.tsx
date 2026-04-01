@@ -54,7 +54,7 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

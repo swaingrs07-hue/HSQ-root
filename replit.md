@@ -25,8 +25,9 @@ Preferred communication style: Simple, everyday language.
 -   **Key Entities**: Users, students, properties, rooms, bookings, payments, audit logs, leads, sales activities, packages, registration requests.
 
 ### Authentication & Authorization
--   **Roles**: "user", "admin", "manager", "staff", "sales_executive", "receptionist".
+-   **Roles**: "user", "admin", "superadmin", "manager", "staff", "sales_executive", "receptionist".
 -   **Security**: Hashed passwords, role-based access control.
+-   **Superadmin Role**: Full admin access plus exclusive abilities: cross-room-type bed shifting. `roleMiddleware` auto-includes `superadmin` whenever `admin` is allowed. `gyan@hsquareliving.com` is seeded as superadmin.
 -   **Receptionist Role**: Limited admin access focused on bookings, requests, registrations, calendar, floors & beds, and booking tree, without access to financial data or system configuration.
 
 ### Core Features

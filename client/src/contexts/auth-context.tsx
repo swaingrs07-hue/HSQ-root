@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 
-export type UserRole = "user" | "admin" | "manager" | "staff" | "sales_executive";
+export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist";
 
 interface User {
   id: string;
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && user.role === "admin" && isAuthRoute) {
+    if (user && (user.role === "admin" || user.role === "superadmin") && isAuthRoute) {
       setLocation("/admin");
       return;
     }
@@ -98,17 +98,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && isAdminRoute && user.role !== "admin" && user.role !== "receptionist") {
+    if (user && isAdminRoute && user.role !== "admin" && user.role !== "superadmin" && user.role !== "receptionist") {
       setLocation(getRedirectPath());
       return;
     }
 
-    if (user && isOperationsRoute && !["admin", "manager", "staff"].includes(user.role)) {
+    if (user && isOperationsRoute && !["admin", "superadmin", "manager", "staff"].includes(user.role)) {
       setLocation(getRedirectPath());
       return;
     }
 
-    if (user && isSalesRoute && !["admin", "sales_executive"].includes(user.role)) {
+    if (user && isSalesRoute && !["admin", "superadmin", "sales_executive"].includes(user.role)) {
       setLocation(getRedirectPath());
     }
   }, [location, user, isLoading, setLocation]);
@@ -222,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function getRedirectPath(): string {
     if (!user) return "/auth";
     switch (user.role) {
+      case "superadmin":
       case "admin":
       case "receptionist":
         return "/admin";
@@ -237,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   if (isLoading) {
     return (

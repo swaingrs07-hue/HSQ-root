@@ -216,7 +216,7 @@ async function autoAssignLead(leadId: string, propertyId: string): Promise<{ ass
       
       // Notify admins about unassigned lead
       const admins = await storage.getSalesExecutives();
-      for (const admin of admins.filter((u: any) => u.role === "admin")) {
+      for (const admin of admins.filter((u: any) => u.role === "admin" || u.role === "superadmin")) {
         await storage.createNotification({
           userId: admin.id,
           title: "Unassigned Lead - Action Required",
@@ -2193,7 +2193,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
 
@@ -2223,7 +2223,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
 
@@ -2247,7 +2247,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -2269,7 +2269,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -2291,7 +2291,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -2313,7 +2313,7 @@ ${allPages.map(p => `  <url>
       }
       const token = authHeader.substring(7);
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       
@@ -2330,7 +2330,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/calendar/events", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -2411,7 +2411,7 @@ ${allPages.map(p => `  <url>
       const { sourceType, id } = req.params;
       const payload = req.user;
 
-      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -2569,7 +2569,7 @@ ${allPages.map(p => `  <url>
         }
       }
 
-      const calendarName = user.role === "admin"
+      const calendarName = (user.role === "admin" || user.role === "superadmin")
         ? "Hsquare - All Events"
         : `Hsquare - ${user.name}'s Events`;
 
@@ -2591,7 +2591,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/leads/follow-ups/overdue", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -2614,7 +2614,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/leads/follow-ups/upcoming", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -2638,7 +2638,7 @@ ${allPages.map(p => `  <url>
   app.patch("/api/leads/:id/follow-up", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -4252,7 +4252,7 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       if (!payload.userId) {
@@ -4290,7 +4290,7 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || payload.role !== "admin") {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
         return res.status(403).json({ error: "Admin access required" });
       }
       if (!payload.userId) {
@@ -4679,13 +4679,22 @@ ${allPages.map(p => `  <url>
 
       if (newBed.status !== "available") return res.status(400).json({ error: "Target bed is not available" });
 
-      if (newBed.roomTypeId !== booking.roomTypeId) {
+      const isSuperadmin = (req as AuthRequest).user!.role === "superadmin";
+      if (newBed.roomTypeId !== booking.roomTypeId && !isSuperadmin) {
         return res.status(400).json({ error: "Target bed must be in the same room type category" });
       }
+
+      const isRoomTypeChange = newBed.roomTypeId !== booking.roomTypeId;
 
       const newRoom = newBed.roomId ? await db.select().from(schema.rooms).where(eq(schema.rooms.id, newBed.roomId)).then(r => r[0]) : null;
       const newFloor = await db.select().from(schema.floors).where(eq(schema.floors.id, newBed.floorId)).then(r => r[0]);
       const existingRd = (booking.residentDetails as Record<string, any>) || {};
+
+      let newRoomTypeName: string | undefined;
+      if (isRoomTypeChange && newBed.roomTypeId) {
+        const newRoomType = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, newBed.roomTypeId)).then(r => r[0]);
+        newRoomTypeName = newRoomType?.name;
+      }
 
       await db.transaction(async (tx) => {
         if (booking.bedId) {
@@ -4707,14 +4716,20 @@ ${allPages.map(p => `  <url>
           bedNo: newBed.bedNumber || "",
         };
 
-        await tx.update(schema.bookings).set({
+        const bookingUpdate: any = {
           bedId: newBedId,
           roomId: newBed.roomId || booking.roomId,
           floorId: newBed.floorId,
           residentDetails: updatedRd,
           bedAllocated: true,
           updatedAt: new Date(),
-        }).where(eq(schema.bookings.id, req.params.id));
+        };
+
+        if (isRoomTypeChange && newBed.roomTypeId) {
+          bookingUpdate.roomTypeId = newBed.roomTypeId;
+        }
+
+        await tx.update(schema.bookings).set(bookingUpdate).where(eq(schema.bookings.id, req.params.id));
 
         const affectedFloorIds = new Set<string>();
         if (booking.floorId) affectedFloorIds.add(booking.floorId);
@@ -4738,6 +4753,12 @@ ${allPages.map(p => `  <url>
             newRoomNo: newRoom?.roomNumber,
             newBedNo: newBed.bedNumber,
             newFloor: newFloor?.name,
+            ...(isRoomTypeChange ? {
+              crossRoomTypeShift: true,
+              oldRoomTypeId: booking.roomTypeId,
+              newRoomTypeId: newBed.roomTypeId,
+              newRoomTypeName,
+            } : {}),
           }),
         });
       });
@@ -5540,7 +5561,7 @@ ${allPages.map(p => `  <url>
         
         // Create notification for admin
         const admins = await storage.getSalesExecutives();
-        for (const admin of admins.filter(u => u.role === "admin")) {
+        for (const admin of admins.filter(u => u.role === "admin" || u.role === "superadmin")) {
           await storage.createNotification({
             userId: admin.id,
             title: "Unassigned Lead - Action Required",
@@ -8327,7 +8348,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           activeLeads: requests[0]?.count || 0,
           properties: properties[0]?.count || 0,
         },
-        isLastAdmin: user.role === "admin" && (adminCount[0]?.count || 0) <= 1,
+        isLastAdmin: (user.role === "admin" || user.role === "superadmin") && (adminCount[0]?.count || 0) <= 1,
         canDelete: (leads[0]?.count || 0) === 0 && (properties[0]?.count || 0) === 0,
       });
     } catch (error: any) {
@@ -8446,7 +8467,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       // Check if last admin
-      if (user.role === "admin") {
+      if (user.role === "admin" || user.role === "superadmin") {
         const adminCount = await db.select({ count: sql<number>`count(*)::int` })
           .from(schema.users)
           .where(and(
@@ -8702,7 +8723,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/sales/properties", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const isAdmin = authReq.user!.role === "admin";
+      const isAdmin = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
       const properties = isAdmin
         ? await storage.getAllProperties()
         : await storage.getAssignedPropertiesForUser(authReq.user!.userId);
@@ -8719,7 +8740,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const authReq = req as AuthRequest;
       const userId = authReq.user!.userId;
       const propertyId = req.query.propertyId as string | undefined;
-      const isAdmin = authReq.user!.role === "admin";
+      const isAdmin = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
       
       let fetchedLeads: any[];
       if (isAdmin) {
@@ -8780,7 +8801,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/sales/my-properties", authMiddleware, roleMiddleware("sales_executive", "admin"), async (req, res) => {
     try {
       const authReq = req as AuthRequest;
-      const isAdmin = authReq.user!.role === "admin";
+      const isAdmin = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
       const properties = isAdmin 
         ? await storage.getAllProperties()
         : await storage.getAssignedPropertiesForUser(authReq.user!.userId);
@@ -8874,12 +8895,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const property = await storage.getProperty(data.propertyId);
       
       let assignToId = authReq.user!.userId;
-      let assignType: "admin_manual" | "property_auto" = authReq.user!.role === "admin" ? "admin_manual" : "property_auto";
+      const isAdminRole = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
+      let assignType: "admin_manual" | "property_auto" = isAdminRole ? "admin_manual" : "property_auto";
       
-      if (authReq.user!.role === "admin" && data.assignToUserId) {
+      if (isAdminRole && data.assignToUserId) {
         assignToId = data.assignToUserId;
         assignType = "admin_manual";
-      } else if (authReq.user!.role === "admin" && !data.assignToUserId) {
+      } else if (isAdminRole && !data.assignToUserId) {
         const assignments = await db.select({ salesExecId: schema.salesExecProperties.userId })
           .from(schema.salesExecProperties)
           .where(and(
@@ -9788,10 +9810,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const propertyId = req.params.id;
       const roomTypeId = req.query.roomTypeId as string;
-      if (!roomTypeId) return res.status(400).json({ error: "roomTypeId query param is required" });
+      const isSuperadmin = req.user!.role === "superadmin";
+      if (!roomTypeId && !isSuperadmin) return res.status(400).json({ error: "roomTypeId query param is required" });
 
       const allBeds = await storage.getBedsByProperty(propertyId);
-      const availableBeds = allBeds.filter((b: any) => b.roomTypeId === roomTypeId && b.status === "available");
+      const availableBeds = roomTypeId
+        ? allBeds.filter((b: any) => b.roomTypeId === roomTypeId && b.status === "available")
+        : allBeds.filter((b: any) => b.status === "available");
 
       const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
       const roomIds = [...new Set(availableBeds.map(b => b.roomId).filter(Boolean))];
@@ -9853,6 +9878,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         }
       }
 
+      const roomTypeIds = [...new Set(availableBeds.map(b => b.roomTypeId).filter(Boolean))];
+      const roomTypesList = roomTypeIds.length > 0 ? await db.select().from(schema.roomTypes).where(inArray(schema.roomTypes.id, roomTypeIds as string[])) : [];
+      const roomTypeMap = Object.fromEntries(roomTypesList.map(rt => [rt.id, rt]));
+
       const enriched = availableBeds.map(bed => {
         const packageNames = bed.roomId && roomPackageMap[bed.roomId]
           ? [...roomPackageMap[bed.roomId]]
@@ -9866,6 +9895,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           roomId: bed.roomId,
           roomNumber: bed.roomId ? roomMap[bed.roomId]?.roomNumber || "" : "",
           roomTypeId: bed.roomTypeId,
+          roomTypeName: bed.roomTypeId ? roomTypeMap[bed.roomTypeId]?.name || "" : "",
           linkedPackages: packageNames,
         };
       });

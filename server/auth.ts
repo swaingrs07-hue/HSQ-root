@@ -15,7 +15,7 @@ function getJWTSecret(): string {
 const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN = "7d";
 
-export type UserRole = "user" | "admin" | "manager" | "staff" | "sales_executive";
+export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist";
 
 export interface JWTPayload {
   userId: string;
@@ -73,7 +73,12 @@ export function roleMiddleware(...allowedRoles: UserRole[]) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const effectiveRoles = new Set(allowedRoles);
+    if (effectiveRoles.has("admin")) {
+      effectiveRoles.add("superadmin");
+    }
+
+    if (!effectiveRoles.has(req.user.role)) {
       return res.status(403).json({ error: "Access denied. Insufficient permissions." });
     }
 
@@ -83,12 +88,15 @@ export function roleMiddleware(...allowedRoles: UserRole[]) {
 
 export function getRoleRedirectPath(role: UserRole): string {
   switch (role) {
+    case "superadmin":
     case "admin":
     case "receptionist":
       return "/admin";
     case "manager":
     case "staff":
       return "/operations";
+    case "sales_executive":
+      return "/sales";
     case "user":
     default:
       return "/dashboard";

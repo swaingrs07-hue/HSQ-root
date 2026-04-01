@@ -261,7 +261,7 @@ export default function BookingGeneration() {
     residentPhotoPath: "",
   });
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
   const isRegularUser = user?.role === "user" || user?.role === "student";

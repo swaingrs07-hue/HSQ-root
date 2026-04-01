@@ -146,7 +146,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
-  const isMainAdmin = user?.email === "gyan@hsquareliving.com";
+  const isSuperAdmin = user?.role === "superadmin";
+  const isMainAdmin = user?.email === "gyan@hsquareliving.com" || isSuperAdmin;
   const navItems = isReceptionist
     ? receptionistNavItems
     : isAdmin

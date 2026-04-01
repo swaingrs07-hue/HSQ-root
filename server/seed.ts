@@ -46,9 +46,12 @@ async function ensureAdminUsers() {
       name: "Gyan",
       email: "gyan@hsquareliving.com",
       password: hashedPassword,
-      role: "admin",
+      role: "superadmin",
     });
-    console.log("Created admin user: gyan@hsquareliving.com");
+    console.log("Created superadmin user: gyan@hsquareliving.com");
+  } else if (gyan.role !== "superadmin") {
+    await storage.updateUser(gyan.id, { role: "superadmin" as any });
+    console.log("Upgraded gyan@hsquareliving.com to superadmin");
   }
 
   const arjun = await storage.getUserByEmail("arjun@hsquareliving.com");
