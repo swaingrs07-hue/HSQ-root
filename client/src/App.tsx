@@ -173,6 +173,7 @@ function AppContent() {
               <Route path="/help" component={Help} />
               <Route path="/sales" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
+              <Route path="/sales/calendar" component={AdminCalendar} />
               <Route path="/sales/bookings/completed" component={CompletedBookings} />
               <Route path="/booking/generate" component={BookingGeneration} />
               <Route path="/properties" component={PropertySelection} />

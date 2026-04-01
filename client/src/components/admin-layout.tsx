@@ -133,7 +133,7 @@ const salesNavItems: NavItem[] = [
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },
   { name: "My Bookings", href: "/sales/bookings/completed", icon: CheckCircle2 },
-  { name: "Calendar", href: "/admin/calendar", icon: Calendar },
+  { name: "Calendar", href: "/sales/calendar", icon: Calendar },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
