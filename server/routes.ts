@@ -9995,7 +9995,83 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
       const propertyId = req.params.id;
-      const floorsList = await storage.getFloorsByProperty(propertyId);
+      let floorsList = await storage.getFloorsByProperty(propertyId);
+
+      if (floorsList.length === 0) {
+        let isAdmin = false;
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith("Bearer ")) {
+          try {
+            const jwtMod = await import("jsonwebtoken");
+            const decoded = jwtMod.default.verify(authHeader.split(" ")[1], process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as { userId: string; role: string };
+            isAdmin = decoded.role === "admin" || decoded.role === "superadmin";
+          } catch { /* invalid token — treat as unauthenticated */ }
+        }
+
+        if (isAdmin) {
+          const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
+          const hasBedsToGenerate = roomTypesList.some(rt => rt.totalBeds > 0);
+          if (roomTypesList.length > 0 && hasBedsToGenerate) {
+            await db.transaction(async (tx) => {
+              const recheck = await tx.select({ id: schema.floors.id }).from(schema.floors).where(eq(schema.floors.propertyId, propertyId)).limit(1);
+              if (recheck.length > 0) return;
+
+              const [floor] = await tx.insert(schema.floors).values({
+                propertyId,
+                floorNumber: 0,
+                name: "Main Floor",
+                totalBeds: 0,
+                availableBeds: 0,
+              }).returning();
+
+              let roomCounter = 1;
+              for (const rt of roomTypesList) {
+                if (rt.totalBeds <= 0) continue;
+                const occupancy = rt.occupancy || 1;
+                const roomsNeeded = Math.ceil(rt.totalBeds / occupancy);
+
+                for (let r = 0; r < roomsNeeded; r++) {
+                  const roomNum = `${100 + roomCounter}`;
+                  const remainingBeds = rt.totalBeds - r * occupancy;
+                  const bedsInThisRoom = Math.min(occupancy, remainingBeds);
+                  const [room] = await tx.insert(schema.rooms).values({
+                    propertyId,
+                    floorId: floor.id,
+                    roomTypeId: rt.id,
+                    roomNumber: roomNum,
+                    typology: `${occupancy} Bed`,
+                    hasSharedWashroom: false,
+                    totalBeds: bedsInThisRoom,
+                    status: "available",
+                    monthlyPrice: rt.basePrice,
+                  }).returning();
+                  const bedValues: (typeof schema.beds.$inferInsert)[] = [];
+                  for (let b = 0; b < bedsInThisRoom; b++) {
+                    bedValues.push({
+                      propertyId,
+                      floorId: floor.id,
+                      roomId: room.id,
+                      roomTypeId: rt.id,
+                      bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
+                      status: "available",
+                      monthlyPrice: rt.basePrice,
+                    });
+                  }
+                  if (bedValues.length > 0) {
+                    await tx.insert(schema.beds).values(bedValues);
+                  }
+                  roomCounter++;
+                }
+              }
+
+              const totalGenerated = roomTypesList.reduce((sum, rt) => sum + Math.max(rt.totalBeds, 0), 0);
+              await tx.update(schema.floors).set({ totalBeds: totalGenerated, availableBeds: totalGenerated }).where(eq(schema.floors.id, floor.id));
+            });
+
+            floorsList = await storage.getFloorsByProperty(propertyId);
+          }
+        }
+      }
 
       const activeBookings = await db.select({
         bedId: schema.bookings.bedId,
