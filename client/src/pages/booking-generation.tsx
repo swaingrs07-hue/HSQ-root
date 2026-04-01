@@ -1907,17 +1907,8 @@ export default function BookingGeneration() {
 
                       <div className="space-y-3">
                         {floors.map((floor: any) => {
-                          const selectedRT = roomTypes.find((rt: any) => rt.id === formData.roomTypeId);
-                          const selectedOccupancy = selectedRT?.occupancy || 0;
-                          const bedMatchesSelectedType = (bed: any, room: any) => {
-                            if (bed.roomTypeId === formData.roomTypeId) return true;
-                            if (!room?.typology?.includes("+") || !selectedOccupancy) return false;
-                            const parts = room.typology.split("+").map((p: string) => parseInt(p));
-                            const sectionIdx = parts.findIndex((_: number, i: number) => {
-                              const sLetter = String.fromCharCode(65 + i);
-                              return bed.bedNumber?.includes(`${room.roomNumber}${sLetter}`);
-                            });
-                            return sectionIdx >= 0 && parts[sectionIdx] === selectedOccupancy;
+                          const bedMatchesSelectedType = (bed: any, _room: any) => {
+                            return bed.roomTypeId === formData.roomTypeId;
                           };
                           const floorRooms = (floor.rooms || []).filter((r: any) =>
                             (r.beds || []).some((b: any) => bedMatchesSelectedType(b, r)) || r.roomTypeId === formData.roomTypeId
