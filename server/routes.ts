@@ -6520,7 +6520,7 @@ ${allPages.map(p => `  <url>
 
         if (updated) {
           try {
-            const [adminUser] = await db.select().from(schema.users).where(eq(schema.users.role, "admin")).limit(1);
+            const [adminUser] = await db.select().from(schema.users).where(inArray(schema.users.role, ["admin", "superadmin"])).limit(1);
             if (adminUser) {
               await db.insert(schema.auditLogs).values({
                 id: crypto.randomUUID(),
@@ -8348,11 +8348,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .from(schema.salesExecProperties)
         .where(eq(schema.salesExecProperties.userId, id));
 
-      // Check if last admin
       const adminCount = await db.select({ count: sql<number>`count(*)::int` })
         .from(schema.users)
         .where(and(
-          eq(schema.users.role, "admin"),
+          inArray(schema.users.role, ["admin", "superadmin"]),
           eq(schema.users.isActive, true)
         ));
 
@@ -8486,7 +8485,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const adminCount = await db.select({ count: sql<number>`count(*)::int` })
           .from(schema.users)
           .where(and(
-            eq(schema.users.role, "admin"),
+            inArray(schema.users.role, ["admin", "superadmin"]),
             eq(schema.users.isActive, true)
           ));
         
@@ -9910,7 +9909,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           roomId: bed.roomId,
           roomNumber: bed.roomId ? roomMap[bed.roomId]?.roomNumber || "" : "",
           roomTypeId: bed.roomTypeId,
-          roomTypeName: bed.roomTypeId ? roomTypeMap[bed.roomTypeId]?.name || "" : "",
+          roomTypeName: bed.roomTypeId ? (roomTypeMap[bed.roomTypeId]?.customName || roomTypeMap[bed.roomTypeId]?.name || "") : "",
           linkedPackages: packageNames,
         };
       });
