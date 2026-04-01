@@ -399,7 +399,7 @@ export default function SalesDashboard() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
