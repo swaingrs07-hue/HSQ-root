@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo, useEffect } from "react";
+import { useState, useMemo, useCallback, memo, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import {
   DndContext,
@@ -655,6 +655,23 @@ interface LeadDetailDrawerProps {
 }
 
 function LeadDetailDrawer({ lead, open, onClose, onEdit }: LeadDetailDrawerProps) {
+  const [remarks, setRemarks] = useState<any[]>([]);
+  
+  useEffect(() => {
+    if (!lead?.id || !open) { setRemarks([]); return; }
+    const stored = localStorage.getItem("hsquare_auth");
+    if (!stored) return;
+    let token: string;
+    try { token = JSON.parse(stored).token; } catch { token = stored; }
+    if (!token) return;
+    fetch(`/api/admin/leads/${lead.id}/remarks`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setRemarks(data))
+      .catch(() => setRemarks([]));
+  }, [lead?.id, open]);
+
   if (!lead) return null;
   
   const stage = mapLeadStatusToStage(lead.status);
@@ -774,6 +791,30 @@ function LeadDetailDrawer({ lead, open, onClose, onEdit }: LeadDetailDrawerProps
               </div>
             </div>
           )}
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-indigo-500" />
+              Sales Remarks
+              {remarks.length > 0 && (
+                <Badge variant="secondary" className="text-xs">{remarks.length}</Badge>
+              )}
+            </h4>
+            <div className="pl-6 space-y-2 max-h-[200px] overflow-y-auto">
+              {remarks.length > 0 ? remarks.map((r: any) => (
+                <div key={r.id} className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-sm text-slate-700">{r.remark}</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {r.user?.name || "Staff"} &middot; {new Date(r.createdAt).toLocaleString("en-IN", {
+                      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+                    })}
+                  </p>
+                </div>
+              )) : (
+                <p className="text-sm text-slate-400">No remarks yet</p>
+              )}
+            </div>
+          </div>
         </div>
         
         <div className="pt-4 border-t border-slate-100 flex gap-3">

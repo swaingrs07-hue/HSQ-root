@@ -182,10 +182,11 @@ app.use((req, res, next) => {
 // Background job for checking overdue follow-ups and sending notifications
 // Track last notification time per user to avoid spamming
 const lastNotificationSent = new Map<string, number>();
-const NOTIFICATION_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hour cooldown between same notification types
+const NOTIFICATION_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hour cooldown for overdue notifications
+const UPCOMING_COOLDOWN_MS = 30 * 60 * 1000; // 30 min cooldown for upcoming follow-up reminders
 
 async function startFollowUpNotificationJob() {
-  const CHECK_INTERVAL_MS = 30 * 60 * 1000; // Check every 30 minutes
+  const CHECK_INTERVAL_MS = 15 * 60 * 1000; // Check every 15 minutes
   
   async function checkOverdueFollowUps() {
     try {
@@ -249,7 +250,7 @@ async function startFollowUpNotificationJob() {
           const throttleKey = `upcoming_${execId}`;
           const lastSent = lastNotificationSent.get(throttleKey) || 0;
           
-          if (Date.now() - lastSent > NOTIFICATION_COOLDOWN_MS) {
+          if (Date.now() - lastSent > UPCOMING_COOLDOWN_MS) {
             await storage.createNotification({
               userId: execId,
               type: "follow_up",
@@ -284,7 +285,7 @@ async function startFollowUpNotificationJob() {
   
   // Then run every CHECK_INTERVAL_MS
   setInterval(checkOverdueFollowUps, CHECK_INTERVAL_MS);
-  log(`Follow-up notification job started (runs every 30 minutes)`, "background");
+  log(`Follow-up notification job started (runs every 15 minutes)`, "background");
 }
 
 // Background job for monthly wallet credit auto-renewal
