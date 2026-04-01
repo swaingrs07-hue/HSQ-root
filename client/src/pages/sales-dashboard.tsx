@@ -356,10 +356,17 @@ export default function SalesDashboard() {
     const sources: Record<string, string> = {
       walk_in: "Walk-in",
       phone_call: "Phone Call",
+      call: "Phone Call",
+      phone_inquiry: "Phone Inquiry",
       whatsapp: "WhatsApp",
       website: "Website",
       referral: "Referral",
       social_media: "Social Media",
+      google_ads: "Google Ads",
+      email_campaign: "Email Campaign",
+      event: "Event",
+      chatbot: "Chatbot",
+      hsquare_dynamics: "Hsquare Dynamics",
       other: "Other"
     };
     return sources[source] || source;
@@ -879,10 +886,11 @@ export default function SalesDashboard() {
                       <SelectValue placeholder="Select reason" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="budget">Budget Issues</SelectItem>
-                      <SelectItem value="location">Location Not Suitable</SelectItem>
-                      <SelectItem value="competitor">Chose Competitor</SelectItem>
-                      <SelectItem value="not_interested">Not Interested</SelectItem>
+                      <SelectItem value="price_too_high">Price Too High</SelectItem>
+                      <SelectItem value="budget_constraints">Budget Constraints</SelectItem>
+                      <SelectItem value="location_not_suitable">Location Not Suitable</SelectItem>
+                      <SelectItem value="found_alternative">Found Alternative</SelectItem>
+                      <SelectItem value="timing_not_right">Timing Not Right</SelectItem>
                       <SelectItem value="no_response">No Response</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
