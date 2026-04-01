@@ -1326,16 +1326,16 @@ export class DatabaseStorage implements IStorage {
     stages: { status: string; count: number; percentage: number }[];
     conversionRate: number;
   }[]> {
-    // Get all properties that have leads
-    const propertiesWithLeads = await db
-      .selectDistinct({ propertyId: leads.propertyId, propertyName: leads.propertyName })
+    const distinctPropertyIds = await db
+      .selectDistinct({ propertyId: leads.propertyId })
       .from(leads)
       .where(sql`${leads.propertyId} IS NOT NULL`);
 
+    const uniqueIds = [...new Set(distinctPropertyIds.map(p => p.propertyId).filter(Boolean))] as string[];
+
     const funnels = await Promise.all(
-      propertiesWithLeads.map(async (p) => {
-        if (!p.propertyId) return null;
-        return this.getPropertyLeadFunnel(p.propertyId);
+      uniqueIds.map(async (propertyId) => {
+        return this.getPropertyLeadFunnel(propertyId);
       })
     );
 
