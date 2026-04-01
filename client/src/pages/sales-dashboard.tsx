@@ -268,13 +268,17 @@ export default function SalesDashboard() {
   const setFollowUp = async () => {
     if (!selectedLead) return;
     try {
+      const payload = {
+        ...followUpForm,
+        followUpAt: followUpForm.followUpAt ? new Date(followUpForm.followUpAt).toISOString() : "",
+      };
       const response = await fetch(`/api/sales/leads/${selectedLead.id}/follow-up`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getAuthToken()}`
         },
-        body: JSON.stringify(followUpForm)
+        body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error("Failed to set follow-up");
       toast({ title: "Success", description: "Follow-up scheduled" });
