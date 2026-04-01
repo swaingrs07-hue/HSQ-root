@@ -635,7 +635,7 @@ export default function BookingGeneration() {
         .then(data => { setPropertyPlans(data || []); setPlansLoading(false); })
         .catch(() => { setPropertyPlans([]); setPlansLoading(false); });
     }
-  }, [formData.propertyId]);
+  }, [formData.propertyId, token]);
 
   useEffect(() => {
     if (selectedPlanId && selectedPlanTier == null && propertyPlans.length > 0) {
