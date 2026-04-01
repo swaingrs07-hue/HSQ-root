@@ -4693,7 +4693,7 @@ ${allPages.map(p => `  <url>
       let newRoomTypeName: string | undefined;
       if (isRoomTypeChange && newBed.roomTypeId) {
         const newRoomType = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, newBed.roomTypeId)).then(r => r[0]);
-        newRoomTypeName = newRoomType?.name;
+        newRoomTypeName = newRoomType?.customName || newRoomType?.name;
       }
 
       await db.transaction(async (tx) => {
@@ -4701,22 +4701,27 @@ ${allPages.map(p => `  <url>
           await tx.update(schema.beds).set({ status: "available" }).where(eq(schema.beds.id, booking.bedId));
         }
 
-        const newBedStatus = (booking.status === "confirmed" || booking.status === "active") ? "occupied" : "reserved";
+        const newBedStatus: "occupied" | "reserved" = (booking.status === "confirmed" || booking.status === "active") ? "occupied" : "reserved";
         const [reserveResult] = await tx.update(schema.beds)
-          .set({ status: newBedStatus as any })
+          .set({ status: newBedStatus })
           .where(and(eq(schema.beds.id, newBedId), eq(schema.beds.status, "available")))
           .returning({ id: schema.beds.id });
         if (!reserveResult) {
           throw new Error("Target bed is no longer available (concurrent allocation)");
         }
 
-        const updatedRd = {
+        const updatedRd: Record<string, unknown> = {
           ...existingRd,
           roomNo: newRoom?.roomNumber || existingRd.roomNo || "",
           bedNo: newBed.bedNumber || "",
         };
 
-        const bookingUpdate: any = {
+        if (isRoomTypeChange && newRoomTypeName) {
+          updatedRd.accommodationType = newRoomTypeName;
+          updatedRd.roomType = newRoomTypeName;
+        }
+
+        const bookingUpdate: Partial<typeof schema.bookings.$inferInsert> = {
           bedId: newBedId,
           roomId: newBed.roomId || booking.roomId,
           floorId: newBed.floorId,
@@ -4736,8 +4741,18 @@ ${allPages.map(p => `  <url>
         if (newBed.floorId) affectedFloorIds.add(newBed.floorId);
         for (const fid of affectedFloorIds) {
           const floorBeds = await tx.select().from(schema.beds).where(eq(schema.beds.floorId, fid));
-          const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+          const availCount = floorBeds.filter((b) => b.status === "available").length;
           await tx.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, fid));
+        }
+
+        if (isRoomTypeChange && newBed.roomTypeId && booking.roomTypeId) {
+          const oldRtBeds = await tx.select().from(schema.beds).where(eq(schema.beds.roomTypeId, booking.roomTypeId));
+          const oldAvail = oldRtBeds.filter((b) => b.status === "available").length;
+          await tx.update(schema.roomTypes).set({ availableBeds: oldAvail }).where(eq(schema.roomTypes.id, booking.roomTypeId));
+
+          const newRtBeds = await tx.select().from(schema.beds).where(eq(schema.beds.roomTypeId, newBed.roomTypeId));
+          const newAvail = newRtBeds.filter((b) => b.status === "available").length;
+          await tx.update(schema.roomTypes).set({ availableBeds: newAvail }).where(eq(schema.roomTypes.id, newBed.roomTypeId));
         }
 
         await tx.insert(schema.auditLogs).values({

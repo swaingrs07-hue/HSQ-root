@@ -3109,7 +3109,8 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
   const [loading, setLoading] = useState(false);
   const [shifting, setShifting] = useState(false);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
-  const [crossRoomType, setCrossRoomType] = useState(false);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>(booking.roomTypeId || "");
+  const [roomTypes, setRoomTypes] = useState<{ id: string; name: string }[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "superadmin";
@@ -3119,14 +3120,33 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
     return authData ? JSON.parse(authData)?.token : null;
   };
 
-  const fetchAvailableBeds = async (allRoomTypes = false) => {
-    if (!booking.propertyId || !booking.roomTypeId) return;
+  const fetchRoomTypes = async () => {
+    if (!booking.propertyId) return;
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/properties/${booking.propertyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.roomTypes) {
+          setRoomTypes(data.roomTypes.map((rt: { id: string; name: string; customName?: string }) => ({
+            id: rt.id,
+            name: rt.customName || rt.name,
+          })));
+        }
+      }
+    } catch {
+      // Room types fetch failed, superadmin dropdown won't show options
+    }
+  };
+
+  const fetchAvailableBeds = async (roomTypeId: string) => {
+    if (!booking.propertyId) return;
     setLoading(true);
     try {
       const token = getAuthToken();
-      const url = allRoomTypes && isSuperAdmin
-        ? `/api/properties/${booking.propertyId}/available-beds`
-        : `/api/properties/${booking.propertyId}/available-beds?roomTypeId=${booking.roomTypeId}`;
+      const url = `/api/properties/${booking.propertyId}/available-beds?roomTypeId=${roomTypeId}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -3146,14 +3166,16 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
   const handleOpen = () => {
     setOpen(true);
     setSelectedBedId(null);
-    setCrossRoomType(false);
-    fetchAvailableBeds(false);
+    const defaultType = booking.roomTypeId || "";
+    setSelectedRoomTypeId(defaultType);
+    if (isSuperAdmin) fetchRoomTypes();
+    if (defaultType) fetchAvailableBeds(defaultType);
   };
 
-  const handleCrossRoomTypeToggle = (checked: boolean) => {
-    setCrossRoomType(checked);
+  const handleRoomTypeChange = (newRoomTypeId: string) => {
+    setSelectedRoomTypeId(newRoomTypeId);
     setSelectedBedId(null);
-    fetchAvailableBeds(checked);
+    fetchAvailableBeds(newRoomTypeId);
   };
 
   const handleShift = async () => {
@@ -3182,19 +3204,14 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
 
   const selectedBed = beds.find(b => b.id === selectedBedId);
 
-  const grouped = crossRoomType
-    ? beds.reduce<Record<string, AvailableBed[]>>((acc, bed) => {
-        const key = bed.roomTypeName || "Unknown Type";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(bed);
-        return acc;
-      }, {})
-    : beds.reduce<Record<string, AvailableBed[]>>((acc, bed) => {
-        const key = `${bed.floorName}`;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(bed);
-        return acc;
-      }, {});
+  const isCrossType = selectedRoomTypeId !== booking.roomTypeId;
+
+  const grouped = beds.reduce<Record<string, AvailableBed[]>>((acc, bed) => {
+    const key = `${bed.floorName}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(bed);
+    return acc;
+  }, {});
 
   return (
     <>
@@ -3231,16 +3248,27 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
               </div>
             </div>
 
-            {isSuperAdmin && (
-              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-amber-200 bg-amber-50" data-testid="toggle-cross-room-type">
-                <input
-                  type="checkbox"
-                  checked={crossRoomType}
-                  onChange={(e) => handleCrossRoomTypeToggle(e.target.checked)}
-                  className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                />
-                <span className="text-xs font-medium text-amber-800">Show all room types (cross-type shift)</span>
-              </label>
+            {isSuperAdmin && roomTypes.length > 0 && (
+              <div className="space-y-1" data-testid="room-type-selector">
+                <label className="text-xs font-medium text-slate-600">Room Type</label>
+                <select
+                  value={selectedRoomTypeId}
+                  onChange={(e) => handleRoomTypeChange(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none"
+                  data-testid="select-room-type"
+                >
+                  {roomTypes.map(rt => (
+                    <option key={rt.id} value={rt.id}>
+                      {rt.name}{rt.id === booking.roomTypeId ? " (current)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {isCrossType && (
+                  <div className="text-[11px] text-amber-600 font-medium px-1">
+                    Cross-type shift — booking room type will be updated
+                  </div>
+                )}
+              </div>
             )}
 
             {loading ? (
@@ -3250,7 +3278,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
               </div>
             ) : beds.length === 0 ? (
               <div className="text-center py-6 text-sm text-slate-400">
-                No available beds {crossRoomType ? "in this property" : "in this room type"}
+                No available beds in this room type
               </div>
             ) : (
               <div className="max-h-64 overflow-y-auto space-y-3">
@@ -3277,7 +3305,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                           <div className="text-slate-400">
                             Room {bed.roomNumber} &middot; F{bed.floorNumber}
                           </div>
-                          {crossRoomType && bed.roomTypeName && bed.roomTypeId !== booking.roomTypeId && (
+                          {isCrossType && bed.roomTypeName && (
                             <div className="mt-0.5 text-[10px] text-amber-600 font-medium">
                               {bed.roomTypeName}
                             </div>

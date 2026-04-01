@@ -50,7 +50,7 @@ async function ensureAdminUsers() {
     });
     console.log("Created superadmin user: gyan@hsquareliving.com");
   } else if (gyan.role !== "superadmin") {
-    await storage.updateUser(gyan.id, { role: "superadmin" as any });
+    await storage.updateUser(gyan.id, { role: "superadmin" });
     console.log("Upgraded gyan@hsquareliving.com to superadmin");
   }
 
