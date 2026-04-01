@@ -1907,12 +1907,33 @@ export default function BookingGeneration() {
 
                       <div className="space-y-3">
                         {floors.map((floor: any) => {
-                          const bedMatchesSelectedType = (bed: any, _room: any) => {
-                            return bed.roomTypeId === formData.roomTypeId;
+                          const selectedRT = roomTypes.find((rt: any) => rt.id === formData.roomTypeId);
+                          const selectedOccupancy = selectedRT?.occupancy || 1;
+
+                          const bedMatchesSelectedType = (bed: any, room: any) => {
+                            if (bed.roomTypeId === formData.roomTypeId) return true;
+                            if (room?.typology?.includes("+")) {
+                              const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                              const sectionIdx = parts.indexOf(selectedOccupancy);
+                              if (sectionIdx >= 0) {
+                                const sectionLetter = String.fromCharCode(65 + sectionIdx);
+                                return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+                              }
+                            }
+                            return false;
                           };
-                          const floorRooms = (floor.rooms || []).filter((r: any) =>
-                            (r.beds || []).some((b: any) => bedMatchesSelectedType(b, r)) || r.roomTypeId === formData.roomTypeId
-                          );
+
+                          const roomMatchesSelectedType = (room: any) => {
+                            if (room.roomTypeId === formData.roomTypeId) return true;
+                            if ((room.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId)) return true;
+                            if (room.typology?.includes("+")) {
+                              const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                              return parts.includes(selectedOccupancy);
+                            }
+                            return false;
+                          };
+
+                          const floorRooms = (floor.rooms || []).filter((r: any) => roomMatchesSelectedType(r));
                           const roomBedIds = new Set(floorRooms.flatMap((r: any) => (r.beds || []).map((b: any) => b.id)));
                           const allFloorBeds = floorRooms.flatMap((r: any) => (r.beds || []).filter((b: any) => bedMatchesSelectedType(b, r)))
                             .concat((floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId && !roomBedIds.has(b.id)));
