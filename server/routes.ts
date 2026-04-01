@@ -10021,6 +10021,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
               for (let r = 0; r < roomsNeeded; r++) {
                 const roomNum = `${100 + roomCounter}`;
+                const remainingBeds = rt.totalBeds - r * occupancy;
+                const bedsInThisRoom = Math.min(occupancy, remainingBeds);
                 const [room] = await tx.insert(schema.rooms).values({
                   propertyId,
                   floorId: floor.id,
@@ -10028,13 +10030,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
                   roomNumber: roomNum,
                   typology: `${occupancy} Bed`,
                   hasSharedWashroom: false,
-                  totalBeds: occupancy,
+                  totalBeds: bedsInThisRoom,
                   status: "available",
                   monthlyPrice: rt.basePrice,
                 }).returning();
-
-                const remainingBeds = rt.totalBeds - r * occupancy;
-                const bedsInThisRoom = Math.min(occupancy, remainingBeds);
                 const bedValues: (typeof schema.beds.$inferInsert)[] = [];
                 for (let b = 0; b < bedsInThisRoom; b++) {
                   bedValues.push({
