@@ -1227,3 +1227,70 @@ export async function sendWelcomeEmailForBooking(booking: Booking): Promise<{ su
 
   return result;
 }
+
+export async function sendFollowUpReminderEmail(
+  user: { name: string; email: string },
+  leads: Array<{ name: string; phone: string; followUpAt: Date | string | null; followUpNotes: string | null; propertyName: string | null }>
+): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const leadRows = leads.map(lead => {
+    const time = lead.followUpAt
+      ? new Date(lead.followUpAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })
+      : "Not set";
+    return `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">${lead.name}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">${lead.phone || '-'}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">${time}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">${lead.propertyName || '-'}</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #64748b;">${lead.followUpNotes || '-'}</td>
+      </tr>`;
+  }).join("");
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+      <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 24px 30px;">
+        <h1 style="color: white; margin: 0; font-size: 20px;">Upcoming Follow-ups</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 4px 0 0; font-size: 14px;">You have ${leads.length} follow-up${leads.length > 1 ? 's' : ''} scheduled within the next hour</p>
+      </div>
+      <div style="padding: 24px 30px;">
+        <p style="color: #334155; margin: 0 0 16px; font-size: 15px;">Hi ${user.name},</p>
+        <p style="color: #475569; margin: 0 0 20px; font-size: 14px;">Here are your upcoming follow-ups that need attention:</p>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <thead>
+            <tr style="background: #f8fafc;">
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Lead</th>
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Phone</th>
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Time</th>
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Property</th>
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>${leadRows}</tbody>
+        </table>
+        <div style="margin-top: 24px; text-align: center;">
+          <a href="${(process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in"}/sales/calendar" style="display: inline-block; padding: 10px 24px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 500;">View Calendar</a>
+        </div>
+      </div>
+      <div style="background: #f8fafc; padding: 16px 30px; text-align: center;">
+        <p style="color: #94a3b8; margin: 0; font-size: 12px;">Hsquare Living - Student Accommodation Management</p>
+      </div>
+    </div>`;
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: user.email,
+      subject: `Reminder: ${leads.length} follow-up${leads.length > 1 ? 's' : ''} coming up soon`,
+      html,
+    });
+    console.log(`[Email] Follow-up reminder sent to ${user.email}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Email] Failed to send follow-up reminder to ${user.email}:`, error);
+    return { success: false, error: error.message };
+  }
+}

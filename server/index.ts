@@ -258,6 +258,17 @@ async function startFollowUpNotificationJob() {
             });
             lastNotificationSent.set(throttleKey, Date.now());
             log(`Created follow-up reminder for exec ${execId}`, "background");
+
+            try {
+              const execUser = await storage.getUser(execId);
+              if (execUser?.email) {
+                const { sendFollowUpReminderEmail } = await import("./email-service");
+                await sendFollowUpReminderEmail(execUser, leads);
+                log(`Sent follow-up reminder email to ${execUser.email}`, "background");
+              }
+            } catch (emailErr) {
+              log(`Failed to send follow-up reminder email for exec ${execId}: ${emailErr}`, "background");
+            }
           } else {
             log(`Skipped upcoming notification for exec ${execId} (cooldown active)`, "background");
           }

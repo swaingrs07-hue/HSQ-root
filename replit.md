@@ -49,6 +49,9 @@ Preferred communication style: Simple, everyday language.
 -   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, keyword-rich content, and server-side meta tag injection (`server/seo-meta.ts`) for all public pages to ensure Google crawls unique title/description/canonical per route.
 -   **Sales Lead Visibility Scoping**: Sales execs only see their assigned properties in the property switcher (via `/api/sales/properties`). Leads are scoped to assigned properties. "Lead by [name]" attribution shown on admin and sales lead views. Leads have `createdBy` field tracking who created them.
 -   **Lead-to-Booking Attribution Chain**: Full attribution tracking from lead creation through booking completion. Real-time lead matching by phone/email during walk-in booking (via `/api/leads/match`). Auto-links leads to bookings with `linkedBookingId`. Tracks `convertedByUserId` (who initiated booking) and `confirmedBy` (who confirmed). Shows "Lead by", "Booking by", and "Confirmed by" attribution labels in admin and sales views. Lead status auto-updates on booking confirmation (`converted`) and cancellation (`lost`).
+-   **Lead Assignment Notifications**: In-app notifications for sales executives across all lead creation/assignment paths (website leads, tour enquiries, manual creation, admin assign/reassign, bulk assign). Admins notified of new website/enquiry leads.
+-   **Calendar Device Sync**: Live iCal subscription feed (`/api/calendar/feed/:userId/:token`) with HMAC token auth. Sales execs subscribe once in Google Calendar, Apple Calendar, or any iCal client to auto-sync all follow-ups and site visits with 30-min and 10-min VALARM reminders. "Sync to Device" UI panel on calendar page.
+-   **Follow-up Email Reminders**: Background job sends email reminders (via Resend) to sales executives when follow-ups are due within the next hour, with lead details table and direct calendar link.
 
 ## External Dependencies
 

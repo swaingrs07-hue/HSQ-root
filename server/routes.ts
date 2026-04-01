@@ -2466,6 +2466,125 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // ============ CALENDAR SUBSCRIPTION FEED ============
+
+  const CALENDAR_FEED_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+
+  function generateCalendarFeedToken(userId: string): string {
+    if (!CALENDAR_FEED_SECRET) {
+      throw new Error("Calendar feed secret not configured");
+    }
+    return crypto.createHmac("sha256", CALENDAR_FEED_SECRET).update(`calendar-feed:${userId}`).digest("hex").substring(0, 40);
+  }
+
+  function verifyCalendarFeedToken(token: string, expectedToken: string): boolean {
+    const tokenBuf = Buffer.from(token, "utf8");
+    const expectedBuf = Buffer.from(expectedToken, "utf8");
+    if (tokenBuf.length !== expectedBuf.length) return false;
+    return crypto.timingSafeEqual(tokenBuf, expectedBuf);
+  }
+
+  const CALENDAR_FEED_ALLOWED_ROLES = ["admin", "manager", "sales_executive"];
+
+  app.get("/api/calendar/feed-url", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      const role = req.user?.role;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      if (!role || !CALENDAR_FEED_ALLOWED_ROLES.includes(role)) {
+        return res.status(403).json({ error: "Calendar feed not available for your role" });
+      }
+
+      const token = generateCalendarFeedToken(userId);
+      const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || `https://${req.headers.host}`;
+      const feedUrl = `${baseUrl}/api/calendar/feed/${userId}/${token}`;
+      const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+
+      res.json({ feedUrl, webcalUrl, token });
+    } catch (error) {
+      console.error("Error generating calendar feed URL:", error);
+      res.status(500).json({ error: "Failed to generate feed URL" });
+    }
+  });
+
+  app.get("/api/calendar/feed/:userId/:token", async (req, res) => {
+    try {
+      const { userId, token } = req.params;
+      const expectedToken = generateCalendarFeedToken(userId);
+
+      if (!verifyCalendarFeedToken(token, expectedToken)) {
+        return res.status(403).json({ error: "Invalid feed token" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!CALENDAR_FEED_ALLOWED_ROLES.includes(user.role)) {
+        return res.status(403).json({ error: "Calendar feed not available for this user" });
+      }
+
+      const conditions = [];
+      if (user.role === "sales_executive") {
+        conditions.push(eq(schema.leads.assignedToId, userId));
+      }
+
+      const allLeads = await db.select().from(schema.leads).where(
+        conditions.length > 0 ? and(...conditions) : undefined
+      );
+
+      const { generateICSFeed } = await import("./calendar");
+      const calEvents: Array<{ id: string; title: string; startAt: Date; endAt: Date; description: string; location?: string; sourceType: 'follow_up' | 'site_visit' | 'booking'; sourceId: string }> = [];
+
+      for (const lead of allLeads) {
+        if (lead.followUpAt) {
+          const followUpDate = new Date(lead.followUpAt);
+          const endDate = new Date(followUpDate.getTime() + 30 * 60 * 1000);
+          calEvents.push({
+            id: `follow_up_${lead.id}`,
+            title: `Follow-up: ${lead.name}`,
+            startAt: followUpDate,
+            endAt: endDate,
+            description: `Follow-up with ${lead.name}${lead.phone ? '. Phone: ' + lead.phone : ''}${lead.followUpNotes ? '. Notes: ' + lead.followUpNotes : ''}`,
+            location: lead.propertyName || undefined,
+            sourceType: 'follow_up',
+            sourceId: lead.id,
+          });
+        }
+
+        if (lead.status === 'site_visit') {
+          const visitDate = lead.followUpAt ? new Date(lead.followUpAt) : new Date(lead.createdAt);
+          const endDate = new Date(visitDate.getTime() + 60 * 60 * 1000);
+          calEvents.push({
+            id: `site_visit_${lead.id}`,
+            title: `Site Visit: ${lead.name}`,
+            startAt: visitDate,
+            endAt: endDate,
+            description: `Site visit with ${lead.name}${lead.phone ? '. Phone: ' + lead.phone : ''}${lead.propertyName ? ' at ' + lead.propertyName : ''}`,
+            location: lead.propertyName || undefined,
+            sourceType: 'site_visit',
+            sourceId: lead.id,
+          });
+        }
+      }
+
+      const calendarName = user.role === "admin"
+        ? "Hsquare - All Events"
+        : `Hsquare - ${user.name}'s Events`;
+
+      const icsContent = generateICSFeed(calEvents, calendarName);
+
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'inline; filename="hsquare-calendar.ics"');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(icsContent);
+    } catch (error) {
+      console.error("Error generating calendar feed:", error);
+      res.status(500).json({ error: "Failed to generate calendar feed" });
+    }
+  });
+
   // ============ FOLLOW-UP MANAGEMENT ============
 
   // Get overdue follow-ups (admin only)

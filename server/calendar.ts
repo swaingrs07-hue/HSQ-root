@@ -47,6 +47,49 @@ export function generateICS(event: CalendarEvent): string {
   return lines.join('\r\n');
 }
 
+export function generateICSFeed(events: CalendarEvent[], calendarName: string): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Hsquare Living//Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeICSText(calendarName)}`,
+    'X-WR-TIMEZONE:Asia/Kolkata',
+  ];
+
+  for (const event of events) {
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${event.id}@hsquareliving.com`,
+      `DTSTAMP:${formatDateUTC(new Date())}`,
+      `DTSTART:${formatDateUTC(event.startAt)}`,
+      `DTEND:${formatDateUTC(event.endAt)}`,
+      `SUMMARY:${escapeICSText(event.title)}`,
+      `DESCRIPTION:${escapeICSText(event.description)}`,
+    );
+    if (event.location) {
+      lines.push(`LOCATION:${escapeICSText(event.location)}`);
+    }
+    lines.push(
+      'BEGIN:VALARM',
+      'TRIGGER:-PT30M',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeICSText(event.title)} in 30 minutes`,
+      'END:VALARM',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT10M',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeICSText(event.title)} in 10 minutes`,
+      'END:VALARM',
+      'END:VEVENT',
+    );
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
 export function buildGoogleCalendarUrl(event: CalendarEvent): string {
   const start = formatDateUTC(event.startAt);
   const end = formatDateUTC(event.endAt);

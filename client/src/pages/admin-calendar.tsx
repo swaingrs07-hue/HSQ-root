@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarDays, Download, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Download, ExternalLink, Link2, Smartphone, Copy, Check } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadICS, formatCalendarDate } from "@/lib/calendar-utils";
 
 interface CalendarEvent {
@@ -53,6 +53,12 @@ export default function AdminCalendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [feedUrl, setFeedUrl] = useState<string>("");
+  const [webcalUrl, setWebcalUrl] = useState<string>("");
+  const [showSyncPanel, setShowSyncPanel] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState("");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -60,6 +66,34 @@ export default function AdminCalendar() {
   useEffect(() => {
     fetchEvents();
   }, [year, month]);
+
+  const fetchFeedUrl = async () => {
+    setFeedLoading(true);
+    setFeedError("");
+    try {
+      const res = await fetch("/api/calendar/feed-url", {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFeedUrl(data.feedUrl);
+        setWebcalUrl(data.webcalUrl);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setFeedError(err.error || "Failed to load feed URL");
+      }
+    } catch {
+      setFeedError("Network error loading feed URL");
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(feedUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const fetchEvents = async () => {
     try {
@@ -134,10 +168,85 @@ export default function AdminCalendar() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">View follow-ups, site visits, and bookings</p>
         </div>
-        <Button onClick={goToToday} variant="outline" data-testid="button-today">
-          Today
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!feedUrl) fetchFeedUrl();
+              setShowSyncPanel(!showSyncPanel);
+            }}
+            data-testid="button-sync-calendar"
+          >
+            <Smartphone className="w-4 h-4 mr-1.5" />
+            Sync to Device
+          </Button>
+          <Button onClick={goToToday} variant="outline" data-testid="button-today">
+            Today
+          </Button>
+        </div>
       </div>
+
+      {showSyncPanel && (
+        <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
+                <Link2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-slate-800 dark:text-white text-sm">Sync Calendar to Your Device</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Subscribe once, and all your follow-ups and site visits will auto-sync to your phone's calendar with reminders (30 min and 10 min before each event).</p>
+                </div>
+                {feedLoading ? (
+                  <p className="text-sm text-slate-500">Loading feed URL...</p>
+                ) : feedError ? (
+                  <p className="text-sm text-red-500" data-testid="text-feed-error">{feedError}</p>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <a
+                        href={webcalUrl || "#"}
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors ${!webcalUrl ? "pointer-events-none opacity-50" : ""}`}
+                        data-testid="button-subscribe-calendar"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        Subscribe (iPhone / Mac)
+                      </a>
+                      <a
+                        href={feedUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}` : "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors ${!feedUrl ? "pointer-events-none opacity-50" : ""}`}
+                        data-testid="button-subscribe-google"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Add to Google Calendar
+                      </a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={handleCopyUrl}
+                        disabled={!feedUrl}
+                        data-testid="button-copy-feed-url"
+                      >
+                        {copied ? <Check className="w-4 h-4 mr-1.5 text-green-500" /> : <Copy className="w-4 h-4 mr-1.5" />}
+                        {copied ? "Copied!" : "Copy URL"}
+                      </Button>
+                    </div>
+                    {feedUrl && (
+                      <p className="text-xs text-slate-400 break-all font-mono bg-white dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-700" data-testid="text-feed-url">
+                        {feedUrl}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
