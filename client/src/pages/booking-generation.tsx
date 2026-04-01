@@ -1906,6 +1906,35 @@ export default function BookingGeneration() {
                       )}
 
                       <div className="space-y-3">
+                        {(() => {
+                          const selectedRT = roomTypes.find((rt: any) => rt.id === formData.roomTypeId);
+                          const selectedOccupancy = selectedRT?.occupancy || 1;
+                          const hasAnyMatchingBeds = floors.some((floor: any) => {
+                            const checkBedMatch = (bed: any, room: any) => {
+                              if (bed.roomTypeId === formData.roomTypeId) return true;
+                              if (room?.typology?.includes("+")) {
+                                const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                                const sectionIdx = parts.indexOf(selectedOccupancy);
+                                if (sectionIdx >= 0) {
+                                  const sectionLetter = String.fromCharCode(65 + sectionIdx);
+                                  return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+                                }
+                              }
+                              return false;
+                            };
+                            const matchedRoomBeds = (floor.rooms || []).flatMap((r: any) => (r.beds || []).filter((b: any) => checkBedMatch(b, r)));
+                            const matchedOrphanBeds = (floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId);
+                            return matchedRoomBeds.length > 0 || matchedOrphanBeds.length > 0;
+                          });
+                          if (!hasAnyMatchingBeds) {
+                            return (
+                              <div className="text-center py-4 text-slate-400 text-sm border-2 border-dashed rounded-lg" data-testid="no-matching-beds-message">
+                                No beds available for the selected room type on any floor. Bed assignment can be done later.
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                         {floors.map((floor: any) => {
                           const selectedRT = roomTypes.find((rt: any) => rt.id === formData.roomTypeId);
                           const selectedOccupancy = selectedRT?.occupancy || 1;
