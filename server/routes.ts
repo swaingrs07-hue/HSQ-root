@@ -4679,7 +4679,7 @@ ${allPages.map(p => `  <url>
 
       if (newBed.status !== "available") return res.status(400).json({ error: "Target bed is not available" });
 
-      const isSuperadmin = (req as AuthRequest).user!.role === "superadmin";
+      const isSuperadmin = req.user!.role === "superadmin";
       if (newBed.roomTypeId !== booking.roomTypeId && !isSuperadmin) {
         return res.status(400).json({ error: "Target bed must be in the same room type category" });
       }
