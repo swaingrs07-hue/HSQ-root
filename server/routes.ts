@@ -7479,8 +7479,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           }
         }
 
-        const avgBedPrice = totalBeds > 0 ? Math.round(totalBedValue / totalBeds) : 0;
-
         const target = targetMap.get(prop.id);
         const occupancyTarget = target?.targetOccupancyPercent ?? 100;
         const autoTarget = Math.round(totalBedValue * (occupancyTarget / 100));
@@ -7517,6 +7515,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           .where(and(...bookingConditions));
 
         const achievedAmount = propBookings.reduce((sum, b) => sum + (Number(b.totalFee) || 0), 0);
+        const avgBedPrice = propBookings.length > 0 ? Math.round(achievedAmount / propBookings.length) : 0;
         const bookedBeds = propBookings.filter(b => ['confirmed', 'active'].includes(b.status)).length;
         const occupiedBeds = propBeds.filter(b => b.beds.status === 'occupied').length;
         const vacantBeds = totalBeds - occupiedBeds;
