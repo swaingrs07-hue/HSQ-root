@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, CalendarDays, Download, ExternalLink, Link2, Smartphone, Copy, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Download, ExternalLink, Link2, Smartphone, Monitor, Copy, Check } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadICS, formatCalendarDate } from "@/lib/calendar-utils";
 
 interface CalendarEvent {
@@ -204,14 +204,14 @@ export default function AdminCalendar() {
                   <p className="text-sm text-red-500" data-testid="text-feed-error">{feedError}</p>
                 ) : (
                   <>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <a
                         href={webcalUrl || "#"}
                         className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors ${!webcalUrl ? "pointer-events-none opacity-50" : ""}`}
                         data-testid="button-subscribe-calendar"
                       >
                         <Smartphone className="w-4 h-4" />
-                        Subscribe (iPhone / Mac)
+                        iPhone / Mac
                       </a>
                       <a
                         href={feedUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}` : "#"}
@@ -221,7 +221,25 @@ export default function AdminCalendar() {
                         data-testid="button-subscribe-google"
                       >
                         <ExternalLink className="w-4 h-4" />
-                        Add to Google Calendar
+                        Google Calendar
+                      </a>
+                      <a
+                        href={webcalUrl || "#"}
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors ${!webcalUrl ? "pointer-events-none opacity-50" : ""}`}
+                        data-testid="button-subscribe-android"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        Android
+                      </a>
+                      <a
+                        href={feedUrl ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl)}&name=Hsquare+Follow-ups` : "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors ${!feedUrl ? "pointer-events-none opacity-50" : ""}`}
+                        data-testid="button-subscribe-outlook"
+                      >
+                        <Monitor className="w-4 h-4" />
+                        Outlook / Windows
                       </a>
                       <Button
                         variant="outline"
