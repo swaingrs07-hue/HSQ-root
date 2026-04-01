@@ -1117,8 +1117,25 @@ ${allPages.map(p => `  <url>
           });
         }
 
-        // TODO: Send notifications to admin and assigned sales executive
-        // This would integrate with email/WhatsApp services when configured
+        if (assignedToId) {
+          await storage.createNotification({
+            userId: assignedToId,
+            title: "New Website Lead",
+            message: `New lead "${data.name}" from website has been assigned to you.`,
+            type: "lead",
+            actionUrl: "/sales/requests",
+          });
+        }
+        const adminUsers = await storage.getUsersByRole(["admin"]);
+        for (const admin of adminUsers) {
+          await storage.createNotification({
+            userId: admin.id,
+            title: "New Website Lead",
+            message: `New lead "${data.name}" received from website${propertyName ? ` for ${propertyName}` : ""}.`,
+            type: "lead",
+            actionUrl: "/admin/leads",
+          });
+        }
 
         res.json({ 
           success: true, 
@@ -1196,6 +1213,26 @@ ${allPages.map(p => `  <url>
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       }).returning();
+
+      if (assignedToId) {
+        await storage.createNotification({
+          userId: assignedToId,
+          title: "New Tour Enquiry",
+          message: `New tour enquiry from "${name}" has been assigned to you${propertyName ? ` for ${propertyName}` : ""}.`,
+          type: "lead",
+          actionUrl: "/sales/requests",
+        });
+      }
+      const enquiryAdmins = await storage.getUsersByRole(["admin"]);
+      for (const admin of enquiryAdmins) {
+        await storage.createNotification({
+          userId: admin.id,
+          title: "New Tour Enquiry",
+          message: `New tour enquiry from "${name}"${propertyName ? ` for ${propertyName}` : ""}.`,
+          type: "lead",
+          actionUrl: "/admin/leads",
+        });
+      }
 
       res.json({ success: true, message: "Thank you for your enquiry! Our team will contact you shortly." });
     } catch (error) {
@@ -8416,10 +8453,22 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const { userId } = req.body;
       const authReq = req as AuthRequest;
       const leadId = req.params.id as string;
+
+      const existingLead = await storage.getLead(leadId);
       
       const lead = await storage.assignLeadToUser(leadId, userId, authReq.user!.userId);
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
+      }
+
+      if (userId && (!existingLead || existingLead.assignedToId !== userId)) {
+        await storage.createNotification({
+          userId,
+          title: existingLead?.assignedToId ? "Lead Reassigned to You" : "New Lead Assigned",
+          message: `Lead "${lead.name}" has been assigned to you by admin.`,
+          type: "lead",
+          actionUrl: "/sales/requests",
+        });
       }
       
       res.json(lead);
@@ -8463,6 +8512,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         } catch (err) {
           results.errors.push(`Failed to assign lead ${leadId}`);
         }
+      }
+
+      if (results.assigned > 0 && userId) {
+        await storage.createNotification({
+          userId,
+          title: "Leads Assigned to You",
+          message: `${results.assigned} lead${results.assigned > 1 ? "s have" : " has"} been assigned to you by admin.`,
+          type: "lead",
+          actionUrl: "/sales/requests",
+        });
       }
       
       res.json({ 
@@ -8748,6 +8807,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         newValue: JSON.stringify({ source: data.entrySource }),
         description: `Manual lead created via ${data.entrySource}`,
       });
+
+      if (assignToId && assignToId !== authReq.user!.userId) {
+        await storage.createNotification({
+          userId: assignToId,
+          title: "New Lead Assigned",
+          message: `New lead "${data.name}" has been assigned to you${property?.name ? ` for ${property.name}` : ""}.`,
+          type: "lead",
+          actionUrl: "/sales/requests",
+        });
+      }
       
       res.status(201).json(lead);
     } catch (error) {
