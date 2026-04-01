@@ -2591,21 +2591,29 @@ ${allPages.map(p => `  <url>
         propertyId: schema.bookings.propertyId,
       }).from(schema.bookings).where(bookingQuery);
 
+      const bookingPropertyIds = [...new Set(confirmedBookings.map(b => b.propertyId))];
+      const propertyNameMap: Record<string, string> = {};
+      if (bookingPropertyIds.length > 0) {
+        const props = await db.select({ id: schema.properties.id, name: schema.properties.name })
+          .from(schema.properties)
+          .where(inArray(schema.properties.id, bookingPropertyIds));
+        for (const p of props) {
+          propertyNameMap[p.id] = p.name;
+        }
+      }
+
       for (const booking of confirmedBookings) {
         if (booking.checkInDate) {
           const checkIn = new Date(booking.checkInDate + "T10:00:00Z");
           const endDate = new Date(checkIn.getTime() + 2 * 60 * 60 * 1000);
           const guestName = booking.walkInName || booking.bookingCode || "Guest";
-          const [prop] = await db.select({ name: schema.properties.name })
-            .from(schema.properties)
-            .where(eq(schema.properties.id, booking.propertyId));
           calEvents.push({
             id: `booking_checkin_${booking.id}`,
             title: `Check-in: ${guestName}`,
             startAt: checkIn,
             endAt: endDate,
             description: `Check-in for ${guestName}${booking.bookingCode ? ' (Booking: ' + booking.bookingCode + ')' : ''}${booking.walkInPhone ? '. Phone: ' + booking.walkInPhone : ''}`,
-            location: prop?.name,
+            location: propertyNameMap[booking.propertyId],
             sourceType: 'booking',
             sourceId: booking.id,
           });

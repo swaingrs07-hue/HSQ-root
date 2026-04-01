@@ -196,7 +196,7 @@ export default function AdminCalendar() {
               <div className="flex-1 space-y-3">
                 <div>
                   <h3 className="font-semibold text-slate-800 dark:text-white text-sm">Sync Calendar to Your Device</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Subscribe once, and all your follow-ups and site visits will auto-sync to your phone's calendar with reminders (30 min and 10 min before each event).</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Subscribe once, and all your follow-ups, site visits, and upcoming booking check-ins will auto-sync to your phone's calendar with reminders (30 min and 10 min before each event).</p>
                 </div>
                 {feedLoading ? (
                   <p className="text-sm text-slate-500">Loading feed URL...</p>
