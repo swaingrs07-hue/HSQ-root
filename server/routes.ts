@@ -9995,7 +9995,68 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
       const propertyId = req.params.id;
-      const floorsList = await storage.getFloorsByProperty(propertyId);
+      let floorsList = await storage.getFloorsByProperty(propertyId);
+
+      if (floorsList.length === 0) {
+        const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
+        const hasBedsToGenerate = roomTypesList.some(rt => rt.totalBeds > 0);
+        if (roomTypesList.length > 0 && hasBedsToGenerate) {
+          const floor = await storage.createFloor({
+            propertyId,
+            floorNumber: 0,
+            name: "Main Floor",
+            totalBeds: 0,
+            availableBeds: 0,
+          });
+
+          let roomCounter = 1;
+          for (const rt of roomTypesList) {
+            if (rt.totalBeds <= 0) continue;
+            const occupancy = rt.occupancy || 1;
+            const roomsNeeded = Math.ceil(rt.totalBeds / occupancy);
+
+            for (let r = 0; r < roomsNeeded; r++) {
+              const roomNum = `${100 + roomCounter}`;
+              const room = await storage.createRoom({
+                propertyId,
+                floorId: floor.id,
+                roomTypeId: rt.id,
+                roomNumber: roomNum,
+                typology: `${occupancy} Bed`,
+                hasSharedWashroom: false,
+                totalBeds: occupancy,
+                status: "available",
+                monthlyPrice: rt.basePrice,
+              });
+
+              const remainingBeds = rt.totalBeds - r * occupancy;
+              const bedsInThisRoom = Math.min(occupancy, remainingBeds);
+              const bedsForRoom: Parameters<typeof storage.createBeds>[0] = [];
+              for (let b = 0; b < bedsInThisRoom; b++) {
+                bedsForRoom.push({
+                  propertyId,
+                  floorId: floor.id,
+                  roomId: room.id,
+                  roomTypeId: rt.id,
+                  bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
+                  status: "available" as const,
+                  monthlyPrice: rt.basePrice,
+                });
+              }
+
+              if (bedsForRoom.length > 0) {
+                await storage.createBeds(bedsForRoom);
+              }
+              roomCounter++;
+            }
+          }
+
+          const totalGenerated = roomTypesList.reduce((sum, rt) => sum + Math.max(rt.totalBeds, 0), 0);
+          await db.update(schema.floors).set({ totalBeds: totalGenerated, availableBeds: totalGenerated }).where(eq(schema.floors.id, floor.id));
+
+          floorsList = await storage.getFloorsByProperty(propertyId);
+        }
+      }
 
       const activeBookings = await db.select({
         bedId: schema.bookings.bedId,
