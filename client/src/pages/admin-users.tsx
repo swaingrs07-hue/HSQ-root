@@ -316,6 +316,8 @@ function AdminUsersContent() {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
+      case "superadmin":
+        return <Badge className="bg-rose-600 text-white"><Shield className="h-3 w-3 mr-1" /> Superadmin</Badge>;
       case "admin":
         return <Badge className="bg-purple-500 text-white"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
       case "sales_executive":
@@ -434,8 +436,10 @@ function AdminUsersContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="superadmin">Superadmin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="sales_executive">Sales</SelectItem>
+                  <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="student">Student</SelectItem>
                   <SelectItem value="user">User</SelectItem>
                 </SelectContent>
@@ -589,6 +593,7 @@ function AdminUsersContent() {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
+                  {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -651,6 +656,7 @@ function AdminUsersContent() {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
+                  {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
