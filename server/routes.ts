@@ -261,6 +261,73 @@ async function autoAssignLead(leadId: string, propertyId: string): Promise<{ ass
   }
 }
 
+async function ensureFloorsForProperty(propertyId: string): Promise<boolean> {
+  const existingFloors = await storage.getFloorsByProperty(propertyId);
+  if (existingFloors.length > 0) return false;
+
+  const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
+  const hasBedsToGenerate = roomTypesList.some(rt => rt.totalBeds > 0);
+  if (roomTypesList.length === 0 || !hasBedsToGenerate) return false;
+
+  await db.transaction(async (tx) => {
+    const recheck = await tx.select({ id: schema.floors.id }).from(schema.floors).where(eq(schema.floors.propertyId, propertyId)).limit(1);
+    if (recheck.length > 0) return;
+
+    const [floor] = await tx.insert(schema.floors).values({
+      propertyId,
+      floorNumber: 0,
+      name: "Main Floor",
+      totalBeds: 0,
+      availableBeds: 0,
+    }).returning();
+
+    let roomCounter = 1;
+    for (const rt of roomTypesList) {
+      if (rt.totalBeds <= 0) continue;
+      const occupancy = rt.occupancy || 1;
+      const roomsNeeded = Math.ceil(rt.totalBeds / occupancy);
+
+      for (let r = 0; r < roomsNeeded; r++) {
+        const roomNum = `${100 + roomCounter}`;
+        const remainingBeds = rt.totalBeds - r * occupancy;
+        const bedsInThisRoom = Math.min(occupancy, remainingBeds);
+        const [room] = await tx.insert(schema.rooms).values({
+          propertyId,
+          floorId: floor.id,
+          roomTypeId: rt.id,
+          roomNumber: roomNum,
+          typology: `${occupancy} Bed`,
+          hasSharedWashroom: false,
+          totalBeds: bedsInThisRoom,
+          status: "available",
+          monthlyPrice: rt.basePrice,
+        }).returning();
+        const bedValues: (typeof schema.beds.$inferInsert)[] = [];
+        for (let b = 0; b < bedsInThisRoom; b++) {
+          bedValues.push({
+            propertyId,
+            floorId: floor.id,
+            roomId: room.id,
+            roomTypeId: rt.id,
+            bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
+            status: "available",
+            monthlyPrice: rt.basePrice,
+          });
+        }
+        if (bedValues.length > 0) {
+          await tx.insert(schema.beds).values(bedValues);
+        }
+        roomCounter++;
+      }
+    }
+
+    const totalGenerated = roomTypesList.reduce((sum, rt) => sum + Math.max(rt.totalBeds, 0), 0);
+    await tx.update(schema.floors).set({ totalBeds: totalGenerated, availableBeds: totalGenerated }).where(eq(schema.floors.id, floor.id));
+  });
+
+  return true;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -10001,73 +10068,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         let isAdmin = false;
         const authHeader = req.headers.authorization;
         if (authHeader?.startsWith("Bearer ")) {
-          try {
-            const jwtMod = await import("jsonwebtoken");
-            const decoded = jwtMod.default.verify(authHeader.split(" ")[1], process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as { userId: string; role: string };
-            isAdmin = decoded.role === "admin" || decoded.role === "superadmin";
-          } catch { /* invalid token — treat as unauthenticated */ }
+          const payload = verifyToken(authHeader.substring(7));
+          if (payload && (payload.role === "admin" || payload.role === "superadmin")) {
+            isAdmin = true;
+          }
         }
 
         if (isAdmin) {
-          const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
-          const hasBedsToGenerate = roomTypesList.some(rt => rt.totalBeds > 0);
-          if (roomTypesList.length > 0 && hasBedsToGenerate) {
-            await db.transaction(async (tx) => {
-              const recheck = await tx.select({ id: schema.floors.id }).from(schema.floors).where(eq(schema.floors.propertyId, propertyId)).limit(1);
-              if (recheck.length > 0) return;
-
-              const [floor] = await tx.insert(schema.floors).values({
-                propertyId,
-                floorNumber: 0,
-                name: "Main Floor",
-                totalBeds: 0,
-                availableBeds: 0,
-              }).returning();
-
-              let roomCounter = 1;
-              for (const rt of roomTypesList) {
-                if (rt.totalBeds <= 0) continue;
-                const occupancy = rt.occupancy || 1;
-                const roomsNeeded = Math.ceil(rt.totalBeds / occupancy);
-
-                for (let r = 0; r < roomsNeeded; r++) {
-                  const roomNum = `${100 + roomCounter}`;
-                  const remainingBeds = rt.totalBeds - r * occupancy;
-                  const bedsInThisRoom = Math.min(occupancy, remainingBeds);
-                  const [room] = await tx.insert(schema.rooms).values({
-                    propertyId,
-                    floorId: floor.id,
-                    roomTypeId: rt.id,
-                    roomNumber: roomNum,
-                    typology: `${occupancy} Bed`,
-                    hasSharedWashroom: false,
-                    totalBeds: bedsInThisRoom,
-                    status: "available",
-                    monthlyPrice: rt.basePrice,
-                  }).returning();
-                  const bedValues: (typeof schema.beds.$inferInsert)[] = [];
-                  for (let b = 0; b < bedsInThisRoom; b++) {
-                    bedValues.push({
-                      propertyId,
-                      floorId: floor.id,
-                      roomId: room.id,
-                      roomTypeId: rt.id,
-                      bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
-                      status: "available",
-                      monthlyPrice: rt.basePrice,
-                    });
-                  }
-                  if (bedValues.length > 0) {
-                    await tx.insert(schema.beds).values(bedValues);
-                  }
-                  roomCounter++;
-                }
-              }
-
-              const totalGenerated = roomTypesList.reduce((sum, rt) => sum + Math.max(rt.totalBeds, 0), 0);
-              await tx.update(schema.floors).set({ totalBeds: totalGenerated, availableBeds: totalGenerated }).where(eq(schema.floors.id, floor.id));
-            });
-
+          const generated = await ensureFloorsForProperty(propertyId);
+          if (generated) {
             floorsList = await storage.getFloorsByProperty(propertyId);
           }
         }
@@ -10376,76 +10385,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.post("/api/admin/properties/:id/ensure-floors", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const propertyId = req.params.id;
-      const existingFloors = await storage.getFloorsByProperty(propertyId);
-      if (existingFloors.length > 0) {
-        return res.json({ generated: false, message: "Floors already exist" });
-      }
-
-      const roomTypesList = await storage.getRoomTypesByProperty(propertyId);
-      const hasBedsToGenerate = roomTypesList.some(rt => rt.totalBeds > 0);
-      if (roomTypesList.length === 0 || !hasBedsToGenerate) {
-        return res.json({ generated: false, message: "No room types with beds to generate" });
-      }
-
-      await db.transaction(async (tx) => {
-        const recheck = await tx.select({ id: schema.floors.id }).from(schema.floors).where(eq(schema.floors.propertyId, propertyId)).limit(1);
-        if (recheck.length > 0) return;
-
-        const [floor] = await tx.insert(schema.floors).values({
-          propertyId,
-          floorNumber: 0,
-          name: "Main Floor",
-          totalBeds: 0,
-          availableBeds: 0,
-        }).returning();
-
-        let roomCounter = 1;
-        for (const rt of roomTypesList) {
-          if (rt.totalBeds <= 0) continue;
-          const occupancy = rt.occupancy || 1;
-          const roomsNeeded = Math.ceil(rt.totalBeds / occupancy);
-
-          for (let r = 0; r < roomsNeeded; r++) {
-            const roomNum = `${100 + roomCounter}`;
-            const remainingBeds = rt.totalBeds - r * occupancy;
-            const bedsInThisRoom = Math.min(occupancy, remainingBeds);
-            const [room] = await tx.insert(schema.rooms).values({
-              propertyId,
-              floorId: floor.id,
-              roomTypeId: rt.id,
-              roomNumber: roomNum,
-              typology: `${occupancy} Bed`,
-              hasSharedWashroom: false,
-              totalBeds: bedsInThisRoom,
-              status: "available",
-              monthlyPrice: rt.basePrice,
-            }).returning();
-            const bedValues: (typeof schema.beds.$inferInsert)[] = [];
-            for (let b = 0; b < bedsInThisRoom; b++) {
-              bedValues.push({
-                propertyId,
-                floorId: floor.id,
-                roomId: room.id,
-                roomTypeId: rt.id,
-                bedNumber: occupancy === 1 ? roomNum : `${roomNum}-${String.fromCharCode(65 + b)}`,
-                status: "available",
-                monthlyPrice: rt.basePrice,
-              });
-            }
-
-            if (bedValues.length > 0) {
-              await tx.insert(schema.beds).values(bedValues);
-            }
-            roomCounter++;
-          }
-        }
-
-        const totalGenerated = roomTypesList.reduce((sum, rt) => sum + Math.max(rt.totalBeds, 0), 0);
-        await tx.update(schema.floors).set({ totalBeds: totalGenerated, availableBeds: totalGenerated }).where(eq(schema.floors.id, floor.id));
-      });
-
-      res.json({ generated: true, message: "Floors and beds auto-generated successfully" });
+      const generated = await ensureFloorsForProperty(req.params.id);
+      res.json({ generated, message: generated ? "Floors and beds auto-generated successfully" : "Floors already exist or no room types with beds" });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to ensure floors";
       res.status(500).json({ error: message });
