@@ -623,10 +623,17 @@ export default function BookingGeneration() {
     if (formData.propertyId) {
       fetchRoomTypes(formData.propertyId);
       setFloorsLoading(true);
-      fetch(`/api/properties/${formData.propertyId}/floors`)
-        .then(r => r.ok ? r.json() : [])
-        .then(data => { setFloors(data || []); setFloorsLoading(false); })
-        .catch(() => { setFloors([]); setFloorsLoading(false); });
+      fetch(`/api/admin/properties/${formData.propertyId}/ensure-floors`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAuthToken()}`, "Content-Type": "application/json" },
+      })
+        .catch(() => {})
+        .finally(() => {
+          fetch(`/api/properties/${formData.propertyId}/floors`)
+            .then(r => r.ok ? r.json() : [])
+            .then(data => { setFloors(data || []); setFloorsLoading(false); })
+            .catch(() => { setFloors([]); setFloorsLoading(false); });
+        });
       setPlansLoading(true);
       fetch(`/api/properties/${formData.propertyId}/plans`)
         .then(r => r.ok ? r.json() : [])
