@@ -1072,12 +1072,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                     {roomMatchesPlan && selectedPlan && activeTierColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", activeTierColors.badgeBg, activeTierColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
+                                        {selectedPlan.basePrice != null && selectedPlan.basePrice > 0 ? ` • ₹${Number(selectedPlan.basePrice).toLocaleString("en-IN")}${selectedPlan.priceType === "PER_YEAR" ? "/yr" : selectedPlan.priceType === "PER_MONTH" ? "/mo" : selectedPlan.priceType === "PER_DAY" ? "/day" : ""}` : ""}
                                       </Badge>
                                     ) : hasMultiRoomPlan ? (
                                       <MultiPlanRoomBadge plans={roomMultiPlans} maxTier={maxPlanTier} />
                                     ) : hasPassiveRoomPlan && roomPlanColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", roomPlanColors.badgeBg, roomPlanColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {roomPlanInfo.name}
+                                        {roomPlanInfo.basePrice != null && roomPlanInfo.basePrice > 0 ? ` • ₹${Number(roomPlanInfo.basePrice).toLocaleString("en-IN")}${roomPlanInfo.priceType === "PER_YEAR" ? "/yr" : roomPlanInfo.priceType === "PER_MONTH" ? "/mo" : roomPlanInfo.priceType === "PER_DAY" ? "/day" : ""}` : ""}
                                       </Badge>
                                     ) : null}
                                     <div className="flex-1" />

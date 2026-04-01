@@ -812,14 +812,18 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onUpdateBed, onDeleteBed, onB
           )}
           {room.monthlyPrice && <span className="text-[10px] text-slate-400">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
           {plansForThisRoom.length > 0 ? (
-            plansForThisRoom.map((p: any) => (
-              <Badge key={p.id} className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 gap-0.5 cursor-pointer hover:bg-violet-200"
-                onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type", room.id, room.roomNumber)}
-                data-testid={`badge-plan-${p.id}`}
-              >
-                <Package className="w-2.5 h-2.5" />{p.name}
-              </Badge>
-            ))
+            plansForThisRoom.map((p: any) => {
+              const priceLabel = p.basePrice != null && p.basePrice > 0 ? `₹${Number(p.basePrice).toLocaleString("en-IN")}` : "";
+              const periodLabel = p.priceType === "PER_YEAR" ? "/yr" : p.priceType === "PER_MONTH" ? "/mo" : p.priceType === "PER_DAY" ? "/day" : "";
+              return (
+                <Badge key={p.id} className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border-violet-200 gap-0.5 cursor-pointer hover:bg-violet-200"
+                  onClick={() => onAssignPlan?.(room.roomTypeId, rt?.customName || rt?.name || "Room Type", room.id, room.roomNumber)}
+                  data-testid={`badge-plan-${p.id}`}
+                >
+                  <Package className="w-2.5 h-2.5" />{p.name}{priceLabel ? ` • ${priceLabel}${periodLabel}` : ""}
+                </Badge>
+              );
+            })
           ) : (
             <button
               className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 hover:text-violet-600 transition-colors border border-dashed border-slate-300 hover:border-violet-400 rounded px-1.5 py-0.5"
