@@ -854,11 +854,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     const isDimmedByPlan = isAvailable && hasPlanFilter && !matchesPlanFilter;
 
     const roomId = room?.id;
-    const bedPlanInfo = (roomId && roomPlanMap[roomId]) || (bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null) || (propertyPlans.length > 0 ? { name: propertyPlans[0].name, tierLevel: propertyPlans[0].tierLevel ?? 0, id: propertyPlans[0].id, basePrice: propertyPlans[0].basePrice, priceType: propertyPlans[0].priceType } : null);
+    const bedPlanInfo = (roomId && roomPlanMap[roomId]) || (bed.roomTypeId ? roomTypePlanMap[bed.roomTypeId] : null) || null;
     const bedPlanColors = bedPlanInfo ? getBedTierColors(bedPlanInfo.tierLevel, maxPlanTier) : null;
     const hasPassivePlan = isAvailable && !hasPlanFilter && bedPlanInfo && bedPlanColors;
     const directMultiPlans = (roomId && roomMultiPlanMap[roomId]?.length > 0 ? roomMultiPlanMap[roomId] : null) || (bed.roomTypeId ? (roomTypeMultiPlanMap[bed.roomTypeId] || []) : []);
-    const multiPlans = directMultiPlans.length > 0 ? directMultiPlans : (propertyPlans.length > 1 ? propertyPlans.map((p: any) => ({ name: p.name, tierLevel: p.tierLevel ?? 0, id: p.id })) : []);
+    const multiPlans = directMultiPlans.length > 0 ? directMultiPlans : [];
     const hasMultiPlan = isAvailable && !hasPlanFilter && multiPlans.length > 1;
 
     const tierColors = isPlanHighlighted ? activeTierColors : (hasPassivePlan && !hasMultiPlan ? bedPlanColors : null);
@@ -1047,11 +1047,11 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                 (selectedPlanRoomTypeIds && room.roomTypeId && selectedPlanRoomTypeIds.includes(room.roomTypeId))
                               );
                               const roomDimmedByPlan = roomHasPlanFilter && !roomMatchesPlan;
-                              const roomPlanInfo = (room.id && roomPlanMap[room.id]) || (room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null) || (propertyPlans.length > 0 ? { name: propertyPlans[0].name, tierLevel: propertyPlans[0].tierLevel ?? 0, id: propertyPlans[0].id, basePrice: propertyPlans[0].basePrice, priceType: propertyPlans[0].priceType } : null);
+                              const roomPlanInfo = (room.id && roomPlanMap[room.id]) || (room.roomTypeId ? roomTypePlanMap[room.roomTypeId] : null) || null;
                               const roomPlanColors = roomPlanInfo ? getBedTierColors(roomPlanInfo.tierLevel, maxPlanTier) : null;
                               const hasPassiveRoomPlan = !roomHasPlanFilter && roomPlanInfo && roomPlanColors;
                               const directRoomMultiPlans = (room.id && roomMultiPlanMap[room.id]?.length > 0 ? roomMultiPlanMap[room.id] : null) || (room.roomTypeId ? (roomTypeMultiPlanMap[room.roomTypeId] || []) : []);
-                              const roomMultiPlans = directRoomMultiPlans.length > 0 ? directRoomMultiPlans : (propertyPlans.length > 1 ? propertyPlans.map((p: any) => ({ name: p.name, tierLevel: p.tierLevel ?? 0, id: p.id })) : []);
+                              const roomMultiPlans = directRoomMultiPlans.length > 0 ? directRoomMultiPlans : [];
                               const hasMultiRoomPlan = !roomHasPlanFilter && roomMultiPlans.length > 1;
 
                               return (
