@@ -175,10 +175,10 @@ export default function SalesDashboard() {
       closed: leadsList.filter(l => l.status === "converted").length,
       lost: leadsList.filter(l => l.status === "lost").length,
       upcomingFollowUps: leadsList.filter(l => 
-        l.followUpAt && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
+        l.followUpAt && l.followUpStatus !== "completed" && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
       ).length,
       overdueFollowUps: leadsList.filter(l => 
-        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
+        l.followUpAt && l.followUpStatus !== "completed" && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
       ).length
     });
   };
@@ -301,9 +301,12 @@ export default function SalesDashboard() {
         body: JSON.stringify({ remark: remarkText })
       });
       if (!response.ok) throw new Error("Failed to add remark");
-      toast({ title: "Success", description: "Remark added" });
+      const data = await response.json();
+      const msg = data.followUpCleared ? "Remark added & follow-up marked done" : "Remark added";
+      toast({ title: "Success", description: msg });
       setRemarkDialogOpen(false);
       setRemarkText("");
+      loadLeads();
     } catch (error) {
       toast({ title: "Error", description: "Failed to add remark", variant: "destructive" });
     }
@@ -318,10 +321,10 @@ export default function SalesDashboard() {
       case "warm": return leads.filter(l => l.priority === "warm");
       case "cold": return leads.filter(l => l.priority === "cold");
       case "upcoming": return leads.filter(l => 
-        l.followUpAt && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
+        l.followUpAt && l.followUpStatus !== "completed" && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
       );
       case "overdue": return leads.filter(l => 
-        l.followUpAt && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
+        l.followUpAt && l.followUpStatus !== "completed" && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
       );
       default: return leads;
     }
@@ -623,8 +626,12 @@ export default function SalesDashboard() {
                         <TableCell>{getStatusBadge(lead.status)}</TableCell>
                         <TableCell>
                           {lead.followUpAt ? (
-                            <div className={`text-sm ${isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : ""}`}>
+                            <div className={`text-sm ${
+                              lead.followUpStatus === "completed" ? "text-green-600" 
+                              : isBefore(parseISO(lead.followUpAt), new Date()) ? "text-red-500" : ""
+                            }`}>
                               {format(parseISO(lead.followUpAt), "MMM d, h:mm a")}
+                              {lead.followUpStatus === "completed" && <span className="ml-1 text-xs">✓</span>}
                             </div>
                           ) : "-"}
                         </TableCell>
@@ -724,10 +731,19 @@ export default function SalesDashboard() {
                     )}
 
                     {lead.followUpAt && (
-                      <div className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded-md ${isBefore(parseISO(lead.followUpAt), new Date()) ? "bg-red-50 dark:bg-red-950 text-red-600" : "bg-slate-50 dark:bg-slate-800 text-muted-foreground"}`}>
+                      <div className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                        lead.followUpStatus === "completed" 
+                          ? "bg-green-50 dark:bg-green-950 text-green-600" 
+                          : isBefore(parseISO(lead.followUpAt), new Date()) 
+                            ? "bg-red-50 dark:bg-red-950 text-red-600" 
+                            : "bg-slate-50 dark:bg-slate-800 text-muted-foreground"
+                      }`}>
                         <Clock className="h-3 w-3 flex-shrink-0" />
                         <span>{format(parseISO(lead.followUpAt), "MMM d, h:mm a")}</span>
-                        {isBefore(parseISO(lead.followUpAt), new Date()) && <span className="font-semibold ml-auto">Overdue</span>}
+                        {lead.followUpStatus === "completed" 
+                          ? <span className="font-semibold ml-auto text-green-600">Done</span>
+                          : isBefore(parseISO(lead.followUpAt), new Date()) && <span className="font-semibold ml-auto">Overdue</span>
+                        }
                       </div>
                     )}
 

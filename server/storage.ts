@@ -944,7 +944,8 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const conditions = [
       lt(leads.followUpAt, now),
-      sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`
+      sql`${leads.status} NOT IN ('deal_closed', 'lost', 'converted')`,
+      sql`(${leads.followUpStatus} IS NULL OR ${leads.followUpStatus} != 'completed')`
     ];
     
     if (userId) {
@@ -1819,6 +1820,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(leads).set({
       followUpAt,
       followUpNotes: notes,
+      followUpStatus: "pending",
     }).where(eq(leads.id, leadId)).returning();
     return updated || undefined;
   }

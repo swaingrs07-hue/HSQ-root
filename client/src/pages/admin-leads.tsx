@@ -68,6 +68,7 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  MessageSquare,
   Plus,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -231,6 +232,16 @@ export default function AdminLeads() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/leads/${selectedLeadForHistory?.id}/history`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch lead history");
+      return res.json();
+    },
+    enabled: !!selectedLeadForHistory?.id,
+  });
+
+  const { data: leadRemarks = [] } = useQuery<any[]>({
+    queryKey: [`/api/admin/leads/${selectedLeadForHistory?.id}/remarks`],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/leads/${selectedLeadForHistory?.id}/remarks`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch lead remarks");
       return res.json();
     },
     enabled: !!selectedLeadForHistory?.id,
@@ -1077,8 +1088,9 @@ export default function AdminLeads() {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
             <Tabs defaultValue="details" className="w-full mt-4">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details">Details & UTM</TabsTrigger>
+                <TabsTrigger value="remarks">Remarks ({leadRemarks.length})</TabsTrigger>
                 <TabsTrigger value="history">Activity History</TabsTrigger>
               </TabsList>
               
@@ -1154,6 +1166,26 @@ export default function AdminLeads() {
                 {!selectedLeadForHistory?.utmSource && !selectedLeadForHistory?.utmCampaign && !selectedLeadForHistory?.utmMedium && (
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-center">
                     <p className="text-sm text-slate-500">No UTM tracking data available for this lead</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="remarks" className="mt-4">
+                {leadRemarks.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p>No remarks yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {leadRemarks.map((remark: any) => (
+                      <div key={remark.id} className="p-3 bg-slate-50 rounded-lg">
+                        <p className="text-sm text-slate-800">{remark.remark}</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {remark.user?.name || "Staff"} - {format(new Date(remark.createdAt), "MMM d, yyyy h:mm a")}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </TabsContent>

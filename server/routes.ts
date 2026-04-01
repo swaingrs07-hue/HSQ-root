@@ -8709,6 +8709,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.get("/api/admin/leads/:id/remarks", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const remarks = await storage.getLeadRemarks(req.params.id as string);
+      res.json(remarks);
+    } catch (error) {
+      console.error("Error fetching lead remarks:", error);
+      res.status(500).json({ error: "Failed to fetch lead remarks" });
+    }
+  });
+
   // Get sales executives with lead counts
   app.get("/api/admin/sales-executives/lead-counts", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
@@ -9107,8 +9117,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         userId: authReq.user!.userId,
         remark,
       });
+
+      let followUpCleared = false;
+      if (lead.followUpAt && lead.followUpStatus !== "completed" && new Date(lead.followUpAt) < new Date()) {
+        await storage.updateLead(lead.id, {
+          followUpStatus: "completed",
+        });
+        followUpCleared = true;
+      }
       
-      res.status(201).json(createdRemark);
+      res.status(201).json({ ...createdRemark, followUpCleared });
     } catch (error) {
       console.error("Error adding remark:", error);
       res.status(500).json({ error: "Failed to add remark" });
