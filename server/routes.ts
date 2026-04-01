@@ -2569,12 +2569,17 @@ ${allPages.map(p => `  <url>
         }
       }
 
-      const bookingConditions: any[] = [
-        inArray(schema.bookings.status, ["confirmed", "active"]),
-      ];
-      if (user.role === "sales_executive") {
-        bookingConditions.push(eq(schema.bookings.assignedSalesExecId, userId));
-      }
+      const today = new Date().toISOString().split("T")[0];
+      const bookingQuery = user.role === "sales_executive"
+        ? and(
+            inArray(schema.bookings.status, ["confirmed", "active"]),
+            eq(schema.bookings.assignedSalesExecId, userId),
+            sql`${schema.bookings.checkInDate} >= ${today}`,
+          )
+        : and(
+            inArray(schema.bookings.status, ["confirmed", "active"]),
+            sql`${schema.bookings.checkInDate} >= ${today}`,
+          );
       const confirmedBookings = await db.select({
         id: schema.bookings.id,
         bookingCode: schema.bookings.bookingCode,
@@ -2584,25 +2589,23 @@ ${allPages.map(p => `  <url>
         checkOutDate: schema.bookings.checkOutDate,
         status: schema.bookings.status,
         propertyId: schema.bookings.propertyId,
-      }).from(schema.bookings).where(and(...bookingConditions));
+      }).from(schema.bookings).where(bookingQuery);
 
       for (const booking of confirmedBookings) {
         if (booking.checkInDate) {
           const checkIn = new Date(booking.checkInDate + "T10:00:00Z");
           const endDate = new Date(checkIn.getTime() + 2 * 60 * 60 * 1000);
           const guestName = booking.walkInName || booking.bookingCode || "Guest";
-          let propName: string | undefined;
-          try {
-            const [prop] = await db.select({ name: schema.properties.name }).from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
-            propName = prop?.name;
-          } catch {}
+          const [prop] = await db.select({ name: schema.properties.name })
+            .from(schema.properties)
+            .where(eq(schema.properties.id, booking.propertyId));
           calEvents.push({
             id: `booking_checkin_${booking.id}`,
             title: `Check-in: ${guestName}`,
             startAt: checkIn,
             endAt: endDate,
             description: `Check-in for ${guestName}${booking.bookingCode ? ' (Booking: ' + booking.bookingCode + ')' : ''}${booking.walkInPhone ? '. Phone: ' + booking.walkInPhone : ''}`,
-            location: propName,
+            location: prop?.name,
             sourceType: 'booking',
             sourceId: booking.id,
           });
