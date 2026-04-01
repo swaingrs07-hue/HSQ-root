@@ -2569,6 +2569,46 @@ ${allPages.map(p => `  <url>
         }
       }
 
+      const bookingConditions: any[] = [
+        inArray(schema.bookings.status, ["confirmed", "active"]),
+      ];
+      if (user.role === "sales_executive") {
+        bookingConditions.push(eq(schema.bookings.assignedSalesExecId, userId));
+      }
+      const confirmedBookings = await db.select({
+        id: schema.bookings.id,
+        bookingCode: schema.bookings.bookingCode,
+        walkInName: schema.bookings.walkInName,
+        walkInPhone: schema.bookings.walkInPhone,
+        checkInDate: schema.bookings.checkInDate,
+        checkOutDate: schema.bookings.checkOutDate,
+        status: schema.bookings.status,
+        propertyId: schema.bookings.propertyId,
+      }).from(schema.bookings).where(and(...bookingConditions));
+
+      for (const booking of confirmedBookings) {
+        if (booking.checkInDate) {
+          const checkIn = new Date(booking.checkInDate + "T10:00:00Z");
+          const endDate = new Date(checkIn.getTime() + 2 * 60 * 60 * 1000);
+          const guestName = booking.walkInName || booking.bookingCode || "Guest";
+          let propName: string | undefined;
+          try {
+            const [prop] = await db.select({ name: schema.properties.name }).from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
+            propName = prop?.name;
+          } catch {}
+          calEvents.push({
+            id: `booking_checkin_${booking.id}`,
+            title: `Check-in: ${guestName}`,
+            startAt: checkIn,
+            endAt: endDate,
+            description: `Check-in for ${guestName}${booking.bookingCode ? ' (Booking: ' + booking.bookingCode + ')' : ''}${booking.walkInPhone ? '. Phone: ' + booking.walkInPhone : ''}`,
+            location: propName,
+            sourceType: 'booking',
+            sourceId: booking.id,
+          });
+        }
+      }
+
       const calendarName = (user.role === "admin" || user.role === "superadmin")
         ? "Hsquare - All Events"
         : `Hsquare - ${user.name}'s Events`;

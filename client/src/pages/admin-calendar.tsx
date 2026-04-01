@@ -214,20 +214,20 @@ export default function AdminCalendar() {
                         iPhone / Mac
                       </a>
                       <a
-                        href={webcalUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}` : "#"}
+                        href={feedUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}` : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors ${!webcalUrl ? "pointer-events-none opacity-50" : ""}`}
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors ${!feedUrl ? "pointer-events-none opacity-50" : ""}`}
                         data-testid="button-subscribe-google"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Google Calendar
                       </a>
                       <a
-                        href={webcalUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}` : "#"}
+                        href={feedUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}` : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors ${!webcalUrl ? "pointer-events-none opacity-50" : ""}`}
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors ${!feedUrl ? "pointer-events-none opacity-50" : ""}`}
                         data-testid="button-subscribe-android"
                       >
                         <Smartphone className="w-4 h-4" />
