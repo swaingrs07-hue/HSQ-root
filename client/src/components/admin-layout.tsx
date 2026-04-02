@@ -129,6 +129,7 @@ const receptionistNavItems: NavItem[] = [
 const salesNavItems: NavItem[] = [
   { name: "Dashboard", href: "/sales", icon: LayoutDashboard },
   { name: "Requests", href: "/sales/requests", icon: Kanban },
+  { name: "Registrations", href: "/sales/registrations", icon: FileText },
   { name: "My Leads", href: "/sales", icon: Target },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },

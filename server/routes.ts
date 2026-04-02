@@ -12663,7 +12663,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       const uncheckedRetain = await db.select().from(schema.registrationRequests)
         .where(sql`${schema.registrationRequests.isRetain} = false`);
@@ -12745,7 +12745,27 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .from(schema.registrationRequests)
         .leftJoin(schema.bookings, eq(schema.registrationRequests.bookingId, schema.bookings.id))
         .orderBy(sql`${schema.registrationRequests.createdAt} DESC`);
-      res.json(requests.map(r => ({ ...r.request, bookingCode: r.bookingCode })));
+      let result = requests.map(r => ({ ...r.request, bookingCode: r.bookingCode }));
+
+      if (req.user!.role === "sales_executive") {
+        const userId = req.user!.userId;
+        const assignedProps = await storage.getAssignedPropertiesForUser(userId);
+        const assignedPropertyIds = new Set(assignedProps.map(p => p.id));
+        const salesLeads = await storage.getLeadsForAssignedProperties(userId, []);
+        const leadPhones = new Set(salesLeads.map(l => (l.phone || "").replace(/\D/g, "").slice(-10)).filter(p => p.length >= 10));
+        const leadEmails = new Set(salesLeads.map(l => (l.email || "").toLowerCase().trim()).filter(Boolean));
+
+        result = result.filter(r => {
+          if (r.propertyId && assignedPropertyIds.has(r.propertyId)) return true;
+          const rPhone = (r.phone || "").replace(/\D/g, "").slice(-10);
+          const rEmail = (r.email || "").toLowerCase().trim();
+          if (rPhone.length >= 10 && leadPhones.has(rPhone)) return true;
+          if (rEmail && leadEmails.has(rEmail)) return true;
+          return false;
+        });
+      }
+
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
