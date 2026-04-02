@@ -127,7 +127,7 @@ export default function AdminLeads() {
   const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -415,7 +415,9 @@ export default function AdminLeads() {
       );
     }
 
-    if (statusFilter !== "all") {
+    if (statusFilter === "active") {
+      result = result.filter((lead) => !["converted", "lost"].includes(lead.status));
+    } else if (statusFilter !== "all") {
       result = result.filter((lead) => lead.status === statusFilter);
     }
 
