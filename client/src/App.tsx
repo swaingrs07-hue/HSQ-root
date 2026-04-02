@@ -224,6 +224,16 @@ function AppContent() {
 }
 
 function App() {
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "visible") {
+        queryClient.invalidateQueries();
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
