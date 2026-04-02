@@ -3731,7 +3731,7 @@ ${allPages.map(p => `  <url>
       let filtered = allBookings;
       
       if (user?.role === "sales_executive") {
-        filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.id);
+        filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.userId || b.createdBy === user.userId);
       }
       
       const enriched = await Promise.all(filtered.map(async (booking: any) => {

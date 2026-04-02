@@ -172,6 +172,7 @@ function AppContent() {
               <Route path="/settings" component={Settings} />
               <Route path="/help" component={Help} />
               <Route path="/sales" component={SalesDashboard} />
+              <Route path="/sales/leads" component={SalesDashboard} />
               <Route path="/sales/requests" component={RequestsBoard} />
               <Route path="/sales/registrations" component={AdminRegistrations} />
               <Route path="/sales/calendar" component={AdminCalendar} />
