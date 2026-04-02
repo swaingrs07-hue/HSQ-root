@@ -7620,6 +7620,21 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         };
       });
 
+      if (req.user!.role === "sales_executive") {
+        const userId = req.user!.userId;
+        const salesLeads = await storage.getLeadsForAssignedProperties(userId, []);
+        const leadPhones = new Set(salesLeads.map(l => (l.phone || "").replace(/\D/g, "").slice(-10)).filter(p => p.length >= 10));
+        const leadEmails = new Set(salesLeads.map(l => (l.email || "").toLowerCase().trim()).filter(Boolean));
+
+        residents = (residents as any[]).filter((r: any) => {
+          const rPhone = (r.phone || "").replace(/\D/g, "").slice(-10);
+          const rEmail = (r.email || "").toLowerCase().trim();
+          if (rPhone.length >= 10 && leadPhones.has(rPhone)) return true;
+          if (rEmail && leadEmails.has(rEmail)) return true;
+          return false;
+        });
+      }
+
       res.json(residents);
     } catch (error) {
       console.error("Error fetching registered students:", error);
