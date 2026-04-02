@@ -7522,7 +7522,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       if (!process.env.HMS_API_KEY) {
         try { await getHostelFlowJWT(); } catch (loginErr: any) {
