@@ -325,7 +325,8 @@ export default function BookingGeneration() {
     }
 
     const dob = params.get("dob") || "";
-    const dietaryPreference = params.get("dietaryPreference") || "";
+    const rawDietary = params.get("dietaryPreference") || "";
+    const dietaryPreference = rawDietary === "non-veg" ? "non_veg" : rawDietary;
     const instituteName = params.get("instituteName") || "";
     const courseName = params.get("courseName") || "";
     const moveInDate = params.get("moveInDate") || "";
@@ -385,7 +386,7 @@ export default function BookingGeneration() {
         setFormData(prev => ({
           ...prev,
           residentDob: reg.dob || "",
-          residentDietaryPreference: reg.dietaryPreference || "",
+          residentDietaryPreference: (reg.dietaryPreference === "non-veg" ? "non_veg" : reg.dietaryPreference) || "",
           residentInstitute: reg.instituteName || "",
           residentCourse: reg.courseName || "",
           residentMoveInDate: reg.moveInDate || "",
@@ -2424,6 +2425,7 @@ export default function BookingGeneration() {
                                 <SelectItem value="veg">Veg</SelectItem>
                                 <SelectItem value="non_veg">Non Veg</SelectItem>
                                 <SelectItem value="jain">Jain</SelectItem>
+                                <SelectItem value="vegan">Vegan</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
