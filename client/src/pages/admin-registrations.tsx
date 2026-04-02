@@ -112,6 +112,7 @@ export default function AdminRegistrations() {
     if (req.parentEmail) params.set("parentEmail", req.parentEmail);
     if (req.parentRelation) params.set("parentRelation", req.parentRelation);
     if (req.photoPath) params.set("photoPath", req.photoPath);
+    if (req.notes) params.set("notes", req.notes);
     navigate(`/booking/generate?${params.toString()}`);
   };
 
