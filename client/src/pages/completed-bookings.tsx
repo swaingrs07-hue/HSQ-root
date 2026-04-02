@@ -1670,7 +1670,7 @@ export default function CompletedBookings() {
                       const remaining = Math.max(0, (inst.amount || 0) - totalPaid);
                       const isFullyPaid = inst.paid || totalPaid >= (inst.amount || 0);
                       const isPartiallyPaid = totalPaid > 0 && !isFullyPaid;
-                      const canPay = !isFullyPaid && (isAdmin || isReceptionist);
+                      const canPay = !isFullyPaid && (isAdmin || isReceptionist || isSalesExec);
 
                       return (
                       <div
@@ -2248,7 +2248,7 @@ export default function CompletedBookings() {
                 </Button>
               )}
 
-              {(isAdmin || isReceptionist) && (
+              {(isAdmin || isReceptionist || isSalesExec) && (
                 <div className="pt-3 border-t border-slate-200 space-y-2">
                   {(() => {
                     const bookingPayments = selectedBooking.payments || [];
