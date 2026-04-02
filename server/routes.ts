@@ -4746,13 +4746,9 @@ ${allPages.map(p => `  <url>
 
       const updated = await storage.updateBooking(req.params.id, updates);
 
-      const shouldSyncHMS = req.body.syncHMS === true ||
-        (updates.status && (updates.status === "active" || updates.status === "confirmed" || updates.status === "completed") && booking.status !== updates.status);
-      if (shouldSyncHMS) {
-        autoSyncBookingToHMS(updated).catch(err => {
-          console.error("[HMS Auto-Sync] Background sync after admin edit failed:", err);
-        });
-      }
+      autoSyncBookingToHMS(updated).catch(err => {
+        console.error("[HMS Auto-Sync] Background sync after admin edit failed:", err);
+      });
 
       await storage.createAuditLog({
         adminId: req.user!.userId,
@@ -5067,11 +5063,11 @@ ${allPages.map(p => `  <url>
       
       const latestBooking = await storage.getBooking(booking.id);
       if (latestBooking) {
-        if (previousSuccessful.length === 0) {
-          autoSyncBookingToHMS(latestBooking).catch(err => {
-            console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
-          });
+        autoSyncBookingToHMS(latestBooking).catch(err => {
+          console.error("[HMS Auto-Sync] Background sync after mark-payment failed:", err);
+        });
 
+        if (previousSuccessful.length === 0) {
           if (!latestBooking.welcomeEmailSent) {
             sendWelcomeEmailForBooking(latestBooking).catch(err => {
               console.error("[Email] Background welcome email after first payment failed:", err);
@@ -5134,6 +5130,13 @@ ${allPages.map(p => `  <url>
             break;
           }
         }
+      }
+
+      const updatedBooking = await storage.getBooking(req.params.id);
+      if (updatedBooking && fixed > 0) {
+        autoSyncBookingToHMS(updatedBooking).catch(err => {
+          console.error("[HMS Auto-Sync] Background sync after fix-orphaned-payments failed:", err);
+        });
       }
 
       res.json({ message: `Fixed ${fixed} orphaned payments`, fixed });
@@ -11693,6 +11696,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           reason: reason || null,
         },
       });
+
+      const upgradedBooking = await storage.getBooking(req.params.bookingId);
+      if (upgradedBooking) {
+        autoSyncBookingToHMS(upgradedBooking).catch(err => {
+          console.error("[HMS Auto-Sync] Background sync after package upgrade failed:", err);
+        });
+      }
 
       res.json(result);
     } catch (error: any) {
