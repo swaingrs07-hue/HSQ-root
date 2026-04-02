@@ -403,9 +403,34 @@ export default function BookingGeneration() {
             .catch(err => console.warn("Registration prefill: failed to load photo", err));
         }
 
-        const searchTerm = reg.phone || reg.email || reg.fullName || "";
-        const normRegPhone = (reg.phone || "").replace(/\D/g, "").slice(-10);
-        const normRegEmail = (reg.email || "").toLowerCase().trim();
+        const regPhone = reg.phone || "";
+        const regEmail = reg.email || "";
+
+        fetch("/api/leads/match", {
+          method: "POST",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: regPhone, email: regEmail }),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(matchedLead => {
+            if (matchedLead?.lead) {
+              const lead = matchedLead.lead;
+              setLeads(prev => {
+                const exists = prev.some(l => l.id === lead.id);
+                return exists ? prev : [...prev, lead];
+              });
+              setFormData(prev => ({
+                ...prev,
+                customerType: "lead",
+                leadId: lead.id,
+              }));
+            }
+          })
+          .catch(err => console.warn("Registration prefill: lead match failed", err));
+
+        const searchTerm = regPhone || regEmail || reg.fullName || "";
+        const normRegPhone = regPhone.replace(/\D/g, "").slice(-10);
+        const normRegEmail = regEmail.toLowerCase().trim();
         const normRegName = (reg.fullName || "").toLowerCase().trim();
 
         const findBestMatch = (students: any[]) => {

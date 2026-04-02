@@ -270,7 +270,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location === item.href || 
-              (item.href !== "/admin" && location.startsWith(item.href));
+              (item.href !== "/admin" && item.href !== "/sales" && location.startsWith(item.href));
             
             return (
               <Link key={item.href} href={item.href}>
