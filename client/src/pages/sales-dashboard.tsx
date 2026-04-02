@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -49,6 +50,8 @@ export default function SalesDashboard() {
   const { toast } = useToast();
   const { user, token } = useAuth();
   const { selectedPropertyId } = useProperty();
+  const [location] = useLocation();
+  const isLeadsOnly = location === "/sales/leads";
   const [activeTab, setActiveTab] = useState("all");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -378,7 +381,7 @@ export default function SalesDashboard() {
     <div className="container mx-auto py-4 md:py-8 px-3 md:px-4 max-w-5xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-8">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold">Sales Dashboard</h1>
+          <h1 className="text-xl md:text-3xl font-bold">{isLeadsOnly ? "My Leads" : "Sales Dashboard"}</h1>
           <p className="text-xs md:text-sm text-muted-foreground">Welcome back, {user?.name || "Sales Executive"}</p>
         </div>
         <div className="flex gap-2">
@@ -543,6 +546,7 @@ export default function SalesDashboard() {
         </div>
       </div>
 
+      {!isLeadsOnly && (
       <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3 mb-5 md:mb-8">
         {[
           { key: "all", label: "Total", value: stats.total, color: "", hoverBorder: "hover:border-primary" },
@@ -567,6 +571,7 @@ export default function SalesDashboard() {
           </Card>
         ))}
       </div>
+      )}
 
       <Card className="shadow-sm">
         <CardHeader className="pb-3 md:pb-4 px-3.5 md:px-6">

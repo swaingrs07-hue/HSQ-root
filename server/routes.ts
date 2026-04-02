@@ -8914,6 +8914,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           fetchedLeads = fetchedLeads.filter(l => l.propertyId === propertyId);
         }
       }
+
+      const teamUsers = await db.select({ email: schema.users.email }).from(schema.users)
+        .where(inArray(schema.users.role, ["admin", "superadmin", "manager", "staff"]));
+      const teamEmails = new Set(teamUsers.map(u => (u.email || "").toLowerCase().trim()).filter(Boolean));
+      fetchedLeads = fetchedLeads.filter(l => !teamEmails.has((l.email || "").toLowerCase().trim()));
       
       const userIds = new Set<string>();
       fetchedLeads.forEach(l => {
