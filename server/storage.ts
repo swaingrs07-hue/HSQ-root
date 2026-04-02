@@ -1680,16 +1680,16 @@ export class DatabaseStorage implements IStorage {
 
   // Lead Assignment & Scoping
   async getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]> {
-    const conditions = [eq(leads.assignedToId, userId)];
-    if (propertyId) {
-      conditions.push(eq(leads.propertyId, propertyId));
-    }
-    return await db.select().from(leads).where(and(...conditions)).orderBy(desc(leads.createdAt));
+    const ownerCondition = or(eq(leads.assignedToId, userId), eq(leads.createdBy, userId));
+    const conditions = propertyId
+      ? and(ownerCondition, eq(leads.propertyId, propertyId))
+      : ownerCondition;
+    return await db.select().from(leads).where(conditions!).orderBy(desc(leads.createdAt));
   }
 
   async getLeadsForAssignedProperties(userId: string, propertyIds: string[]): Promise<Lead[]> {
     return await db.select().from(leads)
-      .where(eq(leads.assignedToId, userId))
+      .where(or(eq(leads.assignedToId, userId), eq(leads.createdBy, userId)))
       .orderBy(desc(leads.createdAt));
   }
 

@@ -320,6 +320,8 @@ export default function SalesDashboard() {
       case "hot": return leads.filter(l => l.priority === "hot");
       case "warm": return leads.filter(l => l.priority === "warm");
       case "cold": return leads.filter(l => l.priority === "cold");
+      case "closed": return leads.filter(l => l.status === "converted");
+      case "lost": return leads.filter(l => l.status === "lost");
       case "upcoming": return leads.filter(l => 
         l.followUpAt && l.followUpStatus !== "completed" && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
       );
@@ -547,8 +549,8 @@ export default function SalesDashboard() {
           { key: "hot", label: "Hot", value: stats.hot, color: "text-red-500", hoverBorder: "hover:border-red-500" },
           { key: "warm", label: "Warm", value: stats.warm, color: "text-orange-500", hoverBorder: "hover:border-orange-500" },
           { key: "cold", label: "Cold", value: stats.cold, color: "text-blue-500", hoverBorder: "hover:border-blue-500" },
-          { key: "closed", label: "Closed", value: stats.closed, color: "text-green-500", hoverBorder: "" },
-          { key: "lost", label: "Lost", value: stats.lost, color: "text-red-400", hoverBorder: "" },
+          { key: "closed", label: "Closed", value: stats.closed, color: "text-green-500", hoverBorder: "hover:border-green-500" },
+          { key: "lost", label: "Lost", value: stats.lost, color: "text-red-400", hoverBorder: "hover:border-red-400" },
           { key: "upcoming", label: "Upcoming", value: stats.upcomingFollowUps, color: "text-yellow-600", hoverBorder: "hover:border-yellow-500" },
           { key: "overdue", label: "Overdue", value: stats.overdueFollowUps, color: "text-red-700", hoverBorder: "hover:border-red-700" },
         ].map((stat) => (
@@ -574,6 +576,8 @@ export default function SalesDashboard() {
              activeTab === "hot" ? "Hot Leads" :
              activeTab === "warm" ? "Warm Leads" :
              activeTab === "cold" ? "Cold Leads" :
+             activeTab === "closed" ? "Converted Leads" :
+             activeTab === "lost" ? "Lost Leads" :
              activeTab === "upcoming" ? "Upcoming Follow-ups" :
              "Overdue Follow-ups"}
             <Badge variant="secondary" className="ml-auto text-xs">{getFilteredLeads().length}</Badge>
