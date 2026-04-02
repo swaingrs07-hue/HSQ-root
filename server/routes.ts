@@ -12783,7 +12783,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registration-requests/:id", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registration-requests/:id", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       const [request] = await db.select().from(schema.registrationRequests)
         .where(eq(schema.registrationRequests.id, req.params.id));

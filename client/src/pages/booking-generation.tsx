@@ -324,6 +324,18 @@ export default function BookingGeneration() {
       setRegistrationRequestId(regId);
     }
 
+    const dob = params.get("dob") || "";
+    const dietaryPreference = params.get("dietaryPreference") || "";
+    const instituteName = params.get("instituteName") || "";
+    const courseName = params.get("courseName") || "";
+    const moveInDate = params.get("moveInDate") || "";
+    const checkOutDate = params.get("checkOutDate") || "";
+    const parentName = params.get("parentName") || "";
+    const parentPhone = params.get("parentPhone") || "";
+    const parentEmail = params.get("parentEmail") || "";
+    const parentRelation = params.get("parentRelation") || "";
+    const photoPath = params.get("photoPath") || "";
+
     setFormData(prev => ({
       ...prev,
       customerType: "walk_in",
@@ -334,20 +346,24 @@ export default function BookingGeneration() {
       residentPhone: phone,
       residentEmail: email,
       residentGender: gender,
-      residentDob: "",
-      residentInstitute: "",
-      residentCourse: "",
-      residentMoveInDate: "",
-      residentCheckOutDate: "",
-      residentDietaryPreference: "",
-      residentPhotoPath: "",
-      parentName: "",
-      parentPhone: "",
-      parentEmail: "",
-      parentRelation: "",
+      residentDob: dob,
+      residentInstitute: instituteName,
+      residentCourse: courseName,
+      residentMoveInDate: moveInDate,
+      residentCheckOutDate: checkOutDate,
+      residentDietaryPreference: dietaryPreference,
+      residentPhotoPath: photoPath,
+      parentName: parentName,
+      parentPhone: parentPhone,
+      parentEmail: parentEmail,
+      parentRelation: parentRelation,
       ...(propertyId ? { propertyId } : {}),
     }));
-    setResidentPhotoUrl(null);
+    if (photoPath) {
+      setResidentPhotoUrl(photoPath);
+    } else {
+      setResidentPhotoUrl(null);
+    }
 
     window.history.replaceState({}, "", window.location.pathname);
   }, []);

@@ -101,6 +101,17 @@ export default function AdminRegistrations() {
       gender: req.gender || "",
     });
     if (req.propertyId) params.set("propertyId", req.propertyId);
+    if (req.dob) params.set("dob", req.dob);
+    if (req.dietaryPreference) params.set("dietaryPreference", req.dietaryPreference);
+    if (req.instituteName) params.set("instituteName", req.instituteName);
+    if (req.courseName) params.set("courseName", req.courseName);
+    if (req.moveInDate) params.set("moveInDate", req.moveInDate);
+    if (req.checkOutDate) params.set("checkOutDate", req.checkOutDate);
+    if (req.parentName) params.set("parentName", req.parentName);
+    if (req.parentPhone) params.set("parentPhone", req.parentPhone);
+    if (req.parentEmail) params.set("parentEmail", req.parentEmail);
+    if (req.parentRelation) params.set("parentRelation", req.parentRelation);
+    if (req.photoPath) params.set("photoPath", req.photoPath);
     navigate(`/booking/generate?${params.toString()}`);
   };
 
