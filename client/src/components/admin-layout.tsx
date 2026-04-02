@@ -45,7 +45,7 @@ import {
   Map,
   MessageSquare,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import {
@@ -67,6 +67,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { PropertySwitcher } from "@/components/property-switcher";
+import { PullToRefresh } from "./pull-to-refresh";
 
 interface Notification {
   id: string;
@@ -145,6 +146,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   
+  const mainScrollRef = useRef<HTMLElement>(null);
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
   const isSuperAdmin = user?.role === "superadmin";
@@ -533,8 +535,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
-          {children}
+        <main ref={mainScrollRef} className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
+          <PullToRefresh scrollRef={mainScrollRef}>
+            {children}
+          </PullToRefresh>
         </main>
       </div>
     </div>

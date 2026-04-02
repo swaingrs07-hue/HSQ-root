@@ -10,6 +10,7 @@ import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
 import { AnimatedLogo } from "./animated-logo";
+import { PullToRefresh } from "./pull-to-refresh";
 
 interface FooterLink { label: string; href: string; }
 interface FooterData {
@@ -413,7 +414,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {!hasTransparentHeader && <div className={cn("transition-all duration-500", scrolled ? "h-16" : "h-20")} />}
 
       <main className="flex-1 w-full">
-        {children}
+        <PullToRefresh>
+          {children}
+        </PullToRefresh>
       </main>
 
       <footer className="bg-stone-900 text-stone-300" data-testid="site-footer">
