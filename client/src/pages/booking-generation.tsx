@@ -702,7 +702,7 @@ export default function BookingGeneration() {
 
   const fetchAssignedLeads = async () => {
     try {
-      const response = await fetch(`/api/sales-exec/${user?.id}/leads`, {
+      const response = await fetch("/api/sales/leads", {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (response.ok) {
