@@ -1313,7 +1313,7 @@ export default function BookingGeneration() {
                       {[
                         { value: "walk_in", label: "Walk-in Customer", desc: "New walk-in visitor", icon: User },
                         ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
-                        ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
+                        ...((isAdmin || isReceptionist) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
                       ].map(opt => {
                         const OptIcon = opt.icon;
                         const selected = formData.customerType === opt.value;
