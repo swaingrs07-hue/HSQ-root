@@ -18,7 +18,6 @@ export function PullToRefresh({ children, scrollRef, className }: PullToRefreshP
   const startY = useRef(0);
   const currentY = useRef(0);
   const isPulling = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const getScrollTop = useCallback(() => {
     if (scrollRef?.current) {
@@ -100,7 +99,7 @@ export function PullToRefresh({ children, scrollRef, className }: PullToRefreshP
   const showIndicator = pulling || refreshing;
 
   return (
-    <div ref={containerRef} className={className}>
+    <div className={className}>
       <div
         className="flex items-center justify-center overflow-hidden transition-all"
         style={{
