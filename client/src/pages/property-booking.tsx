@@ -1538,9 +1538,6 @@ function PropertyBooking() {
         const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
         return allLinked.includes(rtId) || p.roomTypeId === rtId;
       });
-      if (matchingPlans.length === 0) {
-        matchingPlans = [...propertyPlansParent];
-      }
       if (matchingPlans.length === 1) {
         setAutoDetectedPlan(matchingPlans[0]);
         setPlanPickerOptions([]);
@@ -1657,7 +1654,7 @@ function PropertyBooking() {
       const allLinked = Array.isArray(p.linkedRoomTypeIds) ? p.linkedRoomTypeIds : (p.roomTypeId ? [p.roomTypeId] : []);
       return allLinked.includes(rtId) || p.roomTypeId === rtId;
     });
-    return matched.length > 0 ? matched : [...propertyPlansParent];
+    return matched;
   }, [property, propertyPlansParent]);
 
   const handleBookSelectedBed = () => {
