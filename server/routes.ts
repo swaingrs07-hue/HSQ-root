@@ -7522,7 +7522,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       if (!process.env.HMS_API_KEY) {
         try { await getHostelFlowJWT(); } catch (loginErr: any) {
@@ -7535,6 +7535,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       const searchQuery = (req.query.search as string || "").trim();
+      const isSalesExec = req.user!.role === "sales_executive";
 
       let response = await fetch(`${HOSTEL_FLOW_BASE_URL}/api/residents`, {
         headers: getHMSAuthHeaders(),
@@ -7619,6 +7620,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           activeBookingPropertyId: existingBooking?.propertyId || null,
         };
       });
+
+      if (isSalesExec) {
+        const userId = req.user!.userId;
+        const assignedProps = await storage.getAssignedPropertiesForUser(userId);
+        const assignedPropertyIds = new Set(assignedProps.map(p => p.id));
+        const salesLeads = await storage.getLeadsForAssignedProperties(userId, []);
+        const leadPhones = new Set(salesLeads.map(l => (l.phone || "").replace(/\D/g, "").slice(-10)).filter(p => p.length >= 10));
+        const leadEmails = new Set(salesLeads.map(l => (l.email || "").toLowerCase().trim()).filter(Boolean));
+
+        residents = (residents as any[]).filter((r: any) => {
+          const rPhone = (r.phone || "").replace(/\D/g, "").slice(-10);
+          const rEmail = (r.email || "").toLowerCase().trim();
+          if (rPhone.length >= 10 && leadPhones.has(rPhone)) return true;
+          if (rEmail && leadEmails.has(rEmail)) return true;
+          if (r.propertyId && assignedPropertyIds.has(r.propertyId)) return true;
+          return false;
+        });
+      }
 
       res.json(residents);
     } catch (error) {
