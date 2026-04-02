@@ -511,7 +511,7 @@ export default function AdminLeads() {
     setSourceFilter("all");
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== "all" || assignmentFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
+  const hasActiveFilters = searchTerm || (statusFilter !== "all" && statusFilter !== "active") || assignmentFilter !== "all" || deviceFilter !== "all" || sourceFilter !== "all";
 
   return (
     <div className="space-y-4">
@@ -628,6 +628,7 @@ export default function AdminLeads() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="active">Active Leads</SelectItem>
                     <SelectItem value="all">All Status</SelectItem>
                     {Object.entries(STATUS_CONFIG).map(([key, { label }]) => (
                       <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -788,6 +789,7 @@ export default function AdminLeads() {
                             <Checkbox
                               checked={selectedLeads.has(lead.id)}
                               onCheckedChange={() => toggleSelectLead(lead.id)}
+                              disabled={lead.status === "converted" || lead.status === "lost"}
                               data-testid={`checkbox-lead-${lead.id}`}
                             />
                           </TableCell>
@@ -880,57 +882,72 @@ export default function AdminLeads() {
                             </DropdownMenu>
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={lead.assignedToId || ""}
-                              onValueChange={(userId) => assignMutation.mutate({ leadId: lead.id, userId })}
-                            >
-                              <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`select-assign-${lead.id}`}>
-                                <SelectValue placeholder="Assign...">
-                                  {lead.assignedToId ? (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-[10px] font-medium text-indigo-600">
-                                          {getExecName(lead.assignedToId)?.charAt(0)}
-                                        </span>
-                                      </div>
-                                      <span className="truncate">{getExecName(lead.assignedToId)}</span>
+                            {(lead.status === "converted" || lead.status === "lost") ? (
+                              <div className="flex items-center gap-2 h-8 px-2 text-xs text-muted-foreground">
+                                {lead.assignedToId ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-[10px] font-medium text-indigo-600">
+                                        {getExecName(lead.assignedToId)?.charAt(0)}
+                                      </span>
                                     </div>
-                                  ) : "Assign..."}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {salesExecs.filter((e) => e.isActive).length > 0 && (
-                                  <>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
-                                    {salesExecs.filter((e) => e.isActive).map((exec) => (
-                                      <SelectItem key={exec.id} value={exec.id}>
-                                        <div className="flex items-center justify-between gap-2">
-                                          <span>{exec.name}</span>
-                                          <Badge variant="secondary" className="text-[10px]">
-                                            {exec.activeLeadCount}
-                                          </Badge>
+                                    <span className="truncate">{getExecName(lead.assignedToId)}</span>
+                                  </div>
+                                ) : <span className="italic">Unassigned</span>}
+                              </div>
+                            ) : (
+                              <Select
+                                value={lead.assignedToId || ""}
+                                onValueChange={(userId) => assignMutation.mutate({ leadId: lead.id, userId })}
+                              >
+                                <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`select-assign-${lead.id}`}>
+                                  <SelectValue placeholder="Assign...">
+                                    {lead.assignedToId ? (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                          <span className="text-[10px] font-medium text-indigo-600">
+                                            {getExecName(lead.assignedToId)?.charAt(0)}
+                                          </span>
                                         </div>
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                                {assignableUsers.length > 0 && (
-                                  <>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
-                                    {assignableUsers.map((user) => (
-                                      <SelectItem key={user.id} value={user.id}>
-                                        <div className="flex items-center justify-between gap-2">
-                                          <span>{user.name}</span>
-                                          <Badge variant="outline" className="text-[10px] capitalize">
-                                            {user.role}
-                                          </Badge>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
+                                        <span className="truncate">{getExecName(lead.assignedToId)}</span>
+                                      </div>
+                                    ) : "Assign..."}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {salesExecs.filter((e) => e.isActive).length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
+                                      {salesExecs.filter((e) => e.isActive).map((exec) => (
+                                        <SelectItem key={exec.id} value={exec.id}>
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span>{exec.name}</span>
+                                            <Badge variant="secondary" className="text-[10px]">
+                                              {exec.activeLeadCount}
+                                            </Badge>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                  {assignableUsers.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
+                                      {assignableUsers.map((user) => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span>{user.name}</span>
+                                            <Badge variant="outline" className="text-[10px] capitalize">
+                                              {user.role}
+                                            </Badge>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm text-slate-500">
