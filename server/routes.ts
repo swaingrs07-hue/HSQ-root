@@ -9987,9 +9987,35 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!roomTypeId && !isSuperadmin) return res.status(400).json({ error: "roomTypeId query param is required" });
 
       const allBeds = await storage.getBedsByProperty(propertyId);
-      const availableBeds = roomTypeId
-        ? allBeds.filter((b: any) => b.roomTypeId === roomTypeId && b.status === "available")
-        : allBeds.filter((b: any) => b.status === "available");
+
+      let targetOccupancy: number | null = null;
+      if (roomTypeId) {
+        const rtRows = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, roomTypeId));
+        targetOccupancy = rtRows[0]?.occupancy || null;
+      }
+
+      const allRoomIds = [...new Set(allBeds.map(b => b.roomId).filter(Boolean))];
+      const allRoomsList = allRoomIds.length > 0 ? await db.select().from(schema.rooms).where(inArray(schema.rooms.id, allRoomIds as string[])) : [];
+      const allRoomMap = Object.fromEntries(allRoomsList.map(r => [r.id, r]));
+
+      const bedMatchesType = (b: any) => {
+        if (b.status !== "available") return false;
+        if (!roomTypeId) return true;
+        if (b.roomId) {
+          const room = allRoomMap[b.roomId];
+          if (room?.typology?.includes("+") && targetOccupancy) {
+            const parts = room.typology.split("+").map((p: string) => parseInt(p));
+            const matchingLetters = parts.map((p: number, i: number) => p === targetOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
+            if (matchingLetters.length > 0) {
+              return matchingLetters.some((letter: string | null) => b.bedNumber?.includes(`${room.roomNumber}${letter}`));
+            }
+            return false;
+          }
+        }
+        return b.roomTypeId === roomTypeId;
+      };
+
+      const availableBeds = allBeds.filter(bedMatchesType);
 
       const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
       const roomIds = [...new Set(availableBeds.map(b => b.roomId).filter(Boolean))];

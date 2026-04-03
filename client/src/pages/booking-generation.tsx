@@ -1955,16 +1955,15 @@ export default function BookingGeneration() {
                           const selectedOccupancy = selectedRT?.occupancy || 1;
                           const hasAnyMatchingBeds = floors.some((floor: any) => {
                             const checkBedMatch = (bed: any, room: any) => {
-                              if (bed.roomTypeId === formData.roomTypeId) return true;
                               if (room?.typology?.includes("+")) {
                                 const parts = room.typology.split("+").map((p: string) => parseInt(p));
-                                const sectionIdx = parts.indexOf(selectedOccupancy);
-                                if (sectionIdx >= 0) {
-                                  const sectionLetter = String.fromCharCode(65 + sectionIdx);
-                                  return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+                                const matchingLetters = parts.map((p: number, i: number) => p === selectedOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
+                                if (matchingLetters.length > 0) {
+                                  return matchingLetters.some((letter: string) => bed.bedNumber?.includes(`${room.roomNumber}${letter}`));
                                 }
+                                return false;
                               }
-                              return false;
+                              return bed.roomTypeId === formData.roomTypeId;
                             };
                             const matchedRoomBeds = (floor.rooms || []).flatMap((r: any) => (r.beds || []).filter((b: any) => checkBedMatch(b, r)));
                             const matchedOrphanBeds = (floor.beds || []).filter((b: any) => b.roomTypeId === formData.roomTypeId);
@@ -1984,16 +1983,15 @@ export default function BookingGeneration() {
                           const selectedOccupancy = selectedRT?.occupancy || 1;
 
                           const bedMatchesSelectedType = (bed: any, room: any) => {
-                            if (bed.roomTypeId === formData.roomTypeId) return true;
                             if (room?.typology?.includes("+")) {
                               const parts = room.typology.split("+").map((p: string) => parseInt(p));
-                              const sectionIdx = parts.indexOf(selectedOccupancy);
-                              if (sectionIdx >= 0) {
-                                const sectionLetter = String.fromCharCode(65 + sectionIdx);
-                                return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+                              const matchingLetters = parts.map((p: number, i: number) => p === selectedOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
+                              if (matchingLetters.length > 0) {
+                                return matchingLetters.some((letter: string) => bed.bedNumber?.includes(`${room.roomNumber}${letter}`));
                               }
+                              return false;
                             }
-                            return false;
+                            return bed.roomTypeId === formData.roomTypeId;
                           };
 
                           const roomMatchesSelectedType = (room: any) => {
