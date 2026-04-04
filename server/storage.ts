@@ -902,11 +902,21 @@ export class DatabaseStorage implements IStorage {
 
   private normalizeLeadPhone(phone: string | null | undefined): string | null | undefined {
     if (!phone) return phone;
-    let normalized = phone.replace(/[^\d+]/g, "");
-    if (normalized.length === 10 && !normalized.startsWith("+")) {
-      normalized = "+91" + normalized;
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length === 10) {
+      return "+91" + digits;
     }
-    return normalized;
+    if (digits.length === 12 && digits.startsWith("91")) {
+      return "+" + digits;
+    }
+    if (digits.length === 11 && digits.startsWith("0")) {
+      return "+91" + digits.slice(1);
+    }
+    let normalized = phone.replace(/[^\d+]/g, "");
+    if (normalized.startsWith("+91") && normalized.length === 13) {
+      return normalized;
+    }
+    return normalized || phone;
   }
 
   async createLead(insertLead: InsertLead): Promise<Lead> {

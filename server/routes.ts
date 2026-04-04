@@ -108,13 +108,21 @@ const validateWebLeadApiKey = (req: Request, res: Response, next: NextFunction) 
 // Phone number normalization
 function normalizePhone(phone: string | undefined): string | undefined {
   if (!phone) return undefined;
-  // Remove all non-digit characters except +
-  let normalized = phone.replace(/[^\d+]/g, "");
-  // Add +91 if it's a 10-digit Indian number
-  if (normalized.length === 10 && !normalized.startsWith("+")) {
-    normalized = "+91" + normalized;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return "+91" + digits;
   }
-  return normalized;
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return "+" + digits;
+  }
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return "+91" + digits.slice(1);
+  }
+  let normalized = phone.replace(/[^\d+]/g, "");
+  if (normalized.startsWith("+91") && normalized.length === 13) {
+    return normalized;
+  }
+  return normalized || phone;
 }
 
 // Email normalization  
@@ -1149,9 +1157,7 @@ ${allPages.map(p => `  <url>
             userAgent: req.headers["user-agent"],
           });
         } else {
-          // Create new lead
-          const [newLead] = await db.insert(schema.leads)
-            .values({
+          const newLead = await storage.createLead({
               name: data.name,
               phone: normalizedPhone,
               email: normalizedEmail,
@@ -1172,9 +1178,8 @@ ${allPages.map(p => `  <url>
               assignmentType,
               assignedAt: assignedToId ? new Date() : null,
               signedUp: true,
-              score: 5, // Initial signup score
-            })
-            .returning();
+              score: 5,
+            });
           
           lead = newLead;
           
@@ -1276,7 +1281,7 @@ ${allPages.map(p => `  <url>
         }
       }
 
-      const [lead] = await db.insert(schema.leads).values({
+      const lead = await storage.createLead({
         name,
         phone,
         email: email || null,
@@ -1296,7 +1301,7 @@ ${allPages.map(p => `  <url>
         isManualEntry: false,
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
-      }).returning();
+      });
 
       if (assignedToId) {
         await storage.createNotification({
