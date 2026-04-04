@@ -62,6 +62,7 @@ import {
   RefreshCw,
   Send,
   ArrowRightLeft,
+  Share2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1312,6 +1313,12 @@ export default function CompletedBookings() {
                               Booked by {booking.createdByName}
                             </span>
                           )}
+                          {booking.referrer && (
+                            <span className="flex items-center gap-1 text-indigo-500" data-testid={`text-referrer-${booking.id}`}>
+                              <Share2 className="h-3.5 w-3.5" />
+                              Ref: {booking.referrer}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1575,6 +1582,14 @@ export default function CompletedBookings() {
                   </span>
                 )}
               </div>
+
+              {selectedBooking.referrer && (
+                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex items-center gap-2" data-testid="referral-info">
+                  <Share2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <span className="text-sm font-medium text-indigo-700">Referral:</span>
+                  <span className="text-sm text-slate-700">{selectedBooking.referrer}</span>
+                </div>
+              )}
 
               {selectedBooking.residentDetails && (selectedBooking.residentDetails.name || selectedBooking.residentDetails.phone || selectedBooking.residentDetails.email) && (
                 <div className="p-4 bg-pink-50 rounded-xl border border-pink-100">
