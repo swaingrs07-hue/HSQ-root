@@ -7,7 +7,7 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql, isNull, isNotNull, or, desc } from "drizzle-orm";
+import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
