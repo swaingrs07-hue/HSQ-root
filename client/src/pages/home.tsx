@@ -53,12 +53,14 @@ function TiltCard({ children, className = "", intensity = 12, glowColor = "rgba(
       onMouseLeave={onMouseLeave}
       {...props}
     >
-      <motion.div style={{ rotateX, rotateY, transformStyle: "preserve-3d" as any }} className="relative h-full">
-        {children}
+      <motion.div style={{ rotateX, rotateY }} className="relative h-full">
         <motion.div
           className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{ background: useTransform([glowX, glowY], ([gx, gy]) => `radial-gradient(circle at ${gx}% ${gy}%, ${glowColor} 0%, transparent 60%)`) }}
+          style={{ background: useTransform([glowX, glowY], ([gx, gy]) => `radial-gradient(circle at ${gx}% ${gy}%, ${glowColor} 0%, transparent 60%)`), zIndex: 0 }}
         />
+        <div className="relative" style={{ zIndex: 1 }}>
+          {children}
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -1203,20 +1205,18 @@ export default function Home() {
                                     </div>
                                   )}
 
-                                  <div className="mt-5 relative" style={{ zIndex: 50 }}>
+                                  <div className="mt-5">
                                     <a
                                       href={plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        e.stopPropagation();
                                         const target = plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties";
                                         setLocation(target);
                                       }}
-                                      className={`block w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02] active:scale-[0.98]`}
-                                      style={{ pointerEvents: "auto" }}
+                                      className={`block w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} transition-all duration-300 cursor-pointer hover:scale-[1.02] active:scale-[0.98]`}
                                       data-testid={`button-view-plan-${plan.id}`}
                                     >
-                                      <span className="relative z-10 flex items-center justify-center gap-2 h-full">
+                                      <span className="flex items-center justify-center gap-2 h-full">
                                         Explore & Book <ArrowRight className="w-4 h-4" />
                                       </span>
                                     </a>
