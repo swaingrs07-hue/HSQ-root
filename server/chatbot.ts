@@ -4,6 +4,16 @@ import * as schema from "@shared/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 
+function normalizeLeadPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return "+91" + digits;
+  if (digits.length === 12 && digits.startsWith("91")) return "+" + digits;
+  if (digits.length === 11 && digits.startsWith("0")) return "+91" + digits.slice(1);
+  const normalized = phone.replace(/[^\d+]/g, "");
+  if (normalized.startsWith("+91") && normalized.length === 13) return normalized;
+  return normalized || phone;
+}
+
 const leadQualificationSchema = z.object({
   name: z.string().max(200).nullable().optional(),
   email: z.string().email().max(200).nullable().optional(),
@@ -520,12 +530,13 @@ export async function createLeadFromChat(
   }
 
   try {
+    const normalizedPhone = safePhone ? normalizeLeadPhone(safePhone) : safePhone;
     const [lead] = await db
       .insert(schema.leads)
       .values({
         name: safeName as string,
         email: safeEmail,
-        phone: safePhone,
+        phone: normalizedPhone,
         propertyId: validPropertyId,
         source: "chatbot",
         status: "new",

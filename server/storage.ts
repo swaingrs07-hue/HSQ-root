@@ -891,8 +891,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeadByPhone(phone: string): Promise<Lead | undefined> {
-    const [lead] = await db.select().from(leads).where(eq(leads.phone, phone));
-    return lead || undefined;
+    const normalized = this.normalizeLeadPhone(phone) || phone;
+    const [lead] = await db.select().from(leads).where(eq(leads.phone, normalized));
+    if (lead) return lead;
+    const digits = phone.replace(/\D/g, "").slice(-10);
+    if (digits.length === 10) {
+      const [fallback] = await db.select().from(leads)
+        .where(sql`regexp_replace(${leads.phone}, '[^0-9]', '', 'g') LIKE ${'%' + digits}`)
+        .limit(1);
+      return fallback || undefined;
+    }
+    return undefined;
   }
 
   async getLeadByEmail(email: string): Promise<Lead | undefined> {
