@@ -7795,45 +7795,21 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         let totalBeds = propBeds.length;
         let totalBedValue = 0;
 
-        if (totalBeds > 0) {
-          const bedPrices = propBeds.map(b => {
-            const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
-            const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
-            return (bedPrice || roomPrice || 0) * 12;
-          });
-          totalBedValue = bedPrices.reduce((sum, p) => sum + p, 0);
-        }
+        const propPackages = await db.select().from(schema.packages)
+          .where(and(
+            eq(schema.packages.propertyId, prop.id),
+            eq(schema.packages.isActive, true),
+            eq(schema.packages.category, 'housing_plan')
+          ));
 
-        if (totalBedValue === 0) {
-          const propRoomTypes = await db.select().from(schema.roomTypes)
-            .where(eq(schema.roomTypes.propertyId, prop.id));
-
-          if (propRoomTypes.length > 0) {
-            let rtTotalBeds = 0;
-            let rtTotalValue = 0;
-            for (const rt of propRoomTypes) {
-              const beds = rt.totalBeds || 0;
-              const price = Number(rt.basePrice) || 0;
-              rtTotalBeds += beds;
-              rtTotalValue += beds * price * 12;
-            }
-            if (totalBeds === 0) totalBeds = rtTotalBeds;
-            if (rtTotalValue > 0) totalBedValue = rtTotalValue;
+        if (propPackages.length > 0) {
+          const avgPkgPrice = propPackages.reduce((s, p) => s + (Number(p.basePrice) || 0), 0) / propPackages.length;
+          if (totalBeds === 0) {
+            const propRoomTypes = await db.select().from(schema.roomTypes)
+              .where(eq(schema.roomTypes.propertyId, prop.id));
+            totalBeds = propRoomTypes.reduce((s, rt) => s + (rt.totalBeds || 0), 0);
           }
-        }
-
-        if (totalBedValue === 0) {
-          const propPackages = await db.select().from(schema.packages)
-            .where(and(
-              eq(schema.packages.propertyId, prop.id),
-              eq(schema.packages.isActive, true),
-              eq(schema.packages.category, 'housing_plan')
-            ));
-
-          if (propPackages.length > 0) {
-            const avgPkgPrice = propPackages.reduce((s, p) => s + (Number(p.basePrice) || 0), 0) / propPackages.length;
-            totalBedValue = totalBeds * avgPkgPrice;
-          }
+          totalBedValue = totalBeds * avgPkgPrice;
         }
 
         const bookingConditions = [
@@ -7869,6 +7845,37 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         if (totalBedValue === 0 && propBookings.length > 0) {
           const avgBookingFee = propBookings.reduce((s, b) => s + (Number(b.totalFee) || 0), 0) / propBookings.length;
           totalBedValue = totalBeds * avgBookingFee;
+        }
+
+        if (totalBedValue === 0 && totalBeds > 0) {
+          const bedPrices = propBeds.map(b => {
+            const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
+            const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
+            return bedPrice || roomPrice || 0;
+          });
+          const totalMonthly = bedPrices.reduce((sum, p) => sum + p, 0);
+          if (totalMonthly > 0) {
+            const isAcademicYear = prop.bookingMode === 'academic_year';
+            totalBedValue = isAcademicYear ? totalMonthly * 10 : totalMonthly;
+          }
+        }
+
+        if (totalBedValue === 0 && totalBeds === 0) {
+          const propRoomTypes = await db.select().from(schema.roomTypes)
+            .where(eq(schema.roomTypes.propertyId, prop.id));
+          if (propRoomTypes.length > 0) {
+            let rtTotalBeds = 0;
+            let rtTotalValue = 0;
+            for (const rt of propRoomTypes) {
+              const beds = rt.totalBeds || 0;
+              const price = Number(rt.basePrice) || 0;
+              const isAcademicYear = prop.bookingMode === 'academic_year';
+              rtTotalBeds += beds;
+              rtTotalValue += beds * price * (isAcademicYear ? 10 : 1);
+            }
+            totalBeds = rtTotalBeds;
+            totalBedValue = rtTotalValue;
+          }
         }
 
         const target = targetMap.get(prop.id);
