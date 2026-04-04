@@ -40,29 +40,51 @@ function TiltCard({ children, className = "", intensity = 12, glowColor = "rgba(
   children: React.ReactNode; className?: string; intensity?: number; glowColor?: string;
   [key: string]: any;
 }) {
-  const { rotateX, rotateY, glowX, glowY, onMouseMove, onMouseLeave } = useMouseTilt(intensity);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0, gx: 50, gy: 50 });
   const prefersReduced = useRef(typeof window !== 'undefined' && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({
+      rx: -ny * intensity,
+      ry: nx * intensity,
+      gx: (nx + 0.5) * 100,
+      gy: (ny + 0.5) * 100,
+    });
+  }, [intensity]);
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ rx: 0, ry: 0, gx: 50, gy: 50 });
+  }, []);
+
   if (prefersReduced.current) {
     return <div className={className} {...props}>{children}</div>;
   }
+
   return (
-    <motion.div
+    <div
+      ref={cardRef}
       className={className}
-      style={{ perspective: 1000, transformStyle: "preserve-3d" as any }}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ perspective: 1000 }}
       {...props}
     >
-      <motion.div style={{ rotateX, rotateY }} className="relative h-full">
-        <motion.div
+      <div
+        className="relative h-full transition-transform duration-200 ease-out"
+        style={{ transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)` }}
+      >
+        {children}
+        <div
           className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{ background: useTransform([glowX, glowY], ([gx, gy]) => `radial-gradient(circle at ${gx}% ${gy}%, ${glowColor} 0%, transparent 60%)`), zIndex: 0 }}
+          style={{ background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, ${glowColor} 0%, transparent 60%)` }}
         />
-        <div className="relative" style={{ zIndex: 1 }}>
-          {children}
-        </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
