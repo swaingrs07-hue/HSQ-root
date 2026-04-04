@@ -55,6 +55,7 @@ import {
   Crown,
   Star,
   Gem,
+  Share2,
 } from "lucide-react";
 
 interface Property {
@@ -259,6 +260,8 @@ export default function BookingGeneration() {
     parentEmail: "",
     parentRelation: "",
     residentPhotoPath: "",
+    referrerName: "",
+    referrerPhone: "",
   });
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
@@ -885,6 +888,8 @@ export default function BookingGeneration() {
       walkInName: "",
       walkInPhone: "",
       walkInEmail: "",
+      referrerName: "",
+      referrerPhone: "",
     }));
     setSelectedStudent(null);
     setStudentSearch("");
@@ -987,8 +992,12 @@ export default function BookingGeneration() {
   const validateStep = (stepNum: number) => {
     switch (stepNum) {
       case 1:
-        if (formData.customerType === "walk_in") {
-          return !!(formData.walkInName.trim() && formData.walkInPhone.trim() && formData.walkInEmail.trim() && formData.walkInEmail.includes("@"));
+        if (formData.customerType === "walk_in" || formData.customerType === "referral") {
+          const baseValid = !!(formData.walkInName.trim() && formData.walkInPhone.trim() && formData.walkInEmail.trim() && formData.walkInEmail.includes("@"));
+          if (formData.customerType === "referral") {
+            return baseValid && !!formData.referrerName.trim();
+          }
+          return baseValid;
         } else if (formData.customerType === "lead") {
           return !!formData.leadId;
         }
@@ -1053,12 +1062,13 @@ export default function BookingGeneration() {
           Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({
-          customerType: formData.customerType,
+          customerType: formData.customerType === "referral" ? "walk_in" : formData.customerType,
           studentId: formData.customerType === "student" ? formData.studentId : null,
           leadId: formData.customerType === "lead" ? formData.leadId : null,
           walkInName: formData.walkInName || null,
           walkInPhone: formData.walkInPhone || null,
           walkInEmail: formData.walkInEmail || null,
+          referrer: formData.customerType === "referral" ? (formData.referrerName + (formData.referrerPhone ? ` (${formData.referrerPhone})` : "")).trim() : null,
           propertyId: formData.propertyId,
           roomTypeId: formData.roomTypeId,
           bedId: selectedBedId || null,
@@ -1351,9 +1361,10 @@ export default function BookingGeneration() {
                   <>
                   <div>
                     <Label className="text-sm font-medium text-slate-600 mb-3 block">Customer Type</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { value: "walk_in", label: "Walk-in Customer", desc: "New walk-in visitor", icon: User },
+                        { value: "referral", label: "Referral", desc: "Referred by someone", icon: Share2 },
                         ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
                         ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
                       ].map(opt => {
@@ -1385,7 +1396,7 @@ export default function BookingGeneration() {
                     </div>
                   </div>
 
-                  {formData.customerType === "walk_in" && (
+                  {(formData.customerType === "walk_in" || formData.customerType === "referral") && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1445,10 +1456,51 @@ export default function BookingGeneration() {
                           />
                         </div>
                       </div>
+
+                      {formData.customerType === "referral" && (
+                        <>
+                          <Separator className="my-2" />
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-indigo-700 flex items-center gap-1.5">
+                              <Share2 className="h-4 w-4" /> Referral Details
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="referrerName" className="text-sm font-medium text-slate-700">Referred By (Name) <span className="text-red-500">*</span></Label>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <Input
+                                  id="referrerName"
+                                  value={formData.referrerName}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, referrerName: e.target.value }))}
+                                  className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                  placeholder="Enter referrer's name"
+                                  data-testid="input-referrer-name"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="referrerPhone" className="text-sm font-medium text-slate-700">Referrer Phone</Label>
+                              <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <Input
+                                  id="referrerPhone"
+                                  value={formData.referrerPhone}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, referrerPhone: e.target.value }))}
+                                  className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                  placeholder="Enter referrer's phone (optional)"
+                                  data-testid="input-referrer-phone"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </motion.div>
                   )}
 
-                  {formData.customerType === "walk_in" && matchedLeadInfo?.matched && matchedLeadInfo.lead && (
+                  {(formData.customerType === "walk_in" || formData.customerType === "referral") && matchedLeadInfo?.matched && matchedLeadInfo.lead && (
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1529,7 +1581,7 @@ export default function BookingGeneration() {
                     </motion.div>
                   )}
 
-                  {matchingLead && formData.customerType === "walk_in" && (
+                  {matchingLead && (formData.customerType === "walk_in" || formData.customerType === "referral") && (
                     <div className="flex items-center gap-2 text-xs text-slate-500 px-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Checking for existing lead...
@@ -3194,9 +3246,16 @@ export default function BookingGeneration() {
                           </p>
                         )}
                       </div>
-                      <Badge variant="secondary" className="mt-3 capitalize">
-                        {isRegularUser ? "Profile Booking" : formData.customerType.replace("_", " ")}
-                      </Badge>
+                      <div className="flex items-center gap-2 mt-3">
+                        <Badge variant="secondary" className="capitalize">
+                          {isRegularUser ? "Profile Booking" : formData.customerType.replace("_", " ")}
+                        </Badge>
+                        {formData.customerType === "referral" && formData.referrerName && (
+                          <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">
+                            <Share2 className="h-3 w-3 mr-1" /> Ref: {formData.referrerName}
+                          </Badge>
+                        )}
+                      </div>
                     </motion.div>
 
                     <motion.div
