@@ -393,6 +393,7 @@ export default function CompletedBookings() {
       customerPhone: booking.customerPhone || "",
       customerEmail: booking.customerEmail || "",
       status: booking.status || "draft",
+      referrer: booking.referrer || "",
       dob: rd.dob || "",
       gender: rd.gender || "",
       institute: rd.institute || "",
@@ -2369,6 +2370,17 @@ export default function CompletedBookings() {
                       data-testid="input-edit-email"
                     />
                   </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Share2 className="h-3 w-3" /> Referrer
+                  </Label>
+                  <Input
+                    value={editForm.referrer}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, referrer: e.target.value }))}
+                    placeholder="e.g. Ganesh Sir (+91 79 7221 4683)"
+                    data-testid="input-edit-referrer"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
