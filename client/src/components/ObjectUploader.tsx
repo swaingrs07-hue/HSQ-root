@@ -132,7 +132,6 @@ export function ObjectUploader({
     const instance = new Uppy({
       restrictions: {
         maxNumberOfFiles,
-        maxFileSize: maxFileSize * 3,
       },
       autoProceed: false,
     })
@@ -156,10 +155,15 @@ export function ObjectUploader({
                 type: uppyFile.type || "application/octet-stream",
               });
 
-        if (
-          !originalFile.type.startsWith("image/") ||
-          originalFile.size <= maxFileSize
-        ) {
+        if (!originalFile.type.startsWith("image/")) {
+          if (originalFile.size > maxFileSize) {
+            instance.removeFile(fileID);
+            instance.info(`${uppyFile.name} exceeds ${Math.round(maxFileSize / 1024 / 1024)}MB limit`, 'error', 5000);
+          }
+          continue;
+        }
+
+        if (originalFile.size <= maxFileSize) {
           continue;
         }
 
@@ -181,10 +185,8 @@ export function ObjectUploader({
             progress: { uploadStarted: null, uploadComplete: false, percentage: 0 } as any,
           });
         } catch (err) {
-          console.warn(
-            `Image compression failed for ${uppyFile.name}, uploading original`,
-            err,
-          );
+          instance.removeFile(fileID);
+          instance.info(`${uppyFile.name}: could not compress below ${Math.round(maxFileSize / 1024 / 1024)}MB`, 'error', 5000);
         }
       }
     });
