@@ -7799,7 +7799,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           const bedPrices = propBeds.map(b => {
             const bedPrice = b.beds?.monthlyPrice ? Number(b.beds.monthlyPrice) : 0;
             const roomPrice = b.rooms?.monthlyPrice ? Number(b.rooms.monthlyPrice) : 0;
-            return bedPrice || roomPrice || 0;
+            return (bedPrice || roomPrice || 0) * 12;
           });
           totalBedValue = bedPrices.reduce((sum, p) => sum + p, 0);
         }
@@ -7815,7 +7815,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               const beds = rt.totalBeds || 0;
               const price = Number(rt.basePrice) || 0;
               rtTotalBeds += beds;
-              rtTotalValue += beds * price;
+              rtTotalValue += beds * price * 12;
             }
             if (totalBeds === 0) totalBeds = rtTotalBeds;
             if (rtTotalValue > 0) totalBedValue = rtTotalValue;
@@ -7835,11 +7835,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             totalBedValue = totalBeds * avgPkgPrice;
           }
         }
-
-        const target = targetMap.get(prop.id);
-        const occupancyTarget = target?.targetOccupancyPercent ?? 100;
-        const autoTarget = Math.round(totalBedValue * (occupancyTarget / 100));
-        const targetAmount = target?.customTargetOverride ?? autoTarget;
 
         const bookingConditions = [
           eq(schema.bookings.propertyId, prop.id),
@@ -7871,8 +7866,20 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const propBookings = await db.select().from(schema.bookings)
           .where(and(...bookingConditions));
 
+        if (totalBedValue === 0 && propBookings.length > 0) {
+          const avgBookingFee = propBookings.reduce((s, b) => s + (Number(b.totalFee) || 0), 0) / propBookings.length;
+          totalBedValue = totalBeds * avgBookingFee;
+        }
+
+        const target = targetMap.get(prop.id);
+        const occupancyTarget = target?.targetOccupancyPercent ?? 100;
+        const autoTarget = Math.round(totalBedValue * (occupancyTarget / 100));
+        const targetAmount = target?.customTargetOverride ?? autoTarget;
+
         const achievedAmount = propBookings.reduce((sum, b) => sum + (Number(b.totalFee) || 0), 0);
-        const avgBedPrice = propBookings.length > 0 ? Math.round(achievedAmount / propBookings.length) : 0;
+        const avgBedPrice = propBookings.length > 0
+          ? Math.round(achievedAmount / propBookings.length)
+          : (totalBeds > 0 ? Math.round(totalBedValue / totalBeds) : 0);
         const bookedBeds = propBookings.filter(b => ['confirmed', 'active'].includes(b.status)).length;
         const occupiedBeds = propBeds.filter(b => b.beds.status === 'occupied').length;
         const vacantBeds = totalBeds - occupiedBeds;
