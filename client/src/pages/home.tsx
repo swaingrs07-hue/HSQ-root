@@ -1147,29 +1147,29 @@ export default function Home() {
                               <div className={`${d.cardBg} rounded-[28px] overflow-hidden h-full flex flex-col relative border border-white/[0.08] group-hover:border-white/[0.18] transition-all duration-500`} style={{ boxShadow: `0 8px 40px -8px ${d.glow}, 0 0 80px -20px ${d.glow}` }}>
                                 <div className="absolute inset-0 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 50%)`, boxShadow: `0 0 80px 20px ${d.glow}` }} />
 
-                                <div className="px-7 pt-8 pb-6 relative">
-                                  <div className={`absolute top-0 left-7 right-7 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
-                                  <h3 className={`font-heading font-bold text-2xl tracking-wide bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}>
+                                <div className="px-5 pt-6 pb-4 relative">
+                                  <div className={`absolute top-0 left-5 right-5 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
+                                  <h3 className={`font-heading font-bold text-xl tracking-wide bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}>
                                     {plan.name}
                                   </h3>
                                   {plan.tagline && (
-                                    <p className={`text-sm mt-1 ${d.taglineColor} italic`}>{plan.tagline}</p>
+                                    <p className={`text-xs mt-1 ${d.taglineColor} italic`}>{plan.tagline}</p>
                                   )}
 
-                                  <div className="mt-5 flex items-baseline gap-2">
-                                    <span className={`text-4xl font-bold tracking-tight ${d.priceColor}`}>
+                                  <div className="mt-3 flex items-baseline gap-2">
+                                    <span className={`text-3xl font-bold tracking-tight ${d.priceColor}`}>
                                       {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Custom"}
                                     </span>
                                     {price > 0 && <span className="text-white/30 text-sm">/ year</span>}
                                   </div>
                                   {price > 0 && (
-                                    <p className="text-white/25 text-xs mt-1">≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month</p>
+                                    <p className="text-white/25 text-xs mt-0.5">≈ ₹{Math.round(price / 12).toLocaleString("en-IN")}/month</p>
                                   )}
                                 </div>
 
-                                <div className={`mx-7 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
+                                <div className={`mx-5 h-[1px] bg-gradient-to-r ${d.decorLine}`} />
 
-                                <div className="px-7 py-5 flex-1 flex flex-col">
+                                <div className="px-5 py-4 flex-1 flex flex-col">
                                   {plan.occupancy && (
                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs mb-4 ${d.occupancyBg}`}>
                                       <Users className={`w-3.5 h-3.5 ${d.occupancyText}`} />
@@ -1178,7 +1178,7 @@ export default function Home() {
                                   )}
 
                                   {features.length > 0 && (
-                                    <div className="space-y-3 flex-1">
+                                    <div className="space-y-2.5 flex-1">
                                       {features.map((item: any) => {
                                         const val = item.featureValue || `${item.includedQty} ${item.unit}`;
                                         const isCredit = val.includes("Credit");
@@ -1203,24 +1203,26 @@ export default function Home() {
                                     </div>
                                   )}
 
-                                  <div className="mt-7">
-                                    <Link href={plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}>
-                                      <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        className={`w-full rounded-xl h-12 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300`}
-                                        data-testid={`button-view-plan-${plan.id}`}
-                                      >
-                                        <span className="relative z-10 flex items-center justify-center gap-2">
-                                          Explore & Book <ArrowRight className="w-4 h-4" />
-                                        </span>
-                                        <motion.div
-                                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                                          animate={{ x: ["-100%", "200%"] }}
-                                          transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-                                        />
-                                      </motion.button>
-                                    </Link>
+                                  <div className="mt-5">
+                                    <motion.button
+                                      whileHover={{ scale: 1.02 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      onClick={() => {
+                                        const target = plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties";
+                                        setLocation(target);
+                                      }}
+                                      className={`w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300 cursor-pointer`}
+                                      data-testid={`button-view-plan-${plan.id}`}
+                                    >
+                                      <span className="relative z-10 flex items-center justify-center gap-2">
+                                        Explore & Book <ArrowRight className="w-4 h-4" />
+                                      </span>
+                                      <motion.div
+                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                                        animate={{ x: ["-100%", "200%"] }}
+                                        transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+                                      />
+                                    </motion.button>
                                   </div>
                                 </div>
                               </div>
