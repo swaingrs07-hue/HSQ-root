@@ -7,7 +7,7 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
+import { eq, and, inArray, sql, isNull, isNotNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
@@ -140,7 +140,19 @@ async function matchLeadByContact(phone?: string | null, email?: string | null) 
     .where(or(...conditions))
     .orderBy(desc(schema.leads.lastActivityAt))
     .limit(1);
-  return matched || null;
+  if (matched) return matched;
+
+  if (phone) {
+    const digits = phone.replace(/\D/g, "").slice(-10);
+    if (digits.length === 10) {
+      const [fallback] = await db.select().from(schema.leads)
+        .where(sql`regexp_replace(${schema.leads.phone}, '[^0-9]', '', 'g') LIKE ${'%' + digits}`)
+        .orderBy(desc(schema.leads.lastActivityAt))
+        .limit(1);
+      if (fallback) return fallback;
+    }
+  }
+  return null;
 }
 
 // Payment plan definitions (matching frontend logic)
@@ -4317,17 +4329,21 @@ ${allPages.map(p => `  <url>
           convertedByUserId: authUser.userId,
           convertedAt: new Date(),
         });
-      } else if (walkInPhone || walkInEmail) {
-        const matchedLead = await matchLeadByContact(walkInPhone, walkInEmail);
-        if (matchedLead) {
-          const authUser = (req as AuthRequest).user!;
-          await storage.updateLead(matchedLead.id, {
-            status: "converted",
-            bookingInitiated: true,
-            linkedBookingId: booking.id,
-            convertedByUserId: authUser.userId,
-            convertedAt: new Date(),
-          });
+      } else {
+        const contactPhone = walkInPhone || residentDetails?.phone;
+        const contactEmail = walkInEmail || residentDetails?.email;
+        if (contactPhone || contactEmail) {
+          const matchedLead = await matchLeadByContact(contactPhone, contactEmail);
+          if (matchedLead && matchedLead.status !== "converted") {
+            const authUser = (req as AuthRequest).user!;
+            await storage.updateLead(matchedLead.id, {
+              status: "converted",
+              bookingInitiated: true,
+              linkedBookingId: booking.id,
+              convertedByUserId: authUser.userId,
+              convertedAt: new Date(),
+            });
+          }
         }
       }
 

@@ -900,12 +900,27 @@ export class DatabaseStorage implements IStorage {
     return lead || undefined;
   }
 
+  private normalizeLeadPhone(phone: string | null | undefined): string | null | undefined {
+    if (!phone) return phone;
+    let normalized = phone.replace(/[^\d+]/g, "");
+    if (normalized.length === 10 && !normalized.startsWith("+")) {
+      normalized = "+91" + normalized;
+    }
+    return normalized;
+  }
+
   async createLead(insertLead: InsertLead): Promise<Lead> {
+    if (insertLead.phone) {
+      insertLead = { ...insertLead, phone: this.normalizeLeadPhone(insertLead.phone) as string };
+    }
     const [lead] = await db.insert(leads).values(insertLead).returning();
     return lead;
   }
 
   async updateLead(id: string, data: Partial<Lead>): Promise<Lead | undefined> {
+    if (data.phone) {
+      data = { ...data, phone: this.normalizeLeadPhone(data.phone) as string };
+    }
     const [lead] = await db
       .update(leads)
       .set(data)
