@@ -1203,26 +1203,23 @@ export default function Home() {
                                     </div>
                                   )}
 
-                                  <div className="mt-5">
-                                    <motion.button
-                                      whileHover={{ scale: 1.02 }}
-                                      whileTap={{ scale: 0.98 }}
-                                      onClick={() => {
+                                  <div className="mt-5 relative" style={{ zIndex: 50 }}>
+                                    <a
+                                      href={plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties"}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         const target = plan.propertySlug ? `/properties/${plan.propertySlug}` : plan.propertyId ? `/properties/${plan.propertyId}` : "/properties";
                                         setLocation(target);
                                       }}
-                                      className={`w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300 cursor-pointer`}
+                                      className={`block w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} relative overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02] active:scale-[0.98]`}
+                                      style={{ pointerEvents: "auto" }}
                                       data-testid={`button-view-plan-${plan.id}`}
                                     >
-                                      <span className="relative z-10 flex items-center justify-center gap-2">
+                                      <span className="relative z-10 flex items-center justify-center gap-2 h-full">
                                         Explore & Book <ArrowRight className="w-4 h-4" />
                                       </span>
-                                      <motion.div
-                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                                        animate={{ x: ["-100%", "200%"] }}
-                                        transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
-                                      />
-                                    </motion.button>
+                                    </a>
                                   </div>
                                 </div>
                               </div>
