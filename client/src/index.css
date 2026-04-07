@@ -324,3 +324,18 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
+
+@keyframes enquiry-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.enquiry-card-float { animation: enquiry-float 3s ease-in-out infinite; }
+.enquiry-card-glow { animation: enquiry-ring 2s ease-in-out infinite; }
+.enquiry-card-pulse { animation: pulse 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .enquiry-card-float,
+  .enquiry-card-glow,
+  .enquiry-card-pulse { animation: none; }
+}

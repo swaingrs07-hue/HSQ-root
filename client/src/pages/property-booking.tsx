@@ -502,6 +502,23 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               </>
             )}
 
+            <Link href="/contact" data-testid="button-enquiry-now" onClick={(e: React.MouseEvent) => e.stopPropagation()} className="absolute bottom-24 right-5 z-20 group cursor-pointer enquiry-card-float outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-[22px]">
+              <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 opacity-60 blur-lg group-hover:opacity-90 transition-opacity duration-500 enquiry-card-glow" />
+              <div className="relative backdrop-blur-xl bg-black/40 border border-white/[0.18] rounded-[20px] px-5 py-3.5 flex items-center gap-3.5 shadow-2xl shadow-black/40 group-hover:bg-black/30 group-hover:border-white/[0.28] transition-all duration-500 group-hover:scale-[1.03] active:scale-[0.97]">
+                <div className="relative flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <MessageCircle className="w-[18px] h-[18px] text-white" />
+                  </div>
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-black/50 enquiry-card-pulse" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-white font-semibold text-sm tracking-wide leading-tight">Enquire Now</span>
+                  <span className="text-white/60 text-[11px] tracking-wide">Get instant response</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all duration-300 ml-1" />
+              </div>
+            </Link>
+
             <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
               <div className="flex items-end justify-between">
                 <div className="flex gap-1 bg-black/60 rounded-full p-1 border border-white/10">
@@ -560,15 +577,6 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               Full Experience
             </button>
           )}
-          <Link href="/contact" data-testid="button-enquiry-now">
-            <span className="group relative inline-flex items-center gap-2 px-5 h-8 rounded-full text-[11px] font-bold tracking-wider uppercase cursor-pointer overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-500 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50">
-              <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-300 to-fuchsia-400 opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
-              <span className="absolute inset-0 rounded-full animate-[enquiry-ring_2s_ease-in-out_infinite]" style={{ boxShadow: '0 0 0 0 rgba(168,85,247,0.5)' }} />
-              <MessageCircle className="w-3.5 h-3.5 relative z-10 animate-[enquiry-bounce_2s_ease-in-out_infinite]" />
-              <span className="relative z-10">Enquire Now</span>
-              <ArrowRight className="w-3 h-3 relative z-10 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </span>
-          </Link>
           <Button onClick={onStartBooking} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-4 h-8 text-[11px] tracking-wider uppercase" data-testid="button-tour-book-now">
             Book Now <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
