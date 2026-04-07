@@ -2287,7 +2287,6 @@ function PropertyBooking() {
                 {property.alternatePhone && (
                   <a href={`tel:${property.alternatePhone}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors" data-testid="link-property-alt-phone">
                     <Phone className="w-4 h-4" /> {property.alternatePhone}
-                    <span className="text-[10px] text-white/25 uppercase tracking-wider">(Alt)</span>
                   </a>
                 )}
                 {property.email && (
