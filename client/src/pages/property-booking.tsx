@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,7 @@ import {
   ZoomIn, Navigation, Compass, Star, Wifi, Coffee,
   Crown, IndianRupee, CheckCircle2,
   GraduationCap, Train, Landmark, Hospital, ShoppingBag, UtensilsCrossed, MapPinned,
+  MessageCircle,
 } from "lucide-react";
 
 function parseImages(json: string | null | undefined): string[] {
@@ -559,6 +560,15 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               Full Experience
             </button>
           )}
+          <Link href="/contact" data-testid="button-enquiry-now">
+            <span className="group relative inline-flex items-center gap-2 px-5 h-8 rounded-full text-[11px] font-bold tracking-wider uppercase cursor-pointer overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-500 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50">
+              <span className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-300 to-fuchsia-400 opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
+              <span className="absolute inset-0 rounded-full animate-[enquiry-ring_2s_ease-in-out_infinite]" style={{ boxShadow: '0 0 0 0 rgba(168,85,247,0.5)' }} />
+              <MessageCircle className="w-3.5 h-3.5 relative z-10 animate-[enquiry-bounce_2s_ease-in-out_infinite]" />
+              <span className="relative z-10">Enquire Now</span>
+              <ArrowRight className="w-3 h-3 relative z-10 transition-transform duration-300 group-hover:translate-x-0.5" />
+            </span>
+          </Link>
           <Button onClick={onStartBooking} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-4 h-8 text-[11px] tracking-wider uppercase" data-testid="button-tour-book-now">
             Book Now <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
