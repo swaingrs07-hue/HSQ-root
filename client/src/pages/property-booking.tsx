@@ -2297,8 +2297,14 @@ function PropertyBooking() {
               <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-5 space-y-3">
                 <h4 className="font-bold text-xs tracking-wider uppercase text-white">Contact Property</h4>
                 {property.phone && (
-                  <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors">
+                  <a href={`tel:${property.phone}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors" data-testid="link-property-phone">
                     <Phone className="w-4 h-4" /> {property.phone}
+                  </a>
+                )}
+                {property.alternatePhone && (
+                  <a href={`tel:${property.alternatePhone}`} className="flex items-center gap-2.5 text-sm text-white/50 hover:text-amber-400 transition-colors" data-testid="link-property-alt-phone">
+                    <Phone className="w-4 h-4" /> {property.alternatePhone}
+                    <span className="text-[10px] text-white/25 uppercase tracking-wider">(Alt)</span>
                   </a>
                 )}
                 {property.email && (

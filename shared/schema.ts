@@ -81,6 +81,7 @@ export const properties = pgTable("properties", {
   address: text("address"),
   city: text("city"),
   phone: text("phone"),
+  alternatePhone: text("alternate_phone"),
   email: text("email"),
   amenities: text("amenities").array().notNull(),
   rules: text("rules"),
@@ -189,6 +190,7 @@ export const bookings = pgTable("bookings", {
   walkInName: text("walk_in_name"),
   walkInPhone: text("walk_in_phone"),
   walkInEmail: text("walk_in_email"),
+  referrer: text("referrer"),
   
   // Property and room
   propertyId: varchar("property_id").references(() => properties.id).notNull(),

@@ -767,6 +767,7 @@ export default function AdminDashboard() {
       address: property.address || "",
       city: property.city || "",
       phone: property.phone || "",
+      alternatePhone: property.alternatePhone || "",
       email: property.email || "",
       amenities: (property.amenities || []).join(", "),
       rules: property.rules || "",
@@ -1788,6 +1789,12 @@ export default function AdminDashboard() {
                                       <span>{property.phone}</span>
                                     </div>
                                   )}
+                                  {property.alternatePhone && (
+                                    <div className="flex items-center gap-2">
+                                      <Phone className="h-4 w-4 text-muted-foreground" />
+                                      <span>{property.alternatePhone} <span className="text-xs text-muted-foreground">(Alt)</span></span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex flex-col gap-2">
@@ -1961,13 +1968,22 @@ export default function AdminDashboard() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Phone</Label>
                     <Input
                       value={editForm.phone}
                       onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
                       data-testid="input-edit-phone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Alternate Phone</Label>
+                    <Input
+                      value={editForm.alternatePhone}
+                      onChange={(e) => setEditForm(f => ({ ...f, alternatePhone: e.target.value }))}
+                      placeholder="Optional"
+                      data-testid="input-edit-alternate-phone"
                     />
                   </div>
                   <div className="space-y-2">
