@@ -3750,69 +3750,103 @@ ${allPages.map(p => `  <url>
       if (user?.role === "sales_executive") {
         filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.userId || b.createdBy === user.userId);
       }
-      
-      const enriched = await Promise.all(filtered.map(async (booking: any) => {
-        const [property, roomType, installments, payments] = await Promise.all([
-          storage.getProperty(booking.propertyId),
-          storage.getRoomType(booking.roomTypeId),
-          storage.getInstallmentsByBooking(booking.id),
-          storage.getPaymentsByBooking(booking.id),
-        ]);
-        
+
+      if (filtered.length === 0) {
+        return res.json([]);
+      }
+
+      const bookingIds = filtered.map(b => b.id);
+      const propertyIds = [...new Set(filtered.map(b => b.propertyId).filter(Boolean))];
+      const roomTypeIds = [...new Set(filtered.map(b => b.roomTypeId).filter(Boolean))];
+      const studentIds = [...new Set(filtered.filter(b => b.studentId).map(b => b.studentId!))];
+      const leadIds = [...new Set(filtered.filter(b => b.leadId).map(b => b.leadId!))];
+      const userIds = [...new Set([
+        ...filtered.filter(b => b.assignedSalesExecId).map(b => b.assignedSalesExecId!),
+        ...filtered.filter(b => b.createdBy).map(b => b.createdBy!),
+      ])];
+
+      const [propertiesList, roomTypesList, studentsList, leadsList, usersList, allInstallments, allPayments, allHousingPlans] = await Promise.all([
+        propertyIds.length > 0 ? db.select().from(schema.properties).where(inArray(schema.properties.id, propertyIds)) : Promise.resolve([]),
+        roomTypeIds.length > 0 ? db.select().from(schema.roomTypes).where(inArray(schema.roomTypes.id, roomTypeIds)) : Promise.resolve([]),
+        studentIds.length > 0 ? db.select().from(schema.students).where(inArray(schema.students.id, studentIds)) : Promise.resolve([]),
+        leadIds.length > 0 ? db.select().from(schema.leads).where(inArray(schema.leads.id, leadIds)) : Promise.resolve([]),
+        userIds.length > 0 ? db.select().from(schema.users).where(inArray(schema.users.id, userIds)) : Promise.resolve([]),
+        db.select().from(schema.installments).where(inArray(schema.installments.bookingId, bookingIds)),
+        db.select().from(schema.payments).where(inArray(schema.payments.bookingId, bookingIds)),
+        db.select({
+          bookingId: schema.bookingPackages.bookingId,
+          planName: schema.packages.name,
+          tierLevel: schema.packages.tierLevel,
+          tagline: schema.packages.tagline,
+          basePrice: schema.packages.basePrice,
+          priceSnapshot: schema.bookingPackages.priceSnapshot,
+          createdAt: schema.bookingPackages.createdAt,
+        })
+          .from(schema.bookingPackages)
+          .innerJoin(schema.packages, eq(schema.bookingPackages.packageId, schema.packages.id))
+          .where(and(
+            inArray(schema.bookingPackages.bookingId, bookingIds),
+            eq(schema.bookingPackages.status, "ACTIVE"),
+            eq(schema.packages.category, "housing_plan"),
+          )),
+      ]);
+
+      const propertyMap = new Map(propertiesList.map(p => [p.id, p]));
+      const roomTypeMap = new Map(roomTypesList.map(r => [r.id, r]));
+      const studentMap = new Map(studentsList.map(s => [s.id, s]));
+      const leadMap = new Map(leadsList.map(l => [l.id, l]));
+      const userMap = new Map(usersList.map(u => [u.id, u]));
+      const installmentMap = new Map<string, any[]>();
+      for (const inst of allInstallments) {
+        if (!installmentMap.has(inst.bookingId)) installmentMap.set(inst.bookingId, []);
+        installmentMap.get(inst.bookingId)!.push(inst);
+      }
+      const paymentMap = new Map<string, any[]>();
+      for (const pay of allPayments) {
+        if (!paymentMap.has(pay.bookingId)) paymentMap.set(pay.bookingId, []);
+        paymentMap.get(pay.bookingId)!.push(pay);
+      }
+      const housingPlanMap = new Map<string, any>();
+      for (const hp of allHousingPlans) {
+        const existing = housingPlanMap.get(hp.bookingId);
+        if (!existing || (hp.createdAt && existing.createdAt && hp.createdAt > existing.createdAt)) {
+          housingPlanMap.set(hp.bookingId, hp);
+        }
+      }
+
+      const enriched = filtered.map((booking: any) => {
+        const property = propertyMap.get(booking.propertyId);
+        const roomType = roomTypeMap.get(booking.roomTypeId);
+
         let customerName = booking.walkInName || "Unknown";
         let customerPhone = booking.walkInPhone || "";
         let customerEmail = booking.walkInEmail || "";
-        
+
         if (booking.studentId) {
-          const student = await storage.getStudent(booking.studentId);
+          const student = studentMap.get(booking.studentId);
           if (student) {
             customerName = student.fullName;
             customerPhone = student.phone || "";
             customerEmail = student.email;
           }
         } else if (booking.leadId) {
-          const lead = await storage.getLead(booking.leadId);
+          const lead = leadMap.get(booking.leadId);
           if (lead) {
             customerName = lead.name;
             customerPhone = lead.phone || "";
             customerEmail = lead.email || "";
           }
         }
-        
-        let salesExecName = null;
-        if (booking.assignedSalesExecId) {
-          const exec = await storage.getUser(booking.assignedSalesExecId);
-          if (exec) salesExecName = exec.fullName;
-        }
 
-        let createdByName = null;
-        if (booking.createdBy) {
-          const creator = await storage.getUser(booking.createdBy);
-          if (creator) createdByName = creator.name;
-        }
-        
-        const bpWithPlan = await db.select({
-          planName: schema.packages.name,
-          tierLevel: schema.packages.tierLevel,
-          tagline: schema.packages.tagline,
-          basePrice: schema.packages.basePrice,
-          priceSnapshot: schema.bookingPackages.priceSnapshot,
-        })
-          .from(schema.bookingPackages)
-          .innerJoin(schema.packages, eq(schema.bookingPackages.packageId, schema.packages.id))
-          .where(and(
-            eq(schema.bookingPackages.bookingId, booking.id),
-            eq(schema.bookingPackages.status, "ACTIVE"),
-            eq(schema.packages.category, "housing_plan"),
-          ))
-          .orderBy(desc(schema.bookingPackages.createdAt))
-          .limit(1);
-        const housingPlanInfo = bpWithPlan.length > 0 ? {
-          planName: bpWithPlan[0].planName,
-          tierLevel: bpWithPlan[0].tierLevel ?? 0,
-          tagline: bpWithPlan[0].tagline || null,
-          priceSnapshot: bpWithPlan[0].priceSnapshot,
-          basePrice: bpWithPlan[0].basePrice,
+        const salesExec = booking.assignedSalesExecId ? userMap.get(booking.assignedSalesExecId) : null;
+        const creator = booking.createdBy ? userMap.get(booking.createdBy) : null;
+        const hp = housingPlanMap.get(booking.id);
+        const housingPlanInfo = hp ? {
+          planName: hp.planName,
+          tierLevel: hp.tierLevel ?? 0,
+          tagline: hp.tagline || null,
+          priceSnapshot: hp.priceSnapshot,
+          basePrice: hp.basePrice,
         } : null;
 
         return {
@@ -3827,13 +3861,13 @@ ${allPages.map(p => `  <url>
           customerName,
           customerPhone,
           customerEmail,
-          salesExecName,
-          createdByName,
-          installments,
-          payments,
+          salesExecName: salesExec?.fullName || null,
+          createdByName: creator?.name || null,
+          installments: installmentMap.get(booking.id) || [],
+          payments: paymentMap.get(booking.id) || [],
           housingPlanInfo,
         };
-      }));
+      });
       
       res.json(enriched);
     } catch (error) {

@@ -177,6 +177,8 @@ export default function CompletedBookings() {
   const [saving, setSaving] = useState(false);
   const [sendingParentEmail, setSendingParentEmail] = useState(false);
   const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [syncingHMS, setSyncingHMS] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSyncing, setBulkSyncing] = useState(false);
@@ -981,6 +983,10 @@ export default function CompletedBookings() {
   const activeCount = filtered.filter((b: any) => b.status === "active").length;
   const completedCount = filtered.filter((b: any) => b.status === "completed").length;
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedBookings = filtered.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1060,12 +1066,12 @@ export default function CompletedBookings() {
           <Input
             placeholder="Search by name, booking code, phone..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="pl-10"
             data-testid="input-search"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
           <SelectTrigger className="w-[160px]" data-testid="select-status-filter">
             <Filter className="h-4 w-4 mr-2 text-slate-400" />
             <SelectValue placeholder="Status" />
@@ -1191,7 +1197,7 @@ export default function CompletedBookings() {
               )}
             </div>
           )}
-          {filtered.map((booking: any) => {
+          {paginatedBookings.map((booking: any) => {
             const plan = booking.housingPlanInfo;
             const pt = plan?.tierLevel ?? null;
             const hasTier = plan != null && pt != null;
@@ -1249,6 +1255,8 @@ export default function CompletedBookings() {
                                 src={photoSrc}
                                 alt={booking.customerName || ""}
                                 className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm"
+                                loading="lazy"
+                                decoding="async"
                                 data-testid={`img-avatar-${booking.id}`}
                                 onError={(e) => {
                                   const img = e.currentTarget;
@@ -1352,6 +1360,54 @@ export default function CompletedBookings() {
               </Card>
             );
           })}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 pb-2" data-testid="pagination-controls">
+              <p className="text-sm text-slate-500">
+                Showing {(safeCurrentPage - 1) * PAGE_SIZE + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  data-testid="button-page-first"
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  data-testid="button-page-prev"
+                >
+                  Prev
+                </Button>
+                <span className="px-3 py-1 text-sm font-medium text-slate-700">
+                  {safeCurrentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  data-testid="button-page-next"
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  data-testid="button-page-last"
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
