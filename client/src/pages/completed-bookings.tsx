@@ -1248,34 +1248,36 @@ export default function CompletedBookings() {
                       )}
                       {(() => {
                         const photoSrc = getBookingPhotoUrl(booking.residentDetails);
-                        if (photoSrc) {
-                          return (
-                            <>
-                              <img
-                                src={photoSrc}
-                                alt={booking.customerName || ""}
-                                className="w-11 h-11 rounded-full object-cover shrink-0 shadow-sm"
-                                loading="lazy"
-                                decoding="async"
-                                data-testid={`img-avatar-${booking.id}`}
-                                onError={(e) => {
-                                  const img = e.currentTarget;
-                                  img.style.display = "none";
-                                  const fallback = img.nextElementSibling as HTMLElement | null;
-                                  if (fallback) fallback.classList.remove("hidden");
-                                }}
-                              />
-                              <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm hidden`}>
-                                {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
-                              </div>
-                            </>
-                          );
-                        }
-                        return (
+                        const fallbackEl = (
                           <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
                             {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
                           </div>
                         );
+                        if (photoSrc) {
+                          return (
+                            <div className="relative w-11 h-11 shrink-0">
+                              <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${cardTierGradient} flex items-center justify-center text-white font-bold text-sm shadow-sm animate-pulse`}>
+                                {hasTier && TierIcon ? <TierIcon className="h-5 w-5" /> : (booking.customerName?.charAt(0)?.toUpperCase() || "?")}
+                              </div>
+                              <img
+                                src={photoSrc}
+                                alt={booking.customerName || ""}
+                                className="absolute inset-0 w-11 h-11 rounded-full object-cover shadow-sm opacity-0 transition-opacity duration-300"
+                                loading="lazy"
+                                decoding="async"
+                                data-testid={`img-avatar-${booking.id}`}
+                                onLoad={(e) => {
+                                  e.currentTarget.classList.remove("opacity-0");
+                                  e.currentTarget.classList.add("opacity-100");
+                                }}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          );
+                        }
+                        return fallbackEl;
                       })()}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
