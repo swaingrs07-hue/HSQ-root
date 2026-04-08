@@ -984,6 +984,9 @@ export default function CompletedBookings() {
   const completedCount = filtered.filter((b: any) => b.status === "completed").length;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage > totalPages) {
+    setTimeout(() => setCurrentPage(totalPages), 0);
+  }
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedBookings = filtered.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
 
