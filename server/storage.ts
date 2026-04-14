@@ -376,10 +376,11 @@ export interface IStorage {
   logInstagramSync(postCount: number, status: string, errorMessage?: string): Promise<void>;
   clearInstagramPosts(): Promise<void>;
 
-  // Floors
+  // Floors & Rooms
   getFloorsByProperty(propertyId: string): Promise<Floor[]>;
   createFloor(floor: InsertFloor): Promise<Floor>;
   deleteFloor(id: string): Promise<void>;
+  getRoom(id: string): Promise<Room | undefined>;
 
   // Beds
   getBedsByFloor(floorId: string): Promise<Bed[]>;
@@ -2118,6 +2119,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Rooms
+  async getRoom(id: string): Promise<Room | undefined> {
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
+    return room || undefined;
+  }
+
   async getRoomsByFloor(floorId: string): Promise<Room[]> {
     return await db.select().from(rooms).where(eq(rooms.floorId, floorId)).orderBy(asc(rooms.roomNumber));
   }

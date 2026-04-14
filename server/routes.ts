@@ -4171,6 +4171,7 @@ ${allPages.map(p => `  <url>
       let resolvedBedId: string | null = bedId || null;
       let resolvedFloorId: string | null = floorId || null;
       let resolvedRoomId: string | null = null;
+      let resolvedRoomTypeId: string = roomTypeId;
 
       if (resolvedBedId) {
         const bed = await storage.getBed(resolvedBedId);
@@ -4182,6 +4183,28 @@ ${allPages.map(p => `  <url>
         }
         resolvedFloorId = bed.floorId || resolvedFloorId;
         resolvedRoomId = bed.roomId || null;
+        if (bed.roomId) {
+          const bedRoom = await storage.getRoom(bed.roomId);
+          if (bedRoom?.typology?.includes("+")) {
+            const parts = bedRoom.typology.replace(/\s*bed\s*/gi, "").trim().split("+").map((p: string) => parseInt(p));
+            const sectionIndex = parts.findIndex((_: number, i: number) => {
+              const sectionLetter = String.fromCharCode(65 + i);
+              return bed.bedNumber?.includes(`${bedRoom.roomNumber}${sectionLetter}`);
+            });
+            if (sectionIndex >= 0) {
+              const sectionBedCount = parts[sectionIndex];
+              const propRoomTypes = await storage.getRoomTypesByProperty(propertyId);
+              const matchingRT = propRoomTypes.find((rt: any) => rt.occupancy === sectionBedCount);
+              if (matchingRT) {
+                resolvedRoomTypeId = matchingRT.id;
+              }
+            }
+          } else if (bed.roomTypeId) {
+            resolvedRoomTypeId = bed.roomTypeId;
+          }
+        } else if (bed.roomTypeId) {
+          resolvedRoomTypeId = bed.roomTypeId;
+        }
       }
 
       // Calculate total fee (including move-in charges from property)
@@ -4222,7 +4245,7 @@ ${allPages.map(p => `  <url>
         walkInEmail: walkInEmail || null,
         referrer: referrer || null,
         propertyId,
-        roomTypeId,
+        roomTypeId: resolvedRoomTypeId,
         bedId: resolvedBedId,
         floorId: resolvedFloorId,
         roomId: resolvedRoomId,
@@ -4297,7 +4320,7 @@ ${allPages.map(p => `  <url>
       if (resolvedBedId) {
         await db.delete(schema.bedHolds).where(eq(schema.bedHolds.bedId, resolvedBedId));
         await storage.updateBedStatus(resolvedBedId, "reserved");
-        await storage.updateRoomTypeAvailability(roomTypeId, -1);
+        await storage.updateRoomTypeAvailability(resolvedRoomTypeId, -1);
 
         if (resolvedFloorId) {
           const floorBeds = await storage.getBedsByFloor(resolvedFloorId);
@@ -10344,16 +10367,27 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             });
           }
         } else if (parts.length > 1) {
+          const propertyRoomTypes = await storage.getRoomTypesByProperty(req.params.id);
           for (let section = 0; section < parts.length; section++) {
             const sectionLabel = String.fromCharCode(65 + section);
             const bedCount = parts[section];
             if (isNaN(bedCount)) continue;
+            let sectionRoomTypeId = roomTypeId;
+            const sectionRT = propertyRoomTypes.find((rt: any) => rt.occupancy === bedCount && rt.id !== roomTypeId);
+            if (sectionRT) {
+              sectionRoomTypeId = sectionRT.id;
+            } else {
+              const baseRT = propertyRoomTypes.find((rt: any) => rt.id === roomTypeId);
+              if (baseRT && baseRT.occupancy === bedCount) {
+                sectionRoomTypeId = roomTypeId;
+              }
+            }
             for (let b = 0; b < bedCount; b++) {
               bedsToCreate.push({
                 propertyId: req.params.id,
                 floorId: req.params.floorId,
                 roomId: room.id,
-                roomTypeId,
+                roomTypeId: sectionRoomTypeId,
                 bedNumber: `${singleRoomNumber}${sectionLabel}${bedCount > 1 ? `-${b + 1}` : ""}`,
                 status: "available" as const,
                 monthlyPrice: monthlyPrice || null,
@@ -10411,6 +10445,71 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to delete room" });
+    }
+  });
+
+  app.post("/api/admin/properties/:id/fix-combo-beds", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.params.id;
+      const propertyRoomTypes = await storage.getRoomTypesByProperty(propertyId);
+      const allRooms = await storage.getRoomsByProperty(propertyId);
+      const allBeds = await storage.getBedsByProperty(propertyId);
+      const allBookings = await db.select().from(schema.bookings).where(eq(schema.bookings.propertyId, propertyId));
+
+      let bedsFixed = 0;
+      let bookingsFixed = 0;
+
+      for (const room of allRooms) {
+        if (!room.typology?.includes("+")) continue;
+        const parts = room.typology.replace(/\s*bed\s*/gi, "").trim().split("+").map((p: string) => parseInt(p));
+        if (parts.some(isNaN)) continue;
+
+        const roomBeds = allBeds.filter(b => b.roomId === room.id);
+        for (const bed of roomBeds) {
+          const sectionIndex = parts.findIndex((_: number, i: number) => {
+            const sectionLetter = String.fromCharCode(65 + i);
+            return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+          });
+          if (sectionIndex < 0) continue;
+          const sectionBedCount = parts[sectionIndex];
+          const correctRT = propertyRoomTypes.find((rt: any) => rt.occupancy === sectionBedCount);
+          if (correctRT && bed.roomTypeId !== correctRT.id) {
+            await db.update(schema.beds).set({ roomTypeId: correctRT.id }).where(eq(schema.beds.id, bed.id));
+            bedsFixed++;
+          }
+
+          if (correctRT) {
+            const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
+            for (const bk of bedBookings) {
+              if (bk.roomTypeId !== correctRT.id) {
+                await db.update(schema.bookings).set({ roomTypeId: correctRT.id }).where(eq(schema.bookings.id, bk.id));
+                bookingsFixed++;
+              }
+            }
+          }
+        }
+      }
+
+      for (const rt of propertyRoomTypes) {
+        const rtBeds = await db.select().from(schema.beds).where(
+          and(eq(schema.beds.propertyId, propertyId), eq(schema.beds.roomTypeId, rt.id))
+        );
+        const totalBeds = rtBeds.length;
+        const availableBeds = rtBeds.filter(b => b.status === "available").length;
+        await db.update(schema.roomTypes).set({ totalBeds, availableBeds }).where(eq(schema.roomTypes.id, rt.id));
+      }
+
+      const allFloors = await storage.getFloorsByProperty(propertyId);
+      for (const floor of allFloors) {
+        const floorBeds = await storage.getBedsByFloor(floor.id);
+        const totalBeds = floorBeds.length;
+        const availableBeds = floorBeds.filter(b => b.status === "available").length;
+        await db.update(schema.floors).set({ totalBeds, availableBeds }).where(eq(schema.floors.id, floor.id));
+      }
+
+      res.json({ success: true, bedsFixed, bookingsFixed, message: `Fixed ${bedsFixed} beds and ${bookingsFixed} bookings. Availability counts recalculated.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fix combo beds" });
     }
   });
 
