@@ -10473,20 +10473,49 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const roomBeds = allBeds.filter(b => b.roomId === room.id);
 
         if (roomLevelRT) {
-          for (const bed of roomBeds) {
-            if (bed.roomTypeId !== roomLevelRT.id) {
-              await db.update(schema.beds).set({ roomTypeId: roomLevelRT.id }).where(eq(schema.beds.id, bed.id));
-              bedsFixed++;
-            }
-            const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
-            for (const bk of bedBookings) {
-              const updates: any = {};
-              if (bk.roomTypeId !== roomLevelRT.id) {
-                updates.roomTypeId = roomLevelRT.id;
+          const allSectionsSame = parts.every((p: number) => p === parts[0]);
+
+          if (allSectionsSame) {
+            for (const bed of roomBeds) {
+              if (bed.roomTypeId !== roomLevelRT.id) {
+                await db.update(schema.beds).set({ roomTypeId: roomLevelRT.id }).where(eq(schema.beds.id, bed.id));
+                bedsFixed++;
               }
-              if (Object.keys(updates).length > 0) {
-                await db.update(schema.bookings).set(updates).where(eq(schema.bookings.id, bk.id));
-                bookingsFixed++;
+              const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
+              for (const bk of bedBookings) {
+                if (bk.roomTypeId !== roomLevelRT.id) {
+                  await db.update(schema.bookings).set({ roomTypeId: roomLevelRT.id }).where(eq(schema.bookings.id, bk.id));
+                  bookingsFixed++;
+                }
+              }
+            }
+          } else {
+            const maxSectionSize = Math.max(...parts);
+            for (const bed of roomBeds) {
+              const sectionIndex = parts.findIndex((_: number, i: number) => {
+                const sectionLetter = String.fromCharCode(65 + i);
+                return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+              });
+              if (sectionIndex < 0) continue;
+              const sectionSize = parts[sectionIndex];
+              let correctRT: any;
+              if (sectionSize === maxSectionSize) {
+                correctRT = roomLevelRT;
+              } else {
+                correctRT = propertyRoomTypes.find((rt: any) => rt.occupancy === sectionSize && !rtDisplayName(rt).includes("+"));
+              }
+              if (correctRT && bed.roomTypeId !== correctRT.id) {
+                await db.update(schema.beds).set({ roomTypeId: correctRT.id }).where(eq(schema.beds.id, bed.id));
+                bedsFixed++;
+              }
+              if (correctRT) {
+                const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
+                for (const bk of bedBookings) {
+                  if (bk.roomTypeId !== correctRT.id) {
+                    await db.update(schema.bookings).set({ roomTypeId: correctRT.id }).where(eq(schema.bookings.id, bk.id));
+                    bookingsFixed++;
+                  }
+                }
               }
             }
           }
