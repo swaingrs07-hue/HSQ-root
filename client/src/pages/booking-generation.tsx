@@ -2028,6 +2028,10 @@ export default function BookingGeneration() {
                             const checkBedMatch = (bed: any, room: any) => {
                               if (room?.typology?.includes("+")) {
                                 const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                                const totalBedsInCombo = parts.reduce((a: number, b: number) => a + b, 0);
+                                if (selectedOccupancy === totalBedsInCombo) {
+                                  return bed.roomTypeId === formData.roomTypeId;
+                                }
                                 const matchingLetters = parts.map((p: number, i: number) => p === selectedOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
                                 if (matchingLetters.length > 0) {
                                   return matchingLetters.some((letter: string) => bed.bedNumber?.includes(`${room.roomNumber}${letter}`));
@@ -2056,6 +2060,10 @@ export default function BookingGeneration() {
                           const bedMatchesSelectedType = (bed: any, room: any) => {
                             if (room?.typology?.includes("+")) {
                               const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                              const totalBedsInCombo = parts.reduce((a: number, b: number) => a + b, 0);
+                              if (selectedOccupancy === totalBedsInCombo) {
+                                return bed.roomTypeId === formData.roomTypeId;
+                              }
                               const matchingLetters = parts.map((p: number, i: number) => p === selectedOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
                               if (matchingLetters.length > 0) {
                                 return matchingLetters.some((letter: string) => bed.bedNumber?.includes(`${room.roomNumber}${letter}`));
@@ -2070,6 +2078,8 @@ export default function BookingGeneration() {
                             if ((room.beds || []).some((b: any) => b.roomTypeId === formData.roomTypeId)) return true;
                             if (room.typology?.includes("+")) {
                               const parts = room.typology.split("+").map((p: string) => parseInt(p));
+                              const totalBedsInCombo = parts.reduce((a: number, b: number) => a + b, 0);
+                              if (selectedOccupancy === totalBedsInCombo) return true;
                               return parts.includes(selectedOccupancy);
                             }
                             return false;
