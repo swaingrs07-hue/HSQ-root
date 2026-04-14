@@ -10459,6 +10459,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let bedsFixed = 0;
       let bookingsFixed = 0;
 
+      const comboDebug: any[] = [];
+
       for (const room of allRooms) {
         if (!room.typology?.includes("+")) continue;
         const parts = room.typology.replace(/\s*bed\s*/gi, "").trim().split("+").map((p: string) => parseInt(p));
@@ -10468,6 +10470,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const roomLevelRT = propertyRoomTypes.find((rt: any) =>
           rt.occupancy === totalBedsInRoom && rt.name?.includes(room.typology!)
         );
+
+        if (comboDebug.length < 3) {
+          comboDebug.push({
+            room: room.roomNumber, typology: room.typology, parts, totalBedsInRoom,
+            roomLevelRT: roomLevelRT ? { id: roomLevelRT.id, name: roomLevelRT.name, occ: roomLevelRT.occupancy } : null,
+            allRTs: propertyRoomTypes.map((rt: any) => ({ id: rt.id, name: rt.name, occ: rt.occupancy })),
+            bedRTIds: allBeds.filter(b => b.roomId === room.id).map(b => ({ bed: b.bedNumber, rtId: b.roomTypeId }))
+          });
+        }
 
         const roomBeds = allBeds.filter(b => b.roomId === room.id);
 
@@ -10543,7 +10554,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         await db.update(schema.floors).set({ totalBeds, availableBeds }).where(eq(schema.floors.id, floor.id));
       }
 
-      res.json({ success: true, bedsFixed, bookingsFixed, message: `Fixed ${bedsFixed} beds and ${bookingsFixed} bookings. Availability counts recalculated.` });
+      res.json({ success: true, bedsFixed, bookingsFixed, comboDebug, message: `Fixed ${bedsFixed} beds and ${bookingsFixed} bookings. Availability counts recalculated.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fix combo beds" });
     }
