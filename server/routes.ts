@@ -10467,15 +10467,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         if (parts.some(isNaN)) continue;
 
         const totalBedsInRoom = parts.reduce((a: number, b: number) => a + b, 0);
+        const rtDisplayName = (rt: any) => rt.customName || rt.name || "";
         const roomLevelRT = propertyRoomTypes.find((rt: any) =>
-          rt.occupancy === totalBedsInRoom && rt.name?.includes(room.typology!)
+          rt.occupancy === totalBedsInRoom && rtDisplayName(rt).includes(room.typology!)
         );
 
         if (comboDebug.length < 3) {
           comboDebug.push({
             room: room.roomNumber, typology: room.typology, parts, totalBedsInRoom,
             roomLevelRT: roomLevelRT ? { id: roomLevelRT.id, name: roomLevelRT.name, occ: roomLevelRT.occupancy } : null,
-            allRTs: propertyRoomTypes.map((rt: any) => ({ id: rt.id, name: rt.name, occ: rt.occupancy })),
+            allRTs: propertyRoomTypes.map((rt: any) => ({ id: rt.id, name: rt.name, customName: rt.customName, occ: rt.occupancy })),
             bedRTIds: allBeds.filter(b => b.roomId === room.id).map(b => ({ bed: b.bedNumber, rtId: b.roomTypeId }))
           });
         }
