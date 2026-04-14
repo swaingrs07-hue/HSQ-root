@@ -207,6 +207,16 @@ export default function AdminFloorsBeds() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const fixComboBedsMutation = useMutation({
+    mutationFn: () => apiFetch(`/api/admin/properties/${selectedPropertyId}/fix-combo-beds`, { method: "POST" }),
+    onSuccess: (data: any) => {
+      invalidateFloors();
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({ title: "Room Types Fixed", description: data.message || `Fixed ${data.bedsFixed} beds and ${data.bookingsFixed} bookings.` });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const { data: propertyPackages, refetch: refetchPackages } = useQuery<any[]>({
     queryKey: ["/api/admin/packages", selectedPropertyId],
     queryFn: () => apiFetch(`/api/admin/packages`),
@@ -291,6 +301,20 @@ export default function AdminFloorsBeds() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm("This will fix room type assignments for combo rooms (e.g., 2+3, 3+2) and recalculate availability counts. Continue?")) {
+                    fixComboBedsMutation.mutate();
+                  }
+                }}
+                disabled={fixComboBedsMutation.isPending}
+                data-testid="button-fix-combo-beds"
+              >
+                {fixComboBedsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                Fix Room Types
+              </Button>
               <Dialog open={autoGenOpen} onOpenChange={setAutoGenOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" data-testid="button-auto-generate"><Wand2 className="w-4 h-4 mr-2" />Auto-Generate</Button>
