@@ -10464,36 +10464,62 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const parts = room.typology.replace(/\s*bed\s*/gi, "").trim().split("+").map((p: string) => parseInt(p));
         if (parts.some(isNaN)) continue;
 
-        const roomBeds = allBeds.filter(b => b.roomId === room.id);
-        for (const bed of roomBeds) {
-          const sectionIndex = parts.findIndex((_: number, i: number) => {
-            const sectionLetter = String.fromCharCode(65 + i);
-            return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
-          });
-          if (sectionIndex < 0) continue;
-          const sectionBedCount = parts[sectionIndex];
-          const correctRT = propertyRoomTypes.find((rt: any) => rt.occupancy === sectionBedCount);
-          if (correctRT && bed.roomTypeId !== correctRT.id) {
-            await db.update(schema.beds).set({ roomTypeId: correctRT.id }).where(eq(schema.beds.id, bed.id));
-            bedsFixed++;
-          }
+        const totalBedsInRoom = parts.reduce((a: number, b: number) => a + b, 0);
+        const roomLevelRT = propertyRoomTypes.find((rt: any) =>
+          rt.occupancy === totalBedsInRoom && rt.name?.includes(room.typology!)
+        );
 
-          if (correctRT) {
-            const sectionLabels: Record<number, string> = { 1: "SINGLE", 2: "DOUBLE", 3: "TRIPLE", 4: "QUAD" };
-            const correctLabel = `${sectionLabels[sectionBedCount] || sectionBedCount + "-BED"}(${room.typology})`;
+        const roomBeds = allBeds.filter(b => b.roomId === room.id);
+
+        if (roomLevelRT) {
+          for (const bed of roomBeds) {
+            if (bed.roomTypeId !== roomLevelRT.id) {
+              await db.update(schema.beds).set({ roomTypeId: roomLevelRT.id }).where(eq(schema.beds.id, bed.id));
+              bedsFixed++;
+            }
             const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
             for (const bk of bedBookings) {
               const updates: any = {};
-              if (bk.roomTypeId !== correctRT.id) {
-                updates.roomTypeId = correctRT.id;
-              }
-              const rd = bk.residentDetails as any;
-              if (rd?.accommodationType && rd.accommodationType !== correctLabel) {
-                updates.residentDetails = { ...rd, accommodationType: correctLabel };
+              if (bk.roomTypeId !== roomLevelRT.id) {
+                updates.roomTypeId = roomLevelRT.id;
               }
               if (Object.keys(updates).length > 0) {
                 await db.update(schema.bookings).set(updates).where(eq(schema.bookings.id, bk.id));
                 bookingsFixed++;
+              }
+            }
+          }
+        } else {
+          for (const bed of roomBeds) {
+            const sectionIndex = parts.findIndex((_: number, i: number) => {
+              const sectionLetter = String.fromCharCode(65 + i);
+              return bed.bedNumber?.includes(`${room.roomNumber}${sectionLetter}`);
+            });
+            if (sectionIndex < 0) continue;
+            const sectionBedCount = parts[sectionIndex];
+            const correctRT = propertyRoomTypes.find((rt: any) => rt.occupancy === sectionBedCount);
+            if (correctRT && bed.roomTypeId !== correctRT.id) {
+              await db.update(schema.beds).set({ roomTypeId: correctRT.id }).where(eq(schema.beds.id, bed.id));
+              bedsFixed++;
+            }
+
+            if (correctRT) {
+              const sectionLabels: Record<number, string> = { 1: "SINGLE", 2: "DOUBLE", 3: "TRIPLE", 4: "QUAD" };
+              const correctLabel = `${sectionLabels[sectionBedCount] || sectionBedCount + "-BED"}(${room.typology})`;
+              const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
+              for (const bk of bedBookings) {
+                const updates: any = {};
+                if (bk.roomTypeId !== correctRT.id) {
+                  updates.roomTypeId = correctRT.id;
+                }
+                const rd = bk.residentDetails as any;
+                if (rd?.accommodationType && rd.accommodationType !== correctLabel) {
+                  updates.residentDetails = { ...rd, accommodationType: correctLabel };
+                }
+                if (Object.keys(updates).length > 0) {
+                  await db.update(schema.bookings).set(updates).where(eq(schema.bookings.id, bk.id));
+                  bookingsFixed++;
+                }
               }
             }
           }
