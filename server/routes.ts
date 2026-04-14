@@ -10479,10 +10479,20 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           }
 
           if (correctRT) {
+            const sectionLabels: Record<number, string> = { 1: "SINGLE", 2: "DOUBLE", 3: "TRIPLE", 4: "QUAD" };
+            const correctLabel = `${sectionLabels[sectionBedCount] || sectionBedCount + "-BED"}(${room.typology})`;
             const bedBookings = allBookings.filter(bk => bk.bedId === bed.id && bk.status !== "cancelled" && bk.status !== "completed");
             for (const bk of bedBookings) {
+              const updates: any = {};
               if (bk.roomTypeId !== correctRT.id) {
-                await db.update(schema.bookings).set({ roomTypeId: correctRT.id }).where(eq(schema.bookings.id, bk.id));
+                updates.roomTypeId = correctRT.id;
+              }
+              const rd = bk.residentDetails as any;
+              if (rd?.accommodationType && rd.accommodationType !== correctLabel) {
+                updates.residentDetails = { ...rd, accommodationType: correctLabel };
+              }
+              if (Object.keys(updates).length > 0) {
+                await db.update(schema.bookings).set(updates).where(eq(schema.bookings.id, bk.id));
                 bookingsFixed++;
               }
             }
