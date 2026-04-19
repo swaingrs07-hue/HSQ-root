@@ -979,6 +979,12 @@ export default function CompletedBookings() {
   });
 
   const totalRevenue = filtered.reduce((sum: number, b: any) => sum + (b.totalFee || 0), 0);
+  const totalCollected = filtered.reduce((sum: number, b: any) => {
+    const paid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    return sum + paid;
+  }, 0);
+  const totalPending = Math.max(0, totalRevenue - totalCollected);
+  const collectionPct = totalRevenue > 0 ? Math.round((totalCollected / totalRevenue) * 100) : 0;
   const confirmedCount = filtered.filter((b: any) => b.status === "confirmed").length;
   const activeCount = filtered.filter((b: any) => b.status === "active").length;
   const completedCount = filtered.filter((b: any) => b.status === "completed").length;
@@ -1006,7 +1012,7 @@ export default function CompletedBookings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -1021,20 +1027,52 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
         <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Revenue</p>
-                  <p className="text-xl font-bold text-slate-900" data-testid="text-total-revenue">
-                    ₹{totalRevenue.toLocaleString("en-IN")}
-                  </p>
-                </div>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Booking</p>
+                <p className="text-xl font-bold text-slate-900 truncate" data-testid="text-total-revenue" title={`₹${totalRevenue.toLocaleString("en-IN")}`}>
+                  ₹{totalRevenue.toLocaleString("en-IN")}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Till Collected</p>
+                <p className="text-xl font-bold text-emerald-700 truncate" data-testid="text-total-collected" title={`₹${totalCollected.toLocaleString("en-IN")}`}>
+                  ₹{totalCollected.toLocaleString("en-IN")}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{collectionPct}% of total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <ClipboardCheck className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending</p>
+                <p className="text-xl font-bold text-amber-700 truncate" data-testid="text-total-pending" title={`₹${totalPending.toLocaleString("en-IN")}`}>
+                  ₹{totalPending.toLocaleString("en-IN")}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{100 - collectionPct}% remaining</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
