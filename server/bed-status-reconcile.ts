@@ -1,6 +1,7 @@
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { sendBedReconciliationSummary } from "./email-service";
 
 function log(message: string, source = "bed-reconcile") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -153,6 +154,24 @@ export async function reconcileBedStatuses(): Promise<ReconcileResult> {
     }
   } else {
     log(`Bed status reconciliation: scanned ${allBeds.length} bed(s), no corrections needed`, "bed-reconcile");
+  }
+
+  if (totalCorrected > 0 && perProperty.length > 0) {
+    try {
+      const result = await sendBedReconciliationSummary({
+        runAt: new Date(),
+        totalCorrected,
+        totalBedsScanned: allBeds.length,
+        perProperty,
+      });
+      if (result.success) {
+        log(`Summary delivered to ${result.recipients ?? 0} superadmin(s)`, "bed-reconcile");
+      } else {
+        log(`Summary delivery reported failure: ${result.error || "unknown"}`, "bed-reconcile");
+      }
+    } catch (err) {
+      log(`Failed to deliver reconciliation summary: ${err}`, "bed-reconcile");
+    }
   }
 
   return {

@@ -1294,3 +1294,148 @@ export async function sendFollowUpReminderEmail(
     return { success: false, error: error.message };
   }
 }
+
+interface BedReconciliationSummaryData {
+  runAt: Date;
+  totalCorrected: number;
+  totalBedsScanned: number;
+  perProperty: Array<{
+    propertyId: string;
+    propertyName: string;
+    corrected: number;
+    toAvailable: number;
+    toOccupied: number;
+    toReserved: number;
+  }>;
+}
+
+function buildBedReconciliationSummaryHtml(data: BedReconciliationSummaryData, adminLink: string): string {
+  const runAtFormatted = data.runAt.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+
+  const rows = data.perProperty
+    .sort((a, b) => b.corrected - a.corrected)
+    .map((p) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;font-weight:600;">${p.propertyName}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;text-align:center;color:#0f172a;font-weight:700;">${p.corrected}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;text-align:center;color:#10b981;">${p.toAvailable}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;text-align:center;color:#ef4444;">${p.toOccupied}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;text-align:center;color:#f59e0b;">${p.toReserved}</td>
+      </tr>`)
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Bed Status Reconciliation Summary</title></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:'Segoe UI',Tahoma,sans-serif;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:24px 28px;">
+        <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">Bed Status Reconciliation Summary</h1>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:13px;">${runAtFormatted}</p>
+      </div>
+      <div style="padding:24px 28px;">
+        <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.6;">
+          The nightly bed status reconciliation job corrected
+          <strong style="color:#0f172a;">${data.totalCorrected}</strong> bed${data.totalCorrected === 1 ? "" : "s"}
+          across <strong style="color:#0f172a;">${data.perProperty.length}</strong> propert${data.perProperty.length === 1 ? "y" : "ies"}
+          (scanned ${data.totalBedsScanned} bed${data.totalBedsScanned === 1 ? "" : "s"}).
+        </p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-top:8px;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Property</th>
+              <th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Corrected</th>
+              <th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">→ Available</th>
+              <th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">→ Occupied</th>
+              <th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">→ Reserved</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="margin-top:24px;text-align:center;">
+          <a href="${adminLink}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Open Floors, Rooms & Beds</a>
+        </div>
+        <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;line-height:1.5;">
+          Recurring drift in the same property may indicate a buggy HMS sync or stale booking states. If counts are unusually high, please investigate.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function sendBedReconciliationSummary(
+  data: BedReconciliationSummaryData,
+): Promise<{ success: boolean; error?: string; recipients?: number }> {
+  if (data.totalCorrected <= 0 || data.perProperty.length === 0) {
+    return { success: true, recipients: 0 };
+  }
+
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  const adminLink = `${baseUrl}/admin/floors-beds`;
+
+  let superadmins: Awaited<ReturnType<typeof storage.getUsersByRole>> = [];
+  try {
+    superadmins = await storage.getUsersByRole(["superadmin"]);
+  } catch (err) {
+    console.error("[BedReconcileSummary] Failed to fetch superadmins:", err);
+    return { success: false, error: "Failed to fetch superadmins" };
+  }
+
+  if (superadmins.length === 0) {
+    console.log("[BedReconcileSummary] No superadmins found; skipping summary delivery");
+    return { success: true, recipients: 0 };
+  }
+
+  const subject = `Bed status: ${data.totalCorrected} correction${data.totalCorrected === 1 ? "" : "s"} across ${data.perProperty.length} propert${data.perProperty.length === 1 ? "y" : "ies"}`;
+  const html = buildBedReconciliationSummaryHtml(data, adminLink);
+
+  const propertyLine = data.perProperty
+    .sort((a, b) => b.corrected - a.corrected)
+    .slice(0, 5)
+    .map((p) => `${p.propertyName}: ${p.corrected}`)
+    .join(", ");
+  const notificationMessage = `Corrected ${data.totalCorrected} bed${data.totalCorrected === 1 ? "" : "s"} across ${data.perProperty.length} propert${data.perProperty.length === 1 ? "y" : "ies"}${propertyLine ? ` (${propertyLine}${data.perProperty.length > 5 ? ", …" : ""})` : ""}.`;
+
+  const recipientEmails = superadmins.map((u) => u.email).filter((e): e is string => !!e);
+
+  if (recipientEmails.length > 0) {
+    try {
+      const { error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: recipientEmails,
+        subject,
+        html,
+      });
+      if (error) {
+        console.error("[BedReconcileSummary] Resend error:", error);
+      } else {
+        console.log(`[BedReconcileSummary] Email sent to ${recipientEmails.length} superadmin(s)`);
+      }
+    } catch (err: any) {
+      console.error("[BedReconcileSummary] Failed to send summary email:", err);
+    }
+  }
+
+  for (const admin of superadmins) {
+    try {
+      await storage.createNotification({
+        userId: admin.id,
+        title: "Bed status reconciliation summary",
+        message: notificationMessage,
+        type: "info",
+        actionUrl: "/admin/floors-beds",
+      });
+    } catch (err) {
+      console.error(`[BedReconcileSummary] Failed to create notification for ${admin.id}:`, err);
+    }
+  }
+
+  return { success: true, recipients: superadmins.length };
+}
