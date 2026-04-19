@@ -10180,7 +10180,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const matchingBeds = allBeds.filter(bedMatchesRoomType);
       const totalInType = matchingBeds.length;
-      const occupiedInType = matchingBeds.filter(b => !isBedAvailable(b)).length;
+      const occupiedInType = matchingBeds.filter(b => occupiedBedIds.has(b.id)).length;
+      const unallocatableInType = matchingBeds.filter(b => !occupiedBedIds.has(b.id) && b.status && NON_ALLOCATABLE_STATUSES.has(b.status)).length;
       const availableBeds = matchingBeds.filter(isBedAvailable);
 
       const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
@@ -10267,7 +10268,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       enriched.sort((a, b) => a.floorNumber - b.floorNumber || a.roomNumber.localeCompare(b.roomNumber) || a.bedNumber.localeCompare(b.bedNumber));
 
-      res.json({ beds: enriched, totalInType, occupiedInType });
+      res.json({ beds: enriched, totalInType, occupiedInType, unallocatableInType });
     } catch (error: any) {
       console.error("Error fetching available beds:", error);
       res.status(500).json({ error: "Failed to fetch available beds" });

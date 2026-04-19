@@ -3357,6 +3357,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
   const [beds, setBeds] = useState<AvailableBed[]>([]);
   const [totalInType, setTotalInType] = useState(0);
   const [occupiedInType, setOccupiedInType] = useState(0);
+  const [unallocatableInType, setUnallocatableInType] = useState(0);
   const [loading, setLoading] = useState(false);
   const [shifting, setShifting] = useState(false);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
@@ -3406,9 +3407,11 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
         const bedList: AvailableBed[] = Array.isArray(data) ? data : (data.beds || []);
         const total = Array.isArray(data) ? bedList.length : (data.totalInType ?? bedList.length);
         const occupied = Array.isArray(data) ? 0 : (data.occupiedInType ?? 0);
+        const unallocatable = Array.isArray(data) ? 0 : (data.unallocatableInType ?? 0);
         setBeds(bedList.filter((b: AvailableBed) => b.id !== booking.bedId));
         setTotalInType(total);
         setOccupiedInType(occupied);
+        setUnallocatableInType(unallocatable);
       } else {
         const err = await res.json().catch(() => ({ error: "Failed to load beds" }));
         toast({ title: "Error", description: err.error || "Failed to load available beds", variant: "destructive" });
@@ -3539,7 +3542,8 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                 </div>
                 {totalInType > 0 ? (
                   <div className="text-xs text-slate-400">
-                    {occupiedInType} of {totalInType} beds in this room type are currently occupied.
+                    {occupiedInType} of {totalInType} beds in this room type are currently occupied
+                    {unallocatableInType > 0 && `, ${unallocatableInType} blocked / under maintenance`}.
                   </div>
                 ) : (
                   <div className="text-xs text-slate-400">
