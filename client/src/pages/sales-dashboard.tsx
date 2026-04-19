@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail } from "lucide-react";
+import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail, Search, X } from "lucide-react";
 import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
@@ -53,6 +53,7 @@ export default function SalesDashboard() {
   const [location] = useLocation();
   const isLeadsOnly = location === "/sales/leads";
   const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
@@ -319,20 +320,33 @@ export default function SalesDashboard() {
     const now = new Date();
     const weekFromNow = addDays(now, 7);
 
+    let list: Lead[];
     switch (activeTab) {
-      case "hot": return leads.filter(l => l.priority === "hot");
-      case "warm": return leads.filter(l => l.priority === "warm");
-      case "cold": return leads.filter(l => l.priority === "cold");
-      case "closed": return leads.filter(l => l.status === "converted");
-      case "lost": return leads.filter(l => l.status === "lost");
-      case "upcoming": return leads.filter(l => 
-        l.followUpAt && l.followUpStatus !== "completed" && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
-      );
-      case "overdue": return leads.filter(l => 
-        l.followUpAt && l.followUpStatus !== "completed" && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
-      );
-      default: return leads;
+      case "hot": list = leads.filter(l => l.priority === "hot"); break;
+      case "warm": list = leads.filter(l => l.priority === "warm"); break;
+      case "cold": list = leads.filter(l => l.priority === "cold"); break;
+      case "closed": list = leads.filter(l => l.status === "converted"); break;
+      case "lost": list = leads.filter(l => l.status === "lost"); break;
+      case "upcoming": list = leads.filter(l =>
+        l.followUpAt && (l as any).followUpStatus !== "completed" && isAfter(parseISO(l.followUpAt), now) && isBefore(parseISO(l.followUpAt), weekFromNow)
+      ); break;
+      case "overdue": list = leads.filter(l =>
+        l.followUpAt && (l as any).followUpStatus !== "completed" && isBefore(parseISO(l.followUpAt), now) && l.status !== "converted" && l.status !== "lost"
+      ); break;
+      default: list = leads;
     }
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(l =>
+      l.name?.toLowerCase().includes(q) ||
+      l.email?.toLowerCase().includes(q) ||
+      l.phone?.toLowerCase().includes(q) ||
+      l.alternatePhone?.toLowerCase().includes(q) ||
+      l.propertyName?.toLowerCase().includes(q) ||
+      l.source?.toLowerCase().includes(q) ||
+      l.status?.toLowerCase().includes(q)
+    );
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -587,6 +601,28 @@ export default function SalesDashboard() {
              "Overdue Follow-ups"}
             <Badge variant="secondary" className="ml-auto text-xs">{getFilteredLeads().length}</Badge>
           </CardTitle>
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search leads by name, phone, email, property, source..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 h-9"
+              data-testid="input-search-leads"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+                data-testid="button-clear-search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="px-3 md:px-6 pt-0">
           {loading ? (
