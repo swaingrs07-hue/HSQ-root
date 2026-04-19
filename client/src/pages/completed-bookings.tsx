@@ -1055,19 +1055,20 @@ export default function CompletedBookings() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Bookings</p>
-                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-                  <p className="text-2xl font-bold text-slate-900" data-testid="text-total-bookings">
-                    {totalCount}
-                  </p>
-                  <p
+                <p className="text-2xl font-bold text-slate-900 mt-1" data-testid="text-total-bookings">
+                  {totalCount}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
+                <div className="mt-2 pt-2 border-t border-slate-200/70 flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] font-medium text-slate-500">Booking Amount</span>
+                  <span
                     className="text-sm font-semibold text-emerald-700 truncate"
                     data-testid="text-total-bookings-amount"
                     title={`₹${totalBookingAmount.toLocaleString("en-IN")}`}
                   >
                     ₹{totalBookingAmount.toLocaleString("en-IN")}
-                  </p>
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
               </div>
             </div>
           </CardContent>
