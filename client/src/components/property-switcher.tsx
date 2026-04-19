@@ -232,13 +232,14 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
               <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
+          <PopoverContent className="w-80 p-0 max-h-[80vh] flex flex-col" align="start">
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.15 }}
+              className="flex flex-col min-h-0 flex-1"
             >
-              <div className="p-3 border-b">
+              <div className="p-3 border-b flex-shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -262,13 +263,13 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
                   <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 rounded border">⌘K</kbd> to open
                 </p>
               </div>
-              <ScrollArea className="max-h-[320px]">
+              <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
                 <div className="p-2">
                   <PropertyList />
                 </div>
               </ScrollArea>
               {isAdmin && (
-                <div className="p-2 border-t">
+                <div className="p-2 border-t flex-shrink-0">
                   <Link href="/admin?tab=properties">
                     <Button
                       variant="ghost"
