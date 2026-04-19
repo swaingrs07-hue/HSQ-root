@@ -28,7 +28,6 @@ import {
   BedDouble,
   ClipboardCheck,
   TrendingUp,
-  Users,
   ArrowUpDown,
   Trash2,
   AlertTriangle,
@@ -985,43 +984,8 @@ export default function CompletedBookings() {
   }, 0);
   const totalPending = Math.max(0, totalRevenue - totalCollected);
   const collectionPct = totalRevenue > 0 ? Math.round((totalCollected / totalRevenue) * 100) : 0;
-  const confirmedCount = filtered.filter((b: any) => b.status === "confirmed").length;
-  const todayMs = (() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  })();
-  const parseDayMs = (s?: string | null): number | null => {
-    if (!s) return null;
-    const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-    if (ymd) {
-      const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    }
-    const parsed = new Date(s);
-    if (!Number.isFinite(parsed.getTime())) return null;
-    parsed.setHours(0, 0, 0, 0);
-    return parsed.getTime();
-  };
-  const activeCount = filtered.filter((b: any) => {
-    if (b.status === "cancelled" || b.status === "rejected") return false;
-    if (b.status === "completed") return false;
-    const rd = b.residentDetails || {};
-    const moveIn = parseDayMs(rd.moveInDate);
-    const checkOut = parseDayMs(rd.checkOutDate);
-    if (moveIn === null) return b.status === "active";
-    if (moveIn > todayMs) return false;
-    if (checkOut !== null && checkOut <= todayMs) return false;
-    return true;
-  }).length;
-  const completedCount = filtered.filter((b: any) => {
-    if (b.status === "cancelled" || b.status === "rejected") return false;
-    if (b.status === "completed") return true;
-    const rd = b.residentDetails || {};
-    const checkOut = parseDayMs(rd.checkOutDate);
-    return checkOut !== null && checkOut < todayMs;
-  }).length;
+  const pendingPct = totalRevenue > 0 ? Math.round((totalPending / totalRevenue) * 100) : 0;
+  const averageBooking = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
@@ -1046,89 +1010,90 @@ export default function CompletedBookings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <ClipboardCheck className="h-5 w-5 text-indigo-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-emerald-100 ring-1 ring-emerald-200/60 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total</p>
-                <p className="text-xl font-bold text-slate-900" data-testid="text-total-bookings">{filtered.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Booking</p>
-                <p className="text-xl font-bold text-slate-900 truncate" data-testid="text-total-revenue" title={`₹${totalRevenue.toLocaleString("en-IN")}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Booking Value</p>
+                <p
+                  className="text-2xl font-bold text-slate-900 truncate mt-1"
+                  data-testid="text-total-revenue"
+                  title={`₹${totalRevenue.toLocaleString("en-IN")}`}
+                >
                   ₹{totalRevenue.toLocaleString("en-IN")}
                 </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {filtered.length} booking{filtered.length === 1 ? "" : "s"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-green-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-green-100 ring-1 ring-green-200/60 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Till Collected</p>
-                <p className="text-xl font-bold text-emerald-700 truncate" data-testid="text-total-collected" title={`₹${totalCollected.toLocaleString("en-IN")}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Till Collected</p>
+                <p
+                  className="text-2xl font-bold text-green-700 truncate mt-1"
+                  data-testid="text-total-collected"
+                  title={`₹${totalCollected.toLocaleString("en-IN")}`}
+                >
                   ₹{totalCollected.toLocaleString("en-IN")}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{collectionPct}% of total</p>
+                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of total</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-amber-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 ring-1 ring-amber-200/60 flex items-center justify-center shrink-0">
                 <ClipboardCheck className="h-5 w-5 text-amber-600" />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending</p>
-                <p className="text-xl font-bold text-amber-700 truncate" data-testid="text-total-pending" title={`₹${totalPending.toLocaleString("en-IN")}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pending</p>
+                <p
+                  className="text-2xl font-bold text-amber-700 truncate mt-1"
+                  data-testid="text-total-pending"
+                  title={`₹${totalPending.toLocaleString("en-IN")}`}
+                >
                   ₹{totalPending.toLocaleString("en-IN")}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{100 - collectionPct}% remaining</p>
+                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Users className="h-5 w-5 text-blue-600" />
+
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-indigo-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-indigo-100 ring-1 ring-indigo-200/60 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-5 w-5 text-indigo-600" />
               </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Active</p>
-                <p className="text-xl font-bold text-slate-900" data-testid="text-active-count">{activeCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Completed</p>
-                <p className="text-xl font-bold text-slate-900" data-testid="text-completed-count">{completedCount}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Avg Booking Value</p>
+                <p
+                  className="text-2xl font-bold text-indigo-700 truncate mt-1"
+                  data-testid="text-average-booking"
+                  title={`₹${averageBooking.toLocaleString("en-IN")}`}
+                >
+                  ₹{averageBooking.toLocaleString("en-IN")}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Across {filtered.length} booking{filtered.length === 1 ? "" : "s"}
+                </p>
               </div>
             </div>
           </CardContent>
