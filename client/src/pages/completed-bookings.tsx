@@ -1016,6 +1016,12 @@ export default function CompletedBookings() {
     return checkOut !== null && checkOut < todayMs;
   }).length;
   const totalCount = filtered.length;
+  const totalBookingAmount = filtered.reduce((sum: number, b: any) => {
+    const inst = (b.installments || []).find((i: any) =>
+      typeof i?.name === "string" && i.name.toLowerCase().includes("booking amount")
+    );
+    return sum + (inst?.amount || 0);
+  }, 0);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
@@ -1056,9 +1062,9 @@ export default function CompletedBookings() {
                   <p
                     className="text-sm font-semibold text-emerald-700 truncate"
                     data-testid="text-total-bookings-amount"
-                    title={`₹${totalRevenue.toLocaleString("en-IN")}`}
+                    title={`₹${totalBookingAmount.toLocaleString("en-IN")}`}
                   >
-                    ₹{totalRevenue.toLocaleString("en-IN")}
+                    ₹{totalBookingAmount.toLocaleString("en-IN")}
                   </p>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
