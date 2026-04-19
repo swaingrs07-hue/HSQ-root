@@ -10690,6 +10690,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // Superadmin: reconcile bed statuses across all properties on demand
+  app.post("/api/admin/beds/reconcile-status", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const { reconcileBedStatuses } = await import("./bed-status-reconcile");
+      const result = await reconcileBedStatuses();
+      res.json(result);
+    } catch (error: any) {
+      console.error("Bed status reconciliation failed:", error);
+      res.status(500).json({ error: error.message || "Failed to reconcile bed statuses" });
+    }
+  });
+
   app.patch("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { status } = req.body;

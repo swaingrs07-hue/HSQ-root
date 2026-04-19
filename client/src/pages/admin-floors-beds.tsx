@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useProperty } from "@/contexts/property-context";
+import { useAuth } from "@/contexts/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,8 @@ export default function AdminFloorsBeds() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedPropertyId } = useProperty();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "superadmin";
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [addFloorOpen, setAddFloorOpen] = useState(false);
   const [addRoomOpen, setAddRoomOpen] = useState(false);
@@ -204,6 +207,19 @@ export default function AdminFloorsBeds() {
     mutationFn: ({ bedId, note }: { bedId: string; note?: string }) =>
       apiFetch(`/api/admin/beds/${bedId}/unblock`, { method: "POST", body: JSON.stringify({ note }) }),
     onSuccess: () => { invalidateFloors(); toast({ title: "Bed Unblocked", description: "Bed is now available for booking." }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const reconcileBedStatusMutation = useMutation({
+    mutationFn: () => apiFetch(`/api/admin/beds/reconcile-status`, { method: "POST" }),
+    onSuccess: (data: any) => {
+      invalidateFloors();
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      const summary = data.totalCorrected > 0
+        ? `Corrected ${data.totalCorrected} bed(s) across ${data.perProperty.length} property(ies).`
+        : `Scanned ${data.totalBedsScanned} bed(s); no corrections needed.`;
+      toast({ title: "Bed Statuses Reconciled", description: summary });
+    },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -301,6 +317,22 @@ export default function AdminFloorsBeds() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isSuperAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm("This scans every bed across all properties and corrects any whose status doesn't match its booking state. Continue?")) {
+                      reconcileBedStatusMutation.mutate();
+                    }
+                  }}
+                  disabled={reconcileBedStatusMutation.isPending}
+                  data-testid="button-reconcile-bed-status"
+                >
+                  {reconcileBedStatusMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                  Reconcile Bed Statuses
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

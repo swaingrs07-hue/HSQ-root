@@ -175,6 +175,10 @@ app.use((req, res, next) => {
       startFollowUpNotificationJob();
       // Start background job for monthly wallet credit renewal
       startWalletCreditRenewalJob();
+      // Start background job for nightly bed status reconciliation
+      import("./bed-status-reconcile").then(({ startBedStatusReconcileJob }) => {
+        startBedStatusReconcileJob();
+      }).catch((e) => log(`Failed to start bed status reconcile job: ${e}`, "bed-reconcile"));
     },
   );
 })();
