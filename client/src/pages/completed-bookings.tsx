@@ -991,17 +991,25 @@ export default function CompletedBookings() {
     d.setHours(0, 0, 0, 0);
     return d.getTime();
   })();
-  const parseDateMs = (s?: string | null): number | null => {
+  const parseDayMs = (s?: string | null): number | null => {
     if (!s) return null;
-    const t = new Date(s).getTime();
-    return Number.isFinite(t) ? t : null;
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (ymd) {
+      const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    const parsed = new Date(s);
+    if (!Number.isFinite(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed.getTime();
   };
   const activeCount = filtered.filter((b: any) => {
     if (b.status === "cancelled" || b.status === "rejected") return false;
     if (b.status === "completed") return false;
     const rd = b.residentDetails || {};
-    const moveIn = parseDateMs(rd.moveInDate);
-    const checkOut = parseDateMs(rd.checkOutDate);
+    const moveIn = parseDayMs(rd.moveInDate);
+    const checkOut = parseDayMs(rd.checkOutDate);
     if (moveIn === null) return b.status === "active";
     if (moveIn > todayMs) return false;
     if (checkOut !== null && checkOut <= todayMs) return false;
@@ -1011,8 +1019,8 @@ export default function CompletedBookings() {
     if (b.status === "cancelled" || b.status === "rejected") return false;
     if (b.status === "completed") return true;
     const rd = b.residentDetails || {};
-    const checkOut = parseDateMs(rd.checkOutDate);
-    return checkOut !== null && checkOut <= todayMs;
+    const checkOut = parseDayMs(rd.checkOutDate);
+    return checkOut !== null && checkOut < todayMs;
   }).length;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
