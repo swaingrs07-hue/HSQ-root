@@ -1049,9 +1049,18 @@ export default function CompletedBookings() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Bookings</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1" data-testid="text-total-bookings">
-                  {totalCount}
-                </p>
+                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                  <p className="text-2xl font-bold text-slate-900" data-testid="text-total-bookings">
+                    {totalCount}
+                  </p>
+                  <p
+                    className="text-sm font-semibold text-emerald-700 truncate"
+                    data-testid="text-total-bookings-amount"
+                    title={`₹${totalRevenue.toLocaleString("en-IN")}`}
+                  >
+                    ₹{totalRevenue.toLocaleString("en-IN")}
+                  </p>
+                </div>
                 <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
               </div>
             </div>
