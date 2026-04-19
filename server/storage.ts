@@ -32,6 +32,7 @@ import {
   rooms,
   beds,
   bedBlockLogs,
+  bedReconciliationRuns,
   type User,
   type InsertUser,
   type Student,
@@ -83,6 +84,8 @@ import {
   type Bed,
   type BedBlockLog,
   type InsertBedBlockLog,
+  type BedReconciliationRun,
+  type InsertBedReconciliationRun,
   type InsertBed,
   type HomepageAmenity,
   type InsertHomepageAmenity,
@@ -102,7 +105,7 @@ import {
   type InsertContactMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike } from "drizzle-orm";
+import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -398,6 +401,10 @@ export interface IStorage {
   // Property Targets
   getPropertyTargets(propertyId?: string, seasonId?: string): Promise<any[]>;
   upsertPropertyTarget(data: { propertyId: string; targetOccupancyPercent?: number; customTargetOverride?: number | null; seasonId?: string | null; notes?: string | null }): Promise<any>;
+
+  // Bed Reconciliation Runs
+  createBedReconciliationRun(data: InsertBedReconciliationRun): Promise<BedReconciliationRun>;
+  getBedReconciliationRuns(filters?: { propertyId?: string; from?: Date; to?: Date; limit?: number }): Promise<BedReconciliationRun[]>;
 
   // Contact Messages
   createContactMessage(msg: InsertContactMessage): Promise<ContactMessage>;
@@ -2269,6 +2276,28 @@ export class DatabaseStorage implements IStorage {
 
   async getBedBlockLogs(bedId: string): Promise<BedBlockLog[]> {
     return await db.select().from(bedBlockLogs).where(eq(bedBlockLogs.bedId, bedId)).orderBy(desc(bedBlockLogs.createdAt));
+  }
+
+  async createBedReconciliationRun(data: InsertBedReconciliationRun): Promise<BedReconciliationRun> {
+    const [created] = await db.insert(bedReconciliationRuns).values(data).returning();
+    return created;
+  }
+
+  async getBedReconciliationRuns(filters: { propertyId?: string; from?: Date; to?: Date; limit?: number } = {}): Promise<BedReconciliationRun[]> {
+    const conds: SQL[] = [];
+    if (filters.from) conds.push(gte(bedReconciliationRuns.runAt, filters.from));
+    if (filters.to) conds.push(lte(bedReconciliationRuns.runAt, filters.to));
+    if (filters.propertyId) {
+      conds.push(sql`${bedReconciliationRuns.perProperty} @> ${JSON.stringify([{ propertyId: filters.propertyId }])}::jsonb`);
+    }
+    const limit = Math.min(Math.max(filters.limit ?? 30, 1), 200);
+
+    return await db
+      .select()
+      .from(bedReconciliationRuns)
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(bedReconciliationRuns.runAt))
+      .limit(limit);
   }
 
   async getHomepageAmenities(): Promise<HomepageAmenity[]> {

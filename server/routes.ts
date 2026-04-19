@@ -10708,7 +10708,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.post("/api/admin/beds/reconcile-status", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
     try {
       const { reconcileBedStatuses } = await import("./bed-status-reconcile");
-      const result = await reconcileBedStatuses();
+      const result = await reconcileBedStatuses({ source: "manual", triggeredByEmail: req.user?.email });
       res.json(result);
     } catch (error: any) {
       console.error("Bed status reconciliation failed:", error);
@@ -10804,6 +10804,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to unblock bed" });
+    }
+  });
+
+  app.get("/api/admin/beds/reconciliation-runs", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { propertyId, from, to, limit } = req.query as { propertyId?: string; from?: string; to?: string; limit?: string };
+      const fromDate = from ? new Date(from) : undefined;
+      const toDate = to ? new Date(to) : undefined;
+      if (fromDate && isNaN(fromDate.getTime())) return res.status(400).json({ error: "Invalid 'from' date" });
+      if (toDate && isNaN(toDate.getTime())) return res.status(400).json({ error: "Invalid 'to' date" });
+      const limitNum = limit ? Math.max(1, Math.min(parseInt(limit, 10) || 30, 200)) : 30;
+      const runs = await storage.getBedReconciliationRuns({
+        propertyId: propertyId || undefined,
+        from: fromDate,
+        to: toDate,
+        limit: limitNum,
+      });
+      res.json(runs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch reconciliation runs" });
     }
   });
 

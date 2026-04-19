@@ -1190,6 +1190,42 @@ export const insertBedBlockLogSchema = createInsertSchema(bedBlockLogs).omit({ i
 export type BedBlockLog = typeof bedBlockLogs.$inferSelect;
 export type InsertBedBlockLog = z.infer<typeof insertBedBlockLogSchema>;
 
+export interface BedReconciliationPerProperty {
+  propertyId: string;
+  propertyName: string;
+  corrected: number;
+  toAvailable: number;
+  toOccupied: number;
+  toReserved: number;
+}
+
+export const bedReconciliationRuns = pgTable("bed_reconciliation_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runAt: timestamp("run_at").defaultNow().notNull(),
+  source: text("source").notNull().default("scheduled"),
+  totalBedsScanned: integer("total_beds_scanned").notNull().default(0),
+  totalCorrected: integer("total_corrected").notNull().default(0),
+  affectedFloors: integer("affected_floors").notNull().default(0),
+  affectedRoomTypes: integer("affected_room_types").notNull().default(0),
+  perProperty: jsonb("per_property").$type<BedReconciliationPerProperty[]>().notNull().default(sql`'[]'::jsonb`),
+  triggeredByEmail: text("triggered_by_email"),
+});
+
+const bedReconciliationPerPropertySchema = z.object({
+  propertyId: z.string(),
+  propertyName: z.string(),
+  corrected: z.number().int().nonnegative(),
+  toAvailable: z.number().int().nonnegative(),
+  toOccupied: z.number().int().nonnegative(),
+  toReserved: z.number().int().nonnegative(),
+});
+
+export const insertBedReconciliationRunSchema = createInsertSchema(bedReconciliationRuns, {
+  perProperty: z.array(bedReconciliationPerPropertySchema),
+}).omit({ id: true, runAt: true });
+export type BedReconciliationRun = typeof bedReconciliationRuns.$inferSelect;
+export type InsertBedReconciliationRun = z.infer<typeof insertBedReconciliationRunSchema>;
+
 // ============ PACKAGE MANAGEMENT SYSTEM ============
 
 export const packagePriceTypeEnum = pgEnum("package_price_type", ["ONE_TIME", "PER_DAY", "PER_MONTH", "PER_YEAR"]);

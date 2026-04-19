@@ -805,7 +805,7 @@ export default function AddProperty() {
   // Check if Next should be disabled on Images step
   const isNextDisabled = currentStep === 4 && uploadedImages.filter(img => !img.uploading && !img.error).length === 0;
 
-  if (!user || user.role !== "admin") {
+  if (!user || (user.role !== "admin" && user.role !== "superadmin")) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="p-8 text-center">

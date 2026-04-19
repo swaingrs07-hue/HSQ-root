@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -697,6 +697,8 @@ export default function AdminFloorsBeds() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <ReconciliationHistoryPanel properties={properties || []} initialPropertyId={selectedPropertyId} />
         </>
       )}
 
@@ -1124,5 +1126,201 @@ function BedCell({ bed, compact, onUpdateStatus, onDelete, onBlock, onUnblock }:
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+interface ReconciliationRun {
+  id: string;
+  runAt: string;
+  source: string;
+  totalBedsScanned: number;
+  totalCorrected: number;
+  affectedFloors: number;
+  affectedRoomTypes: number;
+  triggeredByEmail?: string | null;
+  perProperty: Array<{
+    propertyId: string;
+    propertyName: string;
+    corrected: number;
+    toAvailable: number;
+    toOccupied: number;
+    toReserved: number;
+  }>;
+}
+
+function ReconciliationHistoryPanel({ properties, initialPropertyId }: { properties: Property[]; initialPropertyId: string }) {
+  const [filterPropertyId, setFilterPropertyId] = useState<string>(initialPropertyId || "all");
+  useEffect(() => {
+    if (initialPropertyId) setFilterPropertyId(initialPropertyId);
+  }, [initialPropertyId]);
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const queryParams = new URLSearchParams();
+  if (filterPropertyId && filterPropertyId !== "all") queryParams.set("propertyId", filterPropertyId);
+  if (from) queryParams.set("from", new Date(from).toISOString());
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    queryParams.set("to", toDate.toISOString());
+  }
+  queryParams.set("limit", "30");
+  const qs = queryParams.toString();
+  const url = `/api/admin/beds/reconciliation-runs?${qs}`;
+
+  const { data: runs, isLoading } = useQuery<ReconciliationRun[]>({
+    queryKey: ["/api/admin/beds/reconciliation-runs", filterPropertyId, from, to],
+    queryFn: () => apiFetch(url),
+  });
+
+  const toggle = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <Card data-testid="card-reconciliation-history">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <History className="w-5 h-5 text-indigo-600" />
+          Bed Status Correction History
+        </CardTitle>
+        <p className="text-xs text-slate-500 mt-1">Last 30 reconciliation runs (nightly + manual). Use filters to spot recurring drift.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Property</Label>
+            <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+              <SelectTrigger data-testid="select-recon-property"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All properties</SelectItem>
+                {properties.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">From</Label>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} data-testid="input-recon-from" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">To</Label>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} data-testid="input-recon-to" />
+          </div>
+        </div>
+
+        {(filterPropertyId !== "all" || from || to) && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setFilterPropertyId("all"); setFrom(""); setTo(""); }}
+              data-testid="button-recon-clear-filters"
+            >
+              <X className="w-3 h-3 mr-1" /> Clear filters
+            </Button>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8" data-testid="recon-loading">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        ) : !runs || runs.length === 0 ? (
+          <div className="text-center py-8 text-sm text-slate-500" data-testid="recon-empty">
+            No reconciliation runs found for the selected filters.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {runs.map((run) => {
+              const isOpen = expanded.has(run.id);
+              const filteredPerProperty = filterPropertyId !== "all"
+                ? run.perProperty.filter(p => p.propertyId === filterPropertyId)
+                : run.perProperty;
+              const displayCorrected = filterPropertyId !== "all"
+                ? filteredPerProperty.reduce((s, p) => s + p.corrected, 0)
+                : run.totalCorrected;
+              return (
+                <div key={run.id} className="border border-slate-200 rounded-lg" data-testid={`row-recon-run-${run.id}`}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between gap-3 p-3 hover:bg-slate-50 text-left"
+                    onClick={() => toggle(run.id)}
+                    data-testid={`button-toggle-recon-${run.id}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm text-slate-800" data-testid={`text-recon-time-${run.id}`}>
+                            {new Date(run.runAt).toLocaleString()}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">{run.source}</Badge>
+                          {run.triggeredByEmail && (
+                            <span className="text-[11px] text-slate-500 truncate">by {run.triggeredByEmail}</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Scanned {run.totalBedsScanned} bed(s) · {run.perProperty.length} propert{run.perProperty.length === 1 ? "y" : "ies"} affected
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        className={cn(
+                          "text-xs",
+                          displayCorrected > 0 ? "bg-amber-100 text-amber-800 hover:bg-amber-100" : "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        )}
+                        data-testid={`badge-recon-corrected-${run.id}`}
+                      >
+                        {displayCorrected} corrected
+                      </Badge>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-slate-100 p-3 bg-slate-50/50">
+                      {filteredPerProperty.length === 0 ? (
+                        <p className="text-xs text-slate-500">No corrections recorded for this property in this run.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-left text-slate-500">
+                                <th className="py-1 pr-3 font-medium">Property</th>
+                                <th className="py-1 px-2 font-medium text-right">Corrected</th>
+                                <th className="py-1 px-2 font-medium text-right">→ Available</th>
+                                <th className="py-1 px-2 font-medium text-right">→ Occupied</th>
+                                <th className="py-1 px-2 font-medium text-right">→ Reserved</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredPerProperty.map((p) => (
+                                <tr key={p.propertyId} className="border-t border-slate-100" data-testid={`row-recon-property-${run.id}-${p.propertyId}`}>
+                                  <td className="py-1.5 pr-3 text-slate-800">{p.propertyName}</td>
+                                  <td className="py-1.5 px-2 text-right font-medium text-slate-800">{p.corrected}</td>
+                                  <td className="py-1.5 px-2 text-right text-emerald-700">{p.toAvailable}</td>
+                                  <td className="py-1.5 px-2 text-right text-rose-700">{p.toOccupied}</td>
+                                  <td className="py-1.5 px-2 text-right text-amber-700">{p.toReserved}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

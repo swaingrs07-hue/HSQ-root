@@ -2,6 +2,7 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { sendBedReconciliationSummary } from "./email-service";
+import { storage } from "./storage";
 
 function log(message: string, source = "bed-reconcile") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -35,7 +36,9 @@ const HOLDING_BOOKING_STATUSES = [
   ...RESERVED_BOOKING_STATUSES,
 ] as const;
 
-export async function reconcileBedStatuses(): Promise<ReconcileResult> {
+export async function reconcileBedStatuses(options?: { source?: "scheduled" | "manual"; triggeredByEmail?: string | null }): Promise<ReconcileResult> {
+  const source = options?.source ?? "scheduled";
+  const triggeredByEmail = options?.triggeredByEmail ?? null;
   const props = await db
     .select({ id: schema.properties.id, name: schema.properties.name })
     .from(schema.properties);
@@ -124,29 +127,27 @@ export async function reconcileBedStatuses(): Promise<ReconcileResult> {
     await db.update(schema.roomTypes).set({ availableBeds: rtAvail }).where(eq(schema.roomTypes.id, rtId));
   }
 
-  const perProperty = props
-    .map((p) => {
-      const c = perPropertyCounts.get(p.id);
-      if (!c) return null;
-      return {
-        propertyId: p.id,
-        propertyName: p.name,
-        corrected: c.corrected,
-        toAvailable: c.toAvailable,
-        toOccupied: c.toOccupied,
-        toReserved: c.toReserved,
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const perProperty = props.map((p) => {
+    const c = perPropertyCounts.get(p.id) || { corrected: 0, toAvailable: 0, toOccupied: 0, toReserved: 0 };
+    return {
+      propertyId: p.id,
+      propertyName: p.name,
+      corrected: c.corrected,
+      toAvailable: c.toAvailable,
+      toOccupied: c.toOccupied,
+      toReserved: c.toReserved,
+    };
+  });
+  const correctedProperties = perProperty.filter((p) => p.corrected > 0);
 
   const totalCorrected = toAvailable.length + toOccupied.length + toReserved.length;
 
   if (totalCorrected > 0) {
     log(
-      `Bed status reconciliation: corrected ${totalCorrected} bed(s) across ${perProperty.length} property(ies) (→available: ${toAvailable.length}, →occupied: ${toOccupied.length}, →reserved: ${toReserved.length})`,
+      `Bed status reconciliation: corrected ${totalCorrected} bed(s) across ${correctedProperties.length} property(ies) (→available: ${toAvailable.length}, →occupied: ${toOccupied.length}, →reserved: ${toReserved.length})`,
       "bed-reconcile",
     );
-    for (const pp of perProperty) {
+    for (const pp of correctedProperties) {
       log(
         `  • ${pp.propertyName}: ${pp.corrected} corrected (→available: ${pp.toAvailable}, →occupied: ${pp.toOccupied}, →reserved: ${pp.toReserved})`,
         "bed-reconcile",
@@ -156,13 +157,27 @@ export async function reconcileBedStatuses(): Promise<ReconcileResult> {
     log(`Bed status reconciliation: scanned ${allBeds.length} bed(s), no corrections needed`, "bed-reconcile");
   }
 
-  if (totalCorrected > 0 && perProperty.length > 0) {
+  try {
+    await storage.createBedReconciliationRun({
+      source,
+      totalBedsScanned: allBeds.length,
+      totalCorrected,
+      affectedFloors: affectedFloorIds.size,
+      affectedRoomTypes: affectedRoomTypeIds.size,
+      perProperty,
+      triggeredByEmail,
+    });
+  } catch (err) {
+    log(`Failed to persist reconciliation run: ${err}`, "bed-reconcile");
+  }
+
+  if (totalCorrected > 0 && correctedProperties.length > 0) {
     try {
       const result = await sendBedReconciliationSummary({
         runAt: new Date(),
         totalCorrected,
         totalBedsScanned: allBeds.length,
-        perProperty,
+        perProperty: correctedProperties,
       });
       if (result.success) {
         log(`Summary delivered to ${result.recipients ?? 0} superadmin(s)`, "bed-reconcile");
@@ -177,7 +192,7 @@ export async function reconcileBedStatuses(): Promise<ReconcileResult> {
   return {
     totalBedsScanned: allBeds.length,
     totalCorrected,
-    perProperty,
+    perProperty: correctedProperties,
     affectedFloors: affectedFloorIds.size,
     affectedRoomTypes: affectedRoomTypeIds.size,
   };
