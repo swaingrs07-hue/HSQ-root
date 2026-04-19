@@ -5,17 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Mail, Phone, Clock, User, MessageSquare, CheckCircle2,
-  Archive, Eye, Search, Filter, Inbox
+  Archive, Eye, Search, Inbox
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { ContactMessage } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Mail }> = {
-  new: { label: "New", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: Mail },
-  read: { label: "Read", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", icon: Eye },
-  replied: { label: "Replied", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
-  archived: { label: "Archived", color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30", icon: Archive },
+  new: { label: "New", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Mail },
+  read: { label: "Read", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Eye },
+  replied: { label: "Replied", color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
+  archived: { label: "Archived", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Archive },
 };
 
 export default function AdminContactMessages() {
@@ -65,30 +65,30 @@ export default function AdminContactMessages() {
   const unreadCount = data?.unreadCount || 0;
 
   return (
-    <div className="space-y-6" data-testid="admin-contact-messages">
+    <div className="space-y-6 p-6" data-testid="admin-contact-messages">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="page-title">
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2" data-testid="page-title">
             <MessageSquare className="w-6 h-6 text-amber-500" />
             Contact Messages
             {unreadCount > 0 && (
-              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 ml-2" data-testid="unread-count">
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200 ml-2" data-testid="unread-count">
                 {unreadCount} new
               </Badge>
             )}
           </h1>
-          <p className="text-zinc-400 text-sm mt-1">Messages from the contact form on your website</p>
+          <p className="text-slate-500 text-sm mt-1">Messages from the contact form on your website</p>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             placeholder="Search by name, email, or message..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-10 bg-white/[0.03] border-white/10 text-white"
+            className="pl-10 bg-white border-slate-200 text-slate-900"
             data-testid="search-messages"
           />
         </div>
@@ -99,7 +99,7 @@ export default function AdminContactMessages() {
               size="sm"
               variant={filterStatus === s ? "default" : "outline"}
               onClick={() => setFilterStatus(s)}
-              className={filterStatus === s ? "bg-amber-600 hover:bg-amber-700" : "border-white/10 text-zinc-400 hover:text-white"}
+              className={filterStatus === s ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-slate-200 text-slate-600 hover:text-slate-900"}
               data-testid={`filter-${s}`}
             >
               {s === "all" ? "All" : statusConfig[s]?.label || s}
@@ -109,12 +109,12 @@ export default function AdminContactMessages() {
       </div>
 
       {isLoading ? (
-        <div className="text-center text-zinc-500 py-12">Loading messages...</div>
+        <div className="text-center text-slate-500 py-12">Loading messages...</div>
       ) : filtered.length === 0 ? (
-        <Card className="bg-white/[0.02] border-white/[0.06]">
+        <Card className="bg-white border-slate-200">
           <CardContent className="py-16 text-center">
-            <Inbox className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-            <p className="text-zinc-400">No messages found</p>
+            <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500">No messages found</p>
           </CardContent>
         </Card>
       ) : (
@@ -123,32 +123,32 @@ export default function AdminContactMessages() {
             const cfg = statusConfig[msg.status] || statusConfig.new;
             const StatusIcon = cfg.icon;
             return (
-              <Card key={msg.id} className={`bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] transition-colors ${msg.status === "new" ? "border-l-2 border-l-blue-500" : ""}`} data-testid={`message-card-${msg.id}`}>
+              <Card key={msg.id} className={`bg-white border-slate-200 hover:shadow-sm transition-shadow ${msg.status === "new" ? "border-l-4 border-l-blue-500" : ""}`} data-testid={`message-card-${msg.id}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-amber-500" />
+                        <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-amber-600" />
                         </div>
                         <div>
-                          <h3 className="text-white font-semibold text-sm" data-testid={`message-name-${msg.id}`}>{msg.name}</h3>
-                          <div className="flex items-center gap-3 text-xs text-zinc-400">
+                          <h3 className="text-slate-900 font-semibold text-sm" data-testid={`message-name-${msg.id}`}>{msg.name}</h3>
+                          <div className="flex items-center gap-3 text-xs text-slate-500">
                             <span className="flex items-center gap-1">
                               <Mail className="w-3 h-3" />
-                              <a href={`mailto:${msg.email}`} className="hover:text-amber-400">{msg.email}</a>
+                              <a href={`mailto:${msg.email}`} className="hover:text-amber-600">{msg.email}</a>
                             </span>
                             {msg.phone && (
                               <span className="flex items-center gap-1">
                                 <Phone className="w-3 h-3" />
-                                <a href={`tel:${msg.phone}`} className="hover:text-amber-400">{msg.phone}</a>
+                                <a href={`tel:${msg.phone}`} className="hover:text-amber-600">{msg.phone}</a>
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      <p className="text-zinc-300 text-sm mt-2 whitespace-pre-wrap" data-testid={`message-text-${msg.id}`}>{msg.message}</p>
-                      <div className="flex items-center gap-2 mt-3 text-xs text-zinc-500">
+                      <p className="text-slate-700 text-sm mt-2 whitespace-pre-wrap" data-testid={`message-text-${msg.id}`}>{msg.message}</p>
+                      <div className="flex items-center gap-2 mt-3 text-xs text-slate-400">
                         <Clock className="w-3 h-3" />
                         {new Date(msg.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </div>
@@ -160,21 +160,21 @@ export default function AdminContactMessages() {
                       </Badge>
                       <div className="flex gap-1">
                         {msg.status === "new" && (
-                          <Button size="sm" variant="ghost" className="text-xs text-zinc-400 hover:text-white h-7 px-2"
+                          <Button size="sm" variant="ghost" className="text-xs text-slate-600 hover:text-slate-900 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "read" })}
                             data-testid={`mark-read-${msg.id}`}>
                             <Eye className="w-3 h-3 mr-1" /> Read
                           </Button>
                         )}
                         {(msg.status === "new" || msg.status === "read") && (
-                          <Button size="sm" variant="ghost" className="text-xs text-emerald-400 hover:text-emerald-300 h-7 px-2"
+                          <Button size="sm" variant="ghost" className="text-xs text-emerald-600 hover:text-emerald-700 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "replied" })}
                             data-testid={`mark-replied-${msg.id}`}>
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Replied
                           </Button>
                         )}
                         {msg.status !== "archived" && (
-                          <Button size="sm" variant="ghost" className="text-xs text-zinc-400 hover:text-zinc-300 h-7 px-2"
+                          <Button size="sm" variant="ghost" className="text-xs text-slate-500 hover:text-slate-700 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "archived" })}
                             data-testid={`archive-${msg.id}`}>
                             <Archive className="w-3 h-3 mr-1" /> Archive
