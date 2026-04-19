@@ -1089,21 +1089,23 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(propertyId ? eq(bookings.propertyId, propertyId) : sql`1=1`);
 
-    const [revenueData] = await db.execute(sql`
+    const revenueResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(p.amount), 0)::int AS total
       FROM payments p
       ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
       WHERE p.status = 'success'
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
-    `) as unknown as Array<{ total: number }>;
+    `);
+    const revenueData = revenueResult?.rows?.[0] ?? revenueResult?.[0] ?? { total: 0 };
 
-    const [pendingData] = await db.execute(sql`
+    const pendingResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(i.amount), 0)::int AS total
       FROM installments i
       ${propertyId ? sql`JOIN bookings b ON b.id = i.booking_id` : sql``}
       WHERE i.paid = false
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
-    `) as unknown as Array<{ total: number }>;
+    `);
+    const pendingData = pendingResult?.rows?.[0] ?? pendingResult?.[0] ?? { total: 0 };
 
     const [bedStats] = await db
       .select({
@@ -1137,15 +1139,16 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(sql`created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)${propFilter}`);
 
-    const [revenueThisMonthData] = await db.execute(sql`
+    const revenueThisMonthResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(p.amount), 0)::int AS total
       FROM payments p
       ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
       WHERE p.status = 'success' AND p.created_at >= date_trunc('month', CURRENT_DATE)
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
-    `) as unknown as Array<{ total: number }>;
+    `);
+    const revenueThisMonthData = revenueThisMonthResult?.rows?.[0] ?? revenueThisMonthResult?.[0] ?? { total: 0 };
 
-    const [revenuePrevMonthData] = await db.execute(sql`
+    const revenuePrevMonthResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(p.amount), 0)::int AS total
       FROM payments p
       ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
@@ -1153,15 +1156,17 @@ export class DatabaseStorage implements IStorage {
         AND p.created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')
         AND p.created_at < date_trunc('month', CURRENT_DATE)
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
-    `) as unknown as Array<{ total: number }>;
+    `);
+    const revenuePrevMonthData = revenuePrevMonthResult?.rows?.[0] ?? revenuePrevMonthResult?.[0] ?? { total: 0 };
 
-    const [pendingDueThisWeekData] = await db.execute(sql`
+    const pendingDueThisWeekResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(i.amount), 0)::int AS total
       FROM installments i
       ${propertyId ? sql`JOIN bookings b ON b.id = i.booking_id` : sql``}
       WHERE i.paid = false
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
-    `) as unknown as Array<{ total: number }>;
+    `);
+    const pendingDueThisWeekData = pendingDueThisWeekResult?.rows?.[0] ?? pendingDueThisWeekResult?.[0] ?? { total: 0 };
 
     return {
       totalStudents: totalStudents,
