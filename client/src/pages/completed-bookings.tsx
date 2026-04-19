@@ -986,8 +986,34 @@ export default function CompletedBookings() {
   const totalPending = Math.max(0, totalRevenue - totalCollected);
   const collectionPct = totalRevenue > 0 ? Math.round((totalCollected / totalRevenue) * 100) : 0;
   const confirmedCount = filtered.filter((b: any) => b.status === "confirmed").length;
-  const activeCount = filtered.filter((b: any) => b.status === "active").length;
-  const completedCount = filtered.filter((b: any) => b.status === "completed").length;
+  const todayMs = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  })();
+  const parseDateMs = (s?: string | null): number | null => {
+    if (!s) return null;
+    const t = new Date(s).getTime();
+    return Number.isFinite(t) ? t : null;
+  };
+  const activeCount = filtered.filter((b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected") return false;
+    if (b.status === "completed") return false;
+    const rd = b.residentDetails || {};
+    const moveIn = parseDateMs(rd.moveInDate);
+    const checkOut = parseDateMs(rd.checkOutDate);
+    if (moveIn === null) return b.status === "active";
+    if (moveIn > todayMs) return false;
+    if (checkOut !== null && checkOut <= todayMs) return false;
+    return true;
+  }).length;
+  const completedCount = filtered.filter((b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected") return false;
+    if (b.status === "completed") return true;
+    const rd = b.residentDetails || {};
+    const checkOut = parseDateMs(rd.checkOutDate);
+    return checkOut !== null && checkOut <= todayMs;
+  }).length;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
