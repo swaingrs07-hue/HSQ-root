@@ -62,6 +62,8 @@ import {
   Send,
   ArrowRightLeft,
   Share2,
+  Users,
+  Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -987,6 +989,34 @@ export default function CompletedBookings() {
   const pendingPct = totalRevenue > 0 ? Math.round((totalPending / totalRevenue) * 100) : 0;
   const averageBooking = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
 
+  const parseDayMs = (s: any): number | null => {
+    if (!s || typeof s !== "string") return null;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayMs = todayStart.getTime();
+  const activeCount = filtered.filter((b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected" || b.status === "completed") return false;
+    const moveIn = parseDayMs(b.residentDetails?.moveInDate);
+    const checkOut = parseDayMs(b.residentDetails?.checkOutDate);
+    if (moveIn === null) return false;
+    if (todayMs < moveIn) return false;
+    if (checkOut !== null && todayMs >= checkOut) return false;
+    return true;
+  }).length;
+  const completedCount = filtered.filter((b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected") return false;
+    if (b.status === "completed") return true;
+    const checkOut = parseDayMs(b.residentDetails?.checkOutDate);
+    return checkOut !== null && checkOut < todayMs;
+  }).length;
+  const totalCount = filtered.length;
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
     setTimeout(() => setCurrentPage(totalPages), 0);
@@ -1008,6 +1038,59 @@ export default function CompletedBookings() {
               : "All bookings across all properties and statuses"}
           </p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-slate-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-slate-100 ring-1 ring-slate-200/60 flex items-center justify-center shrink-0">
+                <Users className="h-5 w-5 text-slate-700" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Bookings</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1" data-testid="text-total-bookings">
+                  {totalCount}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-blue-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-blue-100 ring-1 ring-blue-200/60 flex items-center justify-center shrink-0">
+                <Activity className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Active</p>
+                <p className="text-2xl font-bold text-blue-700 mt-1" data-testid="text-active-bookings">
+                  {activeCount}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Currently staying</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-purple-50 via-white to-white">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-purple-100 ring-1 ring-purple-200/60 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</p>
+                <p className="text-2xl font-bold text-purple-700 mt-1" data-testid="text-completed-bookings">
+                  {completedCount}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Past check-out</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
