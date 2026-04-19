@@ -10215,7 +10215,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const bedMatchesRoomType = (b: any): boolean => {
         if (!roomTypeId) return true;
         const room = b.roomId ? allRoomMap[b.roomId] : undefined;
-        // Mixed-occupancy rooms (e.g. "2+2") use the bed-letter convention.
+        // Mixed-occupancy rooms (e.g. "2+2") may use the bed-letter convention.
+        // Only narrow by letter when the room type's occupancy actually matches one
+        // of the typology pieces. Otherwise fall through to the standard match —
+        // never hard-reject the bed, because the user explicitly chose this room
+        // type and the bed itself may be tagged with the matching roomTypeId.
         if (room?.typology?.includes("+") && targetOccupancy) {
           const parts = room.typology.split("+").map((p: string) => parseInt(p));
           const matchingLetters = parts
@@ -10224,7 +10228,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           if (matchingLetters.length > 0) {
             return matchingLetters.some((letter: string | null) => b.bedNumber?.includes(`${room.roomNumber}${letter}`));
           }
-          return false;
+          // Fall through to standard match below.
         }
         // Standard rooms: prefer the bed's roomTypeId, fall back to the room's roomTypeId
         // when the bed row is missing it (data drift on older properties).
