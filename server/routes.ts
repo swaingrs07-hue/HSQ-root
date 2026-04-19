@@ -10134,24 +10134,44 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const allRoomsList = allRoomIds.length > 0 ? await db.select().from(schema.rooms).where(inArray(schema.rooms.id, allRoomIds as string[])) : [];
       const allRoomMap = Object.fromEntries(allRoomsList.map(r => [r.id, r]));
 
-      const bedMatchesType = (b: any) => {
-        if (b.status !== "available") return false;
+      // Source of truth for occupancy: which beds are held by an active booking?
+      // The beds.status column drifts (cancellations, end-of-season, HMS sync, manual edits)
+      // so we rely on bookings instead and treat status only as a fallback signal.
+      const allBedIds = allBeds.map(b => b.id);
+      const activeBedRows = allBedIds.length > 0
+        ? await db.select({ bedId: schema.bookings.bedId }).from(schema.bookings).where(
+            and(
+              inArray(schema.bookings.bedId, allBedIds),
+              inArray(schema.bookings.status, ["confirmed", "active", "pending_payment", "pending_approval"]),
+            ),
+          )
+        : [];
+      const occupiedBedIds = new Set(activeBedRows.map(r => r.bedId).filter(Boolean) as string[]);
+
+      const bedMatchesRoomType = (b: any): boolean => {
         if (!roomTypeId) return true;
-        if (b.roomId) {
-          const room = allRoomMap[b.roomId];
-          if (room?.typology?.includes("+") && targetOccupancy) {
-            const parts = room.typology.split("+").map((p: string) => parseInt(p));
-            const matchingLetters = parts.map((p: number, i: number) => p === targetOccupancy ? String.fromCharCode(65 + i) : null).filter(Boolean);
-            if (matchingLetters.length > 0) {
-              return matchingLetters.some((letter: string | null) => b.bedNumber?.includes(`${room.roomNumber}${letter}`));
-            }
-            return false;
+        const room = b.roomId ? allRoomMap[b.roomId] : undefined;
+        // Mixed-occupancy rooms (e.g. "2+2") use the bed-letter convention.
+        if (room?.typology?.includes("+") && targetOccupancy) {
+          const parts = room.typology.split("+").map((p: string) => parseInt(p));
+          const matchingLetters = parts
+            .map((p: number, i: number) => p === targetOccupancy ? String.fromCharCode(65 + i) : null)
+            .filter(Boolean);
+          if (matchingLetters.length > 0) {
+            return matchingLetters.some((letter: string | null) => b.bedNumber?.includes(`${room.roomNumber}${letter}`));
           }
+          return false;
         }
-        return b.roomTypeId === roomTypeId;
+        // Standard rooms: prefer the bed's roomTypeId, fall back to the room's roomTypeId
+        // when the bed row is missing it (data drift on older properties).
+        if (b.roomTypeId) return b.roomTypeId === roomTypeId;
+        return room?.roomTypeId === roomTypeId;
       };
 
-      const availableBeds = allBeds.filter(bedMatchesType);
+      const matchingBeds = allBeds.filter(bedMatchesRoomType);
+      const totalInType = matchingBeds.length;
+      const occupiedInType = matchingBeds.filter(b => occupiedBedIds.has(b.id)).length;
+      const availableBeds = matchingBeds.filter(b => !occupiedBedIds.has(b.id));
 
       const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
       const roomIds = [...new Set(availableBeds.map(b => b.roomId).filter(Boolean))];
@@ -10237,7 +10257,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       enriched.sort((a, b) => a.floorNumber - b.floorNumber || a.roomNumber.localeCompare(b.roomNumber) || a.bedNumber.localeCompare(b.bedNumber));
 
-      res.json(enriched);
+      res.json({ beds: enriched, totalInType, occupiedInType });
     } catch (error: any) {
       console.error("Error fetching available beds:", error);
       res.status(500).json({ error: "Failed to fetch available beds" });

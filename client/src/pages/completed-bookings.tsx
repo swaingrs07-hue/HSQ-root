@@ -3355,6 +3355,8 @@ interface AvailableBed {
 function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (updated: any) => void }) {
   const [open, setOpen] = useState(false);
   const [beds, setBeds] = useState<AvailableBed[]>([]);
+  const [totalInType, setTotalInType] = useState(0);
+  const [occupiedInType, setOccupiedInType] = useState(0);
   const [loading, setLoading] = useState(false);
   const [shifting, setShifting] = useState(false);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
@@ -3401,7 +3403,12 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
       });
       if (res.ok) {
         const data = await res.json();
-        setBeds(data.filter((b: AvailableBed) => b.id !== booking.bedId));
+        const bedList: AvailableBed[] = Array.isArray(data) ? data : (data.beds || []);
+        const total = Array.isArray(data) ? bedList.length : (data.totalInType ?? bedList.length);
+        const occupied = Array.isArray(data) ? 0 : (data.occupiedInType ?? 0);
+        setBeds(bedList.filter((b: AvailableBed) => b.id !== booking.bedId));
+        setTotalInType(total);
+        setOccupiedInType(occupied);
       } else {
         const err = await res.json().catch(() => ({ error: "Failed to load beds" }));
         toast({ title: "Error", description: err.error || "Failed to load available beds", variant: "destructive" });
@@ -3526,8 +3533,24 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                 <span className="ml-2 text-sm text-slate-400">Loading available beds...</span>
               </div>
             ) : beds.length === 0 ? (
-              <div className="text-center py-6 text-sm text-slate-400">
-                No available beds in this room type
+              <div className="text-center py-6 px-4 space-y-2" data-testid="empty-no-beds">
+                <div className="text-sm font-medium text-slate-600">
+                  No available beds in this room type
+                </div>
+                {totalInType > 0 ? (
+                  <div className="text-xs text-slate-400">
+                    {occupiedInType} of {totalInType} beds in this room type are currently occupied.
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400">
+                    This property has no beds set up under this room type.
+                  </div>
+                )}
+                {!isSuperAdmin && (
+                  <div className="text-xs text-amber-600">
+                    Ask a superadmin to do a cross-room-type shift if needed.
+                  </div>
+                )}
               </div>
             ) : (
               <div className="max-h-64 overflow-y-auto space-y-3">
