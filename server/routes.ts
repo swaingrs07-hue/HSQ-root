@@ -388,7 +388,8 @@ export async function registerRoutes(
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: "Hsquare Living <noreply@hsquarehostels.com>",
-          to: "support@hsquareliving.com",
+          to: ["gyan@hsquareliving.com", "shreekant@hsquareliving.com", "ganesh@hsquareliving.com"],
+          replyTo: email,
           subject: `New Contact Form Message from ${name}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
