@@ -113,8 +113,16 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isReceptionist = user?.role === "receptionist";
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab && ["overview", "properties", "leads", "approvals", "targets"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location]);
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalBookings: 0,

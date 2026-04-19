@@ -167,35 +167,33 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
         </div>
       )}
 
-      {(search || (pinnedProperties.length === 0 && recentProperties.length === 0)) && (
-        <div>
-          {!search && pinnedProperties.length === 0 && recentProperties.length === 0 && (
-            <p className="text-xs font-medium text-muted-foreground px-3 py-1">
-              All Properties
-            </p>
-          )}
-          {filteredProperties.map((property) => {
-            if (!search && (pinnedPropertyIds.includes(property.id) || recentPropertyIds.slice(0, 3).includes(property.id))) {
-              return null;
-            }
-            return (
-              <PropertyItem
-                key={property.id}
-                property={property}
-                isSelected={selectedPropertyId === property.id}
-                isPinned={pinnedPropertyIds.includes(property.id)}
-                onSelect={() => handleSelect(property.id)}
-                onTogglePin={() => togglePinProperty(property.id)}
-              />
-            );
-          })}
-          {filteredProperties.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No properties found
-            </p>
-          )}
-        </div>
-      )}
+      <div>
+        {!search && (pinnedProperties.length > 0 || recentProperties.length > 0) && (
+          <p className="text-xs font-medium text-muted-foreground px-3 py-1 mt-2">
+            All Properties
+          </p>
+        )}
+        {filteredProperties
+          .filter((property) => {
+            if (search) return true;
+            return !pinnedPropertyIds.includes(property.id);
+          })
+          .map((property) => (
+            <PropertyItem
+              key={property.id}
+              property={property}
+              isSelected={selectedPropertyId === property.id}
+              isPinned={pinnedPropertyIds.includes(property.id)}
+              onSelect={() => handleSelect(property.id)}
+              onTogglePin={() => togglePinProperty(property.id)}
+            />
+          ))}
+        {filteredProperties.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No properties found
+          </p>
+        )}
+      </div>
     </div>
   );
 
@@ -271,7 +269,7 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
               </ScrollArea>
               {isAdmin && (
                 <div className="p-2 border-t">
-                  <Link href="/admin/properties">
+                  <Link href="/admin?tab=properties">
                     <Button
                       variant="ghost"
                       className="w-full justify-start gap-2 h-9"
