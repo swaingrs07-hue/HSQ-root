@@ -168,6 +168,7 @@ export default function CompletedBookings() {
     return params.get("search") || "";
   });
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed">("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -955,7 +956,34 @@ export default function CompletedBookings() {
     },
   });
 
-  let filtered = bookings.filter((b: any) => {
+  const _parseDayMs = (s: any): number | null => {
+    if (!s || typeof s !== "string") return null;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const _todayStart = new Date();
+  _todayStart.setHours(0, 0, 0, 0);
+  const _todayMs = _todayStart.getTime();
+  const isActiveBooking = (b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected" || b.status === "completed") return false;
+    const moveIn = _parseDayMs(b.residentDetails?.moveInDate);
+    const checkOut = _parseDayMs(b.residentDetails?.checkOutDate);
+    if (moveIn === null) return false;
+    if (_todayMs < moveIn) return false;
+    if (checkOut !== null && _todayMs >= checkOut) return false;
+    return true;
+  };
+  const isCompletedBooking = (b: any) => {
+    if (b.status === "cancelled" || b.status === "rejected") return false;
+    if (b.status === "completed") return true;
+    const checkOut = _parseDayMs(b.residentDetails?.checkOutDate);
+    return checkOut !== null && checkOut < _todayMs;
+  };
+
+  const baseFiltered = bookings.filter((b: any) => {
     if (selectedPropertyId && b.propertyId !== selectedPropertyId) return false;
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
     if (searchQuery) {
@@ -967,6 +995,12 @@ export default function CompletedBookings() {
         b.propertyName?.toLowerCase().includes(q)
       );
     }
+    return true;
+  });
+
+  let filtered = baseFiltered.filter((b: any) => {
+    if (viewFilter === "active" && !isActiveBooking(b)) return false;
+    if (viewFilter === "completed" && !isCompletedBooking(b)) return false;
     return true;
   });
 
@@ -989,33 +1023,9 @@ export default function CompletedBookings() {
   const pendingPct = totalRevenue > 0 ? Math.round((totalPending / totalRevenue) * 100) : 0;
   const averageBooking = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
 
-  const parseDayMs = (s: any): number | null => {
-    if (!s || typeof s !== "string") return null;
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!m) return null;
-    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayMs = todayStart.getTime();
-  const activeCount = filtered.filter((b: any) => {
-    if (b.status === "cancelled" || b.status === "rejected" || b.status === "completed") return false;
-    const moveIn = parseDayMs(b.residentDetails?.moveInDate);
-    const checkOut = parseDayMs(b.residentDetails?.checkOutDate);
-    if (moveIn === null) return false;
-    if (todayMs < moveIn) return false;
-    if (checkOut !== null && todayMs >= checkOut) return false;
-    return true;
-  }).length;
-  const completedCount = filtered.filter((b: any) => {
-    if (b.status === "cancelled" || b.status === "rejected") return false;
-    if (b.status === "completed") return true;
-    const checkOut = parseDayMs(b.residentDetails?.checkOutDate);
-    return checkOut !== null && checkOut < todayMs;
-  }).length;
-  const totalCount = filtered.length;
+  const activeCount = baseFiltered.filter(isActiveBooking).length;
+  const completedCount = baseFiltered.filter(isCompletedBooking).length;
+  const totalCount = baseFiltered.length;
   const totalBookingAmount = filtered.reduce((sum: number, b: any) => {
     const inst = (b.installments || []).find((i: any) =>
       typeof i?.name === "string" && i.name.toLowerCase().includes("booking amount")
@@ -1047,7 +1057,12 @@ export default function CompletedBookings() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-slate-50 via-white to-white">
+        <Card
+          role="button"
+          onClick={() => { setViewFilter("all"); setCurrentPage(1); }}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-slate-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "all" ? "ring-2 ring-slate-400" : ""}`}
+          data-testid="card-filter-all"
+        >
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-slate-100 ring-1 ring-slate-200/60 flex items-center justify-center shrink-0">
@@ -1074,7 +1089,12 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-blue-50 via-white to-white">
+        <Card
+          role="button"
+          onClick={() => { setViewFilter(viewFilter === "active" ? "all" : "active"); setCurrentPage(1); }}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-blue-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "active" ? "ring-2 ring-blue-400" : ""}`}
+          data-testid="card-filter-active"
+        >
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-blue-100 ring-1 ring-blue-200/60 flex items-center justify-center shrink-0">
@@ -1091,7 +1111,12 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-purple-50 via-white to-white">
+        <Card
+          role="button"
+          onClick={() => { setViewFilter(viewFilter === "completed" ? "all" : "completed"); setCurrentPage(1); }}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-purple-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "completed" ? "ring-2 ring-purple-400" : ""}`}
+          data-testid="card-filter-completed"
+        >
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-purple-100 ring-1 ring-purple-200/60 flex items-center justify-center shrink-0">
