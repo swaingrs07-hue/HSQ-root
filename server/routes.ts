@@ -7814,7 +7814,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // Get dashboard stats
   app.get("/api/admin/stats", async (req, res) => {
     try {
-      const stats = await storage.getStats();
+      const propertyId = typeof req.query.propertyId === "string" && req.query.propertyId.trim()
+        ? req.query.propertyId.trim()
+        : undefined;
+      const stats = await storage.getStats(propertyId);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);

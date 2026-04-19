@@ -119,7 +119,7 @@ export async function applyDiscount(data: {
   });
 }
 
-export async function getAdminStats(): Promise<{
+export async function getAdminStats(propertyId?: string | null): Promise<{
   totalStudents: number;
   totalBookings: number;
   totalRevenue: number;
@@ -135,5 +135,6 @@ export async function getAdminStats(): Promise<{
   revenuePrevMonth: number;
   pendingDueThisWeek: number;
 }> {
-  return fetchAPI("/admin/stats");
+  const qs = propertyId ? `?propertyId=${encodeURIComponent(propertyId)}` : "";
+  return fetchAPI(`/admin/stats${qs}`);
 }

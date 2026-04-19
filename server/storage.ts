@@ -1046,7 +1046,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Analytics
-  async getStats(): Promise<{
+  async getStats(propertyId?: string): Promise<{
     totalStudents: number;
     totalBookings: number;
     totalRevenue: number;
@@ -1062,37 +1062,56 @@ export class DatabaseStorage implements IStorage {
     revenuePrevMonth: number;
     pendingDueThisWeek: number;
   }> {
-    const [registeredStudents] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(students);
+    const propFilter = propertyId
+      ? sql` AND property_id = ${propertyId}`
+      : sql``;
 
-    const [bookingStudents] = await db
-      .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
-      .from(bookings)
-      .where(sql`student_id IS NOT NULL OR walk_in_phone IS NOT NULL`);
-
-    const totalStudents = (registeredStudents?.count || 0) + (bookingStudents?.count || 0);
+    let totalStudents: number;
+    if (propertyId) {
+      const [bookingStudents] = await db
+        .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
+        .from(bookings)
+        .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND property_id = ${propertyId}`);
+      totalStudents = bookingStudents?.count || 0;
+    } else {
+      const [registeredStudents] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(students);
+      const [bookingStudents] = await db
+        .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
+        .from(bookings)
+        .where(sql`student_id IS NOT NULL OR walk_in_phone IS NOT NULL`);
+      totalStudents = (registeredStudents?.count || 0) + (bookingStudents?.count || 0);
+    }
 
     const [bookingsCount] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(bookings);
+      .from(bookings)
+      .where(propertyId ? eq(bookings.propertyId, propertyId) : sql`1=1`);
 
-    const [revenueData] = await db
-      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
-      .from(payments)
-      .where(eq(payments.status, "success"));
+    const [revenueData] = await db.execute(sql`
+      SELECT COALESCE(SUM(p.amount), 0)::int AS total
+      FROM payments p
+      ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
+      WHERE p.status = 'success'
+      ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+    `) as unknown as Array<{ total: number }>;
 
-    const [pendingData] = await db
-      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
-      .from(installments)
-      .where(eq(installments.paid, false));
+    const [pendingData] = await db.execute(sql`
+      SELECT COALESCE(SUM(i.amount), 0)::int AS total
+      FROM installments i
+      ${propertyId ? sql`JOIN bookings b ON b.id = i.booking_id` : sql``}
+      WHERE i.paid = false
+      ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+    `) as unknown as Array<{ total: number }>;
 
     const [bedStats] = await db
       .select({
         total: sql<number>`count(*)::int`,
         occupied: sql<number>`count(*) FILTER (WHERE status = 'occupied')::int`,
       })
-      .from(beds);
+      .from(beds)
+      .where(propertyId ? eq(beds.propertyId, propertyId) : sql`1=1`);
 
     const totalBeds = bedStats?.total || 0;
     const occupiedBeds = bedStats?.occupied || 0;
@@ -1101,37 +1120,48 @@ export class DatabaseStorage implements IStorage {
     const [studentsThisMonthData] = await db
       .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
       .from(bookings)
-      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE)`);
+      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE)${propFilter}`);
 
     const [studentsPrevMonthData] = await db
       .select({ count: sql<number>`count(DISTINCT COALESCE(student_id, walk_in_phone))::int` })
       .from(bookings)
-      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+      .where(sql`(student_id IS NOT NULL OR walk_in_phone IS NOT NULL) AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)${propFilter}`);
 
     const [bookingsThisMonthData] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(bookings)
-      .where(sql`created_at >= date_trunc('month', CURRENT_DATE)`);
+      .where(sql`created_at >= date_trunc('month', CURRENT_DATE)${propFilter}`);
 
     const [bookingsPrevMonthData] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(bookings)
-      .where(sql`created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+      .where(sql`created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)${propFilter}`);
 
-    const [revenueThisMonthData] = await db
-      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
-      .from(payments)
-      .where(sql`status = 'success' AND created_at >= date_trunc('month', CURRENT_DATE)`);
+    const [revenueThisMonthData] = await db.execute(sql`
+      SELECT COALESCE(SUM(p.amount), 0)::int AS total
+      FROM payments p
+      ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
+      WHERE p.status = 'success' AND p.created_at >= date_trunc('month', CURRENT_DATE)
+      ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+    `) as unknown as Array<{ total: number }>;
 
-    const [revenuePrevMonthData] = await db
-      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
-      .from(payments)
-      .where(sql`status = 'success' AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < date_trunc('month', CURRENT_DATE)`);
+    const [revenuePrevMonthData] = await db.execute(sql`
+      SELECT COALESCE(SUM(p.amount), 0)::int AS total
+      FROM payments p
+      ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
+      WHERE p.status = 'success'
+        AND p.created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')
+        AND p.created_at < date_trunc('month', CURRENT_DATE)
+      ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+    `) as unknown as Array<{ total: number }>;
 
-    const [pendingDueThisWeekData] = await db
-      .select({ total: sql<number>`COALESCE(SUM(amount), 0)::int` })
-      .from(installments)
-      .where(sql`paid = false`);
+    const [pendingDueThisWeekData] = await db.execute(sql`
+      SELECT COALESCE(SUM(i.amount), 0)::int AS total
+      FROM installments i
+      ${propertyId ? sql`JOIN bookings b ON b.id = i.booking_id` : sql``}
+      WHERE i.paid = false
+      ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+    `) as unknown as Array<{ total: number }>;
 
     return {
       totalStudents: totalStudents,

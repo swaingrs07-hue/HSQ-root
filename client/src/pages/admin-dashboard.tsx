@@ -20,6 +20,7 @@ import { LeadsTrendChart, PropertyBookingsChart, SalesPerformanceChart, LeadSour
 import { FadeInView, StaggeredList, StaggeredItem } from "@/components/motion-primitives";
 import TargetAchievementTab from "@/components/target-achievement-tab";
 import { useAuth } from "@/contexts/auth-context";
+import { useProperty } from "@/contexts/property-context";
 
 function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number | string; prefix?: string; suffix?: string }) {
   const numValue = typeof value === "string" ? parseFloat(value) : value;
@@ -112,6 +113,7 @@ function KPICard({
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { selectedPropertyId } = useProperty();
   const isReceptionist = user?.role === "receptionist";
   const [location, setLocation] = useLocation();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
@@ -215,6 +217,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadStats();
+  }, [selectedPropertyId]);
+
+  useEffect(() => {
     loadChartData();
     loadOverdueFollowUps();
     loadPropertyAssignmentStats();
@@ -843,7 +848,7 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      const data = await getAdminStats();
+      const data = await getAdminStats(selectedPropertyId);
       setStats(data);
     } catch (error) {
       toast({
