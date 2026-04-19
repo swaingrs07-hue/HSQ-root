@@ -3422,13 +3422,45 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
     setLoading(false);
   };
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
     setOpen(true);
     setSelectedBedId(null);
-    const defaultType = booking.roomTypeId || "";
+    setLoading(true);
+    // Always fetch the property's current room types so admin & receptionist
+    // can switch to a valid type if the booking's stored roomTypeId is stale
+    // (e.g. migrated/legacy bookings whose room type was renamed or removed).
+    let availableTypes: { id: string; name: string }[] = [];
+    if (booking.propertyId) {
+      try {
+        const token = getAuthToken();
+        const res = await fetch(`/api/properties/${booking.propertyId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.roomTypes) {
+            availableTypes = data.roomTypes.map((rt: { id: string; name: string; customName?: string }) => ({
+              id: rt.id,
+              name: rt.customName || rt.name,
+            }));
+            setRoomTypes(availableTypes);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // Pick a default that actually exists at this property
+    const bookingHasValidType = booking.roomTypeId && availableTypes.some(rt => rt.id === booking.roomTypeId);
+    const defaultType = bookingHasValidType
+      ? booking.roomTypeId
+      : (availableTypes[0]?.id || booking.roomTypeId || "");
     setSelectedRoomTypeId(defaultType);
-    if (isSuperAdmin) fetchRoomTypes();
-    if (defaultType) fetchAvailableBeds(defaultType);
+    if (defaultType) {
+      fetchAvailableBeds(defaultType);
+    } else {
+      setLoading(false);
+    }
   };
 
   const handleRoomTypeChange = (newRoomTypeId: string) => {
@@ -3464,6 +3496,8 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
   const selectedBed = beds.find(b => b.id === selectedBedId);
 
   const isCrossType = selectedRoomTypeId !== booking.roomTypeId;
+  const bookingTypeIsStale = roomTypes.length > 0 && !!booking.roomTypeId && !roomTypes.some(rt => rt.id === booking.roomTypeId);
+  const crossTypeBlockedForRole = isCrossType && !isSuperAdmin && !bookingTypeIsStale;
 
   const grouped = beds.reduce<Record<string, AvailableBed[]>>((acc, bed) => {
     const key = `${bed.floorName}`;
@@ -3507,7 +3541,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
               </div>
             </div>
 
-            {isSuperAdmin && roomTypes.length > 0 && (
+            {roomTypes.length > 0 && (
               <div className="space-y-1" data-testid="room-type-selector">
                 <label className="text-xs font-medium text-slate-600">Room Type</label>
                 <select
@@ -3522,9 +3556,14 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                     </option>
                   ))}
                 </select>
-                {isCrossType && (
+                {isCrossType && isSuperAdmin && (
                   <div className="text-[11px] text-amber-600 font-medium px-1">
                     Cross-type shift — booking room type will be updated
+                  </div>
+                )}
+                {isCrossType && !isSuperAdmin && (
+                  <div className="text-[11px] text-amber-600 font-medium px-1">
+                    Different room type — only a superadmin can confirm a cross-type shift
                   </div>
                 )}
               </div>
@@ -3625,7 +3664,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
               <Button
                 size="sm"
                 onClick={handleShift}
-                disabled={!selectedBedId || shifting}
+                disabled={!selectedBedId || shifting || crossTypeBlockedForRole}
                 className="bg-indigo-600 hover:bg-indigo-700"
                 data-testid="button-confirm-shift"
               >

@@ -4914,7 +4914,21 @@ ${allPages.map(p => `  <url>
 
       const isSuperadmin = req.user!.role === "superadmin";
       if (newBed.roomTypeId !== booking.roomTypeId && !isSuperadmin) {
-        return res.status(400).json({ error: "Target bed must be in the same room type category" });
+        // Edge case: the booking's stored roomTypeId may be stale (room type was
+        // renamed/removed at the property after the booking was created). In that
+        // case admin/receptionist would be locked out forever, so allow the shift
+        // when the stored roomTypeId no longer exists in this property's room types.
+        let bookingTypeIsStale = !booking.roomTypeId;
+        if (!bookingTypeIsStale && booking.propertyId) {
+          const propertyRoomTypes = await db.select({ id: schema.roomTypes.id })
+            .from(schema.roomTypes)
+            .where(eq(schema.roomTypes.propertyId, booking.propertyId));
+          const validIds = new Set(propertyRoomTypes.map(rt => rt.id));
+          bookingTypeIsStale = !validIds.has(booking.roomTypeId!);
+        }
+        if (!bookingTypeIsStale) {
+          return res.status(400).json({ error: "Target bed must be in the same room type category" });
+        }
       }
 
       const isRoomTypeChange = newBed.roomTypeId !== booking.roomTypeId;
