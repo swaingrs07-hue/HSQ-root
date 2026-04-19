@@ -55,6 +55,8 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const isSalesExec = user?.role === "sales_executive";
+  const showAllPropertiesOption = isAdmin || (isSalesExec && properties.length > 1);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,7 +106,7 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
 
   const PropertyList = () => (
     <div className="space-y-1">
-      {isAdmin && (
+      {showAllPropertiesOption && (
         <>
           <button
             onClick={() => handleSelect(null)}
