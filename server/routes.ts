@@ -10148,6 +10148,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         : [];
       const occupiedBedIds = new Set(activeBedRows.map(r => r.bedId).filter(Boolean) as string[]);
 
+      // beds.status is a fallback signal: even when no booking holds the bed, the bed
+      // can be operationally non-allocatable (blocked, under maintenance, manually reserved).
+      // Treat these as unavailable for shift targets.
+      const NON_ALLOCATABLE_STATUSES = new Set(["blocked", "maintenance", "reserved"]);
+      const isBedAvailable = (b: any) => {
+        if (occupiedBedIds.has(b.id)) return false;
+        if (b.status && NON_ALLOCATABLE_STATUSES.has(b.status)) return false;
+        return true;
+      };
+
       const bedMatchesRoomType = (b: any): boolean => {
         if (!roomTypeId) return true;
         const room = b.roomId ? allRoomMap[b.roomId] : undefined;
@@ -10170,8 +10180,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const matchingBeds = allBeds.filter(bedMatchesRoomType);
       const totalInType = matchingBeds.length;
-      const occupiedInType = matchingBeds.filter(b => occupiedBedIds.has(b.id)).length;
-      const availableBeds = matchingBeds.filter(b => !occupiedBedIds.has(b.id));
+      const occupiedInType = matchingBeds.filter(b => !isBedAvailable(b)).length;
+      const availableBeds = matchingBeds.filter(isBedAvailable);
 
       const floorIds = [...new Set(availableBeds.map(b => b.floorId))];
       const roomIds = [...new Set(availableBeds.map(b => b.roomId).filter(Boolean))];
