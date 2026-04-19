@@ -577,10 +577,6 @@ export default function AdminSeasons() {
                     )}
                     {season.status === "ACTIVE" && (
                       <>
-                        <Button size="sm" variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => handleEnd(season.id)} disabled={actionLoading === season.id} data-testid={`button-end-${season.id}`}>
-                          {actionLoading === season.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
-                          End Season
-                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => openEdit(season)} data-testid={`button-edit-${season.id}`}>
                           <Edit className="h-4 w-4" />
                         </Button>
