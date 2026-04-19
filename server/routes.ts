@@ -3167,6 +3167,35 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // List ALL room types for a property (admin/receptionist) — includes
+  // inactive ones so the Shift Bed dialog can offer every legitimate target,
+  // not just the currently-active set returned by the public /api/properties/:id.
+  app.get("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin", "receptionist"), async (req, res) => {
+    try {
+      const propertyId = req.params.propertyId;
+      const rows = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.propertyId, propertyId));
+      // Also count beds per room type at this property so the client can prefer
+      // a type that actually has beds when the booking's stored type has none.
+      const bedRows = await db
+        .select({ roomTypeId: schema.beds.roomTypeId })
+        .from(schema.beds)
+        .where(eq(schema.beds.propertyId, propertyId));
+      const bedCountByType = new Map<string, number>();
+      for (const b of bedRows) {
+        if (!b.roomTypeId) continue;
+        bedCountByType.set(b.roomTypeId, (bedCountByType.get(b.roomTypeId) || 0) + 1);
+      }
+      const enriched = rows.map(rt => ({
+        ...rt,
+        bedCountAtProperty: bedCountByType.get(rt.id) || 0,
+      }));
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error listing all room types:", error);
+      res.status(500).json({ error: "Failed to list room types" });
+    }
+  });
+
   // Create room type (Admin only)
   app.post("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
@@ -4914,17 +4943,28 @@ ${allPages.map(p => `  <url>
 
       const isSuperadmin = req.user!.role === "superadmin";
       if (newBed.roomTypeId !== booking.roomTypeId && !isSuperadmin) {
-        // Edge case: the booking's stored roomTypeId may be stale (room type was
-        // renamed/removed at the property after the booking was created). In that
-        // case admin/receptionist would be locked out forever, so allow the shift
-        // when the stored roomTypeId no longer exists in this property's room types.
+        // Edge case: the booking's stored roomTypeId may be stale — either it
+        // no longer exists in this property's room_types (renamed/removed) or
+        // it exists but has zero beds attached at this property (legacy/
+        // migrated data). In both cases admin/receptionist would be locked out
+        // forever, so allow the shift.
         let bookingTypeIsStale = !booking.roomTypeId;
         if (!bookingTypeIsStale && booking.propertyId) {
           const propertyRoomTypes = await db.select({ id: schema.roomTypes.id })
             .from(schema.roomTypes)
             .where(eq(schema.roomTypes.propertyId, booking.propertyId));
           const validIds = new Set(propertyRoomTypes.map(rt => rt.id));
-          bookingTypeIsStale = !validIds.has(booking.roomTypeId!);
+          if (!validIds.has(booking.roomTypeId!)) {
+            bookingTypeIsStale = true;
+          } else {
+            const bedsForType = await db.select({ id: schema.beds.id })
+              .from(schema.beds)
+              .where(and(
+                eq(schema.beds.propertyId, booking.propertyId),
+                eq(schema.beds.roomTypeId, booking.roomTypeId!),
+              ));
+            if (bedsForType.length === 0) bookingTypeIsStale = true;
+          }
         }
         if (!bookingTypeIsStale) {
           return res.status(400).json({ error: "Target bed must be in the same room type category" });

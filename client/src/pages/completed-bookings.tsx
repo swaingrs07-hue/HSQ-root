@@ -3426,35 +3426,60 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
     setOpen(true);
     setSelectedBedId(null);
     setLoading(true);
-    // Always fetch the property's current room types so admin & receptionist
-    // can switch to a valid type if the booking's stored roomTypeId is stale
+    // Always fetch ALL room types for the property (including inactive ones and
+    // ones with bedCountAtProperty) so admin & receptionist can switch to a
+    // valid type when the booking's stored roomTypeId is stale or has zero beds
     // (e.g. migrated/legacy bookings whose room type was renamed or removed).
-    let availableTypes: { id: string; name: string }[] = [];
+    let availableTypes: { id: string; name: string; bedCount: number }[] = [];
     if (booking.propertyId) {
       try {
         const token = getAuthToken();
-        const res = await fetch(`/api/properties/${booking.propertyId}`, {
+        // Prefer the admin-only endpoint that returns all room types + bed counts
+        const adminRes = await fetch(`/api/admin/properties/${booking.propertyId}/room-types`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.roomTypes) {
-            availableTypes = data.roomTypes.map((rt: { id: string; name: string; customName?: string }) => ({
-              id: rt.id,
-              name: rt.customName || rt.name,
-            }));
-            setRoomTypes(availableTypes);
+        if (adminRes.ok) {
+          const data = await adminRes.json();
+          availableTypes = (Array.isArray(data) ? data : []).map((rt: { id: string; name: string; customName?: string; bedCountAtProperty?: number }) => ({
+            id: rt.id,
+            name: rt.customName || rt.name,
+            bedCount: rt.bedCountAtProperty ?? 0,
+          }));
+        } else {
+          // Fallback to public endpoint (no bed counts available)
+          const res = await fetch(`/api/properties/${booking.propertyId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.roomTypes) {
+              availableTypes = data.roomTypes.map((rt: { id: string; name: string; customName?: string }) => ({
+                id: rt.id,
+                name: rt.customName || rt.name,
+                bedCount: 0,
+              }));
+            }
           }
         }
+        setRoomTypes(availableTypes.map(rt => ({ id: rt.id, name: rt.name })));
       } catch {
         // ignore
       }
     }
-    // Pick a default that actually exists at this property
-    const bookingHasValidType = booking.roomTypeId && availableTypes.some(rt => rt.id === booking.roomTypeId);
-    const defaultType = bookingHasValidType
-      ? booking.roomTypeId
-      : (availableTypes[0]?.id || booking.roomTypeId || "");
+    // Pick a default that actually has beds. Order of preference:
+    //   1. Booking's stored roomTypeId if it exists AND has beds
+    //   2. The first room type with bedCount > 0
+    //   3. Booking's stored roomTypeId (so user at least sees the empty state with type selected)
+    const stored = booking.roomTypeId
+      ? availableTypes.find(rt => rt.id === booking.roomTypeId)
+      : undefined;
+    const firstWithBeds = availableTypes.find(rt => rt.bedCount > 0);
+    const defaultType =
+      (stored && stored.bedCount > 0 ? stored.id : undefined) ||
+      firstWithBeds?.id ||
+      booking.roomTypeId ||
+      availableTypes[0]?.id ||
+      "";
     setSelectedRoomTypeId(defaultType);
     if (defaultType) {
       fetchAvailableBeds(defaultType);
