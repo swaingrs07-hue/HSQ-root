@@ -130,7 +130,9 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
       return res.json();
     },
     onSuccess: (updatedLead) => {
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales/my-leads"] });
       toast({
         title: "Lead Updated",
         description: "Lead information has been saved successfully.",

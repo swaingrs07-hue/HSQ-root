@@ -2107,20 +2107,57 @@ ${allPages.map(p => `  <url>
   ];
 
   // Update lead (update status, notes, source)
-  app.patch("/api/leads/:id", async (req, res) => {
+  app.patch("/api/leads/:id", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const { status, notes, source } = req.body;
-      const updateData: Partial<{ status: string; notes: string; source: string }> = {};
-      
-      if (status) {
+      const { status, notes, source, name, email, phone, alternatePhone, budgetMin, budgetMax, priority } = req.body;
+      const updateData: Record<string, any> = {};
+
+      if (status !== undefined) {
         if (!validLeadStatuses.includes(status)) {
           return res.status(400).json({ error: "Invalid status value" });
         }
         updateData.status = status;
       }
       if (notes !== undefined) updateData.notes = notes;
-      if (source) updateData.source = source;
-      
+      if (source !== undefined) updateData.source = source;
+      if (name !== undefined) {
+        if (typeof name !== "string" || !name.trim()) {
+          return res.status(400).json({ error: "Name cannot be empty" });
+        }
+        updateData.name = name.trim();
+      }
+      if (email !== undefined) {
+        const normalized = email ? normalizeEmail(email) : null;
+        updateData.email = normalized || null;
+      }
+      if (phone !== undefined) {
+        const normalized = phone ? normalizePhone(phone) : null;
+        updateData.phone = normalized || null;
+      }
+      if (alternatePhone !== undefined) {
+        const normalized = alternatePhone ? normalizePhone(alternatePhone) : null;
+        updateData.alternatePhone = normalized || null;
+      }
+      if (budgetMin !== undefined) {
+        updateData.budgetMin = budgetMin === null || budgetMin === "" ? null : Number(budgetMin);
+      }
+      if (budgetMax !== undefined) {
+        updateData.budgetMax = budgetMax === null || budgetMax === "" ? null : Number(budgetMax);
+      }
+      if (priority !== undefined) updateData.priority = priority;
+
+      // Sales executives may only edit leads assigned to them.
+      if (req.user?.role === "sales_executive") {
+        const existing = await storage.getLead(req.params.id as string);
+        if (!existing) return res.status(404).json({ error: "Lead not found" });
+        if (existing.assignedToId !== req.user.userId) {
+          return res.status(403).json({ error: "Not authorized to edit this lead" });
+        }
+        if (existing.isLocked) {
+          return res.status(403).json({ error: "Lead is locked and cannot be modified" });
+        }
+      }
+
       const lead = await storage.updateLead(req.params.id as string, updateData);
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
