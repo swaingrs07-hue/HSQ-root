@@ -680,6 +680,7 @@ export default function Home() {
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
                 className="w-full h-full object-cover will-change-transform"
+                style={{ opacity: 0.55, mixBlendMode: "screen" }}
                 initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
                 animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
                 transition={{ duration: 8, ease: "linear" }}
