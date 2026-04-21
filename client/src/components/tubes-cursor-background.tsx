@@ -4,20 +4,17 @@ import * as THREE from "three";
 interface TubesCursorBackgroundProps {
   className?: string;
   colors?: number[];
-  lightColors?: number[];
   enabled?: boolean;
   reduceMotion?: boolean;
 }
 
-// Brand-aligned warm amber + cool indigo + magenta family. No full-rainbow drift.
-const DEFAULT_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0xfb923c, 0x8b5cf6];
-const DEFAULT_LIGHT_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0xfb923c];
-const NUM_TUBES = 8;
-const NUM_LIGHTS = 4;
+// Vivid neon palette inspired by reference — magenta, violet, cyan, hot pink, indigo.
+const DEFAULT_COLORS = [0xff00aa, 0x9d00ff, 0x00e5ff, 0xff3d8b, 0x6366f1, 0xff7ad9];
+const NUM_TUBES = 7;
 
 const TUBE_SEGMENTS = 48;
 const TUBE_RADIAL = 8;
-const TUBE_RADIUS = 0.07;
+const TUBE_RADIUS = 0.05;
 
 function buildTubeBufferGeometry(): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
@@ -91,7 +88,6 @@ function updateTubeGeometryFromCurve(geo: THREE.BufferGeometry, curve: THREE.Cat
 export default function TubesCursorBackground({
   className,
   colors = DEFAULT_COLORS,
-  lightColors = DEFAULT_LIGHT_COLORS,
   enabled = true,
   reduceMotion = false,
 }: TubesCursorBackgroundProps) {
@@ -134,7 +130,7 @@ export default function TubesCursorBackground({
     interface TubeData {
       mesh: THREE.Mesh;
       geometry: THREE.BufferGeometry;
-      material: THREE.MeshPhongMaterial;
+      material: THREE.MeshBasicMaterial;
       offset: THREE.Vector3;
       phase: number;
       speed: number;
@@ -151,13 +147,12 @@ export default function TubesCursorBackground({
       const baseHex = colors[idx % colors.length];
       const altHex = colors[(idx + 1) % colors.length];
       const geometry = buildTubeBufferGeometry();
-      const material = new THREE.MeshPhongMaterial({
+      const material = new THREE.MeshBasicMaterial({
         color: baseHex,
-        emissive: baseHex,
-        emissiveIntensity: 0.7,
-        shininess: 80,
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
       });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
@@ -191,36 +186,60 @@ export default function TubesCursorBackground({
 
     for (let i = 0; i < NUM_TUBES; i++) tubes.push(buildTube(i));
 
-    const ambient = new THREE.AmbientLight(0x111122, 0.6);
-    scene.add(ambient);
+    // Bright bloom-like sprite at the cursor origin (additive layered) for the
+    // "neon flare" core look from the reference.
+    const flareGeo = new THREE.SphereGeometry(0.18, 16, 16);
+    const flareMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flare = new THREE.Mesh(flareGeo, flareMat);
+    scene.add(flare);
 
-    const lights: THREE.PointLight[] = [];
-    for (let i = 0; i < NUM_LIGHTS; i++) {
-      const l = new THREE.PointLight(lightColors[i % lightColors.length], 1.6, 18, 1.5);
-      l.position.set(
-        Math.cos((i / NUM_LIGHTS) * Math.PI * 2) * 4,
-        Math.sin((i / NUM_LIGHTS) * Math.PI * 2) * 3,
-        2,
-      );
-      scene.add(l);
-      lights.push(l);
-    }
+    const flareGlowGeo = new THREE.SphereGeometry(0.6, 24, 24);
+    const flareGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xff66cc,
+      transparent: true,
+      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flareGlow = new THREE.Mesh(flareGlowGeo, flareGlowMat);
+    scene.add(flareGlow);
 
     function updateTube(t: TubeData, time: number) {
+      // All tubes ORIGINATE at the cursor and trail outward to a floating offset
+      // direction unique to each tube — fireworks/comet-tail look from reference.
       const start = t.curvePts[0];
-      start.set(
-        t.offset.x + Math.sin(time * t.speed + t.phase) * 1.2,
-        t.offset.y + Math.cos(time * t.speed * 0.8 + t.phase) * 1.0,
-        t.offset.z + Math.sin(time * 0.5 + t.phase) * 0.6,
-      );
+      start.copy(easedTarget);
+
+      // Direction this tube trails (gently rotating around cursor)
+      const dirX = Math.cos(time * t.speed * 0.4 + t.phase);
+      const dirY = Math.sin(time * t.speed * 0.4 + t.phase);
+      const dirZ = Math.sin(time * 0.3 + t.phase) * 0.4;
+      const reach = 4.5 + Math.sin(time * 0.6 + t.phase) * 1.2;
+
+      const endX = easedTarget.x + dirX * reach + t.offset.x * 0.25;
+      const endY = easedTarget.y + dirY * reach + t.offset.y * 0.25;
+      const endZ = easedTarget.z + dirZ * reach + t.offset.z * 0.25;
+
       const N = t.curvePts.length;
       for (let i = 1; i < N; i++) {
         const k = i / (N - 1);
         const p = t.curvePts[i];
-        p.lerpVectors(start, easedTarget, k);
-        p.x += Math.sin(time * 1.2 + t.phase + k * 6) * 0.35 * (1 - k);
-        p.y += Math.cos(time * 1.0 + t.phase + k * 5) * 0.35 * (1 - k);
-        p.z += Math.sin(time * 0.8 + t.phase + k * 4) * 0.25 * (1 - k);
+        p.set(
+          easedTarget.x + (endX - easedTarget.x) * k,
+          easedTarget.y + (endY - easedTarget.y) * k,
+          easedTarget.z + (endZ - easedTarget.z) * k,
+        );
+        // Wave amount grows with k so the tail flares out, while origin stays tight to cursor
+        const wave = k * (1 - k) * 1.6;
+        p.x += Math.sin(time * 1.4 + t.phase + k * 5) * wave;
+        p.y += Math.cos(time * 1.2 + t.phase + k * 4) * wave;
+        p.z += Math.sin(time * 0.9 + t.phase + k * 3) * wave * 0.6;
       }
       t.curve.updateArcLengths();
       updateTubeGeometryFromCurve(t.geometry, t.curve);
@@ -303,17 +322,14 @@ export default function TubesCursorBackground({
         const mix = 0.5 + 0.5 * Math.sin(t * 0.21 + tubes[i].phase);
         _drift.copy(tubes[i].baseColor).lerp(tubes[i].altColor, mix * 0.4);
         tubes[i].material.color.copy(_drift);
-        tubes[i].material.emissive.copy(_drift).multiplyScalar(0.7);
       }
 
-      for (let i = 0; i < lights.length; i++) {
-        const angle = (i / lights.length) * Math.PI * 2 + t * 0.3;
-        lights[i].position.set(
-          Math.cos(angle) * 5,
-          Math.sin(angle) * 3.5,
-          Math.sin(t * 0.5 + i) * 2 + 2,
-        );
-      }
+      // Pulse the flare core at the cursor
+      const pulse = 1 + Math.sin(t * 4) * 0.15;
+      flare.position.copy(easedTarget);
+      flare.scale.setScalar(pulse);
+      flareGlow.position.copy(easedTarget);
+      flareGlow.scale.setScalar(1 + Math.sin(t * 2.5) * 0.1);
 
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(loop);
@@ -333,10 +349,15 @@ export default function TubesCursorBackground({
         t.material.dispose();
         scene.remove(t.mesh);
       });
-      lights.forEach((l) => scene.remove(l));
+      flareGeo.dispose();
+      flareMat.dispose();
+      flareGlowGeo.dispose();
+      flareGlowMat.dispose();
+      scene.remove(flare);
+      scene.remove(flareGlow);
       renderer?.dispose();
     };
-  }, [enabled, reduceMotion, colors, lightColors]);
+  }, [enabled, reduceMotion, colors]);
 
   if (!enabled || reduceMotion) return null;
 

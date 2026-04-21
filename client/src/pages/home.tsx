@@ -645,7 +645,9 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
+        {tubesActive && !(heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed) ? (
+          <div className="absolute inset-0 bg-black" />
+        ) : heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
@@ -680,7 +682,6 @@ export default function Home() {
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
                 className="w-full h-full object-cover will-change-transform"
-                style={tubesActive ? { opacity: 0.55, mixBlendMode: "screen" } : undefined}
                 initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
                 animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
                 transition={{ duration: 8, ease: "linear" }}
