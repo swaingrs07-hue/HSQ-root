@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import heroLobby from "@/assets/hero-lobby.jpg";
@@ -19,6 +19,24 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
+
+const TubesCursorBackground = lazy(() => import("@/components/tubes-cursor-background"));
+
+function TubesCursorBackgroundLazy() {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (isDesktop && !reduceMotion) setEnabled(true);
+  }, []);
+  if (!enabled) return null;
+  return (
+    <Suspense fallback={null}>
+      <TubesCursorBackground />
+    </Suspense>
+  );
+}
 
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
@@ -602,7 +620,8 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col bg-[#050505]">
+    <div className="flex flex-col bg-[#050505] relative">
+      <TubesCursorBackgroundLazy />
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
