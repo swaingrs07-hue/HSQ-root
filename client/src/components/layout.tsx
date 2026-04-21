@@ -419,7 +419,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </PullToRefresh>
       </main>
 
-      <footer className="bg-gradient-to-b from-white/[0.06] to-black/40 border-t border-white/10 text-stone-300 relative" data-testid="site-footer">
+      <footer className="bg-stone-900/85 backdrop-blur-md text-stone-300 relative" data-testid="site-footer">
         <div className="container mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-6">
             <div className="md:col-span-3 space-y-5">
