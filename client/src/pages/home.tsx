@@ -1830,14 +1830,14 @@ export default function Home() {
           <motion.img
             src={heroTerrace}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover opacity-30"
             initial={{ scale: 1.2 }}
             whileInView={{ scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 3, ease: "easeOut" }}
           />
-          <div className="absolute inset-0 bg-black/90" />
-          <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 250px 100px rgba(0,0,0,0.9)" }} />
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 250px 100px rgba(0,0,0,0.6)" }} />
         </div>
         <div className="absolute inset-0 z-[2] pointer-events-none" style={{
           background: "radial-gradient(ellipse at 30% 40%, rgba(6,182,212,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(139,92,246,0.06) 0%, transparent 50%)",
