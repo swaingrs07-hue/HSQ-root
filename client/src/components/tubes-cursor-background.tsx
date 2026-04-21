@@ -3,16 +3,20 @@ import * as THREE from "three";
 
 interface TubesCursorBackgroundProps {
   className?: string;
+  colors?: number[];
+  lightColors?: number[];
+  enabled?: boolean;
+  reduceMotion?: boolean;
 }
 
-const TUBE_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0x06b6d4, 0x8b5cf6];
-const LIGHT_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0x06b6d4];
+// Brand-aligned warm amber + cool indigo + magenta family. No full-rainbow drift.
+const DEFAULT_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0xfb923c, 0x8b5cf6];
+const DEFAULT_LIGHT_COLORS = [0xf59e0b, 0x6366f1, 0xec4899, 0xfb923c];
 const NUM_TUBES = 8;
 const NUM_LIGHTS = 4;
 
-// Tube tessellation
-const TUBE_SEGMENTS = 48; // along the spline
-const TUBE_RADIAL = 8; // around the cross-section
+const TUBE_SEGMENTS = 48;
+const TUBE_RADIAL = 8;
 const TUBE_RADIUS = 0.07;
 
 function buildTubeBufferGeometry(): THREE.BufferGeometry {
@@ -34,15 +38,14 @@ function buildTubeBufferGeometry(): THREE.BufferGeometry {
   geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geo.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
   geo.setIndex(indices);
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 50);
   return geo;
 }
 
-// Update tube positions/normals in place from a Catmull-Rom curve
 const _tmpV1 = new THREE.Vector3();
 const _tmpV2 = new THREE.Vector3();
 const _tmpV3 = new THREE.Vector3();
 const _tmpAxis = new THREE.Vector3();
-const _tmpQuat = new THREE.Quaternion();
 
 function updateTubeGeometryFromCurve(geo: THREE.BufferGeometry, curve: THREE.CatmullRomCurve3) {
   const positions = geo.attributes.position as THREE.BufferAttribute;
@@ -50,7 +53,6 @@ function updateTubeGeometryFromCurve(geo: THREE.BufferGeometry, curve: THREE.Cat
   const posArr = positions.array as Float32Array;
   const normArr = normals.array as Float32Array;
 
-  // Reference normal (any vector not parallel to first tangent)
   let refNormal = new THREE.Vector3(0, 1, 0);
 
   for (let i = 0; i <= TUBE_SEGMENTS; i++) {
@@ -58,17 +60,11 @@ function updateTubeGeometryFromCurve(geo: THREE.BufferGeometry, curve: THREE.Cat
     const point = curve.getPointAt(Math.min(t, 1), _tmpV1);
     const tangent = curve.getTangentAt(Math.min(t, 1), _tmpV2).normalize();
 
-    // Build a frame: pick a normal perpendicular to tangent
-    if (i === 0) {
-      // initialize ref normal so it isn't parallel to tangent
-      if (Math.abs(tangent.dot(refNormal)) > 0.9) {
-        refNormal = new THREE.Vector3(1, 0, 0);
-      }
+    if (i === 0 && Math.abs(tangent.dot(refNormal)) > 0.9) {
+      refNormal = new THREE.Vector3(1, 0, 0);
     }
-    // Project refNormal onto plane perpendicular to tangent
     const normal = _tmpV3.copy(refNormal).addScaledVector(tangent, -refNormal.dot(tangent)).normalize();
-    refNormal = normal.clone(); // carry forward for parallel transport
-
+    refNormal = normal.clone();
     const binormal = _tmpAxis.crossVectors(tangent, normal).normalize();
 
     for (let j = 0; j <= TUBE_RADIAL; j++) {
@@ -90,16 +86,19 @@ function updateTubeGeometryFromCurve(geo: THREE.BufferGeometry, curve: THREE.Cat
   }
   positions.needsUpdate = true;
   normals.needsUpdate = true;
-  // suppress: keep bounding sphere generous so frustum culling doesn't drop the mesh
-  if (!geo.boundingSphere) {
-    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 50);
-  }
 }
 
-export default function TubesCursorBackground({ className }: TubesCursorBackgroundProps) {
+export default function TubesCursorBackground({
+  className,
+  colors = DEFAULT_COLORS,
+  lightColors = DEFAULT_LIGHT_COLORS,
+  enabled = true,
+  reduceMotion = false,
+}: TubesCursorBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
+    if (!enabled || reduceMotion) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -129,6 +128,9 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
     const cursorTarget = new THREE.Vector3(0, 0, 0);
     const easedTarget = new THREE.Vector3(0, 0, 0);
 
+    // rAF-throttled pointer state — store latest screen pos, only project once per frame
+    let pendingPointer: { x: number; y: number } | null = null;
+
     interface TubeData {
       mesh: THREE.Mesh;
       geometry: THREE.BufferGeometry;
@@ -136,19 +138,23 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
       offset: THREE.Vector3;
       phase: number;
       speed: number;
-      hueShift: number;
+      colorIndex: number;
+      baseColor: THREE.Color;
+      altColor: THREE.Color;
       curve: THREE.CatmullRomCurve3;
       curvePts: THREE.Vector3[];
     }
 
     const tubes: TubeData[] = [];
 
-    function buildTube(color: number): TubeData {
+    function buildTube(idx: number): TubeData {
+      const baseHex = colors[idx % colors.length];
+      const altHex = colors[(idx + 1) % colors.length];
       const geometry = buildTubeBufferGeometry();
       const material = new THREE.MeshPhongMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: 0.6,
+        color: baseHex,
+        emissive: baseHex,
+        emissiveIntensity: 0.7,
         shininess: 80,
         transparent: true,
         opacity: 0.92,
@@ -175,22 +181,22 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
         ),
         phase: Math.random() * Math.PI * 2,
         speed: 0.4 + Math.random() * 0.6,
-        hueShift: Math.random(),
+        colorIndex: idx,
+        baseColor: new THREE.Color(baseHex),
+        altColor: new THREE.Color(altHex),
         curve,
         curvePts: pts,
       };
     }
 
-    for (let i = 0; i < NUM_TUBES; i++) {
-      tubes.push(buildTube(TUBE_COLORS[i % TUBE_COLORS.length]));
-    }
+    for (let i = 0; i < NUM_TUBES; i++) tubes.push(buildTube(i));
 
     const ambient = new THREE.AmbientLight(0x111122, 0.6);
     scene.add(ambient);
 
     const lights: THREE.PointLight[] = [];
     for (let i = 0; i < NUM_LIGHTS; i++) {
-      const l = new THREE.PointLight(LIGHT_COLORS[i % LIGHT_COLORS.length], 1.6, 18, 1.5);
+      const l = new THREE.PointLight(lightColors[i % lightColors.length], 1.6, 18, 1.5);
       l.position.set(
         Math.cos((i / NUM_LIGHTS) * Math.PI * 2) * 4,
         Math.sin((i / NUM_LIGHTS) * Math.PI * 2) * 3,
@@ -230,21 +236,24 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
     }
     resize();
 
-    function onMouseMove(e: MouseEvent) {
+    function projectPointerToWorld(x: number, y: number) {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const nx = (e.clientX / w) * 2 - 1;
-      const ny = -((e.clientY / h) * 2 - 1);
+      const nx = (x / w) * 2 - 1;
+      const ny = -((y / h) * 2 - 1);
       const vector = new THREE.Vector3(nx, ny, 0.5).unproject(camera);
       const dir = vector.sub(camera.position).normalize();
       const distance = -camera.position.z / dir.z;
       cursorTarget.copy(camera.position).add(dir.multiplyScalar(distance));
     }
 
+    function onMouseMove(e: MouseEvent) {
+      pendingPointer = { x: e.clientX, y: e.clientY };
+    }
+
     function onTouchMove(e: TouchEvent) {
       if (e.touches.length === 0) return;
-      const tt = e.touches[0];
-      onMouseMove({ clientX: tt.clientX, clientY: tt.clientY } as MouseEvent);
+      pendingPointer = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
 
     let running = true;
@@ -266,6 +275,8 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
     let lastFrame = 0;
     const minFrameMs = 1000 / 45;
 
+    const _drift = new THREE.Color();
+
     function loop() {
       if (!running || !renderer) return;
       const now = performance.now();
@@ -276,14 +287,22 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
       lastFrame = now;
       const t = (now - startTime) / 1000;
 
+      // rAF-throttled pointer projection: at most once per render frame
+      if (pendingPointer) {
+        projectPointerToWorld(pendingPointer.x, pendingPointer.y);
+        pendingPointer = null;
+      }
+
       easedTarget.lerp(cursorTarget, 0.06);
 
       for (let i = 0; i < tubes.length; i++) {
         updateTube(tubes[i], t + i * 0.7);
-        const hueBase = (t / 30 + tubes[i].hueShift) % 1;
-        const c = new THREE.Color().setHSL(hueBase, 0.6, 0.55);
-        tubes[i].material.color.copy(c);
-        tubes[i].material.emissive.copy(c).multiplyScalar(0.7);
+        // Gentle drift between tube's base brand color and the next brand color in palette.
+        // Stays inside the brand family — never goes through full hue spectrum.
+        const mix = 0.5 + 0.5 * Math.sin(t * 0.05 + tubes[i].phase);
+        _drift.copy(tubes[i].baseColor).lerp(tubes[i].altColor, mix * 0.4);
+        tubes[i].material.color.copy(_drift);
+        tubes[i].material.emissive.copy(_drift).multiplyScalar(0.7);
       }
 
       for (let i = 0; i < lights.length; i++) {
@@ -316,7 +335,9 @@ export default function TubesCursorBackground({ className }: TubesCursorBackgrou
       lights.forEach((l) => scene.remove(l));
       renderer?.dispose();
     };
-  }, []);
+  }, [enabled, reduceMotion, colors, lightColors]);
+
+  if (!enabled || reduceMotion) return null;
 
   return (
     <canvas

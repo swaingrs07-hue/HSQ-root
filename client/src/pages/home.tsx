@@ -830,7 +830,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <ImmersiveScene variant="aurora" className="py-28 md:py-36 bg-[#050505]">
+      <ImmersiveScene variant="aurora" className="py-28 md:py-36 bg-[#050505]/80">
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             {STATS.map((stat, i) => (
@@ -855,7 +855,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
+      <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]/80">
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-20">
             <motion.p
@@ -936,7 +936,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]">
+      <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]/80">
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-20">
@@ -1079,7 +1079,7 @@ export default function Home() {
         ];
         return (
           <>
-            <ImmersiveScene variant="depth" className="py-28 md:py-40 bg-[#050505]" data-testid="section-housing-plans">
+            <ImmersiveScene variant="depth" className="py-28 md:py-40 bg-[#050505]/80" data-testid="section-housing-plans">
 
               <div className="container mx-auto px-4 relative z-10">
                 <div className="text-center mb-20">
@@ -1279,7 +1279,7 @@ export default function Home() {
       })()}
       {instagramPosts.length > 0 && (
         <>
-          <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]"
+          <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]/80"
             data-testid="instagram-feed-section"
           >
             <div className="container mx-auto px-4 relative z-10"
@@ -1442,7 +1442,7 @@ export default function Home() {
       )}
       {!propertiesLoading && properties.length > 0 && (
         <>
-          <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]">
+          <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]/80">
 
             <div className="container mx-auto px-4 relative z-10">
               <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16">
@@ -1571,7 +1571,7 @@ export default function Home() {
           </ImmersiveScene>
         </>
       )}
-      <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]">
+      <ImmersiveScene variant="aurora" className="py-28 md:py-40 bg-[#050505]/80">
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
