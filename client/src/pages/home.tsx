@@ -359,9 +359,10 @@ export default function Home() {
   const [tubesActive, setTubesActive] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (isDesktop && !reduceMotion) setTubesActive(true);
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } })
+      .connection?.saveData === true;
+    if (!reduceMotion && !saveData) setTubesActive(true);
   }, []);
   const handleTubesFailure = useCallback(() => setTubesActive(false), []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
