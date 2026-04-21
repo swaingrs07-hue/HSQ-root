@@ -299,7 +299,8 @@ export default function TubesCursorBackground({
         updateTube(tubes[i], t + i * 0.7);
         // Gentle drift between tube's base brand color and the next brand color in palette.
         // Stays inside the brand family — never goes through full hue spectrum.
-        const mix = 0.5 + 0.5 * Math.sin(t * 0.05 + tubes[i].phase);
+        // ~30s full cycle (2π/30 ≈ 0.21)
+        const mix = 0.5 + 0.5 * Math.sin(t * 0.21 + tubes[i].phase);
         _drift.copy(tubes[i].baseColor).lerp(tubes[i].altColor, mix * 0.4);
         tubes[i].material.color.copy(_drift);
         tubes[i].material.emissive.copy(_drift).multiplyScalar(0.7);
