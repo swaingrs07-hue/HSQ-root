@@ -70,6 +70,8 @@ export default function TubesCursorBackground({
     let onClick: ((e: MouseEvent) => void) | null = null;
     let clickTarget: Document | HTMLElement | null = null;
     let visibilityHandler: (() => void) | null = null;
+    let onTouchMove: ((e: TouchEvent) => void) | null = null;
+    let onTouchStart: ((e: TouchEvent) => void) | null = null;
 
     const fail = (reason: string, err?: unknown) => {
       console.warn(`[TubesCursor] ${reason}`, err);
@@ -133,6 +135,41 @@ export default function TubesCursorBackground({
         };
         clickTarget = document;
         document.addEventListener("click", onClick);
+
+        // Mobile: forward touch position to the canvas as synthetic
+        // pointer events so the tubes follow the user's finger even
+        // though the wrapper has pointer-events: none.
+        const dispatchPointer = (type: string, t: Touch) => {
+          try {
+            const evt = new PointerEvent(type, {
+              clientX: t.clientX,
+              clientY: t.clientY,
+              pointerType: "touch",
+              bubbles: true,
+              cancelable: true,
+              isPrimary: true,
+            });
+            canvas.dispatchEvent(evt);
+          } catch {
+            const m = new MouseEvent(type === "pointerdown" ? "mousedown" : type === "pointerup" ? "mouseup" : "mousemove", {
+              clientX: t.clientX,
+              clientY: t.clientY,
+              bubbles: true,
+              cancelable: true,
+            });
+            canvas.dispatchEvent(m);
+          }
+        };
+        onTouchStart = (e: TouchEvent) => {
+          const t = e.touches[0];
+          if (t) dispatchPointer("pointerdown", t);
+        };
+        onTouchMove = (e: TouchEvent) => {
+          const t = e.touches[0];
+          if (t) dispatchPointer("pointermove", t);
+        };
+        document.addEventListener("touchstart", onTouchStart, { passive: true });
+        document.addEventListener("touchmove", onTouchMove, { passive: true });
       } catch (err) {
         fail("init failed", err);
       }
@@ -141,6 +178,8 @@ export default function TubesCursorBackground({
     return () => {
       cancelled = true;
       if (onClick && clickTarget) clickTarget.removeEventListener("click", onClick);
+      if (onTouchStart) document.removeEventListener("touchstart", onTouchStart);
+      if (onTouchMove) document.removeEventListener("touchmove", onTouchMove);
       if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
       if (app && typeof app.destroy === "function") {
         try {
