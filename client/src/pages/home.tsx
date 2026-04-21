@@ -22,14 +22,7 @@ import { ParticleBackground } from "@/components/particle-background";
 
 const TubesCursorBackground = lazy(() => import("@/components/tubes-cursor-background"));
 
-function TubesCursorBackgroundLazy() {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (isDesktop && !reduceMotion) setEnabled(true);
-  }, []);
+function TubesCursorBackgroundLazy({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
   return (
     <Suspense fallback={null}>
