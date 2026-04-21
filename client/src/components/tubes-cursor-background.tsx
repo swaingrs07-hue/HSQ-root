@@ -68,7 +68,7 @@ export default function TubesCursorBackground({
     let cancelled = false;
     let app: TubesApp | null = null;
     let onClick: ((e: MouseEvent) => void) | null = null;
-    let clickTargetRef: HTMLElement | null = null;
+    let clickTarget: Document | HTMLElement | null = null;
     let visibilityHandler: (() => void) | null = null;
 
     const fail = (reason: string, err?: unknown) => {
@@ -131,7 +131,7 @@ export default function TubesCursorBackground({
           app.tubes.setColors?.(getRandomColors(3));
           app.tubes.setLightsColors?.(getRandomColors(4));
         };
-        clickTargetRef = document.documentElement;
+        clickTarget = document;
         document.addEventListener("click", onClick);
       } catch (err) {
         fail("init failed", err);
@@ -140,7 +140,7 @@ export default function TubesCursorBackground({
 
     return () => {
       cancelled = true;
-      if (onClick && clickTargetRef) clickTargetRef.removeEventListener("click", onClick);
+      if (onClick && clickTarget) clickTarget.removeEventListener("click", onClick);
       if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
       if (app && typeof app.destroy === "function") {
         try {
