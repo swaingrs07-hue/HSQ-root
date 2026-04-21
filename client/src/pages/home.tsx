@@ -363,6 +363,13 @@ function AnimatedCounter({ end, suffix, label }: { end: number; suffix: string; 
 }
 
 export default function Home() {
+  const [tubesActive, setTubesActive] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (isDesktop && !reduceMotion) setTubesActive(true);
+  }, []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -621,7 +628,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-[#050505] relative">
-      <TubesCursorBackgroundLazy />
+      <TubesCursorBackgroundLazy enabled={tubesActive} />
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
@@ -680,7 +687,7 @@ export default function Home() {
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
                 className="w-full h-full object-cover will-change-transform"
-                style={{ opacity: 0.55, mixBlendMode: "screen" }}
+                style={tubesActive ? { opacity: 0.55, mixBlendMode: "screen" } : undefined}
                 initial={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].initial}
                 animate={KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length].animate}
                 transition={{ duration: 8, ease: "linear" }}
