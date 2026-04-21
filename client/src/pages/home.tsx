@@ -1769,7 +1769,7 @@ export default function Home() {
         </div>
       </ImmersiveScene>
 
-      <section className="py-20 md:py-28 bg-[#050505] relative overflow-hidden">
+      <section className="py-20 md:py-28 bg-[#050505]/40 relative overflow-hidden">
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(16,185,129,0.04) 0%, transparent 60%)" }} />
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto">
