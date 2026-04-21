@@ -206,7 +206,7 @@ export default function Apply() {
           <p className="text-white/60 text-lg mb-8">
             Thank you, <span className="text-white font-medium">{form.fullName}</span>. Your details have been received. Our team will review your application and contact you shortly.
           </p>
-          <div className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 text-left space-y-3">
+          <div className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 text-left space-y-3">
             <div className="flex items-center gap-3">
               <Phone className="w-4 h-4 text-violet-400" />
               <span className="text-white/60 text-sm">Need help?</span>
@@ -244,7 +244,7 @@ export default function Apply() {
           </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
                   <User className="w-5 h-5 text-violet-400" />
@@ -355,7 +355,7 @@ export default function Apply() {
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                   <GraduationCap className="w-5 h-5 text-blue-400" />
@@ -410,7 +410,7 @@ export default function Apply() {
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                   <Users className="w-5 h-5 text-emerald-400" />
@@ -471,7 +471,7 @@ export default function Apply() {
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-white/[0.06] backdrop-blur-2xl border border-white/[0.15] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-amber-400" />
