@@ -206,7 +206,7 @@ export default function Apply() {
           <p className="text-white/60 text-lg mb-8">
             Thank you, <span className="text-white font-medium">{form.fullName}</span>. Your details have been received. Our team will review your application and contact you shortly.
           </p>
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-left space-y-3">
+          <div className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 text-left space-y-3">
             <div className="flex items-center gap-3">
               <Phone className="w-4 h-4 text-violet-400" />
               <span className="text-white/60 text-sm">Need help?</span>
@@ -244,7 +244,7 @@ export default function Apply() {
           </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <motion.div {...fadeUp} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
                   <User className="w-5 h-5 text-violet-400" />
@@ -263,7 +263,7 @@ export default function Apply() {
                     placeholder="Enter full name"
                     value={form.fullName}
                     onChange={e => updateField("fullName", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
@@ -273,7 +273,7 @@ export default function Apply() {
                     placeholder="+91 XXXXX XXXXX"
                     value={form.phone}
                     onChange={e => updateField("phone", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
@@ -284,13 +284,13 @@ export default function Apply() {
                     placeholder="email@example.com"
                     value={form.email}
                     onChange={e => updateField("email", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
                   <label className="text-white/70 text-sm font-medium mb-2 block">Gender <span className="text-red-400">*</span></label>
                   <Select value={form.gender} onValueChange={v => updateField("gender", v)}>
-                    <SelectTrigger data-testid="select-gender" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
+                    <SelectTrigger data-testid="select-gender" className="bg-black/40 border-white/[0.15] text-white h-12">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -307,13 +307,13 @@ export default function Apply() {
                     type="date"
                     value={form.dob}
                     onChange={e => updateField("dob", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white h-12"
+                    className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
                 <div>
                   <label className="text-white/70 text-sm font-medium mb-2 block">Dietary Preference <span className="text-red-400">*</span></label>
                   <Select value={form.dietaryPreference} onValueChange={v => updateField("dietaryPreference", v)}>
-                    <SelectTrigger data-testid="select-dietary" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
+                    <SelectTrigger data-testid="select-dietary" className="bg-black/40 border-white/[0.15] text-white h-12">
                       <SelectValue placeholder="Select preference" />
                     </SelectTrigger>
                     <SelectContent>
@@ -355,7 +355,7 @@ export default function Apply() {
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                   <GraduationCap className="w-5 h-5 text-blue-400" />
@@ -374,7 +374,7 @@ export default function Apply() {
                     placeholder="e.g. NMIMS, Mithibai College"
                     value={form.instituteName}
                     onChange={e => updateField("instituteName", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
@@ -384,7 +384,7 @@ export default function Apply() {
                     placeholder="e.g. B.Tech, MBA"
                     value={form.courseName}
                     onChange={e => updateField("courseName", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
@@ -394,7 +394,7 @@ export default function Apply() {
                     type="date"
                     value={form.moveInDate}
                     onChange={e => updateField("moveInDate", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white h-12"
+                    className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
                 <div>
@@ -404,13 +404,13 @@ export default function Apply() {
                     type="date"
                     value={form.checkOutDate}
                     onChange={e => updateField("checkOutDate", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white h-12"
+                    className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                   <Users className="w-5 h-5 text-emerald-400" />
@@ -429,13 +429,13 @@ export default function Apply() {
                     placeholder="Full name"
                     value={form.parentName}
                     onChange={e => updateField("parentName", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
                   <label className="text-white/70 text-sm font-medium mb-2 block">Relation <span className="text-red-400">*</span></label>
                   <Select value={form.parentRelation} onValueChange={v => updateField("parentRelation", v)}>
-                    <SelectTrigger data-testid="select-parentRelation" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
+                    <SelectTrigger data-testid="select-parentRelation" className="bg-black/40 border-white/[0.15] text-white h-12">
                       <SelectValue placeholder="Select relation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -454,7 +454,7 @@ export default function Apply() {
                     placeholder="+91 XXXXX XXXXX"
                     value={form.parentPhone}
                     onChange={e => updateField("parentPhone", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
                 <div>
@@ -465,13 +465,13 @@ export default function Apply() {
                     placeholder="parent@email.com"
                     value={form.parentEmail}
                     onChange={e => updateField("parentEmail", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
               </div>
             </motion.div>
 
-            <motion.div {...fadeUp} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 md:p-8">
+            <motion.div {...fadeUp} className="bg-[#0a0a0a]/85 backdrop-blur-xl border border-white/[0.12] rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-amber-400" />
@@ -486,7 +486,7 @@ export default function Apply() {
                 <div>
                   <label className="text-white/70 text-sm font-medium mb-2 block">Preferred Property <span className="text-red-400">*</span></label>
                   <Select value={form.propertyId} onValueChange={handlePropertyChange}>
-                    <SelectTrigger data-testid="select-property" className="bg-white/[0.05] border-white/[0.1] text-white h-12">
+                    <SelectTrigger data-testid="select-property" className="bg-black/40 border-white/[0.15] text-white h-12">
                       <SelectValue placeholder="Select a property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -505,7 +505,7 @@ export default function Apply() {
                     placeholder="Any special requirements, questions, or preferences..."
                     value={form.notes}
                     onChange={e => updateField("notes", e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/30 focus:border-violet-500/50 min-h-[100px]"
+                    className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 min-h-[100px]"
                   />
                 </div>
               </div>
