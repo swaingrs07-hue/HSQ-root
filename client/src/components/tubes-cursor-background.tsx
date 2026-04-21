@@ -68,6 +68,7 @@ export default function TubesCursorBackground({
     let cancelled = false;
     let app: TubesApp | null = null;
     let onClick: ((e: MouseEvent) => void) | null = null;
+    let clickTargetRef: HTMLElement | null = null;
     let visibilityHandler: (() => void) | null = null;
 
     const fail = (reason: string, err?: unknown) => {
@@ -123,13 +124,20 @@ export default function TubesCursorBackground({
         };
         document.addEventListener("visibilitychange", visibilityHandler);
 
-        // Click on the hero canvas randomizes the palette (matches SuperDesign).
+        // Click anywhere in the hero section randomizes the palette
+        // (matches SuperDesign). We bind to the hero ancestor so clicks
+        // landing on overlay text/badges also trigger randomize.
+        const clickTarget: HTMLElement =
+          (canvas.closest('[data-testid="hero-section"]') as HTMLElement | null) ??
+          canvas.parentElement ??
+          canvas;
         onClick = () => {
           if (!app?.tubes) return;
           app.tubes.setColors?.(getRandomColors(3));
           app.tubes.setLightsColors?.(getRandomColors(4));
         };
-        canvas.addEventListener("click", onClick);
+        clickTargetRef = clickTarget;
+        clickTarget.addEventListener("click", onClick);
       } catch (err) {
         fail("init failed", err);
       }
@@ -137,7 +145,7 @@ export default function TubesCursorBackground({
 
     return () => {
       cancelled = true;
-      if (onClick && canvas) canvas.removeEventListener("click", onClick);
+      if (onClick && clickTargetRef) clickTargetRef.removeEventListener("click", onClick);
       if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
       if (app && typeof app.destroy === "function") {
         try {
