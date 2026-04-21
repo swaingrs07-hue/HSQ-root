@@ -623,7 +623,16 @@ export default function Home() {
   return (
     <div className="flex flex-col bg-[#050505] relative">
       {tubesActive && (
-        <div className="fixed inset-0 z-0 pointer-events-none" data-testid="tubes-fullpage-layer">
+        <div
+          className="fixed inset-0 z-0 pointer-events-none"
+          data-testid="tubes-fullpage-layer"
+          style={{
+            transform: "translateZ(0)",
+            willChange: "transform",
+            contain: "strict",
+            isolation: "isolate",
+          }}
+        >
           <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={handleTubesFailure} />
         </div>
       )}

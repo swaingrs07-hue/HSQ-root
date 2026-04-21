@@ -169,6 +169,8 @@ export default function TubesCursorBackground({
         transition: "opacity 1s ease-in",
         touchAction: "none",
         cursor: "pointer",
+        transform: "translateZ(0)",
+        willChange: "transform",
       }}
       data-testid="canvas-tubes-background"
       aria-hidden="true"
