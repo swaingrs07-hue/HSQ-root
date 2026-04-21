@@ -68,26 +68,17 @@ export default function TubesCursorBackground({
     let cancelled = false;
     let app: TubesApp | null = null;
     let onClick: ((e: MouseEvent) => void) | null = null;
-    let errorHandler: ((e: ErrorEvent) => void) | null = null;
-    let rejHandler: ((e: PromiseRejectionEvent) => void) | null = null;
     let visibilityHandler: (() => void) | null = null;
-    let rafId = 0;
-    let failed = false;
 
     const fail = (reason: string, err?: unknown) => {
-      if (failed) return;
-      failed = true;
       console.warn(`[TubesCursor] ${reason}`, err);
       if (onFailure) onFailure();
     };
 
-    // Pre-flight: the threejs-components lib needs a GPU. We require WebGL2 (the
-    // common path on every modern desktop browser); WebGPU is optional and the
-    // lib will use it when available.
+    // Pre-flight: the lib needs a GPU context. Require WebGL2 or WebGPU.
     let hasWebGL2 = false;
     try {
-      const probe = document.createElement("canvas");
-      hasWebGL2 = !!probe.getContext("webgl2");
+      hasWebGL2 = !!document.createElement("canvas").getContext("webgl2");
     } catch {
       hasWebGL2 = false;
     }
@@ -96,39 +87,6 @@ export default function TubesCursorBackground({
       fail("no WebGL2/WebGPU context available");
       return;
     }
-
-    // Catch async errors that escape try/catch from inside the CDN bundle's
-    // animation loop or context init.
-    errorHandler = (e: ErrorEvent) => {
-      const msg = String(e?.message || "");
-      const src = String(e?.filename || "");
-      if (
-        src.includes("threejs-components") ||
-        msg.includes("getSupportedExtensions") ||
-        msg.includes("WebGL") ||
-        msg.includes("WebGPU")
-      ) {
-        e.preventDefault();
-        fail("CDN library runtime error", msg);
-      }
-    };
-    window.addEventListener("error", errorHandler);
-
-    rejHandler = (e: PromiseRejectionEvent) => {
-      const reason = e?.reason as { message?: string; stack?: string } | undefined;
-      const msg = String(reason?.message || reason || "");
-      const stack = String(reason?.stack || "");
-      if (
-        stack.includes("threejs-components") ||
-        msg.includes("getSupportedExtensions") ||
-        msg.includes("WebGL") ||
-        msg.includes("WebGPU")
-      ) {
-        e.preventDefault();
-        fail("CDN library promise rejection", msg);
-      }
-    };
-    window.addEventListener("unhandledrejection", rejHandler);
 
     (async () => {
       try {
@@ -142,83 +100,45 @@ export default function TubesCursorBackground({
           return;
         }
 
-        try {
-          app = TubesCursor(canvas, {
-            tubes: {
-              colors: TUBE_COLORS,
-              lights: { intensity: 300, colors: LIGHT_COLORS },
-            },
-          });
-        } catch (initErr) {
-          fail("init threw", initErr);
-          return;
-        }
+        app = TubesCursor(canvas, {
+          tubes: {
+            colors: TUBE_COLORS,
+            lights: { intensity: 300, colors: LIGHT_COLORS },
+          },
+        });
 
-        if (!app) {
-          fail("init returned null");
-          return;
-        }
-
-        // Reveal canvas after the WebGL/WebGPU context is set up.
         canvas.style.opacity = "1";
 
-        // Pause/resume when the tab is hidden — saves battery and matches the
-        // previous wrapper's behavior. Falls back to a no-op rAF spin guard if
-        // the lib doesn't expose pause/resume.
+        // Pause/resume on tab visibility changes to save GPU/battery.
         visibilityHandler = () => {
           if (!app) return;
           const hidden = document.visibilityState === "hidden";
           if (hidden) {
-            cancelAnimationFrame(rafId);
-            if (typeof app.pause === "function") {
-              try {
-                app.pause();
-              } catch {
-                // ignore
-              }
-            } else {
-              // Best-effort: hide the canvas to skip GPU work while not visible.
-              canvas.style.visibility = "hidden";
-            }
+            if (typeof app.pause === "function") app.pause();
+            else canvas.style.visibility = "hidden";
           } else {
-            if (typeof app.resume === "function") {
-              try {
-                app.resume();
-              } catch {
-                // ignore
-              }
-            } else {
-              canvas.style.visibility = "visible";
-            }
+            if (typeof app.resume === "function") app.resume();
+            else canvas.style.visibility = "visible";
           }
         };
         document.addEventListener("visibilitychange", visibilityHandler);
 
-        // Click *inside the hero canvas* (not the whole document) randomizes
-        // the palette — matches SuperDesign behavior without hijacking clicks
-        // on header nav, buttons, etc.
+        // Click on the hero canvas randomizes the palette (matches SuperDesign).
         onClick = () => {
           if (!app?.tubes) return;
-          try {
-            app.tubes.setColors?.(getRandomColors(3));
-            app.tubes.setLightsColors?.(getRandomColors(4));
-          } catch (err) {
-            console.warn("[TubesCursor] randomize failed:", err);
-          }
+          app.tubes.setColors?.(getRandomColors(3));
+          app.tubes.setLightsColors?.(getRandomColors(4));
         };
         canvas.addEventListener("click", onClick);
       } catch (err) {
-        fail("failed to load library", err);
+        fail("init failed", err);
       }
     })();
 
     return () => {
       cancelled = true;
       if (onClick && canvas) canvas.removeEventListener("click", onClick);
-      if (errorHandler) window.removeEventListener("error", errorHandler);
-      if (rejHandler) window.removeEventListener("unhandledrejection", rejHandler);
       if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
-      cancelAnimationFrame(rafId);
       if (app && typeof app.destroy === "function") {
         try {
           app.destroy();
