@@ -622,6 +622,11 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-[#050505] relative">
+      {tubesActive && (
+        <div className="fixed inset-0 z-0 pointer-events-none" data-testid="tubes-fullpage-layer">
+          <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={handleTubesFailure} />
+        </div>
+      )}
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
@@ -645,12 +650,7 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {tubesActive ? (
-          <>
-            <div className="absolute inset-0 bg-black" />
-            <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={handleTubesFailure} />
-          </>
-        ) : heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
+        {tubesActive ? null : heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
