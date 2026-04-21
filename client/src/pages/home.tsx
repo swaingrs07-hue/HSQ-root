@@ -12,7 +12,7 @@ import {
   ArrowRight, ChevronLeft, ChevronRight, Wifi, Shield, Coffee, Users,
   Play, Star, MapPin, Calendar, Building2, Sparkles, Clock, Phone,
   ChevronDown, Award, Utensils, Dumbbell, BookOpen, Heart, ExternalLink,
-  ArrowUp, GraduationCap, Navigation, Smartphone, Bell, Wallet, QrCode
+  ArrowUp, GraduationCap, Navigation, Smartphone, Bell, Wallet, QrCode, MousePointer2
 } from "lucide-react";
 import { motion, AnimatePresence, useTransform, useMotionValue, useSpring, useInView } from "framer-motion";
 import { PropertyTourModal } from "@/components/property-tour-modal";
@@ -22,11 +22,11 @@ import { ParticleBackground } from "@/components/particle-background";
 
 const TubesCursorBackground = lazy(() => import("@/components/tubes-cursor-background"));
 
-function TubesCursorBackgroundLazy({ enabled }: { enabled: boolean }) {
+function TubesCursorBackgroundLazy({ enabled, onFailure }: { enabled: boolean; onFailure?: () => void }) {
   if (!enabled) return null;
   return (
     <Suspense fallback={null}>
-      <TubesCursorBackground />
+      <TubesCursorBackground enabled={enabled} onFailure={onFailure} />
     </Suspense>
   );
 }
@@ -621,7 +621,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-[#050505] relative">
-      <TubesCursorBackgroundLazy enabled={tubesActive} />
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
@@ -645,8 +644,11 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {tubesActive && !(heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed) ? (
-          <div className="absolute inset-0 bg-black" />
+        {tubesActive ? (
+          <>
+            <div className="absolute inset-0 bg-black" />
+            <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={() => setTubesActive(false)} />
+          </>
         ) : heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
             <video
@@ -704,7 +706,7 @@ export default function Home() {
           </>
         )}
 
-        {!hasAnyVideo && (
+        {!hasAnyVideo && !tubesActive && (
           <>
             <div className="absolute inset-0 z-[8]">
               <ParticleBackground preset="hero" className="absolute inset-0" id="hero-particles" />
@@ -716,12 +718,113 @@ export default function Home() {
           </>
         )}
 
-        <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none" data-testid="hero-watermark">
-          <img src={hsquareLogo} alt="" className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert" />
-          <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">Hsquare Living</span>
-        </div>
+        {!tubesActive && (
+          <div className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none" data-testid="hero-watermark">
+            <img src={hsquareLogo} alt="" className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert" />
+            <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">Hsquare Living</span>
+          </div>
+        )}
 
-        <div
+        {tubesActive && (
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 pointer-events-none"
+            style={{ fontFamily: "'Satoshi', sans-serif" }}
+            data-testid="hero-flux-overlay"
+          >
+            <div className="max-w-4xl text-center select-none">
+              <motion.span
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.6 }}
+                className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-[0.2em] text-white/60 mb-6 backdrop-blur-sm"
+                data-testid="text-hero-badge"
+              >
+                Premium Co-Living · Mumbai
+              </motion.span>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.8 }}
+                className="text-[14vw] md:text-[9vw] leading-[0.85] font-extrabold uppercase tracking-tighter mb-4 text-white"
+                style={{
+                  fontFamily: "'Cabinet Grotesk', sans-serif",
+                  textShadow: "0 0 40px rgba(255,255,255,0.2)",
+                }}
+                data-testid="text-hero-title"
+              >
+                HSQUARE<br />LIVING
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.8 }}
+                className="max-w-md mx-auto text-lg md:text-xl text-white/60 mb-10 leading-relaxed font-medium"
+                data-testid="text-hero-subtitle"
+              >
+                Premium student hostels & co-living near Mumbai's top colleges.
+                Move your cursor to feel the energy.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.8 }}
+                className="flex flex-col sm:flex-row items-center justify-center gap-4 pointer-events-auto"
+              >
+                <Link href="/properties">
+                  <button
+                    className="px-10 py-4 bg-white text-black font-bold uppercase tracking-widest text-sm rounded-full transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
+                    data-testid="button-explore-properties"
+                  >
+                    Explore Properties
+                  </button>
+                </Link>
+                <Link href="/properties">
+                  <button
+                    className="px-10 py-4 bg-transparent border border-white/20 text-white font-bold uppercase tracking-widest text-sm rounded-full backdrop-blur-md hover:bg-white/5 transition-all flex items-center gap-2"
+                    data-testid="button-take-tour"
+                  >
+                    <Play className="w-4 h-4" />
+                    Virtual Tour
+                  </button>
+                </Link>
+                <button
+                  className="px-10 py-4 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 font-bold uppercase tracking-widest text-sm rounded-full backdrop-blur-md hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-all flex items-center gap-2"
+                  data-testid="button-download-app"
+                  onClick={() => {
+                    const el = document.getElementById("app-download-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  <Smartphone className="w-4 h-4" />
+                  Resident App
+                </button>
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, y: [0, -8, 0] }}
+              transition={{
+                opacity: { delay: 1, duration: 0.8 },
+                y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 },
+              }}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3"
+            >
+              <div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white/40 to-white/40 mb-2" />
+              <div className="flex items-center gap-3 text-white/40">
+                <MousePointer2 className="w-4 h-4" />
+                <span className="text-[10px] uppercase tracking-[0.4em] font-bold">
+                  Click to Randomize Energy
+                </span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {!tubesActive && <div
           className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4"
         >
           <motion.div
@@ -765,9 +868,9 @@ export default function Home() {
               Resident App
             </Button>
           </motion.div>
-        </div>
+        </div>}
 
-        <div className="absolute left-0 right-0 bottom-0 z-30">
+        {!tubesActive && <div className="absolute left-0 right-0 bottom-0 z-30">
           <div className="flex items-center justify-between px-4 md:px-8 py-4">
             <div className="flex items-center gap-3">
               {!hasAnyVideo && heroSlides.length > 1 && (
@@ -830,7 +933,7 @@ export default function Home() {
               </motion.div>
             </button>
           </div>
-        </div>
+        </div>}
       </section>
       <ImmersiveScene variant="aurora" className="py-28 md:py-36 bg-[#050505]/80">
         <div className="container mx-auto px-4 relative z-10">
