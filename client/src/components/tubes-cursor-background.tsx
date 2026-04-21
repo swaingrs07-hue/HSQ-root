@@ -124,20 +124,15 @@ export default function TubesCursorBackground({
         };
         document.addEventListener("visibilitychange", visibilityHandler);
 
-        // Click anywhere in the hero section randomizes the palette
-        // (matches SuperDesign). We bind to the hero ancestor so clicks
-        // landing on overlay text/badges also trigger randomize.
-        const clickTarget: HTMLElement =
-          (canvas.closest('[data-testid="hero-section"]') as HTMLElement | null) ??
-          canvas.parentElement ??
-          canvas;
+        // Click anywhere on the page randomizes the palette (matches
+        // SuperDesign behavior).
         onClick = () => {
           if (!app?.tubes) return;
           app.tubes.setColors?.(getRandomColors(3));
           app.tubes.setLightsColors?.(getRandomColors(4));
         };
-        clickTargetRef = clickTarget;
-        clickTarget.addEventListener("click", onClick);
+        clickTargetRef = document.documentElement;
+        document.addEventListener("click", onClick);
       } catch (err) {
         fail("init failed", err);
       }
