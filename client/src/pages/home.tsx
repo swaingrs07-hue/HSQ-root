@@ -363,6 +363,7 @@ export default function Home() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (isDesktop && !reduceMotion) setTubesActive(true);
   }, []);
+  const handleTubesFailure = useCallback(() => setTubesActive(false), []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -647,7 +648,7 @@ export default function Home() {
         {tubesActive ? (
           <>
             <div className="absolute inset-0 bg-black" />
-            <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={() => setTubesActive(false)} />
+            <TubesCursorBackgroundLazy enabled={tubesActive} onFailure={handleTubesFailure} />
           </>
         ) : heroSlides[currentSlide].videoUrl && videoSupported && !videoFailed ? (
           <div className="absolute inset-0 bg-black">
