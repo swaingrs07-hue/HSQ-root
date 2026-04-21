@@ -744,19 +744,19 @@ export default function Home() {
           >
             <div className="max-w-4xl text-center select-none">
               <motion.span
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.6 }}
-                className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-[0.2em] text-white/60 mb-6 backdrop-blur-sm"
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-[0.2em] text-white/60 mb-6"
                 data-testid="text-hero-badge"
               >
                 Premium Co-Living · Mumbai
               </motion.span>
 
               <motion.h1
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.8 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
                 className="text-[14vw] md:text-[9vw] leading-[0.85] font-extrabold uppercase tracking-tighter mb-4 text-white"
                 style={{
                   fontFamily: "'Cabinet Grotesk', sans-serif",
@@ -768,9 +768,9 @@ export default function Home() {
               </motion.h1>
 
               <motion.p
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.8 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
                 className="max-w-md mx-auto text-lg md:text-xl text-white/60 mb-10 leading-relaxed font-medium"
                 data-testid="text-hero-subtitle"
               >
@@ -779,9 +779,9 @@ export default function Home() {
               </motion.p>
 
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
                 className="flex flex-col sm:flex-row items-center justify-center gap-4 pointer-events-auto"
               >
                 <Link href="/properties">
@@ -819,8 +819,8 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, y: [0, -8, 0] }}
               transition={{
-                opacity: { delay: 1, duration: 0.8 },
-                y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 },
+                opacity: { delay: 0.4, duration: 0.4 },
+                y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
               }}
               className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3"
             >
@@ -888,7 +888,7 @@ export default function Home() {
                 <>
                   <button
                     onClick={prevSlide}
-                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
+                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all"
                     data-testid="button-hero-prev"
                     aria-label="Previous slide"
                   >
@@ -896,7 +896,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={nextSlide}
-                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all backdrop-blur-sm"
+                    className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all"
                     data-testid="button-hero-next"
                     aria-label="Next slide"
                   >
@@ -1032,7 +1032,7 @@ export default function Home() {
                   whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                   className="h-full"
                 >
-                  <div className={`p-6 md:p-8 rounded-2xl border ${feature.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
+                  <div className={`p-6 md:p-8 rounded-2xl border ${feature.border} bg-white/[0.02] relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)` }} />
 
                     <motion.div
@@ -1117,7 +1117,7 @@ export default function Home() {
                     whileHover={{ y: -12, transition: { type: "spring", stiffness: 300, damping: 20 } }}
                     className="h-full"
                   >
-                    <div className={`p-6 md:p-8 rounded-2xl border ${c.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
+                    <div className={`p-6 md:p-8 rounded-2xl border ${c.border} bg-white/[0.02] relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${c.glow} 0%, transparent 60%)` }} />
 
                       <motion.div
@@ -1243,7 +1243,7 @@ export default function Home() {
                           className="flex items-center justify-center gap-4 mb-10"
                         >
                           <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-white/15" />
-                          <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
+                          <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03]">
                             <Building2 className="w-4 h-4 text-amber-400" />
                             <span className="text-white/50 text-xs tracking-wider uppercase font-medium">{propName}</span>
                           </div>
@@ -1488,7 +1488,7 @@ export default function Home() {
 
                   <button
                     onClick={() => setIgCurrentSlide(prev => (prev - 1 + instagramPosts.length) % instagramPosts.length)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
                     data-testid="button-ig-prev"
                     aria-label="Previous Instagram post"
                   >
@@ -1496,7 +1496,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setIgCurrentSlide(prev => (prev + 1) % instagramPosts.length)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/30 border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-all"
                     data-testid="button-ig-next"
                     aria-label="Next Instagram post"
                   >
@@ -1622,7 +1622,7 @@ export default function Home() {
                         className="h-full"
                       >
                         <Link href={`/properties/${property.slug || property.id}`}>
-                          <div className={`p-6 md:p-8 rounded-2xl border ${pc.border} bg-white/[0.02] backdrop-blur-sm relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
+                          <div className={`p-6 md:p-8 rounded-2xl border ${pc.border} bg-white/[0.02] relative overflow-hidden transition-all duration-500 h-full flex flex-col`}>
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${pc.glow} 0%, transparent 60%)` }} />
 
                             <motion.div
@@ -1741,7 +1741,7 @@ export default function Home() {
                 data-testid={`college-card-${i}`}
               >
                 <Link href={college.href}>
-                <div className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm hover:bg-white/[0.04] transition-all duration-500 relative overflow-hidden cursor-pointer">
+                <div className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 relative overflow-hidden cursor-pointer">
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl" style={{ background: `radial-gradient(ellipse at 50% 0%, ${college.glow} 0%, transparent 60%)` }} />
                   <div className="flex items-start gap-4 relative z-10">
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${college.color} flex items-center justify-center shrink-0`} style={{ boxShadow: `0 4px 20px ${college.glow}` }}>
@@ -1924,7 +1924,7 @@ export default function Home() {
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-sm mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/[0.04] mb-6">
                 <Smartphone className="w-4 h-4 text-amber-400" />
                 <span className="text-xs uppercase tracking-[0.25em] text-white/60 font-medium">Mobile App</span>
               </div>
@@ -1983,7 +1983,7 @@ export default function Home() {
                   href={androidDownloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-sm group"
+                  className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300 group"
                   data-testid="link-android-download"
                 >
                   <svg className="w-7 h-7 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
@@ -2029,7 +2029,7 @@ export default function Home() {
 
                     <div className="w-full space-y-2.5">
                       {["Dashboard", "My Room", "Meals", "Wallet", "Support"].map((item, i) => (
-                        <div key={item} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-sm">
+                        <div key={item} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/10">
                           <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
                             <div className="w-3 h-3 rounded-sm bg-white/40" />
                           </div>
