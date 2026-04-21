@@ -336,19 +336,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile Sidebar */}
       <aside 
         className={cn(
-          "lg:hidden fixed left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-50 transition-transform duration-300 ease-in-out shadow-xl",
+          "lg:hidden fixed left-0 top-0 h-full w-72 max-w-[85vw] bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-50 transition-transform duration-300 ease-in-out shadow-xl flex flex-col",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="h-16 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4">
+        <div className="h-16 flex-shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4">
           <Link href="/" className="flex items-center">
             <img src={activeAdminLogo} alt="Hsquare Living" className="h-10 w-auto object-contain" />
           </Link>
-          <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-slate-500 hover:text-slate-700">
+          <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-slate-500 hover:text-slate-700" data-testid="button-close-mobile-sidebar">
             <ChevronLeft className="w-5 h-5" />
           </button>
         </div>
-        <nav className="py-6 px-3 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-6 px-3 space-y-1" style={{ WebkitOverflowScrolling: "touch" }}>
           {navItems.map((item) => {
             const isActive = location === item.href;
             return (
