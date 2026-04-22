@@ -757,7 +757,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
-                className="text-[14vw] md:text-[9vw] leading-[0.85] font-extrabold uppercase tracking-tighter mb-4 text-white"
+                className="text-[14vw] md:text-[9vw] leading-[0.9] font-extrabold uppercase tracking-tight mb-4 text-white"
                 style={{
                   fontFamily: "'Cabinet Grotesk', sans-serif",
                   textShadow: "0 0 40px rgba(255,255,255,0.2)",
