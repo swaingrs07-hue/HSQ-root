@@ -758,7 +758,7 @@ export default function AddProperty() {
   const handleSubmit = async (status: "draft" | "published") => {
     const { isValid, errors } = await runValidationCheck();
     if (!isValid && status === "published") {
-      const stepsWithErrors = [...new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`))];
+      const stepsWithErrors = Array.from(new Set(errors.map(e => `Step ${e.step}: ${e.stepName}`)));
       const fieldList = errors.slice(0, 5).map(e => e.field).join(", ");
       const moreCount = errors.length > 5 ? ` and ${errors.length - 5} more` : "";
 
