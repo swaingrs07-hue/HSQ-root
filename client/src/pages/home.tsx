@@ -1080,7 +1080,7 @@ export default function Home() {
                 transition={{ duration: 0.35, ease: "easeIn" }}
                 className="text-[14vw] md:text-[9vw] leading-[1.0] font-extrabold uppercase tracking-tight mb-4 text-white"
                 style={{
-                  fontFamily: "'Calibri', sans-serif",
+                  fontFamily: "'Wordmark', sans-serif",
                   textShadow: "0 0 40px rgba(255,255,255,0.2)",
                 }}
                 data-testid="text-hero-title"
@@ -1578,11 +1578,11 @@ export default function Home() {
       </ImmersiveScene>
       {featuredPlans.length > 0 &&
         (() => {
-          const propertyIds = [
-            ...new Set(
+          const propertyIds = Array.from(
+            new Set(
               featuredPlans.map((p: any) => p.propertyId).filter(Boolean),
             ),
-          ];
+          );
           const plansByProperty: Record<string, any[]> = {};
           featuredPlans.forEach((plan: any) => {
             const key = plan.propertyId || "general";
