@@ -2938,6 +2938,42 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // ============ Property Brochure Downloads (login-gated) ============
+  app.get("/api/properties/:id/download/:format", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { id, format } = req.params;
+      if (format !== "pdf" && format !== "pptx") {
+        return res.status(400).json({ error: "Invalid format. Use 'pdf' or 'pptx'." });
+      }
+      const property = await storage.getPropertyByIdOrSlug(id);
+      if (!property) return res.status(404).json({ error: "Property not found" });
+
+      const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol;
+      const host = req.headers["x-forwarded-host"] || req.headers.host;
+      const baseUrl = host ? `${proto}://${host}` : undefined;
+
+      const { generatePropertyBrochurePdf, generatePropertyBrochurePpt, getPropertyDownloadFilename } = await import("./property-collateral");
+
+      const buffer = format === "pdf"
+        ? await generatePropertyBrochurePdf(property.id, baseUrl)
+        : await generatePropertyBrochurePpt(property.id, baseUrl);
+
+      if (!buffer) return res.status(500).json({ error: "Failed to generate brochure" });
+
+      const filename = getPropertyDownloadFilename(property, format);
+      res.setHeader("Content-Type", format === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("Content-Length", String(buffer.length));
+      res.end(buffer);
+    } catch (err) {
+      console.error("Brochure generation error:", err);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to generate brochure" });
+    }
+  });
+
   // ============ NLP SEARCH ============
   
   const searchRateLimiter = rateLimit({

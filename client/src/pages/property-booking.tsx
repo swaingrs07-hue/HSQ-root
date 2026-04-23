@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
 
 class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -1773,6 +1774,13 @@ function PropertyBooking() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 md:px-6 pt-8">
+        <PropertyBrochureButtons
+          propertyId={property.id}
+          propertyName={property.displayName || property.name}
+        />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 md:px-6 py-8">
