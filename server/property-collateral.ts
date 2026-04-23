@@ -390,7 +390,101 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   drawFooter("01");
 
   // ============================================================
-  // PAGE 2 — Overview & Highlights (image left, content right)
+  // PAGE 2 — About Hsquare (brand pillars + stats + 3 cards)
+  // ============================================================
+  doc.addPage();
+  paintBackground();
+  drawHeader();
+
+  // Top row: left = headline + body, right = three stats
+  drawEyebrow("ABOUT HSQUARE", leftX, m + 60);
+  let yA = drawHeadline("A new standard for student living.", leftX, m + 96, colW, 24);
+
+  setText(COLOR_TAUPE);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const aboutBody =
+    "Hsquare creates curated student residences that blend timeless design, dependable service, and genuine community. Every home is hand-picked for safety, location, and the calm focus that academic life demands.";
+  const aboutLines = doc.splitTextToSize(aboutBody, colW);
+  doc.text(aboutLines.slice(0, 5), leftX, yA + 6);
+
+  // Right column: three large stats
+  const stats: { number: string; label: string }[] = [
+    { number: "12+", label: "PROPERTIES" },
+    { number: "1,500+", label: "STUDENTS HOUSED" },
+    { number: "98%", label: "SATISFACTION RATE" },
+  ];
+  const statColW = colW / 3;
+  const statY = m + 110;
+  stats.forEach((s, i) => {
+    const sx = rightX + statColW * i;
+    setText(COLOR_CHARCOAL);
+    doc.setFont("times", "bold");
+    doc.setFontSize(30);
+    doc.text(s.number, sx, statY);
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(s.label, sx, statY + 18);
+  });
+
+  // Three pillar cards along the bottom
+  const pillarY = ph - m - 200;
+  const pillarGap = 18;
+  const pCardW = (pw - m * 2 - pillarGap * 2) / 3;
+  const pCardH = 170;
+
+  const pillars: { title: string; body: string }[] = [
+    {
+      title: "Curated Residences",
+      body: "Every Hsquare property is hand-picked for safety, design, and proximity to leading colleges and transit.",
+    },
+    {
+      title: "Flexible Stays",
+      body: "Choose monthly, semester, or annual plans with transparent pricing and zero hidden fees.",
+    },
+    {
+      title: "On-Demand Care",
+      body: "A dedicated 24/7 service team trained for everything from maintenance and laundry to meals.",
+    },
+  ];
+
+  pillars.forEach((p, i) => {
+    const cx = leftX + (pCardW + pillarGap) * i;
+    // Card chrome
+    setFill("#F6F0E2");
+    doc.roundedRect(cx, pillarY, pCardW, pCardH, 14, 14, "F");
+    setDraw("#E8E1D2");
+    doc.setLineWidth(0.7);
+    doc.roundedRect(cx, pillarY, pCardW, pCardH, 14, 14, "S");
+
+    // Icon disc (cream + gold dot)
+    const iconSize = 28;
+    const iconX = cx + 22;
+    const iconY = pillarY + 24;
+    setFill(COLOR_CREAM);
+    doc.roundedRect(iconX, iconY, iconSize, iconSize, 6, 6, "F");
+    setFill(COLOR_GOLD);
+    doc.circle(iconX + iconSize / 2, iconY + iconSize / 2, 4, "F");
+
+    // Title
+    setText(COLOR_CHARCOAL);
+    doc.setFont("times", "bold");
+    doc.setFontSize(15);
+    doc.text(p.title, cx + 22, pillarY + 84);
+
+    // Body
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    const bodyLines = doc.splitTextToSize(p.body, pCardW - 44);
+    doc.text(bodyLines.slice(0, 4), cx + 22, pillarY + 104);
+  });
+
+  drawFooter("02");
+
+  // ============================================================
+  // PAGE 3 (was PAGE 2) — Overview & Highlights (image left, content right)
   // ============================================================
   doc.addPage();
   paintBackground();
@@ -453,7 +547,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     doc.text(contactBits, rightX + 14, ph - 72);
   }
 
-  drawFooter("02");
+  drawFooter("03");
 
   // ============================================================
   // PAGE 3 — Amenities (left) + Room Types & Pricing (right)
@@ -522,7 +616,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     y3r += rowH + 8;
   }
 
-  drawFooter("03");
+  drawFooter("04");
 
   // ============================================================
   // PAGE 4 — Location & Closing CTA (image hero + editorial card)
@@ -583,7 +677,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   ].filter(Boolean).join("   ·   ");
   doc.text(ctaContact, pw - m - 18, ph - 39, { align: "right" });
 
-  drawFooter("04");
+  drawFooter("05");
 
   return Buffer.from(doc.output("arraybuffer"));
 }
