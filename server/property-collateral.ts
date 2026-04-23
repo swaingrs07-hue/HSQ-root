@@ -56,6 +56,34 @@ function isPrivateHost(host: string): boolean {
   return false;
 }
 
+function getImageDims(dataUrl: string): { w: number; h: number } | null {
+  const m = /^data:image\/(jpeg|jpg|png);base64,(.+)$/i.exec(dataUrl);
+  if (!m) return null;
+  let buf: Buffer;
+  try { buf = Buffer.from(m[2], "base64"); } catch { return null; }
+  const kind = m[1].toLowerCase();
+  if (kind === "png") {
+    if (buf.length < 24) return null;
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  }
+  // JPEG: scan SOF markers (0xFFC0..0xFFCF), skip 0xFFC4 (DHT), 0xFFC8 (JPG), 0xFFCC (DAC)
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xFF) return null;
+    let marker = buf[i + 1];
+    while (marker === 0xFF && i + 1 < buf.length) { i++; marker = buf[i + 1]; }
+    if (marker === 0xD8 || marker === 0xD9) { i += 2; continue; }
+    const len = buf.readUInt16BE(i + 2);
+    if ((marker >= 0xC0 && marker <= 0xCF) && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+      const h = buf.readUInt16BE(i + 5);
+      const w = buf.readUInt16BE(i + 7);
+      return { w, h };
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
     if (!url || typeof url !== "string") return null;
@@ -263,7 +291,23 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
 
     if (imgData) {
       try {
-        doc.addImage(imgData, "JPEG", x, y, w, h, undefined, "FAST");
+        // Aspect-fit (contain): preserve original image proportions, centered
+        // inside the rounded frame. Letterbox area shows the cream background
+        // already painted on the page, matching the editorial aesthetic.
+        const dims = getImageDims(imgData);
+        let dx = x, dy = y, dw = w, dh = h;
+        if (dims && dims.w > 0 && dims.h > 0) {
+          const boxAspect = w / h;
+          const imgAspect = dims.w / dims.h;
+          if (imgAspect > boxAspect) {
+            dh = w / imgAspect;
+            dy = y + (h - dh) / 2;
+          } else {
+            dw = h * imgAspect;
+            dx = x + (w - dw) / 2;
+          }
+        }
+        doc.addImage(imgData, "JPEG", dx, dy, dw, dh, undefined, "FAST");
       } catch {
         setFill("#E5DED2");
         doc.rect(x, y, w, h, "F");
@@ -555,83 +599,122 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   drawFooter("03");
 
   // ============================================================
-  // PAGE 3 — Amenities (left) + Room Types & Pricing (right)
+  // PAGE 4 — Amenities (full-page editorial "What's Included")
   // ============================================================
   doc.addPage();
   paintBackground();
   drawHeader();
 
   drawEyebrow("AMENITIES & FACILITIES", leftX, m + 60);
-  let y3 = drawHeadline("Everything you need, included.", leftX, m + 96, colW, 22);
+  setText(COLOR_CHARCOAL);
+  doc.setFont("times", "bold");
+  doc.setFontSize(34);
+  doc.text("What's Included", leftX, m + 118);
 
   const amenities = (featuredAmenities || []).filter(Boolean);
-  setText(COLOR_CHARCOAL);
+  const fullW = pw - m * 2;
+  const amenColGap = 40;
+  const amenColW = (fullW - amenColGap) / 2;
+  const rowsPerCol = Math.ceil(amenities.length / 2);
+  const lineGap = 22;
+  const amenStartY = m + 160;
+
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9.5);
-  const amenityColW = colW / 2 - 8;
-  let aCol = 0;
-  let aY = y3 + 16;
-  for (const a of amenities) {
-    if (aY > ph - 80) break;
-    const ax = leftX + aCol * (amenityColW + 16);
+  doc.setFontSize(11);
+  for (let i = 0; i < amenities.length; i++) {
+    const col = i < rowsPerCol ? 0 : 1;
+    const row = i < rowsPerCol ? i : i - rowsPerCol;
+    const ax = leftX + col * (amenColW + amenColGap);
+    const ay = amenStartY + row * lineGap;
+    if (ay > ph - 70) continue;
     setFill(COLOR_GOLD);
-    doc.circle(ax + 2, aY - 3, 1.4, "F");
-    setText(COLOR_CHARCOAL);
-    const lines = doc.splitTextToSize(a, amenityColW - 12);
-    doc.text(lines.slice(0, 1), ax + 10, aY);
-    aCol = 1 - aCol;
-    if (aCol === 0) aY += 15;
+    doc.circle(ax + 3, ay - 3, 2, "F");
+    setText(COLOR_GOLD);
+    const label = amenities[i];
+    const lines = doc.splitTextToSize(label, amenColW - 18);
+    doc.text(lines.slice(0, 1), ax + 14, ay);
   }
 
-  // Right column — room types & pricing as editorial cards
-  drawEyebrow("ACCOMMODATION", rightX, m + 60);
-  let y3r = drawHeadline("Room types & pricing.", rightX, m + 96, colW, 22);
-  y3r += 12;
+  // Bottom hairline rule
+  setDraw("#E0D9CB");
+  doc.setLineWidth(0.6);
+  doc.line(m, ph - 50, pw - m, ph - 50);
 
-  const showRooms = (roomTypes || []).slice(0, 5);
+  drawFooter("04");
+
+  // ============================================================
+  // PAGE 5 — Room Types & Pricing (full-page accommodation)
+  // ============================================================
+  doc.addPage();
+  paintBackground();
+  drawHeader();
+
+  drawEyebrow("ACCOMMODATION", leftX, m + 60);
+  setText(COLOR_CHARCOAL);
+  doc.setFont("times", "bold");
+  doc.setFontSize(34);
+  doc.text(includePrice ? "Room Types & Pricing" : "Room Types", leftX, m + 118);
+
+  const showRooms = (roomTypes || []).slice(0, 6);
+  const roomGap = 14;
+  const roomCols = 2;
+  const roomColW = (fullW - roomGap) / roomCols;
+  const roomRowH = 96;
+  let rIdx = 0;
   for (const rt of showRooms) {
-    if (y3r > ph - 90) break;
-    const rowH = 56;
+    const col = rIdx % roomCols;
+    const row = Math.floor(rIdx / roomCols);
+    const rx = leftX + col * (roomColW + roomGap);
+    const ry = m + 160 + row * (roomRowH + roomGap);
+    if (ry + roomRowH > ph - 70) break;
+
     setFill("#F6F0E2");
-    doc.roundedRect(rightX, y3r, colW, rowH, 10, 10, "F");
+    doc.roundedRect(rx, ry, roomColW, roomRowH, 14, 14, "F");
+    setDraw("#E8E1D2");
+    doc.setLineWidth(0.6);
+    doc.roundedRect(rx, ry, roomColW, roomRowH, 14, 14, "S");
+
     setText(COLOR_CHARCOAL);
     doc.setFont("times", "bold");
-    doc.setFontSize(13);
-    doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), rightX + 14, y3r + 22);
+    doc.setFontSize(16);
+    doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), rx + 18, ry + 30);
 
     setText(COLOR_TAUPE);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
     const meta = [
       rt.size ? rt.size : null,
       rt.occupancy ? `Occupancy ${rt.occupancy}` : null,
       rt.availableBeds != null ? `${rt.availableBeds} beds available` : null,
     ].filter(Boolean).join("   ·   ");
-    if (meta) doc.text(meta, rightX + 14, y3r + 38);
+    if (meta) {
+      const metaLines = doc.splitTextToSize(meta, roomColW - 36);
+      doc.text(metaLines.slice(0, 2), rx + 18, ry + 50);
+    }
 
     if (includePrice) {
       setText(COLOR_GOLD);
       doc.setFont("times", "bold");
-      doc.setFontSize(15);
-      doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
+      doc.setFontSize(20);
+      doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rx + roomColW - 18, ry + 32, { align: "right" });
       setText(COLOR_TAUPE);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.text("per month", rightX + colW - 14, y3r + 38, { align: "right" });
+      doc.setFontSize(8);
+      doc.text("per month", rx + roomColW - 18, ry + 46, { align: "right" });
     } else {
       setText(COLOR_GOLD);
       doc.setFont("times", "italic");
-      doc.setFontSize(12);
-      doc.text("On request", rightX + colW - 14, y3r + 32, { align: "right" });
+      doc.setFontSize(14);
+      doc.text("On request", rx + roomColW - 18, ry + 36, { align: "right" });
     }
 
-    y3r += rowH + 8;
+    rIdx++;
   }
 
-  drawFooter("04");
+  drawFooter("05");
 
   // ============================================================
-  // PAGE 4 — Location & Closing CTA (image hero + editorial card)
+  // PAGE 6 — Location & Closing CTA (image hero + editorial card)
   // ============================================================
   doc.addPage();
   paintBackground();
@@ -689,7 +772,7 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   ].filter(Boolean).join("   ·   ");
   doc.text(ctaContact, pw - m - 18, ph - 39, { align: "right" });
 
-  drawFooter("05");
+  drawFooter("06");
 
   return Buffer.from(doc.output("arraybuffer"));
 }
