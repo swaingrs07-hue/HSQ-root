@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "idpRIj36_bUquRnDQFNd5"
+uri = "file://exports/hsquare-juhu-brochure.pdf"
+type = "pdf"
+title = "Hsquare Juhu - Brochure (PDF)"
+
+[[outputs]]
+id = "k-xwv8pH--Fl9xywmSE4v"
+uri = "file://exports/hsquare-juhu-brochure.pptx"
+type = "slides"
+title = "Hsquare Juhu - Brochure (PPT, mirrors PDF)"

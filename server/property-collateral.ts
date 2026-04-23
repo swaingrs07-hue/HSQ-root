@@ -150,7 +150,17 @@ async function gatherPropertyData(propertyId: string) {
     students: allStudents.length,
   };
 
-  return { property, roomTypes, nearbyLocs, images, featuredAmenities, packages: allPackages, brandStats };
+  // Brochure should ONLY surface housing plans (the room-tier pricing).
+  // Add-on services like "Wallet Credit", "Lunch", etc. are sold separately
+  // and shouldn't appear on the Plans & Pricing page.
+  const housingPlans = (allPackages || []).filter((p: any) => {
+    const cat = (p.category || "").toString().toLowerCase();
+    // Treat blank category as housing_plan for legacy rows that have a tierLevel + occupancy.
+    if (!cat) return p.tierLevel != null || !!p.occupancy;
+    return cat === "housing_plan";
+  });
+
+  return { property, roomTypes, nearbyLocs, images, featuredAmenities, packages: housingPlans, brandStats };
 }
 
 // ----- PDF -----
@@ -896,11 +906,15 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
 }
 
 // ----- PPT -----
+// Mirrors the editorial 6-page PDF brochure as a 6-slide widescreen deck.
+// Uses the same cream/charcoal/gold/taupe palette, the same eyebrow + serif
+// title pattern, the same footer treatment and the same content per page so
+// the deck feels like a 1:1 PowerPoint version of the PDF.
 export async function generatePropertyBrochurePpt(propertyId: string, options: BrochureOptions = {}): Promise<Buffer | null> {
   const includePrice = options.includePrice !== false;
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
-  const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
+  const { property, roomTypes, nearbyLocs, images, featuredAmenities, packages: pkgs } = data;
   const agentName = property.brochureAgentName || "";
   const agentPhone = property.brochureAgentPhone || property.phone || "+91 9876543210";
   const tagline = property.brochureTagline || "";
@@ -913,152 +927,319 @@ export async function generatePropertyBrochurePpt(propertyId: string, options: B
 
   const SLIDE_W = 13.333;
   const SLIDE_H = 7.5;
+  const M = 0.55; // margin (inches)
+  const COL_W = (SLIDE_W - M * 2 - 0.4) / 2; // two-column gutter 0.4
+  const LEFT_X = M;
+  const RIGHT_X = M + COL_W + 0.4;
 
-  // Slide 1 — Cover
+  const cream = COLOR_CREAM.replace("#", "");
+  const charcoal = COLOR_CHARCOAL.replace("#", "");
+  const taupe = COLOR_TAUPE.replace("#", "");
+  const gold = COLOR_GOLD.replace("#", "");
+  const cardFill = "F6F0E2";
+  const cardBorder = "E8E1D2";
+
+  const SERIF = "Times New Roman";
+  const SANS = "Helvetica";
+
+  const tierLabels: Record<number, string> = { 0: "Essential", 1: "Plus", 2: "Premium", 3: "Signature" };
+
+  // ---- shared chrome helpers ----
+  const drawHeader = (slide: any) => {
+    try {
+      slide.addImage({ data: `data:image/png;base64,${HSQUARE_LOGO_BASE64}`, x: M, y: 0.32, w: 0.32, h: 0.32 });
+    } catch {}
+    slide.addText("Hsquare", { x: M + 0.4, y: 0.28, w: 2, h: 0.3, fontSize: 13, bold: true, color: charcoal, fontFace: SERIF });
+    slide.addText("PREMIUM STUDENT RESIDENCES", { x: M + 0.4, y: 0.5, w: 3, h: 0.22, fontSize: 7.5, color: taupe, fontFace: SANS, charSpacing: 1 });
+    slide.addText(`Property Brochure  ·  ${new Date().getFullYear()}`, { x: SLIDE_W - 4 - M, y: 0.4, w: 4, h: 0.25, fontSize: 9, color: taupe, align: "right", fontFace: SANS });
+  };
+  const drawFooter = (slide: any, pageLabel: string) => {
+    slide.addShape(pres.ShapeType.rect, { x: M, y: SLIDE_H - 0.45, w: 0.22, h: 0.02, fill: { color: gold }, line: { type: "none" } });
+    slide.addText(`hsquare.in  ·  ${agentPhone || property.phone || "+91 98205 71032"}`, { x: M, y: SLIDE_H - 0.32, w: 6, h: 0.25, fontSize: 8, color: taupe, fontFace: SANS });
+    slide.addText(pageLabel, { x: SLIDE_W - 1 - M, y: SLIDE_H - 0.32, w: 1, h: 0.25, fontSize: 8, color: taupe, align: "right", fontFace: SANS });
+  };
+  const drawEyebrow = (slide: any, text: string, x: number, y: number) => {
+    slide.addShape(pres.ShapeType.rect, { x, y: y + 0.07, w: 0.4, h: 0.03, fill: { color: gold }, line: { type: "none" } });
+    slide.addText(text, { x: x + 0.55, y, w: 6, h: 0.25, fontSize: 9, color: taupe, bold: true, charSpacing: 2, fontFace: SANS });
+  };
+  const drawTitle = (slide: any, text: string, x: number, y: number, w: number, size = 32) => {
+    slide.addText(text, { x, y, w, h: size / 32 * 1.0 + 0.2, fontSize: size, bold: true, color: charcoal, fontFace: SERIF, valign: "top" });
+  };
+
+  // =========================================================
+  // SLIDE 1 — COVER (charcoal bg, hero image, fact card overlay)
+  // =========================================================
   const s1 = pres.addSlide();
-  s1.background = { color: COLOR_CHARCOAL.replace("#", "") };
+  s1.background = { color: cream };
+  drawHeader(s1);
+  // Right-side editorial image
+  const heroX = SLIDE_W / 2 + 0.2;
+  const heroY = 0.95;
+  const heroW = SLIDE_W - M - heroX;
+  const heroH = SLIDE_H - heroY - 1.1;
   if (images[0]) {
-    s1.addImage({ data: images[0], x: 0, y: 0, w: SLIDE_W, h: SLIDE_H * 0.62, sizing: { type: "cover", w: SLIDE_W, h: SLIDE_H * 0.62 } });
+    s1.addImage({ data: images[0], x: heroX, y: heroY, w: heroW, h: heroH, sizing: { type: "cover", w: heroW, h: heroH }, rounding: true });
   }
-  s1.addShape(pres.ShapeType.rect, { x: 0, y: SLIDE_H * 0.55, w: SLIDE_W, h: SLIDE_H * 0.45, fill: { color: COLOR_CHARCOAL.replace("#", "") }, line: { color: COLOR_CHARCOAL.replace("#", ""), width: 0 } });
-  s1.addShape(pres.ShapeType.rect, { x: 0.6, y: SLIDE_H * 0.6, w: 0.7, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-  s1.addText("HSQUARE LIVING  ·  PREMIUM STUDENT RESIDENCES", {
-    x: 0.6, y: SLIDE_H * 0.62, w: 12, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", ""), fontFace: "Helvetica",
+  // Floating fact card overlay near bottom of image
+  const factCardW = heroW * 0.92;
+  const factCardH = 0.95;
+  const factCardX = heroX + (heroW - factCardW) / 2;
+  const factCardY = heroY + heroH - factCardH / 2 - 0.1;
+  s1.addShape(pres.ShapeType.roundRect, { x: factCardX, y: factCardY, w: factCardW, h: factCardH, fill: { color: cream }, line: { color: cardBorder, width: 0.75 }, rectRadius: 0.12 });
+  const startsFrom = roomTypes && roomTypes.length
+    ? `Rs ${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}`
+    : "On Request";
+  const factCells: { label: string; value: string }[] = [
+    { label: "LOCATION", value: property.location || "Mumbai" },
+    { label: "PROPERTY TYPE", value: (property.category || "Co-Living").replace(/_/g, " ") },
+    includePrice ? { label: "STARTS FROM", value: startsFrom } : { label: "AVAILABILITY", value: "On Request" },
+  ];
+  const cellW = (factCardW - 0.4 - 1.4) / factCells.length;
+  factCells.forEach((c, i) => {
+    const cx = factCardX + 0.2 + cellW * i;
+    s1.addText(c.label, { x: cx, y: factCardY + 0.18, w: cellW, h: 0.2, fontSize: 7, color: taupe, bold: true, charSpacing: 1.5, fontFace: SANS });
+    s1.addText(c.value, { x: cx, y: factCardY + 0.4, w: cellW, h: 0.4, fontSize: 12, color: charcoal, bold: true, fontFace: SERIF });
   });
-  s1.addText((property.displayName || property.name || "").toUpperCase(), {
-    x: 0.6, y: SLIDE_H * 0.68, w: 12, h: 1.2, fontSize: 44, bold: true, color: COLOR_CREAM.replace("#", ""), fontFace: "Helvetica",
-  });
-  s1.addText(property.location || "", {
-    x: 0.6, y: SLIDE_H * 0.86, w: 12, h: 0.4, fontSize: 14, color: COLOR_TAUPE.replace("#", ""), fontFace: "Helvetica",
-  });
-  if (tagline) {
-    s1.addText(tagline, {
-      x: 0.6, y: SLIDE_H * 0.91, w: 12, h: 0.4, fontSize: 13, italic: true, color: COLOR_GOLD.replace("#", ""), fontFace: "Helvetica",
-    });
+  // CTA pill
+  s1.addShape(pres.ShapeType.roundRect, { x: factCardX + factCardW - 0.2 - 1.2, y: factCardY + (factCardH - 0.45) / 2, w: 1.2, h: 0.45, fill: { color: charcoal }, line: { type: "none" }, rectRadius: 0.22 });
+  s1.addText("Enquire", { x: factCardX + factCardW - 0.2 - 1.2, y: factCardY + (factCardH - 0.45) / 2, w: 1.2, h: 0.45, fontSize: 10, bold: true, color: cream, align: "center", valign: "middle", fontFace: SANS });
+
+  // Left column copy
+  drawEyebrow(s1, "PREMIUM STUDENT RESIDENCE", LEFT_X, 1.0);
+  drawTitle(s1, "Discover a home built on trust and elegance.", LEFT_X, 1.4, COL_W, 28);
+  s1.addText(intro || `${property.displayName || property.name} blends modern student living with seamless experiences — a calm address designed for focus, community, and the rhythm of academic life in ${property.location || "Mumbai"}.`,
+    { x: LEFT_X, y: 3.4, w: COL_W, h: 1.6, fontSize: 11, color: taupe, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.4 });
+  s1.addText(property.displayName || property.name || "", { x: LEFT_X, y: 5.2, w: COL_W, h: 0.6, fontSize: 20, bold: true, color: charcoal, fontFace: SERIF });
+  if (property.address) {
+    s1.addText(property.address, { x: LEFT_X, y: 5.85, w: COL_W, h: 0.5, fontSize: 9.5, color: taupe, fontFace: SANS });
   }
-  s1.addText("PROPERTY BROCHURE  ·  " + new Date().getFullYear(), {
-    x: 0.6, y: SLIDE_H - 0.4, w: 6, h: 0.3, fontSize: 9, color: COLOR_GOLD.replace("#", ""),
+  drawFooter(s1, "01");
+
+  // =========================================================
+  // SLIDE 2 — ABOUT HSQUARE (4 stats + 3 pillars)
+  // =========================================================
+  const s2 = pres.addSlide();
+  s2.background = { color: cream };
+  drawHeader(s2);
+  drawEyebrow(s2, "ABOUT HSQUARE", LEFT_X, 1.0);
+  drawTitle(s2, "A new standard for student living.", LEFT_X, 1.4, COL_W, 24);
+  s2.addText("Hsquare creates curated student residences that blend timeless design, dependable service, and genuine community. Every home is hand-picked for safety, location, and the calm focus that academic life demands.",
+    { x: LEFT_X, y: 2.7, w: COL_W, h: 1.6, fontSize: 11, color: taupe, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.4 });
+
+  const brandStatsList = [
+    { number: "5,000+", label: "HAPPY RESIDENTS" },
+    { number: "15+", label: "PREMIUM PROPERTIES" },
+    { number: "98%", label: "SATISFACTION RATE" },
+    { number: "24/7", label: "SUPPORT & SECURITY" },
+  ];
+  const statColW = COL_W / brandStatsList.length;
+  brandStatsList.forEach((st, i) => {
+    const sx = RIGHT_X + statColW * i;
+    s2.addText(st.number, { x: sx, y: 1.4, w: statColW, h: 0.7, fontSize: 24, bold: true, color: charcoal, fontFace: SERIF });
+    s2.addText(st.label, { x: sx, y: 2.05, w: statColW, h: 0.3, fontSize: 7.5, bold: true, color: taupe, charSpacing: 1, fontFace: SANS });
   });
 
-  // Slide 2 — Overview
-  const s2 = pres.addSlide();
-  s2.background = { color: COLOR_CREAM.replace("#", "") };
-  s2.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.55, w: 0.6, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-  s2.addText("OVERVIEW", { x: 0.6, y: 0.65, w: 6, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", ""), bold: false });
-  s2.addText(property.displayName || property.name || "", { x: 0.6, y: 0.95, w: 8.5, h: 0.9, fontSize: 32, bold: true, color: COLOR_CHARCOAL.replace("#", "") });
-  const overviewLines: string[] = [];
-  if (property.location) overviewLines.push(`Location · ${property.location}`);
-  if (property.address) overviewLines.push(`Address · ${property.address}`);
-  if (agentName) overviewLines.push(`Agent · ${agentName}`);
-  if (agentPhone) overviewLines.push(`Phone · ${agentPhone}`);
-  if (property.email) overviewLines.push(`Email · ${property.email}`);
-  s2.addText(overviewLines.join("\n"), { x: 0.6, y: 2.0, w: 8.5, h: 1.5, fontSize: 13, color: COLOR_TAUPE.replace("#", ""), valign: "top", lineSpacingMultiple: 1.4 });
-  if (intro) {
-    s2.addText(intro, { x: 0.6, y: 6.4, w: 12.1, h: 1.0, fontSize: 12, italic: true, color: COLOR_CHARCOAL.replace("#", ""), valign: "top", lineSpacingMultiple: 1.3 });
+  const pillars = [
+    { title: "Curated Residences", body: "Every Hsquare property is hand-picked for safety, design, and proximity to leading colleges and transit." },
+    { title: "Flexible Stays", body: "Choose monthly, semester, or annual plans with transparent pricing and zero hidden fees." },
+    { title: "On-Demand Care", body: "A dedicated 24/7 service team trained for everything from maintenance and laundry to meals." },
+  ];
+  const pillarY = 4.5;
+  const pillarGap = 0.25;
+  const pCardW = (SLIDE_W - M * 2 - pillarGap * 2) / 3;
+  const pCardH = 2.3;
+  pillars.forEach((p, i) => {
+    const cx = LEFT_X + (pCardW + pillarGap) * i;
+    s2.addShape(pres.ShapeType.roundRect, { x: cx, y: pillarY, w: pCardW, h: pCardH, fill: { color: cardFill }, line: { color: cardBorder, width: 0.75 }, rectRadius: 0.15 });
+    s2.addShape(pres.ShapeType.roundRect, { x: cx + 0.3, y: pillarY + 0.3, w: 0.4, h: 0.4, fill: { color: cream }, line: { type: "none" }, rectRadius: 0.06 });
+    s2.addShape(pres.ShapeType.ellipse, { x: cx + 0.43, y: pillarY + 0.43, w: 0.14, h: 0.14, fill: { color: gold }, line: { type: "none" } });
+    s2.addText(p.title, { x: cx + 0.3, y: pillarY + 0.95, w: pCardW - 0.6, h: 0.4, fontSize: 15, bold: true, color: charcoal, fontFace: SERIF });
+    s2.addText(p.body, { x: cx + 0.3, y: pillarY + 1.4, w: pCardW - 0.6, h: 0.85, fontSize: 10, color: taupe, fontFace: SANS, lineSpacingMultiple: 1.35 });
+  });
+  drawFooter(s2, "02");
+
+  // =========================================================
+  // SLIDE 3 — OVERVIEW (image left, copy + highlights right)
+  // =========================================================
+  const s3 = pres.addSlide();
+  s3.background = { color: cream };
+  drawHeader(s3);
+  if (images[1] || images[0]) {
+    s3.addImage({ data: images[1] || images[0], x: LEFT_X, y: 1.0, w: COL_W, h: SLIDE_H - 2.0, sizing: { type: "cover", w: COL_W, h: SLIDE_H - 2.0 }, rounding: true });
   }
+  drawEyebrow(s3, "OVERVIEW", RIGHT_X, 1.0);
+  drawTitle(s3, "A residence crafted for student living.", RIGHT_X, 1.4, COL_W, 24);
+  s3.addText(intro || "Designed with intention — every detail of this residence supports rest, study, and connection. Curated common areas, considered amenities, and a service team obsessed with the small things.",
+    { x: RIGHT_X, y: 2.7, w: COL_W, h: 1.6, fontSize: 11, color: taupe, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.4 });
 
   const highlights = (property.highlights || []).filter(Boolean).slice(0, 6);
   if (highlights.length) {
-    s2.addText("Property Highlights", { x: 0.6, y: 3.6, w: 8.5, h: 0.5, fontSize: 16, bold: true, color: COLOR_CHARCOAL.replace("#", "") });
-    s2.addText(highlights.map(h => ({ text: h, options: { bullet: { code: "25CF" }, color: COLOR_CHARCOAL.replace("#", ""), fontSize: 12 } })),
-      { x: 0.6, y: 4.1, w: 8.5, h: 3, color: COLOR_TAUPE.replace("#", ""), fontSize: 12, valign: "top" });
+    s3.addText("Property highlights", { x: RIGHT_X, y: 4.4, w: COL_W, h: 0.4, fontSize: 14, bold: true, color: charcoal, fontFace: SERIF });
+    s3.addText(highlights.map(h => ({ text: h, options: { bullet: { code: "25CF" }, color: charcoal, fontSize: 10.5 } })),
+      { x: RIGHT_X, y: 4.85, w: COL_W, h: 1.7, color: charcoal, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.4, paraSpaceAfter: 4 });
   }
 
-  if (images[1]) {
-    s2.addImage({ data: images[1], x: 9.4, y: 0.95, w: 3.4, h: 5.6, sizing: { type: "cover", w: 3.4, h: 5.6 } });
+  const contactBits = [
+    property.location || null,
+    agentName || null,
+    agentPhone || property.phone || null,
+    property.email || null,
+  ].filter(Boolean).join("   ·   ");
+  if (contactBits) {
+    s3.addShape(pres.ShapeType.roundRect, { x: RIGHT_X, y: SLIDE_H - 1.05, w: COL_W, h: 0.4, fill: { color: "F2EBDD" }, line: { type: "none" }, rectRadius: 0.08 });
+    s3.addText(contactBits, { x: RIGHT_X + 0.2, y: SLIDE_H - 1.05, w: COL_W - 0.4, h: 0.4, fontSize: 9, bold: true, color: charcoal, fontFace: SANS, valign: "middle" });
   }
+  drawFooter(s3, "03");
 
-  // Slide 3 — Amenities
-  const s3 = pres.addSlide();
-  s3.background = { color: COLOR_CREAM.replace("#", "") };
-  s3.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.55, w: 0.6, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-  s3.addText("AMENITIES & FACILITIES", { x: 0.6, y: 0.65, w: 8, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
-  s3.addText("What's Included", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CHARCOAL.replace("#", "") });
+  // =========================================================
+  // SLIDE 4 — WHAT'S INCLUDED (full-width amenity grid)
+  // =========================================================
+  const s4 = pres.addSlide();
+  s4.background = { color: cream };
+  drawHeader(s4);
+  drawEyebrow(s4, "AMENITIES & FACILITIES", LEFT_X, 1.0);
+  drawTitle(s4, "What's Included", LEFT_X, 1.4, SLIDE_W - M * 2, 36);
 
-  const amenities = featuredAmenities;
-  const half = Math.ceil(amenities.length / 2);
-  const left = amenities.slice(0, half);
-  const right = amenities.slice(half);
-  s3.addText(left.map(a => ({ text: a, options: { bullet: { code: "25CF" }, color: COLOR_GOLD.replace("#", ""), fontSize: 13 } })),
-    { x: 0.6, y: 2.1, w: 6, h: 4.8, color: COLOR_CHARCOAL.replace("#", ""), fontSize: 13, valign: "top", lineSpacingMultiple: 1.5 });
-  if (right.length) {
-    s3.addText(right.map(a => ({ text: a, options: { bullet: { code: "25CF" }, color: COLOR_GOLD.replace("#", ""), fontSize: 13 } })),
-      { x: 7, y: 2.1, w: 6, h: 4.8, color: COLOR_CHARCOAL.replace("#", ""), fontSize: 13, valign: "top", lineSpacingMultiple: 1.5 });
+  const amenList = (featuredAmenities || []).filter(Boolean);
+  const halfA = Math.ceil(amenList.length / 2);
+  const leftA = amenList.slice(0, halfA);
+  const rightA = amenList.slice(halfA);
+  const amenColW = (SLIDE_W - M * 2 - 0.6) / 2;
+  s4.addText(leftA.map(a => ({ text: a, options: { bullet: { code: "25CF" }, color: gold, fontSize: 12 } })),
+    { x: LEFT_X, y: 2.7, w: amenColW, h: 4, color: charcoal, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.55, paraSpaceAfter: 4 });
+  if (rightA.length) {
+    s4.addText(rightA.map(a => ({ text: a, options: { bullet: { code: "25CF" }, color: gold, fontSize: 12 } })),
+      { x: LEFT_X + amenColW + 0.6, y: 2.7, w: amenColW, h: 4, color: charcoal, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.55, paraSpaceAfter: 4 });
   }
+  drawFooter(s4, "04");
 
-  // Slide 4 — Room types
-  if (roomTypes && roomTypes.length) {
-    const s4 = pres.addSlide();
-    s4.background = { color: COLOR_CHARCOAL.replace("#", "") };
-    s4.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.55, w: 0.6, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-    s4.addText("ACCOMMODATION", { x: 0.6, y: 0.65, w: 8, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
-    s4.addText(includePrice ? "Room Types & Pricing" : "Room Types", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CREAM.replace("#", "") });
+  // =========================================================
+  // SLIDE 5 — PLANS & PRICING (housing plans only — 2x3 cards)
+  // =========================================================
+  const s5 = pres.addSlide();
+  s5.background = { color: cream };
+  drawHeader(s5);
+  const usePkgs = (pkgs || []).length > 0;
+  drawEyebrow(s5, usePkgs ? "OUR PACKAGES" : "ACCOMMODATION", LEFT_X, 1.0);
+  drawTitle(s5,
+    usePkgs ? (includePrice ? "Plans & Pricing" : "Our Plans") : (includePrice ? "Room Types & Pricing" : "Room Types"),
+    LEFT_X, 1.4, SLIDE_W - M * 2, 36);
 
-    const headerRow: PptxRow = [
-      { text: "ROOM TYPE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-      { text: "OCCUPANCY", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-      { text: "SIZE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-      { text: "AVAILABLE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-    ];
-    if (includePrice) {
-      headerRow.push({ text: "PRICE / MONTH", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } });
-    } else {
-      headerRow.push({ text: "AVAILABILITY", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } });
-    }
-    const rows: PptxRow[] = [headerRow];
-    for (const rt of roomTypes.slice(0, 8)) {
-      const row: PptxRow = [
-        { text: rt.customName || (rt.name || "").toString().replace(/_/g, " "), options: { color: COLOR_CREAM.replace("#", ""), fontSize: 12, bold: true } },
-        { text: String(rt.occupancy ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
-        { text: rt.size || "—", options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
-        { text: String(rt.availableBeds ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
-      ];
-      if (includePrice) {
-        row.push({ text: `Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, bold: true } });
-      } else {
-        row.push({ text: "On request", options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, italic: true } });
+  const cardCols = 2;
+  const cardGap = 0.25;
+  const cardColW = (SLIDE_W - M * 2 - cardGap) / cardCols;
+
+  if (usePkgs) {
+    const showPkgs = (pkgs || []).slice(0, 6);
+    const cardH = 1.85;
+    showPkgs.forEach((pkg: any, idx: number) => {
+      const col = idx % cardCols;
+      const row = Math.floor(idx / cardCols);
+      const rx = LEFT_X + col * (cardColW + cardGap);
+      const ry = 2.7 + row * (cardH + cardGap);
+      if (ry + cardH > SLIDE_H - 0.7) return;
+
+      s5.addShape(pres.ShapeType.roundRect, { x: rx, y: ry, w: cardColW, h: cardH, fill: { color: cardFill }, line: { color: cardBorder, width: 0.75 }, rectRadius: 0.15 });
+      // Tier pill
+      const tierLabel = (tierLabels[pkg.tierLevel] || `Tier ${pkg.tierLevel ?? 0}`).toUpperCase();
+      const pillW = Math.max(0.85, tierLabel.length * 0.085 + 0.3);
+      s5.addShape(pres.ShapeType.roundRect, { x: rx + 0.25, y: ry + 0.2, w: pillW, h: 0.28, fill: { color: gold }, line: { type: "none" }, rectRadius: 0.14 });
+      s5.addText(tierLabel, { x: rx + 0.25, y: ry + 0.2, w: pillW, h: 0.28, fontSize: 8, bold: true, color: "1A1A1A", align: "center", valign: "middle", fontFace: SANS });
+
+      s5.addText(pkg.name, { x: rx + 0.25, y: ry + 0.55, w: cardColW * 0.55, h: 0.45, fontSize: 16, bold: true, color: charcoal, fontFace: SERIF, valign: "top" });
+      const desc = (pkg.tagline || pkg.description || "").trim();
+      if (desc) {
+        s5.addText(desc, { x: rx + 0.25, y: ry + 0.95, w: cardColW * 0.55, h: 0.5, fontSize: 9, color: taupe, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.3 });
       }
-      rows.push(row);
-    }
-    s4.addTable(rows, {
-      x: 0.6, y: 2.1, w: 12.1, colW: [3.4, 1.8, 2.3, 2.0, 2.6],
-      border: { type: "solid", color: "1F1F1F", pt: 1 },
-      rowH: 0.5,
+      if (pkg.occupancy) {
+        s5.addText(`Occupancy ${pkg.occupancy}`, { x: rx + 0.25, y: ry + cardH - 0.4, w: cardColW - 0.5, h: 0.3, fontSize: 8.5, color: taupe, fontFace: SANS });
+      }
+
+      const priceTypeLabel = pkg.priceType === "PER_MONTH" ? "per month"
+        : pkg.priceType === "PER_DAY" ? "per day"
+        : pkg.priceType === "ONE_TIME" ? "one-time" : "";
+      if (includePrice && pkg.basePrice > 0) {
+        s5.addText(`Rs ${pkg.basePrice.toLocaleString("en-IN")}`,
+          { x: rx + cardColW * 0.45, y: ry + 0.5, w: cardColW * 0.55 - 0.25, h: 0.5, fontSize: 20, bold: true, color: gold, align: "right", fontFace: SERIF });
+        if (priceTypeLabel) {
+          s5.addText(priceTypeLabel,
+            { x: rx + cardColW * 0.45, y: ry + 1.0, w: cardColW * 0.55 - 0.25, h: 0.25, fontSize: 8, color: taupe, align: "right", fontFace: SANS });
+        }
+      } else {
+        s5.addText("On request",
+          { x: rx + cardColW * 0.45, y: ry + 0.6, w: cardColW * 0.55 - 0.25, h: 0.4, fontSize: 13, italic: true, color: gold, align: "right", fontFace: SERIF });
+      }
+    });
+  } else {
+    const showRooms = (roomTypes || []).slice(0, 6);
+    const cardH = 1.4;
+    showRooms.forEach((rt: any, idx: number) => {
+      const col = idx % cardCols;
+      const row = Math.floor(idx / cardCols);
+      const rx = LEFT_X + col * (cardColW + cardGap);
+      const ry = 2.7 + row * (cardH + cardGap);
+      if (ry + cardH > SLIDE_H - 0.7) return;
+      s5.addShape(pres.ShapeType.roundRect, { x: rx, y: ry, w: cardColW, h: cardH, fill: { color: cardFill }, line: { color: cardBorder, width: 0.75 }, rectRadius: 0.15 });
+      s5.addText(rt.customName || (rt.name || "").toString().replace(/_/g, " "),
+        { x: rx + 0.25, y: ry + 0.25, w: cardColW * 0.55, h: 0.45, fontSize: 15, bold: true, color: charcoal, fontFace: SERIF });
+      const meta = [rt.size, rt.occupancy ? `Occupancy ${rt.occupancy}` : null, rt.availableBeds != null ? `${rt.availableBeds} beds available` : null].filter(Boolean).join("   ·   ");
+      if (meta) {
+        s5.addText(meta, { x: rx + 0.25, y: ry + 0.7, w: cardColW * 0.55, h: 0.5, fontSize: 9, color: taupe, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.3 });
+      }
+      const rtPrice = rt.basePrice || 0;
+      if (includePrice && rtPrice > 0) {
+        s5.addText(`Rs ${rtPrice.toLocaleString("en-IN")}`,
+          { x: rx + cardColW * 0.45, y: ry + 0.3, w: cardColW * 0.55 - 0.25, h: 0.45, fontSize: 18, bold: true, color: gold, align: "right", fontFace: SERIF });
+        s5.addText("per month", { x: rx + cardColW * 0.45, y: ry + 0.78, w: cardColW * 0.55 - 0.25, h: 0.25, fontSize: 8, color: taupe, align: "right", fontFace: SANS });
+      } else {
+        s5.addText("On request", { x: rx + cardColW * 0.45, y: ry + 0.45, w: cardColW * 0.55 - 0.25, h: 0.4, fontSize: 12, italic: true, color: gold, align: "right", fontFace: SERIF });
+      }
     });
   }
+  drawFooter(s5, "05");
 
-  // Slide 5 — Location
-  const s5 = pres.addSlide();
-  s5.background = { color: COLOR_CREAM.replace("#", "") };
-  if (images[2]) {
-    s5.addImage({ data: images[2], x: 6.6, y: 0, w: 6.733, h: SLIDE_H, sizing: { type: "cover", w: 6.733, h: SLIDE_H } });
-  }
-  s5.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.55, w: 0.6, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-  s5.addText("LOCATION", { x: 0.6, y: 0.65, w: 5, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
-  s5.addText("Perfectly Connected", { x: 0.6, y: 0.95, w: 5.8, h: 0.9, fontSize: 28, bold: true, color: COLOR_CHARCOAL.replace("#", "") });
-  const nearby = (nearbyLocs || []).slice(0, 8);
-  s5.addText(
-    nearby.length
-      ? nearby.map(n => ({ text: `${n.placeName}   —   ${n.distance || ""}`, options: { color: COLOR_CHARCOAL.replace("#", ""), fontSize: 12, bullet: { code: "25CF" } } }))
-      : [{ text: property.address || "Premium location", options: { color: COLOR_CHARCOAL.replace("#", ""), fontSize: 12 } }],
-    { x: 0.6, y: 2.1, w: 5.8, h: 4.8, color: COLOR_TAUPE.replace("#", ""), fontSize: 12, valign: "top", lineSpacingMultiple: 1.5 }
-  );
-
-  // Slide 6 — CTA
+  // =========================================================
+  // SLIDE 6 — LOCATION & CTA
+  // =========================================================
   const s6 = pres.addSlide();
-  s6.background = { color: COLOR_CHARCOAL.replace("#", "") };
-  s6.addShape(pres.ShapeType.rect, { x: SLIDE_W / 2 - 0.4, y: 2.4, w: 0.8, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
-  s6.addText("Reserve Your Residence", { x: 0, y: 2.7, w: SLIDE_W, h: 1.0, fontSize: 40, bold: true, color: COLOR_CREAM.replace("#", ""), align: "center" });
-  s6.addText(property.displayName || property.name || "", { x: 0, y: 3.7, w: SLIDE_W, h: 0.5, fontSize: 16, color: COLOR_TAUPE.replace("#", ""), align: "center" });
+  s6.background = { color: cream };
+  drawHeader(s6);
+  // Hero image (top band ~half height)
+  const heroImg6 = images[2] || images[0];
+  if (heroImg6) {
+    const boxW = SLIDE_W - M * 2;
+    const boxMaxH = SLIDE_H * 0.42;
+    s6.addImage({ data: heroImg6, x: LEFT_X, y: 1.0, w: boxW, h: boxMaxH, sizing: { type: "cover", w: boxW, h: boxMaxH }, rounding: true });
+  }
+  // Editorial card overlay row: location label + nearby + CTA pill
+  const overlayY = 1.0 + SLIDE_H * 0.42 + 0.25;
+  drawEyebrow(s6, "LOCATION", LEFT_X, overlayY);
+  drawTitle(s6, "Perfectly Connected", LEFT_X, overlayY + 0.4, COL_W, 22);
+
+  const nearby = (nearbyLocs || []).slice(0, 6);
+  if (nearby.length) {
+    s6.addText(
+      nearby.map((n: any) => ({ text: `${n.placeName}   —   ${n.distance || ""}`, options: { bullet: { code: "25CF" }, color: charcoal, fontSize: 10 } })),
+      { x: LEFT_X, y: overlayY + 1.0, w: COL_W, h: 1.4, color: charcoal, fontFace: SANS, valign: "top", lineSpacingMultiple: 1.35, paraSpaceAfter: 2 }
+    );
+  } else if (property.address) {
+    s6.addText(property.address, { x: LEFT_X, y: overlayY + 1.0, w: COL_W, h: 1.4, fontSize: 10, color: taupe, fontFace: SANS });
+  }
+
+  // Right: dark CTA pill row
+  const ctaX = RIGHT_X;
+  const ctaY = overlayY + 0.4;
+  const ctaW = COL_W;
+  s6.addShape(pres.ShapeType.roundRect, { x: ctaX, y: ctaY, w: ctaW, h: 1.7, fill: { color: charcoal }, line: { type: "none" }, rectRadius: 0.18 });
+  s6.addText("Reserve your residence today", { x: ctaX + 0.35, y: ctaY + 0.25, w: ctaW - 0.7, h: 0.5, fontSize: 18, bold: true, color: cream, fontFace: SERIF });
+  s6.addText(property.displayName || property.name || "", { x: ctaX + 0.35, y: ctaY + 0.8, w: ctaW - 0.7, h: 0.35, fontSize: 11, color: taupe, fontFace: SANS });
   const ctaContact = [
     "hsquare.in",
-    agentName ? `${agentName}   ·   ${agentPhone}` : agentPhone,
+    agentName ? `${agentName}  ·  ${agentPhone}` : agentPhone,
     property.email || "stay@hsquareliving.com",
   ].filter(Boolean).join("   ·   ");
-  s6.addText(ctaContact, {
-    x: 0, y: 4.5, w: SLIDE_W, h: 0.5, fontSize: 14, color: COLOR_GOLD.replace("#", ""), align: "center",
-  });
-  s6.addText("© Hsquareliving Pvt Ltd", { x: 0, y: SLIDE_H - 0.5, w: SLIDE_W, h: 0.3, fontSize: 9, color: COLOR_TAUPE.replace("#", ""), align: "center" });
+  s6.addText(ctaContact, { x: ctaX + 0.35, y: ctaY + 1.2, w: ctaW - 0.7, h: 0.4, fontSize: 9.5, color: gold, fontFace: SANS });
+  drawFooter(s6, "06");
 
   const out = await pres.write({ outputType: "nodebuffer" });
   return out as Buffer;
