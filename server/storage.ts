@@ -90,6 +90,7 @@ import {
   type HomepageAmenity,
   type InsertHomepageAmenity,
   packages,
+  type Package,
   packageItems,
   bookingPackages,
   packageUpgrades,
@@ -393,6 +394,9 @@ export interface IStorage {
   createBed(bed: InsertBed): Promise<Bed>;
   createBeds(beds: InsertBed[]): Promise<Bed[]>;
   deleteBed(id: string): Promise<void>;
+
+  // Packages
+  getPackagesByProperty(propertyId: string): Promise<Package[]>;
 
   // Package Upgrades
   getPackageUpgradeOptions(bookingId: string): Promise<any>;
@@ -2327,6 +2331,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHomepageAmenity(id: string): Promise<void> {
     await db.delete(homepageAmenities).where(eq(homepageAmenities.id, id));
+  }
+
+  async getPackagesByProperty(propertyId: string): Promise<Package[]> {
+    return await db.select().from(packages)
+      .where(and(eq(packages.propertyId, propertyId), eq(packages.isActive, true)))
+      .orderBy(asc(packages.tierLevel), asc(packages.basePrice));
   }
 
   async getPackageUpgradeOptions(bookingId: string): Promise<any> {

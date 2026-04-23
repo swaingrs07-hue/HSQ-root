@@ -122,9 +122,12 @@ async function gatherPropertyData(propertyId: string) {
   const property = await storage.getPropertyByIdOrSlug(propertyId);
   if (!property) return null;
 
-  const [allRoomTypes, nearbyLocs] = await Promise.all([
+  const [allRoomTypes, nearbyLocs, allPackages, allProperties, allStudents] = await Promise.all([
     storage.getRoomTypesByProperty(property.id),
     storage.getNearbyLocationsByProperty(property.id),
+    storage.getPackagesByProperty(property.id),
+    storage.getAllProperties(),
+    storage.getAllStudents(),
   ]);
 
   const featuredRoomIds = (property.featuredRoomTypeIds || []).filter(Boolean);
@@ -142,7 +145,12 @@ async function gatherPropertyData(propertyId: string) {
   const images = (await Promise.all(imageUrls.map(u => loadImageAsDataUrl(u))))
     .filter((s): s is string => !!s);
 
-  return { property, roomTypes, nearbyLocs, images, featuredAmenities };
+  const brandStats = {
+    properties: allProperties.length,
+    students: allStudents.length,
+  };
+
+  return { property, roomTypes, nearbyLocs, images, featuredAmenities, packages: allPackages, brandStats };
 }
 
 // ----- PDF -----
@@ -183,7 +191,7 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   const includePrice = options.includePrice !== false;
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
-  const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
+  const { property, roomTypes, nearbyLocs, images, featuredAmenities, packages: pkgs, brandStats } = data;
   const agentName = property.brochureAgentName || "";
   const agentPhone = property.brochureAgentPhone || property.phone || "+91 9876543210";
   const tagline = property.brochureTagline || "";
@@ -457,10 +465,14 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   const aboutLines = doc.splitTextToSize(aboutBody, colW);
   doc.text(aboutLines.slice(0, 5), leftX, yA + 6);
 
-  // Right column: three large stats
+  // Right column: three large stats — properties + students from live DB,
+  // satisfaction rate kept as brand metric (no source of truth in DB).
+  const propCount = brandStats?.properties || 0;
+  const studentCount = brandStats?.students || 0;
+  const formatStat = (n: number) => n >= 1000 ? `${n.toLocaleString("en-IN")}+` : `${n}+`;
   const stats: { number: string; label: string }[] = [
-    { number: "12+", label: "PROPERTIES" },
-    { number: "1,500+", label: "STUDENTS HOUSED" },
+    { number: propCount > 0 ? formatStat(propCount) : "12+", label: "PROPERTIES" },
+    { number: studentCount > 0 ? formatStat(studentCount) : "1,500+", label: "STUDENTS HOUSED" },
     { number: "98%", label: "SATISFACTION RATE" },
   ];
   const statColW = colW / 3;
@@ -649,66 +661,152 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   paintBackground();
   drawHeader();
 
-  drawEyebrow("ACCOMMODATION", leftX, m + 60);
+  // Prefer real housing packages (with their own prices) over room-types
+  // (whose basePrice is stale 0 — pricing model lives on packages).
+  const usePkgs = (pkgs || []).length > 0;
+  const tierLabels: Record<number, string> = { 0: "Essential", 1: "Plus", 2: "Premium", 3: "Signature" };
+
+  drawEyebrow(usePkgs ? "OUR PACKAGES" : "ACCOMMODATION", leftX, m + 60);
   setText(COLOR_CHARCOAL);
   doc.setFont("times", "bold");
   doc.setFontSize(34);
-  doc.text(includePrice ? "Room Types & Pricing" : "Room Types", leftX, m + 118);
+  const pageTitle = usePkgs
+    ? (includePrice ? "Plans & Pricing" : "Our Plans")
+    : (includePrice ? "Room Types & Pricing" : "Room Types");
+  doc.text(pageTitle, leftX, m + 118);
 
-  const showRooms = (roomTypes || []).slice(0, 6);
-  const roomGap = 14;
-  const roomCols = 2;
-  const roomColW = (fullW - roomGap) / roomCols;
-  const roomRowH = 96;
-  let rIdx = 0;
-  for (const rt of showRooms) {
-    const col = rIdx % roomCols;
-    const row = Math.floor(rIdx / roomCols);
-    const rx = leftX + col * (roomColW + roomGap);
-    const ry = m + 160 + row * (roomRowH + roomGap);
-    if (ry + roomRowH > ph - 70) break;
+  const cardGap = 14;
+  const cardCols = 2;
+  const cardColW = (fullW - cardGap) / cardCols;
+  const cardRowH = usePkgs ? 132 : 96;
+  let cIdx = 0;
 
-    setFill("#F6F0E2");
-    doc.roundedRect(rx, ry, roomColW, roomRowH, 14, 14, "F");
-    setDraw("#E8E1D2");
-    doc.setLineWidth(0.6);
-    doc.roundedRect(rx, ry, roomColW, roomRowH, 14, 14, "S");
+  if (usePkgs) {
+    const showPkgs = (pkgs || []).slice(0, 6);
+    for (const pkg of showPkgs) {
+      const col = cIdx % cardCols;
+      const row = Math.floor(cIdx / cardCols);
+      const rx = leftX + col * (cardColW + cardGap);
+      const ry = m + 160 + row * (cardRowH + cardGap);
+      if (ry + cardRowH > ph - 70) break;
 
-    setText(COLOR_CHARCOAL);
-    doc.setFont("times", "bold");
-    doc.setFontSize(16);
-    doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), rx + 18, ry + 30);
+      setFill("#F6F0E2");
+      doc.roundedRect(rx, ry, cardColW, cardRowH, 14, 14, "F");
+      setDraw("#E8E1D2");
+      doc.setLineWidth(0.6);
+      doc.roundedRect(rx, ry, cardColW, cardRowH, 14, 14, "S");
 
-    setText(COLOR_TAUPE);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    const meta = [
-      rt.size ? rt.size : null,
-      rt.occupancy ? `Occupancy ${rt.occupancy}` : null,
-      rt.availableBeds != null ? `${rt.availableBeds} beds available` : null,
-    ].filter(Boolean).join("   ·   ");
-    if (meta) {
-      const metaLines = doc.splitTextToSize(meta, roomColW - 36);
-      doc.text(metaLines.slice(0, 2), rx + 18, ry + 50);
-    }
+      // Tier badge (top-left, gold pill)
+      const tierLabel = tierLabels[pkg.tierLevel] || `Tier ${pkg.tierLevel}`;
+      setFill(COLOR_GOLD);
+      const badgeW = doc.getTextWidth(tierLabel) + 14;
+      doc.roundedRect(rx + 16, ry + 14, badgeW, 16, 8, 8, "F");
+      setText("#1A1A1A");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.text(tierLabel.toUpperCase(), rx + 16 + badgeW / 2, ry + 25, { align: "center" });
 
-    if (includePrice) {
-      setText(COLOR_GOLD);
+      // Package name
+      setText(COLOR_CHARCOAL);
       doc.setFont("times", "bold");
-      doc.setFontSize(20);
-      doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rx + roomColW - 18, ry + 32, { align: "right" });
+      doc.setFontSize(17);
+      doc.text(pkg.name, rx + 16, ry + 54);
+
+      // Tagline / description
+      const desc = (pkg.tagline || pkg.description || "").trim();
+      if (desc) {
+        setText(COLOR_TAUPE);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const descLines = doc.splitTextToSize(desc, cardColW - 36);
+        doc.text(descLines.slice(0, 2), rx + 16, ry + 72);
+      }
+
+      // Occupancy / meta
+      if (pkg.occupancy) {
+        setText(COLOR_TAUPE);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.text(`Occupancy ${pkg.occupancy}`, rx + 16, ry + cardRowH - 16);
+      }
+
+      // Price (right side)
+      const priceTypeLabel = pkg.priceType === "PER_MONTH" ? "per month"
+        : pkg.priceType === "PER_DAY" ? "per day"
+        : pkg.priceType === "ONE_TIME" ? "one-time"
+        : "";
+      if (includePrice && pkg.basePrice > 0) {
+        setText(COLOR_GOLD);
+        doc.setFont("times", "bold");
+        doc.setFontSize(22);
+        doc.text(`Rs ${pkg.basePrice.toLocaleString("en-IN")}`, rx + cardColW - 16, ry + 50, { align: "right" });
+        if (priceTypeLabel) {
+          setText(COLOR_TAUPE);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.text(priceTypeLabel, rx + cardColW - 16, ry + 64, { align: "right" });
+        }
+      } else {
+        setText(COLOR_GOLD);
+        doc.setFont("times", "italic");
+        doc.setFontSize(14);
+        doc.text("On request", rx + cardColW - 16, ry + 56, { align: "right" });
+      }
+
+      cIdx++;
+    }
+  } else {
+    const showRooms = (roomTypes || []).slice(0, 6);
+    for (const rt of showRooms) {
+      const col = cIdx % cardCols;
+      const row = Math.floor(cIdx / cardCols);
+      const rx = leftX + col * (cardColW + cardGap);
+      const ry = m + 160 + row * (cardRowH + cardGap);
+      if (ry + cardRowH > ph - 70) break;
+
+      setFill("#F6F0E2");
+      doc.roundedRect(rx, ry, cardColW, cardRowH, 14, 14, "F");
+      setDraw("#E8E1D2");
+      doc.setLineWidth(0.6);
+      doc.roundedRect(rx, ry, cardColW, cardRowH, 14, 14, "S");
+
+      setText(COLOR_CHARCOAL);
+      doc.setFont("times", "bold");
+      doc.setFontSize(16);
+      doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), rx + 18, ry + 30);
+
       setText(COLOR_TAUPE);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text("per month", rx + roomColW - 18, ry + 46, { align: "right" });
-    } else {
-      setText(COLOR_GOLD);
-      doc.setFont("times", "italic");
-      doc.setFontSize(14);
-      doc.text("On request", rx + roomColW - 18, ry + 36, { align: "right" });
-    }
+      doc.setFontSize(9.5);
+      const meta = [
+        rt.size ? rt.size : null,
+        rt.occupancy ? `Occupancy ${rt.occupancy}` : null,
+        rt.availableBeds != null ? `${rt.availableBeds} beds available` : null,
+      ].filter(Boolean).join("   ·   ");
+      if (meta) {
+        const metaLines = doc.splitTextToSize(meta, cardColW - 36);
+        doc.text(metaLines.slice(0, 2), rx + 18, ry + 50);
+      }
 
-    rIdx++;
+      const rtPrice = rt.basePrice || 0;
+      if (includePrice && rtPrice > 0) {
+        setText(COLOR_GOLD);
+        doc.setFont("times", "bold");
+        doc.setFontSize(20);
+        doc.text(`Rs ${rtPrice.toLocaleString("en-IN")}`, rx + cardColW - 18, ry + 32, { align: "right" });
+        setText(COLOR_TAUPE);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text("per month", rx + cardColW - 18, ry + 46, { align: "right" });
+      } else {
+        setText(COLOR_GOLD);
+        doc.setFont("times", "italic");
+        doc.setFontSize(14);
+        doc.text("On request", rx + cardColW - 18, ry + 36, { align: "right" });
+      }
+
+      cIdx++;
+    }
   }
 
   drawFooter("05");
