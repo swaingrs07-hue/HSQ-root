@@ -465,28 +465,28 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   const aboutLines = doc.splitTextToSize(aboutBody, colW);
   doc.text(aboutLines.slice(0, 5), leftX, yA + 6);
 
-  // Right column: three large stats — properties + students from live DB,
-  // satisfaction rate kept as brand metric (no source of truth in DB).
-  const propCount = brandStats?.properties || 0;
-  const studentCount = brandStats?.students || 0;
-  const formatStat = (n: number) => n >= 1000 ? `${n.toLocaleString("en-IN")}+` : `${n}+`;
+  // Right column: brand stats — these mirror the official numbers shown on
+  // hsquare.in (Happy Residents / Premium Properties / Satisfaction Rate /
+  // Support). Kept as fixed brand metrics rather than live DB counts so the
+  // brochure reflects the public-facing brand promise.
   const stats: { number: string; label: string }[] = [
-    { number: propCount > 0 ? formatStat(propCount) : "12+", label: "PROPERTIES" },
-    { number: studentCount > 0 ? formatStat(studentCount) : "1,500+", label: "STUDENTS HOUSED" },
+    { number: "5,000+", label: "HAPPY RESIDENTS" },
+    { number: "15+", label: "PREMIUM PROPERTIES" },
     { number: "98%", label: "SATISFACTION RATE" },
+    { number: "24/7", label: "SUPPORT & SECURITY" },
   ];
-  const statColW = colW / 3;
+  const statColW = colW / stats.length;
   const statY = m + 110;
   stats.forEach((s, i) => {
     const sx = rightX + statColW * i;
     setText(COLOR_CHARCOAL);
     doc.setFont("times", "bold");
-    doc.setFontSize(30);
+    doc.setFontSize(24);
     doc.text(s.number, sx, statY);
     setText(COLOR_TAUPE);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text(s.label, sx, statY + 18);
+    doc.setFontSize(7.5);
+    doc.text(s.label, sx, statY + 16);
   });
 
   // Three pillar cards along the bottom
@@ -818,10 +818,30 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
   paintBackground();
   drawHeader();
 
-  // Top hero band image
+  // Top hero band image — sized to the photograph's natural aspect so the
+  // image is never stretched or letterboxed. We allocate a max width/height
+  // envelope, then shrink the box to match the image's true proportions and
+  // centre it horizontally.
+  const heroImg = images[2] || images[0];
+  const heroBoxW = pw - m * 2;
+  const heroBoxMaxH = ph * 0.5;
+  const heroDims = heroImg ? getImageDims(heroImg) : null;
+  let heroW = heroBoxW;
+  let heroH = heroBoxMaxH;
+  if (heroDims && heroDims.w > 0 && heroDims.h > 0) {
+    const aspect = heroDims.w / heroDims.h;
+    const fitH = heroBoxW / aspect;
+    if (fitH <= heroBoxMaxH) {
+      heroH = fitH;
+    } else {
+      heroH = heroBoxMaxH;
+      heroW = heroBoxMaxH * aspect;
+    }
+  }
   const p4ImgY = m + 36;
-  const p4ImgH = ph * 0.5;
-  drawEditorialImage(images[2] || images[0], leftX, p4ImgY, pw - m * 2, p4ImgH, 18);
+  const heroX = leftX + (heroBoxW - heroW) / 2;
+  drawEditorialImage(heroImg, heroX, p4ImgY, heroW, heroH, 18);
+  const p4ImgH = heroH;
 
   // Below: two columns — left location text, right nearby list
   let y4 = p4ImgY + p4ImgH + 28;
