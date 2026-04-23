@@ -42,14 +42,25 @@ async function fetchBrochure(propertyId: string, format: Format, fallbackToken: 
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function formatLastUpdated(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export function PropertyBrochureButtons({
   propertyId,
   propertyName,
+  lastUpdated,
+  downloadCount,
   variant = "panel",
   className,
 }: {
   propertyId: string;
   propertyName?: string;
+  lastUpdated?: string | Date | null;
+  downloadCount?: number | null;
   variant?: "panel" | "compact" | "row";
   className?: string;
 }) {
@@ -67,10 +78,11 @@ export function PropertyBrochureButtons({
           title: "Brochure ready",
           description: `Your ${format.toUpperCase()} download has started.`,
         });
-      } catch (err: any) {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Please try again.";
         toast({
           title: "Download failed",
-          description: err?.message || "Please try again.",
+          description: message,
           variant: "destructive",
         });
       } finally {
@@ -158,9 +170,19 @@ export function PropertyBrochureButtons({
             Download PPT
           </button>
         </div>
-        <p className="text-[11px] text-[#8B7D6B]/70 mt-3.5 tracking-wide">
-          Login required · Generated fresh from live property data
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#8B7D6B]/80 mt-3.5 tracking-wide" data-testid={`brochure-meta-${propertyId}`}>
+          <span>Login required · Generated fresh from live property data</span>
+          {formatLastUpdated(lastUpdated) && (
+            <span data-testid={`brochure-last-updated-${propertyId}`}>
+              · Last updated {formatLastUpdated(lastUpdated)}
+            </span>
+          )}
+          {typeof downloadCount === "number" && downloadCount > 0 && (
+            <span data-testid={`brochure-download-count-${propertyId}`}>
+              · {downloadCount.toLocaleString("en-IN")} download{downloadCount === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1780,6 +1780,8 @@ function PropertyBooking() {
         <PropertyBrochureButtons
           propertyId={property.id}
           propertyName={property.displayName || property.name}
+          lastUpdated={property.brochureLastDownloadedAt || property.updatedAt}
+          downloadCount={property.brochureDownloadCount}
         />
       </div>
 

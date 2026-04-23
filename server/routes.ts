@@ -2948,15 +2948,14 @@ ${allPages.map(p => `  <url>
       const property = await storage.getPropertyByIdOrSlug(id);
       if (!property) return res.status(404).json({ error: "Property not found" });
 
-      const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol;
-      const host = req.headers["x-forwarded-host"] || req.headers.host;
-      const baseUrl = host ? `${proto}://${host}` : undefined;
-
+      // NOTE: We intentionally do not pass any caller-provided base URL — the brochure
+      // generator only fetches images from a hardcoded host allowlist and from this same
+      // server via loopback, to prevent SSRF via x-forwarded-host spoofing.
       const { generatePropertyBrochurePdf, generatePropertyBrochurePpt, getPropertyDownloadFilename } = await import("./property-collateral");
 
       const buffer = format === "pdf"
-        ? await generatePropertyBrochurePdf(property.id, baseUrl)
-        : await generatePropertyBrochurePpt(property.id, baseUrl);
+        ? await generatePropertyBrochurePdf(property.id)
+        : await generatePropertyBrochurePpt(property.id);
 
       if (!buffer) return res.status(500).json({ error: "Failed to generate brochure" });
 
@@ -2968,6 +2967,10 @@ ${allPages.map(p => `  <url>
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("Content-Length", String(buffer.length));
       res.end(buffer);
+
+      storage.recordBrochureDownload(property.id).catch((e) => {
+        console.error("Failed to record brochure download:", e);
+      });
     } catch (err) {
       console.error("Brochure generation error:", err);
       if (!res.headersSent) res.status(500).json({ error: "Failed to generate brochure" });

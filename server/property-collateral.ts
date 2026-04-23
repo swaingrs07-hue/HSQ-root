@@ -1,6 +1,11 @@
 import { jsPDF } from "jspdf";
-import pptxgenjs from "pptxgenjs";
-const PptxGenJS: any = (pptxgenjs as any).default || pptxgenjs;
+import PptxGenJS from "pptxgenjs";
+
+type PptxCell = { text: string; options: Record<string, unknown> };
+type PptxRow = PptxCell[];
+
+const PptxCtor: typeof PptxGenJS =
+  (PptxGenJS as unknown as { default?: typeof PptxGenJS }).default || PptxGenJS;
 import { storage } from "./storage";
 import { HSQUARE_LOGO_BASE64 } from "./logo-base64";
 import type { Property } from "@shared/schema";
@@ -50,7 +55,7 @@ function isPrivateHost(host: string): boolean {
   return false;
 }
 
-async function loadImageAsDataUrl(url: string, baseUrl?: string): Promise<string | null> {
+async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
     if (!url || typeof url !== "string") return null;
     let target: URL;
@@ -60,12 +65,14 @@ async function loadImageAsDataUrl(url: string, baseUrl?: string): Promise<string
         return null;
       }
     } else {
-      // Relative path: only allow internal /api/uploads/* or /uploads/* references
+      // Relative path: only allow internal /api/uploads/* or /uploads/* references.
+      // Always resolve against loopback (this same server) — never trust caller-provided
+      // baseUrl/x-forwarded-host headers which could redirect us to attacker-controlled hosts.
       if (!url.startsWith("/api/") && !url.startsWith("/uploads/") && !url.startsWith("/public/")) {
         return null;
       }
-      const safeBase = baseUrl && /^https?:\/\//i.test(baseUrl) ? baseUrl : "http://localhost:5000";
-      target = new URL(url, safeBase);
+      const port = process.env.PORT || "5000";
+      target = new URL(url, `http://127.0.0.1:${port}`);
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -82,7 +89,7 @@ async function loadImageAsDataUrl(url: string, baseUrl?: string): Promise<string
   }
 }
 
-async function gatherPropertyData(propertyId: string, baseUrl?: string) {
+async function gatherPropertyData(propertyId: string) {
   const property = await storage.getPropertyByIdOrSlug(propertyId);
   if (!property) return null;
 
@@ -92,15 +99,15 @@ async function gatherPropertyData(propertyId: string, baseUrl?: string) {
   ]);
 
   const imageUrls = pickImages(property);
-  const images = (await Promise.all(imageUrls.map(u => loadImageAsDataUrl(u, baseUrl))))
+  const images = (await Promise.all(imageUrls.map(u => loadImageAsDataUrl(u))))
     .filter((s): s is string => !!s);
 
   return { property, roomTypes, nearbyLocs, images };
 }
 
 // ----- PDF -----
-export async function generatePropertyBrochurePdf(propertyId: string, baseUrl?: string): Promise<Buffer | null> {
-  const data = await gatherPropertyData(propertyId, baseUrl);
+export async function generatePropertyBrochurePdf(propertyId: string): Promise<Buffer | null> {
+  const data = await gatherPropertyData(propertyId);
   if (!data) return null;
   const { property, roomTypes, nearbyLocs, images } = data;
 
@@ -346,12 +353,12 @@ export async function generatePropertyBrochurePdf(propertyId: string, baseUrl?: 
 }
 
 // ----- PPT -----
-export async function generatePropertyBrochurePpt(propertyId: string, baseUrl?: string): Promise<Buffer | null> {
-  const data = await gatherPropertyData(propertyId, baseUrl);
+export async function generatePropertyBrochurePpt(propertyId: string): Promise<Buffer | null> {
+  const data = await gatherPropertyData(propertyId);
   if (!data) return null;
   const { property, roomTypes, nearbyLocs, images } = data;
 
-  const pres = new PptxGenJS();
+  const pres = new PptxCtor();
   pres.layout = "LAYOUT_WIDE";
   pres.title = property.displayName || property.name || "Hsquare Property";
   pres.company = "Hsquareliving";
@@ -430,7 +437,7 @@ export async function generatePropertyBrochurePpt(propertyId: string, baseUrl?: 
     s4.addText("ACCOMMODATION", { x: 0.6, y: 0.65, w: 8, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
     s4.addText("Room Types & Pricing", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CREAM.replace("#", "") });
 
-    const rows: any[][] = [[
+    const rows: PptxRow[] = [[
       { text: "ROOM TYPE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
       { text: "OCCUPANCY", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
       { text: "SIZE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },

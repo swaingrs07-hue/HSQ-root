@@ -128,6 +128,7 @@ export interface IStorage {
   getProperty(id: string): Promise<Property | undefined>;
   getPropertyBySlug(slug: string): Promise<Property | undefined>;
   getPropertyByIdOrSlug(idOrSlug: string): Promise<Property | undefined>;
+  recordBrochureDownload(propertyId: string): Promise<void>;
   getAllProperties(): Promise<Property[]>;
   getAllPropertiesIncludingInactive(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
@@ -499,6 +500,16 @@ export class DatabaseStorage implements IStorage {
       return this.getProperty(idOrSlug);
     }
     return this.getPropertyBySlug(idOrSlug);
+  }
+
+  async recordBrochureDownload(propertyId: string): Promise<void> {
+    await db
+      .update(properties)
+      .set({
+        brochureDownloadCount: sql`${properties.brochureDownloadCount} + 1`,
+        brochureLastDownloadedAt: new Date(),
+      })
+      .where(eq(properties.id, propertyId));
   }
 
   async getAllProperties(): Promise<Property[]> {

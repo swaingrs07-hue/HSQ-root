@@ -102,6 +102,8 @@ export const properties = pgTable("properties", {
   highlights: text("highlights").array(),
   includedServices: jsonb("included_services"),
   moveInCharges: jsonb("move_in_charges"),
+  brochureDownloadCount: integer("brochure_download_count").default(0).notNull(),
+  brochureLastDownloadedAt: timestamp("brochure_last_downloaded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

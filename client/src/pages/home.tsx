@@ -694,6 +694,8 @@ function PropertyResourcesSection({ properties }: { properties: any[] }) {
                 <PropertyBrochureButtons
                   propertyId={p.id}
                   propertyName={p.displayName || p.name}
+                  lastUpdated={p.brochureLastDownloadedAt || p.updatedAt}
+                  downloadCount={p.brochureDownloadCount}
                   variant="row"
                 />
               </div>
