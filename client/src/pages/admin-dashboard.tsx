@@ -991,21 +991,19 @@ export default function AdminDashboard() {
               <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Leads
             </Button>
           )}
-          {!isReceptionist && (
-            <Button 
-              variant={activeTab === "approvals" ? "default" : "ghost"}
-              className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
-              onClick={() => setActiveTab("approvals")}
-              data-testid="tab-approvals"
-            >
-              <AlertTriangle className="h-4 w-4" /> Approvals
-              {pendingApprovals.length > 0 && (
-                <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {pendingApprovals.length}
-                </Badge>
-              )}
-            </Button>
-          )}
+          <Button 
+            variant={activeTab === "approvals" ? "default" : "ghost"}
+            className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            onClick={() => setActiveTab("approvals")}
+            data-testid="tab-approvals"
+          >
+            <AlertTriangle className="h-4 w-4" /> Approvals
+            {pendingApprovals.length > 0 && (
+              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {pendingApprovals.length}
+              </Badge>
+            )}
+          </Button>
           {!isReceptionist && (
             <Button 
               variant={activeTab === "targets" ? "default" : "ghost"}
