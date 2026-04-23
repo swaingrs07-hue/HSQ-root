@@ -3944,7 +3944,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Get pending approval bookings (admin only) — must be before /:id route
-  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin", "manager"), async (req, res) => {
     try {
       const bookings = await storage.getPendingApprovalBookings();
       
@@ -4517,7 +4517,7 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
+      if (!payload || !["admin", "superadmin", "manager"].includes(payload.role)) {
         return res.status(403).json({ error: "Admin access required" });
       }
       if (!payload.userId) {
@@ -4555,7 +4555,7 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin")) {
+      if (!payload || !["admin", "superadmin", "manager"].includes(payload.role)) {
         return res.status(403).json({ error: "Admin access required" });
       }
       if (!payload.userId) {
