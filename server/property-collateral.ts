@@ -344,7 +344,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     [
       { label: "Location", value: property.location || "Mumbai" },
       { label: "Property Type", value: (property.category || "Co-Living").replace(/_/g, " ") },
-      { label: "Starts From", value: roomTypes && roomTypes.length ? `₹${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}` : "On Request" },
+      { label: "Starts From", value: roomTypes && roomTypes.length ? `Rs ${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}` : "On Request" },
     ],
     "Enquire",
     cardX,
@@ -513,7 +513,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     setText(COLOR_GOLD);
     doc.setFont("times", "bold");
     doc.setFontSize(15);
-    doc.text(`₹${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
+    doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
     setText(COLOR_TAUPE);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
@@ -699,7 +699,7 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
         { text: String(rt.occupancy ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
         { text: rt.size || "—", options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
         { text: String(rt.availableBeds ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
-        { text: `₹${(rt.basePrice || 0).toLocaleString("en-IN")}`, options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, bold: true } },
+        { text: `Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, bold: true } },
       ]);
     }
     s4.addTable(rows, {
