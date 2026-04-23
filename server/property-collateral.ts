@@ -149,7 +149,10 @@ function splitItalicAccent(headline: string): { lead: string; accent: string; ta
   };
 }
 
-export async function generatePropertyBrochurePdf(propertyId: string): Promise<Buffer | null> {
+export type BrochureOptions = { includePrice?: boolean };
+
+export async function generatePropertyBrochurePdf(propertyId: string, options: BrochureOptions = {}): Promise<Buffer | null> {
+  const includePrice = options.includePrice !== false;
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
   const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
@@ -344,7 +347,9 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     [
       { label: "Location", value: property.location || "Mumbai" },
       { label: "Property Type", value: (property.category || "Co-Living").replace(/_/g, " ") },
-      { label: "Starts From", value: roomTypes && roomTypes.length ? `Rs ${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}` : "On Request" },
+      includePrice
+        ? { label: "Starts From", value: roomTypes && roomTypes.length ? `Rs ${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}` : "On Request" }
+        : { label: "Availability", value: "On Request" },
     ],
     "Enquire",
     cardX,
@@ -604,14 +609,21 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     ].filter(Boolean).join("   ·   ");
     if (meta) doc.text(meta, rightX + 14, y3r + 38);
 
-    setText(COLOR_GOLD);
-    doc.setFont("times", "bold");
-    doc.setFontSize(15);
-    doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
-    setText(COLOR_TAUPE);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text("per month", rightX + colW - 14, y3r + 38, { align: "right" });
+    if (includePrice) {
+      setText(COLOR_GOLD);
+      doc.setFont("times", "bold");
+      doc.setFontSize(15);
+      doc.text(`Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
+      setText(COLOR_TAUPE);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text("per month", rightX + colW - 14, y3r + 38, { align: "right" });
+    } else {
+      setText(COLOR_GOLD);
+      doc.setFont("times", "italic");
+      doc.setFontSize(12);
+      doc.text("On request", rightX + colW - 14, y3r + 32, { align: "right" });
+    }
 
     y3r += rowH + 8;
   }
@@ -683,7 +695,8 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
 }
 
 // ----- PPT -----
-export async function generatePropertyBrochurePpt(propertyId: string): Promise<Buffer | null> {
+export async function generatePropertyBrochurePpt(propertyId: string, options: BrochureOptions = {}): Promise<Buffer | null> {
+  const includePrice = options.includePrice !== false;
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
   const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
@@ -778,23 +791,33 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
     s4.background = { color: COLOR_CHARCOAL.replace("#", "") };
     s4.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.55, w: 0.6, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
     s4.addText("ACCOMMODATION", { x: 0.6, y: 0.65, w: 8, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
-    s4.addText("Room Types & Pricing", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CREAM.replace("#", "") });
+    s4.addText(includePrice ? "Room Types & Pricing" : "Room Types", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CREAM.replace("#", "") });
 
-    const rows: PptxRow[] = [[
+    const headerRow: PptxRow = [
       { text: "ROOM TYPE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
       { text: "OCCUPANCY", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
       { text: "SIZE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
       { text: "AVAILABLE", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-      { text: "PRICE / MONTH", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } },
-    ]];
+    ];
+    if (includePrice) {
+      headerRow.push({ text: "PRICE / MONTH", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } });
+    } else {
+      headerRow.push({ text: "AVAILABILITY", options: { bold: true, color: COLOR_GOLD.replace("#", ""), fontSize: 11, fill: { color: "0F0F0F" } } });
+    }
+    const rows: PptxRow[] = [headerRow];
     for (const rt of roomTypes.slice(0, 8)) {
-      rows.push([
+      const row: PptxRow = [
         { text: rt.customName || (rt.name || "").toString().replace(/_/g, " "), options: { color: COLOR_CREAM.replace("#", ""), fontSize: 12, bold: true } },
         { text: String(rt.occupancy ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
         { text: rt.size || "—", options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
         { text: String(rt.availableBeds ?? "—"), options: { color: COLOR_TAUPE.replace("#", ""), fontSize: 12 } },
-        { text: `Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, bold: true } },
-      ]);
+      ];
+      if (includePrice) {
+        row.push({ text: `Rs ${(rt.basePrice || 0).toLocaleString("en-IN")}`, options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, bold: true } });
+      } else {
+        row.push({ text: "On request", options: { color: COLOR_GOLD.replace("#", ""), fontSize: 12, italic: true } });
+      }
+      rows.push(row);
     }
     s4.addTable(rows, {
       x: 0.6, y: 2.1, w: 12.1, colW: [3.4, 1.8, 2.3, 2.0, 2.6],
@@ -840,11 +863,13 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
   return out as Buffer;
 }
 
-export function getPropertyDownloadFilename(property: Property, format: "pdf" | "pptx"): string {
+export function getPropertyDownloadFilename(property: Property, format: "pdf" | "pptx", options: BrochureOptions = {}): string {
+  const includePrice = options.includePrice !== false;
   const safe = (property.displayName || property.name || "property")
     .replace(/[^a-zA-Z0-9\- ]+/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .toLowerCase();
-  return `hsquare-${safe}-brochure.${format}`;
+  const suffix = includePrice ? "brochure" : "brochure-no-price";
+  return `hsquare-${safe}-${suffix}.${format}`;
 }

@@ -2953,13 +2953,15 @@ ${allPages.map(p => `  <url>
       // server via loopback, to prevent SSRF via x-forwarded-host spoofing.
       const { generatePropertyBrochurePdf, generatePropertyBrochurePpt, getPropertyDownloadFilename } = await import("./property-collateral");
 
+      const includePrice = String(req.query.price ?? "with").toLowerCase() !== "without";
+
       const buffer = format === "pdf"
-        ? await generatePropertyBrochurePdf(property.id)
-        : await generatePropertyBrochurePpt(property.id);
+        ? await generatePropertyBrochurePdf(property.id, { includePrice })
+        : await generatePropertyBrochurePpt(property.id, { includePrice });
 
       if (!buffer) return res.status(500).json({ error: "Failed to generate brochure" });
 
-      const filename = getPropertyDownloadFilename(property, format);
+      const filename = getPropertyDownloadFilename(property, format, { includePrice });
       res.setHeader("Content-Type", format === "pdf"
         ? "application/pdf"
         : "application/vnd.openxmlformats-officedocument.presentationml.presentation");
