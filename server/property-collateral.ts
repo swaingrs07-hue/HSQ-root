@@ -68,7 +68,7 @@ async function loadImageAsDataUrl(url: string): Promise<string | null> {
       // Relative path: only allow internal /api/uploads/* or /uploads/* references.
       // Always resolve against loopback (this same server) — never trust caller-provided
       // baseUrl/x-forwarded-host headers which could redirect us to attacker-controlled hosts.
-      if (!url.startsWith("/api/") && !url.startsWith("/uploads/") && !url.startsWith("/public/")) {
+      if (!url.startsWith("/api/") && !url.startsWith("/uploads/") && !url.startsWith("/public/") && !url.startsWith("/objects/")) {
         return null;
       }
       const port = process.env.PORT || "5000";
@@ -106,248 +106,462 @@ async function gatherPropertyData(propertyId: string) {
 }
 
 // ----- PDF -----
+// ===== Editorial landscape brochure (Arvane-inspired) =====
+//
+// Each page follows the same luxury-real-estate layout language:
+//   - Cream canvas with generous whitespace
+//   - Tiny uppercase eyebrow + thin gold accent rule
+//   - Large serif headline on the left, with one italic accent word
+//   - Editorial photography on the right, rounded corners
+//   - Floating "card" overlay with key facts at the bottom of the image
+//
+// We use jsPDF's bundled `times` family for the serif headlines and
+// `helvetica` for UI text, since true custom fonts aren't bundled.
+
+function splitItalicAccent(headline: string): { lead: string; accent: string; tail: string } {
+  // Pick the most evocative word in the headline to italicise.
+  // We bias toward emotive nouns; if none match we italicise the last word.
+  const preferred = ["trust", "elegance", "comfort", "calm", "home", "harmony", "living", "luxury", "belonging", "ease", "style", "premium", "connected", "included", "pricing"];
+  const words = headline.trim().split(/\s+/);
+  if (words.length < 2) return { lead: headline, accent: "", tail: "" };
+  // Prefer the LAST evocative word in the headline (Arvane convention).
+  let idx = -1;
+  for (let i = words.length - 1; i >= 0; i--) {
+    if (preferred.includes(words[i].toLowerCase().replace(/[^a-z]/g, ""))) { idx = i; break; }
+  }
+  if (idx === -1) idx = words.length - 1;
+  return {
+    lead: words.slice(0, idx).join(" ") + (idx > 0 ? " " : ""),
+    accent: words[idx],
+    tail: idx < words.length - 1 ? " " + words.slice(idx + 1).join(" ") : "",
+  };
+}
+
 export async function generatePropertyBrochurePdf(propertyId: string): Promise<Buffer | null> {
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
   const { property, roomTypes, nearbyLocs, images } = data;
 
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
-  const m = 40;
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+  const pw = doc.internal.pageSize.getWidth();   // 842
+  const ph = doc.internal.pageSize.getHeight();  // 595
+  const m = 48;
+  const gutter = 32;
+  const colW = (pw - m * 2 - gutter) / 2;
+  const leftX = m;
+  const rightX = m + colW + gutter;
 
-  const setRgb = (hex: string, fn: (r: number, g: number, b: number) => void) => {
+  const setFill = (hex: string) => {
     const h = hex.replace("#", "");
-    fn(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
+    doc.setFillColor(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
+  };
+  const setText = (hex: string) => {
+    const h = hex.replace("#", "");
+    doc.setTextColor(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
+  };
+  const setDraw = (hex: string) => {
+    const h = hex.replace("#", "");
+    doc.setDrawColor(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16));
   };
 
-  // ========== Cover Page ==========
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, 0, pw, ph, "F");
+  const paintBackground = () => {
+    setFill(COLOR_CREAM);
+    doc.rect(0, 0, pw, ph, "F");
+  };
 
-  if (images[0]) {
+  const drawHeader = () => {
+    // Brand mark (small)
     try {
-      doc.addImage(images[0], "JPEG", 0, 0, pw, ph * 0.65, undefined, "FAST");
+      doc.addImage(`data:image/png;base64,${HSQUARE_LOGO_BASE64}`, "PNG", m, m - 8, 22, 22);
     } catch {}
-  }
-
-  // Dark gradient overlay simulation
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, ph * 0.55, pw, ph * 0.45, "F");
-
-  // Gold accent line
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(m, ph * 0.62, 60, 2, "F");
-
-  // Brand mark
-  try {
-    doc.addImage(`data:image/png;base64,${HSQUARE_LOGO_BASE64}`, "PNG", m, ph * 0.66, 36, 36);
-  } catch {}
-
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("HSQUARE LIVING  ·  PREMIUM STUDENT RESIDENCES", m + 48, ph * 0.685);
-
-  setRgb(COLOR_CREAM, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(34);
-  doc.setFont("helvetica", "bold");
-  const title = (property.displayName || property.name || "").toUpperCase();
-  const titleLines = doc.splitTextToSize(title, pw - m * 2);
-  doc.text(titleLines, m, ph * 0.78);
-
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.text(property.location || "", m, ph * 0.82 + titleLines.length * 12);
-  if (property.address) {
-    doc.text(doc.splitTextToSize(property.address, pw - m * 2), m, ph * 0.84 + titleLines.length * 12);
-  }
-
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(8);
-  doc.text("PROPERTY BROCHURE  ·  " + new Date().getFullYear(), m, ph - m);
-
-  // ========== Page 2: Overview ==========
-  doc.addPage();
-  setRgb(COLOR_CREAM, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, 0, pw, ph, "F");
-
-  let y = m + 10;
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(m, y, 40, 2, "F");
-  y += 18;
-
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("OVERVIEW", m, y);
-  y += 16;
-
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  const heading = doc.splitTextToSize(property.displayName || property.name || "", pw - m * 2);
-  doc.text(heading, m, y);
-  y += heading.length * 22 + 6;
-
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  if (property.location) { doc.text(`Location  ·  ${property.location}`, m, y); y += 14; }
-  if (property.address) {
-    const addr = doc.splitTextToSize(`Address  ·  ${property.address}`, pw - m * 2);
-    doc.text(addr, m, y); y += addr.length * 12 + 2;
-  }
-  if (property.phone) { doc.text(`Contact  ·  ${property.phone}`, m, y); y += 14; }
-  if (property.email) { doc.text(`Email  ·  ${property.email}`, m, y); y += 14; }
-  y += 10;
-
-  // Highlights
-  const highlights = (property.highlights || []).filter(Boolean);
-  if (highlights.length) {
-    setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setTextColor(r, g, b));
+    setText(COLOR_CHARCOAL);
+    doc.setFont("times", "bold");
     doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text("Property Highlights", m, y); y += 16;
-    setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-    doc.setFontSize(10);
+    doc.text("Hsquare", m + 28, m + 6);
+    setText(COLOR_TAUPE);
     doc.setFont("helvetica", "normal");
-    for (const h of highlights.slice(0, 8)) {
-      const lines = doc.splitTextToSize(`•  ${h}`, pw - m * 2);
-      doc.text(lines, m, y);
-      y += lines.length * 13;
+    doc.setFontSize(7.5);
+    doc.text("PREMIUM STUDENT RESIDENCES", m + 28, m + 16);
+
+    // Top-right meta
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Property Brochure  ·  ${new Date().getFullYear()}`, pw - m, m + 8, { align: "right" });
+  };
+
+  const drawEyebrow = (text: string, x: number, y: number) => {
+    setFill(COLOR_GOLD);
+    doc.rect(x, y - 4, 24, 1.5, "F");
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(text, x + 32, y);
+  };
+
+  const drawHeadline = (headline: string, x: number, y: number, maxW: number, size = 36): number => {
+    const { lead, accent, tail } = splitItalicAccent(headline);
+    setText(COLOR_CHARCOAL);
+    doc.setFontSize(size);
+    // We render line by line, mixing roman + italic for the accent.
+    // jsPDF doesn't have a true mixed-style line layout, so we render
+    // the lead, then italic accent, then tail using cursor advance via getTextWidth.
+    const lineH = size * 1.05;
+    let cursorX = x;
+    let cursorY = y;
+
+    const writeWord = (word: string, italic: boolean) => {
+      doc.setFont("times", italic ? "italic" : "bold");
+      const w = doc.getTextWidth(word);
+      if (cursorX + w > x + maxW) {
+        cursorX = x;
+        cursorY += lineH;
+      }
+      doc.text(word, cursorX, cursorY);
+      cursorX += w;
+    };
+
+    const tokens: { word: string; italic: boolean }[] = [];
+    if (lead) lead.trim().split(/\s+/).forEach(w => tokens.push({ word: w + " ", italic: false }));
+    if (accent) tokens.push({ word: accent + (tail ? " " : ""), italic: true });
+    if (tail) tail.trim().split(/\s+/).forEach(w => tokens.push({ word: " " + w, italic: false }));
+
+    tokens.forEach(t => writeWord(t.word, t.italic));
+    return cursorY + 6;
+  };
+
+  // Rounded image: clip subsequent drawing to a rounded rect path, draw the
+  // image inside that clip, then restore graphics state. This gives true
+  // rounded corners on all four sides without double-stamping the image.
+  const drawEditorialImage = (imgData: string | undefined, x: number, y: number, w: number, h: number, radius = 16) => {
+    doc.saveGraphicsState();
+    // Build the rounded-rect clipping path. We use the lower-level path API
+    // because doc.roundedRect would fill/stroke; we want to discard.
+    doc.roundedRect(x, y, w, h, radius, radius, undefined as unknown as string);
+    // jsPDF's clip() restricts subsequent drawing to the most-recent path.
+    (doc as unknown as { clip: () => void }).clip();
+    (doc as unknown as { discardPath: () => void }).discardPath();
+
+    if (imgData) {
+      try {
+        doc.addImage(imgData, "JPEG", x, y, w, h, undefined, "FAST");
+      } catch {
+        setFill("#E5DED2");
+        doc.rect(x, y, w, h, "F");
+      }
+    } else {
+      setFill("#E5DED2");
+      doc.rect(x, y, w, h, "F");
+      setText(COLOR_TAUPE);
+      doc.setFont("times", "italic");
+      doc.setFontSize(13);
+      doc.text("Photography coming soon", x + w / 2, y + h / 2, { align: "center" });
     }
-    y += 8;
-  }
+    doc.restoreGraphicsState();
+  };
 
-  // Hero image
-  if (images[1] && y < ph - 220) {
-    try {
-      doc.addImage(images[1], "JPEG", m, y, pw - m * 2, 200, undefined, "FAST");
-    } catch {}
-    y += 210;
-  }
+  // Floating fact card (Arvane-style overlay at bottom of image)
+  const drawFactCard = (cells: { label: string; value: string }[], cta: string | null, x: number, y: number, w: number, h: number) => {
+    setFill(COLOR_CREAM);
+    doc.roundedRect(x, y, w, h, 14, 14, "F");
+    // Subtle hairline border
+    setDraw("#E8E1D2");
+    doc.setLineWidth(0.7);
+    doc.roundedRect(x, y, w, h, 14, 14, "S");
 
-  // ========== Page 3: Amenities & Room Types ==========
-  doc.addPage();
-  setRgb(COLOR_CREAM, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, 0, pw, ph, "F");
-
-  y = m + 10;
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(m, y, 40, 2, "F");
-  y += 18;
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(9);
-  doc.text("AMENITIES & FACILITIES", m, y);
-  y += 18;
-
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.text("What's Included", m, y); y += 22;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  const amenities = (property.amenities || []).filter(Boolean);
-  const colW = (pw - m * 2 - 20) / 2;
-  let col = 0; let yA = y;
-  for (const a of amenities) {
-    const x = m + col * (colW + 20);
-    doc.text(`•  ${a}`, x, yA);
-    col = 1 - col;
-    if (col === 0) yA += 14;
-    if (yA > ph - 180) break;
-  }
-  y = yA + 24;
-
-  if (roomTypes && roomTypes.length) {
-    setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-    doc.rect(m, y, 40, 2, "F");
-    y += 18;
-    setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-    doc.setFontSize(9);
-    doc.text("ACCOMMODATION OPTIONS", m, y); y += 18;
-    setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setTextColor(r, g, b));
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Room Types & Pricing", m, y); y += 22;
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    for (const rt of roomTypes.slice(0, 6)) {
-      if (y > ph - m - 30) { doc.addPage(); y = m + 10; setRgb(COLOR_CREAM, (r,g,b)=>doc.setFillColor(r,g,b)); doc.rect(0,0,pw,ph,"F"); }
-      setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setTextColor(r, g, b));
+    const innerPad = 16;
+    const cellW = (w - innerPad * 2 - (cta ? 110 : 0)) / cells.length;
+    cells.forEach((cell, i) => {
+      const cx = x + innerPad + cellW * i;
+      setText(COLOR_TAUPE);
       doc.setFont("helvetica", "bold");
-      doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), m, y);
-      setRgb(COLOR_GOLD, (r, g, b) => doc.setTextColor(r, g, b));
-      doc.text(`₹${(rt.basePrice || 0).toLocaleString("en-IN")} / month`, pw - m, y, { align: "right" });
-      y += 14;
-      setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(cell.label.toUpperCase(), cx, y + 18);
+      setText(COLOR_CHARCOAL);
+      doc.setFont("times", "bold");
+      doc.setFontSize(13);
+      const vLines = doc.splitTextToSize(cell.value, cellW - 6);
+      doc.text(vLines.slice(0, 1), cx, y + 36);
+    });
+    if (cta) {
+      const btnW = 92, btnH = 30;
+      const btnX = x + w - innerPad - btnW;
+      const btnY = y + (h - btnH) / 2;
+      setFill(COLOR_CHARCOAL);
+      doc.roundedRect(btnX, btnY, btnW, btnH, 14, 14, "F");
+      setText(COLOR_CREAM);
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      const meta = [
-        rt.size ? `Size: ${rt.size}` : null,
-        rt.occupancy ? `Occupancy: ${rt.occupancy}` : null,
-        rt.availableBeds != null ? `Available beds: ${rt.availableBeds}` : null,
-      ].filter(Boolean).join("   ·   ");
-      if (meta) { doc.text(meta, m, y); y += 14; }
-      doc.setFontSize(11);
-      y += 4;
+      doc.text(cta, btnX + btnW / 2, btnY + btnH / 2 + 3, { align: "center" });
+    }
+  };
+
+  const drawFooter = (pageLabel: string) => {
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(`hsquare.in  ·  ${property.phone || "+91 98205 71032"}`, m, ph - 22);
+    doc.text(pageLabel, pw - m, ph - 22, { align: "right" });
+    setFill(COLOR_GOLD);
+    doc.rect(m, ph - 32, 16, 1, "F");
+  };
+
+  // ============================================================
+  // PAGE 1 — Hero / Cover (Arvane signature layout)
+  // ============================================================
+  paintBackground();
+  drawHeader();
+
+  // Right: editorial image
+  const heroImgX = pw / 2 + 12;
+  const heroImgY = m + 36;
+  const heroImgW = pw - m - heroImgX;
+  const heroImgH = ph - heroImgY - 80;
+  drawEditorialImage(images[0], heroImgX, heroImgY, heroImgW, heroImgH, 18);
+
+  // Floating fact card overlapping the bottom of the image
+  const cardW = heroImgW * 0.92;
+  const cardH = 64;
+  const cardX = heroImgX + (heroImgW - cardW) / 2;
+  const cardY = heroImgY + heroImgH - cardH / 2 - 6;
+  drawFactCard(
+    [
+      { label: "Location", value: property.location || "Mumbai" },
+      { label: "Property Type", value: (property.category || "Co-Living").replace(/_/g, " ") },
+      { label: "Starts From", value: roomTypes && roomTypes.length ? `₹${Math.min(...roomTypes.map(r => r.basePrice || Infinity)).toLocaleString("en-IN")}` : "On Request" },
+    ],
+    "Enquire",
+    cardX,
+    cardY,
+    cardW,
+    cardH,
+  );
+
+  // Left: eyebrow + headline + body + meta
+  const heroLeftX = m;
+  const heroLeftW = pw / 2 - m - 24;
+  drawEyebrow("PREMIUM STUDENT RESIDENCE", heroLeftX, m + 60);
+
+  const heroHeadline = `Discover a home built on ${["trust", "comfort", "harmony"][Math.floor((property.id?.charCodeAt(0) || 0) % 3)]} and elegance.`;
+  let nextY = drawHeadline(heroHeadline, heroLeftX, m + 110, heroLeftW, 32);
+
+  setText(COLOR_TAUPE);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const intro = property.description ||
+    `${property.displayName || property.name} blends modern student living with seamless experiences — a calm address designed for focus, community, and the rhythm of academic life in ${property.location || "Mumbai"}.`;
+  const introLines = doc.splitTextToSize(intro, heroLeftW);
+  doc.text(introLines.slice(0, 5), heroLeftX, nextY + 8);
+  nextY = nextY + 8 + introLines.slice(0, 5).length * 13;
+
+  // Property name as serif sub-headline
+  setText(COLOR_CHARCOAL);
+  doc.setFont("times", "bold");
+  doc.setFontSize(20);
+  const nameLines = doc.splitTextToSize(property.displayName || property.name || "", heroLeftW);
+  doc.text(nameLines, heroLeftX, nextY + 26);
+  nextY += 26 + nameLines.length * 22;
+
+  // Address line
+  if (property.address) {
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const addr = doc.splitTextToSize(property.address, heroLeftW);
+    doc.text(addr.slice(0, 2), heroLeftX, nextY + 6);
+  }
+
+  drawFooter("01");
+
+  // ============================================================
+  // PAGE 2 — Overview & Highlights (image left, content right)
+  // ============================================================
+  doc.addPage();
+  paintBackground();
+  drawHeader();
+
+  // Left: editorial image
+  const p2ImgY = m + 36;
+  const p2ImgH = ph - p2ImgY - 80;
+  drawEditorialImage(images[1] || images[0], leftX, p2ImgY, colW, p2ImgH, 16);
+
+  // Right: copy stack
+  drawEyebrow("OVERVIEW", rightX, m + 60);
+  let y2 = drawHeadline("A residence crafted for student living.", rightX, m + 96, colW, 24);
+
+  setText(COLOR_TAUPE);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const overviewBody = property.description ||
+    "Designed with intention — every detail of this residence supports rest, study, and connection. Curated common areas, considered amenities, and a service team obsessed with the small things.";
+  const overviewLines = doc.splitTextToSize(overviewBody, colW);
+  doc.text(overviewLines.slice(0, 6), rightX, y2 + 6);
+  y2 = y2 + 6 + overviewLines.slice(0, 6).length * 13 + 16;
+
+  // Highlights block
+  const highlights = (property.highlights || []).filter(Boolean).slice(0, 6);
+  if (highlights.length) {
+    setText(COLOR_CHARCOAL);
+    doc.setFont("times", "bold");
+    doc.setFontSize(13);
+    doc.text("Property highlights", rightX, y2);
+    y2 += 18;
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    for (const h of highlights) {
+      if (y2 > ph - 100) break;
+      // Gold dot bullet
+      setFill(COLOR_GOLD);
+      doc.circle(rightX + 3, y2 - 3, 1.6, "F");
+      setText(COLOR_CHARCOAL);
+      const lines = doc.splitTextToSize(h, colW - 14);
+      doc.text(lines.slice(0, 2), rightX + 12, y2);
+      y2 += lines.slice(0, 2).length * 13 + 4;
     }
   }
 
-  // ========== Page 4: Location & Closing ==========
+  // Contact strip
+  const contactBits = [
+    property.location ? `${property.location}` : null,
+    property.phone ? `${property.phone}` : null,
+    property.email ? `${property.email}` : null,
+  ].filter(Boolean).join("   ·   ");
+  if (contactBits) {
+    setFill("#F2EBDD");
+    doc.roundedRect(rightX, ph - 90, colW, 28, 10, 10, "F");
+    setText(COLOR_CHARCOAL);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.text(contactBits, rightX + 14, ph - 72);
+  }
+
+  drawFooter("02");
+
+  // ============================================================
+  // PAGE 3 — Amenities (left) + Room Types & Pricing (right)
+  // ============================================================
   doc.addPage();
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, 0, pw, ph, "F");
+  paintBackground();
+  drawHeader();
 
-  if (images[2]) {
-    try { doc.addImage(images[2], "JPEG", 0, 0, pw, 280, undefined, "FAST"); } catch {}
-  }
-  setRgb(COLOR_CHARCOAL, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(0, 240, pw, ph - 240, "F");
+  drawEyebrow("AMENITIES & FACILITIES", leftX, m + 60);
+  let y3 = drawHeadline("Everything you need, included.", leftX, m + 96, colW, 22);
 
-  y = 320;
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(m, y, 40, 2, "F");
-  y += 18;
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(9);
-  doc.text("LOCATION & NEIGHBOURHOOD", m, y);
-  y += 18;
-  setRgb(COLOR_CREAM, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.text("Perfectly Connected", m, y); y += 22;
-
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(10);
+  const amenities = (property.amenities || []).filter(Boolean);
+  setText(COLOR_CHARCOAL);
   doc.setFont("helvetica", "normal");
-  for (const n of (nearbyLocs || []).slice(0, 10)) {
-    if (y > ph - 120) break;
-    doc.text(`•  ${n.placeName}`, m, y);
-    setRgb(COLOR_GOLD, (r, g, b) => doc.setTextColor(r, g, b));
-    doc.text(n.distance || "", pw - m, y, { align: "right" });
-    setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-    y += 14;
+  doc.setFontSize(9.5);
+  const amenityColW = colW / 2 - 8;
+  let aCol = 0;
+  let aY = y3 + 16;
+  for (const a of amenities) {
+    if (aY > ph - 80) break;
+    const ax = leftX + aCol * (amenityColW + 16);
+    setFill(COLOR_GOLD);
+    doc.circle(ax + 2, aY - 3, 1.4, "F");
+    setText(COLOR_CHARCOAL);
+    const lines = doc.splitTextToSize(a, amenityColW - 12);
+    doc.text(lines.slice(0, 1), ax + 10, aY);
+    aCol = 1 - aCol;
+    if (aCol === 0) aY += 15;
   }
 
-  // Footer CTA
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setFillColor(r, g, b));
-  doc.rect(m, ph - 80, pw - m * 2, 1, "F");
-  setRgb(COLOR_CREAM, (r, g, b) => doc.setTextColor(r, g, b));
+  // Right column — room types & pricing as editorial cards
+  drawEyebrow("ACCOMMODATION", rightX, m + 60);
+  let y3r = drawHeadline("Room types & pricing.", rightX, m + 96, colW, 22);
+  y3r += 12;
+
+  const showRooms = (roomTypes || []).slice(0, 5);
+  for (const rt of showRooms) {
+    if (y3r > ph - 90) break;
+    const rowH = 56;
+    setFill("#F6F0E2");
+    doc.roundedRect(rightX, y3r, colW, rowH, 10, 10, "F");
+    setText(COLOR_CHARCOAL);
+    doc.setFont("times", "bold");
+    doc.setFontSize(13);
+    doc.text(rt.customName || (rt.name || "").toString().replace(/_/g, " "), rightX + 14, y3r + 22);
+
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const meta = [
+      rt.size ? rt.size : null,
+      rt.occupancy ? `Occupancy ${rt.occupancy}` : null,
+      rt.availableBeds != null ? `${rt.availableBeds} beds available` : null,
+    ].filter(Boolean).join("   ·   ");
+    if (meta) doc.text(meta, rightX + 14, y3r + 38);
+
+    setText(COLOR_GOLD);
+    doc.setFont("times", "bold");
+    doc.setFontSize(15);
+    doc.text(`₹${(rt.basePrice || 0).toLocaleString("en-IN")}`, rightX + colW - 14, y3r + 26, { align: "right" });
+    setText(COLOR_TAUPE);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("per month", rightX + colW - 14, y3r + 38, { align: "right" });
+
+    y3r += rowH + 8;
+  }
+
+  drawFooter("03");
+
+  // ============================================================
+  // PAGE 4 — Location & Closing CTA (image hero + editorial card)
+  // ============================================================
+  doc.addPage();
+  paintBackground();
+  drawHeader();
+
+  // Top hero band image
+  const p4ImgY = m + 36;
+  const p4ImgH = ph * 0.5;
+  drawEditorialImage(images[2] || images[0], leftX, p4ImgY, pw - m * 2, p4ImgH, 18);
+
+  // Below: two columns — left location text, right nearby list
+  let y4 = p4ImgY + p4ImgH + 28;
+  drawEyebrow("LOCATION & NEIGHBOURHOOD", leftX, y4);
+  drawHeadline("Perfectly connected.", leftX, y4 + 28, colW, 20);
+
+  setText(COLOR_TAUPE);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  const locBody = property.address || `${property.location || "Mumbai"} — minutes from Mumbai's leading colleges, transit, and dining.`;
+  const locLines = doc.splitTextToSize(locBody, colW);
+  doc.text(locLines.slice(0, 3), leftX, y4 + 60);
+
+  // Right: nearby list
+  const nearby = (nearbyLocs || []).slice(0, 6);
+  let yN = y4 + 16;
+  for (const n of nearby) {
+    if (yN > ph - 80) break;
+    setText(COLOR_CHARCOAL);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(n.placeName, rightX, yN);
+    setText(COLOR_GOLD);
+    doc.setFont("helvetica", "normal");
+    doc.text(n.distance || "", rightX + colW, yN, { align: "right" });
+    setDraw("#E8E1D2");
+    doc.setLineWidth(0.5);
+    doc.line(rightX, yN + 4, rightX + colW, yN + 4);
+    yN += 16;
+  }
+
+  // CTA strip across the bottom
+  setFill(COLOR_CHARCOAL);
+  doc.roundedRect(m, ph - 60, pw - m * 2, 32, 14, 14, "F");
+  setText(COLOR_CREAM);
+  doc.setFont("times", "bold");
   doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("Reserve your residence today", m, ph - 56);
-  setRgb(COLOR_TAUPE, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(9);
+  doc.text("Reserve your residence today", m + 18, ph - 39);
+  setText(COLOR_GOLD);
   doc.setFont("helvetica", "normal");
-  doc.text("Visit hsquare.in  ·  " + (property.phone || "+91 9876543210") + "  ·  " + (property.email || "stay@hsquareliving.com"), m, ph - 40);
-  setRgb(COLOR_GOLD, (r, g, b) => doc.setTextColor(r, g, b));
-  doc.setFontSize(8);
-  doc.text("© Hsquareliving Pvt Ltd  ·  Generated " + new Date().toLocaleDateString("en-IN"), m, ph - 22);
+  doc.setFontSize(9);
+  doc.text(`hsquare.in   ·   ${property.phone || "+91 98205 71032"}   ·   ${property.email || "stay@hsquareliving.com"}`, pw - m - 18, ph - 39, { align: "right" });
+
+  drawFooter("04");
 
   return Buffer.from(doc.output("arraybuffer"));
 }
