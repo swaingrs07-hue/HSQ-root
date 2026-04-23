@@ -28,6 +28,7 @@ function parseImages(json: string | null | undefined): string[] {
 
 function pickImages(p: Property): string[] {
   const all: string[] = [];
+  if (p.brochureCoverImage) all.push(p.brochureCoverImage);
   if (p.imageUrl) all.push(p.imageUrl);
   all.push(...parseImages(p.tourOverviewImages));
   all.push(...parseImages(p.tourRoomsImages));
@@ -93,16 +94,27 @@ async function gatherPropertyData(propertyId: string) {
   const property = await storage.getPropertyByIdOrSlug(propertyId);
   if (!property) return null;
 
-  const [roomTypes, nearbyLocs] = await Promise.all([
+  const [allRoomTypes, nearbyLocs] = await Promise.all([
     storage.getRoomTypesByProperty(property.id),
     storage.getNearbyLocationsByProperty(property.id),
   ]);
+
+  const featuredRoomIds = (property.featuredRoomTypeIds || []).filter(Boolean);
+  const roomTypes = featuredRoomIds.length
+    ? allRoomTypes.filter(rt => featuredRoomIds.includes(rt.id))
+    : allRoomTypes;
+
+  const featuredAmenityIds = (property.featuredAmenityIds || []).filter(Boolean);
+  const allAmenities = (property.amenities || []).filter(Boolean);
+  const featuredAmenities = featuredAmenityIds.length
+    ? allAmenities.filter(a => featuredAmenityIds.includes(a))
+    : allAmenities;
 
   const imageUrls = pickImages(property);
   const images = (await Promise.all(imageUrls.map(u => loadImageAsDataUrl(u))))
     .filter((s): s is string => !!s);
 
-  return { property, roomTypes, nearbyLocs, images };
+  return { property, roomTypes, nearbyLocs, images, featuredAmenities };
 }
 
 // ----- PDF -----
@@ -140,7 +152,11 @@ function splitItalicAccent(headline: string): { lead: string; accent: string; ta
 export async function generatePropertyBrochurePdf(propertyId: string): Promise<Buffer | null> {
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
-  const { property, roomTypes, nearbyLocs, images } = data;
+  const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
+  const agentName = property.brochureAgentName || "";
+  const agentPhone = property.brochureAgentPhone || property.phone || "+91 9876543210";
+  const tagline = property.brochureTagline || "";
+  const intro = property.brochureIntro || "";
 
   const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
   const pw = doc.internal.pageSize.getWidth();   // 842
@@ -300,7 +316,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
     setText(COLOR_TAUPE);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(`hsquare.in  ·  ${property.phone || "+91 98205 71032"}`, m, ph - 22);
+    doc.text(`hsquare.in  ·  ${agentPhone || property.phone || "+91 98205 71032"}`, m, ph - 22);
     doc.text(pageLabel, pw - m, ph - 22, { align: "right" });
     setFill(COLOR_GOLD);
     doc.rect(m, ph - 32, 16, 1, "F");
@@ -348,9 +364,9 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   setText(COLOR_TAUPE);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  const intro = property.description ||
+  const heroIntro = intro ||
     `${property.displayName || property.name} blends modern student living with seamless experiences — a calm address designed for focus, community, and the rhythm of academic life in ${property.location || "Mumbai"}.`;
-  const introLines = doc.splitTextToSize(intro, heroLeftW);
+  const introLines = doc.splitTextToSize(heroIntro, heroLeftW);
   doc.text(introLines.slice(0, 5), heroLeftX, nextY + 8);
   nextY = nextY + 8 + introLines.slice(0, 5).length * 13;
 
@@ -392,7 +408,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   setText(COLOR_TAUPE);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  const overviewBody = property.description ||
+  const overviewBody = intro ||
     "Designed with intention — every detail of this residence supports rest, study, and connection. Curated common areas, considered amenities, and a service team obsessed with the small things.";
   const overviewLines = doc.splitTextToSize(overviewBody, colW);
   doc.text(overviewLines.slice(0, 6), rightX, y2 + 6);
@@ -424,7 +440,8 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   // Contact strip
   const contactBits = [
     property.location ? `${property.location}` : null,
-    property.phone ? `${property.phone}` : null,
+    agentName ? `${agentName}` : null,
+    agentPhone ? `${agentPhone}` : (property.phone ? `${property.phone}` : null),
     property.email ? `${property.email}` : null,
   ].filter(Boolean).join("   ·   ");
   if (contactBits) {
@@ -448,7 +465,7 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   drawEyebrow("AMENITIES & FACILITIES", leftX, m + 60);
   let y3 = drawHeadline("Everything you need, included.", leftX, m + 96, colW, 22);
 
-  const amenities = (property.amenities || []).filter(Boolean);
+  const amenities = (featuredAmenities || []).filter(Boolean);
   setText(COLOR_CHARCOAL);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -559,7 +576,12 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
   setText(COLOR_GOLD);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`hsquare.in   ·   ${property.phone || "+91 98205 71032"}   ·   ${property.email || "stay@hsquareliving.com"}`, pw - m - 18, ph - 39, { align: "right" });
+  const ctaContact = [
+    "hsquare.in",
+    agentName ? `${agentName}  ·  ${agentPhone}` : agentPhone,
+    property.email || "stay@hsquareliving.com",
+  ].filter(Boolean).join("   ·   ");
+  doc.text(ctaContact, pw - m - 18, ph - 39, { align: "right" });
 
   drawFooter("04");
 
@@ -570,7 +592,11 @@ export async function generatePropertyBrochurePdf(propertyId: string): Promise<B
 export async function generatePropertyBrochurePpt(propertyId: string): Promise<Buffer | null> {
   const data = await gatherPropertyData(propertyId);
   if (!data) return null;
-  const { property, roomTypes, nearbyLocs, images } = data;
+  const { property, roomTypes, nearbyLocs, images, featuredAmenities } = data;
+  const agentName = property.brochureAgentName || "";
+  const agentPhone = property.brochureAgentPhone || property.phone || "+91 9876543210";
+  const tagline = property.brochureTagline || "";
+  const intro = property.brochureIntro || "";
 
   const pres = new PptxCtor();
   pres.layout = "LAYOUT_WIDE";
@@ -597,6 +623,11 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
   s1.addText(property.location || "", {
     x: 0.6, y: SLIDE_H * 0.86, w: 12, h: 0.4, fontSize: 14, color: COLOR_TAUPE.replace("#", ""), fontFace: "Helvetica",
   });
+  if (tagline) {
+    s1.addText(tagline, {
+      x: 0.6, y: SLIDE_H * 0.91, w: 12, h: 0.4, fontSize: 13, italic: true, color: COLOR_GOLD.replace("#", ""), fontFace: "Helvetica",
+    });
+  }
   s1.addText("PROPERTY BROCHURE  ·  " + new Date().getFullYear(), {
     x: 0.6, y: SLIDE_H - 0.4, w: 6, h: 0.3, fontSize: 9, color: COLOR_GOLD.replace("#", ""),
   });
@@ -610,9 +641,13 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
   const overviewLines: string[] = [];
   if (property.location) overviewLines.push(`Location · ${property.location}`);
   if (property.address) overviewLines.push(`Address · ${property.address}`);
-  if (property.phone) overviewLines.push(`Phone · ${property.phone}`);
+  if (agentName) overviewLines.push(`Agent · ${agentName}`);
+  if (agentPhone) overviewLines.push(`Phone · ${agentPhone}`);
   if (property.email) overviewLines.push(`Email · ${property.email}`);
   s2.addText(overviewLines.join("\n"), { x: 0.6, y: 2.0, w: 8.5, h: 1.5, fontSize: 13, color: COLOR_TAUPE.replace("#", ""), valign: "top", lineSpacingMultiple: 1.4 });
+  if (intro) {
+    s2.addText(intro, { x: 0.6, y: 6.4, w: 12.1, h: 1.0, fontSize: 12, italic: true, color: COLOR_CHARCOAL.replace("#", ""), valign: "top", lineSpacingMultiple: 1.3 });
+  }
 
   const highlights = (property.highlights || []).filter(Boolean).slice(0, 6);
   if (highlights.length) {
@@ -632,7 +667,7 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
   s3.addText("AMENITIES & FACILITIES", { x: 0.6, y: 0.65, w: 8, h: 0.3, fontSize: 11, color: COLOR_TAUPE.replace("#", "") });
   s3.addText("What's Included", { x: 0.6, y: 0.95, w: 12, h: 0.9, fontSize: 32, bold: true, color: COLOR_CHARCOAL.replace("#", "") });
 
-  const amenities = (property.amenities || []).filter(Boolean);
+  const amenities = featuredAmenities;
   const half = Math.ceil(amenities.length / 2);
   const left = amenities.slice(0, half);
   const right = amenities.slice(half);
@@ -697,7 +732,12 @@ export async function generatePropertyBrochurePpt(propertyId: string): Promise<B
   s6.addShape(pres.ShapeType.rect, { x: SLIDE_W / 2 - 0.4, y: 2.4, w: 0.8, h: 0.04, fill: { color: COLOR_GOLD.replace("#", "") }, line: { color: COLOR_GOLD.replace("#", ""), width: 0 } });
   s6.addText("Reserve Your Residence", { x: 0, y: 2.7, w: SLIDE_W, h: 1.0, fontSize: 40, bold: true, color: COLOR_CREAM.replace("#", ""), align: "center" });
   s6.addText(property.displayName || property.name || "", { x: 0, y: 3.7, w: SLIDE_W, h: 0.5, fontSize: 16, color: COLOR_TAUPE.replace("#", ""), align: "center" });
-  s6.addText(`hsquare.in   ·   ${property.phone || "+91 9876543210"}   ·   ${property.email || "stay@hsquareliving.com"}`, {
+  const ctaContact = [
+    "hsquare.in",
+    agentName ? `${agentName}   ·   ${agentPhone}` : agentPhone,
+    property.email || "stay@hsquareliving.com",
+  ].filter(Boolean).join("   ·   ");
+  s6.addText(ctaContact, {
     x: 0, y: 4.5, w: SLIDE_W, h: 0.5, fontSize: 14, color: COLOR_GOLD.replace("#", ""), align: "center",
   });
   s6.addText("© Hsquareliving Pvt Ltd", { x: 0, y: SLIDE_H - 0.5, w: SLIDE_W, h: 0.3, fontSize: 9, color: COLOR_TAUPE.replace("#", ""), align: "center" });

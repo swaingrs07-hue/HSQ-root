@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package, BookOpen, ExternalLink } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -533,11 +534,15 @@ export default function AdminDashboard() {
   const [editProperty, setEditProperty] = useState<any>(null);
   const [editForm, setEditForm] = useState({
     name: "", displayName: "", propertyCode: "", category: "hostel", bookingMode: "monthly",
-    location: "", address: "", city: "", phone: "", email: "",
+    location: "", address: "", city: "", phone: "", alternatePhone: "", email: "",
     amenities: "" as string, rules: "", mapsUrl: "", status: "draft",
     virtualTourUrl: "", virtualTourProvider: "", highlights: "",
     mapLatitude: "", mapLongitude: "",
+    brochureCoverImage: "", brochureTagline: "", brochureIntro: "",
+    brochureAgentName: "", brochureAgentPhone: "",
   });
+  const [editFeaturedAmenityIds, setEditFeaturedAmenityIds] = useState<string[]>([]);
+  const [editFeaturedRoomTypeIds, setEditFeaturedRoomTypeIds] = useState<string[]>([]);
   const [editPropertyImages, setEditPropertyImages] = useState<any[]>([]);
   const [editImagesLoading, setEditImagesLoading] = useState(false);
   const [editTab, setEditTab] = useState("basic");
@@ -791,7 +796,14 @@ export default function AdminDashboard() {
       highlights: (property.highlights || []).join(", "),
       mapLatitude: property.mapLatitude || "",
       mapLongitude: property.mapLongitude || "",
+      brochureCoverImage: property.brochureCoverImage || "",
+      brochureTagline: property.brochureTagline || "",
+      brochureIntro: property.brochureIntro || "",
+      brochureAgentName: property.brochureAgentName || "",
+      brochureAgentPhone: property.brochureAgentPhone || "",
     });
+    setEditFeaturedAmenityIds(Array.isArray(property.featuredAmenityIds) ? property.featuredAmenityIds : []);
+    setEditFeaturedRoomTypeIds(Array.isArray(property.featuredRoomTypeIds) ? property.featuredRoomTypeIds : []);
     setEditImagesLoading(true);
     try {
       const res = await fetch(`/api/properties/${property.id}/images`);
@@ -829,6 +841,13 @@ export default function AdminDashboard() {
         highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
         includedServices: editIncludedServices,
         moveInCharges: editMoveInCharges.serviceLegalCharges > 0 ? editMoveInCharges : null,
+        brochureCoverImage: editForm.brochureCoverImage || null,
+        brochureTagline: editForm.brochureTagline || null,
+        brochureIntro: editForm.brochureIntro || null,
+        brochureAgentName: editForm.brochureAgentName || null,
+        brochureAgentPhone: editForm.brochureAgentPhone || null,
+        featuredAmenityIds: editFeaturedAmenityIds,
+        featuredRoomTypeIds: editFeaturedRoomTypeIds,
       };
       const response = await fetch(`/api/admin/properties/${editProperty.id}`, {
         method: "PATCH",
@@ -1895,7 +1914,7 @@ export default function AdminDashboard() {
           </DialogHeader>
           {editProperty && (
             <Tabs value={editTab} onValueChange={setEditTab}>
-              <TabsList className="grid w-full grid-cols-7 mb-4">
+              <TabsList className="grid w-full grid-cols-8 mb-4">
                 <TabsTrigger value="basic" className="text-xs gap-1" data-testid="edit-tab-basic">
                   <Building2 className="h-3 w-3" /> Basic
                 </TabsTrigger>
@@ -1925,6 +1944,9 @@ export default function AdminDashboard() {
                   {editPropertyImages.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{editPropertyImages.length}</Badge>
                   )}
+                </TabsTrigger>
+                <TabsTrigger value="brochure" className="text-xs gap-1" data-testid="edit-tab-brochure">
+                  <BookOpen className="h-3 w-3" /> Brochure
                 </TabsTrigger>
               </TabsList>
 
@@ -2625,6 +2647,163 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="brochure" className="space-y-4 mt-0">
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs text-amber-900">
+                  Customize what appears in the downloadable property brochure (PDF / PPT). Leave fields blank to fall back to the standard property data.
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Brochure Cover Image URL</Label>
+                  <Input
+                    value={editForm.brochureCoverImage}
+                    onChange={(e) => setEditForm(f => ({ ...f, brochureCoverImage: e.target.value }))}
+                    placeholder="https://… (overrides the default cover photo)"
+                    data-testid="input-brochure-cover-image"
+                  />
+                  {editForm.brochureCoverImage && (
+                    <img
+                      src={editForm.brochureCoverImage}
+                      alt="Brochure cover preview"
+                      className="mt-2 h-32 w-full max-w-sm object-cover rounded border"
+                      data-testid="img-brochure-cover-preview"
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Marketing Tagline</Label>
+                  <Input
+                    value={editForm.brochureTagline}
+                    onChange={(e) => setEditForm(f => ({ ...f, brochureTagline: e.target.value }))}
+                    placeholder="e.g. Where studious minds find their second home"
+                    maxLength={140}
+                    data-testid="input-brochure-tagline"
+                  />
+                  <p className="text-[10px] text-muted-foreground">{editForm.brochureTagline.length}/140 characters</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Custom Intro Paragraph</Label>
+                  <Textarea
+                    value={editForm.brochureIntro}
+                    onChange={(e) => setEditForm(f => ({ ...f, brochureIntro: e.target.value }))}
+                    placeholder="Write a short story about this property, its vibe, what makes it unique…"
+                    rows={5}
+                    maxLength={800}
+                    data-testid="input-brochure-intro"
+                  />
+                  <p className="text-[10px] text-muted-foreground">{editForm.brochureIntro.length}/800 characters</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Agent Name</Label>
+                    <Input
+                      value={editForm.brochureAgentName}
+                      onChange={(e) => setEditForm(f => ({ ...f, brochureAgentName: e.target.value }))}
+                      placeholder="e.g. Riya Mehta"
+                      data-testid="input-brochure-agent-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Agent Phone</Label>
+                    <Input
+                      value={editForm.brochureAgentPhone}
+                      onChange={(e) => setEditForm(f => ({ ...f, brochureAgentPhone: e.target.value }))}
+                      placeholder="+91 9XXXXXXXXX"
+                      data-testid="input-brochure-agent-phone"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Featured Amenities</Label>
+                  <p className="text-xs text-muted-foreground">Select amenities to highlight in the brochure. If none are selected, all amenities will be shown.</p>
+                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3 max-h-48 overflow-y-auto">
+                    {(editForm.amenities.split(",").map(s => s.trim()).filter(Boolean)).length === 0 ? (
+                      <p className="text-xs text-muted-foreground col-span-2 italic">Add amenities in the Features tab first.</p>
+                    ) : (
+                      editForm.amenities.split(",").map(s => s.trim()).filter(Boolean).map((amenity) => {
+                        const checked = editFeaturedAmenityIds.includes(amenity);
+                        return (
+                          <label key={amenity} className="flex items-center gap-2 text-sm cursor-pointer" data-testid={`label-featured-amenity-${amenity}`}>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setEditFeaturedAmenityIds(prev =>
+                                  v ? Array.from(new Set([...prev, amenity])) : prev.filter(a => a !== amenity)
+                                );
+                              }}
+                              data-testid={`checkbox-featured-amenity-${amenity}`}
+                            />
+                            <span>{amenity}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Featured Room Types</Label>
+                  <p className="text-xs text-muted-foreground">Select room types to feature in the brochure. If none are selected, all room types will be shown.</p>
+                  <div className="grid grid-cols-1 gap-2 rounded-md border p-3 max-h-48 overflow-y-auto">
+                    {editRoomTypes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Add room types in the Rooms tab first.</p>
+                    ) : (
+                      editRoomTypes.filter((rt: any) => rt && rt.id && !rt.isNew).map((rt: any) => {
+                        const checked = editFeaturedRoomTypeIds.includes(rt.id);
+                        const label = rt.customName || (rt.name || "").toString().replace(/_/g, " ");
+                        return (
+                          <label key={rt.id} className="flex items-center gap-2 text-sm cursor-pointer" data-testid={`label-featured-room-${rt.id}`}>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setEditFeaturedRoomTypeIds(prev =>
+                                  v ? Array.from(new Set([...prev, rt.id])) : prev.filter(id => id !== rt.id)
+                                );
+                              }}
+                              data-testid={`checkbox-featured-room-${rt.id}`}
+                            />
+                            <span>{label} <span className="text-muted-foreground">· ₹{(rt.basePrice || 0).toLocaleString("en-IN")}/mo</span></span>
+                          </label>
+                        );
+                      })
+                    )}
+                    {editRoomTypes.some((rt: any) => rt.isNew) && (
+                      <p className="text-[11px] text-amber-700">Save new room types first to feature them.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={async () => {
+                      try {
+                        const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+                        const res = await fetch(`/api/properties/${editProperty.id}/download/pdf`, {
+                          headers: { "Authorization": `Bearer ${token}` },
+                        });
+                        if (!res.ok) throw new Error("Failed to generate preview");
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, "_blank", "noopener,noreferrer");
+                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                      } catch (err: any) {
+                        toast({ title: "Preview failed", description: err.message || "Unable to generate brochure", variant: "destructive" });
+                      }
+                    }}
+                    data-testid="button-preview-brochure-pdf"
+                  >
+                    <ExternalLink className="h-4 w-4" /> Live Preview (PDF)
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground self-center">Save your changes first to preview the latest version.</p>
+                </div>
               </TabsContent>
             </Tabs>
           )}

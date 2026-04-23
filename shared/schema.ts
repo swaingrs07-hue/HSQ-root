@@ -104,6 +104,13 @@ export const properties = pgTable("properties", {
   moveInCharges: jsonb("move_in_charges"),
   brochureDownloadCount: integer("brochure_download_count").default(0).notNull(),
   brochureLastDownloadedAt: timestamp("brochure_last_downloaded_at"),
+  brochureCoverImage: text("brochure_cover_image"),
+  brochureTagline: text("brochure_tagline"),
+  brochureIntro: text("brochure_intro"),
+  brochureAgentName: text("brochure_agent_name"),
+  brochureAgentPhone: text("brochure_agent_phone"),
+  featuredAmenityIds: text("featured_amenity_ids").array(),
+  featuredRoomTypeIds: text("featured_room_type_ids").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
