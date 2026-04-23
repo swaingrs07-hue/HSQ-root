@@ -1,0 +1,27 @@
+# Layout & Structure
+
+A vertical-scrolling landing page structure beginning with a 2-column hero and moving into structured content grids (stats, properties, process) before concluding with a dark-themed lead capture section.
+
+## Navigation Bar
+
+Sticky header (h-20) with #FFFFFF/95 background and backdrop-blur. Left: Uppercase logo with a small charcoal square icon. Center: Nav links with a 1px charcoal underline that expands from center on hover. Right: 'Book a Call' text link with phone icon and a primary 'Register' button (bg-charcoal, text-white, px-6, py-2.5, rounded-sm).
+
+## Hero Section
+
+2-column layout. Left: H1 (text-7xl) with a mix of bold and italic neutral-400 text; body paragraph (text-lg, text-neutral-600); social proof stack with three avatar images and a '+2k' badge. Right: Large aspect-[4/3] image with 3xl rounded corners and a shadow-2xl. Floating Search Bar: Overlapping the bottom of the image, 90% width, white background, 4-column grid (Location, Type, Price, Search Button) separated by thin taupe borders.
+
+## About & Statistics
+
+Section with a 2-column header (Title left, Stats right). Stats: Three items showing bold 4xl numbers and uppercase tracking-widest subtext. Below: 3-column card grid. Each card: p-8, border-taupe, icon in a neutral-100 rounded-xl square that turns charcoal on group-hover.
+
+## Featured Properties
+
+3x2 grid of property cards. Each card: aspect-[4/3] image with a wishlist heart icon (top-right, blur-background) and a 'New Listing' badge (bottom-left). Below image: Title (text-xl), Location (icon + text), and bold Price. Bottom: Icon row for Bed/Bath/Sqft separated by a thin top border.
+
+## How It Works
+
+4-column grid. Each step: bg-neutral-50, p-10, 2xl rounded. Top-right: Large overlay text (01, 02, etc.) in 10% opacity charcoal. Center-left: Gold icon (#D4AF37). Content: Bold H4 and description text.
+
+## CTA Lead Capture
+
+Dark section (bg-charcoal, text-white) with a subtle radial dot grid background (10% opacity). Left: H2 (text-6xl) and subtext. Right: White card (p-10, 3xl rounded) containing a contact form. Inputs: border-b only (no boxes), uppercase tracking-wider labels, charcoal text focus. Button: Full-width charcoal, py-4, with a flight/send icon that translates on hover.
