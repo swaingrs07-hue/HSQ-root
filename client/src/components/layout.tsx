@@ -206,38 +206,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#050505] flex flex-col font-sans relative">
       {globalTubesActive && (
-        <>
-          <div
-            className="fixed inset-0 z-0 pointer-events-none"
-            data-testid="tubes-global-layer"
-            style={{
-              transform: "translateZ(0)",
-              willChange: "transform",
-              contain: "strict",
-              isolation: "isolate",
-            }}
-          >
-            <Suspense fallback={null}>
-              <TubesCursorBackground
-                enabled={globalTubesActive}
-                onFailure={handleGlobalTubesFailure}
-              />
-            </Suspense>
-          </div>
-          {/* Soft glow veil: a light dark wash + backdrop blur so the
-              bright tube swirls behind it diffuse into ambient colored
-              glow instead of sharp neon ribbons that pierce text. */}
-          <div
-            className="fixed inset-0 z-[1] pointer-events-none"
-            aria-hidden="true"
-            data-testid="tubes-global-veil"
-            style={{
-              background: "rgba(5,5,5,0.35)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-            }}
-          />
-        </>
+        <div
+          className="fixed inset-0 z-0 pointer-events-none"
+          data-testid="tubes-global-layer"
+          style={{
+            transform: "translateZ(0)",
+            willChange: "transform",
+            contain: "strict",
+            isolation: "isolate",
+          }}
+        >
+          <Suspense fallback={null}>
+            <TubesCursorBackground
+              enabled={globalTubesActive}
+              onFailure={handleGlobalTubesFailure}
+            />
+          </Suspense>
+        </div>
       )}
       <div
         className="fixed top-0 left-0 z-[100] h-[3px] pointer-events-none"
@@ -468,7 +453,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {!hasTransparentHeader && <div className={cn("transition-all duration-500", scrolled ? "h-16" : "h-20")} />}
 
-      <main className="flex-1 w-full relative z-10">
+      <main className={`flex-1 w-full relative z-10 ${globalTubesActive ? "tube-readable-text" : ""}`}>
         <PullToRefresh>
           {children}
         </PullToRefresh>

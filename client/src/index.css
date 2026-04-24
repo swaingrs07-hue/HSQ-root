@@ -154,6 +154,20 @@
 }
 
 @layer utilities {
+  /* Localized readability halo for text rendered above the global tube
+     background. Adds a soft dark shadow only behind text glyphs — the
+     bright tubes elsewhere on the page stay fully visible. */
+  .tube-readable-text :is(p, span, h1, h2, h3, h4, h5, h6, li, a, button, label, strong, em, small, td, th, dt, dd, blockquote) {
+    text-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.9),
+      0 0 10px rgba(0, 0, 0, 0.55);
+  }
+  .tube-readable-text input,
+  .tube-readable-text textarea,
+  .tube-readable-text select {
+    text-shadow: none;
+  }
+
   .glass-card {
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(10px);
