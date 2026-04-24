@@ -30,6 +30,7 @@ interface InboundEndpoint {
   label: string;
   url: string;
   lastHit: HmsHit | null;
+  lastHitPersistent: string | null;
 }
 interface HmsHit {
   timestamp: string;
@@ -62,8 +63,35 @@ interface StatusResponse {
     latencyMs?: number;
     tested?: string;
   };
+  token: {
+    source: "api_key" | "cached_jwt" | "none";
+    ageMinutes: number | null;
+    expiresInMinutes: number | null;
+  };
+  canonicality: {
+    expectedApex: string;
+    appPublicHost: string | null;
+    requestHost: string | null;
+    requestIsWww: boolean;
+    appPublicIsWww: boolean;
+    requestMatchesApex: boolean;
+    appPublicMatchesApex: boolean;
+    isCanonical: boolean;
+    warnings: string[];
+  };
   inboundEndpoints: InboundEndpoint[];
   activityLog: { total: number; capacity: number };
+}
+interface PingAuthResponse {
+  ok: boolean;
+  mode?: "api_key" | "login";
+  status?: number;
+  latencyMs?: number;
+  tokenLength?: number;
+  ageMinutes?: number;
+  expiresInMinutes?: number;
+  message?: string;
+  error?: string;
 }
 
 function StatusBadge({ ok, label }: { ok: boolean; label?: string }) {
@@ -98,6 +126,7 @@ export default function AdminHmsHealth() {
   const [walletBookingCode, setWalletBookingCode] = useState("");
   const [residentResult, setResidentResult] = useState<any>(null);
   const [walletResult, setWalletResult] = useState<any>(null);
+  const [pingAuthResult, setPingAuthResult] = useState<PingAuthResponse | null>(null);
 
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
@@ -147,6 +176,27 @@ export default function AdminHmsHealth() {
     onError: (e: Error) => toast({ title: "Lookup failed", description: e.message, variant: "destructive" }),
   });
 
+  const pingAuth = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/hms-health/ping-auth", { method: "POST", headers });
+      const data = (await res.json()) as PingAuthResponse;
+      return data;
+    },
+    onSuccess: (data) => {
+      setPingAuthResult(data);
+      if (data.ok) {
+        statusQuery.refetch();
+        toast({ title: "HMS auth OK", description: data.message || "Authentication confirmed." });
+      } else {
+        toast({ title: "HMS auth failed", description: data.error || "Unknown error", variant: "destructive" });
+      }
+    },
+    onError: (e: Error) => {
+      setPingAuthResult({ ok: false, error: e.message });
+      toast({ title: "HMS auth failed", description: e.message, variant: "destructive" });
+    },
+  });
+
   const walletLookup = useMutation({
     mutationFn: async (body: { phone?: string; bookingCode?: string }) => {
       const res = await fetch("/api/admin/hms-health/wallet-balance", {
@@ -179,10 +229,7 @@ export default function AdminHmsHealth() {
 
   const status = statusQuery.data;
   const activity = activityQuery.data;
-  const isCanonical =
-    !!status?.config.appPublicUrl &&
-    !!status?.request.host &&
-    status.config.appPublicUrl.replace(/^https?:\/\//, "").replace(/\/$/, "") === status.request.host;
+  const isCanonical = !!status?.canonicality?.isCanonical;
 
   return (
     <div className="space-y-6">
@@ -274,9 +321,70 @@ export default function AdminHmsHealth() {
                     {status.outbound.tested || "—"}
                   </p>
                 </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Auth Token</p>
+                  <p className="text-xs" data-testid="text-token-info">
+                    <span className="font-mono">{status.token.source}</span>
+                    {status.token.source === "cached_jwt" && status.token.ageMinutes !== null && (
+                      <>
+                        {" "}· issued{" "}
+                        <span className="font-medium text-slate-700">{status.token.ageMinutes}m ago</span>
+                        {status.token.expiresInMinutes !== null && (
+                          <>
+                            {" "}· expires in{" "}
+                            <span className="font-medium text-slate-700">{Math.floor(status.token.expiresInMinutes / 60)}h {status.token.expiresInMinutes % 60}m</span>
+                          </>
+                        )}
+                      </>
+                    )}
+                    {status.token.source === "api_key" && (
+                      <span className="text-slate-500"> · static API key (no rotation)</span>
+                    )}
+                    {status.token.source === "none" && (
+                      <span className="text-rose-500"> · no auth configured</span>
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
           ) : null}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              onClick={() => pingAuth.mutate()}
+              disabled={pingAuth.isPending}
+              data-testid="button-ping-auth"
+            >
+              {pingAuth.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Activity className="w-4 h-4 mr-2" />
+              )}
+              Ping HMS Auth
+            </Button>
+            {pingAuthResult && (
+              <div
+                className={`text-xs px-3 py-1.5 rounded-md border ${
+                  pingAuthResult.ok
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-rose-50 border-rose-200 text-rose-700"
+                }`}
+                data-testid="text-ping-auth-result"
+              >
+                {pingAuthResult.ok ? (
+                  <>
+                    {pingAuthResult.message || "OK"}
+                    {pingAuthResult.latencyMs != null && <> ({pingAuthResult.latencyMs}ms)</>}
+                    {pingAuthResult.mode === "login" && pingAuthResult.ageMinutes != null && (
+                      <> · token {pingAuthResult.ageMinutes}m old</>
+                    )}
+                  </>
+                ) : (
+                  <>{pingAuthResult.error || "Auth ping failed"}</>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -339,6 +447,11 @@ export default function AdminHmsHealth() {
                         <Copy className="w-3 h-3" />
                       </Button>
                     </div>
+                    {ep.lastHitPersistent && (
+                      <p className="text-[10px] text-slate-400 mt-1" data-testid={`text-persistent-${ep.path.replace(/[^a-z0-9]/gi, "-")}`}>
+                        DB evidence of body processed: {timeAgo(ep.lastHitPersistent)} ({new Date(ep.lastHitPersistent).toLocaleString()})
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -355,29 +468,58 @@ export default function AdminHmsHealth() {
             Domain Canonicality
           </CardTitle>
           <p className="text-xs text-slate-500">
-            HMS should call the apex domain. If "Request Host" differs from APP_PUBLIC_URL, redirects may be stripping
-            the Authorization header on POST/PUT.
+            HMS should call the apex domain (no <code className="font-mono">www.</code>). If the request host or
+            APP_PUBLIC_URL differs from the expected apex, redirects may be stripping the Authorization header on
+            POST/PUT.
           </p>
         </CardHeader>
         <CardContent>
           {status ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="text-slate-500 text-xs">APP_PUBLIC_URL</p>
-                <p className="font-mono text-xs break-all" data-testid="text-app-public-url">
-                  {status.config.appPublicUrl || <span className="text-slate-400">unset</span>}
-                </p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <p className="text-slate-500 text-xs">Expected Apex</p>
+                  <p className="font-mono text-xs break-all" data-testid="text-expected-apex">
+                    {status.canonicality.expectedApex}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">APP_PUBLIC_URL Host</p>
+                  <p className="font-mono text-xs break-all" data-testid="text-app-public-url">
+                    {status.canonicality.appPublicHost || <span className="text-slate-400">unset</span>}
+                  </p>
+                  <div className="flex gap-1 mt-1">
+                    {status.canonicality.appPublicIsWww && (
+                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">www prefix</Badge>
+                    )}
+                    {status.canonicality.appPublicHost && !status.canonicality.appPublicMatchesApex && (
+                      <Badge className="bg-rose-100 text-rose-700 border-rose-200 text-[10px]">!= apex</Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Request Host</p>
+                  <p className="font-mono text-xs break-all" data-testid="text-request-host">
+                    {status.request.protocol}://{status.request.host}
+                  </p>
+                  <div className="flex gap-1 mt-1">
+                    {status.canonicality.requestIsWww && (
+                      <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">www prefix</Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Overall</p>
+                  <StatusBadge ok={isCanonical} label={isCanonical ? "Apex match" : "Mismatch"} />
+                </div>
               </div>
-              <div>
-                <p className="text-slate-500 text-xs">Request Host</p>
-                <p className="font-mono text-xs break-all" data-testid="text-request-host">
-                  {status.request.protocol}://{status.request.host}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-500 text-xs">Canonical Match</p>
-                <StatusBadge ok={isCanonical} label={isCanonical ? "Match" : "Mismatch"} />
-              </div>
+              {status.canonicality.warnings.length > 0 && (
+                <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs space-y-1" data-testid="canonicality-warnings">
+                  {status.canonicality.warnings.map((w, i) => (
+                    <p key={i} className="text-amber-800">⚠ {w}</p>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-slate-500">Loading…</p>

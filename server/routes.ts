@@ -13343,6 +13343,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const hasLoginCreds = !!(process.env.HOSTEL_FLOW_EMAIL && process.env.HOSTEL_FLOW_PASSWORD);
       const apiBaseUrl = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
       const appPublicUrl = process.env.APP_PUBLIC_URL || null;
+      const expectedApex = process.env.APP_EXPECTED_APEX || "hsquare.in";
       const requestHost = req.get("host") || null;
       const requestProtocol = (req.headers["x-forwarded-proto"] as string) || req.protocol;
 
@@ -13375,10 +13376,28 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         outbound = { ok: false, error: e?.message || "Network error" };
       }
 
-      // Inbound endpoints we expose to HMS — confirm each is registered
-      // and return the absolute URL HMS should be calling.
+      // Token age — peek at the cached HostelFlow JWT (if any) so we know
+      // when our credentials were last refreshed. We never call login here
+      // (that's the dedicated /ping-auth endpoint) — we just report age.
+      const tokenInfo: { source: "api_key" | "cached_jwt" | "none"; ageMinutes: number | null; expiresInMinutes: number | null } = {
+        source: process.env.HMS_API_KEY ? "api_key" : (cachedHostelFlowJWT ? "cached_jwt" : "none"),
+        ageMinutes: null,
+        expiresInMinutes: null,
+      };
+      if (cachedHostelFlowJWT && jwtExpiresAt > 0) {
+        // jwtExpiresAt is set 23h after issue; back into issuedAt.
+        const issuedAt = jwtExpiresAt - 23 * 60 * 60 * 1000;
+        tokenInfo.ageMinutes = Math.max(0, Math.floor((Date.now() - issuedAt) / 60_000));
+        tokenInfo.expiresInMinutes = Math.max(0, Math.floor((jwtExpiresAt - Date.now()) / 60_000));
+      }
+
+      // Inbound endpoints we expose to HMS. "Last hit" is enriched from two
+      // sources: the in-memory ring buffer (sub-second freshness, but resets
+      // on restart) and persistent evidence from the wallet ledger and
+      // bookings tables (survives restarts but only proves the *body* of the
+      // request was processed, not the auth header).
       const canonicalBase = appPublicUrl || `${requestProtocol}://${requestHost}`;
-      const inboundEndpoints = [
+      const baseEndpoints = [
         { method: "GET",  path: "/api/hms/bookings",                       label: "List bookings" },
         { method: "GET",  path: "/api/hms/bookings/:identifier",           label: "Lookup booking" },
         { method: "PUT",  path: "/api/hms/residents/update",               label: "Resident updates" },
@@ -13387,11 +13406,77 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         { method: "POST", path: "/sync/wallet-debit",                      label: "Wallet debit" },
         { method: "POST", path: "/sync/wallet-credit",                     label: "Wallet credit" },
         { method: "GET",  path: "/sync/wallet-balance",                    label: "Wallet balance" },
-      ].map((e) => ({
-        ...e,
-        url: `${canonicalBase}${e.path}`,
-        lastHit: getLastHitForRoute(e.path) || null,
-      }));
+      ];
+
+      // Persistent evidence: most-recent wallet ledger rows (HMS-driven only).
+      let lastWalletDebit: Date | null = null;
+      let lastWalletCredit: Date | null = null;
+      try {
+        const recentLedger = await db.select({
+          createdAt: schema.walletLedger.createdAt,
+          credit: schema.walletLedger.credit,
+          debit: schema.walletLedger.debit,
+          refType: schema.walletLedger.refType,
+        })
+          .from(schema.walletLedger)
+          .orderBy(sql`${schema.walletLedger.createdAt} DESC`)
+          .limit(50);
+        for (const row of recentLedger) {
+          const isHmsDriven = row.refType === "order_refund" || row.refType === "manual_credit" ||
+            row.refType === "ala_carte" || row.refType === "hms_debit" || row.refType === "hms_credit";
+          if (!isHmsDriven) continue;
+          const ts = row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt as any);
+          if ((row.debit || 0) > 0 && !lastWalletDebit) lastWalletDebit = ts;
+          if ((row.credit || 0) > 0 && !lastWalletCredit) lastWalletCredit = ts;
+          if (lastWalletDebit && lastWalletCredit) break;
+        }
+      } catch {
+        /* non-fatal: persistent evidence is best-effort */
+      }
+
+      const persistentLastHitFor = (path: string): string | null => {
+        if (path === "/sync/wallet-debit") return lastWalletDebit ? lastWalletDebit.toISOString() : null;
+        if (path === "/sync/wallet-credit") return lastWalletCredit ? lastWalletCredit.toISOString() : null;
+        return null;
+      };
+
+      const inboundEndpoints = baseEndpoints.map((e) => {
+        const ringHit = getLastHitForRoute(e.path) || null;
+        const persistentTs = persistentLastHitFor(e.path);
+        return {
+          ...e,
+          url: `${canonicalBase}${e.path}`,
+          lastHit: ringHit,
+          lastHitPersistent: persistentTs,
+        };
+      });
+
+      // Domain canonicality — explicitly flag www prefix and apex mismatch.
+      const stripScheme = (u: string) => u.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
+      const appPublicHost = appPublicUrl ? stripScheme(appPublicUrl) : null;
+      const requestIsWww = !!requestHost && requestHost.toLowerCase().startsWith("www.");
+      const appPublicIsWww = !!appPublicHost && appPublicHost.toLowerCase().startsWith("www.");
+      const requestMatchesApex = !!requestHost && requestHost.toLowerCase() === expectedApex.toLowerCase();
+      const appPublicMatchesApex = !!appPublicHost && appPublicHost.toLowerCase() === expectedApex.toLowerCase();
+      const isCanonical = !!appPublicHost && !!requestHost &&
+        appPublicHost.toLowerCase() === requestHost.toLowerCase() &&
+        !appPublicIsWww && !requestIsWww;
+      const canonicality = {
+        expectedApex,
+        appPublicHost,
+        requestHost,
+        requestIsWww,
+        appPublicIsWww,
+        requestMatchesApex,
+        appPublicMatchesApex,
+        isCanonical,
+        warnings: [
+          ...(requestIsWww ? [`Request host "${requestHost}" uses www. — HMS should hit apex (${expectedApex}).`] : []),
+          ...(appPublicIsWww ? [`APP_PUBLIC_URL "${appPublicUrl}" uses www. — should be apex.`] : []),
+          ...(appPublicHost && !appPublicMatchesApex ? [`APP_PUBLIC_URL host "${appPublicHost}" != expected apex "${expectedApex}".`] : []),
+          ...(requestHost && !requestMatchesApex && requestHost.includes(expectedApex.split(".").slice(-2).join(".")) ? [`Request host "${requestHost}" != expected apex "${expectedApex}".`] : []),
+        ],
+      };
 
       res.json({
         ok: outbound.ok && hasApiKey,
@@ -13407,11 +13492,69 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           canonicalBase,
         },
         outbound,
+        token: tokenInfo,
+        canonicality,
         inboundEndpoints,
         activityLog: getHmsLogStats(),
       });
     } catch (error: any) {
       res.status(500).json({ ok: false, error: error?.message || "Failed to read HMS status" });
+    }
+  });
+
+  // Live "Ping HMS auth" — performs the actual login flow on demand and
+  // returns the resulting token's source + age. This is the explicit
+  // diagnostic action a superadmin clicks to verify HMS auth is alive.
+  app.post("/api/admin/hms-health/ping-auth", authMiddleware, roleMiddleware("superadmin"), async (_req: AuthRequest, res) => {
+    const t0 = Date.now();
+    try {
+      if (process.env.HMS_API_KEY) {
+        // No login flow — verify the API key works by doing a real GET.
+        const apiBaseUrl = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
+        const resp = await fetch(`${apiBaseUrl}/api/properties`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${process.env.HMS_API_KEY}`, "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          return res.status(502).json({
+            ok: false,
+            mode: "api_key",
+            status: resp.status,
+            latencyMs: Date.now() - t0,
+            error: text.slice(0, 200) || `HTTP ${resp.status}`,
+          });
+        }
+        return res.json({
+          ok: true,
+          mode: "api_key",
+          status: resp.status,
+          latencyMs: Date.now() - t0,
+          message: "API key is accepted by HMS.",
+        });
+      }
+      // Fall back to email/password login — invalidate the cache first so
+      // we exercise a fresh login round-trip, then report token age.
+      cachedHostelFlowJWT = null;
+      jwtExpiresAt = 0;
+      const token = await getHostelFlowJWT();
+      const issuedAt = jwtExpiresAt - 23 * 60 * 60 * 1000;
+      return res.json({
+        ok: true,
+        mode: "login",
+        latencyMs: Date.now() - t0,
+        tokenLength: token?.length || 0,
+        ageMinutes: Math.max(0, Math.floor((Date.now() - issuedAt) / 60_000)),
+        expiresInMinutes: Math.max(0, Math.floor((jwtExpiresAt - Date.now()) / 60_000)),
+        message: "Successfully obtained a fresh HostelFlow JWT.",
+      });
+    } catch (error: any) {
+      return res.status(502).json({
+        ok: false,
+        latencyMs: Date.now() - t0,
+        error: error?.message || "Auth ping failed",
+      });
     }
   });
 
