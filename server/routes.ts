@@ -2938,8 +2938,8 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // ============ Property Brochure Downloads (login-gated) ============
-  app.get("/api/properties/:id/download/:format", authMiddleware, async (req: AuthRequest, res) => {
+  // ============ Property Brochure Downloads (staff-only) ============
+  app.get("/api/properties/:id/download/:format", authMiddleware, roleMiddleware("admin", "manager", "staff", "sales_executive", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const { id, format } = req.params;
       if (format !== "pdf" && format !== "pptx") {

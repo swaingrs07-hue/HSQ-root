@@ -72,11 +72,17 @@ export function PropertyBrochureButtons({
   variant?: "panel" | "compact" | "row";
   className?: string;
 }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { requireAuth } = useAuthGuard();
   const { toast } = useToast();
   const [loading, setLoading] = useState<Format | null>(null);
   const [chooserFormat, setChooserFormat] = useState<Format | null>(null);
+
+  // Brochure downloads are restricted to internal staff. Hide the
+  // entire panel/buttons from regular customers.
+  const STAFF_ROLES = ["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"];
+  const isStaff = !!user && STAFF_ROLES.includes(user.role);
+  if (!isStaff) return null;
 
   const openChooser = (format: Format) => {
     requireAuth(() => {
