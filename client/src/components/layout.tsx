@@ -224,14 +224,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               />
             </Suspense>
           </div>
-          {/* A whisper-thin dark veil: tubes stay full-bright everywhere
-              while text gains just enough contrast to read comfortably. */}
+          {/* Soft glow veil: a light dark wash + backdrop blur so the
+              bright tube swirls behind it diffuse into ambient colored
+              glow instead of sharp neon ribbons that pierce text. */}
           <div
             className="fixed inset-0 z-[1] pointer-events-none"
             aria-hidden="true"
             data-testid="tubes-global-veil"
             style={{
-              background: "rgba(5,5,5,0.22)",
+              background: "rgba(5,5,5,0.35)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
             }}
           />
         </>
