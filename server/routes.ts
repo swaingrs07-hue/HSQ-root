@@ -13433,7 +13433,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // when our credentials were last refreshed. We never call login here
       // (that's the dedicated /ping-auth endpoint) — we just report age.
       const tokenInfo: { source: "api_key" | "cached_jwt" | "none"; ageMinutes: number | null; expiresInMinutes: number | null } = {
-        source: process.env.HMS_API_KEY ? "api_key" : (cachedHostelFlowJWT ? "cached_jwt" : "none"),
+        source: hasApiKey ? "api_key" : (cachedHostelFlowJWT ? "cached_jwt" : "none"),
         ageMinutes: null,
         expiresInMinutes: null,
       };
@@ -13500,10 +13500,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // sub-second freshness supplement for the very latest call.
       const auditLastHit: Record<string, { timestamp: string; status: number | null } | null> = {};
       try {
-        const { logs: hmsAuditLogs } = await storage.getActivityLogs({
-          actorUserId: undefined as any,
-          limit: 200,
-        });
+        const { logs: hmsAuditLogs } = await storage.getActivityLogs({ limit: 200 });
         for (const path of baseEndpoints.map((e) => e.path)) {
           const match = hmsAuditLogs.find((l) =>
             l.actorRole === "SYSTEM" &&
@@ -13580,7 +13577,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       };
 
       res.json({
-        ok: outbound.ok && hasApiKey,
+        // Green when EITHER credential mode reports a healthy outbound
+        // ping (API key or login fallback). Was previously gated on
+        // hasApiKey which produced false negatives in login-only setups.
+        ok: !!outbound.ok,
         config: {
           hasApiKey,
           hasLoginCreds,
@@ -13609,12 +13609,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.post("/api/admin/hms-health/ping-auth", authMiddleware, roleMiddleware("superadmin"), async (_req: AuthRequest, res) => {
     const t0 = Date.now();
     try {
-      if (process.env.HMS_API_KEY) {
+      // Resolve API key the same way hmsApiKeyAuth does — either name is
+      // valid in production. Mismatches here previously caused false
+      // negatives in HOSTEL_FLOW_API_KEY-only deployments.
+      const apiKey = process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY;
+      if (apiKey) {
         // No login flow — verify the API key works by doing a real GET.
         const apiBaseUrl = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
         const resp = await fetch(`${apiBaseUrl}/api/properties`, {
           method: "GET",
-          headers: { Authorization: `Bearer ${process.env.HMS_API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           signal: AbortSignal.timeout(8000),
         });
         if (!resp.ok) {
