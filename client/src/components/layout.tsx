@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight, MessageSquare, Smartphone, Star } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuthGuard } from "@/contexts/auth-guard-context";
@@ -11,6 +11,10 @@ import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
 import { AnimatedLogo } from "./animated-logo";
 import { PullToRefresh } from "./pull-to-refresh";
+
+const TubesCursorBackground = lazy(
+  () => import("@/components/tubes-cursor-background"),
+);
 
 interface FooterLink { label: string; href: string; }
 interface FooterData {
@@ -59,6 +63,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isPrivacyPage = location === "/privacy";
   const isApplyPage = location === "/apply";
   const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage || isApplyPage;
+
+  // Pages that mount their own tube cursor background internally.
+  // We skip the global mount here so we never render two canvases
+  // competing for the same WebGL context.
+  const ownsTubesLocally = isHomePage || isApplyPage;
+  const [globalTubesActive, setGlobalTubesActive] = useState(false);
+  useEffect(() => {
+    if (ownsTubesLocally) {
+      setGlobalTubesActive(false);
+      return;
+    }
+    const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const conn = (typeof navigator !== "undefined" && (navigator as Navigator & { connection?: { saveData?: boolean } }).connection) || null;
+    const saveData = !!conn?.saveData;
+    setGlobalTubesActive(!reduceMotion && !saveData);
+  }, [ownsTubesLocally, location]);
+  const handleGlobalTubesFailure = useCallback(() => setGlobalTubesActive(false), []);
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
@@ -183,7 +204,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const headerTransparent = hasTransparentHeader && !scrolled && !mobileMenuOpen;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
+    <div className="min-h-screen bg-[#050505] flex flex-col font-sans relative">
+      {globalTubesActive && (
+        <div
+          className="fixed inset-0 z-0 pointer-events-none"
+          data-testid="tubes-global-layer"
+          style={{
+            transform: "translateZ(0)",
+            willChange: "transform",
+            contain: "strict",
+            isolation: "isolate",
+          }}
+        >
+          <Suspense fallback={null}>
+            <TubesCursorBackground
+              enabled={globalTubesActive}
+              onFailure={handleGlobalTubesFailure}
+            />
+          </Suspense>
+        </div>
+      )}
       <div
         className="fixed top-0 left-0 z-[100] h-[3px] pointer-events-none"
         style={{
@@ -413,7 +453,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {!hasTransparentHeader && <div className={cn("transition-all duration-500", scrolled ? "h-16" : "h-20")} />}
 
-      <main className="flex-1 w-full">
+      <main className="flex-1 w-full relative z-10">
         <PullToRefresh>
           {children}
         </PullToRefresh>

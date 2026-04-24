@@ -289,7 +289,7 @@ export default function MyBookings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
       </div>
     );
@@ -302,7 +302,7 @@ export default function MyBookings() {
     const rd = b.residentDetails || {};
 
     return (
-      <div className="min-h-screen bg-[#050505] relative">
+      <div className="min-h-screen bg-transparent relative">
         <ParticleBackground preset="sparse" className="absolute inset-0 z-0" />
         <div className="container mx-auto px-4 pt-24 pb-8 max-w-3xl relative z-10">
           <Button variant="ghost" onClick={() => setSelectedBooking(null)} className="mb-4 text-white/50 hover:text-white hover:bg-white/[0.05]" data-testid="button-back-bookings">
@@ -481,7 +481,7 @@ export default function MyBookings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] relative">
+    <div className="min-h-screen bg-transparent relative">
       <ParticleBackground preset="sparse" className="absolute inset-0 z-0" />
       <div className="container mx-auto px-4 pt-24 pb-8 max-w-3xl relative z-10">
         <motion.div

@@ -400,7 +400,7 @@ function CollegeLandingPage() {
   if (!pageData) return null;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className="min-h-screen bg-transparent text-white">
       <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
         <ParticleBackground />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 30%, rgba(6,182,212,0.08) 0%, transparent 60%)" }} />

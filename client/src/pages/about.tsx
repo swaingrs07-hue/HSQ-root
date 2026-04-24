@@ -87,7 +87,7 @@ export default function About() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-transparent text-white overflow-x-hidden">
       <section ref={heroRef} className="relative h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden" data-testid="about-hero">
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <img

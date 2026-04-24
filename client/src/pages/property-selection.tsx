@@ -328,7 +328,7 @@ export default function PropertySelection() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505]">
+    <div className="min-h-screen bg-transparent">
       <style>{`
         @keyframes shimmer {
           0% { background-position: -200% center; }

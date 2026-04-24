@@ -24,7 +24,7 @@ class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
+        <div className="min-h-screen bg-transparent flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">⚠️</span>
@@ -1689,7 +1689,7 @@ function PropertyBooking() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#050505]">
+      <div className="min-h-screen bg-transparent">
         <Skeleton className="h-[400px] w-full bg-white/[0.05]" />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1708,7 +1708,7 @@ function PropertyBooking() {
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-center">
           <Building2 className="w-16 h-16 text-white/20 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white">Property not found</h2>
@@ -1733,7 +1733,7 @@ function PropertyBooking() {
   }, Infinity) || 0;
 
   return (
-    <div className="min-h-screen bg-[#050505] relative">
+    <div className="min-h-screen bg-transparent relative">
       <div className="relative">
         <ImmersiveTour property={property} onStartBooking={scrollToFloors} />
       </div>

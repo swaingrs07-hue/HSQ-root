@@ -237,7 +237,7 @@ export default function FAQ() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-transparent text-white overflow-x-hidden">
       <section className="relative py-32 md:py-40 flex items-center justify-center overflow-hidden" data-testid="faq-hero">
         <ParticleBackground preset="hero" className="absolute inset-0 z-[1]" />
         <div className="absolute inset-0 bg-gradient-to-b from-violet-500/5 via-transparent to-transparent" />
