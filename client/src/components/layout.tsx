@@ -68,6 +68,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // We skip the global mount here so we never render two canvases
   // competing for the same WebGL context.
   const ownsTubesLocally = isHomePage || isApplyPage;
+  // Marketing-style hero pages keep the tubes at full brightness
+  // (no veil + full opacity) to match the homepage feel.
+  const isCollegeLandingPage = location.startsWith("/hostel-");
+  const useBrightTubes = isCollegeLandingPage;
   const [globalTubesActive, setGlobalTubesActive] = useState(false);
   useEffect(() => {
     if (ownsTubesLocally) {
@@ -215,7 +219,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               willChange: "transform",
               contain: "strict",
               isolation: "isolate",
-              opacity: 0.35,
+              opacity: useBrightTubes ? 1 : 0.35,
             }}
           >
             <Suspense fallback={null}>
@@ -225,15 +229,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               />
             </Suspense>
           </div>
-          <div
-            className="fixed inset-0 z-[1] pointer-events-none"
-            aria-hidden="true"
-            data-testid="tubes-global-veil"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.75) 50%, rgba(5,5,5,0.85) 100%)",
-            }}
-          />
+          {!useBrightTubes && (
+            <div
+              className="fixed inset-0 z-[1] pointer-events-none"
+              aria-hidden="true"
+              data-testid="tubes-global-veil"
+              style={{
+                background:
+                  "radial-gradient(ellipse at center, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.75) 50%, rgba(5,5,5,0.85) 100%)",
+              }}
+            />
+          )}
         </>
       )}
       <div
