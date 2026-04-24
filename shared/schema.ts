@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -866,6 +866,35 @@ export const activityLogs = pgTable("activity_logs", {
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+
+// HMS Inbound Activity Log — persists every inbound HMS hit so the
+// superadmin diagnostics page can show traffic across server restarts and
+// deploys. Trimmed daily to ~30 days by a background job.
+export const hmsActivityLog = pgTable("hms_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  route: text("route").notNull(),
+  method: text("method").notNull(),
+  status: integer("status").notNull(),
+  latencyMs: integer("latency_ms").notNull(),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  hasApiKey: boolean("has_api_key").notNull().default(false),
+  identifier: text("identifier"),
+  path: text("path"),
+  query: jsonb("query"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  // Latest-N reads (`/recent-activity`) and the daily prune scan both
+  // sort by timestamp; this keeps both fast as the table grows.
+  timestampIdx: index("hms_activity_log_timestamp_idx").on(table.timestamp),
+  // Per-route last-hit lookups (`getLastHitsByRoute`) are a tight hot
+  // path on the diagnostics page.
+  routeTimestampIdx: index("hms_activity_log_route_timestamp_idx").on(table.route, table.timestamp),
+}));
+
+export const insertHmsActivityLogSchema = createInsertSchema(hmsActivityLog).omit({ id: true, timestamp: true });
+export type HmsActivityLogRow = typeof hmsActivityLog.$inferSelect;
+export type InsertHmsActivityLog = z.infer<typeof insertHmsActivityLogSchema>;
 
 // ============ CHATBOT ADMIN CONTROL TABLES ============
 

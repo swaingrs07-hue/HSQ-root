@@ -210,9 +210,37 @@ app.use((req, res, next) => {
       import("./bed-status-reconcile").then(({ startBedStatusReconcileJob }) => {
         startBedStatusReconcileJob();
       }).catch((e) => log(`Failed to start bed status reconcile job: ${e}`, "bed-reconcile"));
+      // Start daily cleanup of HMS inbound activity log (~30-day retention)
+      startHmsActivityLogCleanupJob();
     },
   );
 })();
+
+// Background job: trim hms_activity_log rows older than ~30 days so the
+// table stays small. The HMS diagnostics page only ever reads the latest
+// 100 rows, so anything older is pure deadweight.
+async function startHmsActivityLogCleanupJob() {
+  const RETENTION_DAYS = 30;
+  const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // every 24h
+
+  async function runCleanup() {
+    try {
+      const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const { pruneOldHmsActivity } = await import("./hms-activity-log");
+      const removed = await pruneOldHmsActivity(cutoff);
+      if (removed > 0) {
+        log(`HMS activity log cleanup: removed ${removed} row(s) older than ${RETENTION_DAYS}d`, "background");
+      }
+    } catch (error) {
+      log(`HMS activity log cleanup failed: ${error}`, "background");
+    }
+  }
+
+  // Run once on startup, then every 24h.
+  await runCleanup();
+  setInterval(runCleanup, RUN_INTERVAL_MS);
+  log(`HMS activity log cleanup job started (runs daily, ${RETENTION_DAYS}d retention)`, "background");
+}
 
 // Background job for checking overdue follow-ups and sending notifications
 // Track last notification time per user to avoid spamming
