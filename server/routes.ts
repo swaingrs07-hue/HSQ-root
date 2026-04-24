@@ -64,6 +64,16 @@ const webLeadsRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Brochure generation is CPU-heavy (jsPDF rendering). PDF route is public so
+// we cap requests per IP to prevent rapid-fire abuse.
+const brochureRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 20, // 20 brochure downloads per IP per 5 minutes
+  message: { error: "Too many brochure downloads, please try again in a few minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Allowed marketing domains for CORS
 const ALLOWED_MARKETING_DOMAINS = [
   /^https?:\/\/localhost(:\d+)?$/,
@@ -2938,13 +2948,31 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // ============ Property Brochure Downloads (staff-only) ============
-  app.get("/api/properties/:id/download/:format", authMiddleware, roleMiddleware("admin", "manager", "staff", "sales_executive", "receptionist"), async (req: AuthRequest, res) => {
+  // ============ Property Brochure Downloads ============
+  // PDF is public (anyone can download). PPT is staff-only (admin/manager/
+  // staff/sales_executive/receptionist + superadmin auto-included).
+  app.get("/api/properties/:id/download/:format", brochureRateLimiter, async (req: AuthRequest, res) => {
     try {
       const { id, format } = req.params;
       if (format !== "pdf" && format !== "pptx") {
         return res.status(400).json({ error: "Invalid format. Use 'pdf' or 'pptx'." });
       }
+
+      if (format === "pptx") {
+        // Manually enforce staff-only auth for PPT.
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
+        const payload = verifyToken(authHeader.substring(7));
+        if (!payload) return res.status(401).json({ error: "Invalid or expired token" });
+        const STAFF_ROLES = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+        if (!STAFF_ROLES.has(payload.role)) {
+          return res.status(403).json({ error: "Access denied. PPT downloads are restricted to staff." });
+        }
+        req.user = payload;
+      }
+
       const property = await storage.getPropertyByIdOrSlug(id);
       if (!property) return res.status(404).json({ error: "Property not found" });
 

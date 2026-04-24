@@ -978,7 +978,8 @@ export async function generatePropertyBrochurePpt(propertyId: string, options: B
   const heroW = SLIDE_W - M - heroX;
   const heroH = SLIDE_H - heroY - 1.1;
   if (images[0]) {
-    s1.addImage({ data: images[0], x: heroX, y: heroY, w: heroW, h: heroH, sizing: { type: "cover", w: heroW, h: heroH }, rounding: true });
+    // Preserve the uploaded image's true aspect ratio (no cropping/stretching).
+    s1.addImage({ data: images[0], x: heroX, y: heroY, w: heroW, h: heroH, sizing: { type: "contain", w: heroW, h: heroH }, rounding: true });
   }
   // Floating fact card overlay near bottom of image
   const factCardW = heroW * 0.92;
@@ -1065,7 +1066,7 @@ export async function generatePropertyBrochurePpt(propertyId: string, options: B
   s3.background = { color: cream };
   drawHeader(s3);
   if (images[1] || images[0]) {
-    s3.addImage({ data: images[1] || images[0], x: LEFT_X, y: 1.0, w: COL_W, h: SLIDE_H - 2.0, sizing: { type: "cover", w: COL_W, h: SLIDE_H - 2.0 }, rounding: true });
+    s3.addImage({ data: images[1] || images[0], x: LEFT_X, y: 1.0, w: COL_W, h: SLIDE_H - 2.0, sizing: { type: "contain", w: COL_W, h: SLIDE_H - 2.0 }, rounding: true });
   }
   drawEyebrow(s3, "OVERVIEW", RIGHT_X, 1.0);
   drawTitle(s3, "A residence crafted for student living.", RIGHT_X, 1.4, COL_W, 24);
@@ -1209,7 +1210,7 @@ export async function generatePropertyBrochurePpt(propertyId: string, options: B
   if (heroImg6) {
     const boxW = SLIDE_W - M * 2;
     const boxMaxH = SLIDE_H * 0.42;
-    s6.addImage({ data: heroImg6, x: LEFT_X, y: 1.0, w: boxW, h: boxMaxH, sizing: { type: "cover", w: boxW, h: boxMaxH }, rounding: true });
+    s6.addImage({ data: heroImg6, x: LEFT_X, y: 1.0, w: boxW, h: boxMaxH, sizing: { type: "contain", w: boxW, h: boxMaxH }, rounding: true });
   }
   // Editorial card overlay row: location label + nearby + CTA pill
   const overlayY = 1.0 + SLIDE_H * 0.42 + 0.25;

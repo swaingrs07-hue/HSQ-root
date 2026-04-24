@@ -78,16 +78,21 @@ export function PropertyBrochureButtons({
   const [loading, setLoading] = useState<Format | null>(null);
   const [chooserFormat, setChooserFormat] = useState<Format | null>(null);
 
-  // Brochure downloads are restricted to internal staff. Hide the
-  // entire panel/buttons from regular customers.
+  // PDF brochures are public — anyone can download.
+  // PPT decks are restricted to internal staff (sales/admin tooling).
   const STAFF_ROLES = ["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"];
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
-  if (!isStaff) return null;
 
   const openChooser = (format: Format) => {
-    requireAuth(() => {
-      setChooserFormat(format);
-    }, "download the brochure");
+    if (format === "pptx") {
+      // PPT requires login + staff role; gate via auth modal first.
+      requireAuth(() => {
+        setChooserFormat(format);
+      }, "download the brochure deck");
+      return;
+    }
+    // PDF is public — open the chooser straight away.
+    setChooserFormat(format);
   };
 
   const startDownload = async (price: PriceMode) => {
@@ -174,15 +179,17 @@ export function PropertyBrochureButtons({
             {loading === "pdf" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
             PDF
           </button>
-          <button
-            onClick={() => openChooser("pptx")}
-            disabled={loading !== null}
-            className="group inline-flex items-center justify-center gap-2 px-4 h-10 rounded-xl border border-[#D4AF37]/40 bg-transparent text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-60 disabled:cursor-wait"
-            data-testid={`button-download-pptx-${propertyId}`}
-          >
-            {loading === "pptx" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Presentation className="w-3.5 h-3.5" />}
-            PPT
-          </button>
+          {isStaff && (
+            <button
+              onClick={() => openChooser("pptx")}
+              disabled={loading !== null}
+              className="group inline-flex items-center justify-center gap-2 px-4 h-10 rounded-xl border border-[#D4AF37]/40 bg-transparent text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-60 disabled:cursor-wait"
+              data-testid={`button-download-pptx-${propertyId}`}
+            >
+              {loading === "pptx" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Presentation className="w-3.5 h-3.5" />}
+              PPT
+            </button>
+          )}
         </div>
         {chooserDialog}
       </>
@@ -227,18 +234,20 @@ export function PropertyBrochureButtons({
               {loading === "pdf" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
               Download PDF
             </button>
-            <button
-              onClick={() => openChooser("pptx")}
-              disabled={loading !== null}
-              className="flex-1 group flex items-center justify-center gap-2.5 px-5 h-12 rounded-xl border border-[#D4AF37]/40 bg-transparent text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 font-bold uppercase tracking-wider text-sm transition-all disabled:opacity-60 disabled:cursor-wait"
-              data-testid={`button-download-pptx-panel-${propertyId}`}
-            >
-              {loading === "pptx" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Presentation className="w-4 h-4" />}
-              Download PPT
-            </button>
+            {isStaff && (
+              <button
+                onClick={() => openChooser("pptx")}
+                disabled={loading !== null}
+                className="flex-1 group flex items-center justify-center gap-2.5 px-5 h-12 rounded-xl border border-[#D4AF37]/40 bg-transparent text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 font-bold uppercase tracking-wider text-sm transition-all disabled:opacity-60 disabled:cursor-wait"
+                data-testid={`button-download-pptx-panel-${propertyId}`}
+              >
+                {loading === "pptx" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Presentation className="w-4 h-4" />}
+                Download PPT
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#8B7D6B]/80 mt-3.5 tracking-wide" data-testid={`brochure-meta-${propertyId}`}>
-            <span>Login required · Generated fresh from live property data</span>
+            <span>Free PDF · Generated fresh from live property data</span>
             {formatLastUpdated(lastUpdated) && (
               <span data-testid={`brochure-last-updated-${propertyId}`}>
                 · Last updated {formatLastUpdated(lastUpdated)}
