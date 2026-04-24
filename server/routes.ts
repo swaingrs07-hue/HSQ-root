@@ -13556,8 +13556,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const appPublicIsWww = !!appPublicHost && appPublicHost.toLowerCase().startsWith("www.");
       const requestMatchesApex = !!requestHost && requestHost.toLowerCase() === expectedApex.toLowerCase();
       const appPublicMatchesApex = !!appPublicHost && appPublicHost.toLowerCase() === expectedApex.toLowerCase();
+      // Strict: both the request host and APP_PUBLIC_URL must equal the
+      // expected apex (no www, no subdomain). Otherwise the warnings
+      // banner and this top-level flag could disagree.
       const isCanonical = !!appPublicHost && !!requestHost &&
-        appPublicHost.toLowerCase() === requestHost.toLowerCase() &&
+        requestMatchesApex && appPublicMatchesApex &&
         !appPublicIsWww && !requestIsWww;
       const canonicality = {
         expectedApex,
