@@ -459,7 +459,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </PullToRefresh>
       </main>
 
-      <footer className="bg-stone-900/85 backdrop-blur-md text-stone-300 relative" data-testid="site-footer">
+      <footer className="bg-stone-900/85 backdrop-blur-md text-stone-300 relative z-10" data-testid="site-footer">
         <div className="container mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-6">
             <div className="md:col-span-3 space-y-5">
