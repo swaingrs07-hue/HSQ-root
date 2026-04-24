@@ -206,23 +206,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#050505] flex flex-col font-sans relative">
       {globalTubesActive && (
-        <div
-          className="fixed inset-0 z-0 pointer-events-none"
-          data-testid="tubes-global-layer"
-          style={{
-            transform: "translateZ(0)",
-            willChange: "transform",
-            contain: "strict",
-            isolation: "isolate",
-          }}
-        >
-          <Suspense fallback={null}>
-            <TubesCursorBackground
-              enabled={globalTubesActive}
-              onFailure={handleGlobalTubesFailure}
-            />
-          </Suspense>
-        </div>
+        <>
+          <div
+            className="fixed inset-0 z-0 pointer-events-none"
+            data-testid="tubes-global-layer"
+            style={{
+              transform: "translateZ(0)",
+              willChange: "transform",
+              contain: "strict",
+              isolation: "isolate",
+              opacity: 0.35,
+            }}
+          >
+            <Suspense fallback={null}>
+              <TubesCursorBackground
+                enabled={globalTubesActive}
+                onFailure={handleGlobalTubesFailure}
+              />
+            </Suspense>
+          </div>
+          <div
+            className="fixed inset-0 z-[1] pointer-events-none"
+            aria-hidden="true"
+            data-testid="tubes-global-veil"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.75) 50%, rgba(5,5,5,0.85) 100%)",
+            }}
+          />
+        </>
       )}
       <div
         className="fixed top-0 left-0 z-[100] h-[3px] pointer-events-none"
