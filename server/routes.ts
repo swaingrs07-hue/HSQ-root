@@ -11,6 +11,7 @@ import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
+import { recordHmsHit, getRecentHits, getLastHitForRoute, getStats as getHmsLogStats } from "./hms-activity-log";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
@@ -6271,6 +6272,34 @@ ${allPages.map(p => `  <url>
   function hmsApiKeyAuth(req: any, res: any, next: any) {
     const authHeader = req.headers.authorization;
     const apiKey = process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY;
+    const startedAt = Date.now();
+
+    // Record this inbound HMS hit (for the superadmin diagnostics page)
+    // when the response finishes, regardless of auth outcome.
+    res.on("finish", () => {
+      try {
+        const route = (req.route?.path && req.baseUrl != null)
+          ? `${req.baseUrl}${req.route.path}`
+          : (req.originalUrl?.split("?")[0] || req.path);
+        const queryEntries = Object.entries(req.query || {})
+          .slice(0, 6)
+          .map(([k, v]) => [k, String(v).slice(0, 80)] as [string, string]);
+        recordHmsHit({
+          timestamp: new Date().toISOString(),
+          method: req.method,
+          route,
+          path: req.originalUrl || req.path,
+          status: res.statusCode,
+          durationMs: Date.now() - startedAt,
+          ip: req.ip,
+          identifier: req.params?.identifier,
+          query: Object.fromEntries(queryEntries),
+        });
+      } catch {
+        /* never let logging crash the request */
+      }
+    });
+
     if (!apiKey) return res.status(500).json({ error: "API key not configured" });
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Missing or invalid Authorization header" });
@@ -13300,6 +13329,212 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       res.json(request);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============ HMS HEALTH DIAGNOSTICS (superadmin only) ============
+  // These endpoints let a superadmin verify the HostelFlow integration
+  // end-to-end (auth, inbound traffic, lookup, wallet) without touching
+  // server logs. Read-only — no mutations to bookings, residents, or wallet.
+
+  app.get("/api/admin/hms-health/status", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const hasApiKey = !!(process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY);
+      const hasLoginCreds = !!(process.env.HOSTEL_FLOW_EMAIL && process.env.HOSTEL_FLOW_PASSWORD);
+      const apiBaseUrl = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
+      const appPublicUrl = process.env.APP_PUBLIC_URL || null;
+      const requestHost = req.get("host") || null;
+      const requestProtocol = (req.headers["x-forwarded-proto"] as string) || req.protocol;
+
+      // Outbound auth ping: try to reach HMS using the configured API key.
+      let outbound: { ok: boolean; status?: number; error?: string; latencyMs?: number; tested?: string } = { ok: false };
+      try {
+        const apiKey = process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY;
+        if (!apiKey) {
+          outbound = { ok: false, error: "No HMS_API_KEY / HOSTEL_FLOW_API_KEY configured" };
+        } else {
+          const t0 = Date.now();
+          const url = `${apiBaseUrl}/api/properties`;
+          const resp = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(8000),
+          });
+          outbound = {
+            ok: resp.ok,
+            status: resp.status,
+            latencyMs: Date.now() - t0,
+            tested: url,
+          };
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => "");
+            outbound.error = text.slice(0, 200) || `HTTP ${resp.status}`;
+          }
+        }
+      } catch (e: any) {
+        outbound = { ok: false, error: e?.message || "Network error" };
+      }
+
+      // Inbound endpoints we expose to HMS — confirm each is registered
+      // and return the absolute URL HMS should be calling.
+      const canonicalBase = appPublicUrl || `${requestProtocol}://${requestHost}`;
+      const inboundEndpoints = [
+        { method: "GET",  path: "/api/hms/bookings",                       label: "List bookings" },
+        { method: "GET",  path: "/api/hms/bookings/:identifier",           label: "Lookup booking" },
+        { method: "PUT",  path: "/api/hms/residents/update",               label: "Resident updates" },
+        { method: "GET",  path: "/api/hms/bookings/:identifier/receipt",   label: "Booking receipt" },
+        { method: "POST", path: "/sync/first-payment",                     label: "First payment sync" },
+        { method: "POST", path: "/sync/wallet-debit",                      label: "Wallet debit" },
+        { method: "POST", path: "/sync/wallet-credit",                     label: "Wallet credit" },
+        { method: "GET",  path: "/sync/wallet-balance",                    label: "Wallet balance" },
+      ].map((e) => ({
+        ...e,
+        url: `${canonicalBase}${e.path}`,
+        lastHit: getLastHitForRoute(e.path) || null,
+      }));
+
+      res.json({
+        ok: outbound.ok && hasApiKey,
+        config: {
+          hasApiKey,
+          hasLoginCreds,
+          apiBaseUrl,
+          appPublicUrl,
+        },
+        request: {
+          host: requestHost,
+          protocol: requestProtocol,
+          canonicalBase,
+        },
+        outbound,
+        inboundEndpoints,
+        activityLog: getHmsLogStats(),
+      });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error?.message || "Failed to read HMS status" });
+    }
+  });
+
+  app.get("/api/admin/hms-health/recent-activity", authMiddleware, roleMiddleware("superadmin"), async (_req: AuthRequest, res) => {
+    try {
+      res.json({ ok: true, hits: getRecentHits(25), stats: getHmsLogStats() });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error?.message || "Failed to read activity" });
+    }
+  });
+
+  app.post("/api/admin/hms-health/lookup-resident", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const phoneRaw = String(req.body?.phone || "").trim();
+      if (!phoneRaw) return res.status(400).json({ ok: false, error: "phone required" });
+      const last10 = phoneRaw.replace(/\D/g, "").slice(-10);
+      // Reject if we can't form a 10-digit phone — otherwise a `LIKE '%'`
+      // would return arbitrary recent bookings and mislead the diagnostic.
+      if (last10.length !== 10) {
+        return res.status(400).json({
+          ok: false,
+          error: "Phone must contain at least 10 digits (last 10 are matched).",
+        });
+      }
+
+      // Mirrors the matching logic of /sync/wallet-balance: pull all
+      // confirmed/active bookings, then filter in JS by phone tail. Avoids
+      // brittle JSONB operator interpolation in tagged SQL templates.
+      const candidates = await db.select().from(schema.bookings)
+        .where(sql`${schema.bookings.status} IN ('confirmed', 'active')`);
+
+      const matches = candidates
+        .filter((b: any) => {
+          const rd = (b.residentDetails || {}) as any;
+          const phoneFields = [b.walkInPhone, rd.phone, b.customerPhone].filter(Boolean);
+          return phoneFields.some((p: string) => String(p).replace(/\D/g, "").slice(-10) === last10);
+        })
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
+        .map((b: any) => ({
+          id: b.id,
+          bookingCode: b.bookingCode,
+          status: b.status,
+          propertyId: b.propertyId,
+          walkInName: b.walkInName,
+          walkInPhone: b.walkInPhone,
+          customerEmail: b.customerEmail,
+          residentDetails: b.residentDetails,
+          createdAt: b.createdAt,
+        }));
+
+      res.json({ ok: true, last10, count: matches.length, matches });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error?.message || "Lookup failed" });
+    }
+  });
+
+  app.post("/api/admin/hms-health/wallet-balance", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const phoneRaw = String(req.body?.phone || "").trim();
+      const bookingCodeRaw = String(req.body?.bookingCode || "").trim();
+      if (!phoneRaw && !bookingCodeRaw) {
+        return res.status(400).json({ ok: false, error: "phone or bookingCode required" });
+      }
+
+      // Mirrors the matching logic of the live /sync/wallet-balance endpoint.
+      let booking: any = null;
+      if (bookingCodeRaw) {
+        const [match] = await db.select().from(schema.bookings)
+          .where(eq(schema.bookings.bookingCode, bookingCodeRaw));
+        booking = match || null;
+      }
+      if (!booking && phoneRaw) {
+        const phone10 = phoneRaw.replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const candidates = await db.select().from(schema.bookings)
+            .where(sql`${schema.bookings.status} IN ('confirmed', 'active')`);
+          booking = candidates.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          }) || null;
+        }
+      }
+
+      if (!booking) {
+        return res.json({ ok: true, found: false, message: "No active/confirmed booking matched" });
+      }
+
+      const entries = await db.select().from(schema.walletLedger)
+        .where(eq(schema.walletLedger.bookingId, booking.id))
+        .orderBy(sql`${schema.walletLedger.createdAt} DESC`);
+
+      const balance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
+      const totalCredits = entries.reduce((acc: number, e: any) => acc + (e.credit || 0), 0);
+      const totalDebits = entries.reduce((acc: number, e: any) => acc + (e.debit || 0), 0);
+
+      res.json({
+        ok: true,
+        found: true,
+        booking: {
+          id: booking.id,
+          bookingCode: booking.bookingCode,
+          status: booking.status,
+          guestName: booking.walkInName || (booking.residentDetails as any)?.name || null,
+          phone: booking.walkInPhone || (booking.residentDetails as any)?.phone || null,
+        },
+        balance,
+        totalCredits,
+        totalDebits,
+        transactionCount: entries.length,
+        recentTransactions: entries.slice(0, 10).map((e: any) => ({
+          id: e.id,
+          credit: e.credit,
+          debit: e.debit,
+          refType: e.refType,
+          refId: e.refId,
+          note: e.note,
+          createdAt: e.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ ok: false, error: error?.message || "Wallet lookup failed" });
     }
   });
 
