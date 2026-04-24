@@ -29,18 +29,20 @@ interface InboundEndpoint {
   path: string;
   label: string;
   url: string;
-  lastHit: HmsHit | null;
+  lastHit: { timestamp: string; status: number | null; source: "audit_log" | "in_memory" } | null;
   lastHitPersistent: string | null;
 }
 interface HmsHit {
   timestamp: string;
-  method: string;
-  route: string;
-  path: string;
-  status: number;
-  durationMs: number;
-  ip?: string;
-  identifier?: string;
+  method: string | null;
+  route: string | null;
+  path?: string | null;
+  status: number | null;
+  durationMs: number | null;
+  ip?: string | null;
+  identifier?: string | null;
+  bookingRef?: string | null;
+  hasApiKey?: boolean;
   query?: Record<string, string>;
 }
 interface StatusResponse {
@@ -62,6 +64,7 @@ interface StatusResponse {
     error?: string;
     latencyMs?: number;
     tested?: string;
+    mode?: "api_key" | "login" | "none";
   };
   token: {
     source: "api_key" | "cached_jwt" | "none";
@@ -421,13 +424,16 @@ export default function AdminHmsHealth() {
                       {ep.lastHit ? (
                         <Badge
                           className={
-                            ep.lastHit.status >= 200 && ep.lastHit.status < 300
+                            ep.lastHit.status != null && ep.lastHit.status >= 200 && ep.lastHit.status < 300
                               ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]"
-                              : "bg-rose-100 text-rose-700 border-rose-200 text-[10px]"
+                              : ep.lastHit.status != null
+                                ? "bg-rose-100 text-rose-700 border-rose-200 text-[10px]"
+                                : "bg-slate-100 text-slate-700 border-slate-200 text-[10px]"
                           }
+                          title={`Source: ${ep.lastHit.source === "audit_log" ? "audit log (persistent)" : "in-memory ring"}`}
                         >
                           <Clock className="w-2.5 h-2.5 mr-1" />
-                          {ep.lastHit.status} · {timeAgo(ep.lastHit.timestamp)}
+                          {ep.lastHit.status ?? "—"} · {timeAgo(ep.lastHit.timestamp)}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px] text-slate-500">
@@ -712,7 +718,7 @@ export default function AdminHmsHealth() {
             )}
           </CardTitle>
           <p className="text-xs text-slate-500">
-            In-memory ring buffer. Resets on every server restart. Auto-refreshes every 10s.
+            Last 20 inbound HMS calls from the persistent audit log (survives restarts). Auto-refreshes every 10s.
           </p>
         </CardHeader>
         <CardContent>
@@ -731,22 +737,29 @@ export default function AdminHmsHealth() {
                   data-testid={`row-activity-${i}`}
                 >
                   <Badge variant="outline" className="font-mono text-[10px] uppercase col-span-1 justify-center">
-                    {h.method}
+                    {h.method ?? "?"}
                   </Badge>
-                  <code className="font-mono text-[11px] text-slate-700 truncate col-span-6">{h.path}</code>
+                  <code className="font-mono text-[11px] text-slate-700 truncate col-span-5">{h.path || h.route || "—"}</code>
                   <Badge
                     className={
-                      h.status >= 200 && h.status < 300
+                      h.status != null && h.status >= 200 && h.status < 300
                         ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] col-span-1 justify-center"
-                        : h.status >= 400
+                        : h.status != null && h.status >= 400
                           ? "bg-rose-100 text-rose-700 border-rose-200 text-[10px] col-span-1 justify-center"
                           : "bg-amber-100 text-amber-700 border-amber-200 text-[10px] col-span-1 justify-center"
                     }
                   >
-                    {h.status}
+                    {h.status ?? "—"}
                   </Badge>
-                  <span className="text-slate-500 col-span-1 text-right">{h.durationMs}ms</span>
-                  <span className="text-slate-500 col-span-3 text-right">{timeAgo(h.timestamp)}</span>
+                  <span className="text-slate-500 col-span-1 text-right">{h.durationMs != null ? `${h.durationMs}ms` : "—"}</span>
+                  <code
+                    className="font-mono text-[10px] text-slate-500 col-span-2 truncate text-right"
+                    title={h.bookingRef || h.identifier || ""}
+                    data-testid={`text-bookingref-${i}`}
+                  >
+                    {h.bookingRef || h.identifier || ""}
+                  </code>
+                  <span className="text-slate-500 col-span-2 text-right">{timeAgo(h.timestamp)}</span>
                 </div>
               ))}
             </div>

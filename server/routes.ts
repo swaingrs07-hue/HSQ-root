@@ -6275,7 +6275,11 @@ ${allPages.map(p => `  <url>
     const startedAt = Date.now();
 
     // Record this inbound HMS hit (for the superadmin diagnostics page)
-    // when the response finishes, regardless of auth outcome.
+    // when the response finishes, regardless of auth outcome. We write
+    // to TWO sinks: the persistent activity_logs table (survives
+    // restarts, primary source for /recent-activity and last-hit
+    // timestamps) and an in-memory ring buffer (sub-second freshness
+    // supplement).
     res.on("finish", () => {
       try {
         const route = (req.route?.path && req.baseUrl != null)
@@ -6284,17 +6288,47 @@ ${allPages.map(p => `  <url>
         const queryEntries = Object.entries(req.query || {})
           .slice(0, 6)
           .map(([k, v]) => [k, String(v).slice(0, 80)] as [string, string]);
+        const durationMs = Date.now() - startedAt;
+        const identifier = req.params?.identifier
+          || req.body?.bookingCode
+          || req.body?.phone
+          || (typeof req.query?.bookingCode === "string" ? req.query.bookingCode : undefined)
+          || (typeof req.query?.phone === "string" ? req.query.phone : undefined);
+
         recordHmsHit({
           timestamp: new Date().toISOString(),
           method: req.method,
           route,
           path: req.originalUrl || req.path,
           status: res.statusCode,
-          durationMs: Date.now() - startedAt,
+          durationMs,
           ip: req.ip,
-          identifier: req.params?.identifier,
+          identifier,
           query: Object.fromEntries(queryEntries),
         });
+
+        // Best-effort persistent log so /recent-activity survives
+        // restarts. We use entityLabel as a structured marker
+        // (`HMS:<METHOD> <route>`) so we can filter cheaply later.
+        logActivity({
+          actor: { id: undefined, name: "HostelFlow HMS", role: "system" },
+          actionType: "UPDATE",
+          entityType: "BOOKING",
+          entityId: identifier ? String(identifier).slice(0, 80) : "inbound",
+          entityLabel: `HMS:${req.method} ${route}`,
+          metadata: {
+            method: req.method,
+            route,
+            path: req.originalUrl || req.path,
+            status: res.statusCode,
+            durationMs,
+            hasApiKey: !!authHeader && !!apiKey && authHeader === `Bearer ${apiKey}`,
+            identifier: identifier ? String(identifier).slice(0, 80) : null,
+            query: Object.fromEntries(queryEntries),
+          },
+          ipAddress: req.ip,
+          userAgent: req.get?.("user-agent") || null,
+        }).catch(() => { /* never let logging crash the request */ });
       } catch {
         /* never let logging crash the request */
       }
@@ -13347,13 +13381,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const requestHost = req.get("host") || null;
       const requestProtocol = (req.headers["x-forwarded-proto"] as string) || req.protocol;
 
-      // Outbound auth ping: try to reach HMS using the configured API key.
-      let outbound: { ok: boolean; status?: number; error?: string; latencyMs?: number; tested?: string } = { ok: false };
+      // Outbound auth ping: prefer API key; if absent fall back to the
+      // configured email/password login flow so we report green when EITHER
+      // credential mode is healthy.
+      let outbound: {
+        ok: boolean; status?: number; error?: string; latencyMs?: number;
+        tested?: string; mode?: "api_key" | "login" | "none";
+      } = { ok: false, mode: "none" };
       try {
         const apiKey = process.env.HOSTEL_FLOW_API_KEY || process.env.HMS_API_KEY;
-        if (!apiKey) {
-          outbound = { ok: false, error: "No HMS_API_KEY / HOSTEL_FLOW_API_KEY configured" };
-        } else {
+        if (apiKey) {
           const t0 = Date.now();
           const url = `${apiBaseUrl}/api/properties`;
           const resp = await fetch(url, {
@@ -13366,14 +13403,30 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             status: resp.status,
             latencyMs: Date.now() - t0,
             tested: url,
+            mode: "api_key",
           };
           if (!resp.ok) {
             const text = await resp.text().catch(() => "");
             outbound.error = text.slice(0, 200) || `HTTP ${resp.status}`;
           }
+        } else if (hasLoginCreds) {
+          // Use the cached JWT helper so we exercise the same login path the
+          // rest of the app does. getHostelFlowJWT() throws on failure.
+          const t0 = Date.now();
+          const token = await getHostelFlowJWT();
+          outbound = {
+            ok: !!token,
+            status: token ? 200 : 0,
+            latencyMs: Date.now() - t0,
+            tested: `${apiBaseUrl} (login)`,
+            mode: "login",
+          };
+          if (!token) outbound.error = "Login returned empty token";
+        } else {
+          outbound = { ok: false, error: "No HMS credentials configured (need HMS_API_KEY or HOSTEL_FLOW_EMAIL+PASSWORD)", mode: "none" };
         }
       } catch (e: any) {
-        outbound = { ok: false, error: e?.message || "Network error" };
+        outbound = { ok: false, error: e?.message || "Network error", mode: outbound.mode };
       }
 
       // Token age — peek at the cached HostelFlow JWT (if any) so we know
@@ -13440,13 +13493,61 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         return null;
       };
 
+      // Persistent last-hit per route — read the most recent activity_log
+      // entry for each inbound route. Survives restarts, mirrors what HMS
+      // actually called us with (route + method + status). This is the
+      // PRIMARY source for last-hit; the in-memory ring buffer is just a
+      // sub-second freshness supplement for the very latest call.
+      const auditLastHit: Record<string, { timestamp: string; status: number | null } | null> = {};
+      try {
+        const { logs: hmsAuditLogs } = await storage.getActivityLogs({
+          actorUserId: undefined as any,
+          limit: 200,
+        });
+        for (const path of baseEndpoints.map((e) => e.path)) {
+          const match = hmsAuditLogs.find((l) =>
+            l.actorRole === "SYSTEM" &&
+            typeof l.entityLabel === "string" &&
+            l.entityLabel.startsWith("HMS:") &&
+            l.entityLabel.endsWith(` ${path}`)
+          );
+          if (match) {
+            let status: number | null = null;
+            try {
+              status = match.metadataJson ? (JSON.parse(match.metadataJson).status ?? null) : null;
+            } catch { /* ignore */ }
+            auditLastHit[path] = {
+              timestamp: (match.createdAt instanceof Date ? match.createdAt : new Date(match.createdAt as any)).toISOString(),
+              status,
+            };
+          } else {
+            auditLastHit[path] = null;
+          }
+        }
+      } catch {
+        /* non-fatal: audit lookup is best-effort */
+      }
+
       const inboundEndpoints = baseEndpoints.map((e) => {
         const ringHit = getLastHitForRoute(e.path) || null;
+        const auditHit = auditLastHit[e.path] || null;
         const persistentTs = persistentLastHitFor(e.path);
+
+        // Prefer the more-recent of (audit log, ring buffer). Audit log
+        // is the persistent primary source; ring buffer is sub-second
+        // freshness for the very latest call. Always return a consistent
+        // object shape: { timestamp, status, source }.
+        let lastHit: { timestamp: string; status: number | null; source: "audit_log" | "in_memory" } | null = null;
+        if (auditHit && (!ringHit || new Date(auditHit.timestamp).getTime() >= new Date(ringHit.timestamp).getTime())) {
+          lastHit = { timestamp: auditHit.timestamp, status: auditHit.status, source: "audit_log" };
+        } else if (ringHit) {
+          lastHit = { timestamp: ringHit.timestamp, status: ringHit.status, source: "in_memory" };
+        }
+
         return {
           ...e,
           url: `${canonicalBase}${e.path}`,
-          lastHit: ringHit,
+          lastHit,
           lastHitPersistent: persistentTs,
         };
       });
@@ -13560,7 +13661,37 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/admin/hms-health/recent-activity", authMiddleware, roleMiddleware("superadmin"), async (_req: AuthRequest, res) => {
     try {
-      res.json({ ok: true, hits: getRecentHits(25), stats: getHmsLogStats() });
+      // Pull from the persistent audit log (survives restarts). Filter
+      // down to entries the HMS middleware wrote (actorRole=SYSTEM,
+      // entityLabel starts with "HMS:"). Cap at 20 per the spec.
+      const { logs } = await storage.getActivityLogs({ limit: 200 });
+      const hmsHits = logs
+        .filter((l) =>
+          l.actorRole === "SYSTEM" &&
+          typeof l.entityLabel === "string" &&
+          l.entityLabel.startsWith("HMS:")
+        )
+        .slice(0, 20)
+        .map((l) => {
+          let meta: any = {};
+          try { meta = l.metadataJson ? JSON.parse(l.metadataJson) : {}; } catch { /* ignore */ }
+          return {
+            timestamp: (l.createdAt instanceof Date ? l.createdAt : new Date(l.createdAt as any)).toISOString(),
+            method: meta.method || l.entityLabel.split(" ")[0]?.replace("HMS:", "") || null,
+            route: meta.route || l.entityLabel.split(" ").slice(1).join(" ") || null,
+            path: meta.path || null,
+            status: meta.status ?? null,
+            durationMs: meta.durationMs ?? null,
+            ip: l.ipAddress || null,
+            identifier: meta.identifier || (l.entityId !== "inbound" ? l.entityId : null),
+            bookingRef: meta.identifier || (l.entityId !== "inbound" ? l.entityId : null),
+            hasApiKey: !!meta.hasApiKey,
+            query: meta.query || {},
+          };
+        });
+      // Also surface the in-memory ring so right-after-a-call we have
+      // sub-second freshness even before the DB write commits.
+      res.json({ ok: true, hits: hmsHits, ring: getRecentHits(20), stats: getHmsLogStats() });
     } catch (error: any) {
       res.status(500).json({ ok: false, error: error?.message || "Failed to read activity" });
     }
