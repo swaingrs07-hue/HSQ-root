@@ -10,11 +10,42 @@ import { eq, and } from "drizzle-orm";
 const app = express();
 const httpServer = createServer(app);
 
+// We sit behind Replit's edge proxy in production. Trust the first proxy
+// hop so req.hostname / req.protocol come from X-Forwarded-* headers
+// (needed for the www → apex redirect below to detect HTTPS correctly).
+app.set("trust proxy", 1);
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
+
+// ---- Canonical host redirect (www → apex) ----
+// SEO best practice: serve the site from one canonical hostname.
+// Our canonical is the apex `hsquare.in` (matches SITE_URL in seo-meta.ts
+// and every <link rel="canonical">). Any visitor landing on the `www.`
+// variant of a linked custom domain is 301-redirected to the apex,
+// preserving path + query string. Replit's *.replit.app/.replit.dev
+// preview hosts and localhost are left alone so dev/staging keep working.
+app.use((req, res, next) => {
+  const host = (req.hostname || "").toLowerCase();
+  if (host.startsWith("www.")) {
+    const apex = host.slice(4);
+    // Only redirect when it looks like a real custom domain (has a dot
+    // and isn't a Replit preview / localhost). This keeps dev safe.
+    if (apex.includes(".") && !apex.endsWith("replit.app") && !apex.endsWith("replit.dev") && apex !== "localhost") {
+      const target = `https://${apex}${req.originalUrl}`;
+      // GET/HEAD → 301 (classic SEO redirect). Anything else (a stray
+      // webhook POST that lands on www, etc.) → 308 so the method and
+      // request body are preserved per RFC 7538 instead of silently
+      // being downgraded to a body-less GET.
+      const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
+      return res.redirect(code, target);
+    }
+  }
+  next();
+});
 
 app.use(
   express.json({
