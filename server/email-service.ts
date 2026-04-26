@@ -1295,6 +1295,237 @@ export async function sendFollowUpReminderEmail(
   }
 }
 
+// ===========================================================================
+// Lead assignment notifications
+// ===========================================================================
+//
+// Fired every time a lead is assigned (or reassigned) to a sales executive
+// from any of the assignment trigger paths (web lead, tour enquiry, manual
+// sales create, admin auto-assign, admin reassign, admin generic assign,
+// and admin bulk assign — bulk uses the summary variant below).
+//
+// We always CC `gyan@hsquareliving.com` so leadership has full visibility
+// into the lead routing — except when the assignee themselves is Gyan, in
+// which case CC'ing him would be redundant.
+
+const LEAD_OWNERSHIP_CC_EMAIL = "gyan@hsquareliving.com";
+
+function escapeHtml(value: string | null | undefined): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatBudgetRange(min?: number | null, max?: number | null): string | null {
+  if (!min && !max) return null;
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  if (min) return `${fmt(min)}+`;
+  return `up to ${fmt(max!)}`;
+}
+
+interface LeadAssignmentEmailLead {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  propertyName?: string | null;
+  source?: string | null;
+  notes?: string | null;
+  message?: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+}
+
+export async function sendLeadAssignmentEmail(
+  assignee: { id?: string; name: string; email: string },
+  lead: LeadAssignmentEmailLead,
+  options?: {
+    assignerName?: string | null;
+    isReassign?: boolean;
+    assignmentType?: string | null;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  if (!assignee.email) {
+    return { success: false, error: "Assignee has no email" };
+  }
+
+  const isReassign = !!options?.isReassign;
+  const assignerName = options?.assignerName?.trim() || null;
+  const assignmentType = options?.assignmentType || null;
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  const ctaUrl = `${baseUrl}/sales/requests`;
+  const budget = formatBudgetRange(lead.budgetMin, lead.budgetMax);
+  const propertyLabel = lead.propertyName?.trim() || "No specific property";
+
+  const detailRow = (label: string, value: string | null | undefined) => {
+    if (!value) return "";
+    return `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#64748b;width:140px;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;font-weight:500;">${escapeHtml(value)}</td>
+      </tr>`;
+  };
+
+  const sourceLabel = lead.source
+    ? lead.source.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+
+  const assignmentLabel = (() => {
+    switch (assignmentType) {
+      case "property_auto": return "Auto-assigned via property mapping";
+      case "admin_manual": return "Manually assigned by admin";
+      case "fallback_default": return "Fallback (no property mapping found)";
+      default: return null;
+    }
+  })();
+
+  const headerTitle = isReassign ? "Lead Reassigned to You" : "New Lead Assigned";
+  const intro = isReassign
+    ? `A lead has been reassigned to you${assignerName ? ` by ${escapeHtml(assignerName)}` : ""}.`
+    : `A new lead has been assigned to you${assignerName ? ` by ${escapeHtml(assignerName)}` : ""}. Please reach out as soon as possible.`;
+
+  const html = `
+    <div style="font-family:'Segoe UI',Tahoma,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+      <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:24px 30px;">
+        <h1 style="color:#ffffff;margin:0;font-size:20px;">${headerTitle}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px;">${escapeHtml(propertyLabel)}</p>
+      </div>
+      <div style="padding:24px 30px;">
+        <p style="color:#334155;margin:0 0 12px;font-size:15px;">Hi ${escapeHtml(assignee.name)},</p>
+        <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.5;">${intro}</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          <tbody>
+            ${detailRow("Lead Name", lead.name)}
+            ${detailRow("Phone", lead.phone || null)}
+            ${detailRow("Email", lead.email || null)}
+            ${detailRow("Property", lead.propertyName || null)}
+            ${detailRow("Source", sourceLabel)}
+            ${detailRow("Budget", budget)}
+            ${detailRow("Notes", lead.notes || lead.message || null)}
+            ${detailRow("Assignment", assignmentLabel)}
+          </tbody>
+        </table>
+        <div style="margin-top:24px;text-align:center;">
+          <a href="${ctaUrl}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Open Lead in CRM</a>
+        </div>
+        <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;text-align:center;">
+          You're receiving this email because the lead was routed to your queue.
+        </p>
+      </div>
+      <div style="background:#f8fafc;padding:16px 30px;text-align:center;">
+        <p style="color:#94a3b8;margin:0;font-size:12px;">Hsquare Living &mdash; Sales CRM</p>
+      </div>
+    </div>`;
+
+  const subjectVerb = isReassign ? "reassigned" : "assigned";
+  const subject = `Lead ${subjectVerb}: ${lead.name} — ${propertyLabel}`;
+
+  const cc = assignee.email.toLowerCase() === LEAD_OWNERSHIP_CC_EMAIL.toLowerCase()
+    ? undefined
+    : [LEAD_OWNERSHIP_CC_EMAIL];
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: assignee.email,
+      ...(cc ? { cc } : {}),
+      subject,
+      html,
+    });
+    console.log(`[Email] Lead assignment sent to ${assignee.email}${cc ? ` (cc ${cc.join(", ")})` : ""}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Email] Failed to send lead assignment to ${assignee.email}:`, error);
+    return { success: false, error: error?.message || String(error) };
+  }
+}
+
+export async function sendLeadAssignmentBulkSummaryEmail(
+  assignee: { id?: string; name: string; email: string },
+  leads: LeadAssignmentEmailLead[],
+  options?: { assignerName?: string | null }
+): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+  if (!assignee.email || leads.length === 0) {
+    return { success: false, error: "Nothing to send" };
+  }
+
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  const ctaUrl = `${baseUrl}/sales/requests`;
+  const assignerName = options?.assignerName?.trim() || null;
+
+  const rows = leads.map((lead) => {
+    const budget = formatBudgetRange(lead.budgetMin, lead.budgetMax);
+    return `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;font-weight:500;">${escapeHtml(lead.name)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#475569;">${escapeHtml(lead.phone || "-")}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#475569;">${escapeHtml(lead.propertyName || "-")}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#475569;">${escapeHtml(budget || "-")}</td>
+      </tr>`;
+  }).join("");
+
+  const html = `
+    <div style="font-family:'Segoe UI',Tahoma,sans-serif;max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+      <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:24px 30px;">
+        <h1 style="color:#ffffff;margin:0;font-size:20px;">${leads.length} Lead${leads.length > 1 ? "s" : ""} Assigned to You</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px;">Bulk assignment${assignerName ? ` by ${escapeHtml(assignerName)}` : ""}</p>
+      </div>
+      <div style="padding:24px 30px;">
+        <p style="color:#334155;margin:0 0 16px;font-size:15px;">Hi ${escapeHtml(assignee.name)},</p>
+        <p style="color:#475569;margin:0 0 20px;font-size:14px;line-height:1.5;">
+          You have been assigned ${leads.length} new lead${leads.length > 1 ? "s" : ""}. Please review and follow up.
+        </p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Lead</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Phone</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Property</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;">Budget</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="margin-top:24px;text-align:center;">
+          <a href="${ctaUrl}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Open Sales CRM</a>
+        </div>
+      </div>
+      <div style="background:#f8fafc;padding:16px 30px;text-align:center;">
+        <p style="color:#94a3b8;margin:0;font-size:12px;">Hsquare Living &mdash; Sales CRM</p>
+      </div>
+    </div>`;
+
+  const cc = assignee.email.toLowerCase() === LEAD_OWNERSHIP_CC_EMAIL.toLowerCase()
+    ? undefined
+    : [LEAD_OWNERSHIP_CC_EMAIL];
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: assignee.email,
+      ...(cc ? { cc } : {}),
+      subject: `${leads.length} lead${leads.length > 1 ? "s" : ""} assigned to you`,
+      html,
+    });
+    console.log(`[Email] Bulk lead assignment summary sent to ${assignee.email} (${leads.length} leads)${cc ? ` (cc ${cc.join(", ")})` : ""}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Email] Failed to send bulk assignment summary to ${assignee.email}:`, error);
+    return { success: false, error: error?.message || String(error) };
+  }
+}
+
 interface BedReconciliationSummaryData {
   runAt: Date;
   totalCorrected: number;

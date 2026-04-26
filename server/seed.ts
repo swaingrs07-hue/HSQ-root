@@ -88,6 +88,22 @@ async function ensureSalesExecutives() {
       console.log(`Created sales executive: ${exec.email}`);
     }
   }
+
+  // Ensure the catch-all fallback assignee (Bibhuti) exists. Any new lead
+  // that the auto-assignment logic cannot route to a property-mapped exec
+  // is routed to this user instead, so leads are never lost in limbo.
+  const fallbackEmail = "bibhuti@hsquareliving.com";
+  const existingFallback = await storage.getUserByEmail(fallbackEmail);
+  if (!existingFallback) {
+    await storage.createUser({
+      name: "Bibhuti",
+      email: fallbackEmail,
+      phone: "",
+      password: hashedPassword,
+      role: "sales_executive",
+    });
+    console.log(`Created fallback sales executive: ${fallbackEmail}`);
+  }
 }
 
 async function ensureTestLeads() {

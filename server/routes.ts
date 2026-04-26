@@ -1079,7 +1079,7 @@ ${allPages.map(p => `  <url>
 
         // Auto-assign to sales executive if property is specified
         let assignedToId: string | null = null;
-        let assignmentType: "property_auto" | "admin_manual" | "unassigned" = "unassigned";
+        let assignmentType: "property_auto" | "admin_manual" | "unassigned" | "fallback_default" = "unassigned";
         
         if (propertyId) {
           // Find sales executive assigned to this property with round-robin load balancing
@@ -1122,6 +1122,19 @@ ${allPages.map(p => `  <url>
             
             assignedToId = selectedExecId;
             assignmentType = "property_auto";
+          }
+        }
+
+        // Fallback: if no sales exec was matched (no property, or property
+        // has no active execs mapped), route the lead to the catch-all
+        // default assignee (Bibhuti) so leads never end up in unassigned
+        // limbo. Only applied when creating a brand new lead — existing
+        // leads keep whatever assignment they already had.
+        if (!assignedToId) {
+          const fallback = await storage.getFallbackAssignee();
+          if (fallback) {
+            assignedToId = fallback.id;
+            assignmentType = "fallback_default";
           }
         }
 
@@ -1224,6 +1237,35 @@ ${allPages.map(p => `  <url>
             type: "lead",
             actionUrl: "/sales/requests",
           });
+
+          // Fire-and-forget email so a slow/failing Resend call never
+          // takes down the public lead-capture endpoint.
+          (async () => {
+            try {
+              const assignee = await storage.getUser(assignedToId);
+              if (assignee?.email) {
+                const { sendLeadAssignmentEmail } = await import("./email-service");
+                await sendLeadAssignmentEmail(
+                  { id: assignee.id, name: assignee.name, email: assignee.email },
+                  {
+                    id: lead.id,
+                    name: lead.name,
+                    phone: lead.phone,
+                    email: lead.email,
+                    propertyName: lead.propertyName,
+                    source: lead.source,
+                    notes: lead.notes,
+                    message: lead.message,
+                    budgetMin: lead.budgetMin,
+                    budgetMax: lead.budgetMax,
+                  },
+                  { assignmentType }
+                );
+              }
+            } catch (e) {
+              console.error("[LeadAssignmentEmail] web lead failed:", e);
+            }
+          })();
         }
         if (isNewLead) {
           const adminUsers = await storage.getUsersByRole(["admin", "superadmin"]);
@@ -1260,7 +1302,7 @@ ${allPages.map(p => `  <url>
 
       let propertyName: string | null = null;
       let assignedToId: string | null = null;
-      let assignmentType: "property_auto" | "admin_manual" | "unassigned" = "unassigned";
+      let assignmentType: "property_auto" | "admin_manual" | "unassigned" | "fallback_default" = "unassigned";
 
       if (propertyId) {
         const [prop] = await db.select().from(schema.properties).where(eq(schema.properties.id, propertyId)).limit(1);
@@ -1290,6 +1332,16 @@ ${allPages.map(p => `  <url>
             assignedToId = selectedExecId;
             assignmentType = "property_auto";
           }
+        }
+      }
+
+      // Fallback to default catch-all assignee (Bibhuti) when no property
+      // mapping produced a sales exec, so enquiries never fall through.
+      if (!assignedToId) {
+        const fallback = await storage.getFallbackAssignee();
+        if (fallback) {
+          assignedToId = fallback.id;
+          assignmentType = "fallback_default";
         }
       }
 
@@ -1323,6 +1375,34 @@ ${allPages.map(p => `  <url>
           type: "lead",
           actionUrl: "/sales/requests",
         });
+
+        const assignedToIdForEmail = assignedToId;
+        (async () => {
+          try {
+            const assignee = await storage.getUser(assignedToIdForEmail);
+            if (assignee?.email) {
+              const { sendLeadAssignmentEmail } = await import("./email-service");
+              await sendLeadAssignmentEmail(
+                { id: assignee.id, name: assignee.name, email: assignee.email },
+                {
+                  id: lead.id,
+                  name: lead.name,
+                  phone: lead.phone,
+                  email: lead.email,
+                  propertyName: lead.propertyName,
+                  source: lead.source,
+                  notes: lead.notes,
+                  message: lead.message,
+                  budgetMin: lead.budgetMin,
+                  budgetMax: lead.budgetMax,
+                },
+                { assignmentType }
+              );
+            }
+          } catch (e) {
+            console.error("[LeadAssignmentEmail] tour enquiry failed:", e);
+          }
+        })();
       }
       const enquiryAdmins = await storage.getUsersByRole(["admin", "superadmin"]);
       for (const admin of enquiryAdmins) {
@@ -5930,35 +6010,42 @@ ${allPages.map(p => `  <url>
       }
 
       // Get sales exec with least leads for this property
-      const salesExec = await storage.getSalesExecWithLeastLeads(lead.propertyId);
-      
+      let salesExec = await storage.getSalesExecWithLeastLeads(lead.propertyId);
+      let resolvedAssignmentType: "property_auto" | "fallback_default" = "property_auto";
+      const authReq = req as AuthRequest;
+
       if (!salesExec) {
-        // No sales exec mapped - mark as unassigned
-        const updatedLead = await storage.updateLead(leadId, {
-          assignmentType: "unassigned",
-        });
-        
-        // Create notification for admin
-        const admins = await storage.getSalesExecutives();
-        for (const admin of admins.filter(u => u.role === "admin" || u.role === "superadmin")) {
-          await storage.createNotification({
-            userId: admin.id,
-            title: "Unassigned Lead - Action Required",
-            message: `Lead "${lead.name}" for property has no sales executive assigned.`,
-            type: "warning",
-            actionUrl: "/admin/requests",
+        // No sales exec mapped to this property - fall back to the
+        // catch-all default assignee (Bibhuti) so this lead is owned
+        // immediately instead of sitting unassigned.
+        const fallback = await storage.getFallbackAssignee();
+        if (fallback) {
+          salesExec = fallback;
+          resolvedAssignmentType = "fallback_default";
+        } else {
+          // Nothing to fall back to - keep the legacy "unassigned" path.
+          const updatedLead = await storage.updateLead(leadId, {
+            assignmentType: "unassigned",
           });
+          const admins = await storage.getSalesExecutives();
+          for (const admin of admins.filter(u => u.role === "admin" || u.role === "superadmin")) {
+            await storage.createNotification({
+              userId: admin.id,
+              title: "Unassigned Lead - Action Required",
+              message: `Lead "${lead.name}" for property has no sales executive assigned.`,
+              type: "warning",
+              actionUrl: "/admin/requests",
+            });
+          }
+          return res.json({ ...updatedLead, assignedExec: null, assignmentType: "unassigned" });
         }
-        
-        return res.json({ ...updatedLead, assignedExec: null, assignmentType: "unassigned" });
       }
 
       // Assign to sales exec
-      const authReq = req as AuthRequest;
       const updatedLead = await storage.updateLead(leadId, {
         assignedToId: salesExec.id,
         assignedAt: new Date(),
-        assignmentType: "property_auto",
+        assignmentType: resolvedAssignmentType,
       });
 
       // Log activity
@@ -5966,8 +6053,10 @@ ${allPages.map(p => `  <url>
         leadId,
         actorId: authReq.user!.userId,
         actionType: "lead_reassigned",
-        newValue: JSON.stringify({ salesExecId: salesExec.id, type: "property_auto" }),
-        description: `Auto-assigned to ${salesExec.name} based on property mapping`,
+        newValue: JSON.stringify({ salesExecId: salesExec.id, type: resolvedAssignmentType }),
+        description: resolvedAssignmentType === "fallback_default"
+          ? `Auto-assigned to ${salesExec.name} via default fallback (no property mapping)`
+          : `Auto-assigned to ${salesExec.name} based on property mapping`,
       });
 
       // Notify sales exec
@@ -5979,7 +6068,35 @@ ${allPages.map(p => `  <url>
         actionUrl: "/sales/requests",
       });
 
-      res.json({ ...updatedLead, assignedExec: salesExec, assignmentType: "property_auto" });
+      // Fire-and-forget assignment email
+      (async () => {
+        try {
+          if (salesExec?.email) {
+            const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
+            const { sendLeadAssignmentEmail } = await import("./email-service");
+            await sendLeadAssignmentEmail(
+              { id: salesExec.id, name: salesExec.name, email: salesExec.email },
+              {
+                id: lead.id,
+                name: lead.name,
+                phone: lead.phone,
+                email: lead.email,
+                propertyName: lead.propertyName,
+                source: lead.source,
+                notes: lead.notes,
+                message: lead.message,
+                budgetMin: lead.budgetMin,
+                budgetMax: lead.budgetMax,
+              },
+              { assignerName: assigner?.name || null, assignmentType: resolvedAssignmentType }
+            );
+          }
+        } catch (e) {
+          console.error("[LeadAssignmentEmail] admin auto-assign failed:", e);
+        }
+      })();
+
+      res.json({ ...updatedLead, assignedExec: salesExec, assignmentType: resolvedAssignmentType });
     } catch (error) {
       console.error("Error auto-assigning lead:", error);
       res.status(500).json({ error: "Failed to auto-assign lead" });
@@ -6027,6 +6144,34 @@ ${allPages.map(p => `  <url>
           type: "lead",
           actionUrl: "/sales/requests",
         });
+
+        const isReassign = !!lead.assignedToId && lead.assignedToId !== salesExecId;
+        (async () => {
+          try {
+            if (salesExec.email) {
+              const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
+              const { sendLeadAssignmentEmail } = await import("./email-service");
+              await sendLeadAssignmentEmail(
+                { id: salesExec.id, name: salesExec.name, email: salesExec.email },
+                {
+                  id: lead.id,
+                  name: lead.name,
+                  phone: lead.phone,
+                  email: lead.email,
+                  propertyName: lead.propertyName,
+                  source: lead.source,
+                  notes: lead.notes,
+                  message: lead.message,
+                  budgetMin: lead.budgetMin,
+                  budgetMax: lead.budgetMax,
+                },
+                { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
+              );
+            }
+          } catch (e) {
+            console.error("[LeadAssignmentEmail] admin reassign failed:", e);
+          }
+        })();
       }
 
       res.json(updatedLead);
@@ -9058,7 +9203,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       if (userId && (!existingLead || existingLead.assignedToId !== userId)) {
-        const isReassign = existingLead?.assignedToId && existingLead.assignedToId !== userId;
+        const isReassign = !!(existingLead?.assignedToId && existingLead.assignedToId !== userId);
         await storage.createNotification({
           userId,
           title: isReassign ? "Lead Reassigned to You" : "New Lead Assigned",
@@ -9068,6 +9213,34 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           type: "lead",
           actionUrl: "/sales/requests",
         });
+
+        (async () => {
+          try {
+            const assignee = await storage.getUser(userId);
+            if (assignee?.email) {
+              const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
+              const { sendLeadAssignmentEmail } = await import("./email-service");
+              await sendLeadAssignmentEmail(
+                { id: assignee.id, name: assignee.name, email: assignee.email },
+                {
+                  id: lead.id,
+                  name: lead.name,
+                  phone: lead.phone,
+                  email: lead.email,
+                  propertyName: lead.propertyName,
+                  source: lead.source,
+                  notes: lead.notes,
+                  message: lead.message,
+                  budgetMin: lead.budgetMin,
+                  budgetMax: lead.budgetMax,
+                },
+                { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
+              );
+            }
+          } catch (e) {
+            console.error("[LeadAssignmentEmail] admin assign failed:", e);
+          }
+        })();
       }
       
       res.json(lead);
@@ -9091,6 +9264,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
       
       const results = { assigned: 0, skipped: 0, errors: [] as string[] };
+      const assignedLeads: Array<{ id: string; name: string; phone: string | null; propertyName: string | null; budgetMin: number | null; budgetMax: number | null }> = [];
       
       for (const leadId of leadIds) {
         try {
@@ -9108,6 +9282,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           
           await storage.assignLeadToUser(leadId, userId, authReq.user!.userId);
           results.assigned++;
+          assignedLeads.push({
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            propertyName: lead.propertyName,
+            budgetMin: lead.budgetMin,
+            budgetMax: lead.budgetMax,
+          });
         } catch (err) {
           results.errors.push(`Failed to assign lead ${leadId}`);
         }
@@ -9121,6 +9303,23 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           type: "lead",
           actionUrl: "/sales/requests",
         });
+
+        (async () => {
+          try {
+            const assignee = await storage.getUser(userId);
+            if (assignee?.email && assignedLeads.length > 0) {
+              const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
+              const { sendLeadAssignmentBulkSummaryEmail } = await import("./email-service");
+              await sendLeadAssignmentBulkSummaryEmail(
+                { id: assignee.id, name: assignee.name, email: assignee.email },
+                assignedLeads,
+                { assignerName: assigner?.name || null }
+              );
+            }
+          } catch (e) {
+            console.error("[LeadAssignmentEmail] bulk-assign failed:", e);
+          }
+        })();
       }
       
       res.json({ 
@@ -9362,12 +9561,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       
       let assignToId = authReq.user!.userId;
       const isAdminRole = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
-      let assignType: "admin_manual" | "property_auto" = isAdminRole ? "admin_manual" : "property_auto";
+      let assignType: "admin_manual" | "property_auto" | "fallback_default" = isAdminRole ? "admin_manual" : "property_auto";
+      let assignFromAdminAutoRoute = false;
       
       if (isAdminRole && data.assignToUserId) {
         assignToId = data.assignToUserId;
         assignType = "admin_manual";
       } else if (isAdminRole && !data.assignToUserId) {
+        assignFromAdminAutoRoute = true;
         const assignments = await db.select({ salesExecId: schema.salesExecProperties.userId })
           .from(schema.salesExecProperties)
           .where(and(
@@ -9391,6 +9592,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           }
           assignToId = selectedExecId;
           assignType = "admin_manual";
+        } else {
+          // Admin created the lead but no sales exec is mapped to the
+          // property. Fall back to the catch-all default assignee
+          // instead of silently routing the lead to the admin.
+          const fallback = await storage.getFallbackAssignee();
+          if (fallback) {
+            assignToId = fallback.id;
+            assignType = "fallback_default";
+          }
         }
       }
 
@@ -9431,6 +9641,36 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           type: "lead",
           actionUrl: "/sales/requests",
         });
+
+        const assignToIdForEmail = assignToId;
+        const finalAssignType = assignType;
+        (async () => {
+          try {
+            const assignee = await storage.getUser(assignToIdForEmail);
+            if (assignee?.email) {
+              const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
+              const { sendLeadAssignmentEmail } = await import("./email-service");
+              await sendLeadAssignmentEmail(
+                { id: assignee.id, name: assignee.name, email: assignee.email },
+                {
+                  id: lead.id,
+                  name: lead.name,
+                  phone: lead.phone,
+                  email: lead.email,
+                  propertyName: lead.propertyName,
+                  source: lead.source,
+                  notes: lead.notes,
+                  message: lead.message,
+                  budgetMin: lead.budgetMin,
+                  budgetMax: lead.budgetMax,
+                },
+                { assignerName: assigner?.name || null, assignmentType: finalAssignType }
+              );
+            }
+          } catch (e) {
+            console.error("[LeadAssignmentEmail] manual sales create failed:", e);
+          }
+        })();
       }
       
       res.status(201).json(lead);

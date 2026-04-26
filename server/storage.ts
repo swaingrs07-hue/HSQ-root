@@ -294,6 +294,7 @@ export interface IStorage {
   getAssignedPropertiesForUser(userId: string): Promise<Property[]>;
   getActiveSalesExecsForProperty(propertyId: string): Promise<User[]>;
   getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined>;
+  getFallbackAssignee(): Promise<User | undefined>;
   
   // Lead Assignment & Scoping
   getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]>;
@@ -1740,6 +1741,34 @@ export class DatabaseStorage implements IStorage {
     if (assignments.length === 0) return [];
     const userIds = assignments.map(a => a.userId);
     return await db.select().from(users).where(inArray(users.id, userIds));
+  }
+
+  // Cached lookup for the catch-all "fallback" assignee. We cache the row
+  // once on first hit because this is checked on every web/enquiry/manual
+  // lead create where no property mapping exists, and the user row never
+  // changes. Set to `null` if the user row is missing so we don't keep
+  // re-querying.
+  private cachedFallbackAssignee: User | null | undefined = undefined;
+
+  async getFallbackAssignee(): Promise<User | undefined> {
+    if (this.cachedFallbackAssignee !== undefined) {
+      return this.cachedFallbackAssignee || undefined;
+    }
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.email, "bibhuti@hsquareliving.com"),
+        eq(users.role, "sales_executive"),
+      ))
+      .limit(1);
+    this.cachedFallbackAssignee = user || null;
+    if (!user) {
+      console.warn(
+        "[FallbackAssignee] No active sales_executive found for bibhuti@hsquareliving.com — leads will fall through to existing per-route behavior.",
+      );
+    }
+    return user || undefined;
   }
 
   async getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined> {

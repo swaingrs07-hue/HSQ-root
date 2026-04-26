@@ -396,9 +396,10 @@ export const followUpStatusEnum = pgEnum("follow_up_status", [
 
 // Assignment type enum - how the lead was assigned to a sales executive
 export const assignmentTypeEnum = pgEnum("assignment_type", [
-  "property_auto",   // Auto-assigned based on property mapping
-  "admin_manual",    // Manually assigned by admin
-  "unassigned"       // No sales executive mapped - needs action
+  "property_auto",     // Auto-assigned based on property mapping
+  "admin_manual",      // Manually assigned by admin
+  "unassigned",        // No sales executive mapped - needs action
+  "fallback_default"   // Fallback to default catch-all assignee (Bibhuti) when no property mapping exists
 ]);
 
 // Leads table (visitor/prospect tracking)
