@@ -1,8 +1,8 @@
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
 import { db } from "./db";
-import { properties } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { properties, salesExecProperties } from "@shared/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function seedDatabase() {
   try {
@@ -89,13 +89,17 @@ async function ensureSalesExecutives() {
     }
   }
 
-  // Ensure the catch-all fallback assignee (Bibhuti) exists. Any new lead
-  // that the auto-assignment logic cannot route to a property-mapped exec
-  // is routed to this user instead, so leads are never lost in limbo.
+  // Ensure the catch-all fallback assignee (Bibhuti) exists, is an active
+  // sales_executive, and is mapped to every active property so that leads
+  // can never sit unassigned. Idempotent — safe to run on every boot.
+  await ensureFallbackAssignee(hashedPassword);
+}
+
+async function ensureFallbackAssignee(hashedPassword: string) {
   const fallbackEmail = "bibhuti@hsquareliving.com";
-  const existingFallback = await storage.getUserByEmail(fallbackEmail);
-  if (!existingFallback) {
-    await storage.createUser({
+  let fallback = await storage.getUserByEmail(fallbackEmail);
+  if (!fallback) {
+    fallback = await storage.createUser({
       name: "Bibhuti",
       email: fallbackEmail,
       phone: "",
@@ -103,7 +107,60 @@ async function ensureSalesExecutives() {
       role: "sales_executive",
     });
     console.log(`Created fallback sales executive: ${fallbackEmail}`);
+  } else if (fallback.role !== "sales_executive" || fallback.isActive === false) {
+    fallback = (await storage.updateUser(fallback.id, {
+      role: "sales_executive",
+      isActive: true,
+    })) || fallback;
+    console.log(`Repaired fallback sales executive: ${fallbackEmail} (role/active enforced)`);
   }
+
+  if (!fallback) return;
+
+  // Idempotently map fallback to every active property so the property-scoped
+  // sales views still surface their queue. We use the fallback's own user id
+  // as `assignedBy` since this mapping is system-managed.
+  const allProperties = await db
+    .select({ id: properties.id })
+    .from(properties)
+    .where(eq(properties.active, true));
+
+  const existing = await db
+    .select({ propertyId: salesExecProperties.propertyId, isActive: salesExecProperties.isActive })
+    .from(salesExecProperties)
+    .where(eq(salesExecProperties.userId, fallback.id));
+  const existingMap = new Map(existing.map((r) => [r.propertyId, r.isActive]));
+
+  let inserted = 0;
+  let reactivated = 0;
+  for (const p of allProperties) {
+    const current = existingMap.get(p.id);
+    if (current === undefined) {
+      await db.insert(salesExecProperties).values({
+        userId: fallback.id,
+        propertyId: p.id,
+        assignedBy: fallback.id,
+        isActive: true,
+      });
+      inserted++;
+    } else if (current === false) {
+      await db
+        .update(salesExecProperties)
+        .set({ isActive: true })
+        .where(and(
+          eq(salesExecProperties.userId, fallback.id),
+          eq(salesExecProperties.propertyId, p.id),
+        ));
+      reactivated++;
+    }
+  }
+  if (inserted || reactivated) {
+    console.log(`Fallback assignee property mapping synced: +${inserted} new, ${reactivated} reactivated.`);
+  }
+
+  // Invalidate the cached fallback row so the next read picks up any
+  // role/active repair we just made above.
+  storage.invalidateFallbackAssigneeCache?.();
 }
 
 async function ensureTestLeads() {

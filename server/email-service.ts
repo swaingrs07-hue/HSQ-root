@@ -1339,6 +1339,8 @@ interface LeadAssignmentEmailLead {
   message?: string | null;
   budgetMin?: number | null;
   budgetMax?: number | null;
+  score?: number | null;
+  priority?: string | null;
 }
 
 export async function sendLeadAssignmentEmail(
@@ -1363,6 +1365,7 @@ export async function sendLeadAssignmentEmail(
   const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
   const ctaUrl = `${baseUrl}/sales/requests`;
   const budget = formatBudgetRange(lead.budgetMin, lead.budgetMax);
+  const propertyForSubject = lead.propertyName?.trim() || "No property";
   const propertyLabel = lead.propertyName?.trim() || "No specific property";
 
   const detailRow = (label: string, value: string | null | undefined) => {
@@ -1378,11 +1381,27 @@ export async function sendLeadAssignmentEmail(
     ? lead.source.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
 
-  const assignmentLabel = (() => {
+  const priorityLabel = lead.priority
+    ? lead.priority.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+
+  const scoreLine = (() => {
+    if (lead.score == null && !priorityLabel) return null;
+    const parts: string[] = [];
+    if (lead.score != null) parts.push(`${lead.score}`);
+    if (priorityLabel) parts.push(`(${priorityLabel})`);
+    return parts.join(" ");
+  })();
+
+  const assignedByLine = assignerName
+    ? `Assigned by ${assignerName}`
+    : "Auto-assigned";
+
+  const assignmentTypeLabel = (() => {
     switch (assignmentType) {
-      case "property_auto": return "Auto-assigned via property mapping";
-      case "admin_manual": return "Manually assigned by admin";
-      case "fallback_default": return "Fallback (no property mapping found)";
+      case "property_auto": return "Property round-robin";
+      case "admin_manual": return "Manual assignment by admin";
+      case "fallback_default": return "Fallback (no property mapping)";
       default: return null;
     }
   })();
@@ -1409,8 +1428,10 @@ export async function sendLeadAssignmentEmail(
             ${detailRow("Property", lead.propertyName || null)}
             ${detailRow("Source", sourceLabel)}
             ${detailRow("Budget", budget)}
+            ${detailRow("Score", scoreLine)}
             ${detailRow("Notes", lead.notes || lead.message || null)}
-            ${detailRow("Assignment", assignmentLabel)}
+            ${detailRow("Assigned By", assignedByLine)}
+            ${detailRow("Routing", assignmentTypeLabel)}
           </tbody>
         </table>
         <div style="margin-top:24px;text-align:center;">
@@ -1425,8 +1446,9 @@ export async function sendLeadAssignmentEmail(
       </div>
     </div>`;
 
-  const subjectVerb = isReassign ? "reassigned" : "assigned";
-  const subject = `Lead ${subjectVerb}: ${lead.name} — ${propertyLabel}`;
+  const subject = isReassign
+    ? `Lead reassigned: ${lead.name} (${propertyForSubject})`
+    : `New lead assigned: ${lead.name} (${propertyForSubject})`;
 
   const cc = assignee.email.toLowerCase() === LEAD_OWNERSHIP_CC_EMAIL.toLowerCase()
     ? undefined

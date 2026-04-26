@@ -1130,13 +1130,10 @@ ${allPages.map(p => `  <url>
         // default assignee (Bibhuti) so leads never end up in unassigned
         // limbo. Only applied when creating a brand new lead — existing
         // leads keep whatever assignment they already had.
-        if (!assignedToId) {
-          const fallback = await storage.getFallbackAssignee();
-          if (fallback) {
-            assignedToId = fallback.id;
-            assignmentType = "fallback_default";
-          }
-        }
+        ({ assignedToId, assignmentType } = await storage.assignFallbackIfUnassigned({
+          assignedToId,
+          assignmentType,
+        }));
 
         let lead;
         if (existingLead) {
@@ -1258,6 +1255,8 @@ ${allPages.map(p => `  <url>
                     message: lead.message,
                     budgetMin: lead.budgetMin,
                     budgetMax: lead.budgetMax,
+                    score: lead.score,
+                    priority: lead.priority,
                   },
                   { assignmentType }
                 );
@@ -1337,13 +1336,10 @@ ${allPages.map(p => `  <url>
 
       // Fallback to default catch-all assignee (Bibhuti) when no property
       // mapping produced a sales exec, so enquiries never fall through.
-      if (!assignedToId) {
-        const fallback = await storage.getFallbackAssignee();
-        if (fallback) {
-          assignedToId = fallback.id;
-          assignmentType = "fallback_default";
-        }
-      }
+      ({ assignedToId, assignmentType } = await storage.assignFallbackIfUnassigned({
+        assignedToId,
+        assignmentType,
+      }));
 
       const lead = await storage.createLead({
         name,
@@ -1395,6 +1391,8 @@ ${allPages.map(p => `  <url>
                   message: lead.message,
                   budgetMin: lead.budgetMin,
                   budgetMax: lead.budgetMax,
+                  score: lead.score,
+                  priority: lead.priority,
                 },
                 { assignmentType }
               );
@@ -6016,19 +6014,22 @@ ${allPages.map(p => `  <url>
 
       if (!salesExec) {
         // No sales exec mapped to this property - fall back to the
-        // catch-all default assignee (Bibhuti) so this lead is owned
-        // immediately instead of sitting unassigned.
-        const fallback = await storage.getFallbackAssignee();
-        if (fallback) {
-          salesExec = fallback;
+        // catch-all default assignee (Bibhuti) via the shared helper so
+        // this lead is owned immediately instead of sitting unassigned.
+        const fb = await storage.assignFallbackIfUnassigned({
+          assignedToId: null as string | null,
+          assignmentType: "property_auto" as const,
+        });
+        if (fb.fallbackAssignee) {
+          salesExec = fb.fallbackAssignee;
           resolvedAssignmentType = "fallback_default";
         } else {
           // Nothing to fall back to - keep the legacy "unassigned" path.
           const updatedLead = await storage.updateLead(leadId, {
             assignmentType: "unassigned",
           });
-          const admins = await storage.getSalesExecutives();
-          for (const admin of admins.filter(u => u.role === "admin" || u.role === "superadmin")) {
+          const admins = await storage.getUsersByRole(["admin", "superadmin"]);
+          for (const admin of admins) {
             await storage.createNotification({
               userId: admin.id,
               title: "Unassigned Lead - Action Required",
@@ -6087,6 +6088,8 @@ ${allPages.map(p => `  <url>
                 message: lead.message,
                 budgetMin: lead.budgetMin,
                 budgetMax: lead.budgetMax,
+                score: lead.score,
+                priority: lead.priority,
               },
               { assignerName: assigner?.name || null, assignmentType: resolvedAssignmentType }
             );
@@ -6164,6 +6167,8 @@ ${allPages.map(p => `  <url>
                   message: lead.message,
                   budgetMin: lead.budgetMin,
                   budgetMax: lead.budgetMax,
+                  score: lead.score,
+                  priority: lead.priority,
                 },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
@@ -9233,6 +9238,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
                   message: lead.message,
                   budgetMin: lead.budgetMin,
                   budgetMax: lead.budgetMax,
+                  score: lead.score,
+                  priority: lead.priority,
                 },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
@@ -9562,13 +9569,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       let assignToId = authReq.user!.userId;
       const isAdminRole = authReq.user!.role === "admin" || authReq.user!.role === "superadmin";
       let assignType: "admin_manual" | "property_auto" | "fallback_default" = isAdminRole ? "admin_manual" : "property_auto";
-      let assignFromAdminAutoRoute = false;
       
       if (isAdminRole && data.assignToUserId) {
         assignToId = data.assignToUserId;
         assignType = "admin_manual";
       } else if (isAdminRole && !data.assignToUserId) {
-        assignFromAdminAutoRoute = true;
         const assignments = await db.select({ salesExecId: schema.salesExecProperties.userId })
           .from(schema.salesExecProperties)
           .where(and(
@@ -9594,11 +9599,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           assignType = "admin_manual";
         } else {
           // Admin created the lead but no sales exec is mapped to the
-          // property. Fall back to the catch-all default assignee
-          // instead of silently routing the lead to the admin.
-          const fallback = await storage.getFallbackAssignee();
-          if (fallback) {
-            assignToId = fallback.id;
+          // property. Fall back to the catch-all default assignee via
+          // the shared helper instead of silently routing to the admin.
+          const fb = await storage.assignFallbackIfUnassigned({
+            assignedToId: null as string | null,
+            assignmentType: "admin_manual" as const,
+          });
+          if (fb.fallbackAssignee) {
+            assignToId = fb.fallbackAssignee.id;
             assignType = "fallback_default";
           }
         }
@@ -9663,6 +9671,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
                   message: lead.message,
                   budgetMin: lead.budgetMin,
                   budgetMax: lead.budgetMax,
+                  score: lead.score,
+                  priority: lead.priority,
                 },
                 { assignerName: assigner?.name || null, assignmentType: finalAssignType }
               );

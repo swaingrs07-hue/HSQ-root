@@ -295,6 +295,15 @@ export interface IStorage {
   getActiveSalesExecsForProperty(propertyId: string): Promise<User[]>;
   getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined>;
   getFallbackAssignee(): Promise<User | undefined>;
+  invalidateFallbackAssigneeCache(): void;
+  assignFallbackIfUnassigned<T extends string>(current: {
+    assignedToId: string | null;
+    assignmentType: T;
+  }): Promise<{
+    assignedToId: string | null;
+    assignmentType: T | "fallback_default";
+    fallbackAssignee: User | null;
+  }>;
   
   // Lead Assignment & Scoping
   getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]>;
@@ -1760,15 +1769,51 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(users.email, "bibhuti@hsquareliving.com"),
         eq(users.role, "sales_executive"),
+        eq(users.isActive, true),
       ))
       .limit(1);
     this.cachedFallbackAssignee = user || null;
     if (!user) {
       console.warn(
-        "[FallbackAssignee] No active sales_executive found for bibhuti@hsquareliving.com — leads will fall through to existing per-route behavior.",
+        "[FallbackAssignee] No ACTIVE sales_executive found for bibhuti@hsquareliving.com — unassigned leads will fall through to per-route legacy behavior. Run the seed bootstrap to repair.",
       );
     }
     return user || undefined;
+  }
+
+  // Allow the seed bootstrap to invalidate the cache after repairing the
+  // fallback row so the next read returns the freshly-fixed user.
+  invalidateFallbackAssigneeCache(): void {
+    this.cachedFallbackAssignee = undefined;
+  }
+
+  // Shared helper used by every lead-creation / auto-route path so the
+  // catch-all fallback assignment stays consistent. If `assignedToId` is
+  // already set, returns the input unchanged. Otherwise looks up the
+  // fallback assignee (Bibhuti) and returns updated assignedToId +
+  // assignmentType="fallback_default". If no fallback row is configured,
+  // returns the input unchanged with fallbackAssignee=null so callers can
+  // keep their legacy unassigned behavior.
+  async assignFallbackIfUnassigned<T extends string>(current: {
+    assignedToId: string | null;
+    assignmentType: T;
+  }): Promise<{
+    assignedToId: string | null;
+    assignmentType: T | "fallback_default";
+    fallbackAssignee: User | null;
+  }> {
+    if (current.assignedToId) {
+      return { ...current, fallbackAssignee: null };
+    }
+    const fallback = await this.getFallbackAssignee();
+    if (!fallback) {
+      return { ...current, fallbackAssignee: null };
+    }
+    return {
+      assignedToId: fallback.id,
+      assignmentType: "fallback_default",
+      fallbackAssignee: fallback,
+    };
   }
 
   async getSalesExecWithLeastLeads(propertyId: string): Promise<User | undefined> {
