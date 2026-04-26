@@ -1241,22 +1241,9 @@ ${allPages.map(p => `  <url>
             try {
               const assignee = await storage.getUser(assignedToId);
               if (assignee?.email) {
-                const { sendLeadAssignmentEmail } = await import("./email-service");
+                const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
                 await sendLeadAssignmentEmail(
-                  {
-                    id: lead.id,
-                    name: lead.name,
-                    phone: lead.phone,
-                    email: lead.email,
-                    propertyName: lead.propertyName,
-                    source: lead.source,
-                    notes: lead.notes,
-                    message: lead.message,
-                    budgetMin: lead.budgetMin,
-                    budgetMax: lead.budgetMax,
-                    score: lead.score,
-                    priority: lead.priority,
-                  },
+                  buildLeadAssignmentEmailPayload(lead),
                   { id: assignee.id, name: assignee.name, email: assignee.email },
                   { assignmentType }
                 );
@@ -1377,22 +1364,9 @@ ${allPages.map(p => `  <url>
           try {
             const assignee = await storage.getUser(assignedToIdForEmail);
             if (assignee?.email) {
-              const { sendLeadAssignmentEmail } = await import("./email-service");
+              const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                {
-                  id: lead.id,
-                  name: lead.name,
-                  phone: lead.phone,
-                  email: lead.email,
-                  propertyName: lead.propertyName,
-                  source: lead.source,
-                  notes: lead.notes,
-                  message: lead.message,
-                  budgetMin: lead.budgetMin,
-                  budgetMax: lead.budgetMax,
-                  score: lead.score,
-                  priority: lead.priority,
-                },
+                buildLeadAssignmentEmailPayload(lead),
                 { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignmentType }
               );
@@ -6074,22 +6048,9 @@ ${allPages.map(p => `  <url>
         try {
           if (salesExec?.email) {
             const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
-            const { sendLeadAssignmentEmail } = await import("./email-service");
+            const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
             await sendLeadAssignmentEmail(
-              {
-                id: lead.id,
-                name: lead.name,
-                phone: lead.phone,
-                email: lead.email,
-                propertyName: lead.propertyName,
-                source: lead.source,
-                notes: lead.notes,
-                message: lead.message,
-                budgetMin: lead.budgetMin,
-                budgetMax: lead.budgetMax,
-                score: lead.score,
-                priority: lead.priority,
-              },
+              buildLeadAssignmentEmailPayload(lead),
               { id: salesExec.id, name: salesExec.name, email: salesExec.email },
               { assignerName: assigner?.name || null, assignmentType: resolvedAssignmentType }
             );
@@ -6153,22 +6114,9 @@ ${allPages.map(p => `  <url>
           try {
             if (salesExec.email) {
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
-              const { sendLeadAssignmentEmail } = await import("./email-service");
+              const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                {
-                  id: lead.id,
-                  name: lead.name,
-                  phone: lead.phone,
-                  email: lead.email,
-                  propertyName: lead.propertyName,
-                  source: lead.source,
-                  notes: lead.notes,
-                  message: lead.message,
-                  budgetMin: lead.budgetMin,
-                  budgetMax: lead.budgetMax,
-                  score: lead.score,
-                  priority: lead.priority,
-                },
+                buildLeadAssignmentEmailPayload(lead),
                 { id: salesExec.id, name: salesExec.name, email: salesExec.email },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
@@ -9224,22 +9172,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             const assignee = await storage.getUser(userId);
             if (assignee?.email) {
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
-              const { sendLeadAssignmentEmail } = await import("./email-service");
+              const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                {
-                  id: lead.id,
-                  name: lead.name,
-                  phone: lead.phone,
-                  email: lead.email,
-                  propertyName: lead.propertyName,
-                  source: lead.source,
-                  notes: lead.notes,
-                  message: lead.message,
-                  budgetMin: lead.budgetMin,
-                  budgetMax: lead.budgetMax,
-                  score: lead.score,
-                  priority: lead.priority,
-                },
+                buildLeadAssignmentEmailPayload(lead),
                 { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
@@ -9663,22 +9598,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             const assignee = await storage.getUser(assignToIdForEmail);
             if (assignee?.email) {
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
-              const { sendLeadAssignmentEmail } = await import("./email-service");
+              const { sendLeadAssignmentEmail, buildLeadAssignmentEmailPayload } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                {
-                  id: lead.id,
-                  name: lead.name,
-                  phone: lead.phone,
-                  email: lead.email,
-                  propertyName: lead.propertyName,
-                  source: lead.source,
-                  notes: lead.notes,
-                  message: lead.message,
-                  budgetMin: lead.budgetMin,
-                  budgetMax: lead.budgetMax,
-                  score: lead.score,
-                  priority: lead.priority,
-                },
+                buildLeadAssignmentEmailPayload(lead),
                 { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignerName: assigner?.name || null, assignmentType: finalAssignType }
               );

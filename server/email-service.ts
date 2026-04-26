@@ -1328,7 +1328,7 @@ function formatBudgetRange(min?: number | null, max?: number | null): string | n
   return `up to ${fmt(max!)}`;
 }
 
-interface LeadAssignmentEmailLead {
+export interface LeadAssignmentEmailLead {
   id: string;
   name: string;
   phone?: string | null;
@@ -1341,6 +1341,36 @@ interface LeadAssignmentEmailLead {
   budgetMax?: number | null;
   score?: number | null;
   priority?: string | null;
+}
+
+export function buildLeadAssignmentEmailPayload(lead: {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  propertyName?: string | null;
+  source?: string | null;
+  notes?: string | null;
+  message?: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  score?: number | null;
+  priority?: string | null;
+}): LeadAssignmentEmailLead {
+  return {
+    id: lead.id,
+    name: lead.name,
+    phone: lead.phone ?? null,
+    email: lead.email ?? null,
+    propertyName: lead.propertyName ?? null,
+    source: lead.source ?? null,
+    notes: lead.notes ?? null,
+    message: lead.message ?? null,
+    budgetMin: lead.budgetMin ?? null,
+    budgetMax: lead.budgetMax ?? null,
+    score: lead.score ?? null,
+    priority: lead.priority ?? null,
+  };
 }
 
 export async function sendLeadAssignmentEmail(
