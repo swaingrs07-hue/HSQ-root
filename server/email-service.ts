@@ -1412,10 +1412,14 @@ export async function sendLeadAssignmentEmail(
     : `A new lead has been assigned to you${assignerName ? ` by ${escapeHtml(assignerName)}` : ""}. Please reach out as soon as possible.`;
 
   const html = `
-    <div style="font-family:'Segoe UI',Tahoma,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-      <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:24px 30px;">
-        <h1 style="color:#ffffff;margin:0;font-size:20px;">${headerTitle}</h1>
-        <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px;">${escapeHtml(propertyLabel)}</p>
+    <div style="font-family:'Segoe UI',Tahoma,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+      <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 50%,#b45309 100%);padding:32px 40px;text-align:center;">
+        <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;">HSQUARE LIVING</h1>
+        <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:2px;text-transform:uppercase;">Harmony in Living</p>
+      </div>
+      <div style="background:#0a0a0a;padding:24px 30px;text-align:center;">
+        <h2 style="color:#ffffff;margin:0;font-size:20px;font-weight:700;">${headerTitle}</h2>
+        <p style="color:#f59e0b;margin:6px 0 0;font-size:14px;">${escapeHtml(propertyLabel)}</p>
       </div>
       <div style="padding:24px 30px;">
         <p style="color:#334155;margin:0 0 12px;font-size:15px;">Hi ${escapeHtml(assignee.name)},</p>
@@ -1435,14 +1439,14 @@ export async function sendLeadAssignmentEmail(
           </tbody>
         </table>
         <div style="margin-top:24px;text-align:center;">
-          <a href="${ctaUrl}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Open Lead in CRM</a>
+          <a href="${ctaUrl}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">Open Lead in CRM</a>
         </div>
         <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;text-align:center;">
           You're receiving this email because the lead was routed to your queue.
         </p>
       </div>
-      <div style="background:#f8fafc;padding:16px 30px;text-align:center;">
-        <p style="color:#94a3b8;margin:0;font-size:12px;">Hsquare Living &mdash; Sales CRM</p>
+      <div style="background:#0a0a0a;padding:16px 30px;text-align:center;">
+        <p style="color:#94a3b8;margin:0;font-size:12px;">Hsquareliving Pvt Ltd &mdash; Sales CRM</p>
       </div>
     </div>`;
 
