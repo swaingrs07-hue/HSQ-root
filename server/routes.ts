@@ -9641,14 +9641,20 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         description: `Manual lead created via ${data.entrySource}`,
       });
 
-      if (assignToId && assignToId !== authReq.user!.userId) {
-        await storage.createNotification({
-          userId: assignToId,
-          title: "New Lead Assigned",
-          message: `New lead "${data.name}" has been assigned to you${property?.name ? ` for ${property.name}` : ""}.`,
-          type: "lead",
-          actionUrl: "/sales/requests",
-        });
+      if (assignToId) {
+        // Skip the in-app "new lead assigned" notification when the
+        // assignee is the current user (no need to notify yourself), but
+        // ALWAYS fire the assignment email so the CC'd lead-ownership
+        // recipient (Gyan) still gets visibility on every assignment.
+        if (assignToId !== authReq.user!.userId) {
+          await storage.createNotification({
+            userId: assignToId,
+            title: "New Lead Assigned",
+            message: `New lead "${data.name}" has been assigned to you${property?.name ? ` for ${property.name}` : ""}.`,
+            type: "lead",
+            actionUrl: "/sales/requests",
+          });
+        }
 
         const assignToIdForEmail = assignToId;
         const finalAssignType = assignType;

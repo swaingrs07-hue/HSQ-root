@@ -1446,9 +1446,7 @@ export async function sendLeadAssignmentEmail(
       </div>
     </div>`;
 
-  const subject = isReassign
-    ? `Lead reassigned: ${lead.name} (${propertyForSubject})`
-    : `New lead assigned: ${lead.name} (${propertyForSubject})`;
+  const subject = `New lead assigned: ${lead.name} (${propertyForSubject})`;
 
   const cc = assignee.email.toLowerCase() === LEAD_OWNERSHIP_CC_EMAIL.toLowerCase()
     ? undefined
