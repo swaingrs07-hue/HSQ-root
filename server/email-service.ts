@@ -1463,7 +1463,7 @@ export async function sendLeadAssignmentEmail(
     console.log(`[Email] Lead assignment sent to ${assignee.email}${cc ? ` (cc ${cc.join(", ")})` : ""}`);
     return { success: true };
   } catch (error: any) {
-    console.error(`[Email] Failed to send lead assignment to ${assignee.email}:`, error);
+    console.warn(`[Email] Failed to send lead assignment to ${assignee.email}:`, error);
     return { success: false, error: error?.message || String(error) };
   }
 }

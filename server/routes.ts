@@ -1262,7 +1262,7 @@ ${allPages.map(p => `  <url>
                 );
               }
             } catch (e) {
-              console.error("[LeadAssignmentEmail] web lead failed:", e);
+              console.warn("[LeadAssignmentEmail] web lead failed:", e);
             }
           })();
         }
@@ -1398,7 +1398,7 @@ ${allPages.map(p => `  <url>
               );
             }
           } catch (e) {
-            console.error("[LeadAssignmentEmail] tour enquiry failed:", e);
+            console.warn("[LeadAssignmentEmail] tour enquiry failed:", e);
           }
         })();
       }
@@ -6095,7 +6095,7 @@ ${allPages.map(p => `  <url>
             );
           }
         } catch (e) {
-          console.error("[LeadAssignmentEmail] admin auto-assign failed:", e);
+          console.warn("[LeadAssignmentEmail] admin auto-assign failed:", e);
         }
       })();
 
@@ -6174,7 +6174,7 @@ ${allPages.map(p => `  <url>
               );
             }
           } catch (e) {
-            console.error("[LeadAssignmentEmail] admin reassign failed:", e);
+            console.warn("[LeadAssignmentEmail] admin reassign failed:", e);
           }
         })();
       }
@@ -9245,7 +9245,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               );
             }
           } catch (e) {
-            console.error("[LeadAssignmentEmail] admin assign failed:", e);
+            console.warn("[LeadAssignmentEmail] admin assign failed:", e);
           }
         })();
       }
@@ -9324,7 +9324,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               );
             }
           } catch (e) {
-            console.error("[LeadAssignmentEmail] bulk-assign failed:", e);
+            console.warn("[LeadAssignmentEmail] bulk-assign failed:", e);
           }
         })();
       }
@@ -9684,7 +9684,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               );
             }
           } catch (e) {
-            console.error("[LeadAssignmentEmail] manual sales create failed:", e);
+            console.warn("[LeadAssignmentEmail] manual sales create failed:", e);
           }
         })();
       }
