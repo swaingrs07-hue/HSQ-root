@@ -1344,8 +1344,8 @@ interface LeadAssignmentEmailLead {
 }
 
 export async function sendLeadAssignmentEmail(
-  assignee: { id?: string; name: string; email: string },
   lead: LeadAssignmentEmailLead,
+  assignee: { id?: string; name: string; email: string },
   options?: {
     assignerName?: string | null;
     isReassign?: boolean;

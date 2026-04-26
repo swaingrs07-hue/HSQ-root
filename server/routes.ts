@@ -1243,7 +1243,6 @@ ${allPages.map(p => `  <url>
               if (assignee?.email) {
                 const { sendLeadAssignmentEmail } = await import("./email-service");
                 await sendLeadAssignmentEmail(
-                  { id: assignee.id, name: assignee.name, email: assignee.email },
                   {
                     id: lead.id,
                     name: lead.name,
@@ -1258,6 +1257,7 @@ ${allPages.map(p => `  <url>
                     score: lead.score,
                     priority: lead.priority,
                   },
+                  { id: assignee.id, name: assignee.name, email: assignee.email },
                   { assignmentType }
                 );
               }
@@ -1379,7 +1379,6 @@ ${allPages.map(p => `  <url>
             if (assignee?.email) {
               const { sendLeadAssignmentEmail } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                { id: assignee.id, name: assignee.name, email: assignee.email },
                 {
                   id: lead.id,
                   name: lead.name,
@@ -1394,6 +1393,7 @@ ${allPages.map(p => `  <url>
                   score: lead.score,
                   priority: lead.priority,
                 },
+                { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignmentType }
               );
             }
@@ -6076,7 +6076,6 @@ ${allPages.map(p => `  <url>
             const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
             const { sendLeadAssignmentEmail } = await import("./email-service");
             await sendLeadAssignmentEmail(
-              { id: salesExec.id, name: salesExec.name, email: salesExec.email },
               {
                 id: lead.id,
                 name: lead.name,
@@ -6091,6 +6090,7 @@ ${allPages.map(p => `  <url>
                 score: lead.score,
                 priority: lead.priority,
               },
+              { id: salesExec.id, name: salesExec.name, email: salesExec.email },
               { assignerName: assigner?.name || null, assignmentType: resolvedAssignmentType }
             );
           }
@@ -6155,7 +6155,6 @@ ${allPages.map(p => `  <url>
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
               const { sendLeadAssignmentEmail } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                { id: salesExec.id, name: salesExec.name, email: salesExec.email },
                 {
                   id: lead.id,
                   name: lead.name,
@@ -6170,6 +6169,7 @@ ${allPages.map(p => `  <url>
                   score: lead.score,
                   priority: lead.priority,
                 },
+                { id: salesExec.id, name: salesExec.name, email: salesExec.email },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
             }
@@ -9226,7 +9226,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
               const { sendLeadAssignmentEmail } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                { id: assignee.id, name: assignee.name, email: assignee.email },
                 {
                   id: lead.id,
                   name: lead.name,
@@ -9241,6 +9240,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
                   score: lead.score,
                   priority: lead.priority,
                 },
+                { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
               );
             }
@@ -9665,7 +9665,6 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               const assigner = authReq.user?.userId ? await storage.getUser(authReq.user.userId) : null;
               const { sendLeadAssignmentEmail } = await import("./email-service");
               await sendLeadAssignmentEmail(
-                { id: assignee.id, name: assignee.name, email: assignee.email },
                 {
                   id: lead.id,
                   name: lead.name,
@@ -9680,6 +9679,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
                   score: lead.score,
                   priority: lead.priority,
                 },
+                { id: assignee.id, name: assignee.name, email: assignee.email },
                 { assignerName: assigner?.name || null, assignmentType: finalAssignType }
               );
             }
