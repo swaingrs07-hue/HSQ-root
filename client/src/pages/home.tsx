@@ -717,17 +717,42 @@ export default function Home() {
     const saveData =
       (navigator as Navigator & { connection?: { saveData?: boolean } })
         .connection?.saveData === true;
+    if (reduceMotion || saveData) return;
+
+    // Defer Tubes activation until AFTER the LCP paint has had a chance
+    // to land (hero image rendered + window load event). On mobile this
+    // means the WebP hero is still the LCP candidate and we don't hurt
+    // the Search Console LCP score, but the 3D background still loads
+    // shortly after for both desktop and mobile users.
     const isMobileViewport =
       window.matchMedia("(max-width: 768px)").matches ||
       /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (!reduceMotion && !saveData && !isMobileViewport) {
-      const idle =
-        (window as Window & {
-          requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
-        }).requestIdleCallback ||
-        ((cb: () => void) => window.setTimeout(cb, 1500));
-      idle(() => setTubesActive(true), { timeout: 2500 });
+    const postLcpDelay = isMobileViewport ? 3500 : 1500;
+
+    const idle =
+      (window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+      }).requestIdleCallback ||
+      ((cb: () => void) => window.setTimeout(cb, postLcpDelay));
+
+    let timer: number | null = null;
+    const schedule = () => {
+      timer = window.setTimeout(
+        () => idle(() => setTubesActive(true), { timeout: postLcpDelay + 1500 }),
+        postLcpDelay,
+      );
+    };
+
+    if (document.readyState === "complete") {
+      schedule();
+    } else {
+      window.addEventListener("load", schedule, { once: true });
     }
+
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener("load", schedule);
+    };
   }, []);
   const handleTubesFailure = useCallback(() => setTubesActive(false), []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
