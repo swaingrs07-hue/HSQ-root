@@ -1814,27 +1814,73 @@ export default function CompletedBookings() {
                 );
               })()}
 
-              <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100">
-                  <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
-                    <CreditCard className="h-3.5 w-3.5" /> Payment Summary
-                  </h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-500">Base Fee</p>
-                      <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
+              {(() => {
+                const baseTotal = Number(selectedBooking.totalFee || 0);
+                const activeAddons = (bookingPackages?.bookingPackages || []).filter(
+                  (bp: any) => bp.status === "ACTIVE" && bp.package?.category === "addon_service",
+                );
+                const includedAddonTotal = activeAddons.reduce((s: number, bp: any) => {
+                  if (bp.includeInTotal === false) return s;
+                  const { effective } = getBookingPackagePrice(bp);
+                  return s + (effective > 0 ? effective : 0);
+                }, 0);
+                const excludedAddonTotal = activeAddons.reduce((s: number, bp: any) => {
+                  if (bp.includeInTotal !== false) return s;
+                  const { effective } = getBookingPackagePrice(bp);
+                  return s + (effective > 0 ? effective : 0);
+                }, 0);
+                const grand = baseTotal + includedAddonTotal;
+                const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
+                return (
+                  <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100" data-testid="payment-summary-widget">
+                    <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
+                      <CreditCard className="h-3.5 w-3.5" /> Payment Summary
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <p className="text-xs text-slate-500">Base Fee</p>
+                        <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Discount</p>
+                        <p className="text-sm font-bold text-green-600">
+                          {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Total</p>
+                        <p className="text-sm font-bold text-slate-800">₹{baseTotal.toLocaleString("en-IN")}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Discount</p>
-                      <p className="text-sm font-bold text-green-600">
-                        {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Total</p>
-                      <p className="text-lg font-bold text-indigo-700">₹{(selectedBooking.totalFee || 0).toLocaleString("en-IN")}</p>
-                    </div>
+                    {hasAddonInfo && (
+                      <div className="mt-3 pt-3 border-t border-indigo-200 space-y-1.5">
+                        {includedAddonTotal > 0 && (
+                          <div className="flex items-center justify-between text-[11px] text-slate-600">
+                            <span>+ Add-ons (included)</span>
+                            <span className="font-medium text-indigo-700" data-testid="text-payment-addons-included">
+                              ₹{includedAddonTotal.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        )}
+                        {excludedAddonTotal > 0 && (
+                          <div className="flex items-center justify-between text-[10px] text-slate-400">
+                            <span>Add-ons (excluded)</span>
+                            <span className="line-through" data-testid="text-payment-addons-excluded">
+                              ₹{excludedAddonTotal.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-1.5 border-t border-indigo-100">
+                          <span className="text-xs font-semibold text-slate-700">Grand Total</span>
+                          <span className="text-lg font-bold text-indigo-700" data-testid="text-payment-grand-total">
+                            ₹{grand.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                );
+              })()}
 
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <span className="flex items-center gap-1.5">
