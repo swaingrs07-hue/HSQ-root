@@ -221,6 +221,10 @@ export default function CompletedBookings() {
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
   const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+  const [addonPayBpId, setAddonPayBpId] = useState<string | null>(null);
+  const [addonPayAmount, setAddonPayAmount] = useState<string>("");
+  const [addonPayMethod, setAddonPayMethod] = useState<string>("upi");
+  const [addonPayReference, setAddonPayReference] = useState<string>("");
 
   // Single source of truth for "what price should we use for this booking-package?"
   // Honors admin override, then snapshot-at-attach, then current package base price.
@@ -342,7 +346,14 @@ export default function CompletedBookings() {
 
   const updateBookingPackage = async (
     bpId: string,
-    patch: { includeInTotal?: boolean; displayPriceOverride?: number | null },
+    patch: {
+      includeInTotal?: boolean;
+      displayPriceOverride?: number | null;
+      paidStatus?: "pending" | "paid";
+      paidAmount?: number | null;
+      paymentMethod?: string | null;
+      paymentReference?: string | null;
+    },
   ) => {
     if (!selectedBooking) return;
     setBookingPackages((prev: any) => {
@@ -2091,6 +2102,183 @@ export default function CompletedBookings() {
                   </div>
                 </div>
               )}
+
+              {(() => {
+                const payableAddons = (bookingPackages?.bookingPackages || []).filter((bp: any) => {
+                  if (bp.package?.category !== "addon_service") return false;
+                  if (bp.includeInTotal === false) return false;
+                  const { effective } = getBookingPackagePrice(bp);
+                  return effective > 0;
+                });
+                if (payableAddons.length === 0) return null;
+                return (
+                  <div className="p-4 bg-orange-50 rounded-xl border border-orange-100" data-testid="addon-payments-section">
+                    <h4 className="text-xs font-semibold text-orange-600 uppercase mb-3 flex items-center gap-1.5">
+                      <UtensilsCrossed className="h-3.5 w-3.5" /> Add-On Payments
+                    </h4>
+                    <div className="space-y-3">
+                      {payableAddons.map((bp: any) => {
+                        const { effective } = getBookingPackagePrice(bp);
+                        const isPaid = bp.paidStatus === "paid";
+                        const paidAmount = Number(bp.paidAmount || 0);
+                        const isEditing = addonPayBpId === bp.id;
+                        const canEdit = isAdmin || isReceptionist;
+                        return (
+                          <div
+                            key={bp.id}
+                            className={`text-sm p-2.5 rounded-lg ${isPaid ? "bg-emerald-50/60" : "bg-white"}`}
+                            data-testid={`addon-payment-row-${bp.id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-700 truncate">{bp.package?.name || "Add-On"}</p>
+                                <p className="text-[11px] text-slate-500">
+                                  {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""}
+                                  {bp.endDate ? ` — ${format(new Date(bp.endDate), "dd MMM yy")}` : " — Ongoing"}
+                                </p>
+                              </div>
+                              <div className="text-right flex items-center gap-2 shrink-0">
+                                <div>
+                                  <p className="font-semibold text-slate-800">₹{effective.toLocaleString("en-IN")}</p>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${isPaid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}
+                                    data-testid={`addon-payment-status-${bp.id}`}
+                                  >
+                                    {isPaid ? "PAID" : "PENDING"}
+                                  </Badge>
+                                </div>
+                                {canEdit && !isPaid && !isEditing && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px] border-orange-300 text-orange-700 hover:bg-orange-100"
+                                    onClick={() => {
+                                      setAddonPayBpId(bp.id);
+                                      setAddonPayAmount(String(effective));
+                                      setAddonPayMethod("upi");
+                                      setAddonPayReference("");
+                                    }}
+                                    data-testid={`button-mark-paid-${bp.id}`}
+                                  >
+                                    <Banknote className="w-3 h-3 mr-1" />
+                                    Mark Paid
+                                  </Button>
+                                )}
+                                {canEdit && isPaid && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[11px] text-slate-500 hover:text-red-600"
+                                    onClick={() => {
+                                      if (!confirm("Mark this add-on payment as Pending again?")) return;
+                                      updateBookingPackage(bp.id, { paidStatus: "pending" });
+                                    }}
+                                    data-testid={`button-unmark-paid-${bp.id}`}
+                                  >
+                                    Reset
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {isEditing && (
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-slate-500">Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="1"
+                                    value={addonPayAmount}
+                                    onChange={(e) => setAddonPayAmount(e.target.value)}
+                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
+                                    data-testid={`input-addon-paid-amount-${bp.id}`}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-500">Method</label>
+                                  <select
+                                    value={addonPayMethod}
+                                    onChange={(e) => setAddonPayMethod(e.target.value)}
+                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
+                                    data-testid={`select-addon-paid-method-${bp.id}`}
+                                  >
+                                    <option value="upi">UPI</option>
+                                    <option value="card">Card</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="bank">Bank</option>
+                                    <option value="other">Other</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-500">Reference (UTR / note)</label>
+                                  <input
+                                    type="text"
+                                    value={addonPayReference}
+                                    onChange={(e) => setAddonPayReference(e.target.value)}
+                                    placeholder="optional"
+                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
+                                    data-testid={`input-addon-paid-reference-${bp.id}`}
+                                  />
+                                </div>
+                                <div className="sm:col-span-3 flex items-center gap-2 justify-end mt-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[11px]"
+                                    onClick={() => setAddonPayBpId(null)}
+                                    data-testid={`button-cancel-addon-paid-${bp.id}`}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    onClick={async () => {
+                                      const amt = Number(addonPayAmount);
+                                      if (!Number.isFinite(amt) || amt < 0) {
+                                        toast({ title: "Enter a valid amount", variant: "destructive" });
+                                        return;
+                                      }
+                                      await updateBookingPackage(bp.id, {
+                                        paidStatus: "paid",
+                                        paidAmount: amt,
+                                        paymentMethod: addonPayMethod,
+                                        paymentReference: addonPayReference || null,
+                                      });
+                                      setAddonPayBpId(null);
+                                    }}
+                                    data-testid={`button-save-addon-paid-${bp.id}`}
+                                  >
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {isPaid && !isEditing && (
+                              <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-slate-600 pl-1 border-l-2 border-emerald-200 ml-1">
+                                <span className="font-medium text-emerald-700">₹{paidAmount.toLocaleString("en-IN")} paid</span>
+                                {bp.paidAt && (
+                                  <span className="text-slate-500">{format(new Date(bp.paidAt), "dd MMM yyyy, hh:mm a")}</span>
+                                )}
+                                {bp.paymentMethod && (
+                                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{bp.paymentMethod}</span>
+                                )}
+                                {bp.paymentReference && (
+                                  <span className="font-mono text-[10px] text-slate-500">Ref: {bp.paymentReference}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {(selectedBooking.payments || []).length > 0 && (() => {
                 const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && p.status === "success");

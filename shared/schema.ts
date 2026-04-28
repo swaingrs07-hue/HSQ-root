@@ -1326,6 +1326,11 @@ export const bookingPackages = pgTable("booking_packages", {
   selectedItems: jsonb("selected_items"),
   includeInTotal: boolean("include_in_total").notNull().default(true),
   displayPriceOverride: integer("display_price_override"),
+  paidStatus: text("paid_status").notNull().default("pending"),
+  paidAmount: integer("paid_amount").notNull().default(0),
+  paidAt: timestamp("paid_at"),
+  paymentMethod: text("payment_method"),
+  paymentReference: text("payment_reference"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -12249,9 +12249,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.patch("/api/admin/bookings/:bookingId/packages/:bookingPackageId", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { bookingId, bookingPackageId } = req.params;
-      const { includeInTotal, displayPriceOverride } = req.body ?? {};
+      const {
+        includeInTotal,
+        displayPriceOverride,
+        paidStatus,
+        paidAmount,
+        paymentMethod,
+        paymentReference,
+      } = req.body ?? {};
 
-      const updates: Partial<{ includeInTotal: boolean; displayPriceOverride: number | null }> = {};
+      const updates: Partial<{
+        includeInTotal: boolean;
+        displayPriceOverride: number | null;
+        paidStatus: string;
+        paidAmount: number;
+        paidAt: Date | null;
+        paymentMethod: string | null;
+        paymentReference: string | null;
+      }> = {};
 
       if (includeInTotal !== undefined) {
         if (typeof includeInTotal !== "boolean") {
@@ -12272,6 +12287,49 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         }
       }
 
+      if (paidStatus !== undefined) {
+        if (paidStatus !== "pending" && paidStatus !== "paid") {
+          return res.status(400).json({ error: "paidStatus must be 'pending' or 'paid'" });
+        }
+        updates.paidStatus = paidStatus;
+        if (paidStatus === "paid") {
+          updates.paidAt = new Date();
+        } else {
+          updates.paidAt = null;
+          updates.paidAmount = 0;
+          updates.paymentMethod = null;
+          updates.paymentReference = null;
+        }
+      }
+
+      if (paidAmount !== undefined && paidAmount !== null && paidAmount !== "") {
+        const n = Number(paidAmount);
+        if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+          return res.status(400).json({ error: "paidAmount must be a non-negative number up to 100000000" });
+        }
+        updates.paidAmount = Math.round(n);
+      }
+
+      if (paymentMethod !== undefined) {
+        if (paymentMethod === null || paymentMethod === "") {
+          updates.paymentMethod = null;
+        } else if (typeof paymentMethod === "string" && paymentMethod.length <= 32) {
+          updates.paymentMethod = paymentMethod;
+        } else {
+          return res.status(400).json({ error: "paymentMethod must be a short string" });
+        }
+      }
+
+      if (paymentReference !== undefined) {
+        if (paymentReference === null || paymentReference === "") {
+          updates.paymentReference = null;
+        } else if (typeof paymentReference === "string" && paymentReference.length <= 128) {
+          updates.paymentReference = paymentReference;
+        } else {
+          return res.status(400).json({ error: "paymentReference must be a string up to 128 chars" });
+        }
+      }
+
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: "Nothing to update" });
       }
@@ -12279,7 +12337,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const [bp] = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
       if (!bp) return res.status(404).json({ error: "Booking package not found" });
       if (bp.bookingId !== bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
-      if (bp.status !== "ACTIVE") return res.status(400).json({ error: "Cannot edit an ended package" });
+
+      const onlyPaymentFields = Object.keys(updates).every((k) =>
+        ["paidStatus", "paidAmount", "paidAt", "paymentMethod", "paymentReference"].includes(k),
+      );
+      if (bp.status !== "ACTIVE" && !onlyPaymentFields) {
+        return res.status(400).json({ error: "Cannot edit an ended package" });
+      }
 
       const [updated] = await db.update(schema.bookingPackages)
         .set(updates)
