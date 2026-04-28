@@ -9,10 +9,10 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import heroLobby from "@/assets/hero-lobby.jpg";
-import heroRoom from "@/assets/hero-room.jpg";
-import heroTerrace from "@/assets/hero-terrace.jpg";
-import heroDining from "@/assets/hero-dining.jpg";
+const heroLobby = "/hero/hero-lobby.webp";
+const heroRoom = "/hero/hero-room.webp";
+const heroTerrace = "/hero/hero-terrace.webp";
+const heroDining = "/hero/hero-dining.webp";
 import amenityGym from "@/assets/amenity-gym.jpg";
 import amenityStudy from "@/assets/amenity-study.jpg";
 import hsquareLogo from "@assets/Hsquare_Logo_File-07_1771351647884.png";
@@ -717,7 +717,17 @@ export default function Home() {
     const saveData =
       (navigator as Navigator & { connection?: { saveData?: boolean } })
         .connection?.saveData === true;
-    if (!reduceMotion && !saveData) setTubesActive(true);
+    const isMobileViewport =
+      window.matchMedia("(max-width: 768px)").matches ||
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!reduceMotion && !saveData && !isMobileViewport) {
+      const idle =
+        (window as Window & {
+          requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+        }).requestIdleCallback ||
+        ((cb: () => void) => window.setTimeout(cb, 1500));
+      idle(() => setTubesActive(true), { timeout: 2500 });
+    }
   }, []);
   const handleTubesFailure = useCallback(() => setTubesActive(false), []);
   const [tourModalOpen, setTourModalOpen] = useState(false);
@@ -1049,6 +1059,9 @@ export default function Home() {
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
                 className="absolute inset-0 w-full h-full object-cover"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
               />
             )}
           </div>
@@ -1067,6 +1080,9 @@ export default function Home() {
                 src={heroSlides[currentSlide].image}
                 alt={heroSlides[currentSlide].title}
                 className="w-full h-full object-cover will-change-transform"
+                {...(currentSlide === 0
+                  ? { fetchPriority: "high", loading: "eager", decoding: "async" }
+                  : { loading: "lazy", decoding: "async" })}
                 initial={
                   KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length]
                     .initial
