@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
-import { getWashroomPills } from "@/lib/room-washrooms";
+import { getWashroomPills, isSectionShared } from "@/lib/room-washrooms";
 import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
 import { resolveRoomPrice, getBedSection, priceForBookingMode } from "@shared/pricing";
 
@@ -1212,16 +1212,33 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
                                   {isCombo && sections ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {sections.map((section: any) => (
+                                      {sections.map((section: any) => {
+                                        const sectionShared = isSectionShared(room, section.label);
+                                        return (
                                         <div key={section.label} className="bg-white/[0.03] rounded-lg border border-white/[0.06] p-2.5">
-                                          <p className="text-[10px] font-semibold text-white/40 mb-1.5 uppercase tracking-wider">
-                                            Section {section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
-                                          </p>
+                                          <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                                            <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                                              Section {section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
+                                            </p>
+                                            <Badge
+                                              variant="outline"
+                                              className={cn(
+                                                "text-[9px] px-1.5 py-0 rounded-md uppercase tracking-wider",
+                                                sectionShared
+                                                  ? "border-blue-300/40 text-blue-400 bg-blue-500/5"
+                                                  : "border-emerald-300/40 text-emerald-400 bg-emerald-500/5"
+                                              )}
+                                              data-testid={`badge-section-wc-${room.id}-${section.label}`}
+                                            >
+                                              {sectionShared ? "Shared WC" : "Attached WC"}
+                                            </Badge>
+                                          </div>
                                           <div className="flex gap-1.5 flex-wrap">
                                             {section.beds.map((bed: any) => renderBedButton(bed, floor, room))}
                                           </div>
                                         </div>
-                                      ))}
+                                      );
+                                      })}
                                     </div>
                                   ) : (
                                     <div className="flex gap-1.5 flex-wrap">
@@ -2222,14 +2239,17 @@ function PropertyBooking() {
                                   try {
                                   const isAcademic = property?.bookingMode === "academic_year";
                                   const planPrice = effectivePlan ? Number(effectivePlan.basePrice || 0) : 0;
-                                  const rtAnnualPrice = selectedRoomType?.academicYearPrice || (selectedRoomType?.basePrice ? selectedRoomType.basePrice * 11 : 0);
+                                  const section = getBedSection(selectedBed?.bedNumber, selectedRoom?.roomNumber);
+                                  const resolved = resolveRoomPrice(selectedRoom, selectedRoomType, section);
+                                  const rtAnnualPrice = resolved.academicYearPrice || (resolved.basePrice ? resolved.basePrice * 11 : 0);
                                   const rtMonthlyPrice = isAcademic
-                                    ? (selectedRoomType?.academicYearPrice ? Math.round(selectedRoomType.academicYearPrice / 11) : selectedRoomType?.basePrice || 0)
-                                    : (selectedRoomType?.basePrice || 0);
+                                    ? (resolved.academicYearPrice ? Math.round(resolved.academicYearPrice / 11) : resolved.basePrice || 0)
+                                    : (resolved.basePrice || 0);
                                   const showPlanPrice = effectivePlan && planPrice > 0;
                                   const displayPrice = showPlanPrice ? planPrice : (isAcademic ? rtAnnualPrice : rtMonthlyPrice);
                                   const priceLabel = showPlanPrice ? "per year" : (isAcademic ? "per year" : "per month");
                                   const monthlyEquiv = showPlanPrice ? Math.round(planPrice / 12) : (isAcademic && rtMonthlyPrice > 0 ? rtMonthlyPrice : 0);
+                                  const wcKindLabel = section ? (isSectionShared(selectedRoom, section) ? "Shared WC" : "Attached WC") : null;
                                   return (
                                     <>
                                       <span className={cn("text-3xl font-bold", effectivePlan ? "text-white" : "text-amber-400")}>
@@ -2241,6 +2261,17 @@ function PropertyBooking() {
                                       {monthlyEquiv > 0 && (
                                         <p className="text-[10px] text-white/30">
                                           ≈ ₹{monthlyEquiv.toLocaleString("en-IN")}/mo
+                                        </p>
+                                      )}
+                                      {wcKindLabel && !showPlanPrice && (
+                                        <p
+                                          className={cn(
+                                            "text-[9px] mt-1 uppercase tracking-wider font-semibold",
+                                            wcKindLabel === "Shared WC" ? "text-blue-300" : "text-emerald-300"
+                                          )}
+                                          data-testid="text-summary-wc-kind"
+                                        >
+                                          {wcKindLabel} pricing
                                         </p>
                                       )}
                                     </>
