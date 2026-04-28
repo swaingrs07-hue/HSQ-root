@@ -1125,6 +1125,16 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                     <span className="text-xs font-bold text-white/80">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
                                     {(() => { const w = getWashroomSummary(room); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">{w.text}</Badge> : null; })()}
+                                    {Array.isArray(room.flatAmenities) && room.flatAmenities.length > 0 && room.flatAmenities.map((amenity: string, amenityIdx: number) => (
+                                      <Badge
+                                        key={`${amenity}-${amenityIdx}`}
+                                        variant="outline"
+                                        className="text-[10px] px-1.5 py-0 rounded-md border-violet-400/30 text-violet-300 bg-violet-500/5"
+                                        data-testid={`badge-flat-amenity-${room.id}-${amenity.toLowerCase().replace(/\s+/g, "-")}`}
+                                      >
+                                        {amenity}
+                                      </Badge>
+                                    ))}
                                     {roomMatchesPlan && selectedPlan && activeTierColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", activeTierColors.badgeBg, activeTierColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}
