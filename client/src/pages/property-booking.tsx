@@ -1073,7 +1073,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                   <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                                     <span className="text-xs font-bold text-white/80">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
-                                    {(() => { const w = getWashroomSummary(room as any); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">{w.text}</Badge> : null; })()}
+                                    {(() => { const w = getWashroomSummary(room); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">{w.text}</Badge> : null; })()}
                                     {roomMatchesPlan && selectedPlan && activeTierColors ? (
                                       <Badge className={cn("text-[10px] px-1.5 py-0 rounded-md border-0", activeTierColors.badgeBg, activeTierColors.badgeText)}>
                                         <Crown className="w-2.5 h-2.5 mr-0.5" /> {selectedPlan.name}

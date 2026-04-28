@@ -10857,7 +10857,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
       const allSectionsShared = isCombo && cleanedSections.length > 0 && cleanedSections.length === sectionLabels.length;
       const effectiveHasSharedWashroom = isCombo
-        ? (Array.isArray(sharedWashroomSections) ? allSectionsShared : !!hasSharedWashroom)
+        ? (cleanedSections.length === 0 ? !!hasSharedWashroom : allSectionsShared)
         : !!hasSharedWashroom;
 
       const createdRooms: any[] = [];
@@ -10970,7 +10970,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               ))
             : [];
           updateData.sharedWashroomSections = cleaned;
-          updateData.hasSharedWashroom = cleaned.length === sectionLabels.length && cleaned.length > 0;
+          if (cleaned.length > 0) {
+            updateData.hasSharedWashroom = cleaned.length === sectionLabels.length;
+          }
         } else {
           updateData.sharedWashroomSections = [];
         }

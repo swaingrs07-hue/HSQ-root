@@ -636,10 +636,10 @@ export default function AdminFloorsBeds() {
                                   });
                                 } : undefined}
                                 updatingSectionLabel={(() => {
-                                  const v = updateRoomMutation.variables as any;
+                                  const v = updateRoomMutation.variables;
                                   if (!updateRoomMutation.isPending || v?.roomId !== room.id || !Array.isArray(v?.sharedWashroomSections)) return null;
                                   const before = new Set(getSharedSectionLetters(room));
-                                  const after = new Set(v.sharedWashroomSections as string[]);
+                                  const after = new Set(v.sharedWashroomSections);
                                   const diff = getSectionLabels(room.typology).find(l => before.has(l) !== after.has(l));
                                   return diff ?? null;
                                 })()}
@@ -1380,19 +1380,6 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
               </TooltipContent>
             </Tooltip>
           )}
-          {isCombo && (() => {
-            const sharedLetters = getSharedSectionLetters(room);
-            const sectionLabels = getSectionLabels(room.typology);
-            if (sharedLetters.length === 0) return null;
-            const text = sharedLetters.length === sectionLabels.length
-              ? "Shared WC"
-              : `Shared WC: ${sharedLetters.join(", ")}`;
-            return (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 bg-blue-50 gap-0.5" data-testid={`badge-room-shared-wc-${room.id}`}>
-                <Bath className="w-2.5 h-2.5" />{text}
-              </Badge>
-            );
-          })()}
           {(room.flatAmenities ?? []).map((amenity) => (
             <Badge
               key={amenity}

@@ -910,7 +910,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                     <span>Room {room.roomNumber}</span>
                                   </div>
                                   {room.typology && <span className="text-[9px] px-2.5 py-1 rounded-md font-semibold" style={{ background: "rgba(99,102,241,0.12)", color: "rgba(129,140,248,0.85)", border: "1px solid rgba(99,102,241,0.25)" }}>{room.typology}</span>}
-                                  {(() => { const w = getWashroomSummary(room as any); if (!w.show) return null; const compact = w.text.replace("Shared WC", "WC"); return <span className="text-[8px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20 font-semibold">{compact}</span>; })()}
+                                  {(() => { const w = getWashroomSummary(room); if (!w.show) return null; const compact = w.text.replace("Shared WC", "WC"); return <span className="text-[8px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20 font-semibold">{compact}</span>; })()}
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="text-[10px] font-bold" style={{ color: "#34d399" }}>{availCount} avail</span>
@@ -1432,7 +1432,7 @@ function RoomCardTree({ room, onBedClick, onAllocate, onDeallocate }: { room: an
         <DoorOpen className="w-4 h-4 text-indigo-600" /><span className="font-semibold text-sm text-slate-800">Room {room.roomNumber}</span>
         <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
         {roomType && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{roomType.customName || roomType.name}</Badge>}
-        {(() => { const w = getWashroomSummary(room as any); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 gap-0.5"><Bath className="w-2.5 h-2.5" />{w.text}</Badge> : null; })()}
+        {(() => { const w = getWashroomSummary(room); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 gap-0.5"><Bath className="w-2.5 h-2.5" />{w.text}</Badge> : null; })()}
       </div>
       {isCombo && sections ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{sections.map((section: any) => (
