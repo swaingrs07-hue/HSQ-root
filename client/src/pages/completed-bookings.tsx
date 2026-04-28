@@ -219,6 +219,21 @@ export default function CompletedBookings() {
   const [selectedUpgradeId, setSelectedUpgradeId] = useState<string | null>(null);
   const [upgradeReason, setUpgradeReason] = useState("");
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
+  const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+
+  // Single source of truth for "what price should we use for this booking-package?"
+  // Honors admin override, then snapshot-at-attach, then current package base price.
+  const getBookingPackagePrice = (bp: any) => {
+    const snapRaw = bp?.priceSnapshot?.totalPrice;
+    const baseRaw = bp?.package?.basePrice;
+    const override = bp?.displayPriceOverride != null ? Number(bp.displayPriceOverride) : null;
+    const snapshot = snapRaw != null ? Number(snapRaw) : null;
+    const base = baseRaw != null ? Number(baseRaw) : null;
+    const effective = Number(override ?? snapshot ?? base ?? 0);
+    const original = Number(snapshot ?? base ?? 0);
+    return { override, snapshot, base, effective, original, isOverridden: override != null };
+  };
   const [showUpgradeHistory, setShowUpgradeHistory] = useState(false);
 
   const getAuthToken = () => {
@@ -323,6 +338,40 @@ export default function CompletedBookings() {
       toast({ title: "Package ended" });
       fetchBookingPackages(selectedBooking.id);
     } catch { }
+  };
+
+  const updateBookingPackage = async (
+    bpId: string,
+    patch: { includeInTotal?: boolean; displayPriceOverride?: number | null },
+  ) => {
+    if (!selectedBooking) return;
+    setBookingPackages((prev: any) => {
+      if (!prev?.bookingPackages) return prev;
+      return {
+        ...prev,
+        bookingPackages: prev.bookingPackages.map((bp: any) =>
+          bp.id === bpId ? { ...bp, ...patch } : bp,
+        ),
+      };
+    });
+    try {
+      const token = getAuthToken();
+      const res = await fetch(
+        `/api/admin/bookings/${selectedBooking.id}/packages/${bpId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(patch),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Update failed");
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+      fetchBookingPackages(selectedBooking.id);
+    }
   };
 
   const [syncingCredits, setSyncingCredits] = useState(false);
@@ -1743,12 +1792,19 @@ export default function CompletedBookings() {
                         <p className={`font-bold text-base ${planColors.accent}`}>{pkg?.name || "Housing Plan"}</p>
                         {pkg?.tagline && <p className="text-[11px] text-slate-500">{pkg.tagline}</p>}
                       </div>
-                      {(housingPlan.priceSnapshot?.totalPrice > 0 || housingPlan.basePrice > 0) && (
-                        <div className="ml-auto text-right">
-                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot?.totalPrice || housingPlan.basePrice || 0).toLocaleString("en-IN")}</p>
-                          <p className="text-[10px] text-slate-400">{housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year")}</p>
-                        </div>
-                      )}
+                      {(() => {
+                        const effective = housingPlan.displayPriceOverride ?? housingPlan.priceSnapshot?.totalPrice ?? pkg?.basePrice ?? 0;
+                        if (!(effective > 0)) return null;
+                        const isOverridden = housingPlan.displayPriceOverride != null;
+                        return (
+                          <div className="ml-auto text-right">
+                            <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(effective).toLocaleString("en-IN")}</p>
+                            <p className="text-[10px] text-slate-400">
+                              {isOverridden ? "edited" : (housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year"))}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                     {pkg?.items && pkg.items.length > 0 && (
                       <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -2233,24 +2289,140 @@ export default function CompletedBookings() {
                                 const badgeColor = bp.status === "ACTIVE"
                                   ? (isAddon ? "bg-orange-100 text-orange-700 border-0 text-[10px]" : "bg-emerald-100 text-emerald-700 border-0 text-[10px]")
                                   : "bg-slate-100 text-slate-500 border-0 text-[10px]";
+                                const priceInfo = getBookingPackagePrice(bp);
+                                const effectivePrice = priceInfo.effective;
+                                const originalPrice = priceInfo.original;
+                                const hasPrice = effectivePrice > 0 || originalPrice > 0;
+                                const isEditingPrice = editingPriceBpId === bp.id;
+                                const includeInTotal = bp.includeInTotal !== false;
+                                const isOverridden = priceInfo.isOverridden;
                                 return (
                                   <div key={bp.id} className={`border rounded-lg p-3 ${borderColor}`} data-testid={`booking-package-${bp.id}`}>
                                     <div className="flex items-center justify-between mb-2">
-                                      <div>
-                                        <div className="flex items-center gap-1.5">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
                                           {isAddon && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
                                           <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
-                                          {(bp.priceSnapshot?.totalPrice > 0 || pkg?.basePrice > 0) && (
-                                            <span className={`text-xs font-bold ${isAddon ? "text-orange-600" : "text-emerald-600"}`}>
-                                              ₹{Number(bp.priceSnapshot?.totalPrice || pkg?.basePrice || 0).toLocaleString("en-IN")}
+                                          {hasPrice && !isEditingPrice && (
+                                            <span className={`text-xs font-bold ${isAddon ? "text-orange-600" : "text-emerald-600"}`} data-testid={`text-bp-price-${bp.id}`}>
+                                              ₹{Number(effectivePrice).toLocaleString("en-IN")}
+                                            </span>
+                                          )}
+                                          {hasPrice && !isEditingPrice && isOverridden && (
+                                            <span className="text-[9px] text-slate-400 line-through" title="Original price">
+                                              ₹{Number(originalPrice).toLocaleString("en-IN")}
+                                            </span>
+                                          )}
+                                          {hasPrice && !isEditingPrice && bp.status === "ACTIVE" && (
+                                            <Button
+                                              size="icon"
+                                              variant="ghost"
+                                              className="h-5 w-5 text-slate-400 hover:text-indigo-600"
+                                              title="Edit displayed price"
+                                              onClick={() => {
+                                                setEditingPriceBpId(bp.id);
+                                                setEditingPriceValue(String(effectivePrice ?? ""));
+                                              }}
+                                              data-testid={`button-edit-price-${bp.id}`}
+                                            >
+                                              <Pencil className="h-2.5 w-2.5" />
+                                            </Button>
+                                          )}
+                                          {hasPrice && isEditingPrice && (
+                                            <span className="inline-flex items-center gap-1">
+                                              <span className="text-xs text-slate-500">₹</span>
+                                              <input
+                                                type="number"
+                                                min={0}
+                                                step="1"
+                                                inputMode="numeric"
+                                                value={editingPriceValue}
+                                                onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const v = editingPriceValue.trim();
+                                                    const num = v === "" ? null : Number(v);
+                                                    if (num !== null && (!Number.isFinite(num) || num < 0)) {
+                                                      toast({ title: "Enter a valid amount", variant: "destructive" });
+                                                      return;
+                                                    }
+                                                    updateBookingPackage(bp.id, { displayPriceOverride: num });
+                                                    setEditingPriceBpId(null);
+                                                  } else if (e.key === "Escape") {
+                                                    setEditingPriceBpId(null);
+                                                  }
+                                                }}
+                                                autoFocus
+                                                className="h-6 w-24 rounded border border-indigo-200 bg-white px-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                                                data-testid={`input-edit-price-${bp.id}`}
+                                              />
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-emerald-600"
+                                                title="Save"
+                                                onClick={() => {
+                                                  const v = editingPriceValue.trim();
+                                                  const num = v === "" ? null : Number(v);
+                                                  if (num !== null && (!Number.isFinite(num) || num < 0)) {
+                                                    toast({ title: "Enter a valid amount", variant: "destructive" });
+                                                    return;
+                                                  }
+                                                  updateBookingPackage(bp.id, { displayPriceOverride: num });
+                                                  setEditingPriceBpId(null);
+                                                }}
+                                                data-testid={`button-save-price-${bp.id}`}
+                                              >
+                                                <Check className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-slate-400"
+                                                title="Cancel"
+                                                onClick={() => setEditingPriceBpId(null)}
+                                                data-testid={`button-cancel-price-${bp.id}`}
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </Button>
+                                              {isOverridden && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-5 px-1.5 text-[10px] text-slate-500 hover:text-slate-700"
+                                                  title="Reset to original price"
+                                                  onClick={() => {
+                                                    updateBookingPackage(bp.id, { displayPriceOverride: null });
+                                                    setEditingPriceBpId(null);
+                                                  }}
+                                                  data-testid={`button-reset-price-${bp.id}`}
+                                                >
+                                                  Reset
+                                                </Button>
+                                              )}
                                             </span>
                                           )}
                                         </div>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                           {isAddon && <Badge className="bg-orange-100 text-orange-600 border-0 text-[9px] px-1.5 py-0">Add-On</Badge>}
                                           <p className="text-[10px] text-slate-500">
                                             {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
                                           </p>
+                                          {hasPrice && bp.status === "ACTIVE" && (
+                                            <label className="inline-flex items-center gap-1 cursor-pointer select-none ml-1" title="Include this amount in the booking total">
+                                              <input
+                                                type="checkbox"
+                                                checked={includeInTotal}
+                                                onChange={(e) => updateBookingPackage(bp.id, { includeInTotal: e.target.checked })}
+                                                className="h-3 w-3 rounded border-slate-300 text-indigo-600 focus:ring-1 focus:ring-indigo-500"
+                                                data-testid={`checkbox-include-total-${bp.id}`}
+                                              />
+                                              <span className={`text-[10px] ${includeInTotal ? "text-indigo-600 font-medium" : "text-slate-400"}`}>
+                                                {includeInTotal ? "In total" : "Excluded"}
+                                              </span>
+                                            </label>
+                                          )}
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-1">
@@ -2339,6 +2511,41 @@ export default function CompletedBookings() {
                           ) : (
                             <p className="text-xs text-slate-400 text-center py-2">No packages attached</p>
                           )}
+
+                          {(() => {
+                            const activeBps = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status === "ACTIVE");
+                            const priced = activeBps.map((bp: any) => {
+                              const { effective } = getBookingPackagePrice(bp);
+                              return { bp, price: effective, included: bp.includeInTotal !== false };
+                            }).filter((x: any) => x.price > 0);
+                            if (priced.length === 0) return null;
+                            const includedTotal = priced.filter((x: any) => x.included).reduce((s: number, x: any) => s + x.price, 0);
+                            const excludedTotal = priced.filter((x: any) => !x.included).reduce((s: number, x: any) => s + x.price, 0);
+                            const baseFee = Number(selectedBooking?.totalFee ?? ((selectedBooking?.baseFee ?? 0) - (selectedBooking?.discount ?? 0)));
+                            const grand = baseFee + includedTotal;
+                            return (
+                              <div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 space-y-1.5" data-testid="packages-grand-total">
+                                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                  <span>Booking fee</span>
+                                  <span className="font-medium">₹{baseFee.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                  <span>Add-ons & plans (included)</span>
+                                  <span className="font-medium text-indigo-700">+ ₹{includedTotal.toLocaleString("en-IN")}</span>
+                                </div>
+                                {excludedTotal > 0 && (
+                                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                    <span>Excluded from total</span>
+                                    <span className="line-through">₹{excludedTotal.toLocaleString("en-IN")}</span>
+                                  </div>
+                                )}
+                                <div className="border-t border-indigo-200 pt-1.5 flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-slate-700">Grand Total</span>
+                                  <span className="text-base font-bold text-indigo-700" data-testid="text-grand-total">₹{grand.toLocaleString("en-IN")}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {bookingPackages?.wallet && (
                             <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-lg border border-amber-100">

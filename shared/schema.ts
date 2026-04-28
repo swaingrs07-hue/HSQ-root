@@ -1324,6 +1324,8 @@ export const bookingPackages = pgTable("booking_packages", {
   status: bookingPackageStatusEnum("status").notNull().default("ACTIVE"),
   priceSnapshot: jsonb("price_snapshot"),
   selectedItems: jsonb("selected_items"),
+  includeInTotal: boolean("include_in_total").notNull().default(true),
+  displayPriceOverride: integer("display_price_override"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

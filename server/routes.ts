@@ -12246,6 +12246,52 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.patch("/api/admin/bookings/:bookingId/packages/:bookingPackageId", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { bookingId, bookingPackageId } = req.params;
+      const { includeInTotal, displayPriceOverride } = req.body ?? {};
+
+      const updates: Partial<{ includeInTotal: boolean; displayPriceOverride: number | null }> = {};
+
+      if (includeInTotal !== undefined) {
+        if (typeof includeInTotal !== "boolean") {
+          return res.status(400).json({ error: "includeInTotal must be a boolean" });
+        }
+        updates.includeInTotal = includeInTotal;
+      }
+
+      if (displayPriceOverride !== undefined) {
+        if (displayPriceOverride === null || displayPriceOverride === "") {
+          updates.displayPriceOverride = null;
+        } else {
+          const n = Number(displayPriceOverride);
+          if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+            return res.status(400).json({ error: "displayPriceOverride must be a non-negative number up to 100000000" });
+          }
+          updates.displayPriceOverride = Math.round(n);
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "Nothing to update" });
+      }
+
+      const [bp] = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
+      if (!bp) return res.status(404).json({ error: "Booking package not found" });
+      if (bp.bookingId !== bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
+      if (bp.status !== "ACTIVE") return res.status(400).json({ error: "Cannot edit an ended package" });
+
+      const [updated] = await db.update(schema.bookingPackages)
+        .set(updates)
+        .where(eq(schema.bookingPackages.id, bookingPackageId))
+        .returning();
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update booking package" });
+    }
+  });
+
   app.post("/api/admin/bookings/:bookingId/packages/detach", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { bookingPackageId } = req.body;
