@@ -10954,24 +10954,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())
           : [];
       }
-      if (sharedWashroomSections !== undefined) {
+      if (sharedWashroomSections !== undefined || typology !== undefined) {
         const existingRoomList = await db.select().from(schema.rooms).where(eq(schema.rooms.id, req.params.id));
         const existingRoom = existingRoomList[0];
         const effectiveTypology = (typology !== undefined ? typology : existingRoom?.typology) || "";
         const isCombo = typeof effectiveTypology === "string" && effectiveTypology.includes("+");
         if (isCombo) {
-          const sectionLabels = effectiveTypology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i));
-          const cleaned = Array.isArray(sharedWashroomSections)
-            ? Array.from(new Set(
-                sharedWashroomSections
-                  .filter((s: any) => typeof s === "string")
-                  .map((s: string) => s.trim().toUpperCase())
-                  .filter((s: string) => sectionLabels.includes(s))
-              ))
-            : [];
-          updateData.sharedWashroomSections = cleaned;
-          if (cleaned.length > 0) {
-            updateData.hasSharedWashroom = cleaned.length === sectionLabels.length;
+          if (sharedWashroomSections !== undefined) {
+            const sectionLabels = effectiveTypology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i));
+            const cleaned = Array.isArray(sharedWashroomSections)
+              ? Array.from(new Set(
+                  sharedWashroomSections
+                    .filter((s: any) => typeof s === "string")
+                    .map((s: string) => s.trim().toUpperCase())
+                    .filter((s: string) => sectionLabels.includes(s))
+                ))
+              : [];
+            updateData.sharedWashroomSections = cleaned;
+            if (cleaned.length > 0) {
+              updateData.hasSharedWashroom = cleaned.length === sectionLabels.length;
+            }
           }
         } else {
           updateData.sharedWashroomSections = [];
