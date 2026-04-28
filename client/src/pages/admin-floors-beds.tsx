@@ -679,9 +679,9 @@ export default function AdminFloorsBeds() {
           )}
 
           <Dialog open={addRoomOpen} onOpenChange={setAddRoomOpen}>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Add Room to Floor</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-2 flex-shrink-0"><DialogTitle>Add Room to Floor</DialogTitle></DialogHeader>
+              <div className="space-y-4 py-4 px-6 overflow-y-auto flex-1 min-h-0">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Room Number(s)</Label>
