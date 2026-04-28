@@ -1201,7 +1201,7 @@ export default function CompletedBookings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 via-white to-white">
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -1293,7 +1293,7 @@ export default function CompletedBookings() {
         <Card
           role="button"
           onClick={() => { setViewFilter(viewFilter === "with_addons" ? "all" : "with_addons"); setCurrentPage(1); }}
-          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md sm:col-span-2 lg:col-span-4 xl:col-span-1 ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
           data-testid="card-addon-revenue"
         >
           <CardContent className="p-5">
@@ -1302,38 +1302,39 @@ export default function CompletedBookings() {
                 <UtensilsCrossed className="h-5 w-5 text-orange-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
-                <p
-                  className="text-2xl font-bold text-orange-700 truncate mt-1"
-                  data-testid="text-addon-revenue"
-                  title={`₹${totalAddonRevenue.toLocaleString("en-IN")}`}
-                >
-                  ₹{totalAddonRevenue.toLocaleString("en-IN")}
-                </p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
-                </p>
-                <div className="mt-2 pt-2 border-t border-orange-200/60 grid grid-cols-2 gap-2">
+                <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-1 xl:gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] text-slate-500">Collected</p>
+                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
                     <p
-                      className="text-xs font-semibold text-emerald-700 truncate"
-                      data-testid="text-addon-collected"
-                      title={`₹${totalAddonCollected.toLocaleString("en-IN")}`}
+                      className="text-2xl font-bold text-orange-700 mt-1"
+                      data-testid="text-addon-revenue"
                     >
-                      ₹{totalAddonCollected.toLocaleString("en-IN")}
-                      <span className="text-[10px] text-slate-400 font-normal ml-1">({addonCollectedPct}%)</span>
+                      ₹{totalAddonRevenue.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
                     </p>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-slate-500">Pending</p>
-                    <p
-                      className="text-xs font-semibold text-amber-700 truncate"
-                      data-testid="text-addon-pending"
-                      title={`₹${totalAddonPending.toLocaleString("en-IN")}`}
-                    >
-                      ₹{totalAddonPending.toLocaleString("en-IN")}
-                    </p>
+                  <div className="flex gap-3 xl:flex-col xl:gap-1 xl:pt-1 xl:border-t-0 border-t border-orange-200/60 pt-2 xl:border-l xl:border-orange-200/60 xl:pl-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-500">Collected</p>
+                      <p
+                        className="text-xs font-semibold text-emerald-700"
+                        data-testid="text-addon-collected"
+                      >
+                        ₹{totalAddonCollected.toLocaleString("en-IN")}
+                        <span className="text-[10px] text-slate-400 font-normal ml-1">({addonCollectedPct}%)</span>
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-500">Pending</p>
+                      <p
+                        className="text-xs font-semibold text-amber-700"
+                        data-testid="text-addon-pending"
+                      >
+                        ₹{totalAddonPending.toLocaleString("en-IN")}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
