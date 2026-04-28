@@ -1201,7 +1201,7 @@ export default function CompletedBookings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
         <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 via-white to-white">
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -1293,7 +1293,7 @@ export default function CompletedBookings() {
         <Card
           role="button"
           onClick={() => { setViewFilter(viewFilter === "with_addons" ? "all" : "with_addons"); setCurrentPage(1); }}
-          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md sm:col-span-2 lg:col-span-4 xl:col-span-1 ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md sm:col-span-2 lg:col-span-4 2xl:col-span-1 ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
           data-testid="card-addon-revenue"
         >
           <CardContent className="p-5">
@@ -1302,7 +1302,7 @@ export default function CompletedBookings() {
                 <UtensilsCrossed className="h-5 w-5 text-orange-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-1 xl:gap-3">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 2xl:flex-col 2xl:items-stretch 2xl:gap-1">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
                     <p
@@ -1315,11 +1315,11 @@ export default function CompletedBookings() {
                       {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
                     </p>
                   </div>
-                  <div className="flex gap-3 xl:flex-col xl:gap-1 xl:pt-1 xl:border-t-0 border-t border-orange-200/60 pt-2 xl:border-l xl:border-orange-200/60 xl:pl-3">
+                  <div className="flex flex-row gap-6 lg:gap-8 border-t border-orange-200/60 pt-3 lg:border-t-0 lg:pt-0 lg:border-l lg:border-orange-200/60 lg:pl-6 2xl:border-l-0 2xl:border-t 2xl:border-orange-200/60 2xl:pl-0 2xl:pt-2 2xl:gap-4 2xl:mt-1">
                     <div className="min-w-0">
-                      <p className="text-[10px] text-slate-500">Collected</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Collected</p>
                       <p
-                        className="text-xs font-semibold text-emerald-700"
+                        className="text-sm font-semibold text-emerald-700 mt-0.5"
                         data-testid="text-addon-collected"
                       >
                         ₹{totalAddonCollected.toLocaleString("en-IN")}
@@ -1327,9 +1327,9 @@ export default function CompletedBookings() {
                       </p>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] text-slate-500">Pending</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Pending</p>
                       <p
-                        className="text-xs font-semibold text-amber-700"
+                        className="text-sm font-semibold text-amber-700 mt-0.5"
                         data-testid="text-addon-pending"
                       >
                         ₹{totalAddonPending.toLocaleString("en-IN")}
