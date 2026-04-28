@@ -77,6 +77,14 @@ const TOUR_ROOMS = [
 
 type RoomId = typeof TOUR_ROOMS[number]["id"];
 
+const FLOOR_STATUS_CONFIG: Record<string, { bg: string; border: string; label: string; cursor: string; dot: string }> = {
+  available: { bg: "bg-gradient-to-br from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 hover:shadow-lg hover:shadow-emerald-500/40", border: "border-emerald-500/80", label: "Available", cursor: "cursor-pointer", dot: "bg-emerald-500" },
+  occupied: { bg: "bg-gradient-to-br from-red-300/60 to-red-500/60", border: "border-red-400/40", label: "Occupied", cursor: "cursor-not-allowed", dot: "bg-red-400" },
+  reserved: { bg: "bg-gradient-to-br from-amber-300/60 to-amber-500/60", border: "border-amber-400/40", label: "Reserved", cursor: "cursor-not-allowed", dot: "bg-amber-400" },
+  maintenance: { bg: "bg-gradient-to-br from-stone-200/60 to-stone-400/60", border: "border-stone-300/40", label: "Maintenance", cursor: "cursor-not-allowed", dot: "bg-stone-400" },
+  blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
+};
+
 function LazyImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const imgRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -94,7 +102,7 @@ function LazyImage({ src, alt, className }: { src: string; alt: string; classNam
   }, []);
 
   return (
-    <div ref={imgRef} className={className} style={{ minHeight: isVisible ? undefined : 80 }}>
+    <div ref={imgRef} className={className}>
       {isVisible && (
         <img
           src={src}
@@ -826,35 +834,14 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
     }
   }, [autoExpand, selectedPlanRoomTypeIds, floorsData]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-      </div>
-    );
-  }
+  const statusConfig = FLOOR_STATUS_CONFIG;
 
-  if (floorsData.length === 0) {
-    return (
-      <div className="text-center py-16 rounded-2xl border-2 border-dashed border-white/[0.08] bg-white/[0.02]">
-        <Layers className="w-14 h-14 text-white/20 mx-auto mb-3" />
-        <p className="text-white/50 font-semibold text-lg">Floor plan not configured yet</p>
-        <p className="text-sm text-white/30 mt-1">Please select a room type below to book</p>
-      </div>
-    );
-  }
+  const activeTierColors = useMemo(
+    () => (selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0, maxPlanTier) : null),
+    [selectedPlan, maxPlanTier]
+  );
 
-  const statusConfig: Record<string, { bg: string; border: string; label: string; cursor: string; dot: string }> = {
-    available: { bg: "bg-gradient-to-br from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 hover:shadow-lg hover:shadow-emerald-500/40", border: "border-emerald-500/80", label: "Available", cursor: "cursor-pointer", dot: "bg-emerald-500" },
-    occupied: { bg: "bg-gradient-to-br from-red-300/60 to-red-500/60", border: "border-red-400/40", label: "Occupied", cursor: "cursor-not-allowed", dot: "bg-red-400" },
-    reserved: { bg: "bg-gradient-to-br from-amber-300/60 to-amber-500/60", border: "border-amber-400/40", label: "Reserved", cursor: "cursor-not-allowed", dot: "bg-amber-400" },
-    maintenance: { bg: "bg-gradient-to-br from-stone-200/60 to-stone-400/60", border: "border-stone-300/40", label: "Maintenance", cursor: "cursor-not-allowed", dot: "bg-stone-400" },
-    blocked: { bg: "bg-gradient-to-br from-red-600/60 to-red-800/60", border: "border-red-700/40", label: "Blocked", cursor: "cursor-not-allowed", dot: "bg-red-700" },
-  };
-
-  const activeTierColors = selectedPlan ? getBedTierColors(selectedPlan.tierLevel ?? 0, maxPlanTier) : null;
-
-  const renderBedButton = (bed: any, floor: any, room?: any) => {
+  const renderBedButton = useCallback((bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
     const isHeld = bed.held && !isSelected;
     const floorGender = (floor?.gender || "any").toLowerCase();
@@ -943,10 +930,72 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
         )}
       </button>
     );
-  };
+  }, [
+    selectedBedId,
+    guestGender,
+    selectedPlanRoomTypeIds,
+    selectedPlanLinkedRoomIds,
+    activeTierColors,
+    selectedPlan,
+    roomPlanMap,
+    roomTypePlanMap,
+    roomMultiPlanMap,
+    roomTypeMultiPlanMap,
+    maxPlanTier,
+    onSelectBed,
+  ]);
 
-  const totalAll = floorsData.reduce((s: number, f: any) => s + (f.beds?.length || 0), 0);
-  const availAll = floorsData.reduce((s: number, f: any) => s + (f.beds?.filter((b: any) => b.status === "available").length || 0), 0);
+  const floorsDerived = useMemo(() => {
+    return floorsData.map((floor: any) => {
+      const beds = floor.beds || [];
+      const rooms = floor.rooms || [];
+      let availBeds = 0;
+      const orphanBeds: any[] = [];
+      for (const b of beds) {
+        if (b.status === "available") availBeds++;
+        if (!b.roomId) orphanBeds.push(b);
+      }
+      const totalBeds = beds.length;
+      return {
+        floor,
+        beds,
+        rooms,
+        availBeds,
+        totalBeds,
+        hasRooms: rooms.length > 0,
+        orphanBeds,
+        occupancyPct: totalBeds > 0 ? Math.round((availBeds / totalBeds) * 100) : 0,
+      };
+    });
+  }, [floorsData]);
+
+  const { totalAll, availAll } = useMemo(() => {
+    let total = 0;
+    let avail = 0;
+    for (const f of floorsDerived) {
+      total += f.totalBeds;
+      avail += f.availBeds;
+    }
+    return { totalAll: total, availAll: avail };
+  }, [floorsDerived]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+      </div>
+    );
+  }
+
+  if (floorsData.length === 0) {
+    return (
+      <div className="text-center py-16 rounded-2xl border-2 border-dashed border-white/[0.08] bg-white/[0.02]">
+        <Layers className="w-14 h-14 text-white/20 mx-auto mb-3" />
+        <p className="text-white/50 font-semibold text-lg">Floor plan not configured yet</p>
+        <p className="text-sm text-white/30 mt-1">Please select a room type below to book</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4" data-testid="floor-bed-selector">
@@ -1029,15 +1078,8 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
       <div className="relative">
         <div className="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-amber-500/60 via-amber-500/20 to-transparent" />
 
-        {floorsData.map((floor: any, fi: number) => {
+        {floorsDerived.map(({ floor, beds, rooms, availBeds, totalBeds, hasRooms, orphanBeds, occupancyPct }: any, fi: number) => {
           const isExpanded = expandedFloor === floor.id;
-          const beds = floor.beds || [];
-          const rooms = floor.rooms || [];
-          const availBeds = beds.filter((b: any) => b.status === "available").length;
-          const totalBeds = beds.length;
-          const hasRooms = rooms.length > 0;
-          const orphanBeds = beds.filter((b: any) => !b.roomId);
-          const occupancyPct = totalBeds > 0 ? Math.round((availBeds / totalBeds) * 100) : 0;
 
           return (
             <div
@@ -1201,8 +1243,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   );
 }
 
-function getTierStyle(tierLevel: number, _totalTiers: number) {
-  const tierStyles: Record<number, { accent: string; glow: string; text: string; badge: string; border: string; ring: string; shimmer: string; bg: string; cardBg: string; btnGradient: string; btnHover: string; priceColor: string; headerBg: string; icon: string; featureText: string; labelText: string; divider: string; checkColor: string }> = {
+const TIER_STYLES: Record<number, { accent: string; glow: string; text: string; badge: string; border: string; ring: string; shimmer: string; bg: string; cardBg: string; btnGradient: string; btnHover: string; priceColor: string; headerBg: string; icon: string; featureText: string; labelText: string; divider: string; checkColor: string }> = {
     0: { accent: "from-stone-400 to-stone-500", glow: "shadow-stone-600/40", text: "text-stone-300", badge: "bg-gradient-to-r from-stone-600 to-stone-500", border: "border-stone-500", ring: "ring-stone-500/20", shimmer: "from-stone-600/0 via-stone-400/20 to-stone-600/0", bg: "bg-stone-800/60", cardBg: "bg-gradient-to-br from-stone-800 via-stone-700 to-stone-800", btnGradient: "bg-gradient-to-r from-stone-500 to-stone-400", btnHover: "hover:from-stone-400 hover:to-stone-300", priceColor: "text-stone-100", headerBg: "bg-stone-800", icon: "text-stone-400", featureText: "text-stone-200", labelText: "text-stone-400", divider: "border-stone-600/50", checkColor: "text-stone-400" },
     1: { accent: "from-violet-400 to-purple-500", glow: "shadow-violet-600/50", text: "text-violet-300", badge: "bg-gradient-to-r from-violet-600 to-purple-500", border: "border-violet-500", ring: "ring-violet-400/30", shimmer: "from-violet-500/0 via-violet-300/25 to-violet-500/0", bg: "bg-violet-800/60", cardBg: "bg-gradient-to-br from-violet-900 via-purple-800 to-indigo-900", btnGradient: "bg-gradient-to-r from-violet-500 to-purple-500", btnHover: "hover:from-violet-400 hover:to-purple-400", priceColor: "text-violet-200", headerBg: "bg-violet-900", icon: "text-violet-400", featureText: "text-violet-100", labelText: "text-violet-300/70", divider: "border-violet-600/40", checkColor: "text-violet-400" },
     2: { accent: "from-amber-400 via-yellow-300 to-amber-500", glow: "shadow-amber-500/50", text: "text-amber-300", badge: "bg-gradient-to-r from-amber-500 to-yellow-500", border: "border-amber-500", ring: "ring-amber-400/30", shimmer: "from-amber-500/0 via-amber-300/30 to-amber-500/0", bg: "bg-amber-800/60", cardBg: "bg-gradient-to-br from-amber-900 via-yellow-800 to-orange-900", btnGradient: "bg-gradient-to-r from-amber-500 to-yellow-500", btnHover: "hover:from-amber-400 hover:to-yellow-400", priceColor: "text-amber-200", headerBg: "bg-amber-900", icon: "text-amber-400", featureText: "text-amber-100", labelText: "text-amber-300/70", divider: "border-amber-600/40", checkColor: "text-amber-400" },
@@ -1218,9 +1259,11 @@ function getTierStyle(tierLevel: number, _totalTiers: number) {
     12: { accent: "from-pink-400 to-rose-500", glow: "shadow-pink-500/50", text: "text-pink-300", badge: "bg-gradient-to-r from-pink-600 to-rose-500", border: "border-pink-500", ring: "ring-pink-400/30", shimmer: "from-pink-500/0 via-pink-300/25 to-pink-500/0", bg: "bg-pink-800/60", cardBg: "bg-gradient-to-br from-pink-900 via-rose-800 to-red-900", btnGradient: "bg-gradient-to-r from-pink-500 to-rose-500", btnHover: "hover:from-pink-400 hover:to-rose-400", priceColor: "text-pink-200", headerBg: "bg-pink-900", icon: "text-pink-400", featureText: "text-pink-100", labelText: "text-pink-300/70", divider: "border-pink-600/40", checkColor: "text-pink-400" },
     13: { accent: "from-sky-400 to-indigo-500", glow: "shadow-sky-500/50", text: "text-sky-300", badge: "bg-gradient-to-r from-sky-600 to-indigo-500", border: "border-sky-500", ring: "ring-sky-400/30", shimmer: "from-sky-500/0 via-sky-300/25 to-sky-500/0", bg: "bg-sky-800/60", cardBg: "bg-gradient-to-br from-sky-900 via-indigo-800 to-blue-900", btnGradient: "bg-gradient-to-r from-sky-500 to-indigo-500", btnHover: "hover:from-sky-400 hover:to-indigo-400", priceColor: "text-sky-200", headerBg: "bg-sky-900", icon: "text-sky-400", featureText: "text-sky-100", labelText: "text-sky-300/70", divider: "border-sky-600/40", checkColor: "text-sky-400" },
     14: { accent: "from-red-400 to-orange-500", glow: "shadow-red-500/50", text: "text-red-300", badge: "bg-gradient-to-r from-red-600 to-orange-500", border: "border-red-500", ring: "ring-red-400/30", shimmer: "from-red-500/0 via-red-300/25 to-red-500/0", bg: "bg-red-800/60", cardBg: "bg-gradient-to-br from-red-900 via-orange-800 to-amber-900", btnGradient: "bg-gradient-to-r from-red-500 to-orange-500", btnHover: "hover:from-red-400 hover:to-orange-400", priceColor: "text-red-200", headerBg: "bg-red-900", icon: "text-red-400", featureText: "text-red-100", labelText: "text-red-300/70", divider: "border-red-600/40", checkColor: "text-red-400" },
-  };
+};
+
+function getTierStyle(tierLevel: number, _totalTiers: number) {
   const tier = Math.max(0, Math.min(14, tierLevel ?? 0));
-  return tierStyles[tier] || tierStyles[0];
+  return TIER_STYLES[tier] || TIER_STYLES[0];
 }
 
 function HousingPlans({ propertyId, onSelectPlan }: { propertyId: string; onSelectPlan: (plan: any) => void }) {
