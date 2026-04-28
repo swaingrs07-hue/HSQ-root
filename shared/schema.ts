@@ -1151,6 +1151,7 @@ export const rooms = pgTable("rooms", {
   roomNumber: text("room_number").notNull(),
   typology: text("typology").notNull().default("1 Bed"),
   hasSharedWashroom: boolean("has_shared_washroom").default(false).notNull(),
+  flatAmenities: text("flat_amenities").array().default(sql`'{}'::text[]`).notNull(),
   totalBeds: integer("total_beds").default(1).notNull(),
   status: bedStatusEnum("status").default("available").notNull(),
   monthlyPrice: integer("monthly_price"),

@@ -10830,7 +10830,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.post("/api/admin/properties/:id/floors/:floorId/rooms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { roomNumber, roomTypeId, typology, hasSharedWashroom, monthlyPrice } = req.body;
+      const { roomNumber, roomTypeId, typology, hasSharedWashroom, flatAmenities, monthlyPrice } = req.body;
       if (!roomNumber || !roomTypeId || !typology) {
         return res.status(400).json({ error: "roomNumber, roomTypeId, and typology are required" });
       }
@@ -10838,6 +10838,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const roomNumbers = roomNumber.includes(",")
         ? roomNumber.split(",").map((s: string) => s.trim()).filter((s: string) => s)
         : [roomNumber.trim()];
+
+      const cleanedAmenities = Array.isArray(flatAmenities)
+        ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())
+        : [];
 
       const createdRooms: any[] = [];
 
@@ -10849,6 +10853,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           roomNumber: singleRoomNumber,
           typology,
           hasSharedWashroom: hasSharedWashroom || false,
+          flatAmenities: cleanedAmenities,
           totalBeds: 0,
           status: "available",
           monthlyPrice: monthlyPrice || null,
@@ -10920,12 +10925,17 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { status, roomNumber, typology, hasSharedWashroom, monthlyPrice } = req.body;
+      const { status, roomNumber, typology, hasSharedWashroom, flatAmenities, monthlyPrice } = req.body;
       const updateData: any = {};
       if (status) updateData.status = status;
       if (roomNumber) updateData.roomNumber = roomNumber;
       if (typology !== undefined) updateData.typology = typology;
       if (hasSharedWashroom !== undefined) updateData.hasSharedWashroom = hasSharedWashroom;
+      if (flatAmenities !== undefined) {
+        updateData.flatAmenities = Array.isArray(flatAmenities)
+          ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())
+          : [];
+      }
       if (monthlyPrice !== undefined) updateData.monthlyPrice = monthlyPrice;
       const updated = await storage.updateRoom(req.params.id, updateData);
       if (!updated) return res.status(404).json({ error: "Room not found" });

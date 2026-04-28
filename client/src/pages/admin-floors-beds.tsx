@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X, History, AlertTriangle, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ interface Bed {
 interface Room {
   id: string; propertyId: string; floorId: string; roomTypeId: string;
   roomNumber: string; typology: string; hasSharedWashroom: boolean;
+  flatAmenities?: string[] | null;
   totalBeds: number; status: string; monthlyPrice?: number | null;
   beds: Bed[];
 }
@@ -96,6 +98,21 @@ const TYPOLOGY_OPTIONS = [
   { value: "custom", label: "Custom Configuration...", group: "custom" },
 ];
 
+const FLAT_AMENITY_OPTIONS: { value: string; label: string; icon?: string }[] = [
+  { value: "Kitchen", label: "Kitchen" },
+  { value: "Hall", label: "Hall / Living Room" },
+  { value: "Dining", label: "Dining Area" },
+  { value: "Balcony", label: "Balcony" },
+  { value: "Study Room", label: "Study Room" },
+  { value: "Storage", label: "Storage / Utility" },
+  { value: "Common Bathroom", label: "Common Bathroom" },
+  { value: "Refrigerator", label: "Refrigerator" },
+  { value: "Washing Machine", label: "Washing Machine" },
+  { value: "AC", label: "Air Conditioner" },
+  { value: "Geyser", label: "Geyser" },
+  { value: "WiFi", label: "WiFi" },
+];
+
 async function apiFetch(url: string, options?: RequestInit) {
   const token = getAuthToken();
   const res = await fetch(url, {
@@ -122,7 +139,7 @@ export default function AdminFloorsBeds() {
   const [autoGenOpen, setAutoGenOpen] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState<string>("");
   const [newFloor, setNewFloor] = useState({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0 });
-  const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+  const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, flatAmenities: [] as string[], monthlyPrice: "" });
   const [customTypology, setCustomTypology] = useState("");
   const [isCustomTypology, setIsCustomTypology] = useState(false);
   const [roomTypeSearch, setRoomTypeSearch] = useState("");
@@ -188,13 +205,13 @@ export default function AdminFloorsBeds() {
   });
 
   const createRoomMutation = useMutation({
-    mutationFn: (data: { floorId: string; roomNumber: string; roomTypeId: string; typology: string; hasSharedWashroom: boolean; monthlyPrice?: number | null }) =>
+    mutationFn: (data: { floorId: string; roomNumber: string; roomTypeId: string; typology: string; hasSharedWashroom: boolean; flatAmenities?: string[]; monthlyPrice?: number | null }) =>
       apiFetch(`/api/admin/properties/${selectedPropertyId}/floors/${data.floorId}/rooms`, { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       invalidateFloors();
       toast({ title: "Room Created", description: "Room and beds have been generated." });
       setAddRoomOpen(false);
-      setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, monthlyPrice: "" });
+      setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, flatAmenities: [], monthlyPrice: "" });
       setCustomTypology("");
       setIsCustomTypology(false);
       setRoomTypeSearch("");
@@ -209,7 +226,7 @@ export default function AdminFloorsBeds() {
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; typology?: string; roomNumber?: string }) =>
+    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; flatAmenities?: string[]; typology?: string; roomNumber?: string }) =>
       apiFetch(`/api/admin/rooms/${roomId}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: (_data, vars) => {
       invalidateFloors();
@@ -222,6 +239,13 @@ export default function AdminFloorsBeds() {
           description: vars.hasSharedWashroom
             ? "Marked as shared / non-attached washroom."
             : "Marked as attached private washroom.",
+        });
+      } else if (vars.flatAmenities !== undefined) {
+        toast({
+          title: "Flat Features Updated",
+          description: vars.flatAmenities.length === 0
+            ? "All features cleared."
+            : `${vars.flatAmenities.length} feature${vars.flatAmenities.length > 1 ? "s" : ""} saved.`,
         });
       }
     },
@@ -590,7 +614,9 @@ export default function AdminFloorsBeds() {
                               <RoomCard key={room.id} room={room} roomTypes={roomTypes || []}
                                 onDeleteRoom={() => { if (confirm(`Delete room ${room.roomNumber} and all its beds?`)) deleteRoomMutation.mutate(room.id); }}
                                 onToggleWashroom={canEditWashroom ? () => updateRoomMutation.mutate({ roomId: room.id, hasSharedWashroom: !room.hasSharedWashroom }) : undefined}
-                                isUpdatingWashroom={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id}
+                                isUpdatingWashroom={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.hasSharedWashroom !== undefined}
+                                onUpdateAmenities={canEditWashroom ? (next) => updateRoomMutation.mutate({ roomId: room.id, flatAmenities: next }) : undefined}
+                                isUpdatingAmenities={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.flatAmenities !== undefined}
                                 onUpdateBed={(bedId, status) => updateBedMutation.mutate({ bedId, status })}
                                 onDeleteBed={(bedId) => { if (confirm("Remove this bed?")) deleteBedMutation.mutate(bedId); }}
                                 onBlockBed={(bedId, reason, category) => blockBedMutation.mutate({ bedId, reason, category })}
@@ -838,6 +864,50 @@ export default function AdminFloorsBeds() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <DoorOpen className="w-3.5 h-3.5 text-violet-600" />
+                      Flat Features
+                      {newRoom.flatAmenities.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">
+                          {newRoom.flatAmenities.length} selected
+                        </Badge>
+                      )}
+                    </Label>
+                    <p className="text-[11px] text-slate-500">
+                      Tick what this unit includes. Useful for 2 BHK / combo flats with a kitchen, hall, etc.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FLAT_AMENITY_OPTIONS.map(opt => {
+                      const checked = newRoom.flatAmenities.includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setNewRoom(prev => ({
+                            ...prev,
+                            flatAmenities: checked
+                              ? prev.flatAmenities.filter(a => a !== opt.value)
+                              : [...prev.flatAmenities, opt.value],
+                          }))}
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                            checked
+                              ? "border-violet-400 bg-violet-100 text-violet-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-600"
+                          )}
+                          data-testid={`button-amenity-${opt.value.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          {checked ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAddRoomOpen(false)}>Cancel</Button>
@@ -873,6 +943,7 @@ export default function AdminFloorsBeds() {
                       roomTypeId: resolvedTypeId,
                       typology: newRoom.typology,
                       hasSharedWashroom: newRoom.hasSharedWashroom,
+                      flatAmenities: newRoom.flatAmenities,
                       monthlyPrice: null,
                     });
                   }}
@@ -1012,11 +1083,97 @@ export default function AdminFloorsBeds() {
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
+function AmenitiesPopover({ room, onSave, isPending }: {
+  room: Room;
+  onSave: (next: string[]) => void;
+  isPending?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<string[]>(room.flatAmenities ?? []);
+  useEffect(() => {
+    if (open) setDraft(room.flatAmenities ?? []);
+  }, [open, room.flatAmenities]);
+  const dirty = JSON.stringify([...draft].sort()) !== JSON.stringify([...(room.flatAmenities ?? [])].sort());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 hover:text-violet-600 transition-colors border border-dashed border-slate-300 hover:border-violet-400 rounded px-1.5 py-0.5"
+          data-testid={`button-edit-amenities-${room.id}`}
+        >
+          <Plus className="w-2.5 h-2.5" />
+          {(room.flatAmenities ?? []).length === 0 ? "Add Features" : "Edit Features"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-slate-700">Flat Features for Room {room.roomNumber}</p>
+              <p className="text-[11px] text-slate-500">Tick the spaces & amenities included in this unit.</p>
+            </div>
+            {draft.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setDraft([])}
+                className="text-[10px] text-slate-400 hover:text-rose-600 underline shrink-0"
+                data-testid={`button-amenities-clear-${room.id}`}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto">
+            {FLAT_AMENITY_OPTIONS.map(opt => {
+              const checked = draft.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDraft(prev => checked ? prev.filter(a => a !== opt.value) : [...prev, opt.value])}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                    checked
+                      ? "border-violet-400 bg-violet-100 text-violet-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-600"
+                  )}
+                  data-testid={`button-popover-amenity-${room.id}-${opt.value.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  {checked ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-1.5 pt-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)} data-testid={`button-amenities-cancel-${room.id}`}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={!dirty || isPending}
+              onClick={() => { onSave(draft); setOpen(false); }}
+              data-testid={`button-amenities-save-${room.id}`}
+            >
+              {isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Save
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onUpdateAmenities, isUpdatingAmenities, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onToggleWashroom?: () => void;
   isUpdatingWashroom?: boolean;
+  onUpdateAmenities?: (next: string[]) => void;
+  isUpdatingAmenities?: boolean;
   onUpdateBed: (bedId: string, status: string) => void;
   onDeleteBed: (bedId: string) => void;
   onBlockBed: (bedId: string, reason: string, category: string) => void;
@@ -1084,6 +1241,23 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
               </p>
             </TooltipContent>
           </Tooltip>
+          {(room.flatAmenities ?? []).map((amenity) => (
+            <Badge
+              key={amenity}
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 border-violet-300 text-violet-700 bg-violet-50"
+              data-testid={`badge-amenity-${room.id}-${amenity.toLowerCase().replace(/\s+/g, "-")}`}
+            >
+              {amenity}
+            </Badge>
+          ))}
+          {onUpdateAmenities && (
+            <AmenitiesPopover
+              room={room}
+              onSave={(next) => onUpdateAmenities(next)}
+              isPending={isUpdatingAmenities}
+            />
+          )}
           {room.monthlyPrice && <span className="text-[10px] text-slate-400">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
           {plansForThisRoom.length > 0 ? (
             plansForThisRoom.map((p: any) => {
