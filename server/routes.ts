@@ -53,6 +53,50 @@ async function isBedHeld(bedId: string): Promise<{ held: boolean; heldBy?: strin
   return { held: true, heldBy: existing[0].sessionId };
 }
 
+function normalizeGender(value: unknown): "male" | "female" | "other" | "" {
+  if (typeof value !== "string") return "";
+  const v = value.trim().toLowerCase();
+  if (v === "m" || v === "male") return "male";
+  if (v === "f" || v === "female") return "female";
+  if (v === "o" || v === "other") return "other";
+  return "";
+}
+
+/**
+ * Throws { status, message } when a guest's gender is not allowed on the floor
+ * containing the given bed. Floors with gender 'any' allow anyone. Returns
+ * silently when compatible.
+ */
+async function assertGenderCompatible(bedId: string, guestGender: unknown): Promise<void> {
+  const bed = await db.select({ floorId: schema.beds.floorId })
+    .from(schema.beds)
+    .where(eq(schema.beds.id, bedId))
+    .limit(1);
+  if (bed.length === 0) return; // bed not found; let caller handle separately
+  const floor = await db.select({ gender: schema.floors.gender, name: schema.floors.name })
+    .from(schema.floors)
+    .where(eq(schema.floors.id, bed[0].floorId))
+    .limit(1);
+  if (floor.length === 0) return;
+  const floorGender = (floor[0].gender || "any").toLowerCase();
+  if (floorGender === "any") return;
+  const g = normalizeGender(guestGender);
+  if (!g) {
+    const err: any = new Error(
+      `${floor[0].name} is ${floorGender}-only. Please specify the guest's gender to book a bed here.`,
+    );
+    err.status = 400;
+    throw err;
+  }
+  if (g !== floorGender) {
+    const err: any = new Error(
+      `${floor[0].name} is ${floorGender}-only. You cannot allocate a ${g} guest to this floor.`,
+    );
+    err.status = 400;
+    throw err;
+  }
+}
+
 async function cleanExpiredHolds(): Promise<void> {
   await db.delete(schema.bedHolds).where(sql`${schema.bedHolds.expiresAt} <= NOW()`);
 }
@@ -4415,6 +4459,12 @@ ${allPages.map(p => `  <url>
         if (bed.status !== "available") {
           return res.status(400).json({ error: "Selected bed is no longer available. Please choose another bed." });
         }
+        try {
+          const guestGender = (req.body?.gender ?? residentDetails?.gender) || "";
+          await assertGenderCompatible(resolvedBedId, guestGender);
+        } catch (genderErr: any) {
+          return res.status(genderErr?.status || 400).json({ error: genderErr?.message || "Gender mismatch for this floor" });
+        }
         resolvedFloorId = bed.floorId || resolvedFloorId;
         resolvedRoomId = bed.roomId || null;
         if (bed.roomId) {
@@ -5109,6 +5159,14 @@ ${allPages.map(p => `  <url>
       }
 
       if (newBed.status !== "available") return res.status(400).json({ error: "Target bed is not available" });
+
+      try {
+        const bookingRd = (booking.residentDetails as Record<string, any>) || {};
+        const bookingGender = bookingRd.gender || "";
+        await assertGenderCompatible(newBedId, bookingGender);
+      } catch (genderErr: any) {
+        return res.status(genderErr?.status || 400).json({ error: genderErr?.message || "Gender mismatch for this floor" });
+      }
 
       const isSuperadmin = req.user!.role === "superadmin";
       if (newBed.roomTypeId !== booking.roomTypeId && !isSuperadmin) {
@@ -11151,6 +11209,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const parsed = insertFloorSchema.safeParse({ ...req.body, propertyId: req.params.id });
       if (!parsed.success) return res.status(400).json({ error: "Invalid floor data", details: parsed.error.format() });
+      if (parsed.data.gender !== undefined && !["any", "male", "female"].includes(String(parsed.data.gender).toLowerCase())) {
+        return res.status(400).json({ error: "Invalid gender value. Must be 'any', 'male', or 'female'." });
+      }
+      if (parsed.data.gender) parsed.data.gender = String(parsed.data.gender).toLowerCase();
       const floor = await storage.createFloor(parsed.data);
       res.status(201).json(floor);
     } catch (error: any) {
@@ -11333,6 +11395,36 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to delete bed" });
+    }
+  });
+
+  // Update floor metadata (name / floorNumber / gender / layoutImage)
+  app.patch("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const allowed: Record<string, unknown> = {};
+      if (typeof req.body?.name === "string") allowed.name = req.body.name.trim();
+      if (typeof req.body?.floorNumber === "number") allowed.floorNumber = req.body.floorNumber;
+      if (typeof req.body?.gender === "string") {
+        const g = req.body.gender.trim().toLowerCase();
+        if (!["any", "male", "female"].includes(g)) {
+          return res.status(400).json({ error: "gender must be 'any', 'male', or 'female'" });
+        }
+        allowed.gender = g;
+      }
+      if (req.body?.layoutImage === null || typeof req.body?.layoutImage === "string") {
+        allowed.layoutImage = req.body.layoutImage;
+      }
+      if (Object.keys(allowed).length === 0) {
+        return res.status(400).json({ error: "No editable fields provided" });
+      }
+      const [updated] = await db.update(schema.floors)
+        .set(allowed)
+        .where(eq(schema.floors.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Floor not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update floor" });
     }
   });
 
@@ -11848,6 +11940,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // Check booking exists
       const booking = await db.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId)).limit(1);
       if (booking.length === 0) return res.status(404).json({ error: "Booking not found" });
+
+      // Validate gender vs floor restriction
+      try {
+        const bookingRd = (booking[0].residentDetails as Record<string, any>) || {};
+        const bookingGender = bookingRd.gender || "";
+        await assertGenderCompatible(bedId, bookingGender);
+      } catch (genderErr: any) {
+        return res.status(genderErr?.status || 400).json({ error: genderErr?.message || "Gender mismatch for this floor" });
+      }
 
       // Create allocation
       const [allocation] = await db.insert(schema.bedAllocations).values({

@@ -691,6 +691,15 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const prevAutoExpandRef = useRef<string | null>(null);
+  const [guestGender, setGuestGender] = useState<"male" | "female" | "">(() => {
+    if (typeof window === "undefined") return "";
+    const v = (window.localStorage.getItem("booking_guest_gender") || "").toLowerCase();
+    return v === "male" || v === "female" ? v : "";
+  });
+  const updateGuestGender = (v: "male" | "female") => {
+    setGuestGender(v);
+    try { window.localStorage.setItem("booking_guest_gender", v); } catch {}
+  };
 
   const { data: floorsData = [], isLoading } = useQuery({
     queryKey: [`/api/properties/${property.id}/floors`],
@@ -848,7 +857,9 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
   const renderBedButton = (bed: any, floor: any, room?: any) => {
     const isSelected = selectedBedId === bed.id;
     const isHeld = bed.held && !isSelected;
-    const isAvailable = bed.status === "available" && !isHeld;
+    const floorGender = (floor?.gender || "any").toLowerCase();
+    const isGenderBlocked = guestGender !== "" && floorGender !== "any" && floorGender !== guestGender;
+    const isAvailable = bed.status === "available" && !isHeld && !isGenderBlocked;
     const hasPlanFilter = !!(selectedPlanRoomTypeIds || selectedPlanLinkedRoomIds);
     const matchesPlanFilter = !hasPlanFilter || 
       (selectedPlanLinkedRoomIds && room?.id && selectedPlanLinkedRoomIds.includes(room.id)) ||
@@ -880,20 +891,24 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
         className={cn(
           "relative p-2 border-2 rounded-xl text-center transition-all duration-200",
           (isAvailable && matchesPlanFilter) && "hover:scale-110 hover:-translate-y-1 active:scale-95",
-          isPlanHighlighted && tierColors
-            ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
-            : hasMultiPlan
-              ? "border-transparent shadow-lg"
-              : hasPassivePlan && bedPlanColors
-                ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
-                : isDimmedByPlan
-                  ? "bg-white/[0.04] border-white/[0.04] opacity-30 grayscale cursor-not-allowed"
-                  : cn(config.bg, config.border),
+          isGenderBlocked
+            ? "bg-white/[0.03] border-white/[0.06] opacity-30 grayscale cursor-not-allowed"
+            : isPlanHighlighted && tierColors
+              ? cn(tierColors.bg, tierColors.border, tierColors.shadow, tierColors.ring)
+              : hasMultiPlan
+                ? "border-transparent shadow-lg"
+                : hasPassivePlan && bedPlanColors
+                  ? cn(bedPlanColors.bg, bedPlanColors.border, "shadow-md", bedPlanColors.shadow)
+                  : isDimmedByPlan
+                    ? "bg-white/[0.04] border-white/[0.04] opacity-30 grayscale cursor-not-allowed"
+                    : cn(config.bg, config.border),
           (isAvailable && matchesPlanFilter) ? "cursor-pointer" : (!isDimmedByPlan && config.cursor),
-          !isAvailable && !isDimmedByPlan && !hasPassivePlan && !hasMultiPlan && "opacity-40",
+          !isAvailable && !isDimmedByPlan && !hasPassivePlan && !hasMultiPlan && !isGenderBlocked && "opacity-40",
           isSelected && "!bg-gradient-to-br !from-amber-500 !to-amber-700 !border-amber-400 ring-3 ring-amber-400/60 ring-offset-2 ring-offset-[#050505] shadow-xl shadow-amber-500/50"
         )}
-        title={`${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasMultiPlan ? ` — ${multiPlans.map(p => p.name).join(", ")}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
+        title={isGenderBlocked
+          ? `${bed.bedNumber} — ${floorGender === "male" ? "Male-only floor" : "Female-only floor"}`
+          : `${bed.bedNumber} — ${config.label}${isDimmedByPlan ? " (not included in selected plan)" : ""}${isPlanHighlighted && selectedPlan ? ` — ${selectedPlan.name}` : hasMultiPlan ? ` — ${multiPlans.map(p => p.name).join(", ")}` : hasPassivePlan && bedPlanInfo ? ` — ${bedPlanInfo.name}` : ""}${bed.monthlyPrice ? ` — ₹${bed.monthlyPrice}/mo` : ""}${room ? ` — Room ${room.roomNumber}` : ""}`}
         data-testid={`bed-${bed.id}`}
       >
         {isPlanHighlighted && !isSelected && tierColors && (
@@ -960,6 +975,42 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
           </div>
         </div>
       )}
+      {(() => {
+        const hasGenderFloors = floorsData.some((f: any) => (f?.gender || "any").toLowerCase() !== "any");
+        if (!hasGenderFloors) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/5 to-amber-500/[0.02]" data-testid="banner-public-gender">
+            <div className="text-xs font-medium text-amber-200/80 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Some floors here are gender-restricted. Tell us who this booking is for:
+            </div>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => updateGuestGender("male")}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-semibold border transition",
+                  guestGender === "male"
+                    ? "bg-blue-500/30 border-blue-400 text-blue-100"
+                    : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06]"
+                )}
+                data-testid="button-guest-gender-male"
+              >Male</button>
+              <button
+                type="button"
+                onClick={() => updateGuestGender("female")}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-semibold border transition",
+                  guestGender === "female"
+                    ? "bg-pink-500/30 border-pink-400 text-pink-100"
+                    : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06]"
+                )}
+                data-testid="button-guest-gender-female"
+              >Female</button>
+            </div>
+          </div>
+        );
+      })()}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.03] p-4 rounded-xl border border-white/[0.08]">
         <div className="flex flex-wrap items-center gap-4 text-xs text-white/50">
           {Object.entries(statusConfig).map(([key, config]) => (

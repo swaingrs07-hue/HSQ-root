@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X, History, AlertTriangle, Link2 } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X, History, AlertTriangle, Link2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getSectionLabels, isSectionShared, getSharedSectionLetters } from "@/lib/room-washrooms";
@@ -140,7 +140,8 @@ export default function AdminFloorsBeds() {
   const [addRoomOpen, setAddRoomOpen] = useState(false);
   const [autoGenOpen, setAutoGenOpen] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState<string>("");
-  const [newFloor, setNewFloor] = useState({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0 });
+  const [newFloor, setNewFloor] = useState<{ floorNumber: number; name: string; totalBeds: number; availableBeds: number; gender: "any" | "male" | "female" }>({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0, gender: "any" });
+  const [editFloorState, setEditFloorState] = useState<{ id: string; name: string; floorNumber: number; gender: "any" | "male" | "female" } | null>(null);
   const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, sharedWashroomSections: [] as string[], flatAmenities: [] as string[], monthlyPrice: "" });
   const [customTypology, setCustomTypology] = useState("");
   const [isCustomTypology, setIsCustomTypology] = useState(false);
@@ -194,15 +195,27 @@ export default function AdminFloorsBeds() {
   const invalidateFloors = () => queryClient.invalidateQueries({ queryKey: ["/api/properties", selectedPropertyId, "floors"] });
 
   const createFloorMutation = useMutation({
-    mutationFn: (data: { floorNumber: number; name: string; totalBeds: number; availableBeds: number }) =>
+    mutationFn: (data: { floorNumber: number; name: string; totalBeds: number; availableBeds: number; gender: "any" | "male" | "female" }) =>
       apiFetch(`/api/admin/properties/${selectedPropertyId}/floors`, { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { invalidateFloors(); toast({ title: "Floor Created" }); setAddFloorOpen(false); },
+    onSuccess: () => {
+      invalidateFloors();
+      toast({ title: "Floor Created" });
+      setAddFloorOpen(false);
+      setNewFloor({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0, gender: "any" });
+    },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const deleteFloorMutation = useMutation({
     mutationFn: (floorId: string) => apiFetch(`/api/admin/floors/${floorId}`, { method: "DELETE" }),
     onSuccess: () => { invalidateFloors(); toast({ title: "Floor Deleted" }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateFloorMutation = useMutation({
+    mutationFn: ({ floorId, ...patch }: { floorId: string; name?: string; floorNumber?: number; gender?: "any" | "male" | "female" }) =>
+      apiFetch(`/api/admin/floors/${floorId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    onSuccess: () => { invalidateFloors(); toast({ title: "Floor Updated" }); setEditFloorState(null); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -462,6 +475,18 @@ export default function AdminFloorsBeds() {
                       <Label>Floor Name</Label>
                       <Input placeholder="e.g., Ground Floor, 1st Floor" value={newFloor.name} onChange={(e) => setNewFloor(prev => ({ ...prev, name: e.target.value }))} data-testid="input-floor-name" />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Gender restriction</Label>
+                      <Select value={newFloor.gender} onValueChange={(v: "any" | "male" | "female") => setNewFloor(prev => ({ ...prev, gender: v }))}>
+                        <SelectTrigger data-testid="select-floor-gender"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any">Any (no restriction)</SelectItem>
+                          <SelectItem value="male">Male only</SelectItem>
+                          <SelectItem value="female">Female only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-slate-500">Beds on a gender-restricted floor can only be allocated to matching guests.</p>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setAddFloorOpen(false)}>Cancel</Button>
@@ -473,6 +498,59 @@ export default function AdminFloorsBeds() {
               </Dialog>
             </div>
           </div>
+
+          <Dialog open={!!editFloorState} onOpenChange={(o) => { if (!o) setEditFloorState(null); }}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Floor</DialogTitle></DialogHeader>
+              {editFloorState && (
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Floor Number</Label>
+                    <Input type="number" min={0} value={editFloorState.floorNumber}
+                      onChange={(e) => setEditFloorState(prev => prev ? { ...prev, floorNumber: parseInt(e.target.value) || 0 } : prev)}
+                      data-testid="input-edit-floor-number" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Floor Name</Label>
+                    <Input value={editFloorState.name}
+                      onChange={(e) => setEditFloorState(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                      data-testid="input-edit-floor-name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Gender restriction</Label>
+                    <Select value={editFloorState.gender}
+                      onValueChange={(v: "any" | "male" | "female") => setEditFloorState(prev => prev ? { ...prev, gender: v } : prev)}>
+                      <SelectTrigger data-testid="select-edit-floor-gender"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any (no restriction)</SelectItem>
+                        <SelectItem value="male">Male only</SelectItem>
+                        <SelectItem value="female">Female only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditFloorState(null)}>Cancel</Button>
+                <Button
+                  onClick={() => {
+                    if (!editFloorState) return;
+                    if (!editFloorState.name.trim()) { toast({ title: "Enter a floor name", variant: "destructive" }); return; }
+                    updateFloorMutation.mutate({
+                      floorId: editFloorState.id,
+                      name: editFloorState.name.trim(),
+                      floorNumber: editFloorState.floorNumber,
+                      gender: editFloorState.gender,
+                    });
+                  }}
+                  disabled={updateFloorMutation.isPending}
+                  data-testid="button-confirm-edit-floor"
+                >
+                  {updateFloorMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {floorsLoading ? (
             <div className="flex items-center justify-center h-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
@@ -493,9 +571,15 @@ export default function AdminFloorsBeds() {
                         <button className="flex items-center gap-3 text-left flex-1" onClick={() => toggleFloor(floor.id)} data-testid={`button-toggle-floor-${floor.id}`}>
                           {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                           <div>
-                            <CardTitle className="text-base font-semibold">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
                               {floor.name}
-                              <span className="text-sm font-normal text-slate-400 ml-2">(Floor {floor.floorNumber})</span>
+                              <span className="text-sm font-normal text-slate-400">(Floor {floor.floorNumber})</span>
+                              {(floor as any).gender === "male" && (
+                                <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px]" data-testid={`badge-floor-gender-${floor.id}`}>Male only</Badge>
+                              )}
+                              {(floor as any).gender === "female" && (
+                                <Badge className="bg-pink-100 text-pink-700 border-pink-200 text-[10px]" data-testid={`badge-floor-gender-${floor.id}`}>Female only</Badge>
+                              )}
                             </CardTitle>
                             <p className="text-xs text-slate-500 mt-0.5">
                               {floorRooms.length} rooms · {floorBeds.length} beds · <span className="text-emerald-600">{floorBeds.filter(b => b.status === "available").length} available</span>
@@ -506,6 +590,10 @@ export default function AdminFloorsBeds() {
                           <Button size="sm" variant="outline" onClick={() => { setSelectedFloorId(floor.id); setAddRoomOpen(true); }} data-testid={`button-add-room-${floor.id}`}>
                             <DoorOpen className="w-3 h-3 mr-1" />Add Room
                           </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => setEditFloorState({ id: floor.id, name: floor.name, floorNumber: floor.floorNumber, gender: ((floor as any).gender || "any") as "any" | "male" | "female" })}
+                            data-testid={`button-edit-floor-${floor.id}`}
+                          ><Pencil className="w-4 h-4" /></Button>
                           <Button size="sm" variant="ghost" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                             onClick={() => { if (confirm("Delete this floor and all its rooms/beds?")) deleteFloorMutation.mutate(floor.id); }}
                             data-testid={`button-delete-floor-${floor.id}`}

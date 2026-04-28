@@ -144,6 +144,16 @@ export default function BookingGeneration() {
     }
   }, [token, user, authLoading, navigate]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = (window.localStorage.getItem("booking_guest_gender") || "").toLowerCase();
+      if (stored === "male" || stored === "female") {
+        setFormData(prev => prev.residentGender ? prev : { ...prev, residentGender: stored });
+      }
+    } catch {}
+  }, []);
+
   const [step, setStep] = useState(1);
   const [prefilledFromProperty, setPrefilledFromProperty] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2000,6 +2010,46 @@ export default function BookingGeneration() {
                       </div>
                       <p className="text-xs text-slate-500 -mt-2">Click a floor to expand it, then select an available bed.</p>
 
+                      {(() => {
+                        const hasGenderFloors = floors.some((f: any) => f.gender && f.gender !== "any");
+                        if (!hasGenderFloors) return null;
+                        return (
+                          <div className="p-3 bg-white rounded-lg border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-3" data-testid="banner-gender-required">
+                            <div className="flex items-center gap-2 text-amber-700 text-xs font-medium">
+                              <ShieldAlert className="h-4 w-4" />
+                              Some floors here are gender-restricted.
+                            </div>
+                            <div className="flex items-center gap-2 sm:ml-auto">
+                              <Label className="text-xs font-medium text-slate-700">Booking for:</Label>
+                              <Select
+                                value={formData.residentGender}
+                                onValueChange={(v) => {
+                                  if (selectedFloorId) {
+                                    const sf = floors.find((f: any) => f.id === selectedFloorId);
+                                    if (sf?.gender && sf.gender !== "any" && sf.gender !== v.toLowerCase()) {
+                                      if (heldBedId) releaseBedHold(heldBedId);
+                                      setSelectedBedId(""); setSelectedBedInfo(null); setSelectedFloorId(""); setSelectedRoomId("");
+                                      setFormData(prev => ({ ...prev, residentGender: v, residentRoomNo: "", residentBedNo: "", residentAccommodationType: "" }));
+                                      return;
+                                    }
+                                  }
+                                  setFormData(prev => ({ ...prev, residentGender: v }));
+                                }}
+                              >
+                                <SelectTrigger className="bg-white h-8 w-32 text-xs" data-testid="select-bed-picker-gender">
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="male">Male</SelectItem>
+                                  <SelectItem value="female">Female</SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {selectedBedInfo && (
                         <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-indigo-300 shadow-sm">
                           <CheckCircle className="h-5 w-5 text-indigo-600 shrink-0" />
@@ -2118,26 +2168,40 @@ export default function BookingGeneration() {
                                       beds: roomBeds.filter((b: any) => b.bedNumber.includes(`${room.roomNumber}${String.fromCharCode(65 + i)}`)),
                                     })) : null;
 
+                                    const floorGender = (floor.gender || "any") as "any" | "male" | "female";
+                                    const guestGender = (formData.residentGender || "").toLowerCase();
+                                    const genderBlocked = floorGender !== "any" && guestGender !== "" && guestGender !== floorGender;
+                                    const genderUnknown = floorGender !== "any" && guestGender === "";
+
                                     const renderBedCell = (bed: any) => {
                                       const isHeld = bed.held && selectedBedId !== bed.id;
-                                      const isAvail = bed.status === "available" && !isHeld;
+                                      const isAvail = bed.status === "available" && !isHeld && !genderBlocked && !genderUnknown;
                                       const isSelected = selectedBedId === bed.id;
                                       const isBlocked = bed.status === "blocked";
                                       const statusColor = isSelected
                                         ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
                                         : isHeld ? "bg-orange-400"
+                                        : genderBlocked || genderUnknown ? "bg-slate-300"
                                         : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
                                         : bed.status === "occupied" ? "bg-rose-500"
                                         : bed.status === "reserved" ? "bg-amber-400"
                                         : isBlocked ? "bg-red-700"
                                         : "bg-slate-400";
 
+                                      const tooltip = isHeld
+                                        ? "Booking in progress by another user"
+                                        : genderBlocked
+                                          ? `${floor.name} is ${floorGender}-only`
+                                          : genderUnknown
+                                            ? "Select the guest's gender to enable this floor"
+                                            : undefined;
+
                                       return (
                                         <button
                                           key={bed.id}
                                           type="button"
                                           disabled={!isAvail && !isSelected}
-                                          title={isHeld ? "Booking in progress by another user" : undefined}
+                                          title={tooltip}
                                           onClick={() => {
                                             if (isSelected) {
                                               if (heldBedId === bed.id) releaseBedHold(bed.id);
@@ -2197,25 +2261,38 @@ export default function BookingGeneration() {
                                     );
                                   })}
 
-                                  {orphanBeds.length > 0 && (
+                                  {orphanBeds.length > 0 && (() => {
+                                    const orphanFloorGender = ((floor as any).gender || "any") as "any" | "male" | "female";
+                                    const orphanGuestGender = (formData.residentGender || "").toLowerCase();
+                                    const orphanGenderBlocked = orphanFloorGender !== "any" && orphanGuestGender !== "" && orphanGuestGender !== orphanFloorGender;
+                                    const orphanGenderUnknown = orphanFloorGender !== "any" && orphanGuestGender === "";
+                                    return (
                                     <div className="border border-slate-200 rounded-lg p-3">
                                       <p className="text-xs font-medium text-slate-500 mb-2">Unassigned Beds ({orphanBeds.length})</p>
                                       <div className="flex gap-1.5 flex-wrap">
                                         {orphanBeds.map((bed: any) => {
                                           const isOrphanHeld = bed.held && selectedBedId !== bed.id;
-                                          const isAvail = bed.status === "available" && !isOrphanHeld;
+                                          const isAvail = bed.status === "available" && !isOrphanHeld && !orphanGenderBlocked && !orphanGenderUnknown;
                                           const isSelected = selectedBedId === bed.id;
                                           const statusColor = isSelected
                                             ? "bg-indigo-500 ring-2 ring-indigo-300 ring-offset-1"
                                             : isOrphanHeld ? "bg-orange-400"
+                                            : (orphanGenderBlocked || orphanGenderUnknown) ? "bg-slate-300"
                                             : isAvail ? "bg-emerald-500 hover:bg-emerald-600 cursor-pointer"
                                             : "bg-slate-400";
+                                          const tooltip = isOrphanHeld
+                                            ? "Booking in progress by another user"
+                                            : orphanGenderBlocked
+                                              ? `${floor.name} is ${orphanFloorGender}-only`
+                                              : orphanGenderUnknown
+                                                ? "Select gender to enable this floor"
+                                                : undefined;
                                           return (
                                             <button
                                               key={bed.id}
                                               type="button"
                                               disabled={!isAvail && !isSelected}
-                                              title={isOrphanHeld ? "Booking in progress by another user" : undefined}
+                                              title={tooltip}
                                               onClick={() => {
                                                 if (isSelected) {
                                                   if (heldBedId === bed.id) releaseBedHold(bed.id);
@@ -2239,7 +2316,8 @@ export default function BookingGeneration() {
                                         })}
                                       </div>
                                     </div>
-                                  )}
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </div>

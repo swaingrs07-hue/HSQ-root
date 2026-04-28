@@ -1131,11 +1131,13 @@ export type InsertBedAllocation = z.infer<typeof insertBedAllocationSchema>;
 export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "reserved", "maintenance", "blocked"]);
 
 // Floors table (for floor-wise property management)
+// gender: 'any' | 'male' | 'female' — restricts which guests can be booked on this floor
 export const floors = pgTable("floors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   propertyId: varchar("property_id").references(() => properties.id).notNull(),
   floorNumber: integer("floor_number").notNull(),
   name: text("name").notNull(),
+  gender: text("gender").notNull().default("any"),
   totalBeds: integer("total_beds").default(0).notNull(),
   availableBeds: integer("available_beds").default(0).notNull(),
   layoutImage: text("layout_image"),
