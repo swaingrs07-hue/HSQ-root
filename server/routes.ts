@@ -10960,19 +10960,31 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const effectiveTypology = (typology !== undefined ? typology : existingRoom?.typology) || "";
         const isCombo = typeof effectiveTypology === "string" && effectiveTypology.includes("+");
         if (isCombo) {
+          const sectionLabels = effectiveTypology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i));
+          const sourceSections = sharedWashroomSections !== undefined
+            ? sharedWashroomSections
+            : (existingRoom?.sharedWashroomSections ?? []);
+          const cleaned = Array.isArray(sourceSections)
+            ? Array.from(new Set(
+                (sourceSections as any[])
+                  .filter((s: any) => typeof s === "string")
+                  .map((s: string) => s.trim().toUpperCase())
+                  .filter((s: string) => sectionLabels.includes(s))
+              ))
+            : [];
           if (sharedWashroomSections !== undefined) {
-            const sectionLabels = effectiveTypology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i));
-            const cleaned = Array.isArray(sharedWashroomSections)
-              ? Array.from(new Set(
-                  sharedWashroomSections
-                    .filter((s: any) => typeof s === "string")
-                    .map((s: string) => s.trim().toUpperCase())
-                    .filter((s: string) => sectionLabels.includes(s))
-                ))
-              : [];
             updateData.sharedWashroomSections = cleaned;
             if (cleaned.length > 0) {
               updateData.hasSharedWashroom = cleaned.length === sectionLabels.length;
+            }
+          } else if (typology !== undefined && Array.isArray(existingRoom?.sharedWashroomSections)) {
+            const before = existingRoom!.sharedWashroomSections!.slice().sort().join(",");
+            const after = cleaned.slice().sort().join(",");
+            if (before !== after) {
+              updateData.sharedWashroomSections = cleaned;
+              if (cleaned.length > 0) {
+                updateData.hasSharedWashroom = cleaned.length === sectionLabels.length;
+              }
             }
           }
         } else {
