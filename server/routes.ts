@@ -5073,6 +5073,8 @@ ${allPages.map(p => `  <url>
         details: JSON.stringify({ bookingCode: booking.bookingCode, changes: Object.keys(updates) }),
       });
 
+      autoResyncBookingToHms(req.params.id, "booking-edit");
+
       res.json({
         ...updated,
         customerName: updated?.walkInName || "",
@@ -5256,6 +5258,8 @@ ${allPages.map(p => `  <url>
         }
       }
 
+      autoResyncBookingToHms(req.params.id, "bed-shift");
+
       res.json({
         ...updated,
         customerName,
@@ -5430,6 +5434,8 @@ ${allPages.map(p => `  <url>
         });
       }
 
+      autoResyncBookingToHms(req.params.id, "payment-done");
+
       res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment });
     } catch (error: any) {
       console.error("Error marking payment done:", error);
@@ -5535,82 +5541,115 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
-    try {
-      const booking = await storage.getBooking(req.params.id);
-      if (!booking) return res.status(404).json({ error: "Booking not found" });
-      if (!booking.propertyId) return res.status(400).json({ error: "Booking has no property assigned" });
+  async function buildHmsSyncForBooking(bookingId: string): Promise<
+    | { ok: false; error: string }
+    | { ok: true; booking: any; syncData: any }
+  > {
+    const booking = await storage.getBooking(bookingId);
+    if (!booking) return { ok: false, error: "Booking not found" };
+    if (!booking.propertyId) return { ok: false, error: "Booking has no property assigned" };
 
-      const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
-      if (!property) return res.status(400).json({ error: "Property not found" });
+    const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
+    if (!property) return { ok: false, error: "Property not found" };
 
-      const { syncBookingToHMS, getPropertyCode, resolvePublicUrl } = await import("./hms-sync.js");
+    const { getPropertyCode, resolvePublicUrl } = await import("./hms-sync.js");
+    const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
+    if (!resolvedPropertyCode) return { ok: false, error: `Cannot determine property code for "${property.name}"` };
 
-      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
-      if (!resolvedPropertyCode) return res.status(400).json({ error: `Cannot determine property code for "${property.name}"` });
+    const rd = (booking.residentDetails as any) || {};
+    let studentData: any = null;
+    if (booking.studentId) {
+      const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
+      studentData = student || null;
+    }
 
-      const rd = booking.residentDetails as any || {};
-      let studentData: any = null;
-      if (booking.studentId) {
-        const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
-        studentData = student || null;
+    const name = studentData?.fullName || rd?.fullName || rd?.name || booking.walkInName || "Unknown";
+    const phone = studentData?.phone || booking.walkInPhone || rd?.phone || "";
+    const email = studentData?.email || rd?.email || booking.walkInEmail || "";
+    const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
+    const roomNo = rd?.roomNo || rd?.room || "";
+
+    const syncData: any = {
+      name,
+      email: email || undefined,
+      phone,
+      room: roomNo,
+      propertyCode: resolvedPropertyCode,
+      dietary: rd?.dietaryPreference || rd?.dietary || undefined,
+      college: college || undefined,
+      instituteName: college || undefined,
+      courseName: studentData?.course || rd?.course || rd?.courseName || undefined,
+      courseYear: studentData?.year || rd?.year || undefined,
+      moveInDate: rd?.moveInDate || (booking.checkInDate ? String(booking.checkInDate) : undefined),
+      checkOutDate: rd?.checkOutDate || (booking.checkOutDate ? String(booking.checkOutDate) : undefined),
+      accommodationType: rd?.accommodationType || rd?.roomType || undefined,
+      parentName: rd?.parentName || rd?.guardianName || undefined,
+      parentPhone: rd?.parentPhone || rd?.guardianPhone || undefined,
+      parentEmail: rd?.parentEmail || rd?.guardianEmail || undefined,
+      parentRelation: rd?.parentRelation || rd?.guardianRelation || undefined,
+      homeAddress: rd?.homeAddress || rd?.address || undefined,
+      gender: rd?.gender || studentData?.gender || undefined,
+      dateOfBirth: rd?.dateOfBirth || rd?.dob || studentData?.dateOfBirth || undefined,
+      studentEmail: rd?.studentEmail || email || undefined,
+      bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
+      accessLevel: "FULL",
+    };
+
+    const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
+    const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
+    if (idProofUrl) syncData.idProofUrl = idProofUrl;
+    if (photoUrl) syncData.photoUrl = photoUrl;
+
+    const rawDocs = rd?.documentUrls || rd?.documents || [];
+    if (Array.isArray(rawDocs)) {
+      const docUrls: string[] = [];
+      for (const doc of rawDocs) {
+        const resolved = resolvePublicUrl(typeof doc === "string" ? doc : doc?.url);
+        if (resolved) docUrls.push(resolved);
       }
+      if (docUrls.length > 0) syncData.documentUrls = docUrls;
+    }
 
-      const name = studentData?.fullName || rd?.fullName || rd?.name || booking.walkInName || "Unknown";
-      const phone = studentData?.phone || booking.walkInPhone || rd?.phone || "";
-      const email = studentData?.email || rd?.email || booking.walkInEmail || "";
-      const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
-      const roomNo = rd?.roomNo || rd?.room || "";
+    return { ok: true, booking, syncData };
+  }
 
-      const syncData: any = {
-        name,
-        email: email || undefined,
-        phone,
-        room: roomNo,
-        propertyCode: resolvedPropertyCode,
-        dietary: rd?.dietaryPreference || rd?.dietary || undefined,
-        college: college || undefined,
-        instituteName: college || undefined,
-        courseName: studentData?.course || rd?.course || rd?.courseName || undefined,
-        courseYear: studentData?.year || rd?.year || undefined,
-        moveInDate: rd?.moveInDate || (booking.checkInDate ? String(booking.checkInDate) : undefined),
-        checkOutDate: rd?.checkOutDate || (booking.checkOutDate ? String(booking.checkOutDate) : undefined),
-        accommodationType: rd?.accommodationType || rd?.roomType || undefined,
-        parentName: rd?.parentName || rd?.guardianName || undefined,
-        parentPhone: rd?.parentPhone || rd?.guardianPhone || undefined,
-        parentEmail: rd?.parentEmail || rd?.guardianEmail || undefined,
-        parentRelation: rd?.parentRelation || rd?.guardianRelation || undefined,
-        homeAddress: rd?.homeAddress || rd?.address || undefined,
-        gender: rd?.gender || studentData?.gender || undefined,
-        dateOfBirth: rd?.dateOfBirth || rd?.dob || studentData?.dateOfBirth || undefined,
-        studentEmail: rd?.studentEmail || email || undefined,
-        bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
-        accessLevel: "FULL",
-      };
-
-      const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
-      const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
-      if (idProofUrl) syncData.idProofUrl = idProofUrl;
-      if (photoUrl) syncData.photoUrl = photoUrl;
-
-      const rawDocs = rd?.documentUrls || rd?.documents || [];
-      if (Array.isArray(rawDocs)) {
-        const docUrls: string[] = [];
-        for (const doc of rawDocs) {
-          const resolved = resolvePublicUrl(typeof doc === "string" ? doc : doc?.url);
-          if (resolved) docUrls.push(resolved);
+  function autoResyncBookingToHms(bookingId: string, reason: string = "activity") {
+    setImmediate(async () => {
+      try {
+        const built = await buildHmsSyncForBooking(bookingId);
+        if (!built.ok) {
+          console.warn(`[Auto HMS Sync] Skipped booking ${bookingId} (${reason}): ${built.error}`);
+          return;
         }
-        if (docUrls.length > 0) syncData.documentUrls = docUrls;
+        const { syncBookingToHMS } = await import("./hms-sync.js");
+        const result = await syncBookingToHMS(built.syncData);
+        if (result.success) {
+          console.log(`[Auto HMS Sync] ${reason} → ${built.booking.bookingCode}: ${result.action}`);
+        } else {
+          console.warn(`[Auto HMS Sync] ${reason} → ${built.booking.bookingCode} failed: ${result.error}`);
+        }
+      } catch (err: any) {
+        console.error(`[Auto HMS Sync] Error for booking ${bookingId} (${reason}):`, err?.message || err);
       }
+    });
+  }
 
-      console.log(`[Admin Re-sync HMS] Syncing booking ${booking.bookingCode} to HMS...`);
-      const result = await syncBookingToHMS(syncData);
+  app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const built = await buildHmsSyncForBooking(req.params.id);
+      if (!built.ok) {
+        const status = built.error === "Booking not found" ? 404 : 400;
+        return res.status(status).json({ error: built.error });
+      }
+      const { syncBookingToHMS } = await import("./hms-sync.js");
+      console.log(`[Admin Re-sync HMS] Syncing booking ${built.booking.bookingCode} to HMS...`);
+      const result = await syncBookingToHMS(built.syncData);
 
       if (result.success) {
-        console.log(`[Admin Re-sync HMS] Success for ${booking.bookingCode}: ${result.action}`);
-        res.json({ success: true, message: `Booking ${booking.bookingCode} synced to HMS (${result.action})` });
+        console.log(`[Admin Re-sync HMS] Success for ${built.booking.bookingCode}: ${result.action}`);
+        res.json({ success: true, message: `Booking ${built.booking.bookingCode} synced to HMS (${result.action})` });
       } else {
-        console.error(`[Admin Re-sync HMS] Failed for ${booking.bookingCode}: ${result.error}`);
+        console.error(`[Admin Re-sync HMS] Failed for ${built.booking.bookingCode}: ${result.error}`);
         res.status(500).json({ error: result.error || "HMS sync failed" });
       }
     } catch (error: any) {
@@ -12277,6 +12316,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         });
       }
 
+      autoResyncBookingToHms(req.params.bookingId, "package-attach");
       res.status(201).json(bp);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to attach package" });
@@ -12387,6 +12427,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         .where(eq(schema.bookingPackages.id, bookingPackageId))
         .returning();
 
+      autoResyncBookingToHms(req.params.bookingId, "package-update");
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to update booking package" });
@@ -12402,6 +12443,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (bp.bookingId !== req.params.bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
       if (bp.status !== "ACTIVE") return res.status(400).json({ error: "Package is already ended" });
       const [updated] = await db.update(schema.bookingPackages).set({ status: "ENDED", endDate: new Date() }).where(eq(schema.bookingPackages.id, bookingPackageId)).returning();
+      autoResyncBookingToHms(req.params.bookingId, "package-detach");
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to detach package" });
@@ -12463,6 +12505,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         refType: "manual_topup",
         note: note || "Manual top-up",
       }).returning();
+      autoResyncBookingToHms(req.params.bookingId, "wallet-topup");
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to top up wallet" });
@@ -12483,6 +12526,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         refType: "manual_debit",
         note: note || "Manual debit",
       }).returning();
+      autoResyncBookingToHms(req.params.bookingId, "wallet-debit");
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to debit wallet" });

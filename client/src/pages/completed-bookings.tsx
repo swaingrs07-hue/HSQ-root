@@ -1429,7 +1429,7 @@ export default function CompletedBookings() {
                 />
                 Select All ({filtered.length})
               </label>
-              {bulkSelectedIds.size > 0 && (
+              {bulkSelectedIds.size > 0 && (isAdmin || isReceptionist) && (
                 <>
                   <span className="text-sm text-indigo-600 font-medium">{bulkSelectedIds.size} selected</span>
                   <Button
@@ -2975,7 +2975,7 @@ export default function CompletedBookings() {
                 </Button>
               )}
 
-              {isAdmin && (
+              {(isAdmin || isReceptionist) && (
                 <Button
                   variant="outline"
                   size="sm"
