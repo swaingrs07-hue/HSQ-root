@@ -1618,9 +1618,35 @@ export default function CompletedBookings() {
 
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                          <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
-                            ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
-                          </p>
+                          {(booking.addonRevenue || 0) > 0 ? (
+                            <>
+                              <p
+                                className="text-[11px] text-slate-500 leading-tight"
+                                data-testid={`text-base-amount-${booking.id}`}
+                                title="Booking fee"
+                              >
+                                ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                              </p>
+                              <p
+                                className="text-[11px] text-orange-600 leading-tight"
+                                data-testid={`text-addon-amount-${booking.id}`}
+                                title={`${booking.addonCount || 0} add-on${(booking.addonCount || 0) === 1 ? "" : "s"}`}
+                              >
+                                + ₹{(booking.addonRevenue || 0).toLocaleString("en-IN")} add-ons
+                              </p>
+                              <p
+                                className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`}
+                                data-testid={`text-amount-${booking.id}`}
+                                title="Grand total"
+                              >
+                                ₹{((booking.totalFee || 0) + (booking.addonRevenue || 0)).toLocaleString("en-IN")}
+                              </p>
+                            </>
+                          ) : (
+                            <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
+                              ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                            </p>
+                          )}
                         <p className="text-xs text-slate-400">
                           {booking.createdAt ? format(new Date(booking.createdAt), "dd MMM yyyy") : ""}
                         </p>
