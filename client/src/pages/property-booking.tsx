@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
-import { getWashroomSummary } from "@/lib/room-washrooms";
+import { getWashroomPills } from "@/lib/room-washrooms";
 import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
 import { resolveRoomPrice, getBedSection, priceForBookingMode } from "@shared/pricing";
 
@@ -1167,7 +1167,21 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                   <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                                     <span className="text-xs font-bold text-white/80">Room {room.roomNumber}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded-md">{room.typology}</Badge>
-                                    {(() => { const w = getWashroomSummary(room); return w.show ? <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-600 rounded-md">{w.text}</Badge> : null; })()}
+                                    {getWashroomPills(room).map((pill) => (
+                                      <Badge
+                                        key={pill.kind}
+                                        variant="outline"
+                                        className={cn(
+                                          "text-[10px] px-1.5 py-0 rounded-md",
+                                          pill.kind === "shared"
+                                            ? "border-blue-200 text-blue-600"
+                                            : "border-emerald-300/40 text-emerald-400"
+                                        )}
+                                        data-testid={`badge-washroom-${pill.kind}-${room.id}`}
+                                      >
+                                        {pill.text}
+                                      </Badge>
+                                    ))}
                                     {Array.isArray(room.flatAmenities) && room.flatAmenities.length > 0 && room.flatAmenities.map((amenity: string, amenityIdx: number) => (
                                       <Badge
                                         key={`${amenity}-${amenityIdx}`}

@@ -21,22 +21,31 @@ export function isSectionShared(room: RoomWashroomLike, sectionLabel: string): b
   return getSharedSectionLetters(room).includes(sectionLabel);
 }
 
-export type WashroomSummary = {
-  show: boolean;
-  isCombo: boolean;
+export type WashroomPill = {
   text: string;
-  variant: "shared-all" | "shared-some" | "attached" | "none";
+  kind: "shared" | "attached";
 };
 
-export function getWashroomSummary(room: RoomWashroomLike): WashroomSummary {
+export function getWashroomPills(room: RoomWashroomLike): WashroomPill[] {
   const isCombo = !!room.typology?.includes("+");
   if (!isCombo) {
-    if (room.hasSharedWashroom) return { show: true, isCombo, text: "Shared WC", variant: "shared-all" };
-    return { show: false, isCombo, text: "Attached WC", variant: "attached" };
+    return room.hasSharedWashroom
+      ? [{ text: "Shared WC", kind: "shared" }]
+      : [{ text: "Attached WC", kind: "attached" }];
   }
   const sections = getSectionLabels(room.typology);
   const shared = getSharedSectionLetters(room);
-  if (shared.length === 0) return { show: false, isCombo, text: "Attached WC", variant: "attached" };
-  if (shared.length === sections.length) return { show: true, isCombo, text: "Shared WC", variant: "shared-all" };
-  return { show: true, isCombo, text: `Shared WC: ${shared.join(", ")}`, variant: "shared-some" };
+  const attached = sections.filter((s) => !shared.includes(s));
+  const pills: WashroomPill[] = [];
+  if (shared.length === sections.length) {
+    pills.push({ text: "Shared WC", kind: "shared" });
+  } else if (shared.length > 0) {
+    pills.push({ text: `Shared WC: ${shared.join(", ")}`, kind: "shared" });
+  }
+  if (attached.length === sections.length) {
+    pills.push({ text: "Attached WC", kind: "attached" });
+  } else if (attached.length > 0) {
+    pills.push({ text: `Attached WC: ${attached.join(", ")}`, kind: "attached" });
+  }
+  return pills;
 }
