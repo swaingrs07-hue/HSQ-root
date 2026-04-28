@@ -168,7 +168,7 @@ export default function CompletedBookings() {
     return params.get("search") || "";
   });
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed">("all");
+  const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed" | "with_addons">("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -1061,6 +1061,7 @@ export default function CompletedBookings() {
   let filtered = baseFiltered.filter((b: any) => {
     if (viewFilter === "active" && !isActiveBooking(b)) return false;
     if (viewFilter === "completed" && !isCompletedBooking(b)) return false;
+    if (viewFilter === "with_addons" && !((b.addonRevenue || 0) > 0)) return false;
     return true;
   });
 
@@ -1082,6 +1083,12 @@ export default function CompletedBookings() {
   const collectionPct = totalRevenue > 0 ? Math.round((totalCollected / totalRevenue) * 100) : 0;
   const pendingPct = totalRevenue > 0 ? Math.round((totalPending / totalRevenue) * 100) : 0;
   const averageBooking = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
+
+  const totalAddonRevenue = filtered.reduce((s: number, b: any) => s + (b.addonRevenue || 0), 0);
+  const totalAddonCollected = filtered.reduce((s: number, b: any) => s + (b.addonCollected || 0), 0);
+  const totalAddonPending = Math.max(0, totalAddonRevenue - totalAddonCollected);
+  const bookingsWithAddons = filtered.filter((b: any) => (b.addonRevenue || 0) > 0).length;
+  const addonCollectedPct = totalAddonRevenue > 0 ? Math.round((totalAddonCollected / totalAddonRevenue) * 100) : 0;
 
   const activeCount = baseFiltered.filter(isActiveBooking).length;
   const completedCount = baseFiltered.filter(isCompletedBooking).length;
@@ -1194,7 +1201,7 @@ export default function CompletedBookings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 via-white to-white">
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -1278,6 +1285,57 @@ export default function CompletedBookings() {
                 <p className="text-[11px] text-slate-500 mt-1">
                   Across {filtered.length} booking{filtered.length === 1 ? "" : "s"}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          role="button"
+          onClick={() => { setViewFilter(viewFilter === "with_addons" ? "all" : "with_addons"); setCurrentPage(1); }}
+          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
+          data-testid="card-addon-revenue"
+        >
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-orange-100 ring-1 ring-orange-200/60 flex items-center justify-center shrink-0">
+                <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
+                <p
+                  className="text-2xl font-bold text-orange-700 truncate mt-1"
+                  data-testid="text-addon-revenue"
+                  title={`₹${totalAddonRevenue.toLocaleString("en-IN")}`}
+                >
+                  ₹{totalAddonRevenue.toLocaleString("en-IN")}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
+                </p>
+                <div className="mt-2 pt-2 border-t border-orange-200/60 grid grid-cols-2 gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-500">Collected</p>
+                    <p
+                      className="text-xs font-semibold text-emerald-700 truncate"
+                      data-testid="text-addon-collected"
+                      title={`₹${totalAddonCollected.toLocaleString("en-IN")}`}
+                    >
+                      ₹{totalAddonCollected.toLocaleString("en-IN")}
+                      <span className="text-[10px] text-slate-400 font-normal ml-1">({addonCollectedPct}%)</span>
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-500">Pending</p>
+                    <p
+                      className="text-xs font-semibold text-amber-700 truncate"
+                      data-testid="text-addon-pending"
+                      title={`₹${totalAddonPending.toLocaleString("en-IN")}`}
+                    >
+                      ₹{totalAddonPending.toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>

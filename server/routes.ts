@@ -3962,7 +3962,7 @@ ${allPages.map(p => `  <url>
         ...filtered.filter(b => b.createdBy).map(b => b.createdBy!),
       ])];
 
-      const [propertiesList, roomTypesList, studentsList, leadsList, usersList, allInstallments, allPayments, allHousingPlans] = await Promise.all([
+      const [propertiesList, roomTypesList, studentsList, leadsList, usersList, allInstallments, allPayments, allHousingPlans, allAddonPackages] = await Promise.all([
         propertyIds.length > 0 ? db.select().from(schema.properties).where(inArray(schema.properties.id, propertyIds)) : Promise.resolve([]),
         roomTypeIds.length > 0 ? db.select().from(schema.roomTypes).where(inArray(schema.roomTypes.id, roomTypeIds)) : Promise.resolve([]),
         studentIds.length > 0 ? db.select().from(schema.students).where(inArray(schema.students.id, studentIds)) : Promise.resolve([]),
@@ -3985,6 +3985,22 @@ ${allPages.map(p => `  <url>
             inArray(schema.bookingPackages.bookingId, bookingIds),
             eq(schema.bookingPackages.status, "ACTIVE"),
             eq(schema.packages.category, "housing_plan"),
+          )),
+        db.select({
+          bookingId: schema.bookingPackages.bookingId,
+          basePrice: schema.packages.basePrice,
+          priceSnapshot: schema.bookingPackages.priceSnapshot,
+          displayPriceOverride: schema.bookingPackages.displayPriceOverride,
+          includeInTotal: schema.bookingPackages.includeInTotal,
+          paidStatus: schema.bookingPackages.paidStatus,
+          paidAmount: schema.bookingPackages.paidAmount,
+        })
+          .from(schema.bookingPackages)
+          .innerJoin(schema.packages, eq(schema.bookingPackages.packageId, schema.packages.id))
+          .where(and(
+            inArray(schema.bookingPackages.bookingId, bookingIds),
+            eq(schema.bookingPackages.status, "ACTIVE"),
+            eq(schema.packages.category, "addon_service"),
           )),
       ]);
 
@@ -4009,6 +4025,23 @@ ${allPages.map(p => `  <url>
         if (!existing || (hp.createdAt && existing.createdAt && hp.createdAt > existing.createdAt)) {
           housingPlanMap.set(hp.bookingId, hp);
         }
+      }
+
+      const addonRevenueMap = new Map<string, { revenue: number; collected: number; pending: number; count: number }>();
+      for (const ap of allAddonPackages) {
+        if (ap.includeInTotal === false) continue;
+        const snap = (ap.priceSnapshot as any)?.totalPrice;
+        const effective = Number(
+          ap.displayPriceOverride ?? (snap != null ? snap : null) ?? ap.basePrice ?? 0,
+        );
+        if (!(effective > 0)) continue;
+        const paid = ap.paidStatus === "paid" ? Number(ap.paidAmount || effective) : 0;
+        const entry = addonRevenueMap.get(ap.bookingId) || { revenue: 0, collected: 0, pending: 0, count: 0 };
+        entry.revenue += effective;
+        entry.collected += paid;
+        entry.pending += Math.max(0, effective - paid);
+        entry.count += 1;
+        addonRevenueMap.set(ap.bookingId, entry);
       }
 
       const enriched = filtered.map((booking: any) => {
@@ -4063,6 +4096,10 @@ ${allPages.map(p => `  <url>
           installments: installmentMap.get(booking.id) || [],
           payments: paymentMap.get(booking.id) || [],
           housingPlanInfo,
+          addonRevenue: addonRevenueMap.get(booking.id)?.revenue || 0,
+          addonCollected: addonRevenueMap.get(booking.id)?.collected || 0,
+          addonPending: addonRevenueMap.get(booking.id)?.pending || 0,
+          addonCount: addonRevenueMap.get(booking.id)?.count || 0,
         };
       });
       
