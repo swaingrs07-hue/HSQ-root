@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { getWashroomSummary } from "@/lib/room-washrooms";
 import {
   Building2,
   Users,
@@ -2166,11 +2167,11 @@ export default function BookingGeneration() {
                                           <DoorOpen className="w-4 h-4 text-indigo-600" />
                                           <span className="font-semibold text-sm text-slate-800">Room {room.roomNumber}</span>
                                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
-                                          {room.hasSharedWashroom && (
+                                          {(() => { const w = getWashroomSummary(room as any); return w.show ? (
                                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 gap-0.5">
-                                              <Bath className="w-2.5 h-2.5" />Shared WC
+                                              <Bath className="w-2.5 h-2.5" />{w.text}
                                             </Badge>
-                                          )}
+                                          ) : null; })()}
                                         </div>
 
                                         {isCombo && sections ? (

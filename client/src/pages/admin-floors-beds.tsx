@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Building2, Plus, Trash2, Loader2, Layers, BedDouble, Wand2, ChevronDown, ChevronUp, DoorOpen, Bath, Ban, Unlock, ShieldAlert, Tag, Package, Check, X, History, AlertTriangle, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getSectionLabels, isSectionShared, getSharedSectionLetters } from "@/lib/room-washrooms";
 
 function getAuthToken(): string {
   try {
@@ -44,6 +45,7 @@ interface Bed {
 interface Room {
   id: string; propertyId: string; floorId: string; roomTypeId: string;
   roomNumber: string; typology: string; hasSharedWashroom: boolean;
+  sharedWashroomSections?: string[] | null;
   flatAmenities?: string[] | null;
   totalBeds: number; status: string; monthlyPrice?: number | null;
   beds: Bed[];
@@ -139,7 +141,7 @@ export default function AdminFloorsBeds() {
   const [autoGenOpen, setAutoGenOpen] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState<string>("");
   const [newFloor, setNewFloor] = useState({ floorNumber: 1, name: "", totalBeds: 0, availableBeds: 0 });
-  const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, flatAmenities: [] as string[], monthlyPrice: "" });
+  const [newRoom, setNewRoom] = useState({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, sharedWashroomSections: [] as string[], flatAmenities: [] as string[], monthlyPrice: "" });
   const [customTypology, setCustomTypology] = useState("");
   const [isCustomTypology, setIsCustomTypology] = useState(false);
   const [roomTypeSearch, setRoomTypeSearch] = useState("");
@@ -205,13 +207,13 @@ export default function AdminFloorsBeds() {
   });
 
   const createRoomMutation = useMutation({
-    mutationFn: (data: { floorId: string; roomNumber: string; roomTypeId: string; typology: string; hasSharedWashroom: boolean; flatAmenities?: string[]; monthlyPrice?: number | null }) =>
+    mutationFn: (data: { floorId: string; roomNumber: string; roomTypeId: string; typology: string; hasSharedWashroom: boolean; sharedWashroomSections?: string[]; flatAmenities?: string[]; monthlyPrice?: number | null }) =>
       apiFetch(`/api/admin/properties/${selectedPropertyId}/floors/${data.floorId}/rooms`, { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       invalidateFloors();
       toast({ title: "Room Created", description: "Room and beds have been generated." });
       setAddRoomOpen(false);
-      setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, flatAmenities: [], monthlyPrice: "" });
+      setNewRoom({ roomNumber: "", roomTypeId: "", typology: "1 Bed", hasSharedWashroom: false, sharedWashroomSections: [], flatAmenities: [], monthlyPrice: "" });
       setCustomTypology("");
       setIsCustomTypology(false);
       setRoomTypeSearch("");
@@ -226,14 +228,21 @@ export default function AdminFloorsBeds() {
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; flatAmenities?: string[]; typology?: string; roomNumber?: string }) =>
+    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; sharedWashroomSections?: string[]; flatAmenities?: string[]; typology?: string; roomNumber?: string }) =>
       apiFetch(`/api/admin/rooms/${roomId}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: (_data, vars) => {
       invalidateFloors();
       queryClient.invalidateQueries({ queryKey: ["/api/admin/properties", selectedPropertyId, "rooms"] });
       queryClient.invalidateQueries({ queryKey: ["/api/properties", selectedPropertyId, "rooms"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/booking-tree"] });
-      if (vars.hasSharedWashroom !== undefined) {
+      if (vars.sharedWashroomSections !== undefined) {
+        toast({
+          title: "Section Washroom Updated",
+          description: vars.sharedWashroomSections.length === 0
+            ? "All sections marked as attached private washrooms."
+            : `Shared washroom: section${vars.sharedWashroomSections.length > 1 ? "s" : ""} ${vars.sharedWashroomSections.join(", ")}.`,
+        });
+      } else if (vars.hasSharedWashroom !== undefined) {
         toast({
           title: "Washroom Updated",
           description: vars.hasSharedWashroom
@@ -614,7 +623,26 @@ export default function AdminFloorsBeds() {
                               <RoomCard key={room.id} room={room} roomTypes={roomTypes || []}
                                 onDeleteRoom={() => { if (confirm(`Delete room ${room.roomNumber} and all its beds?`)) deleteRoomMutation.mutate(room.id); }}
                                 onToggleWashroom={canEditWashroom ? () => updateRoomMutation.mutate({ roomId: room.id, hasSharedWashroom: !room.hasSharedWashroom }) : undefined}
-                                isUpdatingWashroom={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.hasSharedWashroom !== undefined}
+                                isUpdatingWashroom={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.hasSharedWashroom !== undefined && updateRoomMutation.variables?.sharedWashroomSections === undefined}
+                                onToggleSectionWashroom={canEditWashroom ? (sectionLabel, nextShared) => {
+                                  const labels = getSectionLabels(room.typology);
+                                  const current = new Set(getSharedSectionLetters(room));
+                                  if (nextShared) current.add(sectionLabel); else current.delete(sectionLabel);
+                                  const nextArr = labels.filter(l => current.has(l));
+                                  updateRoomMutation.mutate({
+                                    roomId: room.id,
+                                    sharedWashroomSections: nextArr,
+                                    hasSharedWashroom: nextArr.length === labels.length,
+                                  });
+                                } : undefined}
+                                updatingSectionLabel={(() => {
+                                  const v = updateRoomMutation.variables as any;
+                                  if (!updateRoomMutation.isPending || v?.roomId !== room.id || !Array.isArray(v?.sharedWashroomSections)) return null;
+                                  const before = new Set(getSharedSectionLetters(room));
+                                  const after = new Set(v.sharedWashroomSections as string[]);
+                                  const diff = getSectionLabels(room.typology).find(l => before.has(l) !== after.has(l));
+                                  return diff ?? null;
+                                })()}
                                 onUpdateAmenities={canEditWashroom ? (next) => updateRoomMutation.mutate({ roomId: room.id, flatAmenities: next }) : undefined}
                                 isUpdatingAmenities={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.flatAmenities !== undefined}
                                 onUpdateBed={(bedId, status) => updateBedMutation.mutate({ bedId, status })}
@@ -738,7 +766,12 @@ export default function AdminFloorsBeds() {
                       } else {
                         setIsCustomTypology(false);
                         setCustomTypology("");
-                        setNewRoom(prev => ({ ...prev, typology: val }));
+                        setNewRoom(prev => {
+                          const wasCombo = prev.typology.includes("+");
+                          const willCombo = val.includes("+");
+                          if (wasCombo === willCombo) return { ...prev, typology: val };
+                          return { ...prev, typology: val, sharedWashroomSections: [], hasSharedWashroom: false };
+                        });
                       }
                     }}
                   >
@@ -779,7 +812,13 @@ export default function AdminFloorsBeds() {
                           const val = e.target.value;
                           setCustomTypology(val);
                           if (val.trim()) {
-                            setNewRoom(prev => ({ ...prev, typology: val.trim() }));
+                            const trimmed = val.trim();
+                            setNewRoom(prev => {
+                              const wasCombo = prev.typology.includes("+");
+                              const willCombo = trimmed.includes("+");
+                              if (wasCombo === willCombo) return { ...prev, typology: trimmed };
+                              return { ...prev, typology: trimmed, sharedWashroomSections: [], hasSharedWashroom: false };
+                            });
                           }
                         }}
                         data-testid="input-custom-typology"
@@ -791,27 +830,38 @@ export default function AdminFloorsBeds() {
                     </div>
                   )}
 
-                  {!isCustomTypology && (
-                    <p className="text-xs text-slate-400">
-                      {newRoom.typology.includes("+") ? (
-                        <>Combo room: sections {newRoom.typology.split("+").map((p, i) => `${newRoom.roomNumber || "XXX"}${String.fromCharCode(65+i)} (${p} bed${parseInt(p)>1?"s":""})`).join(", ")} {newRoom.hasSharedWashroom ? "share a common washroom in the lobby" : "each have their own attached washroom"}</>
-                      ) : (
-                        <>Room {newRoom.roomNumber || "XXX"} will have {parseInt(newRoom.typology) || 1} bed{(parseInt(newRoom.typology) || 1) > 1 ? "s" : ""}</>
-                      )}
-                    </p>
-                  )}
-
-                  {isCustomTypology && customTypology.trim() && (
-                    <p className="text-xs text-slate-400">
-                      {customTypology.includes("+") ? (
-                        <>Combo room: sections {customTypology.split("+").map((p, i) => `${newRoom.roomNumber || "XXX"}${String.fromCharCode(65+i)} (${p.trim()} bed${parseInt(p.trim())>1?"s":""})`).join(", ")} {newRoom.hasSharedWashroom ? "share a common washroom in the lobby" : "each have their own attached washroom"}</>
-                      ) : (
-                        <>Room {newRoom.roomNumber || "XXX"} will have {parseInt(customTypology) || customTypology} bed{(parseInt(customTypology) || 0) > 1 ? "s" : ""}</>
-                      )}
-                    </p>
-                  )}
+                  {(() => {
+                    const effectiveTypology = isCustomTypology ? customTypology : newRoom.typology;
+                    if (isCustomTypology && !customTypology.trim()) return null;
+                    const isCombo = effectiveTypology.includes("+");
+                    if (!isCombo) {
+                      const beds = parseInt(effectiveTypology) || (effectiveTypology === "1 Bed" ? 1 : parseInt(effectiveTypology));
+                      return (
+                        <p className="text-xs text-slate-400">
+                          Room {newRoom.roomNumber || "XXX"} will have {beds || 1} bed{(beds || 1) > 1 ? "s" : ""}
+                        </p>
+                      );
+                    }
+                    const parts = effectiveTypology.split("+").map(p => p.trim());
+                    const sectionDescs = parts.map((p, i) => {
+                      const label = String.fromCharCode(65 + i);
+                      const bedCount = parseInt(p) || 0;
+                      const sharedHere = newRoom.sharedWashroomSections.includes(label) || (newRoom.sharedWashroomSections.length === 0 && newRoom.hasSharedWashroom);
+                      return `${newRoom.roomNumber || "XXX"}${label} (${bedCount} bed${bedCount > 1 ? "s" : ""}, ${sharedHere ? "shared" : "attached"})`;
+                    });
+                    return (
+                      <p className="text-xs text-slate-400">
+                        Combo room: section{parts.length > 1 ? "s" : ""} {sectionDescs.join(", ")}.
+                      </p>
+                    );
+                  })()}
                 </div>
 
+                {(() => {
+                  const effectiveTypology = isCustomTypology ? customTypology : newRoom.typology;
+                  const isCombo = effectiveTypology.includes("+");
+                  if (!isCombo) {
+                    return (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-0.5">
@@ -820,9 +870,7 @@ export default function AdminFloorsBeds() {
                         Washroom Type
                       </Label>
                       <p className="text-[11px] text-slate-500">
-                        {newRoom.typology.includes("+") || customTypology.includes("+")
-                          ? "Choose whether each section has its own bathroom or they share a common one in the lobby."
-                          : "Does this room have its own attached bathroom or use a shared one?"}
+                        Does this room have its own attached bathroom or use a shared one?
                       </p>
                     </div>
                     <Switch
@@ -863,6 +911,91 @@ export default function AdminFloorsBeds() {
                     </button>
                   </div>
                 </div>
+                    );
+                  }
+                  const parts = effectiveTypology.split("+").map(p => p.trim());
+                  const sectionRows = parts.map((p, i) => ({
+                    label: String.fromCharCode(65 + i),
+                    bedCount: parseInt(p) || 0,
+                  }));
+                  return (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-semibold flex items-center gap-1.5">
+                          <Bath className="w-3.5 h-3.5 text-blue-600" />
+                          Washroom Type — per section
+                        </Label>
+                        <p className="text-[11px] text-slate-500">
+                          Each section in this combo flat can have its own bathroom or share a common one in the lobby.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {sectionRows.map(({ label, bedCount }) => {
+                          const isShared = newRoom.sharedWashroomSections.includes(label);
+                          return (
+                            <div key={label} className="rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-[12px] font-semibold text-slate-700">
+                                  Section {newRoom.roomNumber || "XXX"}{label}
+                                  <span className="text-[10px] font-normal text-slate-400 ml-1.5">
+                                    {bedCount} bed{bedCount > 1 ? "s" : ""}
+                                  </span>
+                                </div>
+                                <Switch
+                                  checked={isShared}
+                                  onCheckedChange={(v) => setNewRoom(prev => ({
+                                    ...prev,
+                                    sharedWashroomSections: v
+                                      ? Array.from(new Set([...prev.sharedWashroomSections, label]))
+                                      : prev.sharedWashroomSections.filter(s => s !== label),
+                                  }))}
+                                  data-testid={`switch-section-wc-${label}`}
+                                  className="shrink-0"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                                <button
+                                  type="button"
+                                  onClick={() => setNewRoom(prev => ({
+                                    ...prev,
+                                    sharedWashroomSections: prev.sharedWashroomSections.filter(s => s !== label),
+                                  }))}
+                                  className={cn(
+                                    "rounded-md border px-2 py-1.5 text-left transition-colors",
+                                    !isShared
+                                      ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                                  )}
+                                  data-testid={`button-section-wc-attached-${label}`}
+                                >
+                                  <div className="font-semibold">Attached WC</div>
+                                  <div className="text-[10px] opacity-80">Private bathroom in section</div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewRoom(prev => ({
+                                    ...prev,
+                                    sharedWashroomSections: Array.from(new Set([...prev.sharedWashroomSections, label])),
+                                  }))}
+                                  className={cn(
+                                    "rounded-md border px-2 py-1.5 text-left transition-colors",
+                                    isShared
+                                      ? "border-blue-400 bg-blue-50 text-blue-700"
+                                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                                  )}
+                                  data-testid={`button-section-wc-shared-${label}`}
+                                >
+                                  <div className="font-semibold">Shared / Non-attached</div>
+                                  <div className="text-[10px] opacity-80">Common washroom in lobby</div>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
                   <div className="space-y-0.5">
@@ -937,12 +1070,14 @@ export default function AdminFloorsBeds() {
                       toast({ title: "Please select a valid room type", description: roomTypeSearch ? `"${roomTypeSearch}" doesn't match. Available: ${available}` : "Click the Room Type field and pick one.", variant: "destructive" });
                       return;
                     }
+                    const finalTypology = isCustomTypology ? customTypology : newRoom.typology;
                     createRoomMutation.mutate({
                       floorId: selectedFloorId,
                       roomNumber: newRoom.roomNumber,
                       roomTypeId: resolvedTypeId,
-                      typology: newRoom.typology,
+                      typology: finalTypology,
                       hasSharedWashroom: newRoom.hasSharedWashroom,
+                      sharedWashroomSections: finalTypology.includes("+") ? newRoom.sharedWashroomSections : [],
                       flatAmenities: newRoom.flatAmenities,
                       monthlyPrice: null,
                     });
@@ -1167,11 +1302,13 @@ function AmenitiesPopover({ room, onSave, isPending }: {
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onUpdateAmenities, isUpdatingAmenities, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
+function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onToggleSectionWashroom, updatingSectionLabel, onUpdateAmenities, isUpdatingAmenities, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onToggleWashroom?: () => void;
   isUpdatingWashroom?: boolean;
+  onToggleSectionWashroom?: (sectionLabel: string, nextShared: boolean) => void;
+  updatingSectionLabel?: string | null;
   onUpdateAmenities?: (next: string[]) => void;
   isUpdatingAmenities?: boolean;
   onUpdateBed: (bedId: string, status: string) => void;
@@ -1210,37 +1347,52 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
           <span className="font-semibold text-sm text-slate-800">Room {room.roomNumber}</span>
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{room.typology}</Badge>
           {rt && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{rt.customName || rt.name}</Badge>}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                disabled={!onToggleWashroom || isUpdatingWashroom}
-                onClick={() => {
-                  if (!onToggleWashroom || isUpdatingWashroom) return;
-                  onToggleWashroom();
-                }}
-                className={cn(
-                  "inline-flex items-center gap-0.5 rounded border px-1.5 py-0 text-[10px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
-                  room.hasSharedWashroom
-                    ? "border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
-                    : "border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                )}
-                data-testid={`button-toggle-washroom-${room.id}`}
-              >
-                {isUpdatingWashroom
-                  ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                  : <Bath className="w-2.5 h-2.5" />}
-                {room.hasSharedWashroom ? "Shared WC" : "Attached WC"}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">
-                {room.hasSharedWashroom
-                  ? "Shared / non-attached washroom in the lobby. Click to switch to attached."
-                  : "Each section has its own private attached bathroom. Click to switch to shared."}
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          {!isCombo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!onToggleWashroom || isUpdatingWashroom}
+                  onClick={() => {
+                    if (!onToggleWashroom || isUpdatingWashroom) return;
+                    onToggleWashroom();
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded border px-1.5 py-0 text-[10px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                    room.hasSharedWashroom
+                      ? "border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                  )}
+                  data-testid={`button-toggle-washroom-${room.id}`}
+                >
+                  {isUpdatingWashroom
+                    ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    : <Bath className="w-2.5 h-2.5" />}
+                  {room.hasSharedWashroom ? "Shared WC" : "Attached WC"}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">
+                  {room.hasSharedWashroom
+                    ? "Shared / non-attached washroom in the lobby. Click to switch to attached."
+                    : "Private attached bathroom inside the room. Click to switch to shared."}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {isCombo && (() => {
+            const sharedLetters = getSharedSectionLetters(room);
+            const sectionLabels = getSectionLabels(room.typology);
+            if (sharedLetters.length === 0) return null;
+            const text = sharedLetters.length === sectionLabels.length
+              ? "Shared WC"
+              : `Shared WC: ${sharedLetters.join(", ")}`;
+            return (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 bg-blue-50 gap-0.5" data-testid={`badge-room-shared-wc-${room.id}`}>
+                <Bath className="w-2.5 h-2.5" />{text}
+              </Badge>
+            );
+          })()}
           {(room.flatAmenities ?? []).map((amenity) => (
             <Badge
               key={amenity}
@@ -1289,24 +1441,61 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
 
       {isCombo && sections ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {sections.map((section) => (
-            <div key={section.label} className="bg-white/80 rounded border border-slate-200 p-2">
-              <p className="text-[10px] font-medium text-slate-500 mb-1.5">
-                Section {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
-              </p>
-              <div className="flex gap-1.5 flex-wrap">
-                {section.beds.map((bed) => (
-                  <BedCell key={bed.id} bed={bed} compact
-                    onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
-                    onDelete={() => onDeleteBed(bed.id)}
-                    onBlock={(reason, category) => onBlockBed(bed.id, reason, category)}
-                    onUnblock={(note) => onUnblockBed(bed.id, note)}
-                  />
-                ))}
-                {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
+          {sections.map((section) => {
+            const sectionShared = isSectionShared(room, section.label);
+            const sectionBusy = updatingSectionLabel === section.label;
+            return (
+              <div key={section.label} className="bg-white/80 rounded border border-slate-200 p-2">
+                <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                  <p className="text-[10px] font-medium text-slate-500">
+                    Section {room.roomNumber}{section.label} — {section.bedCount} bed{section.bedCount > 1 ? "s" : ""}
+                  </p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={!onToggleSectionWashroom || sectionBusy}
+                        onClick={() => {
+                          if (!onToggleSectionWashroom || sectionBusy) return;
+                          onToggleSectionWashroom(section.label, !sectionShared);
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-0.5 rounded border px-1.5 py-0 text-[10px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                          sectionShared
+                            ? "border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                        )}
+                        data-testid={`button-toggle-section-wc-${room.id}-${section.label}`}
+                      >
+                        {sectionBusy
+                          ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          : <Bath className="w-2.5 h-2.5" />}
+                        {sectionShared ? "Shared WC" : "Attached WC"}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">
+                        {sectionShared
+                          ? `Section ${section.label} shares a common washroom in the lobby. Click to switch to attached.`
+                          : `Section ${section.label} has its own attached private bathroom. Click to switch to shared.`}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {section.beds.map((bed) => (
+                    <BedCell key={bed.id} bed={bed} compact
+                      onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
+                      onDelete={() => onDeleteBed(bed.id)}
+                      onBlock={(reason, category) => onBlockBed(bed.id, reason, category)}
+                      onUnblock={(note) => onUnblockBed(bed.id, note)}
+                    />
+                  ))}
+                  {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="flex gap-1.5 flex-wrap">

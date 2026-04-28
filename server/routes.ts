@@ -10830,7 +10830,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.post("/api/admin/properties/:id/floors/:floorId/rooms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { roomNumber, roomTypeId, typology, hasSharedWashroom, flatAmenities, monthlyPrice } = req.body;
+      const { roomNumber, roomTypeId, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice } = req.body;
       if (!roomNumber || !roomTypeId || !typology) {
         return res.status(400).json({ error: "roomNumber, roomTypeId, and typology are required" });
       }
@@ -10843,6 +10843,23 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())
         : [];
 
+      const isCombo = typeof typology === "string" && typology.includes("+");
+      const sectionLabels = isCombo
+        ? typology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i))
+        : [];
+      let cleanedSections: string[] = [];
+      if (isCombo && Array.isArray(sharedWashroomSections)) {
+        cleanedSections = sharedWashroomSections
+          .filter((s: any) => typeof s === "string")
+          .map((s: string) => s.trim().toUpperCase())
+          .filter((s: string) => sectionLabels.includes(s));
+        cleanedSections = Array.from(new Set(cleanedSections));
+      }
+      const allSectionsShared = isCombo && cleanedSections.length > 0 && cleanedSections.length === sectionLabels.length;
+      const effectiveHasSharedWashroom = isCombo
+        ? (Array.isArray(sharedWashroomSections) ? allSectionsShared : !!hasSharedWashroom)
+        : !!hasSharedWashroom;
+
       const createdRooms: any[] = [];
 
       for (const singleRoomNumber of roomNumbers) {
@@ -10852,7 +10869,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           roomTypeId,
           roomNumber: singleRoomNumber,
           typology,
-          hasSharedWashroom: hasSharedWashroom || false,
+          hasSharedWashroom: effectiveHasSharedWashroom,
+          sharedWashroomSections: cleanedSections,
           flatAmenities: cleanedAmenities,
           totalBeds: 0,
           status: "available",
@@ -10925,7 +10943,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { status, roomNumber, typology, hasSharedWashroom, flatAmenities, monthlyPrice } = req.body;
+      const { status, roomNumber, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice } = req.body;
       const updateData: any = {};
       if (status) updateData.status = status;
       if (roomNumber) updateData.roomNumber = roomNumber;
@@ -10935,6 +10953,27 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         updateData.flatAmenities = Array.isArray(flatAmenities)
           ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())
           : [];
+      }
+      if (sharedWashroomSections !== undefined) {
+        const existingRoomList = await db.select().from(schema.rooms).where(eq(schema.rooms.id, req.params.id));
+        const existingRoom = existingRoomList[0];
+        const effectiveTypology = (typology !== undefined ? typology : existingRoom?.typology) || "";
+        const isCombo = typeof effectiveTypology === "string" && effectiveTypology.includes("+");
+        if (isCombo) {
+          const sectionLabels = effectiveTypology.split("+").map((_: string, i: number) => String.fromCharCode(65 + i));
+          const cleaned = Array.isArray(sharedWashroomSections)
+            ? Array.from(new Set(
+                sharedWashroomSections
+                  .filter((s: any) => typeof s === "string")
+                  .map((s: string) => s.trim().toUpperCase())
+                  .filter((s: string) => sectionLabels.includes(s))
+              ))
+            : [];
+          updateData.sharedWashroomSections = cleaned;
+          updateData.hasSharedWashroom = cleaned.length === sectionLabels.length && cleaned.length > 0;
+        } else {
+          updateData.sharedWashroomSections = [];
+        }
       }
       if (monthlyPrice !== undefined) updateData.monthlyPrice = monthlyPrice;
       const updated = await storage.updateRoom(req.params.id, updateData);
