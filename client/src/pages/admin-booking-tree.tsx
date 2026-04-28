@@ -910,7 +910,7 @@ function Isometric3DView({ floors, stats, propertyName, onBedClick, onAllocate, 
                                     <span>Room {room.roomNumber}</span>
                                   </div>
                                   {room.typology && <span className="text-[9px] px-2.5 py-1 rounded-md font-semibold" style={{ background: "rgba(99,102,241,0.12)", color: "rgba(129,140,248,0.85)", border: "1px solid rgba(99,102,241,0.25)" }}>{room.typology}</span>}
-                                  {(() => { const w = getWashroomSummary(room); if (!w.show) return null; const compact = w.text.replace("Shared WC", "WC"); return <span className="text-[8px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20 font-semibold">{compact}</span>; })()}
+                                  {(() => { const w = getWashroomSummary(room); return w.show ? <span className="text-[8px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400/70 border border-cyan-500/20 font-semibold">{w.text}</span> : null; })()}
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="text-[10px] font-bold" style={{ color: "#34d399" }}>{availCount} avail</span>
