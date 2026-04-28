@@ -410,12 +410,6 @@ interface SlideData {
 
 const DEFAULT_SLIDES: SlideData[] = [
   {
-    image: heroLobby,
-    title: "Experience Premium Living",
-    subtitle: "HSQUARELIVING, MUMBAI",
-    caption: "Where comfort meets excellence in student accommodation",
-  },
-  {
     image: heroRoom,
     title: "Luxury Rooms & Suites",
     subtitle: "DESIGNED FOR SUCCESS",
@@ -426,6 +420,12 @@ const DEFAULT_SLIDES: SlideData[] = [
     title: "Panoramic City Views",
     subtitle: "ROOFTOP LOUNGE",
     caption: "Unwind with breathtaking views after a productive day",
+  },
+  {
+    image: heroLobby,
+    title: "Experience Premium Living",
+    subtitle: "HSQUARELIVING, MUMBAI",
+    caption: "Where comfort meets excellence in student accommodation",
   },
   {
     image: heroDining,
