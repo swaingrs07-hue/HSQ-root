@@ -1792,19 +1792,12 @@ export default function CompletedBookings() {
                         <p className={`font-bold text-base ${planColors.accent}`}>{pkg?.name || "Housing Plan"}</p>
                         {pkg?.tagline && <p className="text-[11px] text-slate-500">{pkg.tagline}</p>}
                       </div>
-                      {(() => {
-                        const effective = housingPlan.displayPriceOverride ?? housingPlan.priceSnapshot?.totalPrice ?? pkg?.basePrice ?? 0;
-                        if (!(effective > 0)) return null;
-                        const isOverridden = housingPlan.displayPriceOverride != null;
-                        return (
-                          <div className="ml-auto text-right">
-                            <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(effective).toLocaleString("en-IN")}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {isOverridden ? "edited" : (housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year"))}
-                            </p>
-                          </div>
-                        );
-                      })()}
+                      {(housingPlan.priceSnapshot?.totalPrice > 0 || pkg?.basePrice > 0) && (
+                        <div className="ml-auto text-right">
+                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot?.totalPrice || pkg?.basePrice || 0).toLocaleString("en-IN")}</p>
+                          <p className="text-[10px] text-slate-400">{housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year")}</p>
+                        </div>
+                      )}
                     </div>
                     {pkg?.items && pkg.items.length > 0 && (
                       <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -2313,7 +2306,7 @@ export default function CompletedBookings() {
                                               ₹{Number(originalPrice).toLocaleString("en-IN")}
                                             </span>
                                           )}
-                                          {hasPrice && !isEditingPrice && bp.status === "ACTIVE" && (
+                                          {isAddon && hasPrice && !isEditingPrice && bp.status === "ACTIVE" && (
                                             <Button
                                               size="icon"
                                               variant="ghost"
@@ -2328,7 +2321,7 @@ export default function CompletedBookings() {
                                               <Pencil className="h-2.5 w-2.5" />
                                             </Button>
                                           )}
-                                          {hasPrice && isEditingPrice && (
+                                          {isAddon && hasPrice && isEditingPrice && (
                                             <span className="inline-flex items-center gap-1">
                                               <span className="text-xs text-slate-500">₹</span>
                                               <input
@@ -2409,7 +2402,7 @@ export default function CompletedBookings() {
                                           <p className="text-[10px] text-slate-500">
                                             {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
                                           </p>
-                                          {hasPrice && bp.status === "ACTIVE" && (
+                                          {isAddon && hasPrice && bp.status === "ACTIVE" && (
                                             <label className="inline-flex items-center gap-1 cursor-pointer select-none ml-1" title="Include this amount in the booking total">
                                               <input
                                                 type="checkbox"
@@ -2513,15 +2506,17 @@ export default function CompletedBookings() {
                           )}
 
                           {(() => {
-                            const activeBps = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status === "ACTIVE");
-                            const priced = activeBps.map((bp: any) => {
+                            const activeAddons = (bookingPackages?.bookingPackages || []).filter(
+                              (bp: any) => bp.status === "ACTIVE" && bp.package?.category === "addon_service",
+                            );
+                            const priced = activeAddons.map((bp: any) => {
                               const { effective } = getBookingPackagePrice(bp);
                               return { bp, price: effective, included: bp.includeInTotal !== false };
                             }).filter((x: any) => x.price > 0);
+                            const baseFee = Number(selectedBooking?.totalFee ?? ((selectedBooking?.baseFee ?? 0) - (selectedBooking?.discount ?? 0)));
                             if (priced.length === 0) return null;
                             const includedTotal = priced.filter((x: any) => x.included).reduce((s: number, x: any) => s + x.price, 0);
                             const excludedTotal = priced.filter((x: any) => !x.included).reduce((s: number, x: any) => s + x.price, 0);
-                            const baseFee = Number(selectedBooking?.totalFee ?? ((selectedBooking?.baseFee ?? 0) - (selectedBooking?.discount ?? 0)));
                             const grand = baseFee + includedTotal;
                             return (
                               <div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 space-y-1.5" data-testid="packages-grand-total">
@@ -2530,12 +2525,12 @@ export default function CompletedBookings() {
                                   <span className="font-medium">₹{baseFee.toLocaleString("en-IN")}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-[11px] text-slate-600">
-                                  <span>Add-ons & plans (included)</span>
+                                  <span>Add-ons (included)</span>
                                   <span className="font-medium text-indigo-700">+ ₹{includedTotal.toLocaleString("en-IN")}</span>
                                 </div>
                                 {excludedTotal > 0 && (
                                   <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                    <span>Excluded from total</span>
+                                    <span>Add-ons (excluded)</span>
                                     <span className="line-through">₹{excludedTotal.toLocaleString("en-IN")}</span>
                                   </div>
                                 )}
