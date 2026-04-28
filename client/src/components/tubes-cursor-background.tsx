@@ -91,6 +91,33 @@ export default function TubesCursorBackground({
       return;
     }
 
+    // Global error guard: the CDN library occasionally throws during
+    // its RAF loop (e.g. WebGL context loss inside iframes/preview
+    // environments). Without this, the unhandled error bubbles up to
+    // window.onerror and gets surfaced as a workflow failure even
+    // though the rest of the page is fine. Catch any error whose
+    // stack mentions the tubes script, swallow it, and tear down the
+    // background gracefully.
+    const isTubesError = (msg: unknown, filename?: string, errStack?: string) => {
+      const text = `${typeof msg === "string" ? msg : ""} ${filename || ""} ${errStack || ""}`;
+      return text.includes("tubes1.min.js") || text.includes("threejs-components");
+    };
+    const onWindowError = (e: ErrorEvent) => {
+      if (isTubesError(e.message, e.filename, e.error?.stack)) {
+        e.preventDefault();
+        fail("runtime error from tubes CDN", e.error || e.message);
+      }
+    };
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason = e.reason as { message?: string; stack?: string } | undefined;
+      if (isTubesError(reason?.message, undefined, reason?.stack)) {
+        e.preventDefault();
+        fail("unhandled rejection from tubes CDN", reason);
+      }
+    };
+    window.addEventListener("error", onWindowError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
     (async () => {
       try {
         const mod = (await import(/* @vite-ignore */ CDN_URL)) as TubesModule;
@@ -100,6 +127,16 @@ export default function TubesCursorBackground({
           typeof mod === "function" ? mod : mod.default;
         if (typeof TubesCursor !== "function") {
           fail("CDN module did not export a function");
+          return;
+        }
+
+        // Verify the canvas can actually produce a WebGL context BEFORE
+        // handing it to the lib. The lib reads getContext("webgl2")
+        // internally and if the browser refuses (iframe sandbox,
+        // headless, etc.), the lib crashes on getSupportedExtensions.
+        const probe = canvas.getContext("webgl2") || canvas.getContext("webgl");
+        if (!probe) {
+          fail("canvas refused WebGL context");
           return;
         }
 
@@ -177,6 +214,8 @@ export default function TubesCursorBackground({
 
     return () => {
       cancelled = true;
+      window.removeEventListener("error", onWindowError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
       if (onClick && clickTarget) clickTarget.removeEventListener("click", onClick);
       if (onTouchStart) document.removeEventListener("touchstart", onTouchStart);
       if (onTouchMove) document.removeEventListener("touchmove", onTouchMove);
