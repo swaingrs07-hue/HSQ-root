@@ -10888,7 +10888,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.post("/api/admin/properties/:id/floors/:floorId/rooms", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { roomNumber, roomTypeId, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice } = req.body;
+      const {
+        roomNumber, roomTypeId, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice,
+        basePriceOverride, academicYearPriceOverride, depositOverride, sectionPriceOverrides,
+      } = req.body;
       if (!roomNumber || !roomTypeId || !typology) {
         return res.status(400).json({ error: "roomNumber, roomTypeId, and typology are required" });
       }
@@ -10933,7 +10936,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           totalBeds: 0,
           status: "available",
           monthlyPrice: monthlyPrice || null,
-        });
+          basePriceOverride: typeof basePriceOverride === "number" && basePriceOverride > 0 ? basePriceOverride : null,
+          academicYearPriceOverride: typeof academicYearPriceOverride === "number" && academicYearPriceOverride > 0 ? academicYearPriceOverride : null,
+          depositOverride: typeof depositOverride === "number" ? depositOverride : null,
+          sectionPriceOverrides: sectionPriceOverrides && typeof sectionPriceOverrides === "object" ? sectionPriceOverrides : null,
+        } as any);
 
         const bedsToCreate: any[] = [];
         const normalizedTypology = typology.replace(/\s*bed\s*/gi, "").trim();
@@ -11001,12 +11008,42 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      const { status, roomNumber, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice } = req.body;
+      const {
+        status, roomNumber, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice,
+        basePriceOverride, academicYearPriceOverride, depositOverride, sectionPriceOverrides,
+      } = req.body;
       const updateData: any = {};
       if (status) updateData.status = status;
       if (roomNumber) updateData.roomNumber = roomNumber;
       if (typology !== undefined) updateData.typology = typology;
       if (hasSharedWashroom !== undefined) updateData.hasSharedWashroom = hasSharedWashroom;
+      // Per-room and per-section price overrides — null/empty clears the override.
+      if (basePriceOverride !== undefined) {
+        updateData.basePriceOverride = (typeof basePriceOverride === "number" && basePriceOverride > 0) ? basePriceOverride : null;
+      }
+      if (academicYearPriceOverride !== undefined) {
+        updateData.academicYearPriceOverride = (typeof academicYearPriceOverride === "number" && academicYearPriceOverride > 0) ? academicYearPriceOverride : null;
+      }
+      if (depositOverride !== undefined) {
+        updateData.depositOverride = (typeof depositOverride === "number") ? depositOverride : null;
+      }
+      if (sectionPriceOverrides !== undefined) {
+        // Strip empty entries so the JSON stays clean.
+        if (sectionPriceOverrides && typeof sectionPriceOverrides === "object") {
+          const cleaned: Record<string, any> = {};
+          for (const [k, v] of Object.entries(sectionPriceOverrides as Record<string, any>)) {
+            if (!v || typeof v !== "object") continue;
+            const entry: Record<string, number> = {};
+            if (typeof v.basePrice === "number" && v.basePrice > 0) entry.basePrice = v.basePrice;
+            if (typeof v.academicYearPrice === "number" && v.academicYearPrice > 0) entry.academicYearPrice = v.academicYearPrice;
+            if (typeof v.deposit === "number") entry.deposit = v.deposit;
+            if (Object.keys(entry).length > 0) cleaned[k.toUpperCase()] = entry;
+          }
+          updateData.sectionPriceOverrides = Object.keys(cleaned).length > 0 ? cleaned : null;
+        } else {
+          updateData.sectionPriceOverrides = null;
+        }
+      }
       if (flatAmenities !== undefined) {
         updateData.flatAmenities = Array.isArray(flatAmenities)
           ? flatAmenities.filter((a: any) => typeof a === "string" && a.trim()).map((a: string) => a.trim())

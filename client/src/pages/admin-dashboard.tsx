@@ -737,6 +737,9 @@ export default function AdminDashboard() {
           basePrice: rt.basePrice,
           academicYearPrice: rt.academicYearPrice || null,
           deposit: rt.deposit || 0,
+          basePriceShared: rt.basePriceShared ?? null,
+          academicYearPriceShared: rt.academicYearPriceShared ?? null,
+          depositShared: rt.depositShared ?? null,
           size: rt.size || null,
         };
 
@@ -2330,6 +2333,52 @@ export default function AdminDashboard() {
                             />
                             <p className="text-[10px] text-muted-foreground">Leave empty = monthly × 11</p>
                           </div>
+                        </div>
+                        {/* Shared-WC pricing variant — applied to rooms / sections that have a shared washroom. */}
+                        <div className="rounded-md border border-amber-200 bg-amber-50/40 p-3 space-y-2 mt-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-amber-700">Shared WC pricing (optional)</p>
+                            <p className="text-[10px] text-amber-700/70">Used for rooms / sections with a shared (non-attached) washroom</p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Base Price Shared (₹/month)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={rt.basePriceShared || ""}
+                                placeholder={rt.basePrice ? `${rt.basePrice}` : "—"}
+                                onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, basePriceShared: Number(e.target.value) || null } : r))}
+                                data-testid={`input-room-price-shared-${rt.id}`}
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Academic Year Shared (₹)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={rt.academicYearPriceShared || ""}
+                                placeholder={rt.basePriceShared ? `${rt.basePriceShared * 11}` : (rt.academicYearPrice ? `${rt.academicYearPrice}` : "—")}
+                                onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, academicYearPriceShared: Number(e.target.value) || null } : r))}
+                                data-testid={`input-room-annual-price-shared-${rt.id}`}
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Deposit Shared (₹)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={rt.depositShared ?? ""}
+                                placeholder={rt.deposit != null ? `${rt.deposit}` : "—"}
+                                onChange={(e) => setEditRoomTypes(prev => prev.map((r, i) => i === idx ? { ...r, depositShared: e.target.value === "" ? null : Number(e.target.value) } : r))}
+                                data-testid={`input-room-deposit-shared-${rt.id}`}
+                                className="h-9"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-amber-700/80">Leave empty to charge the same as the default price above.</p>
                         </div>
                       </div>
                     ))}

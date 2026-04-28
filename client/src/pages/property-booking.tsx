@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { getWashroomSummary } from "@/lib/room-washrooms";
 import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
+import { resolveRoomPrice, getBedSection, priceForBookingMode } from "@shared/pricing";
 
 class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -1780,15 +1781,16 @@ function PropertyBooking() {
       return;
     }
     const planPrice = effectivePlan ? Number(effectivePlan.basePrice || 0) : 0;
-    const rtPrice = property.bookingMode === "academic_year"
-      ? (effectiveRoomType.academicYearPrice || effectiveRoomType.basePrice * 11)
-      : effectiveRoomType.basePrice;
+    // Apply per-room / per-section overrides (and shared-WC variant) when no plan price is set.
+    const section = getBedSection(selectedBed?.bedNumber, selectedRoom?.roomNumber);
+    const resolved = resolveRoomPrice(selectedRoom, effectiveRoomType, section);
+    const rtPrice = priceForBookingMode(resolved, property.bookingMode);
     const price = planPrice > 0 ? planPrice : rtPrice;
     handleBookRoom(
       effectiveRoomType.id,
       effectiveRoomType.customName || effectiveRoomType.name,
       price,
-      effectiveRoomType.deposit || 0
+      resolved.deposit
     );
   };
 
@@ -2321,9 +2323,9 @@ function PropertyBooking() {
                                   || property.roomTypes?.find((r: any) => r.id === selectedBed.roomTypeId);
                                 if (effectiveRoomType) {
                                   const planPrice = Number(plan.basePrice || 0);
-                                  const rtPrice = property.bookingMode === "academic_year"
-                                    ? (effectiveRoomType.academicYearPrice || effectiveRoomType.basePrice * 11)
-                                    : effectiveRoomType.basePrice;
+                                  const section = getBedSection(selectedBed?.bedNumber, selectedRoom?.roomNumber);
+                                  const resolved = resolveRoomPrice(selectedRoom, effectiveRoomType, section);
+                                  const rtPrice = priceForBookingMode(resolved, property.bookingMode);
                                   const price = planPrice > 0 ? planPrice : rtPrice;
                                   localStorage.setItem("selected_room", JSON.stringify({
                                     propertyId: property.id,
@@ -2332,7 +2334,7 @@ function PropertyBooking() {
                                     roomTypeName: effectiveRoomType.customName || effectiveRoomType.name,
                                     propertyName: property.name,
                                     bookingMode: property.bookingMode || "monthly",
-                                    deposit: effectiveRoomType.deposit || 0,
+                                    deposit: resolved.deposit,
                                     bedId: selectedBed.id,
                                     bedNumber: selectedBed.bedNumber,
                                     roomNumber: selectedRoom?.roomNumber || "",

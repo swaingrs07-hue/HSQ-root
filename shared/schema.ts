@@ -165,6 +165,11 @@ export const roomTypes = pgTable("room_types", {
   basePrice: integer("base_price").notNull(),
   academicYearPrice: integer("academic_year_price"),
   deposit: integer("deposit").default(0),
+  // Optional shared-WC pricing variant — used when the room (or section) has a shared washroom.
+  // If null, falls back to the default price above.
+  basePriceShared: integer("base_price_shared"),
+  academicYearPriceShared: integer("academic_year_price_shared"),
+  depositShared: integer("deposit_shared"),
   size: text("size"),
   occupancy: integer("occupancy").default(1),
   totalRooms: integer("total_rooms").default(1),
@@ -1158,6 +1163,13 @@ export const rooms = pgTable("rooms", {
   totalBeds: integer("total_beds").default(1).notNull(),
   status: bedStatusEnum("status").default("available").notNull(),
   monthlyPrice: integer("monthly_price"),
+  // Per-room price overrides — when set, take precedence over the room type's price.
+  basePriceOverride: integer("base_price_override"),
+  academicYearPriceOverride: integer("academic_year_price_override"),
+  depositOverride: integer("deposit_override"),
+  // Per-section overrides for combo rooms (e.g. typology "2+2+3"):
+  // { "A": { basePrice?: number, academicYearPrice?: number, deposit?: number }, "B": {...}, ... }
+  sectionPriceOverrides: jsonb("section_price_overrides"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

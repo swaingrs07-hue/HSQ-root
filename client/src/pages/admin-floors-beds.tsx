@@ -42,12 +42,21 @@ interface Bed {
   bookingCode?: string | null;
   bookingStatus?: string | null;
 }
+interface SectionPriceOverride {
+  basePrice?: number | null;
+  academicYearPrice?: number | null;
+  deposit?: number | null;
+}
 interface Room {
   id: string; propertyId: string; floorId: string; roomTypeId: string;
   roomNumber: string; typology: string; hasSharedWashroom: boolean;
   sharedWashroomSections?: string[] | null;
   flatAmenities?: string[] | null;
   totalBeds: number; status: string; monthlyPrice?: number | null;
+  basePriceOverride?: number | null;
+  academicYearPriceOverride?: number | null;
+  depositOverride?: number | null;
+  sectionPriceOverrides?: Record<string, SectionPriceOverride> | null;
   beds: Bed[];
 }
 interface Floor {
@@ -241,7 +250,7 @@ export default function AdminFloorsBeds() {
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; sharedWashroomSections?: string[]; flatAmenities?: string[]; typology?: string; roomNumber?: string }) =>
+    mutationFn: ({ roomId, ...data }: { roomId: string; hasSharedWashroom?: boolean; sharedWashroomSections?: string[]; flatAmenities?: string[]; typology?: string; roomNumber?: string; basePriceOverride?: number | null; academicYearPriceOverride?: number | null; depositOverride?: number | null; sectionPriceOverrides?: Record<string, SectionPriceOverride> | null }) =>
       apiFetch(`/api/admin/rooms/${roomId}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: (_data, vars) => {
       invalidateFloors();
@@ -636,6 +645,8 @@ export default function AdminFloorsBeds() {
                                 })()}
                                 onUpdateAmenities={canEditWashroom ? (next) => updateRoomMutation.mutate({ roomId: room.id, flatAmenities: next }) : undefined}
                                 isUpdatingAmenities={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && updateRoomMutation.variables?.flatAmenities !== undefined}
+                                onUpdatePricing={canEditWashroom ? (data) => updateRoomMutation.mutate({ roomId: room.id, ...data }) : undefined}
+                                isUpdatingPricing={updateRoomMutation.isPending && updateRoomMutation.variables?.roomId === room.id && (updateRoomMutation.variables?.basePriceOverride !== undefined || updateRoomMutation.variables?.academicYearPriceOverride !== undefined || updateRoomMutation.variables?.depositOverride !== undefined || updateRoomMutation.variables?.sectionPriceOverrides !== undefined)}
                                 onUpdateBed={(bedId, status) => updateBedMutation.mutate({ bedId, status })}
                                 onDeleteBed={(bedId) => { if (confirm("Remove this bed?")) deleteBedMutation.mutate(bedId); }}
                                 onBlockBed={(bedId, reason, category) => blockBedMutation.mutate({ bedId, reason, category })}
@@ -1293,7 +1304,252 @@ function AmenitiesPopover({ room, onSave, isPending }: {
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onToggleSectionWashroom, updatingSectionLabel, onUpdateAmenities, isUpdatingAmenities, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
+function RoomPricingDialog({ room, roomType, onSave, isPending }: {
+  room: Room;
+  roomType?: RoomType;
+  onSave: (data: {
+    basePriceOverride: number | null;
+    academicYearPriceOverride: number | null;
+    depositOverride: number | null;
+    sectionPriceOverrides: Record<string, SectionPriceOverride> | null;
+  }) => void;
+  isPending?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const isCombo = room.typology.includes("+");
+  const sectionLabels = isCombo
+    ? room.typology.split("+").map((_, i) => String.fromCharCode(65 + i))
+    : [];
+
+  // Treat the legacy `monthlyPrice` field as basePriceOverride for editing.
+  const initialBase = room.basePriceOverride ?? room.monthlyPrice ?? null;
+  const [base, setBase] = useState<string>(initialBase != null ? String(initialBase) : "");
+  const [annual, setAnnual] = useState<string>(room.academicYearPriceOverride != null ? String(room.academicYearPriceOverride) : "");
+  const [deposit, setDeposit] = useState<string>(room.depositOverride != null ? String(room.depositOverride) : "");
+  const [sections, setSections] = useState<Record<string, { basePrice: string; academicYearPrice: string; deposit: string }>>(() => {
+    const out: Record<string, { basePrice: string; academicYearPrice: string; deposit: string }> = {};
+    for (const lbl of sectionLabels) {
+      const cur = room.sectionPriceOverrides?.[lbl] ?? {};
+      out[lbl] = {
+        basePrice: cur.basePrice != null ? String(cur.basePrice) : "",
+        academicYearPrice: cur.academicYearPrice != null ? String(cur.academicYearPrice) : "",
+        deposit: cur.deposit != null ? String(cur.deposit) : "",
+      };
+    }
+    return out;
+  });
+
+  // Reset local state when dialog opens, so subsequent edits show fresh server data.
+  useEffect(() => {
+    if (!open) return;
+    setBase(initialBase != null ? String(initialBase) : "");
+    setAnnual(room.academicYearPriceOverride != null ? String(room.academicYearPriceOverride) : "");
+    setDeposit(room.depositOverride != null ? String(room.depositOverride) : "");
+    const out: Record<string, { basePrice: string; academicYearPrice: string; deposit: string }> = {};
+    for (const lbl of sectionLabels) {
+      const cur = room.sectionPriceOverrides?.[lbl] ?? {};
+      out[lbl] = {
+        basePrice: cur.basePrice != null ? String(cur.basePrice) : "",
+        academicYearPrice: cur.academicYearPrice != null ? String(cur.academicYearPrice) : "",
+        deposit: cur.deposit != null ? String(cur.deposit) : "",
+      };
+    }
+    setSections(out);
+  }, [open, room.id]);
+
+  const fallbackBase = roomType?.basePrice ?? 0;
+  const fallbackAnnual = (roomType as any)?.academicYearPrice ?? (fallbackBase ? fallbackBase * 11 : 0);
+  const fallbackDeposit = (roomType as any)?.deposit ?? 0;
+
+  const parseOptInt = (v: string): number | null => {
+    const n = Number(v);
+    if (!v.trim() || isNaN(n) || n <= 0) return null;
+    return Math.round(n);
+  };
+  const parseOptIntAllowZero = (v: string): number | null => {
+    if (!v.trim()) return null;
+    const n = Number(v);
+    if (isNaN(n) || n < 0) return null;
+    return Math.round(n);
+  };
+
+  const handleSave = () => {
+    const sectionPayload: Record<string, SectionPriceOverride> = {};
+    for (const lbl of sectionLabels) {
+      const s = sections[lbl] || { basePrice: "", academicYearPrice: "", deposit: "" };
+      const bp = parseOptInt(s.basePrice);
+      const ap = parseOptInt(s.academicYearPrice);
+      const dp = parseOptIntAllowZero(s.deposit);
+      const entry: SectionPriceOverride = {};
+      if (bp != null) entry.basePrice = bp;
+      if (ap != null) entry.academicYearPrice = ap;
+      if (dp != null) entry.deposit = dp;
+      if (Object.keys(entry).length > 0) sectionPayload[lbl] = entry;
+    }
+    onSave({
+      basePriceOverride: parseOptInt(base),
+      academicYearPriceOverride: parseOptInt(annual),
+      depositOverride: parseOptIntAllowZero(deposit),
+      sectionPriceOverrides: Object.keys(sectionPayload).length > 0 ? sectionPayload : null,
+    });
+    setOpen(false);
+  };
+
+  const hasAnyOverride =
+    room.basePriceOverride != null ||
+    room.monthlyPrice != null ||
+    room.academicYearPriceOverride != null ||
+    room.depositOverride != null ||
+    (room.sectionPriceOverrides && Object.keys(room.sectionPriceOverrides).length > 0);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-0.5 text-[10px] transition-colors border border-dashed rounded px-1.5 py-0.5",
+            hasAnyOverride
+              ? "border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              : "border-slate-300 text-slate-400 hover:border-amber-400 hover:text-amber-600"
+          )}
+          data-testid={`button-edit-pricing-${room.id}`}
+        >
+          <Pencil className="w-2.5 h-2.5" />
+          {hasAnyOverride ? "Pricing override" : "Set pricing"}
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Pricing for Room {room.roomNumber}</DialogTitle>
+          <DialogDescription>
+            Override the {roomType?.customName || roomType?.name || "room type"} default price for this specific room.
+            Leave fields empty to use the room type price{isCombo ? ". For combo rooms, you can also set per-section overrides." : "."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-md border bg-slate-50 p-3">
+            <p className="text-xs font-semibold text-slate-700 mb-2">Whole-room override</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Base (₹/month)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={base}
+                  placeholder={fallbackBase ? String(fallbackBase) : "—"}
+                  onChange={(e) => setBase(e.target.value)}
+                  className="h-9"
+                  data-testid={`input-room-pricing-base-${room.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Annual (₹/year)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={annual}
+                  placeholder={fallbackAnnual ? String(fallbackAnnual) : "—"}
+                  onChange={(e) => setAnnual(e.target.value)}
+                  className="h-9"
+                  data-testid={`input-room-pricing-annual-${room.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Deposit (₹)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={deposit}
+                  placeholder={fallbackDeposit ? String(fallbackDeposit) : "—"}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  className="h-9"
+                  data-testid={`input-room-pricing-deposit-${room.id}`}
+                />
+              </div>
+            </div>
+          </div>
+          {isCombo && sectionLabels.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-700">Per-section overrides</p>
+              <p className="text-[10px] text-amber-700/70">
+                For each section (A, B, C ...) override the price independently — useful when sections have different WC types or sub-typologies.
+              </p>
+              <div className="space-y-2">
+                {sectionLabels.map((lbl) => {
+                  const isShared = (room.sharedWashroomSections ?? []).includes(lbl);
+                  const s = sections[lbl] || { basePrice: "", academicYearPrice: "", deposit: "" };
+                  return (
+                    <div key={lbl} className="rounded border bg-white p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] font-semibold text-slate-700">Section {lbl}</p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] px-1.5 py-0",
+                            isShared ? "border-blue-300 bg-blue-50 text-blue-700" : "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          )}
+                        >
+                          {isShared ? "Shared WC" : "Attached WC"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500">Base (₹/mo)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={s.basePrice}
+                            onChange={(e) => setSections(prev => ({ ...prev, [lbl]: { ...prev[lbl], basePrice: e.target.value } }))}
+                            className="h-8 text-xs"
+                            data-testid={`input-section-base-${room.id}-${lbl}`}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500">Annual (₹/yr)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={s.academicYearPrice}
+                            onChange={(e) => setSections(prev => ({ ...prev, [lbl]: { ...prev[lbl], academicYearPrice: e.target.value } }))}
+                            className="h-8 text-xs"
+                            data-testid={`input-section-annual-${room.id}-${lbl}`}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500">Deposit (₹)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={s.deposit}
+                            onChange={(e) => setSections(prev => ({ ...prev, [lbl]: { ...prev[lbl], deposit: e.target.value } }))}
+                            className="h-8 text-xs"
+                            data-testid={`input-section-deposit-${room.id}-${lbl}`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} data-testid={`button-pricing-cancel-${room.id}`}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isPending} data-testid={`button-pricing-save-${room.id}`}>
+            {isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+            Save pricing
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onToggleSectionWashroom, updatingSectionLabel, onUpdateAmenities, isUpdatingAmenities, onUpdatePricing, isUpdatingPricing, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onToggleWashroom?: () => void;
@@ -1302,6 +1558,8 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
   updatingSectionLabel?: string | null;
   onUpdateAmenities?: (next: string[]) => void;
   isUpdatingAmenities?: boolean;
+  onUpdatePricing?: (data: { basePriceOverride: number | null; academicYearPriceOverride: number | null; depositOverride: number | null; sectionPriceOverrides: Record<string, SectionPriceOverride> | null }) => void;
+  isUpdatingPricing?: boolean;
   onUpdateBed: (bedId: string, status: string) => void;
   onDeleteBed: (bedId: string) => void;
   onBlockBed: (bedId: string, reason: string, category: string) => void;
@@ -1388,7 +1646,28 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
               isPending={isUpdatingAmenities}
             />
           )}
-          {room.monthlyPrice && <span className="text-[10px] text-slate-400">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
+          {(() => {
+            const overrideMonthly = room.basePriceOverride ?? room.monthlyPrice ?? null;
+            const overrideAnnual = room.academicYearPriceOverride ?? null;
+            if (overrideMonthly || overrideAnnual) {
+              return (
+                <span className="text-[10px] text-amber-700 font-medium">
+                  {overrideMonthly ? `₹${overrideMonthly.toLocaleString("en-IN")}/mo` : ""}
+                  {overrideMonthly && overrideAnnual ? " · " : ""}
+                  {overrideAnnual ? `₹${overrideAnnual.toLocaleString("en-IN")}/yr` : ""}
+                </span>
+              );
+            }
+            return null;
+          })()}
+          {onUpdatePricing && (
+            <RoomPricingDialog
+              room={room}
+              roomType={rt}
+              onSave={(data) => onUpdatePricing(data)}
+              isPending={isUpdatingPricing}
+            />
+          )}
           {plansForThisRoom.length > 0 ? (
             plansForThisRoom.map((p: any) => {
               const priceLabel = p.basePrice != null && p.basePrice > 0 ? `₹${Number(p.basePrice).toLocaleString("en-IN")}` : "";
