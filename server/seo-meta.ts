@@ -1,6 +1,7 @@
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
+import { buildPropertyHeroFallback } from "./hero-slides";
 
 const SITE_URL = process.env.APP_PUBLIC_URL || "https://hsquare.in";
 
@@ -439,8 +440,61 @@ const WEBSITE_LD = {
   },
 };
 
+async function getInitialHeroSlides(): Promise<Array<{
+  imageUrl: string;
+  title: string;
+  subtitle: string;
+  caption: string;
+  videoUrl: string | null;
+}>> {
+  try {
+    const adminSlides = await db
+      .select()
+      .from(schema.heroSlides)
+      .where(eq(schema.heroSlides.isActive, true))
+      .orderBy(asc(schema.heroSlides.sortOrder))
+      .limit(8);
+    if (adminSlides.length > 0) {
+      return adminSlides.map((s) => ({
+        imageUrl: s.imageUrl,
+        title: s.title,
+        subtitle: s.subtitle || "",
+        caption: s.caption || "",
+        videoUrl: s.videoUrl || null,
+      }));
+    }
+    const fallback = await buildPropertyHeroFallback();
+    return fallback.map((s) => ({
+      imageUrl: s.imageUrl,
+      title: s.title,
+      subtitle: s.subtitle,
+      caption: s.caption,
+      videoUrl: null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function injectHeroPreload(html: string, slides: Array<{ imageUrl: string }>): string {
+  if (slides.length === 0) return html;
+  const firstUrl = slides[0].imageUrl;
+  const preload = `<link rel="preload" as="image" href="${escapeAttr(firstUrl)}" fetchpriority="high" />`;
+  const initialJson = safeJsonLd(slides);
+  const script = `<script>window.__INITIAL_HERO_SLIDES__=${initialJson};</script>`;
+  return html.replace("</head>", `${preload}\n${script}\n</head>`);
+}
+
 export async function injectMetaTags(html: string, requestUrl: string): Promise<string> {
   const pathname = requestUrl.split("?")[0].split("#")[0];
+
+  // For the homepage, inject the first real hero image as a preload hint
+  // plus a window-scoped initial slides array so React can render the
+  // correct LCP image immediately, without an API roundtrip.
+  if (pathname === "/" || pathname === "") {
+    const slides = await getInitialHeroSlides();
+    html = injectHeroPreload(html, slides);
+  }
 
   const meta = PAGE_META[pathname];
   if (!meta) {

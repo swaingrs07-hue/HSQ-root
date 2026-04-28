@@ -9,7 +9,11 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-const heroLobby = "/hero/hero-lobby.webp";
+// Hero slides are sourced from real published-property photos via the API
+// (server/hero-slides.ts) and SSR-injected into window.__INITIAL_HERO_SLIDES__
+// (server/seo-meta.ts) — no stock fallback in the hero. The constants below
+// are only used for non-hero decorative elements (amenity cards, section
+// backgrounds) and are kept for now to avoid breaking secondary visuals.
 const heroRoom = "/hero/hero-room.webp";
 const heroTerrace = "/hero/hero-terrace.webp";
 const heroDining = "/hero/hero-dining.webp";
@@ -408,32 +412,9 @@ interface SlideData {
   videoUrl?: string | null;
 }
 
-const DEFAULT_SLIDES: SlideData[] = [
-  {
-    image: heroRoom,
-    title: "Luxury Rooms & Suites",
-    subtitle: "DESIGNED FOR SUCCESS",
-    caption: "Thoughtfully curated spaces for focused living and studying",
-  },
-  {
-    image: heroTerrace,
-    title: "Panoramic City Views",
-    subtitle: "ROOFTOP LOUNGE",
-    caption: "Unwind with breathtaking views after a productive day",
-  },
-  {
-    image: heroLobby,
-    title: "Experience Premium Living",
-    subtitle: "HSQUARELIVING, MUMBAI",
-    caption: "Where comfort meets excellence in student accommodation",
-  },
-  {
-    image: heroDining,
-    title: "World-Class Dining",
-    subtitle: "CULINARY EXCELLENCE",
-    caption: "Nutritious gourmet meals prepared fresh daily",
-  },
-];
+// Empty fallback — hero slides come from real published-property photos
+// via the SSR-injected window.__INITIAL_HERO_SLIDES__ or /api/hero-slides.
+const DEFAULT_SLIDES: SlideData[] = [];
 
 const KEN_BURNS_VARIANTS = [
   {
@@ -761,7 +742,29 @@ export default function Home() {
   const [isAutoPlaying] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
-  const [heroSlides, setHeroSlides] = useState<SlideData[]>(DEFAULT_SLIDES);
+  const [heroSlides, setHeroSlides] = useState<SlideData[]>(() => {
+    if (typeof window !== "undefined") {
+      const initial = (window as Window & {
+        __INITIAL_HERO_SLIDES__?: Array<{
+          imageUrl: string;
+          title: string;
+          subtitle?: string;
+          caption?: string;
+          videoUrl?: string | null;
+        }>;
+      }).__INITIAL_HERO_SLIDES__;
+      if (Array.isArray(initial) && initial.length > 0) {
+        return initial.map((s) => ({
+          image: s.imageUrl,
+          title: s.title,
+          subtitle: s.subtitle || "",
+          caption: s.caption || "",
+          videoUrl: s.videoUrl || null,
+        }));
+      }
+    }
+    return DEFAULT_SLIDES;
+  });
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
   const [igCurrentSlide, setIgCurrentSlide] = useState(0);
   const [igAutoPlaying, setIgAutoPlaying] = useState(true);
@@ -855,16 +858,32 @@ export default function Home() {
   }, [igAutoPlaying, instagramPosts.length]);
 
   const nextSlide = useCallback(() => {
+    if (heroSlides.length === 0) return;
     setSlideDirection(1);
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
   }, [heroSlides.length]);
 
   const prevSlide = useCallback(() => {
+    if (heroSlides.length === 0) return;
     setSlideDirection(-1);
     setCurrentSlide(
       (prev) => (prev - 1 + heroSlides.length) % heroSlides.length,
     );
   }, [heroSlides.length]);
+
+  // Keep currentSlide in bounds whenever heroSlides changes (e.g. API
+  // refresh returns a different number of slides than SSR seeded).
+  useEffect(() => {
+    if (heroSlides.length === 0) {
+      if (currentSlide !== 0) setCurrentSlide(0);
+      return;
+    }
+    if (currentSlide >= heroSlides.length) {
+      setCurrentSlide(0);
+    }
+  }, [heroSlides.length, currentSlide]);
+
+  const activeSlide = heroSlides[currentSlide];
 
   const isMobile = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -1065,7 +1084,21 @@ export default function Home() {
         className="relative w-full h-screen overflow-hidden"
         data-testid="hero-section"
       >
-        {tubesActive ? null : heroSlides[currentSlide].videoUrl &&
+        {!activeSlide ? (
+          // Empty-state fallback: no published-property images and no admin
+          // slides yet. Render a dark gradient hero so the page never crashes
+          // and users still see a polished header instead of a blank section.
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a]">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center px-6">
+                <div className="text-xs tracking-[0.4em] text-white/50 mb-3">HSQUARE LIVING</div>
+                <div className="text-3xl md:text-5xl font-semibold text-white">
+                  Premium Student Living in Mumbai
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : tubesActive ? null : activeSlide.videoUrl &&
           videoSupported &&
           !videoFailed ? (
           <div className="absolute inset-0 bg-black">
@@ -1079,10 +1112,10 @@ export default function Home() {
               playsInline
               preload="auto"
             />
-            {!videoReady && heroSlides[currentSlide].image && (
+            {!videoReady && activeSlide.image && (
               <img
-                src={heroSlides[currentSlide].image}
-                alt={heroSlides[currentSlide].title}
+                src={activeSlide.image}
+                alt={activeSlide.title}
                 className="absolute inset-0 w-full h-full object-cover"
                 fetchPriority="high"
                 loading="eager"
@@ -1102,8 +1135,8 @@ export default function Home() {
               style={{}}
             >
               <motion.img
-                src={heroSlides[currentSlide].image}
-                alt={heroSlides[currentSlide].title}
+                src={activeSlide.image}
+                alt={activeSlide.title}
                 className="w-full h-full object-cover will-change-transform"
                 {...(currentSlide === 0
                   ? { fetchPriority: "high", loading: "eager", decoding: "async" }

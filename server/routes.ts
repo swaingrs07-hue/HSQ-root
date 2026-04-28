@@ -10,6 +10,7 @@ import { z } from "zod";
 import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { buildPropertyHeroFallback } from "./hero-slides";
 import { logActivity, formatActivityMessage, type ActionType, type EntityType } from "./activityLogger";
 import { recordHmsHit, getRecentHits, getLastHitForRoute, getStats as getHmsLogStats, getRecentHitsFromDb, getLastHitsByRoute, getDbStats as getHmsDbStats } from "./hms-activity-log";
 import rateLimit from "express-rate-limit";
@@ -577,7 +578,14 @@ ${allPages.map(p => `  <url>
     try {
       const activeOnly = req.query.active === "true";
       const slides = await storage.getHeroSlides(activeOnly);
-      res.json(slides);
+      if (slides.length > 0 || !activeOnly) {
+        return res.json(slides);
+      }
+      // Auto-fallback: when no admin-managed slides exist, surface real
+      // photos from published properties so the homepage never shows
+      // generic stock imagery.
+      const fallback = await buildPropertyHeroFallback();
+      res.json(fallback);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch hero slides" });
     }
