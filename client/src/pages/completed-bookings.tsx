@@ -1201,7 +1201,7 @@ export default function CompletedBookings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 via-white to-white">
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
@@ -1290,58 +1290,59 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
 
-        <Card
-          role="button"
-          onClick={() => { setViewFilter(viewFilter === "with_addons" ? "all" : "with_addons"); setCurrentPage(1); }}
-          className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md sm:col-span-2 lg:col-span-4 2xl:col-span-1 ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
-          data-testid="card-addon-revenue"
-        >
-          <CardContent className="p-5">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-orange-100 ring-1 ring-orange-200/60 flex items-center justify-center shrink-0">
-                <UtensilsCrossed className="h-5 w-5 text-orange-600" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 2xl:flex-col 2xl:items-stretch 2xl:gap-1">
+      </div>
+
+      <Card
+        role="button"
+        onClick={() => { setViewFilter(viewFilter === "with_addons" ? "all" : "with_addons"); setCurrentPage(1); }}
+        className={`relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-orange-50 via-white to-white cursor-pointer transition hover:shadow-md ${viewFilter === "with_addons" ? "ring-2 ring-orange-400" : ""}`}
+        data-testid="card-addon-revenue"
+      >
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl bg-orange-100 ring-1 ring-orange-200/60 flex items-center justify-center shrink-0">
+              <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
+                  <p
+                    className="text-2xl font-bold text-orange-700 mt-1"
+                    data-testid="text-addon-revenue"
+                  >
+                    ₹{totalAddonRevenue.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
+                  </p>
+                </div>
+                <div className="flex flex-row gap-6 sm:gap-8 border-t border-orange-200/60 pt-3 sm:border-t-0 sm:pt-0 sm:border-l sm:border-orange-200/60 sm:pl-6">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Add-On Revenue</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">Collected</p>
                     <p
-                      className="text-2xl font-bold text-orange-700 mt-1"
-                      data-testid="text-addon-revenue"
+                      className="text-sm font-semibold text-emerald-700 mt-0.5"
+                      data-testid="text-addon-collected"
                     >
-                      ₹{totalAddonRevenue.toLocaleString("en-IN")}
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      {bookingsWithAddons} booking{bookingsWithAddons === 1 ? "" : "s"} with add-ons
+                      ₹{totalAddonCollected.toLocaleString("en-IN")}
+                      <span className="text-[10px] text-slate-400 font-normal ml-1">({addonCollectedPct}%)</span>
                     </p>
                   </div>
-                  <div className="flex flex-row gap-6 lg:gap-8 border-t border-orange-200/60 pt-3 lg:border-t-0 lg:pt-0 lg:border-l lg:border-orange-200/60 lg:pl-6 2xl:border-l-0 2xl:border-t 2xl:border-orange-200/60 2xl:pl-0 2xl:pt-2 2xl:gap-4 2xl:mt-1">
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Collected</p>
-                      <p
-                        className="text-sm font-semibold text-emerald-700 mt-0.5"
-                        data-testid="text-addon-collected"
-                      >
-                        ₹{totalAddonCollected.toLocaleString("en-IN")}
-                        <span className="text-[10px] text-slate-400 font-normal ml-1">({addonCollectedPct}%)</span>
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Pending</p>
-                      <p
-                        className="text-sm font-semibold text-amber-700 mt-0.5"
-                        data-testid="text-addon-pending"
-                      >
-                        ₹{totalAddonPending.toLocaleString("en-IN")}
-                      </p>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">Pending</p>
+                    <p
+                      className="text-sm font-semibold text-amber-700 mt-0.5"
+                      data-testid="text-addon-pending"
+                    >
+                      ₹{totalAddonPending.toLocaleString("en-IN")}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
