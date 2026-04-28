@@ -1089,7 +1089,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             >
               <div className={cn("absolute left-5 top-5 w-5 h-5 rounded-full border-2 z-10", availBeds > 0 ? "bg-amber-500 border-amber-400" : "bg-white/20 border-white/10")} />
 
-              <div className={cn("rounded-xl border overflow-hidden transition-all duration-200", isExpanded ? "border-amber-500/30 shadow-xl shadow-amber-500/10 bg-white/[0.04]" : "border-white/[0.08] hover:border-white/[0.15] bg-white/[0.02] hover:bg-white/[0.04]")}>
+              <div className={cn("rounded-xl border overflow-hidden transition-all duration-200 backdrop-blur-xl", isExpanded ? "border-amber-500/30 shadow-xl shadow-amber-500/10 bg-[#0a0a0a]/70" : "border-white/[0.08] hover:border-white/[0.15] bg-[#0a0a0a]/60 hover:bg-[#0a0a0a]/70")}>
                 <button
                   onClick={() => setExpandedFloor(isExpanded ? null : floor.id)}
                   className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors"
@@ -1152,16 +1152,16 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
 
                               return (
                                 <div key={room.id} className={cn(
-                                  "border rounded-xl p-3 transition-all",
+                                  "border rounded-xl p-3 transition-all backdrop-blur-md bg-[#0a0a0a]/50",
                                   roomMatchesPlan && activeTierColors
                                     ? cn("border-2", activeTierColors.roomBorder)
                                     : roomDimmedByPlan
-                                      ? "border-white/[0.06] bg-white/[0.01] opacity-40"
+                                      ? "border-white/[0.06] opacity-40"
                                       : hasPassiveRoomPlan && !hasMultiRoomPlan
                                         ? cn("border-2", roomPlanColors.roomBorder)
                                         : hasMultiRoomPlan
-                                          ? "border-2 border-white/[0.1] bg-white/[0.02]"
-                                          : allOccupied ? "border-red-500/20 bg-red-500/5" : roomAvail > 0 ? "border-white/[0.08] hover:border-amber-500/20 bg-white/[0.02] hover:bg-amber-500/5" : "border-white/[0.06] bg-white/[0.01]"
+                                          ? "border-2 border-white/[0.1]"
+                                          : allOccupied ? "border-red-500/20" : roomAvail > 0 ? "border-white/[0.08] hover:border-amber-500/20 hover:bg-amber-500/5" : "border-white/[0.06]"
                                 )} data-testid={`room-${room.id}`}>
                                   <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                                     <span className="text-xs font-bold text-white/80">Room {room.roomNumber}</span>
