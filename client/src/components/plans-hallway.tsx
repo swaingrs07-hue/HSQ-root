@@ -185,6 +185,12 @@ export function PlansHallway({
     return m;
   }, [properties]);
 
+  // Per-card depth step. Desktop uses a long 700px Z step so the
+  // corridor reads as deep and cinematic on wide screens. On phones
+  // the same step makes each card take longer to approach the camera
+  // than feels right for a swipe; tighten it to 560px so the camera
+  // walks past about one card per swipe-window.
+  const zStep = isMobile ? 560 : 700;
   const frames = useMemo(() => {
     const byProp: Record<string, Plan[]> = {};
     plans.forEach((plan) => {
@@ -207,13 +213,13 @@ export function PlansHallway({
           image: propertyImage[plan.propertyId || ""] || "",
           side: i % 2 === 0 ? "left" : "right",
           idx: i,
-          zPos: -i * 700,
+          zPos: -i * zStep,
         });
         i++;
       });
     });
     return result;
-  }, [plans, propertyImage]);
+  }, [plans, propertyImage, zStep]);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -239,8 +245,12 @@ export function PlansHallway({
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
 
   // Outer container height: roughly one viewport per frame so the user has
-  // enough scroll runway to walk through the entire archive.
-  const outerVh = Math.max(1, frames.length) * 90 + 60;
+  // enough scroll runway to walk through the entire archive. On mobile we
+  // pair this with the tighter zStep above so a swipe-window equals about
+  // one card; using 75vh per frame instead of 90vh keeps the section from
+  // feeling stretched on phones while still letting the camera-walk read.
+  const outerVh =
+    Math.max(1, frames.length) * (isMobile ? 75 : 90) + (isMobile ? 50 : 60);
 
   // Defensive guard: if `plans` shrinks while a modal is open and the
   // current `openIdx` no longer points at a valid frame, close the modal
@@ -430,14 +440,16 @@ export function PlansHallway({
               // Mobile: cards are centered (left:50%) and we add a
               // translateX(-50%) before the depth + tilt so the same
               // 3D perspective camera still walks past them, but they
-              // never spill outside a narrow viewport. A small ±9%
-              // X offset (relative to card width) gives the same
+              // never spill outside a narrow viewport. A small ±7%
+              // X offset (relative to the card's own width) gives an
               // alternating rhythm without requiring side walls, and
               // the tilt is softened to ±15° so each card stays
-              // legible at phone width.
+              // legible at phone width. The 7% offset is sized to
+              // stay safely inside the viewport even on a 320px-wide
+              // device once the width clamp below kicks in.
               const buttonTransform = isMobile
                 ? `translate(-50%, 0) translateX(${
-                    isLeft ? "-9%" : "9%"
+                    isLeft ? "-7%" : "7%"
                   }) translateZ(${frame.zPos}px) rotateY(${
                     isLeft ? "15deg" : "-15deg"
                   })`
@@ -466,14 +478,25 @@ export function PlansHallway({
                     // track level (z-10) so cards always render in
                     // front of the field regardless of vertical pos.
                     // On mobile we anchor at left:50% and let the
-                    // transform's translate(-50%) center the card,
-                    // and use a slightly larger 280x410 frame so the
-                    // photo + details still read at phone width.
+                    // transform's translate(-50%) center the card.
+                    // Width/height are viewport-clamped so even tiny
+                    // (~320px wide) phones get a card that fits with
+                    // a clear margin on both sides; on roomier phones
+                    // they cap at 280×410 so the layout matches the
+                    // intended gallery feel. The minimum gives the
+                    // ±7% offset 14px of clearance on each side at
+                    // 320px CSS width: 280→256 by clamp, half=128,
+                    // +7% offset=18, total reach=146 vs viewport
+                    // half-width 160 → 14px margin per edge.
                     top: isMobile ? "22%" : "27%",
                     left: isMobile ? "50%" : isLeft ? "20%" : undefined,
                     right: !isMobile && !isLeft ? "20%" : undefined,
-                    width: isMobile ? 280 : 260,
-                    height: isMobile ? 410 : 380,
+                    width: isMobile
+                      ? "min(280px, calc(100vw - 64px))"
+                      : 260,
+                    height: isMobile
+                      ? "min(410px, calc(100vh - 140px))"
+                      : 380,
                     background:
                       "linear-gradient(180deg, #1a1a1a 0%, #141414 55%, #0f0f0f 100%)",
                     border: "1px solid rgba(255,255,255,0.14)",
