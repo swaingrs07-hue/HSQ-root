@@ -921,14 +921,14 @@ export default function Home() {
           videoSupported &&
           !videoFailed ? (
           <div
-            className="absolute inset-0 bg-black"
+            className={`absolute inset-0 ${tubesActive ? "" : "bg-black"}`}
             style={
               tubesActive
                 ? {
                     WebkitMaskImage:
-                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+                      "linear-gradient(180deg, black 0%, black 80%, rgba(0,0,0,0.55) 94%, transparent 100%)",
                     maskImage:
-                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+                      "linear-gradient(180deg, black 0%, black 80%, rgba(0,0,0,0.55) 94%, transparent 100%)",
                   }
                 : undefined
             }
@@ -936,7 +936,9 @@ export default function Home() {
             <video
               ref={heroVideoRef}
               className="w-full h-full object-cover transition-opacity duration-700"
-              style={{ opacity: videoReady ? 1 : 0 }}
+              style={{
+                opacity: videoReady ? (tubesActive ? 0.72 : 1) : 0,
+              }}
               muted
               autoPlay
               loop
@@ -951,6 +953,9 @@ export default function Home() {
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
+                style={{
+                  opacity: tubesActive ? 0.72 : 1,
+                }}
               />
             )}
           </div>
