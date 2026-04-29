@@ -147,22 +147,22 @@ export function PlansHallway({
     offset: ["start start", "end end"],
   });
 
-  // Cinematic 3D depth — driven by scroll. Each card has its OWN
-  // self-contained 3D scene via inline `perspective(...)` on the
-  // button transform (see render below), so we deliberately AVOID
-  // putting `perspective` / `preserve-3d` on the parent. That layout
-  // (a shared `preserve-3d` parent with multiple rotated 3D-positioned
-  // siblings) triggers a Chrome pointer hit-test bug that silently
-  // drops clicks on the further-back card. With per-button self-
-  // contained perspectives, every button is its own 3D camera and
-  // pointer events route to the correct card every time.
+  // Cinematic camera walk — matches the reference design exactly.
   //
-  // The shared scroll-driven Z motion is published as a CSS variable
-  // `--track-z` on the track wrapper so each button can read it via
-  // calc(...) inside its own transform.
+  // The viewport gets `perspective: 2400px` and the hallway track
+  // gets `transform-style: preserve-3d`. Each card sits at its own
+  // `translateZ(zPos)` depth so they form a real 3D corridor.
+  //
+  // As the user scrolls, the entire track translates forward in Z,
+  // so the camera "walks" down the hallway and the cards approach.
+  //
+  // Cards do NOT rotate. Without rotation on 3D-positioned
+  // siblings, Chrome's pointer hit-tester routes clicks correctly
+  // to every card — that's why this exact reference layout is
+  // both cinematic AND clickable.
   const lastZ = frames.length > 0 ? Math.abs(frames[frames.length - 1].zPos) : 0;
-  const trackZ = useTransform(scrollYProgress, [0, 1], [0, lastZ + 800]);
-  const trackZVar = useMotionTemplate`${trackZ}px`;
+  const cameraZ = useTransform(scrollYProgress, [0, 1], [0, lastZ + 800]);
+  const trackTransform = useMotionTemplate`translateZ(${cameraZ}px)`;
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
 
   // Outer container height: roughly one viewport per frame so the user has
@@ -254,20 +254,23 @@ export function PlansHallway({
           style={{
             background:
               "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
+            perspective: "2400px",
+            perspectiveOrigin: "50% 50%",
           }}
         >
-          {/* hallway track — pure 2D (no `perspective` / `preserve-3d`
-              on this or any ancestor). Each card's rotated button is
-              its own self-contained 3D scene via inline
-              `perspective(...) translateZ(...) rotateY(...)` on the
-              button transform. The shared scroll-driven Z motion is
-              published here as a CSS variable `--track-z` that every
-              button reads via `calc(var(--track-z) + frame.zPos)` so
-              the cards still recede / approach as a coherent hallway
-              while remaining individually clickable. */}
+          {/* hallway track — matches reference design exactly.
+              Parent has `perspective: 2400px`. The track here has
+              `transform-style: preserve-3d` so each card's
+              `translateZ` places it at a real depth in the corridor.
+              The track itself translates Z based on scroll, so the
+              "camera" walks down the hallway. Cards do NOT rotate,
+              so pointer hit-testing routes clicks to every card. */}
           <motion.div
             className="absolute inset-0 w-full h-full"
-            style={{ ["--track-z" as never]: trackZVar }}
+            style={{
+              transformStyle: "preserve-3d",
+              transform: trackTransform,
+            }}
           >
             {frames.map((frame, idx) => {
               const isLeft = frame.side === "left";
@@ -275,19 +278,12 @@ export function PlansHallway({
               const price = Number(frame.plan.basePrice || 0);
               const monthly = price > 0 ? Math.round(price / 12) : 0;
               const features = (frame.plan.items || []).slice(0, 3);
-              // Self-contained per-button 3D: `perspective(...)` is the
-              // CSS function (not the property), so each button has
-              // its OWN perspective camera. Sibling buttons never
-              // share a 3D rendering context, which is what was
-              // confusing Chrome's pointer hit-tester before.
-              //   • inline perspective → independent 3D scene per card
-              //   • translateZ(calc(var(--track-z) + frame.zPos)) →
-              //     scroll-driven cinematic depth animation
-              //   • rotateY(±35°) → cinematic tilt
-              const buttonTransform = `perspective(2400px) translateZ(calc(var(--track-z, 0px) + ${frame.zPos}px)) rotateY(${
-                isLeft ? "35deg" : "-35deg"
-              })`;
-              const leftAnchor = isLeft ? "10%" : "calc(90% - 300px)";
+              // Reference layout: cards face the camera flat (no
+              // rotation), placed at left:20% or right:20% with their
+              // own translateZ depth inside the parent's perspective
+              // camera. Without rotation, Chrome's pointer hit-tester
+              // routes clicks correctly to every card.
+              const buttonTransform = `translateZ(${frame.zPos}px)`;
 
               return (
                 <button
@@ -302,24 +298,23 @@ export function PlansHallway({
                   }`}
                   className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
-                    left: leftAnchor,
-                    // Small per-card vertical offset so cards on the
-                    // same side never share the same 2D hit area.
-                    // Depth (translateZ) dominates the visual; this
-                    // just guarantees each card has its own distinct
-                    // clickable region in screen space.
-                    top: `calc(10vh + ${idx * 80}px)`,
-                    width: 300,
-                    height: 460,
-                    background:
-                      "linear-gradient(180deg, #0e0e10 0%, #050506 100%)",
-                    border: `1px solid ${tier.chipBorder}`,
-                    borderRadius: 6,
+                    // Reference layout: 260x380 cards positioned at
+                    // top:27%, with left:20% or right:20%, and their
+                    // own translateZ depth inside the parent's 3D
+                    // perspective camera.
+                    top: "27%",
+                    [isLeft ? "left" : "right"]: "20%",
+                    width: 260,
+                    height: 380,
+                    background: "rgba(10, 10, 10, 0.6)",
+                    border: "1px solid rgba(255,255,255,0.04)",
+                    borderRadius: 4,
                     overflow: "hidden",
-                    boxShadow: `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
+                    boxShadow: `0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
                     transition:
-                      "border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease",
+                      "filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
                     transform: buttonTransform,
+                    transformStyle: "preserve-3d",
                     transformOrigin: "center center",
                   }}
                   onMouseEnter={(e) => {
