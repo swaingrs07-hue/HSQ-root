@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, Component, ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, Component, ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft, GraduationCap, UserCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface ErrorBoundaryState {
@@ -58,38 +59,53 @@ interface User {
   name: string;
   email: string;
   phone: string | null;
-  role: "admin" | "sales_executive" | "student" | "user" | "receptionist";
+  role: "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist" | "student" | "user";
   isActive: boolean;
   createdAt: string;
   assignedProperties?: any[];
   totalLeads?: number;
 }
 
+type PanelKey = "staff" | "users";
+
+const STAFF_ROLES = ["admin", "superadmin", "manager", "sales_executive", "receptionist", "staff"] as const;
+const USER_ROLES = ["user", "student"] as const;
+
+function isStaffRole(role: string): boolean {
+  return (STAFF_ROLES as readonly string[]).includes(role);
+}
+
 function AdminUsersContent() {
   const { token, user: currentUser } = useAuth();
   const { toast } = useToast();
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  
+  const [activePanel, setActivePanel] = useState<PanelKey>("staff");
+
+  // Per-panel filter state (kept independent so switching tabs doesn't leak state)
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffRoleFilter, setStaffRoleFilter] = useState<string>("all");
+  const [staffStatusFilter, setStaffStatusFilter] = useState<string>("all");
+  const [usersSearch, setUsersSearch] = useState("");
+  const [usersRoleFilter, setUsersRoleFilter] = useState<string>("all");
+  const [usersStatusFilter, setUsersStatusFilter] = useState<string>("all");
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [reassigning, setReassigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  
+
   const [createForm, setCreateForm] = useState({ name: "", email: "", phone: "", password: "", role: "sales_executive" });
   const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", role: "" });
-  
+
   const [dependencies, setDependencies] = useState<{
     leads: number;
     activeLeads: number;
@@ -122,14 +138,69 @@ function AdminUsersContent() {
     loadUsers();
   }, [loadUsers]);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.phone && user.phone.includes(searchQuery));
+  // Classify users into staff vs end-user buckets
+  const staffUsers = useMemo(() => users.filter(u => isStaffRole(u.role)), [users]);
+  const endUsers = useMemo(() => users.filter(u => !isStaffRole(u.role)), [users]);
+
+  const applyFilters = (
+    list: User[],
+    search: string,
+    roleFilter: string,
+    statusFilter: string,
+  ) => list.filter((user) => {
+    const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase()) ||
+      (user.phone && user.phone.includes(search));
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? user.isActive : !user.isActive);
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  const filteredStaff = useMemo(
+    () => applyFilters(staffUsers, staffSearch, staffRoleFilter, staffStatusFilter),
+    [staffUsers, staffSearch, staffRoleFilter, staffStatusFilter],
+  );
+  const filteredEndUsers = useMemo(
+    () => applyFilters(endUsers, usersSearch, usersRoleFilter, usersStatusFilter),
+    [endUsers, usersSearch, usersRoleFilter, usersStatusFilter],
+  );
+
+  const staffStats = useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return {
+      total: staffUsers.length,
+      active: staffUsers.filter(u => u.isActive).length,
+      admins: staffUsers.filter(u => u.role === "admin" || u.role === "superadmin").length,
+      salesExecs: staffUsers.filter(u => u.role === "sales_executive").length,
+    };
+  }, [staffUsers]);
+
+  const usersStats = useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const newThisMonth = endUsers.filter(u => {
+      const createdAt = u.createdAt ? new Date(u.createdAt) : null;
+      return createdAt && createdAt >= thirtyDaysAgo;
+    }).length;
+    return {
+      total: endUsers.length,
+      active: endUsers.filter(u => u.isActive).length,
+      students: endUsers.filter(u => u.role === "student").length,
+      newThisMonth,
+    };
+  }, [endUsers]);
+
+  const openCreateDialog = () => {
+    setCreateForm({
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      role: activePanel === "staff" ? "sales_executive" : "user",
+    });
+    setCreateDialogOpen(true);
+  };
 
   const createUser = async () => {
     if (!createForm.name || !createForm.email || !createForm.password) {
@@ -152,7 +223,7 @@ function AdminUsersContent() {
       }
       toast({ title: "Success", description: "User created successfully" });
       setCreateDialogOpen(false);
-      setCreateForm({ name: "", email: "", phone: "", password: "", role: "sales_executive" });
+      setCreateForm({ name: "", email: "", phone: "", password: "", role: activePanel === "staff" ? "sales_executive" : "user" });
       loadUsers();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -320,22 +391,19 @@ function AdminUsersContent() {
         return <Badge className="bg-rose-600 text-white"><Shield className="h-3 w-3 mr-1" /> Superadmin</Badge>;
       case "admin":
         return <Badge className="bg-purple-500 text-white"><Shield className="h-3 w-3 mr-1" /> Admin</Badge>;
+      case "manager":
+        return <Badge className="bg-amber-500 text-white"><Shield className="h-3 w-3 mr-1" /> Manager</Badge>;
       case "sales_executive":
         return <Badge className="bg-blue-500 text-white"><Users className="h-3 w-3 mr-1" /> Sales</Badge>;
       case "receptionist":
         return <Badge className="bg-teal-500 text-white">Receptionist</Badge>;
+      case "staff":
+        return <Badge className="bg-slate-500 text-white">Staff</Badge>;
       case "student":
-        return <Badge className="bg-emerald-500 text-white">Student</Badge>;
+        return <Badge className="bg-emerald-500 text-white"><GraduationCap className="h-3 w-3 mr-1" /> Student</Badge>;
       default:
-        return <Badge variant="secondary">User</Badge>;
+        return <Badge variant="secondary"><UserCircle2 className="h-3 w-3 mr-1" /> User</Badge>;
     }
-  };
-
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.isActive).length,
-    admins: users.filter(u => u.role === "admin" || u.role === "superadmin").length,
-    salesExecs: users.filter(u => u.role === "sales_executive").length
   };
 
   if (loading && users.length === 0) {
@@ -346,209 +414,351 @@ function AdminUsersContent() {
     );
   }
 
+  const renderUserRow = (user: User, panel: PanelKey) => (
+    <TableRow key={user.id} className="hover:bg-slate-50/50" data-testid={`row-${panel}-${user.id}`}>
+      <TableCell className="font-medium">{user.name}</TableCell>
+      <TableCell className="text-slate-600">{user.email}</TableCell>
+      <TableCell className="text-slate-600">{user.phone || "-"}</TableCell>
+      <TableCell>{getRoleBadge(user.role)}</TableCell>
+      <TableCell>
+        <Badge variant={user.isActive ? "default" : "secondary"}>
+          {user.isActive ? "Active" : "Inactive"}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" data-testid={`button-${panel}-actions-${user.id}`}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => openEditDialog(user)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            {user.id !== currentUser?.id && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => openDeactivateDialog(user)}
+                  className={user.isActive ? "text-orange-600" : "text-green-600"}
+                >
+                  <Power className="h-4 w-4 mr-2" />
+                  {user.isActive ? "Deactivate" : "Reactivate"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openReassignDialog(user)}>
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Reassign Items
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => openDeleteDialog(user)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove User
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+
+  const renderEmptyRow = (search: string, role: string, status: string, defaultMsg: string) => (
+    <TableRow>
+      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+        {search || role !== "all" || status !== "all"
+          ? "No matches for your filters"
+          : defaultMsg}
+      </TableCell>
+    </TableRow>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team Management</h1>
-          <p className="text-slate-500">Manage users, roles, and permissions</p>
+          <p className="text-slate-500">Manage staff and end-user accounts in separate views</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="button-create-user">
+        <Button
+          onClick={openCreateDialog}
+          className="bg-indigo-600 hover:bg-indigo-700"
+          data-testid="button-create-user"
+        >
           <UserPlus className="h-4 w-4 mr-2" />
-          Add User
+          Add {activePanel === "staff" ? "Staff" : "User"}
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-slate-100">
-                <Users className="h-5 w-5 text-slate-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-                <p className="text-sm text-slate-500">Total Users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-white">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <Power className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-emerald-700">{stats.active}</p>
-                <p className="text-sm text-slate-500">Active</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-white">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Shield className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-purple-700">{stats.admins}</p>
-                <p className="text-sm text-slate-500">Admins</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-white">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Building2 className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-blue-700">{stats.salesExecs}</p>
-                <p className="text-sm text-slate-500">Sales Team</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activePanel} onValueChange={(v) => setActivePanel(v as PanelKey)}>
+        <TabsList>
+          <TabsTrigger value="staff" data-testid="tab-staff">
+            <Shield className="h-4 w-4 mr-2" /> Staff ({staffStats.total})
+          </TabsTrigger>
+          <TabsTrigger value="users" data-testid="tab-users">
+            <UserCircle2 className="h-4 w-4 mr-2" /> Users ({usersStats.total})
+          </TabsTrigger>
+        </TabsList>
 
-      <Card className="border-0 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <CardTitle className="text-lg">All Users</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-full sm:w-64"
-                  data-testid="input-search-users"
-                />
-              </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-full sm:w-40" data-testid="select-role-filter">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="superadmin">Superadmin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="sales_executive">Sales</SelectItem>
-                  <SelectItem value="receptionist">Receptionist</SelectItem>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-36" data-testid="select-status-filter">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="staff" className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white" data-testid="stat-staff-total">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-slate-100">
+                    <Users className="h-5 w-5 text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">{staffStats.total}</p>
+                    <p className="text-sm text-slate-500">Total Staff</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-white" data-testid="stat-staff-active">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-100">
+                    <Power className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700">{staffStats.active}</p>
+                    <p className="text-sm text-slate-500">Active Staff</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-white" data-testid="stat-staff-admins">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-100">
+                    <Shield className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-purple-700">{staffStats.admins}</p>
+                    <p className="text-sm text-slate-500">Admins</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-white" data-testid="stat-staff-sales">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <Building2 className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-700">{staffStats.salesExecs}</p>
+                    <p className="text-sm text-slate-500">Sales Team</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-16">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    {searchQuery || roleFilter !== "all" || statusFilter !== "all" 
-                      ? "No users match your filters" 
-                      : "No users found"}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-slate-50/50">
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell className="text-slate-600">{user.email}</TableCell>
-                    <TableCell className="text-slate-600">{user.phone || "-"}</TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.isActive ? "default" : "secondary"}>
-                        {user.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" data-testid={`button-user-actions-${user.id}`}>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          {user.id !== currentUser?.id && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => openDeactivateDialog(user)}
-                                className={user.isActive ? "text-orange-600" : "text-green-600"}
-                              >
-                                <Power className="h-4 w-4 mr-2" />
-                                {user.isActive ? "Deactivate" : "Reactivate"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openReassignDialog(user)}>
-                                <ArrowRightLeft className="h-4 w-4 mr-2" />
-                                Reassign Items
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(user)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Remove User
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <CardTitle className="text-lg">Staff Members</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search staff..."
+                      value={staffSearch}
+                      onChange={(e) => setStaffSearch(e.target.value)}
+                      className="pl-9 w-full sm:w-64"
+                      data-testid="input-search-staff"
+                    />
+                  </div>
+                  <Select value={staffRoleFilter} onValueChange={setStaffRoleFilter}>
+                    <SelectTrigger className="w-full sm:w-40" data-testid="select-staff-role-filter">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="superadmin">Superadmin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="sales_executive">Sales</SelectItem>
+                      <SelectItem value="receptionist">Receptionist</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={staffStatusFilter} onValueChange={setStaffStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-36" data-testid="select-staff-status-filter">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredStaff.length === 0
+                    ? renderEmptyRow(staffSearch, staffRoleFilter, staffStatusFilter, "No staff members yet")
+                    : filteredStaff.map((u) => renderUserRow(u, "staff"))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white" data-testid="stat-users-total">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-slate-100">
+                    <Users className="h-5 w-5 text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">{usersStats.total}</p>
+                    <p className="text-sm text-slate-500">Total Users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-white" data-testid="stat-users-active">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-100">
+                    <Power className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700">{usersStats.active}</p>
+                    <p className="text-sm text-slate-500">Active Users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-white" data-testid="stat-users-students">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-100">
+                    <GraduationCap className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700">{usersStats.students}</p>
+                    <p className="text-sm text-slate-500">Students</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-white" data-testid="stat-users-new">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <UserPlus className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-blue-700">{usersStats.newThisMonth}</p>
+                    <p className="text-sm text-slate-500">New This Month</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <CardTitle className="text-lg">End Users</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search users..."
+                      value={usersSearch}
+                      onChange={(e) => setUsersSearch(e.target.value)}
+                      className="pl-9 w-full sm:w-64"
+                      data-testid="input-search-users"
+                    />
+                  </div>
+                  <Select value={usersRoleFilter} onValueChange={setUsersRoleFilter}>
+                    <SelectTrigger className="w-full sm:w-40" data-testid="select-users-role-filter">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="student">Student</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={usersStatusFilter} onValueChange={setUsersStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-36" data-testid="select-users-status-filter">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-16">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEndUsers.length === 0
+                    ? renderEmptyRow(usersSearch, usersRoleFilter, usersStatusFilter, "No users yet")
+                    : filteredEndUsers.map((u) => renderUserRow(u, "users"))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>Create a new team member account</DialogDescription>
+            <DialogTitle>Add New {activePanel === "staff" ? "Staff Member" : "User"}</DialogTitle>
+            <DialogDescription>
+              {activePanel === "staff"
+                ? "Create a new internal team member account"
+                : "Create a new end-user account"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="create-name">Name *</Label>
-              <Input 
-                id="create-name" 
-                value={createForm.name} 
+              <Input
+                id="create-name"
+                value={createForm.name}
                 onChange={(e) => setCreateForm({...createForm, name: e.target.value})}
                 placeholder="Full name"
                 data-testid="input-create-name"
@@ -556,10 +766,10 @@ function AdminUsersContent() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-email">Email *</Label>
-              <Input 
-                id="create-email" 
+              <Input
+                id="create-email"
                 type="email"
-                value={createForm.email} 
+                value={createForm.email}
                 onChange={(e) => setCreateForm({...createForm, email: e.target.value})}
                 placeholder="email@example.com"
                 data-testid="input-create-email"
@@ -567,9 +777,9 @@ function AdminUsersContent() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-phone">Phone</Label>
-              <Input 
-                id="create-phone" 
-                value={createForm.phone} 
+              <Input
+                id="create-phone"
+                value={createForm.phone}
                 onChange={(e) => setCreateForm({...createForm, phone: e.target.value})}
                 placeholder="+91 9876543210"
                 data-testid="input-create-phone"
@@ -577,10 +787,10 @@ function AdminUsersContent() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-password">Password *</Label>
-              <Input 
-                id="create-password" 
+              <Input
+                id="create-password"
                 type="password"
-                value={createForm.password} 
+                value={createForm.password}
                 onChange={(e) => setCreateForm({...createForm, password: e.target.value})}
                 placeholder="Enter password"
                 data-testid="input-create-password"
@@ -594,9 +804,9 @@ function AdminUsersContent() {
                 </SelectTrigger>
                 <SelectContent>
                   {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
+                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="user">Regular User</SelectItem>
                 </SelectContent>
               </Select>
@@ -623,28 +833,28 @@ function AdminUsersContent() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Name</Label>
-              <Input 
-                id="edit-name" 
-                value={editForm.name} 
+              <Input
+                id="edit-name"
+                value={editForm.name}
                 onChange={(e) => setEditForm({...editForm, name: e.target.value})}
                 data-testid="input-edit-name"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-email">Email</Label>
-              <Input 
-                id="edit-email" 
+              <Input
+                id="edit-email"
                 type="email"
-                value={editForm.email} 
+                value={editForm.email}
                 onChange={(e) => setEditForm({...editForm, email: e.target.value})}
                 data-testid="input-edit-email"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone</Label>
-              <Input 
-                id="edit-phone" 
-                value={editForm.phone} 
+              <Input
+                id="edit-phone"
+                value={editForm.phone}
                 onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
                 data-testid="input-edit-phone"
               />
@@ -657,9 +867,9 @@ function AdminUsersContent() {
                 </SelectTrigger>
                 <SelectContent>
                   {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
+                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
                   <SelectItem value="receptionist">Receptionist</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="user">Regular User</SelectItem>
                 </SelectContent>
               </Select>
@@ -693,7 +903,7 @@ function AdminUsersContent() {
             <Button variant="outline" onClick={() => setDeactivateDialogOpen(false)} data-testid="button-cancel-status">
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={toggleUserStatus}
               disabled={deactivating}
               className={selectedUser?.isActive ? "bg-orange-500 hover:bg-orange-600" : "bg-green-500 hover:bg-green-600"}
@@ -735,7 +945,7 @@ function AdminUsersContent() {
                   <p className="text-sm text-slate-500">Properties</p>
                 </Card>
               </div>
-              
+
               {(dependencies.leads > 0 || dependencies.properties > 0) && (
                 <>
                   <div className="space-y-2">
@@ -756,8 +966,8 @@ function AdminUsersContent() {
 
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="reassign-leads" 
+                      <Checkbox
+                        id="reassign-leads"
                         checked={reassignLeads}
                         onCheckedChange={(checked) => setReassignLeads(checked as boolean)}
                       />
@@ -766,8 +976,8 @@ function AdminUsersContent() {
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="reassign-properties" 
+                      <Checkbox
+                        id="reassign-properties"
                         checked={reassignProperties}
                         onCheckedChange={(checked) => setReassignProperties(checked as boolean)}
                       />
@@ -790,7 +1000,7 @@ function AdminUsersContent() {
             <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={reassignUserItems}
               disabled={reassigning || !targetUserId || (dependencies?.leads === 0 && dependencies?.properties === 0)}
               className="bg-blue-600 hover:bg-blue-700"
@@ -866,11 +1076,11 @@ function AdminUsersContent() {
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={deleteUser}
               disabled={
-                deleting || 
-                isLastAdmin || 
+                deleting ||
+                isLastAdmin ||
                 !canDelete ||
                 ((selectedUser?.role === "admin" || selectedUser?.role === "superadmin") && deleteConfirmText !== "DELETE")
               }

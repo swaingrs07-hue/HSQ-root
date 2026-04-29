@@ -2049,8 +2049,22 @@ ${allPages.map(p => `  <url>
       // If sales executive, only show leads assigned to them
       if (user?.role === "sales_executive") {
         const myLeads = await storage.getLeadsForSalesExec(user.id, propertyId || undefined);
+
+        // Exclude leads belonging to staff members (mirrors the general branch filter)
+        const staffUsersForSE = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+        const staffEmailsSE = new Set(staffUsersForSE.map(u => u.email?.toLowerCase()).filter(Boolean));
+        const staffPhonesSE = new Set(staffUsersForSE.map(u => u.phone).filter(Boolean));
+        const filteredMyLeads = myLeads.filter(lead => {
+          if (lead.isManualEntry) return true;
+          const email = lead.email?.toLowerCase();
+          const phone = lead.phone;
+          if (email && staffEmailsSE.has(email)) return false;
+          if (phone && staffPhonesSE.has(phone)) return false;
+          return true;
+        });
+
         const userIds = new Set<string>();
-        myLeads.forEach(l => {
+        filteredMyLeads.forEach(l => {
           if (l.createdBy) userIds.add(l.createdBy);
           if (l.assignedToId) userIds.add(l.assignedToId);
           if (l.convertedByUserId) userIds.add(l.convertedByUserId);
@@ -2060,7 +2074,7 @@ ${allPages.map(p => `  <url>
           const u = await storage.getUser(uid);
           if (u) userMap.set(uid, u.name);
         }
-        const enriched = myLeads.map(l => ({
+        const enriched = filteredMyLeads.map(l => ({
           ...l,
           createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
           assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
