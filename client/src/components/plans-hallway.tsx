@@ -8,6 +8,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { ArrowRight, Check, X, ChevronDown } from "lucide-react";
+import hallwayLoopVideo from "@assets/Make_it_loop_smooth_202604291544_1777457674130.mp4";
 
 interface PlanItem {
   id: string;
@@ -103,6 +104,19 @@ export function PlansHallway({
   const modalRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const lastTriggerRef = useRef<HTMLElement | null>(null);
+
+  // Backdrop video gate: skip the loop video only on save-data (the
+  // surrounding hallway is itself heavily motion-driven, so honoring
+  // prefers-reduced-motion here would gate away the very effect the
+  // user explicitly wants). The <video> also self-disables on error.
+  const [showBackdropVideo, setShowBackdropVideo] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const conn = (
+      navigator as Navigator & { connection?: { saveData?: boolean } }
+    ).connection || null;
+    if (conn?.saveData) return false;
+    return true;
+  });
 
   const propertyImage = useMemo(() => {
     const m: Record<string, string> = {};
@@ -252,8 +266,12 @@ export function PlansHallway({
         <div
           className="sticky top-0 left-0 w-full h-screen overflow-hidden"
           style={{
+            // Transparent base + soft vignette so the global
+            // iridescent tubes layer (mounted in Layout at z-0)
+            // shimmers through behind the cards. The vignette
+            // keeps just enough darkness for text/cards to pop.
             background:
-              "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
+              "radial-gradient(circle at 50% 40%, rgba(13,13,13,0.55) 0%, rgba(0,0,0,0.85) 70%)",
             perspective: "2400px",
             perspectiveOrigin: "50% 50%",
             // Reference trick: viewport itself does NOT receive
@@ -265,6 +283,55 @@ export function PlansHallway({
             pointerEvents: "none",
           }}
         >
+          {/* Backdrop loop video — soft, blended layer behind the
+              cards that gives the corridor a cinematic, in-motion
+              feel matching the homepage hero. Sits at z-[1] above
+              the tubes pass-through but below the vignette and
+              cards. Skipped on prefers-reduced-motion / save-data
+              for the same a11y/perf reasons as the hero. */}
+          {showBackdropVideo && (
+            <div
+              className="absolute inset-0 pointer-events-none z-[1]"
+              aria-hidden="true"
+            >
+              <video
+                src={hallwayLoopVideo}
+                muted
+                autoPlay
+                loop
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                disableRemotePlayback
+                onError={() => setShowBackdropVideo(false)}
+                data-testid="plans-hallway-backdrop-video"
+                className="w-full h-full object-cover"
+                style={{
+                  opacity: 0.55,
+                  mixBlendMode: "luminosity",
+                  WebkitMaskImage:
+                    "linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
+                  maskImage:
+                    "linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
+                  transform: "translateZ(0)",
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
+                }}
+              />
+            </div>
+          )}
+          {/* Subtle radial vignette above the video to re-darken
+              the corners so the cards still pop from the moving
+              backdrop. Pointer-events disabled so it never blocks
+              card clicks. */}
+          <div
+            className="absolute inset-0 pointer-events-none z-[2]"
+            aria-hidden="true"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.55) 80%)",
+            }}
+          />
           {/* hallway track — matches the reference exactly.
               perspective: 2400px on the wrapper above, this track
               has transform-style: preserve-3d, and its translateZ
