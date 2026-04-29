@@ -1056,16 +1056,36 @@ export default function Home() {
         ) : activeSlide.videoUrl &&
           videoSupported &&
           !videoFailed ? (
-          // While a video is the active hero slide we deliberately do NOT
-          // apply the tube-mask cut-out or the alpha-blend trick: those
-          // force the browser to composite the iridescent WebGL canvas
-          // underneath every video frame, which makes mid-range phones
-          // and laptops drop frames. Render the video opaque on a solid
-          // backdrop so it has a fast, single-layer paint path. The
-          // global tube layer still appears on the rest of the page
-          // (below the hero) because the hero only covers the viewport
-          // height; here it just doesn't bleed into the video region.
-          <div className="absolute inset-0 bg-black">
+          // The hero video used to be rendered on a solid bg-black
+          // backdrop with the iridescent tube background completely
+          // hidden — so on every device the hero felt cut off from
+          // the rest of the page (no signature glow). We now use a
+          // transparent backdrop and apply a soft alpha mask to the
+          // video itself so the centre of the frame stays fully
+          // opaque (the cityscape / bridge / wherever the user is
+          // looking reads crisp, exactly as before) while the bottom
+          // 18% feathers to transparent. The global tube canvas
+          // sitting underneath the hero (z-0 in Layout) shows
+          // through this feathered band as an iridescent halo
+          // glow under the CTA buttons.
+          //
+          // Performance: the tubes are still paused while the hero
+          // video is the active slide (see the heroVideoActive
+          // useEffect above) so the WebGL render loop is NOT
+          // competing with the video decoder for GPU bandwidth on
+          // mid-range Windows / Android hardware — that's the same
+          // optimisation that was already there. Pausing freezes
+          // the canvas on its last rendered frame, which for slow-
+          // moving iridescent tubes still reads as the same glow.
+          // The instant the user scrolls past the hero, the tubes
+          // resume animating as before.
+          //
+          // Cost: one alpha-blended band across the bottom of the
+          // hero. That's a single composite op, not a per-pixel
+          // shader, so the same Windows laptops that struggled
+          // with the old "tubes-under-video" approach are not
+          // re-affected here.
+          <div className="absolute inset-0">
             <video
               ref={heroVideoRef}
               className="w-full h-full object-cover transition-opacity duration-500"
@@ -1074,6 +1094,10 @@ export default function Home() {
                 transform: "translateZ(0)",
                 willChange: "transform",
                 backfaceVisibility: "hidden",
+                WebkitMaskImage:
+                  "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
+                maskImage:
+                  "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
               }}
               muted
               autoPlay
@@ -1091,7 +1115,9 @@ export default function Home() {
               // every frame, which contributed to hero-video stutter
               // on integrated GPUs. We re-mount it on every slide
               // change so the next video's first frame still fades in
-              // over a poster.
+              // over a poster. The same feathered mask is applied so
+              // the cross-fade has no visible hard edge at the bottom
+              // — both layers reveal the tubes underneath identically.
               <img
                 src={activeSlide.image}
                 alt={activeSlide.title}
@@ -1102,6 +1128,10 @@ export default function Home() {
                 style={{
                   opacity: videoReady ? 0 : 1,
                   pointerEvents: "none",
+                  WebkitMaskImage:
+                    "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
+                  maskImage:
+                    "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
                 }}
                 aria-hidden={videoReady}
               />
@@ -1177,6 +1207,20 @@ export default function Home() {
           const skipBlur =
             heroIsVideo || prefersReducedMotion || isSmallViewport;
           if (skipBlur) {
+            // On video slides the hero <video> already feathers its
+            // bottom 30% to transparent (see the mask above) so the
+            // global iridescent tubes are meant to glow through this
+            // band as a halo behind the CTAs. The old bridge gradient
+            // here was nearly opaque at the bottom (rgba(5,5,5,0.95))
+            // which painted right over that halo and hid the tubes.
+            // We lighten it heavily on video slides — the top 60%
+            // stays fully transparent so tubes read at full
+            // brightness behind the buttons, and only the very
+            // bottom edge has a soft dark wash for a clean handoff
+            // into the next section. This is still a single colour
+            // gradient (no per-frame blur), so the same mid-range
+            // Windows / Android laptops that benefited from the
+            // original skipBlur path are not impacted.
             return (
               <div
                 className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
@@ -1184,7 +1228,7 @@ export default function Home() {
                 data-testid="hero-tube-blur-bridge"
                 style={{
                   background:
-                    "linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0.55) 55%, rgba(5,5,5,0.95) 100%)",
+                    "linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0) 60%, rgba(5,5,5,0.35) 85%, rgba(5,5,5,0.7) 100%)",
                 }}
               />
             );

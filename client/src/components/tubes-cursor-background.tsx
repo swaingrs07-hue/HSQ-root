@@ -184,10 +184,24 @@ export default function TubesCursorBackground({
         canvas.style.opacity = "1";
 
         // If the caller asked to pause before init finished, honor it
-        // immediately so we don't kick off a render loop just to stop
-        // it on the next tick.
+        // — but defer by one animation frame so the WebGL renderer has
+        // a chance to draw at least one full iridescent frame to the
+        // canvas. Otherwise, callers that mask only a band of the
+        // canvas (the home hero feathers its bottom 30% to transparent
+        // so the tubes show through behind the CTAs) would see a
+        // blank/dark band instead of the iridescent glow they expect,
+        // because we'd have stopped the loop before any pixels were
+        // ever drawn.
         if (pauseRequestedRef.current && typeof app.pause === "function") {
-          app.pause();
+          requestAnimationFrame(() => {
+            // Re-check the ref inside the RAF: the caller may have
+            // released the pause request in the same tick (e.g. the
+            // user scrolled past the hero before the first frame
+            // rendered) — in that case there's nothing to do.
+            if (pauseRequestedRef.current && app && typeof app.pause === "function") {
+              app.pause();
+            }
+          });
         }
 
         // Pause/resume on tab visibility changes to save GPU/battery.
