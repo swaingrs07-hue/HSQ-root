@@ -66,76 +66,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage || isApplyPage;
 
   // Single, persistent tube cursor background. Mounted once at the Layout
-  // level so that navigating between routes never tears down the WebGL
-  // context or re-fetches the CDN script. Activation is deferred until
-  // after the first paint / window load so the homepage LCP is not hurt,
-  // but capped at a hard ceiling so heavy pages still get the background.
-  const [globalTubesActive, setGlobalTubesActive] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // level so navigating between routes never tears down the WebGL context
+  // or re-fetches the CDN script. Activated immediately on mount so the
+  // iridescent tube background (and the hero-video blur effect that
+  // depends on it) is visible from the first paint. We still respect
+  // reduced-motion and save-data, and the tubes-cursor-background
+  // component calls onFailure -> active=false if WebGL is unavailable,
+  // so devices without WebGL fall back to the dark Layout background.
+  const [globalTubesActive, setGlobalTubesActive] = useState(() => {
+    if (typeof window === "undefined") return false;
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection || null;
     const saveData = !!conn?.saveData;
-    if (reduceMotion || saveData) return;
-
-    const isMobileViewport =
-      window.matchMedia("(max-width: 768px)").matches ||
-      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const postLoadDelay = isMobileViewport ? 3500 : 1500;
-    // Hard ceiling: even if window.load never fires (e.g. lazy
-    // images keep network busy), turn tubes on after this many ms
-    // from Layout mount so the visual background is never missing.
-    const hardCeiling = isMobileViewport ? 6000 : 3500;
-
-    const win = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    const hasNativeIdle = typeof win.requestIdleCallback === "function";
-
-    let activated = false;
-    let cancelled = false;
-    let postLoadTimer: number | null = null;
-    let ceilingTimer: number | null = null;
-    let idleId: number | null = null;
-    let idleFallbackTimer: number | null = null;
-    const activate = () => {
-      if (activated || cancelled) return;
-      activated = true;
-      setGlobalTubesActive(true);
-    };
-    const scheduleIdle = () => {
-      if (cancelled) return;
-      if (hasNativeIdle) {
-        idleId = win.requestIdleCallback!(activate, { timeout: postLoadDelay + 1500 });
-      } else {
-        idleFallbackTimer = window.setTimeout(activate, postLoadDelay);
-      }
-    };
-    const schedulePostLoad = () => {
-      postLoadTimer = window.setTimeout(scheduleIdle, postLoadDelay);
-    };
-
-    if (document.readyState === "complete") {
-      schedulePostLoad();
-    } else {
-      window.addEventListener("load", schedulePostLoad, { once: true });
-    }
-    ceilingTimer = window.setTimeout(activate, hardCeiling);
-
-    return () => {
-      cancelled = true;
-      if (postLoadTimer !== null) window.clearTimeout(postLoadTimer);
-      if (ceilingTimer !== null) window.clearTimeout(ceilingTimer);
-      if (idleFallbackTimer !== null) window.clearTimeout(idleFallbackTimer);
-      if (idleId !== null && typeof win.cancelIdleCallback === "function") {
-        win.cancelIdleCallback(idleId);
-      }
-      window.removeEventListener("load", schedulePostLoad);
-    };
-    // Empty deps: run once on Layout mount. Layout is not unmounted by
-    // route changes, so the canvas it owns persists across navigation.
-  }, []);
+    if (reduceMotion || saveData) return false;
+    return true;
+  });
   const handleGlobalTubesFailure = useCallback(() => setGlobalTubesActive(false), []);
 
   useEffect(() => {
