@@ -11,6 +11,7 @@ import {
   Heart, Camera, CheckCircle2, Shield, ArrowRight, Users,
   BookOpen, Utensils, FileText
 } from "lucide-react";
+import { useTubesActive } from "@/contexts/tubes-context";
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -33,7 +34,6 @@ export default function Apply() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
 
   const [form, setForm] = useState({
     fullName: "",
