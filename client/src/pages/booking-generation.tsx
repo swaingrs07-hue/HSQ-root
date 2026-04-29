@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -58,6 +58,7 @@ import {
   Star,
   Gem,
   Share2,
+  ShieldAlert,
 } from "lucide-react";
 
 interface Property {
@@ -134,7 +135,82 @@ const STEP_CONFIG = [
   { label: "Confirm", icon: ClipboardCheck, description: "Review & submit" },
 ];
 
-export default function BookingGeneration() {
+class BookingGenerationErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[BookingGeneration] React render error:", error, errorInfo);
+  }
+  handleReload = () => {
+    try {
+      if (typeof window !== "undefined") {
+        const draftKeys = ["booking_generation_draft", "booking_guest_gender", "booking_held_bed_id"];
+        for (const key of draftKeys) {
+          try { window.localStorage.removeItem(key); } catch {}
+        }
+      }
+    } catch {}
+    this.setState({ hasError: false, error: null });
+    if (typeof window !== "undefined") window.location.reload();
+  };
+  handleStartOver = () => {
+    try {
+      if (typeof window !== "undefined") {
+        const draftKeys = ["booking_generation_draft", "booking_guest_gender", "booking_held_bed_id"];
+        for (const key of draftKeys) {
+          try { window.localStorage.removeItem(key); } catch {}
+        }
+      }
+    } catch {}
+    this.setState({ hasError: false, error: null });
+    if (typeof window !== "undefined") {
+      window.location.href = "/booking/generate";
+    }
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center p-8" data-testid="booking-error-boundary">
+          <div className="max-w-md w-full bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="h-7 w-7 text-red-500" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-800 mb-2">Something went wrong loading this step</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              {this.state.error?.message || "The booking wizard ran into an unexpected error. You can reload the page and try again, or start over with a fresh booking."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="px-5 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                data-testid="button-error-reload"
+              >
+                Reload page
+              </button>
+              <button
+                type="button"
+                onClick={this.handleStartOver}
+                className="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                data-testid="button-error-start-over"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function BookingGenerationInner() {
   const { toast } = useToast();
   const { user, token, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
@@ -3653,5 +3729,13 @@ export default function BookingGeneration() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BookingGeneration() {
+  return (
+    <BookingGenerationErrorBoundary>
+      <BookingGenerationInner />
+    </BookingGenerationErrorBoundary>
   );
 }
