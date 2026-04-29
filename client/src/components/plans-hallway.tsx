@@ -45,6 +45,53 @@ interface PlansHallwayProps {
 
 const GOLD = "rgb(212, 175, 55)";
 
+// Each frame in the archive gets its own metallic palette so the cards
+// don't all read as identical dark rectangles. The palettes cycle by
+// frame index so a property's "Plan.01" and "Plan.02" always feel
+// distinct from each other.
+const TIER_PALETTES = [
+  {
+    label: "Champagne",
+    accent: "#D4AF37", // gold
+    accentSoft: "rgba(212,175,55,0.22)",
+    glow: "rgba(212,175,55,0.32)",
+    haloTop:
+      "linear-gradient(160deg, rgba(212,175,55,0.45) 0%, rgba(80,55,10,0.65) 45%, rgba(0,0,0,0.95) 100%)",
+    chip: "rgba(212,175,55,0.12)",
+    chipBorder: "rgba(212,175,55,0.35)",
+  },
+  {
+    label: "Copper",
+    accent: "#C97B5C", // antique copper
+    accentSoft: "rgba(201,123,92,0.22)",
+    glow: "rgba(201,123,92,0.32)",
+    haloTop:
+      "linear-gradient(160deg, rgba(201,123,92,0.45) 0%, rgba(73,32,18,0.65) 45%, rgba(0,0,0,0.95) 100%)",
+    chip: "rgba(201,123,92,0.12)",
+    chipBorder: "rgba(201,123,92,0.35)",
+  },
+  {
+    label: "Platinum",
+    accent: "#A8B5C0", // pewter / silver
+    accentSoft: "rgba(168,181,192,0.22)",
+    glow: "rgba(168,181,192,0.32)",
+    haloTop:
+      "linear-gradient(160deg, rgba(168,181,192,0.45) 0%, rgba(34,42,52,0.65) 45%, rgba(0,0,0,0.95) 100%)",
+    chip: "rgba(168,181,192,0.12)",
+    chipBorder: "rgba(168,181,192,0.35)",
+  },
+  {
+    label: "Bronze",
+    accent: "#9A7B4F", // burnished bronze
+    accentSoft: "rgba(154,123,79,0.22)",
+    glow: "rgba(154,123,79,0.32)",
+    haloTop:
+      "linear-gradient(160deg, rgba(154,123,79,0.45) 0%, rgba(50,38,18,0.65) 45%, rgba(0,0,0,0.95) 100%)",
+    chip: "rgba(154,123,79,0.12)",
+    chipBorder: "rgba(154,123,79,0.35)",
+  },
+];
+
 export function PlansHallway({
   plans,
   properties,
@@ -106,6 +153,15 @@ export function PlansHallway({
   // Outer container height: roughly one viewport per frame so the user has
   // enough scroll runway to walk through the entire archive.
   const outerVh = Math.max(1, frames.length) * 90 + 60;
+
+  // Defensive guard: if `plans` shrinks while a modal is open and the
+  // current `openIdx` no longer points at a valid frame, close the modal
+  // so we don't end up with a body scroll-lock and no visible UI.
+  useEffect(() => {
+    if (openIdx !== null && !frames[openIdx]) {
+      setOpenIdx(null);
+    }
+  }, [openIdx, frames]);
 
   useEffect(() => {
     if (openIdx === null) return;
@@ -194,120 +250,242 @@ export function PlansHallway({
           >
             {frames.map((frame, idx) => {
               const isLeft = frame.side === "left";
-              const baseTransform = `translate3d(0, 0, ${frame.zPos}px) rotateY(${
-                isLeft ? "35deg" : "-35deg"
-              })`;
-              const hoverTransform = `translate3d(0, 0, ${
-                frame.zPos + 20
-              }px) rotateY(${isLeft ? "35deg" : "-35deg"}) scale(1.05)`;
+              const tier = TIER_PALETTES[idx % TIER_PALETTES.length];
+              const price = Number(frame.plan.basePrice || 0);
+              const monthly = price > 0 ? Math.round(price / 12) : 0;
+              const features = (frame.plan.items || []).slice(0, 3);
+              // Cards face the viewer head-on. We tried rotateY(±35deg) for
+              // a more cinematic angle, but combined with translateZ inside
+              // a `transform-style: preserve-3d` parent, Chrome's hit-test
+              // routed mouse clicks on the further-back card to the closer
+              // card's button. Facing forward keeps the depth effect (via
+              // translateZ + perspective scaling) while making clicks
+              // unambiguous for every card in the row.
+              const baseTransform = `translate3d(0, 0, ${frame.zPos}px)`;
+              // Both cards use a `left:` anchor (no `right:`) so each
+              // wrapper has a fully-computed CSS layout box — this way
+              // hit-testing on the second card is just as reliable as
+              // on the first, and Playwright/keyboard activation reach
+              // the correct frame every time.
+              const leftAnchor = isLeft ? "10%" : "calc(90% - 300px)";
+
               return (
-                <button
+                <div
                   key={frame.plan.id}
-                  type="button"
-                  className={`absolute top-[24%] sm:top-[27%] cursor-pointer group ${
-                    isLeft ? "left-[10%] md:left-[20%]" : "right-[10%] md:right-[20%]"
-                  }`}
+                  className="absolute top-[14%] sm:top-[16%]"
                   style={{
-                    width: 260,
-                    height: 380,
-                    transformStyle: "preserve-3d",
+                    left: leftAnchor,
+                    width: 300,
+                    height: 460,
+                    // NOTE: transform-style left at the default `flat` so
+                    // Chrome treats the wrapper as a single 2D plane in
+                    // its parent's 3D context. With preserve-3d here the
+                    // browser was producing inconsistent hit-test results
+                    // for the second (further-back) card.
                     transform: baseTransform,
-                    border: "1px solid rgba(255,255,255,0.04)",
-                    background: "rgba(10,10,10,0.6)",
-                    borderRadius: 4,
-                    overflow: "hidden",
-                    transition:
-                      "filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease",
+                    pointerEvents: "auto",
                   }}
-                  onClick={() => setOpenIdx(idx)}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget;
-                    el.style.filter = "brightness(1.35)";
-                    el.style.boxShadow = `0 0 40px ${GOLD.replace(
-                      "rgb",
-                      "rgba",
-                    ).replace(")", ",0.18)")}`;
-                    el.style.transform = hoverTransform;
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget;
-                    el.style.filter = "";
-                    el.style.boxShadow = "";
-                    el.style.transform = baseTransform;
-                  }}
-                  onFocus={(e) => {
-                    const el = e.currentTarget;
-                    el.style.filter = "brightness(1.35)";
-                    el.style.boxShadow = `0 0 40px ${GOLD.replace(
-                      "rgb",
-                      "rgba",
-                    ).replace(")", ",0.18)")}`;
-                  }}
-                  onBlur={(e) => {
-                    const el = e.currentTarget;
-                    el.style.filter = "";
-                    el.style.boxShadow = "";
-                  }}
-                  data-testid={`plan-frame-${frame.plan.id}`}
-                  aria-label={`Open ${frame.plan.name}${
-                    frame.plan.propertyName
-                      ? " at " + frame.plan.propertyName
-                      : ""
-                  }`}
                 >
-                  {frame.image ? (
-                    <img
-                      src={frame.image}
-                      alt=""
-                      className="w-full h-full object-cover opacity-85 group-hover:opacity-100 transition-opacity duration-500"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full"
-                      style={{
-                        background:
-                          "linear-gradient(160deg, rgba(212,175,55,0.28) 0%, rgba(8,8,12,0.6) 60%, rgba(0,0,0,0.85) 100%)",
-                      }}
-                    />
-                  )}
-                  {/* dark scrim for legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 pointer-events-none" />
-                  {/* tier glow accent at the top */}
-                  <div
-                    className="absolute inset-x-0 top-0 h-12 pointer-events-none opacity-70"
+                  <button
+                    type="button"
+                    onClick={() => setOpenIdx(idx)}
+                    data-testid={`plan-frame-${frame.plan.id}`}
+                    aria-label={`Open ${frame.plan.name}${
+                      frame.plan.propertyName
+                        ? " at " + frame.plan.propertyName
+                        : ""
+                    }`}
+                    className="relative w-full h-full text-left cursor-pointer block group focus:outline-none"
                     style={{
                       background:
-                        "linear-gradient(to bottom, rgba(212,175,55,0.18), transparent)",
+                        "linear-gradient(180deg, #0e0e10 0%, #050506 100%)",
+                      border: `1px solid ${tier.chipBorder}`,
+                      borderRadius: 6,
+                      overflow: "hidden",
+                      boxShadow: `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
+                      transition:
+                        "border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease",
                     }}
-                  />
-                  {/* hover gold halo at top */}
-                  <div
-                    className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.25), transparent 60%)",
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget;
+                      el.style.filter = "brightness(1.18)";
+                      el.style.borderColor = tier.accent;
+                      el.style.boxShadow = `0 0 0 1px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
                     }}
-                  />
-                  {/* plan name overlay */}
-                  <div className="absolute inset-x-5 bottom-16 pointer-events-none">
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget;
+                      el.style.filter = "";
+                      el.style.borderColor = tier.chipBorder;
+                      el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                    }}
+                    onFocus={(e) => {
+                      const el = e.currentTarget;
+                      el.style.filter = "brightness(1.18)";
+                      el.style.borderColor = tier.accent;
+                      el.style.boxShadow = `0 0 0 2px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
+                    }}
+                    onBlur={(e) => {
+                      const el = e.currentTarget;
+                      el.style.filter = "";
+                      el.style.borderColor = tier.chipBorder;
+                      el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                    }}
+                  >
+                    {/* All inner card content is non-interactive so that
+                        every mouse event lands directly on the <button>
+                        and triggers its onClick — no event-bubbling race
+                        with rotated 3D hit-testing on inner spans. */}
+                    {/* photo region (top half) */}
                     <div
-                      className="text-[9px] tracking-[0.45em] uppercase mb-2"
-                      style={{ color: GOLD, opacity: 0.9 }}
+                      className="relative h-[180px] w-full overflow-hidden pointer-events-none"
+                      style={{ background: tier.haloTop }}
                     >
-                      {frame.plan.propertyName || ""}
+                      {frame.image && (
+                        <img
+                          src={frame.image}
+                          alt=""
+                          className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-500 mix-blend-luminosity"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      )}
+                      {/* tier accent wash */}
+                      <div
+                        className="absolute inset-0 pointer-events-none mix-blend-overlay"
+                        style={{
+                          background: `linear-gradient(180deg, ${tier.accentSoft} 0%, transparent 60%)`,
+                        }}
+                      />
+                      {/* fade into card body */}
+                      <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none bg-gradient-to-t from-[#050506] via-[#050506]/70 to-transparent" />
+                      {/* tier label chip top-left */}
+                      <div
+                        className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 text-[9px] tracking-[0.3em] uppercase font-semibold rounded-sm"
+                        style={{
+                          color: tier.accent,
+                          background: tier.chip,
+                          border: `1px solid ${tier.chipBorder}`,
+                          backdropFilter: "blur(8px)",
+                          WebkitBackdropFilter: "blur(8px)",
+                        }}
+                      >
+                        <span
+                          className="inline-block w-1 h-1 rounded-full"
+                          style={{ background: tier.accent }}
+                        />
+                        {tier.label}
+                      </div>
+                      {/* plan number top-right */}
+                      <div
+                        className="absolute top-3 right-3 text-[10px] tracking-[0.45em] uppercase font-semibold"
+                        style={{ color: tier.accent, opacity: 0.85 }}
+                      >
+                        Plan.{String(idx + 1).padStart(2, "0")}
+                      </div>
                     </div>
-                    <div className="font-heading font-bold text-2xl leading-[1.1] text-white">
-                      {frame.plan.name}
+
+                    {/* details */}
+                    <div className="relative px-5 pt-3 pb-5 flex flex-col gap-3 pointer-events-none">
+                      <div
+                        className="text-[9px] tracking-[0.4em] uppercase font-medium"
+                        style={{ color: tier.accent, opacity: 0.85 }}
+                      >
+                        {frame.plan.propertyName || ""}
+                      </div>
+                      <h3 className="font-heading font-bold text-[22px] leading-[1.1] text-white tracking-tight">
+                        {frame.plan.name}
+                      </h3>
+
+                      {/* price + occupancy row */}
+                      <div className="flex items-baseline gap-4 mt-1">
+                        {price > 0 && (
+                          <div className="flex flex-col">
+                            <span className="text-[8px] tracking-[0.3em] uppercase text-white/45">
+                              Yearly
+                            </span>
+                            <span
+                              className="font-heading text-[18px] font-bold leading-none"
+                              style={{ color: tier.accent }}
+                            >
+                              ₹{price.toLocaleString("en-IN")}
+                            </span>
+                            {monthly > 0 && (
+                              <span className="text-[9px] text-white/45 mt-0.5">
+                                ≈ ₹{monthly.toLocaleString("en-IN")}/mo
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {frame.plan.occupancy && (
+                          <div className="flex flex-col">
+                            <span className="text-[8px] tracking-[0.3em] uppercase text-white/45">
+                              Occupancy
+                            </span>
+                            <span className="font-heading text-[15px] font-semibold text-white leading-none mt-1">
+                              {frame.plan.occupancy}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* feature inclusions */}
+                      {features.length > 0 && (
+                        <ul className="flex flex-col gap-1.5 mt-1">
+                          {features.map((f) => {
+                            const val =
+                              f.featureValue ||
+                              `${f.includedQty ?? ""} ${f.unit ?? ""}`.trim();
+                            return (
+                              <li
+                                key={f.id}
+                                className="flex items-start gap-2 text-[11px] text-white/70 leading-snug"
+                              >
+                                <Check
+                                  className="w-3 h-3 mt-[1px] shrink-0"
+                                  style={{ color: tier.accent }}
+                                />
+                                <span>
+                                  {f.label}
+                                  {val && (
+                                    <span className="text-white/90 font-medium">
+                                      {" "}
+                                      {val}
+                                    </span>
+                                  )}
+                                </span>
+                              </li>
+                            );
+                          })}
+                          {(frame.plan.items || []).length > features.length && (
+                            <li className="text-[9px] text-white/40 pl-5 tracking-wider">
+                              +{(frame.plan.items || []).length - features.length}{" "}
+                              more
+                            </li>
+                          )}
+                        </ul>
+                      )}
+
+                      {/* divider + view CTA */}
+                      <div
+                        className="mt-2 pt-3 flex items-center justify-between"
+                        style={{
+                          borderTop: `1px solid ${tier.chipBorder}`,
+                        }}
+                      >
+                        <span className="text-[9px] tracking-[0.4em] uppercase text-white/45">
+                          Tap to explore
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] tracking-[0.35em] uppercase font-semibold"
+                          style={{ color: tier.accent }}
+                        >
+                          View
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  {/* bottom volume label */}
-                  <div className="absolute bottom-0 left-0 right-0 px-5 py-5 flex items-end justify-between text-[10px] tracking-[0.4em] uppercase text-white/60">
-                    <span>Plan.{String(idx + 1).padStart(2, "0")}</span>
-                    <span style={{ color: GOLD, opacity: 0.7 }}>View →</span>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </motion.div>
@@ -380,12 +558,17 @@ export function PlansHallway({
 }
 
 interface ModalContentProps {
-  opened: { plan: any; side: "left" | "right"; zPos: number };
+  opened: {
+    plan: any;
+    side: "left" | "right";
+    zPos: number;
+    image: string | null;
+  };
   openedIdx: number;
   openedPrice: number;
   propertyImage: Record<string, string>;
-  modalRef: React.RefObject<HTMLDivElement>;
-  closeBtnRef: React.RefObject<HTMLButtonElement>;
+  modalRef: React.RefObject<HTMLDivElement | null>;
+  closeBtnRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   onExplore: (target: string) => void;
 }
@@ -490,7 +673,7 @@ function ModalContent({
                 </div>
                 {(opened.plan.items || []).length > 0 && (
                   <ul className="space-y-2 mt-2">
-                    {(opened.plan.items || []).slice(0, 6).map((item) => {
+                    {(opened.plan.items || []).slice(0, 6).map((item: any) => {
                       const val =
                         item.featureValue ||
                         `${item.includedQty ?? ""} ${item.unit ?? ""}`.trim();
