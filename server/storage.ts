@@ -150,6 +150,7 @@ export interface IStorage {
   getBookingsByStudent(studentId: string): Promise<Booking[]>;
   getBookingsByProperty(propertyId: string): Promise<Booking[]>;
   getBookingsByCreator(userId: string): Promise<Booking[]>;
+  getBookingsForSalesExec(userId: string): Promise<Booking[]>;
   getPendingApprovalBookings(): Promise<Booking[]>;
   getAllBookings(): Promise<Booking[]>;
   createBookingWithCode(booking: InsertBooking): Promise<Booking>;
@@ -647,10 +648,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingsByCreator(userId: string): Promise<Booking[]> {
+    // Strict "createdBy = userId" lookup. Used by the public-ish
+    // /api/bookings/created-by/:userId endpoint, where broadening to
+    // assignedSalesExecId would silently expand what that endpoint exposes.
+    // The "My Bookings" view should call getBookingsForSalesExec instead.
     return await db
       .select()
       .from(bookings)
       .where(eq(bookings.createdBy, userId))
+      .orderBy(desc(bookings.createdAt));
+  }
+
+  async getBookingsForSalesExec(userId: string): Promise<Booking[]> {
+    // Returns bookings the sales exec is responsible for: ones they created
+    // OR ones attributed to them as the sales exec (e.g. an admin /
+    // receptionist generated the booking from a lead this user
+    // owns/converted). Backs the "My Bookings" page so the page totals
+    // (Total Bookings, Booking Amount, Active, Completed, Total Booking
+    // Value, Till Collected, Pending, Avg Booking Value, Add-on Revenue)
+    // all reflect the same expanded set. Querying the bookings table
+    // directly (no joins) means each row appears once — no de-dup needed.
+    return await db
+      .select()
+      .from(bookings)
+      .where(
+        or(
+          eq(bookings.createdBy, userId),
+          eq(bookings.assignedSalesExecId, userId),
+        ),
+      )
       .orderBy(desc(bookings.createdAt));
   }
 

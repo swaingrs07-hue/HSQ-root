@@ -4334,7 +4334,10 @@ ${allPages.map(p => `  <url>
   app.get("/api/my-bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.userId;
-      const bookings = await storage.getBookingsByCreator(userId);
+      // Sales-exec-aware lookup: includes bookings where the user is the
+      // creator OR the attributed sales exec (e.g. an admin/receptionist
+      // generated the booking from a lead this user owns/converted).
+      const bookings = await storage.getBookingsForSalesExec(userId);
       const enriched = await Promise.all(bookings.map(async (b) => {
         const [property, roomType, installments, payments] = await Promise.all([
           storage.getProperty(b.propertyId),
@@ -4443,9 +4446,26 @@ ${allPages.map(p => `  <url>
         const studentRecord = await storage.getStudent(studentId);
         if (studentRecord) bookingEmail = studentRecord.email;
       }
-      if (!bookingEmail && customerType === "lead" && leadId) {
-        const leadRecord = await storage.getLead(leadId);
-        if (leadRecord) bookingEmail = (leadRecord as any).email;
+      // Resolve the lead once so we can both fall back to its email AND
+      // auto-attribute the booking to the lead's owning sales exec below.
+      // Type comes from storage.getLead so we don't reach for `any`.
+      let leadRecord: Awaited<ReturnType<typeof storage.getLead>> | null = null;
+      if (customerType === "lead" && leadId) {
+        leadRecord = (await storage.getLead(leadId)) ?? null;
+        if (!bookingEmail && leadRecord?.email) bookingEmail = leadRecord.email;
+      }
+
+      // If the client did not explicitly supply assignedSalesExecId AND this
+      // booking is being generated from a lead, credit the sales exec who
+      // owns / converted that lead. This makes admin- and receptionist-
+      // initiated bookings show up in the right exec's My Bookings without
+      // anyone having to re-key the assignment. Sales execs creating their
+      // own booking already pass assignedSalesExecId from the client (see
+      // client/src/pages/booking-generation.tsx) so we don't override that.
+      let resolvedAssignedSalesExecId: string | null = assignedSalesExecId || null;
+      if (!resolvedAssignedSalesExecId && customerType === "lead" && leadRecord) {
+        resolvedAssignedSalesExecId =
+          leadRecord.assignedToId || leadRecord.convertedByUserId || null;
       }
       if (!bookingEmail || !bookingEmail.trim() || !bookingEmail.includes("@")) {
         return res.status(400).json({ error: "A valid email address is required for booking" });
@@ -4462,9 +4482,8 @@ ${allPages.map(p => `  <url>
         const studentRecord = await storage.getStudent(studentId);
         if (studentRecord) dupCheckPhone = studentRecord.phone;
       }
-      if (!dupCheckPhone && customerType === "lead" && leadId) {
-        const leadRecord = await storage.getLead(leadId);
-        if (leadRecord) dupCheckPhone = leadRecord.phone;
+      if (!dupCheckPhone && customerType === "lead" && leadRecord) {
+        dupCheckPhone = leadRecord.phone;
       }
       if (dupCheckPhone) {
         const normalizedPhone = dupCheckPhone.replace(/\D/g, "").slice(-10);
@@ -4600,7 +4619,7 @@ ${allPages.map(p => `  <url>
         approvalRequired,
         approvalStatus: approvalRequired ? "pending" : "not_required",
         createdBy: (req as AuthRequest).user!.userId,
-        assignedSalesExecId: assignedSalesExecId || null,
+        assignedSalesExecId: resolvedAssignedSalesExecId,
         agreementUrl: null,
         signatureData: null,
         residentDetails: residentDetails || null,
