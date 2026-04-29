@@ -48,7 +48,6 @@ import {
   Bell,
   Wallet,
   QrCode,
-  MousePointer2,
 } from "lucide-react";
 import {
   motion,
@@ -923,12 +922,16 @@ export default function Home() {
           !videoFailed ? (
           <div
             className="absolute inset-0 bg-black"
-            style={{
-              WebkitMaskImage:
-                "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
-              maskImage:
-                "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
-            }}
+            style={
+              tubesActive
+                ? {
+                    WebkitMaskImage:
+                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+                    maskImage:
+                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+                  }
+                : undefined
+            }
           >
             <video
               ref={heroVideoRef}
