@@ -80,6 +80,15 @@ interface StatusResponse {
     requestMatchesApex: boolean;
     appPublicMatchesApex: boolean;
     isCanonical: boolean;
+    domainProbes: Array<{
+      host: string;
+      status: "tls_ok_redirect" | "tls_failed" | "no_redirect" | "redirect_wrong_target";
+      httpStatus: number | null;
+      redirectTo: string | null;
+      latencyMs: number | null;
+      error: string | null;
+      hint: string | null;
+    }>;
     warnings: string[];
   };
   inboundEndpoints: InboundEndpoint[];
@@ -519,6 +528,83 @@ export default function AdminHmsHealth() {
                   <StatusBadge ok={isCanonical} label={isCanonical ? "Apex match" : "Mismatch"} />
                 </div>
               </div>
+
+              {/* Live probes for each linked non-canonical domain. */}
+              {status.canonicality.domainProbes && status.canonicality.domainProbes.length > 0 && (
+                <div className="border border-slate-200 rounded-md overflow-hidden" data-testid="domain-probes">
+                  <div className="bg-slate-50 px-3 py-2 border-b border-slate-200">
+                    <p className="text-xs font-medium text-slate-700">
+                      Linked non-canonical domains — live HTTPS probe
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      Each row HEAD-requests the domain and confirms it 301-redirects to{" "}
+                      <code className="font-mono">{status.canonicality.expectedApex}</code>.
+                    </p>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {status.canonicality.domainProbes.map((probe) => {
+                      const cfg =
+                        probe.status === "tls_ok_redirect"
+                          ? {
+                              cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                              icon: <CheckCircle2 className="w-3 h-3 mr-1" />,
+                              label: `TLS OK · ${probe.httpStatus} → apex`,
+                            }
+                          : probe.status === "tls_failed"
+                            ? {
+                                cls: "bg-rose-100 text-rose-700 border-rose-200",
+                                icon: <XCircle className="w-3 h-3 mr-1" />,
+                                label: "TLS / connection failed",
+                              }
+                            : probe.status === "redirect_wrong_target"
+                              ? {
+                                  cls: "bg-amber-100 text-amber-700 border-amber-200",
+                                  icon: <XCircle className="w-3 h-3 mr-1" />,
+                                  label: `Redirects elsewhere (${probe.httpStatus})`,
+                                }
+                              : {
+                                  cls: "bg-amber-100 text-amber-700 border-amber-200",
+                                  icon: <XCircle className="w-3 h-3 mr-1" />,
+                                  label: `Reachable but no redirect (${probe.httpStatus ?? "?"})`,
+                                };
+                      return (
+                        <div
+                          key={probe.host}
+                          className="px-3 py-2 flex items-start gap-3 text-xs"
+                          data-testid={`row-probe-${probe.host.replace(/[^a-z0-9]/gi, "-")}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <code className="font-mono font-medium text-slate-800">{probe.host}</code>
+                              <Badge className={`${cfg.cls} text-[10px]`} data-testid={`badge-probe-${probe.host.replace(/[^a-z0-9]/gi, "-")}`}>
+                                {cfg.icon}
+                                {cfg.label}
+                              </Badge>
+                              {probe.latencyMs != null && (
+                                <span className="text-[10px] text-slate-400">{probe.latencyMs}ms</span>
+                              )}
+                            </div>
+                            {probe.redirectTo && probe.status === "tls_ok_redirect" && (
+                              <p className="text-[10px] text-slate-500 mt-1 truncate">
+                                → <code className="font-mono">{probe.redirectTo}</code>
+                              </p>
+                            )}
+                            {probe.hint && (
+                              <p className="text-[10px] text-amber-700 mt-1">{probe.hint}</p>
+                            )}
+                            {probe.error && (
+                              <p className="text-[10px] text-rose-600 mt-1 break-all">
+                                {probe.error}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {status.canonicality.warnings.length > 0 && (
                 <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs space-y-1" data-testid="canonicality-warnings">
                   {status.canonicality.warnings.map((w, i) => (

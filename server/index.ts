@@ -6,13 +6,15 @@ import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { CANONICAL_APEX } from "./canonical-host";
 
 const app = express();
 const httpServer = createServer(app);
 
 // We sit behind Replit's edge proxy in production. Trust the first proxy
 // hop so req.hostname / req.protocol come from X-Forwarded-* headers
-// (needed for the www → apex redirect below to detect HTTPS correctly).
+// (needed for the canonical-host redirect below to see the real
+// incoming hostname instead of the loopback address).
 app.set("trust proxy", 1);
 
 declare module "http" {
@@ -21,30 +23,41 @@ declare module "http" {
   }
 }
 
-// ---- Canonical host redirect (www → apex) ----
-// SEO best practice: serve the site from one canonical hostname.
-// Our canonical is the apex `hsquare.in` (matches SITE_URL in seo-meta.ts
-// and every <link rel="canonical">). Any visitor landing on the `www.`
-// variant of a linked custom domain is 301-redirected to the apex,
-// preserving path + query string. Replit's *.replit.app/.replit.dev
-// preview hosts and localhost are left alone so dev/staging keep working.
+// ---- Canonical host redirect (any non-canonical → canonical apex) ----
+// SEO best practice: serve the site from ONE canonical hostname so Google
+// doesn't see duplicate content across `hsquare.in`, `www.hsquare.in`,
+// `hsquareliving.com`, `www.hsquareliving.com`, etc. The canonical apex
+// is read from APP_PUBLIC_URL when set (e.g. "https://hsquare.in"), and
+// falls back to "hsquare.in". Any incoming request whose hostname is not
+// the canonical apex is 301-redirected to the same path+query on the
+// canonical apex. Replit's *.replit.app / *.replit.dev preview hosts
+// and localhost are left alone so dev/staging keep working.
+//
+// CANONICAL_APEX is resolved by a shared helper in server/canonical-host.ts
+// so the diagnostic at /api/admin/hms-health/status and the redirect
+// middleware below can never disagree about what "canonical" means.
 app.use((req, res, next) => {
   const host = (req.hostname || "").toLowerCase();
-  if (host.startsWith("www.")) {
-    const apex = host.slice(4);
-    // Only redirect when it looks like a real custom domain (has a dot
-    // and isn't a Replit preview / localhost). This keeps dev safe.
-    if (apex.includes(".") && !apex.endsWith("replit.app") && !apex.endsWith("replit.dev") && apex !== "localhost") {
-      const target = `https://${apex}${req.originalUrl}`;
-      // GET/HEAD → 301 (classic SEO redirect). Anything else (a stray
-      // webhook POST that lands on www, etc.) → 308 so the method and
-      // request body are preserved per RFC 7538 instead of silently
-      // being downgraded to a body-less GET.
-      const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
-      return res.redirect(code, target);
-    }
+  // Always allow the canonical apex itself + Replit preview hosts +
+  // localhost. Anything else that smells like a real custom domain
+  // (has a dot, isn't a Replit preview) gets redirected.
+  if (
+    !host ||
+    host === CANONICAL_APEX ||
+    host === "localhost" ||
+    host.endsWith(".replit.app") ||
+    host.endsWith(".replit.dev") ||
+    !host.includes(".")
+  ) {
+    return next();
   }
-  next();
+  const target = `https://${CANONICAL_APEX}${req.originalUrl}`;
+  // GET/HEAD → 301 (classic SEO redirect). Anything else (a stray
+  // webhook POST that lands on a non-canonical host, etc.) → 308 so
+  // the method and request body are preserved per RFC 7538 instead
+  // of silently being downgraded to a body-less GET.
+  const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
+  return res.redirect(code, target);
 });
 
 app.use(

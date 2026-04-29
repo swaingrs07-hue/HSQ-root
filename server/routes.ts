@@ -22,6 +22,7 @@ import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 import { checkAndSendMilestone } from "./milestone-service";
+import { resolveCanonicalApex } from "./canonical-host";
 
 const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -13936,7 +13937,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const hasLoginCreds = !!(process.env.HOSTEL_FLOW_EMAIL && process.env.HOSTEL_FLOW_PASSWORD);
       const apiBaseUrl = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
       const appPublicUrl = process.env.APP_PUBLIC_URL || null;
-      const expectedApex = process.env.APP_EXPECTED_APEX || "hsquare.in";
+      // Same resolver as the canonical-host redirect middleware so the
+      // diagnostic and the redirect can never disagree about what the
+      // canonical apex is. APP_EXPECTED_APEX overrides for tests; in
+      // production both code paths read APP_PUBLIC_URL.
+      const expectedApex = process.env.APP_EXPECTED_APEX
+        ? resolveCanonicalApex(process.env.APP_EXPECTED_APEX)
+        : resolveCanonicalApex(process.env.APP_PUBLIC_URL);
       const requestHost = req.get("host") || null;
       const requestProtocol = (req.headers["x-forwarded-proto"] as string) || req.protocol;
 
@@ -14105,6 +14112,86 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const isCanonical = !!appPublicHost && !!requestHost &&
         requestMatchesApex && appPublicMatchesApex &&
         !appPublicIsWww && !requestIsWww;
+
+      // Active probes: HEAD-request each known non-canonical hostname and
+      // report whether (a) TLS handshakes, (b) we get a 30x to the apex,
+      // or (c) we get a 2xx from a non-canonical host (which means the
+      // server-side redirect did NOT fire and Google sees duplicate
+      // content). Add new domains to NON_CANONICAL_HOSTS_TO_PROBE only —
+      // every other piece of the diagnostic is data-driven from this list.
+      const NON_CANONICAL_HOSTS_TO_PROBE = [
+        `www.${expectedApex}`,
+        "hsquareliving.com",
+        "www.hsquareliving.com",
+      ];
+      type DomainProbeStatus = "tls_ok_redirect" | "tls_failed" | "no_redirect" | "redirect_wrong_target";
+      type DomainProbe = {
+        host: string;
+        status: DomainProbeStatus;
+        httpStatus: number | null;
+        redirectTo: string | null;
+        latencyMs: number | null;
+        error: string | null;
+        hint: string | null;
+      };
+      const probeDomain = async (host: string): Promise<DomainProbe> => {
+        const t0 = Date.now();
+        try {
+          const resp = await fetch(`https://${host}/`, {
+            method: "HEAD",
+            redirect: "manual",
+            signal: AbortSignal.timeout(5000),
+          });
+          const latencyMs = Date.now() - t0;
+          const location = resp.headers.get("location");
+          // 30x with a Location pointing at the canonical apex => OK.
+          if (resp.status >= 300 && resp.status < 400 && location) {
+            try {
+              const target = new URL(location, `https://${host}/`);
+              const targetHost = target.hostname.toLowerCase();
+              if (targetHost === expectedApex.toLowerCase()) {
+                return {
+                  host, status: "tls_ok_redirect", httpStatus: resp.status,
+                  redirectTo: location, latencyMs, error: null, hint: null,
+                };
+              }
+              return {
+                host, status: "redirect_wrong_target", httpStatus: resp.status,
+                redirectTo: location, latencyMs, error: null,
+                hint: `Redirects to "${targetHost}" instead of "${expectedApex}". Check canonical-host middleware.`,
+              };
+            } catch {
+              return {
+                host, status: "redirect_wrong_target", httpStatus: resp.status,
+                redirectTo: location, latencyMs, error: null,
+                hint: `Redirect target "${location}" could not be parsed.`,
+              };
+            }
+          }
+          // No redirect — server is serving content from the non-canonical
+          // host. Bad for SEO.
+          return {
+            host, status: "no_redirect", httpStatus: resp.status,
+            redirectTo: null, latencyMs, error: null,
+            hint: "Server reachable but did not redirect. Check the canonical-host middleware in server/index.ts.",
+          };
+        } catch (e: any) {
+          const latencyMs = Date.now() - t0;
+          // Most TLS / DNS / connection failures land here. We surface
+          // the message so the admin can tell apart "domain not linked"
+          // from "TLS cert missing" from "DNS not propagated".
+          const msg = e?.message || String(e);
+          return {
+            host, status: "tls_failed", httpStatus: null,
+            redirectTo: null, latencyMs, error: msg.slice(0, 200),
+            hint: `Connection or TLS failure. Re-link "${host}" in Replit Deployments so a TLS cert is issued, and confirm DNS points at Replit.`,
+          };
+        }
+      };
+      const domainProbes: DomainProbe[] = await Promise.all(
+        NON_CANONICAL_HOSTS_TO_PROBE.map(probeDomain)
+      );
+
       const canonicality = {
         expectedApex,
         appPublicHost,
@@ -14114,6 +14201,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         requestMatchesApex,
         appPublicMatchesApex,
         isCanonical,
+        domainProbes,
         warnings: [
           ...(requestIsWww ? [`Request host "${requestHost}" uses www. — HMS should hit apex (${expectedApex}).`] : []),
           ...(appPublicIsWww ? [`APP_PUBLIC_URL "${appPublicUrl}" uses www. — should be apex.`] : []),
