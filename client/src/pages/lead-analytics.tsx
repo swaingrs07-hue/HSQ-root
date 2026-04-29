@@ -95,6 +95,8 @@ const SOURCE_LABELS: Record<string, string> = {
   social_media: "Social Media",
   google_ads: "Google Ads",
   walk_in: "Walk-in",
+  call: "Phone Call",
+  phone_call: "Phone Call",
   phone_inquiry: "Phone Inquiry",
   email_campaign: "Email Campaign",
   event: "Event",

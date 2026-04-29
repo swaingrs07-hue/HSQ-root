@@ -495,7 +495,7 @@ export default function SalesDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="walk_in">Walk-in</SelectItem>
-                      <SelectItem value="phone_call">Phone Call</SelectItem>
+                      <SelectItem value="call">Phone Call</SelectItem>
                       <SelectItem value="whatsapp">WhatsApp</SelectItem>
                       <SelectItem value="website">Website</SelectItem>
                       <SelectItem value="referral">Referral</SelectItem>

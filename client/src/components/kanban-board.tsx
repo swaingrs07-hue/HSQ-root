@@ -302,13 +302,18 @@ interface RequestCardProps {
 const SOURCE_LABELS: Record<string, string> = {
   hsquare_dynamics: "Hsquare Dynamics",
   walk_in: "Walk-in",
-  phone_inquiry: "Phone",
+  call: "Phone Call",
+  phone_call: "Phone Call",
+  phone_inquiry: "Phone Inquiry",
+  whatsapp: "WhatsApp",
   social_media: "Social Media",
   google_ads: "Google Ads",
   email_campaign: "Email",
   website: "Website",
   referral: "Referral",
   chatbot: "Chatbot",
+  event: "Event",
+  other: "Other",
 };
 
 const PRIORITY_STYLES: Record<string, { dot: string; text: string }> = {

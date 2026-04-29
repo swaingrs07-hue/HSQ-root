@@ -122,6 +122,29 @@ const DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   tablet: Tablet,
 };
 
+const SOURCE_LABELS: Record<string, string> = {
+  hsquare_dynamics: "Hsquare Dynamics",
+  website: "Website",
+  referral: "Referral",
+  social_media: "Social Media",
+  google_ads: "Google Ads",
+  email_campaign: "Email Campaign",
+  walk_in: "Walk-in",
+  call: "Phone Call",
+  phone_call: "Phone Call",
+  phone_inquiry: "Phone Inquiry",
+  whatsapp: "WhatsApp",
+  chatbot: "Chatbot",
+  event: "Event",
+  other: "Other",
+  manual: "Manual",
+};
+
+const formatSourceLabel = (value?: string | null) => {
+  if (!value) return "Manual";
+  return SOURCE_LABELS[value] || value;
+};
+
 export default function AdminLeads() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -671,6 +694,8 @@ export default function AdminLeads() {
                     <SelectItem value="social_media">Social Media</SelectItem>
                     <SelectItem value="google_ads">Google Ads</SelectItem>
                     <SelectItem value="walk_in">Walk-in</SelectItem>
+                    <SelectItem value="call">Phone Call</SelectItem>
+                    <SelectItem value="phone_call">Phone Call (legacy)</SelectItem>
                     <SelectItem value="phone_inquiry">Phone Inquiry</SelectItem>
                     <SelectItem value="email_campaign">Email Campaign</SelectItem>
                     <SelectItem value="chatbot">Chatbot</SelectItem>
@@ -804,7 +829,9 @@ export default function AdminLeads() {
                                   </span>
                                 ) : (
                                   <p className="text-xs text-slate-500">
-                                    {lead.isManualEntry ? `via ${lead.entrySource || "manual"}` : lead.source}
+                                    {lead.isManualEntry
+                                      ? `via ${formatSourceLabel(lead.entrySource)}`
+                                      : formatSourceLabel(lead.source)}
                                   </p>
                                 )}
                                 {lead.createdByName && (
