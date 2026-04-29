@@ -918,10 +918,18 @@ export default function Home() {
               </div>
             </div>
           </div>
-        ) : tubesActive ? null : activeSlide.videoUrl &&
+        ) : activeSlide.videoUrl &&
           videoSupported &&
           !videoFailed ? (
-          <div className="absolute inset-0 bg-black">
+          <div
+            className="absolute inset-0 bg-black"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+              maskImage:
+                "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.6) 92%, transparent 100%)",
+            }}
+          >
             <video
               ref={heroVideoRef}
               className="w-full h-full object-cover transition-opacity duration-700"
@@ -979,10 +987,30 @@ export default function Home() {
           className="absolute inset-0 z-[5]"
           style={{
             background: hasAnyVideo
-              ? "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 70%, rgba(5,5,5,1) 100%)"
-              : "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,1) 100%)",
+              ? "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 65%, rgba(5,5,5,0.65) 88%, rgba(5,5,5,0) 100%)"
+              : "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,0.7) 88%, rgba(5,5,5,0) 100%)",
           }}
         />
+        {/* Frosted blur strip at the bottom of the hero so the iridescent
+            tube animation that lives behind the page bleeds up through the
+            video's masked bottom edge with a soft haze instead of a hard
+            cut. The mask hides the blur in the upper portion so the video
+            stays sharp where it matters. */}
+        {tubesActive && (
+          <div
+            className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
+            aria-hidden="true"
+            data-testid="hero-tube-blur-bridge"
+            style={{
+              backdropFilter: "blur(28px) saturate(120%)",
+              WebkitBackdropFilter: "blur(28px) saturate(120%)",
+              WebkitMaskImage:
+                "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
+              maskImage:
+                "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
+            }}
+          />
+        )}
         {!hasAnyVideo && (
           <>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/30 z-[5]" />
@@ -1035,131 +1063,21 @@ export default function Home() {
           </>
         )}
 
-        {!tubesActive && (
-          <div
-            className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none"
-            data-testid="hero-watermark"
-          >
-            <img
-              src={hsquareLogo}
-              alt=""
-              className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert"
-            />
-            <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">
-              Hsquare Living
-            </span>
-          </div>
-        )}
+        <div
+          className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none"
+          data-testid="hero-watermark"
+        >
+          <img
+            src={hsquareLogo}
+            alt=""
+            className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert"
+          />
+          <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">
+            Hsquare Living
+          </span>
+        </div>
 
-        {tubesActive && (
-          <div
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 pointer-events-none"
-            style={{ fontFamily: "'Satoshi', sans-serif" }}
-            data-testid="hero-flux-overlay"
-          >
-            <div className="max-w-4xl text-center select-none">
-              <motion.span
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-[0.2em] text-white/60 mb-6"
-                data-testid="text-hero-badge"
-              >
-                Premium Co-Living · Mumbai
-              </motion.span>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeIn" }}
-                className="text-[14vw] md:text-[9vw] leading-[1.0] font-extrabold uppercase tracking-tight mb-4 text-white"
-                style={{
-                  fontFamily: "'Wordmark', sans-serif",
-                  textShadow: "0 0 40px rgba(255,255,255,0.2)",
-                }}
-                data-testid="text-hero-title"
-              >
-                HSQUARE
-                <br />
-                LIVING
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="max-w-md mx-auto text-lg md:text-xl text-white/60 mb-10 leading-relaxed font-medium"
-                data-testid="text-hero-subtitle"
-              >
-                Premium student hostels & co-living near Mumbai's top colleges.
-                Move your cursor to feel the energy.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 pointer-events-auto"
-              >
-                <Link href="/properties">
-                  <button
-                    className="px-10 py-4 bg-white text-black font-bold uppercase tracking-widest text-sm rounded-full transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
-                    data-testid="button-explore-properties"
-                  >
-                    Explore Properties
-                  </button>
-                </Link>
-                <Link href="/properties">
-                  <button
-                    className="px-10 py-4 bg-transparent border border-white/20 text-white font-bold uppercase tracking-widest text-sm rounded-full backdrop-blur-md hover:bg-white/5 transition-all flex items-center gap-2"
-                    data-testid="button-take-tour"
-                  >
-                    <Play className="w-4 h-4" />
-                    Virtual Tour
-                  </button>
-                </Link>
-                <button
-                  className="px-10 py-4 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 font-bold uppercase tracking-widest text-sm rounded-full backdrop-blur-md hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-all flex items-center gap-2"
-                  data-testid="button-download-app"
-                  onClick={() => {
-                    const el = document.getElementById("app-download-section");
-                    if (el)
-                      el.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  <Smartphone className="w-4 h-4" />
-                  Resident App
-                </button>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, y: [0, -8, 0] }}
-              transition={{
-                opacity: { delay: 0.4, duration: 0.4 },
-                y: {
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.4,
-                },
-              }}
-              className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3"
-            >
-              <div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white/40 to-white/40 mb-2" />
-              <div className="flex items-center gap-3 text-white/40">
-                <MousePointer2 className="w-4 h-4" />
-                <span className="text-[10px] uppercase tracking-[0.4em] font-bold">
-                  Click to Randomize Energy
-                </span>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {!tubesActive && (
-          <div className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4">
+        <div className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1203,13 +1121,11 @@ export default function Home() {
               </Button>
             </motion.div>
           </div>
-        )}
 
-        {!tubesActive && (
-          <div className="absolute left-0 right-0 bottom-0 z-30">
-            <div className="flex items-center justify-between px-4 md:px-8 py-4">
-              <div className="flex items-center gap-3">
-                {!hasAnyVideo && heroSlides.length > 1 && (
+        <div className="absolute left-0 right-0 bottom-0 z-30">
+          <div className="flex items-center justify-between px-4 md:px-8 py-4">
+            <div className="flex items-center gap-3">
+              {!hasAnyVideo && heroSlides.length > 1 && (
                   <>
                     <button
                       onClick={prevSlide}
@@ -1281,7 +1197,6 @@ export default function Home() {
               </button>
             </div>
           </div>
-        )}
       </section>
       <ImmersiveScene
         variant="aurora"
