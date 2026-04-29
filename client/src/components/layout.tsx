@@ -100,29 +100,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     mq.addEventListener?.("change", handler);
     return () => mq.removeEventListener?.("change", handler);
   }, []);
-  const [isSmallViewport, setIsSmallViewport] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth < 768;
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handler = () => setIsSmallViewport(window.innerWidth < 768);
-    window.addEventListener("resize", handler, { passive: true });
-    return () => window.removeEventListener("resize", handler);
-  }, []);
 
-  // Effective tube state. Tubes are skipped when the device or user
-  // signals it can't afford them (reduced-motion, save-data, no WebGL).
-  // Additionally, on the homepage specifically — where the iridescent
-  // tubes used to composite under the hero video and cause stuttering —
-  // we also skip the tube layer for small mobile viewports. Other
-  // pages (like /apply) keep their tube background regardless of
-  // viewport size, so this change is scoped to the hero-video region
-  // exactly as Task #112 requires.
-  const globalTubesActive =
-    tubesSupported &&
-    !prefersReducedMotion &&
-    !(isHomePage && isSmallViewport);
+  // Effective tube state. Tubes are skipped only when the device or
+  // user signals it can't afford them (reduced-motion, save-data, or
+  // no WebGL). The mobile-homepage exclusion that used to live here
+  // existed because the iridescent tubes composited under the hero
+  // video and caused stuttering on small phones. That root cause is
+  // now solved by the hero pausing the tubes while the video is on
+  // screen (Task #127), so mobile users get the full iridescent
+  // background everywhere — including the homepage.
+  const globalTubesActive = tubesSupported && !prefersReducedMotion;
 
   // Allow individual pages (currently the home hero video) to ask the
   // global iridescent tube background to pause its WebGL render loop
