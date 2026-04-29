@@ -1,28 +1,6 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ParticleBackground } from "@/components/particle-background";
-
-const TubesCursorBackground = lazy(() => import("@/components/tubes-cursor-background"));
-
-function TubesLayer({ enabled, onFailure }: { enabled: boolean; onFailure?: () => void }) {
-  if (!enabled) return null;
-  return (
-    <div
-      className="fixed inset-0 z-0 pointer-events-none"
-      data-testid="tubes-fullpage-layer"
-      style={{
-        transform: "translateZ(0)",
-        willChange: "transform",
-        contain: "strict",
-        isolation: "isolate",
-      }}
-    >
-      <Suspense fallback={null}>
-        <TubesCursorBackground enabled={enabled} onFailure={onFailure} />
-      </Suspense>
-    </div>
-  );
-}
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,15 +34,6 @@ export default function Apply() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const [tubesActive, setTubesActive] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } })
-      .connection?.saveData === true;
-    if (!reduceMotion && !saveData) setTubesActive(true);
-  }, []);
-  const handleTubesFailure = useCallback(() => setTubesActive(false), []);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -188,8 +157,7 @@ export default function Apply() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#050505] relative overflow-hidden flex items-center justify-center">
-        <TubesLayer enabled={tubesActive} onFailure={handleTubesFailure} />
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
         <ParticleBackground />
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -224,8 +192,7 @@ export default function Apply() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] relative overflow-hidden">
-      <TubesLayer enabled={tubesActive} onFailure={handleTubesFailure} />
+    <div className="min-h-screen relative overflow-hidden">
       <ParticleBackground />
 
       <div className="relative z-10 pt-28 pb-20 px-4">

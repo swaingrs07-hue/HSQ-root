@@ -11,6 +11,7 @@ import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
 import { AnimatedLogo } from "./animated-logo";
 import { PullToRefresh } from "./pull-to-refresh";
+import { TubesContext } from "@/contexts/tubes-context";
 
 const TubesCursorBackground = lazy(
   () => import("@/components/tubes-cursor-background"),
@@ -64,21 +65,77 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isApplyPage = location === "/apply";
   const hasTransparentHeader = isHomePage || isPropertyPage || isMyBookingsPage || isAboutPage || isContactPage || isFaqPage || isTermsPage || isPrivacyPage || isApplyPage;
 
-  // Pages that mount their own tube cursor background internally.
-  // We skip the global mount here so we never render two canvases
-  // competing for the same WebGL context.
-  const ownsTubesLocally = isHomePage || isApplyPage;
+  // Single, persistent tube cursor background. Mounted once at the Layout
+  // level so that navigating between routes never tears down the WebGL
+  // context or re-fetches the CDN script. Activation is deferred until
+  // after the first paint / window load so the homepage LCP is not hurt,
+  // but capped at a hard ceiling so heavy pages still get the background.
   const [globalTubesActive, setGlobalTubesActive] = useState(false);
   useEffect(() => {
-    if (ownsTubesLocally) {
-      setGlobalTubesActive(false);
-      return;
-    }
-    const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const conn = (typeof navigator !== "undefined" && (navigator as Navigator & { connection?: { saveData?: boolean } }).connection) || null;
+    if (typeof window === "undefined") return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection || null;
     const saveData = !!conn?.saveData;
-    setGlobalTubesActive(!reduceMotion && !saveData);
-  }, [ownsTubesLocally, location]);
+    if (reduceMotion || saveData) return;
+
+    const isMobileViewport =
+      window.matchMedia("(max-width: 768px)").matches ||
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const postLoadDelay = isMobileViewport ? 3500 : 1500;
+    // Hard ceiling: even if window.load never fires (e.g. lazy
+    // images keep network busy), turn tubes on after this many ms
+    // from Layout mount so the visual background is never missing.
+    const hardCeiling = isMobileViewport ? 6000 : 3500;
+
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const hasNativeIdle = typeof win.requestIdleCallback === "function";
+
+    let activated = false;
+    let cancelled = false;
+    let postLoadTimer: number | null = null;
+    let ceilingTimer: number | null = null;
+    let idleId: number | null = null;
+    let idleFallbackTimer: number | null = null;
+    const activate = () => {
+      if (activated || cancelled) return;
+      activated = true;
+      setGlobalTubesActive(true);
+    };
+    const scheduleIdle = () => {
+      if (cancelled) return;
+      if (hasNativeIdle) {
+        idleId = win.requestIdleCallback!(activate, { timeout: postLoadDelay + 1500 });
+      } else {
+        idleFallbackTimer = window.setTimeout(activate, postLoadDelay);
+      }
+    };
+    const schedulePostLoad = () => {
+      postLoadTimer = window.setTimeout(scheduleIdle, postLoadDelay);
+    };
+
+    if (document.readyState === "complete") {
+      schedulePostLoad();
+    } else {
+      window.addEventListener("load", schedulePostLoad, { once: true });
+    }
+    ceilingTimer = window.setTimeout(activate, hardCeiling);
+
+    return () => {
+      cancelled = true;
+      if (postLoadTimer !== null) window.clearTimeout(postLoadTimer);
+      if (ceilingTimer !== null) window.clearTimeout(ceilingTimer);
+      if (idleFallbackTimer !== null) window.clearTimeout(idleFallbackTimer);
+      if (idleId !== null && typeof win.cancelIdleCallback === "function") {
+        win.cancelIdleCallback(idleId);
+      }
+      window.removeEventListener("load", schedulePostLoad);
+    };
+    // Empty deps: run once on Layout mount. Layout is not unmounted by
+    // route changes, so the canvas it owns persists across navigation.
+  }, []);
   const handleGlobalTubesFailure = useCallback(() => setGlobalTubesActive(false), []);
 
   useEffect(() => {
@@ -204,7 +261,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const headerTransparent = hasTransparentHeader && !scrolled && !mobileMenuOpen;
 
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col font-sans relative">
+    <TubesContext.Provider value={{ active: globalTubesActive }}>
+    <div
+      className="min-h-screen bg-[#050505] flex flex-col font-sans relative"
+      data-testid="layout-root"
+    >
       {globalTubesActive && (
         <>
           <div
@@ -471,6 +532,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </PullToRefresh>
       </main>
 
+      {/* footer + close moved below; provider closes after the outer div */}
+
       <footer className="bg-stone-900/85 backdrop-blur-md text-stone-300 relative z-10" data-testid="site-footer">
         <div className="container mx-auto px-6 pt-16 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-6">
@@ -669,5 +732,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         }
       `}</style>
     </div>
+    </TubesContext.Provider>
   );
 }

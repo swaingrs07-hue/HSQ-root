@@ -4,8 +4,6 @@ import {
   useCallback,
   useRef,
   useMemo,
-  lazy,
-  Suspense,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
@@ -64,25 +62,7 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
-
-const TubesCursorBackground = lazy(
-  () => import("@/components/tubes-cursor-background"),
-);
-
-function TubesCursorBackgroundLazy({
-  enabled,
-  onFailure,
-}: {
-  enabled: boolean;
-  onFailure?: () => void;
-}) {
-  if (!enabled) return null;
-  return (
-    <Suspense fallback={null}>
-      <TubesCursorBackground enabled={enabled} onFailure={onFailure} />
-    </Suspense>
-  );
-}
+import { useTubesActive } from "@/contexts/tubes-context";
 
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
@@ -589,53 +569,10 @@ function AnimatedCounter({
 }
 
 export default function Home() {
-  const [tubesActive, setTubesActive] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    const saveData =
-      (navigator as Navigator & { connection?: { saveData?: boolean } })
-        .connection?.saveData === true;
-    if (reduceMotion || saveData) return;
-
-    // Defer Tubes activation until AFTER the LCP paint has had a chance
-    // to land (hero image rendered + window load event). On mobile this
-    // means the WebP hero is still the LCP candidate and we don't hurt
-    // the Search Console LCP score, but the 3D background still loads
-    // shortly after for both desktop and mobile users.
-    const isMobileViewport =
-      window.matchMedia("(max-width: 768px)").matches ||
-      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const postLcpDelay = isMobileViewport ? 3500 : 1500;
-
-    const idle =
-      (window as Window & {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
-      }).requestIdleCallback ||
-      ((cb: () => void) => window.setTimeout(cb, postLcpDelay));
-
-    let timer: number | null = null;
-    const schedule = () => {
-      timer = window.setTimeout(
-        () => idle(() => setTubesActive(true), { timeout: postLcpDelay + 1500 }),
-        postLcpDelay,
-      );
-    };
-
-    if (document.readyState === "complete") {
-      schedule();
-    } else {
-      window.addEventListener("load", schedule, { once: true });
-    }
-
-    return () => {
-      if (timer !== null) window.clearTimeout(timer);
-      window.removeEventListener("load", schedule);
-    };
-  }, []);
-  const handleTubesFailure = useCallback(() => setTubesActive(false), []);
+  // Tubes are mounted once at the Layout level so they persist across
+  // navigation. We just read the active flag here and use it for the
+  // existing hero conditional rendering.
+  const tubesActive = useTubesActive();
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -943,24 +880,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col bg-[#050505] relative">
-      {tubesActive && (
-        <div
-          className="fixed inset-0 z-0 pointer-events-none"
-          data-testid="tubes-fullpage-layer"
-          style={{
-            transform: "translateZ(0)",
-            willChange: "transform",
-            contain: "strict",
-            isolation: "isolate",
-          }}
-        >
-          <TubesCursorBackgroundLazy
-            enabled={tubesActive}
-            onFailure={handleTubesFailure}
-          />
-        </div>
-      )}
+    <div className="flex flex-col relative">
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }
