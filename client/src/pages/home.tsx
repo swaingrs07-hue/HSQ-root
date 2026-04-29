@@ -926,9 +926,9 @@ export default function Home() {
               tubesActive
                 ? {
                     WebkitMaskImage:
-                      "linear-gradient(180deg, black 0%, black 80%, rgba(0,0,0,0.55) 94%, transparent 100%)",
+                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
                     maskImage:
-                      "linear-gradient(180deg, black 0%, black 80%, rgba(0,0,0,0.55) 94%, transparent 100%)",
+                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
                   }
                 : undefined
             }
@@ -937,7 +937,11 @@ export default function Home() {
               ref={heroVideoRef}
               className="w-full h-full object-cover transition-opacity duration-700"
               style={{
-                opacity: videoReady ? (tubesActive ? 0.72 : 1) : 0,
+                opacity: videoReady ? (tubesActive ? 0.55 : 1) : 0,
+                filter: tubesActive
+                  ? "blur(2.5px) saturate(1.15) brightness(1.05)"
+                  : undefined,
+                transform: tubesActive ? "scale(1.04)" : undefined,
               }}
               muted
               autoPlay
@@ -954,7 +958,11 @@ export default function Home() {
                 loading="eager"
                 decoding="async"
                 style={{
-                  opacity: tubesActive ? 0.72 : 1,
+                  opacity: tubesActive ? 0.55 : 1,
+                  filter: tubesActive
+                    ? "blur(2.5px) saturate(1.15) brightness(1.05)"
+                    : undefined,
+                  transform: tubesActive ? "scale(1.04)" : undefined,
                 }}
               />
             )}
