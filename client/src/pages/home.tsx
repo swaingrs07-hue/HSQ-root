@@ -64,7 +64,6 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
-import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
 
 const TubesCursorBackground = lazy(
   () => import("@/components/tubes-cursor-background"),
@@ -586,105 +585,6 @@ function AnimatedCounter({
         {label}
       </div>
     </div>
-  );
-}
-
-function PropertyResourcesSection({ properties }: { properties: any[] }) {
-  return (
-    <section
-      className="relative py-24 md:py-32"
-      style={{ background: "linear-gradient(180deg, #050505 0%, #0F0E0C 100%)" }}
-      data-testid="section-property-resources"
-    >
-      <div
-        className="absolute inset-0 pointer-events-none opacity-40"
-        style={{
-          background:
-            "radial-gradient(ellipse at 70% 20%, rgba(212,175,55,0.08) 0%, transparent 55%), radial-gradient(ellipse at 20% 90%, rgba(139,125,107,0.06) 0%, transparent 50%)",
-        }}
-      />
-      <div className="container mx-auto px-4 relative z-10">
-        <motion.div
-          className="max-w-3xl mb-14"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-[2px]" style={{ background: "#D4AF37" }} />
-            <span className="text-[11px] uppercase tracking-[0.4em] font-medium" style={{ color: "#8B7D6B" }}>
-              Property Resources
-            </span>
-          </div>
-          <h2 className="text-3xl md:text-5xl font-heading font-black tracking-tight mb-4" style={{ color: "#FDFCF9" }}>
-            Brochures for every residence
-          </h2>
-          <p className="text-base md:text-lg leading-relaxed" style={{ color: "#8B7D6B" }}>
-            Auto-generated PDFs and presentations for every Hsquareliving property. Always reflects the latest pricing, room availability, amenities and location details — perfect to share with parents, friends or your study group.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
-          {properties.map((p: any, idx: number) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.1 }}
-              transition={{ duration: 0.45, delay: Math.min(idx * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
-              className="group relative overflow-hidden rounded-3xl border transition-all duration-500 hover:-translate-y-1"
-              style={{
-                background: "linear-gradient(180deg, #1A1A1A 0%, #121110 100%)",
-                borderColor: "rgba(212,175,55,0.18)",
-              }}
-              data-testid={`card-property-resource-${p.id}`}
-            >
-              <div
-                className="absolute -top-32 -right-24 w-56 h-56 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
-                style={{ background: "rgba(212,175,55,0.18)" }}
-              />
-              <div className="relative aspect-[16/10] overflow-hidden">
-                {p.imageUrl ? (
-                  <img
-                    src={p.imageUrl}
-                    alt={p.displayName || p.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.06]"
-                  />
-                ) : (
-                  <div className="w-full h-full" style={{ background: "#0F0E0C" }} />
-                )}
-                <div
-                  className="absolute inset-0"
-                  style={{ background: "linear-gradient(180deg, rgba(26,26,26,0) 30%, rgba(26,26,26,0.92) 100%)" }}
-                />
-                <div className="absolute top-4 left-4 px-3 py-1 rounded-full backdrop-blur-md text-[10px] uppercase tracking-[0.25em] font-medium" style={{ background: "rgba(212,175,55,0.15)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.25)" }}>
-                  {p.category || "Residence"}
-                </div>
-              </div>
-              <div className="relative p-5 md:p-6">
-                <h3 className="text-lg md:text-xl font-bold tracking-tight mb-1.5 line-clamp-1" style={{ color: "#FDFCF9" }}>
-                  {p.displayName || p.name}
-                </h3>
-                <p className="text-sm mb-5 line-clamp-1 flex items-center gap-1.5" style={{ color: "#8B7D6B" }}>
-                  <MapPin className="w-3.5 h-3.5" style={{ color: "#D4AF37" }} />
-                  {p.location}
-                </p>
-                <PropertyBrochureButtons
-                  propertyId={p.id}
-                  propertyName={p.displayName || p.name}
-                  lastUpdated={p.brochureLastDownloadedAt || p.updatedAt}
-                  downloadCount={p.brochureDownloadCount}
-                  variant="row"
-                />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -2352,9 +2252,6 @@ export default function Home() {
             </div>
           </ImmersiveScene>
         </>
-      )}
-      {!propertiesLoading && properties.length > 0 && (
-        <PropertyResourcesSection properties={properties} />
       )}
       {!propertiesLoading && properties.length > 0 && (
         <>
