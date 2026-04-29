@@ -938,10 +938,6 @@ export default function Home() {
               className="w-full h-full object-cover transition-opacity duration-700"
               style={{
                 opacity: videoReady ? (tubesActive ? 0.55 : 1) : 0,
-                filter: tubesActive
-                  ? "blur(2.5px) saturate(1.15) brightness(1.05)"
-                  : undefined,
-                transform: tubesActive ? "scale(1.04)" : undefined,
               }}
               muted
               autoPlay
@@ -959,10 +955,6 @@ export default function Home() {
                 decoding="async"
                 style={{
                   opacity: tubesActive ? 0.55 : 1,
-                  filter: tubesActive
-                    ? "blur(2.5px) saturate(1.15) brightness(1.05)"
-                    : undefined,
-                  transform: tubesActive ? "scale(1.04)" : undefined,
                 }}
               />
             )}
