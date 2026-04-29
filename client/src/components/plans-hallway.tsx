@@ -256,20 +256,27 @@ export function PlansHallway({
               "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
             perspective: "2400px",
             perspectiveOrigin: "50% 50%",
+            // Reference trick: viewport itself does NOT receive
+            // pointer events. Only the .art-frame cards do (they
+            // override with pointer-events: auto and a high z-index).
+            // This isolates each card as an independent hit-test
+            // target so Chrome routes clicks correctly even when the
+            // cards are rotated and 3D-positioned siblings.
+            pointerEvents: "none",
           }}
         >
-          {/* hallway track — matches reference design exactly.
-              Parent has `perspective: 2400px`. The track here has
-              `transform-style: preserve-3d` so each card's
-              `translateZ` places it at a real depth in the corridor.
-              The track itself translates Z based on scroll, so the
-              "camera" walks down the hallway. Cards do NOT rotate,
-              so pointer hit-testing routes clicks to every card. */}
+          {/* hallway track — matches the reference exactly.
+              perspective: 2400px on the wrapper above, this track
+              has transform-style: preserve-3d, and its translateZ
+              animates with scroll so the camera "walks" down the
+              hallway. pointer-events: none here too — only the cards
+              themselves are clickable. */}
           <motion.div
             className="absolute inset-0 w-full h-full"
             style={{
               transformStyle: "preserve-3d",
               transform: trackTransform,
+              pointerEvents: "none",
             }}
           >
             {frames.map((frame, idx) => {
@@ -278,12 +285,18 @@ export function PlansHallway({
               const price = Number(frame.plan.basePrice || 0);
               const monthly = price > 0 ? Math.round(price / 12) : 0;
               const features = (frame.plan.items || []).slice(0, 3);
-              // Reference layout: cards face the camera flat (no
-              // rotation), placed at left:20% or right:20% with their
-              // own translateZ depth inside the parent's perspective
-              // camera. Without rotation, Chrome's pointer hit-tester
-              // routes clicks correctly to every card.
-              const buttonTransform = `translateZ(${frame.zPos}px)`;
+              // Reference layout: each card sits at its own
+              // translateZ depth inside the parent's perspective
+              // camera, plus a rotateY tilt (left cards rotate +35°,
+              // right cards rotate -35°) so they face the corridor
+              // like art frames in a gallery. Clicks still work
+              // because the parent has pointer-events: none and
+              // each card explicitly opts in with pointer-events:auto
+              // + a high z-index, so Chrome's hit-tester only
+              // considers the cards themselves.
+              const buttonTransform = `translateZ(${frame.zPos}px) rotateY(${
+                isLeft ? "35deg" : "-35deg"
+              })`;
 
               return (
                 <button
@@ -298,10 +311,10 @@ export function PlansHallway({
                   }`}
                   className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
-                    // Reference layout: 260x380 cards positioned at
-                    // top:27%, with left:20% or right:20%, and their
-                    // own translateZ depth inside the parent's 3D
-                    // perspective camera.
+                    // Reference layout: 260x380 cards at top:27%,
+                    // with left:20% or right:20%, and their own
+                    // translateZ depth + rotateY tilt inside the
+                    // parent's 3D perspective camera.
                     top: "27%",
                     [isLeft ? "left" : "right"]: "20%",
                     width: 260,
@@ -316,6 +329,12 @@ export function PlansHallway({
                     transform: buttonTransform,
                     transformStyle: "preserve-3d",
                     transformOrigin: "center center",
+                    // Reference trick: parents are pointer-events:none;
+                    // each card opts back in with auto + a high
+                    // z-index so the browser's pointer hit-tester
+                    // only considers the cards themselves.
+                    pointerEvents: "auto",
+                    zIndex: 20,
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget;
