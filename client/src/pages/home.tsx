@@ -1005,10 +1005,7 @@ export default function Home() {
                 transition={{ duration: 8, ease: "linear" }}
                 style={
                   tubesActive
-                    ? {
-                        opacity: 0.55,
-                        filter: "blur(2.5px) saturate(1.15) brightness(1.05)",
-                      }
+                    ? { opacity: 0.55 }
                     : undefined
                 }
               />
