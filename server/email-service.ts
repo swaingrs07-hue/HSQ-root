@@ -1378,6 +1378,7 @@ export async function sendLeadAssignmentEmail(
   assignee: { id?: string; name: string; email: string },
   options?: {
     assignerName?: string | null;
+    assignerId?: string | null;
     isReassign?: boolean;
     assignmentType?: string | null;
   }
@@ -1387,6 +1388,15 @@ export async function sendLeadAssignmentEmail(
   }
   if (!assignee.email) {
     return { success: false, error: "Assignee has no email" };
+  }
+  // Skip the assignment email when the person creating/assigning the lead
+  // is the same person being notified — they already know about it.
+  if (
+    options?.assignerId &&
+    assignee.id &&
+    options.assignerId === assignee.id
+  ) {
+    return { success: true };
   }
 
   const isReassign = !!options?.isReassign;
@@ -1505,13 +1515,21 @@ export async function sendLeadAssignmentEmail(
 export async function sendLeadAssignmentBulkSummaryEmail(
   assignee: { id?: string; name: string; email: string },
   leads: LeadAssignmentEmailLead[],
-  options?: { assignerName?: string | null }
+  options?: { assignerName?: string | null; assignerId?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
   if (!process.env.RESEND_API_KEY) {
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
   if (!assignee.email || leads.length === 0) {
     return { success: false, error: "Nothing to send" };
+  }
+  // Same self-assignment guard as the single-lead variant.
+  if (
+    options?.assignerId &&
+    assignee.id &&
+    options.assignerId === assignee.id
+  ) {
+    return { success: true };
   }
 
   const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";

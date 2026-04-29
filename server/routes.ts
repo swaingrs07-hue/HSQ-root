@@ -6230,7 +6230,7 @@ ${allPages.map(p => `  <url>
             await sendLeadAssignmentEmail(
               buildLeadAssignmentEmailPayload(lead),
               { id: salesExec.id, name: salesExec.name, email: salesExec.email },
-              { assignerName: assigner?.name || null, assignmentType: resolvedAssignmentType }
+              { assignerName: assigner?.name || null, assignerId: assigner?.id || null, assignmentType: resolvedAssignmentType }
             );
           }
         } catch (e) {
@@ -6296,7 +6296,7 @@ ${allPages.map(p => `  <url>
               await sendLeadAssignmentEmail(
                 buildLeadAssignmentEmailPayload(lead),
                 { id: salesExec.id, name: salesExec.name, email: salesExec.email },
-                { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
+                { assignerName: assigner?.name || null, assignerId: assigner?.id || null, isReassign, assignmentType: "admin_manual" }
               );
             }
           } catch (e) {
@@ -9354,7 +9354,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               await sendLeadAssignmentEmail(
                 buildLeadAssignmentEmailPayload(lead),
                 { id: assignee.id, name: assignee.name, email: assignee.email },
-                { assignerName: assigner?.name || null, isReassign, assignmentType: "admin_manual" }
+                { assignerName: assigner?.name || null, assignerId: assigner?.id || null, isReassign, assignmentType: "admin_manual" }
               );
             }
           } catch (e) {
@@ -9433,7 +9433,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               await sendLeadAssignmentBulkSummaryEmail(
                 { id: assignee.id, name: assignee.name, email: assignee.email },
                 assignedLeads,
-                { assignerName: assigner?.name || null }
+                { assignerName: assigner?.name || null, assignerId: assigner?.id || null }
               );
             }
           } catch (e) {
@@ -9755,10 +9755,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       });
 
       if (assignToId) {
-        // Skip the in-app "new lead assigned" notification when the
-        // assignee is the current user (no need to notify yourself), but
-        // ALWAYS fire the assignment email so the CC'd lead-ownership
-        // recipient (Gyan) still gets visibility on every assignment.
+        // Skip the in-app "new lead assigned" notification AND the
+        // assignment email when the assignee is the current user — they
+        // just created the lead and assigned it to themselves, no need
+        // to ping them.
         if (assignToId !== authReq.user!.userId) {
           await storage.createNotification({
             userId: assignToId,
@@ -9780,7 +9780,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               await sendLeadAssignmentEmail(
                 buildLeadAssignmentEmailPayload(lead),
                 { id: assignee.id, name: assignee.name, email: assignee.email },
-                { assignerName: assigner?.name || null, assignmentType: finalAssignType }
+                { assignerName: assigner?.name || null, assignerId: assigner?.id || null, assignmentType: finalAssignType }
               );
             }
           } catch (e) {
