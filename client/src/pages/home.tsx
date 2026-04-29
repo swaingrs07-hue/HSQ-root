@@ -63,6 +63,7 @@ import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
 import { useTubesActive } from "@/contexts/tubes-context";
+import { PlansHallway } from "@/components/plans-hallway";
 
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
@@ -1508,20 +1509,10 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      {featuredPlans.length > 0 &&
-        (() => {
-          const propertyIds = Array.from(
-            new Set(
-              featuredPlans.map((p: any) => p.propertyId).filter(Boolean),
-            ),
-          );
-          const plansByProperty: Record<string, any[]> = {};
-          featuredPlans.forEach((plan: any) => {
-            const key = plan.propertyId || "general";
-            if (!plansByProperty[key]) plansByProperty[key] = [];
-            plansByProperty[key].push(plan);
-          });
-          const tierDesigns = [
+      {featuredPlans.length > 0 && (
+        <>
+          {(() => {
+          const _tierDesigns_unused = [
             {
               cardBg:
                 "bg-gradient-to-br from-[#0a2e1f] via-[#134e31] to-[#0a3d23]",
@@ -1584,14 +1575,15 @@ export default function Home() {
                 data-testid="section-housing-plans"
               >
                 <div className="container mx-auto px-4 relative z-10">
-                  <div className="text-center mb-20">
+                  <div className="text-center mb-12 md:mb-16">
                     <motion.p
-                      className="text-emerald-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
+                      className="text-xs tracking-[0.5em] uppercase font-medium mb-6"
+                      style={{ color: "rgba(212,175,55,0.85)" }}
                       initial={{ opacity: 0, y: -20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                     >
-                      Curated Living Experiences
+                      The Living Archive
                     </motion.p>
                     <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
                       <CinematicText delay={0.1}>Housing</CinematicText>{" "}
@@ -1600,319 +1592,41 @@ export default function Home() {
                       </CinematicText>
                     </h2>
                     <motion.p
-                      className="text-white/25 max-w-xl mx-auto text-sm md:text-base leading-relaxed"
+                      className="text-white/30 max-w-xl mx-auto text-sm md:text-base leading-relaxed"
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 }}
                     >
-                      Tailored tiers of comfort, service, and luxury. Choose the
-                      experience that matches your lifestyle.
+                      Walk through our curated archive. Each frame is a complete
+                      living experience — tap one to step inside.
                     </motion.p>
                     <motion.div
                       initial={{ scaleX: 0 }}
                       whileInView={{ scaleX: 1 }}
                       viewport={{ once: true }}
                       transition={{ duration: 1, delay: 0.6 }}
-                      className="w-32 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent mx-auto mt-8"
+                      className="w-32 h-[1px] mx-auto mt-8"
+                      style={{
+                        background:
+                          "linear-gradient(to right, transparent, rgba(212,175,55,0.5), transparent)",
+                      }}
                     />
                   </div>
 
-                  {propertyIds.map((propId, propIdx) => {
-                    const allPlans = plansByProperty[propId] || [];
-                    // Show only the first 2 plans per property in the
-                    // archive-style stage so the layered overlap stays
-                    // visually clean (the per-property page shows all).
-                    const plans = allPlans.slice(0, 2);
-                    const propName = plans[0]?.propertyName || "Property";
-                    const propHref = plans[0]?.propertySlug
-                      ? `/properties/${plans[0].propertySlug}`
-                      : plans[0]?.propertyId
-                        ? `/properties/${plans[0].propertyId}`
-                        : "/properties";
-                    return (
-                      <div key={propId} className={propIdx > 0 ? "mt-24 md:mt-32" : ""}>
-                        {propertyIds.length > 1 && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            whileInView={{ opacity: 1 }}
-                            viewport={{ once: true }}
-                            className="flex items-center justify-center gap-4 mb-12"
-                          >
-                            <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-white/15" />
-                            <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
-                              <Building2 className="w-4 h-4 text-amber-400" />
-                              <span className="text-white/50 text-xs tracking-wider uppercase font-medium">
-                                {propName}
-                              </span>
-                            </div>
-                            <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-white/15" />
-                          </motion.div>
-                        )}
-                        {/* Archive-style stage: two glass cards float with
-                            slight rotation and overlap so the iridescent
-                            tube background reads through them. On hover the
-                            card pops forward, straightens out, and lifts
-                            slightly. On small screens we fall back to a
-                            simple stacked layout so the cards stay readable. */}
-                        <div
-                          className="relative mx-auto flex flex-col md:block items-center gap-6 md:gap-0 md:h-[560px] lg:h-[600px]"
-                          style={{ perspective: "1400px" }}
-                          data-testid={`plan-stage-${propId}`}
-                        >
-                          {plans.map((plan: any, idx: number) => {
-                            const tier = plan.tierLevel ?? idx;
-                            const maxTier = Math.max(
-                              ...plans.map((p: any) => p.tierLevel ?? 0),
-                            );
-                            const isTop = tier === maxTier;
-                            const isHighlighted = plan.isHighlighted;
-                            const designIdx =
-                              isHighlighted || isTop
-                                ? tierDesigns.length - 1
-                                : 0;
-                            const d = tierDesigns[designIdx];
-                            const price = Number(plan.basePrice || 0);
-                            const features = (plan.items || []).slice(0, 3);
-                            const isLeft = idx === 0;
-                            return (
-                              <motion.div
-                                key={plan.id}
-                                initial={{
-                                  opacity: 0,
-                                  y: 80,
-                                  rotate: isLeft ? -8 : 8,
-                                }}
-                                whileInView={{
-                                  opacity: 1,
-                                  y: 0,
-                                  rotate: isLeft ? -3 : 4,
-                                }}
-                                viewport={{ once: true, margin: "-80px" }}
-                                transition={{
-                                  duration: 0.9,
-                                  delay: idx * 0.18,
-                                  ease: [0.22, 1, 0.36, 1],
-                                }}
-                                whileHover={{
-                                  rotate: 0,
-                                  y: -16,
-                                  scale: 1.04,
-                                  zIndex: 30,
-                                  transition: {
-                                    type: "spring",
-                                    stiffness: 220,
-                                    damping: 22,
-                                  },
-                                }}
-                                className="group relative md:absolute md:top-1/2 md:left-1/2 will-change-transform"
-                                style={{
-                                  width: "min(86vw, 320px)",
-                                  height: "min(78vh, 470px)",
-                                  zIndex: isLeft ? 1 : 2,
-                                  // On md+ we offset each card from the
-                                  // center so the pair overlaps slightly,
-                                  // mimicking the reference "archive" stage.
-                                  ["--mdX" as any]: isLeft ? "-110%" : "10%",
-                                  ["--mdY" as any]: "-50%",
-                                }}
-                                data-testid={`plan-card-home-${plan.id}`}
-                              >
-                                <div
-                                  className="md:absolute md:inset-0 md:[transform:translate(var(--mdX),var(--mdY))] h-full"
-                                >
-                                  {(isHighlighted || isTop) && (
-                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
-                                      <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-black text-[9px] font-black uppercase tracking-[0.25em] px-4 py-1.5 rounded-full shadow-xl shadow-amber-500/40 flex items-center gap-1.5 whitespace-nowrap">
-                                        {isHighlighted ? (
-                                          <>
-                                            <Star className="w-3 h-3 fill-current" />{" "}
-                                            Most Popular
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Award className="w-3 h-3" />{" "}
-                                            Premium
-                                          </>
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <div
-                                    className="relative w-full h-full rounded-[22px] overflow-hidden border border-white/15 group-hover:border-white/30 transition-colors duration-500"
-                                    style={{
-                                      backgroundColor: "rgba(10,10,10,0.32)",
-                                      backgroundImage: `linear-gradient(155deg, ${d.glow.replace("0.15", "0.35").replace("0.18", "0.4")} 0%, rgba(8,8,12,0.45) 60%, rgba(0,0,0,0.55) 100%)`,
-                                      backdropFilter: "blur(18px) saturate(135%)",
-                                      WebkitBackdropFilter: "blur(18px) saturate(135%)",
-                                      boxShadow: `0 30px 70px -25px rgba(0,0,0,0.85), 0 0 90px -20px ${d.glow}`,
-                                    }}
-                                  >
-                                    {/* Soft tier glow at the top */}
-                                    <div
-                                      className="absolute inset-0 opacity-70 pointer-events-none"
-                                      style={{
-                                        background: `radial-gradient(ellipse at 50% -10%, ${d.glow} 0%, transparent 55%)`,
-                                      }}
-                                    />
-                                    {/* Hover halo */}
-                                    <div
-                                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
-                                      style={{
-                                        background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 55%)`,
-                                      }}
-                                    />
-                                    <div
-                                      className={`absolute top-0 left-7 right-7 h-[1px] bg-gradient-to-r ${d.decorLine}`}
-                                    />
-
-                                    <div className="relative h-full flex flex-col px-7 pt-7 pb-6">
-                                      <div className="flex items-center justify-between text-[10px] tracking-[0.4em] text-white/40 uppercase">
-                                        <span>Plan.0{idx + 1}</span>
-                                        <span className={d.taglineColor}>
-                                          {isHighlighted || isTop
-                                            ? "Premier"
-                                            : "Essential"}
-                                        </span>
-                                      </div>
-
-                                      <h3
-                                        className={`mt-7 font-heading text-3xl md:text-[2rem] font-bold leading-[1.1] tracking-tight bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}
-                                      >
-                                        {plan.name}
-                                      </h3>
-
-                                      {plan.tagline && (
-                                        <p
-                                          className={`mt-3 text-xs italic ${d.taglineColor} line-clamp-2`}
-                                        >
-                                          {plan.tagline}
-                                        </p>
-                                      )}
-
-                                      {plan.occupancy && (
-                                        <div
-                                          className={`inline-flex self-start items-center gap-2 px-3 py-1 rounded-full border text-[10px] mt-4 ${d.occupancyBg}`}
-                                        >
-                                          <Users
-                                            className={`w-3 h-3 ${d.occupancyText}`}
-                                          />
-                                          <span className={d.occupancyText}>
-                                            {plan.occupancy}
-                                          </span>
-                                        </div>
-                                      )}
-
-                                      {features.length > 0 && (
-                                        <ul className="mt-5 space-y-1.5 flex-1">
-                                          {features.map((item: any) => {
-                                            const val =
-                                              item.featureValue ||
-                                              `${item.includedQty} ${item.unit}`;
-                                            return (
-                                              <li
-                                                key={item.id}
-                                                className="flex items-start gap-2.5 text-xs text-white/65"
-                                              >
-                                                <Check
-                                                  className={`w-3 h-3 mt-0.5 shrink-0 ${d.occupancyText}`}
-                                                />
-                                                <span className="line-clamp-1">
-                                                  {item.label}{" "}
-                                                  <span className="text-white/85 font-medium">
-                                                    {val}
-                                                  </span>
-                                                </span>
-                                              </li>
-                                            );
-                                          })}
-                                          {(plan.items || []).length > 3 && (
-                                            <li className="text-[10px] text-white/30 pl-5">
-                                              +{(plan.items || []).length - 3}{" "}
-                                              more inclusions
-                                            </li>
-                                          )}
-                                        </ul>
-                                      )}
-
-                                      <div className="mt-auto pt-5">
-                                        <div
-                                          className={`h-[1px] mb-5 bg-gradient-to-r ${d.decorLine}`}
-                                        />
-                                        <div className="flex items-end justify-between gap-3">
-                                          <div>
-                                            <div
-                                              className={`text-2xl font-bold tracking-tight ${d.priceColor}`}
-                                            >
-                                              {price > 0
-                                                ? `₹${price.toLocaleString("en-IN")}`
-                                                : "Custom"}
-                                            </div>
-                                            {price > 0 && (
-                                              <div className="text-[10px] text-white/30 mt-0.5">
-                                                / year · ≈ ₹
-                                                {Math.round(
-                                                  price / 12,
-                                                ).toLocaleString("en-IN")}
-                                                /mo
-                                              </div>
-                                            )}
-                                          </div>
-                                          <a
-                                            href={
-                                              plan.propertySlug
-                                                ? `/properties/${plan.propertySlug}`
-                                                : plan.propertyId
-                                                  ? `/properties/${plan.propertyId}`
-                                                  : "/properties"
-                                            }
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              const target = plan.propertySlug
-                                                ? `/properties/${plan.propertySlug}`
-                                                : plan.propertyId
-                                                  ? `/properties/${plan.propertyId}`
-                                                  : "/properties";
-                                              setLocation(target);
-                                            }}
-                                            className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[10px] uppercase tracking-[0.2em] font-semibold text-white shadow-lg ${d.btnBg} transition-all duration-300 hover:scale-[1.04] active:scale-[0.98]`}
-                                            data-testid={`button-view-plan-${plan.id}`}
-                                          >
-                                            Explore
-                                            <ArrowRight className="w-3 h-3" />
-                                          </a>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                        {allPlans.length > 2 && (
-                          <div className="mt-10 md:mt-12 flex justify-center">
-                            <a
-                              href={propHref}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setLocation(propHref);
-                              }}
-                              className="text-[10px] tracking-[0.4em] uppercase text-white/40 hover:text-white/80 border-b border-white/15 hover:border-white/40 pb-1 transition-colors"
-                              data-testid={`link-all-plans-${propId}`}
-                            >
-                              View all {allPlans.length} plans →
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {void _tierDesigns_unused}
                 </div>
               </ImmersiveScene>
+              <PlansHallway
+                plans={featuredPlans as any[]}
+                properties={properties}
+                onExplore={(target) => setLocation(target)}
+              />
             </>
           );
         })()}
+        </>
+      )}
       {instagramPosts.length > 0 && (
         <>
           <ImmersiveScene

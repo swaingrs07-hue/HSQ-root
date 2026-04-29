@@ -1,0 +1,662 @@
+1. STYLES (styles.css)
+css
+
+@import url('https://fonts.googleapis.com/css2?family=Gambetta:wght@400;500;600;700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+
+:root {
+  --gold: #D4AF37;
+  --zinc-950: #0a0a0a;
+  --absolute-black: #000;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'General Sans', sans-serif;
+  background-color: var(--absolute-black);
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* 3D Viewport */
+.viewport-3d {
+  perspective: 2400px;
+  perspective-origin: 50% 50%;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: radial-gradient(circle at 50% 40%, #0d0d0d 0%, var(--absolute-black) 70%);
+}
+
+.hallway-track {
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* Art Frame */
+.art-frame {
+  position: absolute;
+  top: 27%;
+  width: 260px;
+  height: 380px;
+  transform-style: preserve-3d;
+  cursor: pointer;
+  transition: filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(10, 10, 10, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.art-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.art-frame:hover {
+  filter: brightness(1.35);
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.15);
+  transform: scale(1.05) translateZ(20px);
+}
+
+.art-frame:hover img {
+  opacity: 1;
+  transform: scale(1.03);
+}
+
+.art-frame-left {
+  left: 20%;
+}
+
+.art-frame-right {
+  right: 20%;
+}
+
+/* Frame Label */
+.frame-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Scroll Trigger */
+.scroll-trigger {
+  height: 5000px;
+  width: 100%;
+}
+
+/* Floor Glow */
+.floor-glow {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30vh;
+  background: linear-gradient(to top, rgba(212, 175, 55, 0.03), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Particles */
+.particle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+/* Navigation */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 50;
+  mix-blend-mode: difference;
+}
+
+.nav-logo {
+  font-family: 'Gambetta', serif;
+  font-size: 1.25rem;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+}
+
+.nav-links {
+  display: none;
+  gap: 3rem;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.nav-links a:hover {
+  color: var(--gold);
+}
+
+@media (min-width: 768px) {
+  .nav-links {
+    display: flex;
+  }
+}
+
+.nav-menu-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
+
+/* Scroll Indicator */
+.scroll-indicator {
+  position: fixed;
+  bottom: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  z-index: 50;
+}
+
+.scroll-text {
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.6;
+}
+
+.scroll-line {
+  width: 1px;
+  height: 3rem;
+  background: linear-gradient(to bottom, var(--gold), transparent);
+  opacity: 0.4;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.modal-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.modal-card {
+  max-width: 56rem;
+  width: 100%;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(113, 113, 122, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 500px;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .modal-card {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.modal-overlay.hidden .modal-card {
+  transform: translateY(30px) scale(0.96);
+}
+
+/* Modal Content */
+.modal-content {
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.modal-badge {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.modal-title {
+  font-family: 'Gambetta', serif;
+  font-size: 3rem;
+  letter-spacing: -0.05em;
+  line-height: 1.2;
+}
+
+.modal-description {
+  color: rgba(228, 228, 231, 0.6);
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+.modal-metadata {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.metadata-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.metadata-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(113, 113, 122, 1);
+  margin-bottom: 0.25rem;
+}
+
+.metadata-value {
+  font-size: 14px;
+  color: rgba(209, 213, 219, 1);
+}
+
+.modal-cta {
+  margin-top: 2rem;
+  padding: 0.75rem 2rem;
+  background-color: var(--gold);
+  color: #000;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: fit-content;
+}
+
+.modal-cta:hover {
+  background-color: #b8962c;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: color 0.3s ease;
+}
+
+.modal-close-btn:hover {
+  color: white;
+}
+
+/* Modal Gallery */
+.modal-gallery {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  background-color: rgba(113, 113, 122, 0.4);
+  padding: 1px;
+}
+
+.modal-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  min-height: 250px;
+}
+
+@media (min-width: 768px) {
+  .modal-gallery {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .modal-gallery .gallery-full {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+}
+2. HTML (index.html)
+html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereal Archives | 3D Experience</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+</head>
+<body>
+  <!-- 3D Viewport -->
+  <div class="viewport-3d">
+    <!-- Navigation -->
+    <nav>
+      <div class="nav-logo">ARCHIVE.01</div>
+      <div class="nav-links">
+        <a href="#exhibition">Exhibition</a>
+        <a href="#collections">Collections</a>
+        <a href="#chronicle">Chronicle</a>
+      </div>
+      <button class="nav-menu-btn">
+        <iconify-icon icon="lucide:menu"></iconify-icon>
+      </button>
+    </nav>
+
+    <!-- Floor Glow -->
+    <div class="floor-glow"></div>
+
+    <!-- Ambient Particles -->
+    <div id="ambient-particles" style="position: absolute; inset: 0; pointer-events: none;"></div>
+
+    <!-- Hallway Track -->
+    <div id="hallway" class="hallway-track">
+      <!-- Art Frames will be inserted here by JS -->
+    </div>
+
+    <!-- Scroll Indicator -->
+    <div class="scroll-indicator">
+      <div class="scroll-text">Scroll to navigate the space</div>
+      <div class="scroll-line"></div>
+    </div>
+  </div>
+
+  <!-- Scroll Trigger -->
+  <div class="scroll-trigger"></div>
+
+  <!-- Modal Overlay -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <button class="modal-close-btn" onclick="closeModal()">
+      <iconify-icon icon="lucide:x"></iconify-icon>
+    </button>
+    <div class="modal-card">
+      <!-- Content -->
+      <div class="modal-content">
+        <div class="modal-badge" id="modal-badge">Featured Exhibition</div>
+        <h2 class="modal-title" id="modal-title">Title</h2>
+        <p class="modal-description" id="modal-desc">Description</p>
+        <div class="modal-metadata">
+          <div class="metadata-item">
+            <span class="metadata-label">Date</span>
+            <span class="metadata-value" id="modal-date">2024</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Location</span>
+            <span class="metadata-value" id="modal-location">Location</span>
+          </div>
+        </div>
+        <button class="modal-cta">Request Full Portfolio</button>
+      </div>
+
+      <!-- Gallery -->
+      <div class="modal-gallery">
+        <img id="gallery-img-1" class="gallery-full" src="" alt="">
+        <img id="gallery-img-2" src="" alt="">
+        <img id="gallery-img-3" src="" alt="">
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+3. JAVASCRIPT (script.js)
+javascript
+
+// Configuration
+const FRAMES_CONFIG = [
+  {
+    id: 1,
+    side: 'left',
+    zPosition: 0,
+    title: 'Nocturnal Echoes',
+    description: 'The intersection of silence and structure.',
+    date: 'Autumn 2024',
+    location: 'Berlin, DE',
+    image: 'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&q=80&w=800',
+    gallery: [
+      'https://images.unsplash.com/photo-1511871893393-82e9c16b81e3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1521747116042-5a810fda9664?auto=format&fit=crop&q=80&w=800'
+    ]
+  },
+  {
+    id: 2,
+    side: 'right',
+    zPosition: -700,
+    title: 'Gilded Geometry',
+    description: 'Refined patterns in architectural space.',
+    date: 'Summer 2024',
+    location: 'Amsterdam, NL',
+    image: 'https://images.unsplash.com/photo-1518005020453-1bb7446efc4d?auto=format&fit=crop&q=80&w=800',
+    gallery: [
+      'https://images.unsplash.com/photo-1511871893393-82e9c16b81e3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1521747116042-5a810fda9664?auto=format&fit=crop&q=80&w=800'
+    ]
+  },
+  {
+    id: 3,
+    side: 'left',
+    zPosition: -1400,
+    title: 'Void Landscapes',
+    description: 'Exploring the minimalism of nothingness.',
+    date: 'Spring 2024',
+    location: 'Tokyo, JP',
+    image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=800',
+    gallery: [
+      'https://images.unsplash.com/photo-1511871893393-82e9c16b81e3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1521747116042-5a810fda9664?auto=format&fit=crop&q=80&w=800'
+    ]
+  },
+  {
+    id: 4,
+    side: 'right',
+    zPosition: -2100,
+    title: 'Celestial Noir',
+    description: 'Deep contrast studies in cosmic light.',
+    date: 'Winter 2023',
+    location: 'New York, US',
+    image: 'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&q=80&w=800',
+    gallery: [
+      'https://images.unsplash.com/photo-1511871893393-82e9c16b81e3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1521747116042-5a810fda9664?auto=format&fit=crop&q=80&w=800'
+    ]
+  },
+  {
+    id: 5,
+    side: 'left',
+    zPosition: -2800,
+    title: 'Obsidian Flow',
+    description: 'The fluid nature of dark materials.',
+    date: 'Fall 2023',
+    location: 'Paris, FR',
+    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800',
+    gallery: [
+      'https://images.unsplash.com/photo-1511871893393-82e9c16b81e3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1521747116042-5a810fda9664?auto=format&fit=crop&q=80&w=800'
+    ]
+  }
+];
+
+// DOM Elements
+const hallway = document.getElementById('hallway');
+const modalOverlay = document.getElementById('modal-overlay');
+const particlesContainer = document.getElementById('ambient-particles');
+
+// Initialize
+function init() {
+  createArtFrames();
+  createParticles();
+  setupScrollListener();
+  setupModalListener();
+}
+
+// Create Art Frames
+function createArtFrames() {
+  FRAMES_CONFIG.forEach(frame => {
+    const frameEl = document.createElement('div');
+    frameEl.className = `art-frame art-frame-${frame.side}`;
+    frameEl.style.transform = `translate3d(0, 0, ${frame.zPosition}px) rotateY(${frame.side === 'left' ? '35deg' : '-35deg'})`;
+    frameEl.onclick = () => openModal(frame);
+
+    const img = document.createElement('img');
+    img.src = frame.image;
+    img.alt = frame.title;
+
+    const label = document.createElement('div');
+    label.className = 'frame-label';
+    label.textContent = `Vol. ${frame.id}`;
+
+    frameEl.appendChild(img);
+    frameEl.appendChild(label);
+    hallway.appendChild(frameEl);
+  });
+}
+
+// Create Ambient Particles
+function createParticles() {
+  for (let i = 0; i < 50; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = Math.random() * 100 + '%';
+    p.style.opacity = Math.random() * 0.15;
+    p.style.transform = `scale(${Math.random() * 2})`;
+    particlesContainer.appendChild(p);
+  }
+}
+
+// Scroll Listener - 3D Parallax
+function setupScrollListener() {
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY;
+    const translateZ = scrolled * 0.7;
+
+    // Move hallway
+    hallway.style.transform = `translateZ(${translateZ}px)`;
+
+    // Apply depth-of-field effect
+    const frames = document.querySelectorAll('.art-frame');
+    frames.forEach(frame => {
+      const transform = frame.style.transform;
+      const zMatch = transform.match(/translate3d\(0, 0, ([-0-9.]+)px\)/);
+
+      if (zMatch) {
+        const frameZ = parseFloat(zMatch[1]);
+        const distance = Math.abs(translateZ + frameZ);
+        const blur = Math.max(0, (distance - 300) / 200);
+        const brightness = Math.max(0.4, 1 - distance / 2000);
+
+        frame.style.filter = `blur(${blur}px) brightness(${brightness})`;
+      }
+    });
+  });
+}
+
+// Modal - Open
+function openModal(frameData) {
+  document.getElementById('modal-title').textContent = frameData.title;
+  document.getElementById('modal-desc').textContent = frameData.description;
+  document.getElementById('modal-date').textContent = frameData.date;
+  document.getElementById('modal-location').textContent = frameData.location;
+
+  document.getElementById('gallery-img-1').src = frameData.gallery[0];
+  document.getElementById('gallery-img-2').src = frameData.gallery[1];
+  document.getElementById('gallery-img-3').src = frameData.gallery[2];
+
+  modalOverlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+// Modal - Close
+function closeModal() {
+  modalOverlay.classList.add('hidden');
+  document.body.style.overflow = 'auto';
+}
+
+// Modal - Click Outside
+function setupModalListener() {
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
+}
+
+// Start
+document.addEventListener('DOMContentLoaded', init);
+How to use in Replit:
+Create 3 files:
+
+index.html
+styles.css
+script.js
+Copy the code above into each file
+
+Set index.html as your main file in Replit
+
+Customize the frames by editing the FRAMES_CONFIG array in script.js
