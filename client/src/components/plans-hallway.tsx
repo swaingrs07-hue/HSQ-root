@@ -254,81 +254,95 @@ export function PlansHallway({
               const price = Number(frame.plan.basePrice || 0);
               const monthly = price > 0 ? Math.round(price / 12) : 0;
               const features = (frame.plan.items || []).slice(0, 3);
-              // Cards face the viewer head-on. We tried rotateY(±35deg) for
-              // a more cinematic angle, but combined with translateZ inside
-              // a `transform-style: preserve-3d` parent, Chrome's hit-test
-              // routed mouse clicks on the further-back card to the closer
-              // card's button. Facing forward keeps the depth effect (via
-              // translateZ + perspective scaling) while making clicks
-              // unambiguous for every card in the row.
-              const baseTransform = `translate3d(0, 0, ${frame.zPos}px)`;
+              // Cinematic tilt — but applied to a NON-INTERACTIVE inner
+              // layer (see <div class="card-tilt">) rather than to the
+              // <button> itself. Rotating the button caused Chrome's
+              // hit-tester to silently drop pointerdown events on the
+              // further-back (rotated) card. Keeping the button's own
+              // transform a simple `translateZ` means its hit-area is
+              // just its CSS rect projected straight back — pointer
+              // events land on it every time. The inner div carries the
+              // rotateY for the visual.
+              const buttonTransform = `translate3d(0, 0, ${frame.zPos}px)`;
+              const tiltTransform = `rotateY(${isLeft ? "35deg" : "-35deg"})`;
               // Both cards use a `left:` anchor (no `right:`) so each
-              // wrapper has a fully-computed CSS layout box — this way
+              // button has a fully-computed CSS layout box — this way
               // hit-testing on the second card is just as reliable as
-              // on the first, and Playwright/keyboard activation reach
-              // the correct frame every time.
+              // on the first.
               const leftAnchor = isLeft ? "10%" : "calc(90% - 300px)";
 
               return (
-                <div
+                <button
                   key={frame.plan.id}
-                  className="absolute top-[14%] sm:top-[16%]"
+                  type="button"
+                  onClick={() => setOpenIdx(idx)}
+                  data-testid={`plan-frame-${frame.plan.id}`}
+                  aria-label={`Open ${frame.plan.name}${
+                    frame.plan.propertyName
+                      ? " at " + frame.plan.propertyName
+                      : ""
+                  }`}
+                  className="absolute top-[14%] sm:top-[16%] text-left cursor-pointer block group focus:outline-none"
                   style={{
                     left: leftAnchor,
                     width: 300,
                     height: 460,
-                    // NOTE: transform-style left at the default `flat` so
-                    // Chrome treats the wrapper as a single 2D plane in
-                    // its parent's 3D context. With preserve-3d here the
-                    // browser was producing inconsistent hit-test results
-                    // for the second (further-back) card.
-                    transform: baseTransform,
+                    background:
+                      "linear-gradient(180deg, #0e0e10 0%, #050506 100%)",
+                    border: `1px solid ${tier.chipBorder}`,
+                    borderRadius: 6,
+                    overflow: "hidden",
+                    boxShadow: `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
+                    transition:
+                      "border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease",
+                    // Button is FLAT (no rotation) — this guarantees its
+                    // hit-area is the simple CSS rect projected back via
+                    // perspective, so Chrome's pointer-event hit-test
+                    // resolves to the correct sibling every time. The
+                    // visual tilt lives on the inner `.card-tilt` div.
+                    transform: buttonTransform,
+                    // preserve-3d so the inner rotated layer composes
+                    // correctly with the parent perspective.
+                    transformStyle: "preserve-3d",
                     pointerEvents: "auto",
                   }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget;
+                    el.style.filter = "brightness(1.18)";
+                    el.style.borderColor = tier.accent;
+                    el.style.boxShadow = `0 0 0 1px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget;
+                    el.style.filter = "";
+                    el.style.borderColor = tier.chipBorder;
+                    el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                  }}
+                  onFocus={(e) => {
+                    const el = e.currentTarget;
+                    el.style.filter = "brightness(1.18)";
+                    el.style.borderColor = tier.accent;
+                    el.style.boxShadow = `0 0 0 2px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
+                  }}
+                  onBlur={(e) => {
+                    const el = e.currentTarget;
+                    el.style.filter = "";
+                    el.style.borderColor = tier.chipBorder;
+                    el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                  }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setOpenIdx(idx)}
-                    data-testid={`plan-frame-${frame.plan.id}`}
-                    aria-label={`Open ${frame.plan.name}${
-                      frame.plan.propertyName
-                        ? " at " + frame.plan.propertyName
-                        : ""
-                    }`}
-                    className="relative w-full h-full text-left cursor-pointer block group focus:outline-none"
+                  {/* TILT LAYER — carries the rotateY visual. It's
+                      pointer-events:none so all clicks pass through to
+                      the parent <button>'s un-rotated rect, giving Chrome
+                      a clean, predictable hit-area. The wrapper covers
+                      the full button rect; the rotation is rendered
+                      visually but doesn't affect hit-testing. */}
+                  <div
+                    className="absolute inset-0 pointer-events-none"
                     style={{
-                      background:
-                        "linear-gradient(180deg, #0e0e10 0%, #050506 100%)",
-                      border: `1px solid ${tier.chipBorder}`,
-                      borderRadius: 6,
-                      overflow: "hidden",
-                      boxShadow: `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
-                      transition:
-                        "border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      const el = e.currentTarget;
-                      el.style.filter = "brightness(1.18)";
-                      el.style.borderColor = tier.accent;
-                      el.style.boxShadow = `0 0 0 1px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      const el = e.currentTarget;
-                      el.style.filter = "";
-                      el.style.borderColor = tier.chipBorder;
-                      el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
-                    }}
-                    onFocus={(e) => {
-                      const el = e.currentTarget;
-                      el.style.filter = "brightness(1.18)";
-                      el.style.borderColor = tier.accent;
-                      el.style.boxShadow = `0 0 0 2px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
-                    }}
-                    onBlur={(e) => {
-                      const el = e.currentTarget;
-                      el.style.filter = "";
-                      el.style.borderColor = tier.chipBorder;
-                      el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                      transform: tiltTransform,
+                      transformOrigin: "center center",
+                      transformStyle: "preserve-3d",
                     }}
                   >
                     {/* All inner card content is non-interactive so that
@@ -484,8 +498,8 @@ export function PlansHallway({
                         </span>
                       </div>
                     </div>
-                  </button>
-                </div>
+                  </div>
+                </button>
               );
             })}
           </motion.div>
