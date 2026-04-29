@@ -48,6 +48,7 @@ import {
   Bell,
   Wallet,
   QrCode,
+  Check,
 } from "lucide-react";
 import {
   motion,
@@ -1618,19 +1619,28 @@ export default function Home() {
                   </div>
 
                   {propertyIds.map((propId, propIdx) => {
-                    const plans = plansByProperty[propId] || [];
+                    const allPlans = plansByProperty[propId] || [];
+                    // Show only the first 2 plans per property in the
+                    // archive-style stage so the layered overlap stays
+                    // visually clean (the per-property page shows all).
+                    const plans = allPlans.slice(0, 2);
                     const propName = plans[0]?.propertyName || "Property";
+                    const propHref = plans[0]?.propertySlug
+                      ? `/properties/${plans[0].propertySlug}`
+                      : plans[0]?.propertyId
+                        ? `/properties/${plans[0].propertyId}`
+                        : "/properties";
                     return (
-                      <div key={propId} className={propIdx > 0 ? "mt-20" : ""}>
+                      <div key={propId} className={propIdx > 0 ? "mt-24 md:mt-32" : ""}>
                         {propertyIds.length > 1 && (
                           <motion.div
                             initial={{ opacity: 0 }}
                             whileInView={{ opacity: 1 }}
                             viewport={{ once: true }}
-                            className="flex items-center justify-center gap-4 mb-10"
+                            className="flex items-center justify-center gap-4 mb-12"
                           >
                             <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-r from-transparent to-white/15" />
-                            <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03]">
+                            <div className="flex items-center gap-2 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
                               <Building2 className="w-4 h-4 text-amber-400" />
                               <span className="text-white/50 text-xs tracking-wider uppercase font-medium">
                                 {propName}
@@ -1639,7 +1649,17 @@ export default function Home() {
                             <div className="h-[1px] flex-1 max-w-[100px] bg-gradient-to-l from-transparent to-white/15" />
                           </motion.div>
                         )}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+                        {/* Archive-style stage: two glass cards float with
+                            slight rotation and overlap so the iridescent
+                            tube background reads through them. On hover the
+                            card pops forward, straightens out, and lifts
+                            slightly. On small screens we fall back to a
+                            simple stacked layout so the cards stay readable. */}
+                        <div
+                          className="relative mx-auto flex flex-col md:block items-center gap-6 md:gap-0 md:h-[560px] lg:h-[600px]"
+                          style={{ perspective: "1400px" }}
+                          data-testid={`plan-stage-${propId}`}
+                        >
                           {plans.map((plan: any, idx: number) => {
                             const tier = plan.tierLevel ?? idx;
                             const maxTier = Math.max(
@@ -1648,136 +1668,134 @@ export default function Home() {
                             const isTop = tier === maxTier;
                             const isHighlighted = plan.isHighlighted;
                             const designIdx =
-                              plans.length <= 2
-                                ? isHighlighted || isTop
-                                  ? tierDesigns.length - 1
-                                  : 0
-                                : Math.min(tier, tierDesigns.length - 1);
+                              isHighlighted || isTop
+                                ? tierDesigns.length - 1
+                                : 0;
                             const d = tierDesigns[designIdx];
                             const price = Number(plan.basePrice || 0);
-                            const features = (plan.items || []).slice(0, 6);
+                            const features = (plan.items || []).slice(0, 3);
+                            const isLeft = idx === 0;
                             return (
-                              <TiltCard
+                              <motion.div
                                 key={plan.id}
-                                intensity={10}
-                                glowColor={d.glow}
-                                className="relative group"
+                                initial={{
+                                  opacity: 0,
+                                  y: 80,
+                                  rotate: isLeft ? -8 : 8,
+                                }}
+                                whileInView={{
+                                  opacity: 1,
+                                  y: 0,
+                                  rotate: isLeft ? -3 : 4,
+                                }}
+                                viewport={{ once: true, margin: "-80px" }}
+                                transition={{
+                                  duration: 0.9,
+                                  delay: idx * 0.18,
+                                  ease: [0.22, 1, 0.36, 1],
+                                }}
+                                whileHover={{
+                                  rotate: 0,
+                                  y: -16,
+                                  scale: 1.04,
+                                  zIndex: 30,
+                                  transition: {
+                                    type: "spring",
+                                    stiffness: 220,
+                                    damping: 22,
+                                  },
+                                }}
+                                className="group relative md:absolute md:top-1/2 md:left-1/2 will-change-transform"
+                                style={{
+                                  width: "min(86vw, 320px)",
+                                  height: "min(78vh, 470px)",
+                                  zIndex: isLeft ? 1 : 2,
+                                  // On md+ we offset each card from the
+                                  // center so the pair overlaps slightly,
+                                  // mimicking the reference "archive" stage.
+                                  ["--mdX" as any]: isLeft ? "-110%" : "10%",
+                                  ["--mdY" as any]: "-50%",
+                                }}
                                 data-testid={`plan-card-home-${plan.id}`}
                               >
-                                <motion.div
-                                  initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                                  viewport={{ once: true, margin: "-50px" }}
-                                  transition={{
-                                    duration: 0.5,
-                                    delay: idx * 0.12,
-                                    ease: "easeOut",
-                                  }}
-                                  whileHover={{
-                                    y: -12,
-                                    scale: 1.02,
-                                    transition: {
-                                      type: "spring",
-                                      stiffness: 300,
-                                      damping: 20,
-                                    },
-                                  }}
-                                  className="relative h-full"
+                                <div
+                                  className="md:absolute md:inset-0 md:[transform:translate(var(--mdX),var(--mdY))] h-full"
                                 >
-                                  {isHighlighted && (
-                                    <motion.div
-                                      initial={{ opacity: 0, y: -10 }}
-                                      whileInView={{ opacity: 1, y: 0 }}
-                                      viewport={{ once: true }}
-                                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
-                                    >
-                                      <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-black text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2 rounded-full shadow-xl shadow-amber-500/40 flex items-center gap-1.5">
-                                        <Star className="w-3.5 h-3.5 fill-current" />{" "}
-                                        Most Popular
+                                  {(isHighlighted || isTop) && (
+                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                                      <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-black text-[9px] font-black uppercase tracking-[0.25em] px-4 py-1.5 rounded-full shadow-xl shadow-amber-500/40 flex items-center gap-1.5 whitespace-nowrap">
+                                        {isHighlighted ? (
+                                          <>
+                                            <Star className="w-3 h-3 fill-current" />{" "}
+                                            Most Popular
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Award className="w-3 h-3" />{" "}
+                                            Premium
+                                          </>
+                                        )}
                                       </span>
-                                    </motion.div>
+                                    </div>
                                   )}
-                                  {isTop && !isHighlighted && (
-                                    <motion.div
-                                      initial={{ opacity: 0, y: -10 }}
-                                      whileInView={{ opacity: 1, y: 0 }}
-                                      viewport={{ once: true }}
-                                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
-                                    >
-                                      <span className="bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-[0.2em] px-5 py-2 rounded-full shadow-xl shadow-amber-600/30 flex items-center gap-1.5">
-                                        <Award className="w-3.5 h-3.5" />{" "}
-                                        Premium
-                                      </span>
-                                    </motion.div>
-                                  )}
-
                                   <div
-                                    className={`${d.cardBg} rounded-[28px] overflow-hidden h-full flex flex-col relative border border-white/[0.08] group-hover:border-white/[0.18] transition-all duration-500`}
+                                    className="relative w-full h-full rounded-[22px] overflow-hidden border border-white/15 group-hover:border-white/30 transition-colors duration-500"
                                     style={{
-                                      boxShadow: `0 8px 40px -8px ${d.glow}, 0 0 80px -20px ${d.glow}`,
+                                      backgroundColor: "rgba(10,10,10,0.32)",
+                                      backgroundImage: `linear-gradient(155deg, ${d.glow.replace("0.15", "0.35").replace("0.18", "0.4")} 0%, rgba(8,8,12,0.45) 60%, rgba(0,0,0,0.55) 100%)`,
+                                      backdropFilter: "blur(18px) saturate(135%)",
+                                      WebkitBackdropFilter: "blur(18px) saturate(135%)",
+                                      boxShadow: `0 30px 70px -25px rgba(0,0,0,0.85), 0 0 90px -20px ${d.glow}`,
                                     }}
                                   >
+                                    {/* Soft tier glow at the top */}
                                     <div
-                                      className="absolute inset-0 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+                                      className="absolute inset-0 opacity-70 pointer-events-none"
                                       style={{
-                                        background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 50%)`,
-                                        boxShadow: `0 0 80px 20px ${d.glow}`,
+                                        background: `radial-gradient(ellipse at 50% -10%, ${d.glow} 0%, transparent 55%)`,
                                       }}
                                     />
+                                    {/* Hover halo */}
+                                    <div
+                                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+                                      style={{
+                                        background: `radial-gradient(ellipse at 50% 0%, ${d.glow} 0%, transparent 55%)`,
+                                      }}
+                                    />
+                                    <div
+                                      className={`absolute top-0 left-7 right-7 h-[1px] bg-gradient-to-r ${d.decorLine}`}
+                                    />
 
-                                    <div className="px-5 pt-6 pb-4 relative">
-                                      <div
-                                        className={`absolute top-0 left-5 right-5 h-[1px] bg-gradient-to-r ${d.decorLine}`}
-                                      />
+                                    <div className="relative h-full flex flex-col px-7 pt-7 pb-6">
+                                      <div className="flex items-center justify-between text-[10px] tracking-[0.4em] text-white/40 uppercase">
+                                        <span>Plan.0{idx + 1}</span>
+                                        <span className={d.taglineColor}>
+                                          {isHighlighted || isTop
+                                            ? "Premier"
+                                            : "Essential"}
+                                        </span>
+                                      </div>
+
                                       <h3
-                                        className={`font-heading font-bold text-xl tracking-wide bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}
+                                        className={`mt-7 font-heading text-3xl md:text-[2rem] font-bold leading-[1.1] tracking-tight bg-gradient-to-r ${d.headerAccent} bg-clip-text text-transparent`}
                                       >
                                         {plan.name}
                                       </h3>
+
                                       {plan.tagline && (
                                         <p
-                                          className={`text-xs mt-1 ${d.taglineColor} italic`}
+                                          className={`mt-3 text-xs italic ${d.taglineColor} line-clamp-2`}
                                         >
                                           {plan.tagline}
                                         </p>
                                       )}
 
-                                      <div className="mt-3 flex items-baseline gap-2">
-                                        <span
-                                          className={`text-3xl font-bold tracking-tight ${d.priceColor}`}
-                                        >
-                                          {price > 0
-                                            ? `₹${price.toLocaleString("en-IN")}`
-                                            : "Custom"}
-                                        </span>
-                                        {price > 0 && (
-                                          <span className="text-white/30 text-sm">
-                                            / year
-                                          </span>
-                                        )}
-                                      </div>
-                                      {price > 0 && (
-                                        <p className="text-white/25 text-xs mt-0.5">
-                                          ≈ ₹
-                                          {Math.round(
-                                            price / 12,
-                                          ).toLocaleString("en-IN")}
-                                          /month
-                                        </p>
-                                      )}
-                                    </div>
-
-                                    <div
-                                      className={`mx-5 h-[1px] bg-gradient-to-r ${d.decorLine}`}
-                                    />
-
-                                    <div className="px-5 py-4 flex-1 flex flex-col">
                                       {plan.occupancy && (
                                         <div
-                                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs mb-4 ${d.occupancyBg}`}
+                                          className={`inline-flex self-start items-center gap-2 px-3 py-1 rounded-full border text-[10px] mt-4 ${d.occupancyBg}`}
                                         >
                                           <Users
-                                            className={`w-3.5 h-3.5 ${d.occupancyText}`}
+                                            className={`w-3 h-3 ${d.occupancyText}`}
                                           />
                                           <span className={d.occupancyText}>
                                             {plan.occupancy}
@@ -1786,100 +1804,107 @@ export default function Home() {
                                       )}
 
                                       {features.length > 0 && (
-                                        <div className="space-y-2.5 flex-1">
+                                        <ul className="mt-5 space-y-1.5 flex-1">
                                           {features.map((item: any) => {
                                             const val =
                                               item.featureValue ||
                                               `${item.includedQty} ${item.unit}`;
-                                            const isCredit =
-                                              val.includes("Credit");
-                                            const isUnlimited =
-                                              val
-                                                .toLowerCase()
-                                                .includes("unlimited") ||
-                                              val
-                                                .toLowerCase()
-                                                .includes("priority");
                                             return (
-                                              <div
+                                              <li
                                                 key={item.id}
-                                                className="flex items-start gap-3"
+                                                className="flex items-start gap-2.5 text-xs text-white/65"
                                               >
-                                                <div
-                                                  className={`w-5 h-5 mt-0.5 rounded-md bg-gradient-to-br ${d.featureIcon} flex items-center justify-center shrink-0`}
-                                                >
-                                                  <svg
-                                                    className="w-3 h-3"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor"
-                                                    strokeWidth={2.5}
-                                                  >
-                                                    <path
-                                                      strokeLinecap="round"
-                                                      strokeLinejoin="round"
-                                                      d="M5 13l4 4L19 7"
-                                                    />
-                                                  </svg>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                  <span
-                                                    className={`text-sm ${d.featureText}`}
-                                                  >
-                                                    {item.label}
-                                                  </span>
-                                                  <span
-                                                    className={`text-sm ml-1 ${isCredit || isUnlimited ? d.featureValue + " drop-shadow-sm" : d.featureValue}`}
-                                                  >
+                                                <Check
+                                                  className={`w-3 h-3 mt-0.5 shrink-0 ${d.occupancyText}`}
+                                                />
+                                                <span className="line-clamp-1">
+                                                  {item.label}{" "}
+                                                  <span className="text-white/85 font-medium">
                                                     {val}
                                                   </span>
-                                                </div>
-                                              </div>
+                                                </span>
+                                              </li>
                                             );
                                           })}
-                                          {(plan.items || []).length > 6 && (
-                                            <p className="text-xs text-white/25 pl-8">
-                                              +{(plan.items || []).length - 6}{" "}
+                                          {(plan.items || []).length > 3 && (
+                                            <li className="text-[10px] text-white/30 pl-5">
+                                              +{(plan.items || []).length - 3}{" "}
                                               more inclusions
-                                            </p>
+                                            </li>
                                           )}
-                                        </div>
+                                        </ul>
                                       )}
 
-                                      <div className="mt-5">
-                                        <a
-                                          href={
-                                            plan.propertySlug
-                                              ? `/properties/${plan.propertySlug}`
-                                              : plan.propertyId
-                                                ? `/properties/${plan.propertyId}`
-                                                : "/properties"
-                                          }
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            const target = plan.propertySlug
-                                              ? `/properties/${plan.propertySlug}`
-                                              : plan.propertyId
-                                                ? `/properties/${plan.propertyId}`
-                                                : "/properties";
-                                            setLocation(target);
-                                          }}
-                                          className={`block w-full rounded-xl h-11 font-semibold tracking-[0.15em] uppercase text-sm text-white shadow-lg ${d.btnBg} transition-all duration-300 cursor-pointer hover:scale-[1.02] active:scale-[0.98]`}
-                                          data-testid={`button-view-plan-${plan.id}`}
-                                        >
-                                          <span className="flex items-center justify-center gap-2 h-full">
-                                            Explore & Book{" "}
-                                            <ArrowRight className="w-4 h-4" />
-                                          </span>
-                                        </a>
+                                      <div className="mt-auto pt-5">
+                                        <div
+                                          className={`h-[1px] mb-5 bg-gradient-to-r ${d.decorLine}`}
+                                        />
+                                        <div className="flex items-end justify-between gap-3">
+                                          <div>
+                                            <div
+                                              className={`text-2xl font-bold tracking-tight ${d.priceColor}`}
+                                            >
+                                              {price > 0
+                                                ? `₹${price.toLocaleString("en-IN")}`
+                                                : "Custom"}
+                                            </div>
+                                            {price > 0 && (
+                                              <div className="text-[10px] text-white/30 mt-0.5">
+                                                / year · ≈ ₹
+                                                {Math.round(
+                                                  price / 12,
+                                                ).toLocaleString("en-IN")}
+                                                /mo
+                                              </div>
+                                            )}
+                                          </div>
+                                          <a
+                                            href={
+                                              plan.propertySlug
+                                                ? `/properties/${plan.propertySlug}`
+                                                : plan.propertyId
+                                                  ? `/properties/${plan.propertyId}`
+                                                  : "/properties"
+                                            }
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              const target = plan.propertySlug
+                                                ? `/properties/${plan.propertySlug}`
+                                                : plan.propertyId
+                                                  ? `/properties/${plan.propertyId}`
+                                                  : "/properties";
+                                              setLocation(target);
+                                            }}
+                                            className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[10px] uppercase tracking-[0.2em] font-semibold text-white shadow-lg ${d.btnBg} transition-all duration-300 hover:scale-[1.04] active:scale-[0.98]`}
+                                            data-testid={`button-view-plan-${plan.id}`}
+                                          >
+                                            Explore
+                                            <ArrowRight className="w-3 h-3" />
+                                          </a>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                </motion.div>
-                              </TiltCard>
+                                </div>
+                              </motion.div>
                             );
                           })}
                         </div>
+                        {allPlans.length > 2 && (
+                          <div className="mt-10 md:mt-12 flex justify-center">
+                            <a
+                              href={propHref}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setLocation(propHref);
+                              }}
+                              className="text-[10px] tracking-[0.4em] uppercase text-white/40 hover:text-white/80 border-b border-white/15 hover:border-white/40 pb-1 transition-colors"
+                              data-testid={`link-all-plans-${propId}`}
+                            >
+                              View all {allPlans.length} plans →
+                            </a>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
