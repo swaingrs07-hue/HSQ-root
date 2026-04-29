@@ -414,11 +414,14 @@ export function PlansHallway({
                   }`}
                   className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
-                    // Reference layout: 260x380 cards at top:27%,
+                    // Reference layout: 260x380 cards at top:8%,
                     // with left:20% or right:20%, and their own
                     // translateZ depth + rotateY tilt inside the
-                    // parent's 3D perspective camera.
-                    top: "27%",
+                    // parent's 3D perspective camera. Lifted from
+                    // 27% -> 8% so the card sits in the dark sky
+                    // band of the backdrop video and never overlaps
+                    // the bright lavender field below.
+                    top: "8%",
                     [isLeft ? "left" : "right"]: "20%",
                     width: 260,
                     height: 380,
