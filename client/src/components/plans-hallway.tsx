@@ -299,8 +299,7 @@ export function PlansHallway({
                 data-testid="plans-hallway-backdrop-video"
                 className="w-full h-full object-cover"
                 style={{
-                  opacity: 0.55,
-                  mixBlendMode: "luminosity",
+                  opacity: 0.6,
                   WebkitMaskImage:
                     "linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
                   maskImage:
