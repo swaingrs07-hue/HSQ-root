@@ -378,11 +378,13 @@ export function PlansHallway({
                     [isLeft ? "left" : "right"]: "20%",
                     width: 260,
                     height: 380,
-                    background: "#0a0a0a",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 4,
+                    background:
+                      "linear-gradient(180deg, #1a1a1a 0%, #141414 55%, #0f0f0f 100%)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    borderRadius: 6,
                     overflow: "hidden",
-                    boxShadow: `0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
+                    isolation: "isolate",
+                    boxShadow: `0 30px 80px -20px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,0,0,0.6) inset, 0 0 60px -10px ${tier.glow}`,
                     transition:
                       "filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
                     transform: buttonTransform,
