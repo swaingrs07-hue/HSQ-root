@@ -4,6 +4,7 @@ import {
   motion,
   useScroll,
   useTransform,
+  useMotionTemplate,
   AnimatePresence,
 } from "framer-motion";
 import { ArrowRight, Check, X, ChevronDown } from "lucide-react";
@@ -146,17 +147,22 @@ export function PlansHallway({
     offset: ["start start", "end end"],
   });
 
-  // Vertical track motion driven by scroll. We use translateY (a 2D
-  // transform) instead of translateZ so the parent does NOT need
-  // `preserve-3d`. That's important: a shared `preserve-3d` parent
-  // with rotated 3D-positioned sibling buttons triggers a Chrome
-  // pointer hit-test bug where clicks on later siblings get silently
-  // dropped. By keeping the parent purely 2D and giving each button
-  // its OWN self-contained `perspective(...) rotateY(...)` transform,
-  // every button is its own 3D scene with predictable hit-testing.
-  const totalScrollPx =
-    frames.length > 0 ? (frames.length - 1) * 700 + 200 : 0;
-  const trackY = useTransform(scrollYProgress, [0, 1], [0, -totalScrollPx]);
+  // Cinematic 3D depth — driven by scroll. Each card has its OWN
+  // self-contained 3D scene via inline `perspective(...)` on the
+  // button transform (see render below), so we deliberately AVOID
+  // putting `perspective` / `preserve-3d` on the parent. That layout
+  // (a shared `preserve-3d` parent with multiple rotated 3D-positioned
+  // siblings) triggers a Chrome pointer hit-test bug that silently
+  // drops clicks on the further-back card. With per-button self-
+  // contained perspectives, every button is its own 3D camera and
+  // pointer events route to the correct card every time.
+  //
+  // The shared scroll-driven Z motion is published as a CSS variable
+  // `--track-z` on the track wrapper so each button can read it via
+  // calc(...) inside its own transform.
+  const lastZ = frames.length > 0 ? Math.abs(frames[frames.length - 1].zPos) : 0;
+  const trackZ = useTransform(scrollYProgress, [0, 1], [0, lastZ + 800]);
+  const trackZVar = useMotionTemplate`${trackZ}px`;
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
 
   // Outer container height: roughly one viewport per frame so the user has
@@ -250,15 +256,18 @@ export function PlansHallway({
               "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
           }}
         >
-          {/* hallway track — pure 2D (no preserve-3d) so each card's
-              rotated button is in its own self-contained 3D scene
-              (via inline `perspective(...)` on the button transform)
-              rather than a shared 3D context. This sidesteps Chrome's
-              pointer-event hit-test bug on rotated 3D-positioned
-              sibling elements. */}
+          {/* hallway track — pure 2D (no `perspective` / `preserve-3d`
+              on this or any ancestor). Each card's rotated button is
+              its own self-contained 3D scene via inline
+              `perspective(...) translateZ(...) rotateY(...)` on the
+              button transform. The shared scroll-driven Z motion is
+              published here as a CSS variable `--track-z` that every
+              button reads via `calc(var(--track-z) + frame.zPos)` so
+              the cards still recede / approach as a coherent hallway
+              while remaining individually clickable. */}
           <motion.div
             className="absolute inset-0 w-full h-full"
-            style={{ y: trackY }}
+            style={{ ["--track-z" as never]: trackZVar }}
           >
             {frames.map((frame, idx) => {
               const isLeft = frame.side === "left";
@@ -266,18 +275,19 @@ export function PlansHallway({
               const price = Number(frame.plan.basePrice || 0);
               const monthly = price > 0 ? Math.round(price / 12) : 0;
               const features = (frame.plan.items || []).slice(0, 3);
-              // Self-contained per-button 3D: `perspective(...)` here
-              // is the CSS function, not the property. Each button gets
-              // its OWN perspective camera, so rotated siblings never
-              // share a 3D context. Hit-testing on each button is
-              // independent — clicks always reach the right one.
-              const buttonTransform = `perspective(2400px) rotateY(${
+              // Self-contained per-button 3D: `perspective(...)` is the
+              // CSS function (not the property), so each button has
+              // its OWN perspective camera. Sibling buttons never
+              // share a 3D rendering context, which is what was
+              // confusing Chrome's pointer hit-tester before.
+              //   • inline perspective → independent 3D scene per card
+              //   • translateZ(calc(var(--track-z) + frame.zPos)) →
+              //     scroll-driven cinematic depth animation
+              //   • rotateY(±35°) → cinematic tilt
+              const buttonTransform = `perspective(2400px) translateZ(calc(var(--track-z, 0px) + ${frame.zPos}px)) rotateY(${
                 isLeft ? "35deg" : "-35deg"
               })`;
               const leftAnchor = isLeft ? "10%" : "calc(90% - 300px)";
-              // Stagger cards vertically so they walk past the viewport
-              // as the track translates upward on scroll.
-              const topPx = 140 + idx * 700;
 
               return (
                 <button
@@ -293,7 +303,12 @@ export function PlansHallway({
                   className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
                     left: leftAnchor,
-                    top: topPx,
+                    // Small per-card vertical offset so cards on the
+                    // same side never share the same 2D hit area.
+                    // Depth (translateZ) dominates the visual; this
+                    // just guarantees each card has its own distinct
+                    // clickable region in screen space.
+                    top: `calc(10vh + ${idx * 80}px)`,
                     width: 300,
                     height: 460,
                     background:
