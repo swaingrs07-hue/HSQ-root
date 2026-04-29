@@ -375,11 +375,17 @@ export function PlansHallway({
               hallway. pointer-events: none here too — only the cards
               themselves are clickable. */}
           <motion.div
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-0 w-full h-full z-10"
             style={{
               transformStyle: "preserve-3d",
               transform: trackTransform,
               pointerEvents: "none",
+              // The track has its own `transform` -> establishes a
+              // stacking context, so the cards' z-index inside is
+              // bound here. Lift the whole track above the backdrop
+              // video (z-[1]) and vignette (z-[2]) so cards always
+              // render in front of the lavender field.
+              zIndex: 10,
             }}
           >
             {frames.map((frame, idx) => {
@@ -414,14 +420,14 @@ export function PlansHallway({
                   }`}
                   className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
-                    // Reference layout: 260x380 cards at top:8%,
+                    // Reference layout: 260x380 cards at top:27%,
                     // with left:20% or right:20%, and their own
                     // translateZ depth + rotateY tilt inside the
-                    // parent's 3D perspective camera. Lifted from
-                    // 27% -> 8% so the card sits in the dark sky
-                    // band of the backdrop video and never overlaps
-                    // the bright lavender field below.
-                    top: "8%",
+                    // parent's 3D perspective camera. Card stacking
+                    // above the backdrop video is handled at the
+                    // track level (z-10) so cards always render in
+                    // front of the field regardless of vertical pos.
+                    top: "27%",
                     [isLeft ? "left" : "right"]: "20%",
                     width: 260,
                     height: 380,
