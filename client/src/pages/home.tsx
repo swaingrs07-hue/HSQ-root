@@ -976,7 +976,16 @@ export default function Home() {
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5, ease: "easeInOut" }}
               className="absolute inset-0"
-              style={{}}
+              style={
+                tubesActive
+                  ? {
+                      WebkitMaskImage:
+                        "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
+                      maskImage:
+                        "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
+                    }
+                  : {}
+              }
             >
               <motion.img
                 src={activeSlide.image}
@@ -994,6 +1003,14 @@ export default function Home() {
                     .animate
                 }
                 transition={{ duration: 8, ease: "linear" }}
+                style={
+                  tubesActive
+                    ? {
+                        opacity: 0.55,
+                        filter: "blur(2.5px) saturate(1.15) brightness(1.05)",
+                      }
+                    : undefined
+                }
               />
             </motion.div>
           </AnimatePresence>
