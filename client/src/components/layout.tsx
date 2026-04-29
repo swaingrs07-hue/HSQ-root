@@ -124,6 +124,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     !prefersReducedMotion &&
     !(isHomePage && isSmallViewport);
 
+  // Allow individual pages (currently the home hero video) to ask the
+  // global iridescent tube background to pause its WebGL render loop
+  // while a heavy <video> element is on screen. We keep the canvas
+  // mounted so the GPU context isn't torn down — we just stop the
+  // animation loop, which frees the GPU for video decoding and is the
+  // single biggest fix for hero-video stutter on mid-range devices.
+  const [tubesPauseRequested, setTubesPauseRequested] = useState(false);
+  const handleSetTubesPauseRequested = useCallback((paused: boolean) => {
+    setTubesPauseRequested(paused);
+  }, []);
+
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
     const handleScroll = () => {
@@ -247,7 +258,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const headerTransparent = hasTransparentHeader && !scrolled && !mobileMenuOpen;
 
   return (
-    <TubesContext.Provider value={{ active: globalTubesActive }}>
+    <TubesContext.Provider
+      value={{
+        active: globalTubesActive,
+        setPauseRequested: handleSetTubesPauseRequested,
+      }}
+    >
     <div
       className="min-h-screen bg-[#050505] flex flex-col font-sans relative"
       data-testid="layout-root"
@@ -267,6 +283,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Suspense fallback={null}>
               <TubesCursorBackground
                 enabled={globalTubesActive}
+                paused={tubesPauseRequested}
                 onFailure={handleGlobalTubesFailure}
               />
             </Suspense>

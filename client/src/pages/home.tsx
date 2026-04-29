@@ -4,6 +4,7 @@ import {
   useCallback,
   useRef,
   useMemo,
+  useContext,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
@@ -62,7 +63,7 @@ import { PropertyTourModal } from "@/components/property-tour-modal";
 import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
-import { useTubesActive } from "@/contexts/tubes-context";
+import { TubesContext, useTubesActive } from "@/contexts/tubes-context";
 import { PlansHallway } from "@/components/plans-hallway";
 
 function useMouseTilt(intensity = 15) {
@@ -896,6 +897,112 @@ export default function Home() {
     };
   }, [isAutoPlaying, nextSlide, heroSlides.length, hasAnyVideo]);
 
+  // Track whether the hero section is on screen so we only pause the
+  // global tube background while the user is actually looking at the
+  // hero. Once they scroll past it the background can resume.
+  const [heroInViewport, setHeroInViewport] = useState(true);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e) setHeroInViewport(e.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // Whenever a hero video slide is the active slide AND the hero is
+  // visible, ask the global iridescent tube background to pause its
+  // WebGL render loop. This frees the GPU so the <video> element
+  // doesn't compete with the WebGL canvas for decoding bandwidth and
+  // is the biggest practical win for hero-video smoothness on
+  // mid-range hardware.
+  const heroVideoActive = !!(
+    activeSlide?.videoUrl &&
+    videoSupported &&
+    !videoFailed
+  );
+  const tubesCtx = useContext(TubesContext);
+  useEffect(() => {
+    const setPauseRequested = tubesCtx.setPauseRequested;
+    if (!setPauseRequested) return;
+    const shouldPause = heroVideoActive && heroInViewport;
+    setPauseRequested(shouldPause);
+    return () => {
+      setPauseRequested(false);
+    };
+  }, [heroVideoActive, heroInViewport, tubesCtx.setPauseRequested]);
+
+  // Once the video has been ready and playing for a brief settle
+  // window, fully unmount the placeholder <img>. Until now we kept
+  // it cross-fading at opacity 0, but the browser was still
+  // compositing two full-screen layers per frame — a measurable
+  // hit on integrated GPUs. We re-mount it on every slide change
+  // so the next video's first frame still fades in over a poster.
+  const [placeholderHidden, setPlaceholderHidden] = useState(false);
+  useEffect(() => {
+    setPlaceholderHidden(false);
+  }, [currentSlide]);
+  useEffect(() => {
+    if (!videoReady) {
+      setPlaceholderHidden(false);
+      return;
+    }
+    const t = window.setTimeout(() => setPlaceholderHidden(true), 800);
+    return () => window.clearTimeout(t);
+  }, [videoReady, currentSlide]);
+
+  // Quality-degradation safety net: if the browser reports that the
+  // hero <video> is dropping a meaningful share of frames over
+  // consecutive 2s windows, treat the video as failed and let the
+  // existing static-image fallback take over. This catches cases the
+  // codec / canPlayType pre-flight can't predict (decoder backpressure
+  // on slow CPUs, thermal throttling on phones, contended GPUs, etc.)
+  // and prevents users from ever sitting through visible stutter.
+  useEffect(() => {
+    if (!videoReady || videoFailed) return;
+    const video = heroVideoRef.current;
+    if (!video || typeof video.getVideoPlaybackQuality !== "function") return;
+    let lastDropped = 0;
+    let lastTotal = 0;
+    let badWindows = 0;
+    try {
+      const q = video.getVideoPlaybackQuality();
+      lastDropped = q.droppedVideoFrames;
+      lastTotal = q.totalVideoFrames;
+    } catch {
+      return;
+    }
+    const id = window.setInterval(() => {
+      try {
+        const q = video.getVideoPlaybackQuality();
+        const droppedDelta = q.droppedVideoFrames - lastDropped;
+        const totalDelta = q.totalVideoFrames - lastTotal;
+        lastDropped = q.droppedVideoFrames;
+        lastTotal = q.totalVideoFrames;
+        const tooManyDropped =
+          totalDelta > 0 &&
+          droppedDelta > 20 &&
+          droppedDelta / totalDelta > 0.1;
+        if (tooManyDropped) {
+          badWindows += 1;
+        } else {
+          badWindows = 0;
+        }
+        if (badWindows >= 2) {
+          setVideoFailed(true);
+        }
+      } catch {
+        // ignore — never let a poll error break the hero
+      }
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [videoReady, videoFailed, currentSlide]);
+
   const handleSearchResults = (results: any) => {
     if (results.totalResults > 0 || results.interpretation) {
       sessionStorage.setItem("searchResults", JSON.stringify(results));
@@ -976,11 +1083,15 @@ export default function Home() {
               disablePictureInPicture
               disableRemotePlayback
             />
-            {activeSlide.image && (
-              // Keep the placeholder image mounted and cross-fade it to
-              // opacity 0 once the video is ready, so we don't keep
-              // painting both the image and the video for long. The
-              // 500ms transition matches the video fade-in above.
+            {activeSlide.image && !placeholderHidden && (
+              // Cross-fade the placeholder image while the video warms
+              // up, then fully unmount it ~800ms after the video is
+              // playing. Keeping it mounted at opacity 0 forever
+              // forces the browser to composite two full-screen layers
+              // every frame, which contributed to hero-video stutter
+              // on integrated GPUs. We re-mount it on every slide
+              // change so the next video's first frame still fades in
+              // over a poster.
               <img
                 src={activeSlide.image}
                 alt={activeSlide.title}

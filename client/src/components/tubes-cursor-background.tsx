@@ -4,6 +4,12 @@ interface TubesCursorBackgroundProps {
   className?: string;
   enabled?: boolean;
   reduceMotion?: boolean;
+  /**
+   * When true, ask the WebGL animation to pause its render loop without
+   * tearing down the GPU context. Used to free GPU while a hero <video>
+   * is playing so the video doesn't drop frames.
+   */
+  paused?: boolean;
   onFailure?: () => void;
 }
 
@@ -56,9 +62,36 @@ export default function TubesCursorBackground({
   className,
   enabled = true,
   reduceMotion = false,
+  paused = false,
   onFailure,
 }: TubesCursorBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Track the live app instance and the latest pause-request so the
+  // visibility handler / a separate pause effect can both reach the
+  // same controller without re-running the heavy init effect.
+  const appRef = useRef<TubesApp | null>(null);
+  const pauseRequestedRef = useRef(paused);
+
+  // Whenever the caller toggles `paused`, apply it to the live app
+  // (if one exists yet) and remember the latest desired state for any
+  // app that finishes initializing later.
+  useEffect(() => {
+    pauseRequestedRef.current = paused;
+    const app = appRef.current;
+    const canvas = canvasRef.current;
+    if (!app) return;
+    const shouldPause =
+      paused ||
+      (typeof document !== "undefined" &&
+        document.visibilityState === "hidden");
+    if (shouldPause) {
+      if (typeof app.pause === "function") app.pause();
+      else if (canvas) canvas.style.visibility = "hidden";
+    } else {
+      if (typeof app.resume === "function") app.resume();
+      else if (canvas) canvas.style.visibility = "visible";
+    }
+  }, [paused]);
 
   useEffect(() => {
     if (!enabled || reduceMotion) return;
@@ -146,14 +179,26 @@ export default function TubesCursorBackground({
             lights: { intensity: 300, colors: LIGHT_COLORS },
           },
         });
+        appRef.current = app;
 
         canvas.style.opacity = "1";
 
+        // If the caller asked to pause before init finished, honor it
+        // immediately so we don't kick off a render loop just to stop
+        // it on the next tick.
+        if (pauseRequestedRef.current && typeof app.pause === "function") {
+          app.pause();
+        }
+
         // Pause/resume on tab visibility changes to save GPU/battery.
+        // Also keeps the caller-requested pause state in mind so a
+        // tab returning to visible doesn't accidentally resume the
+        // tubes while a hero <video> is still playing.
         visibilityHandler = () => {
           if (!app) return;
           const hidden = document.visibilityState === "hidden";
-          if (hidden) {
+          const shouldPause = hidden || pauseRequestedRef.current;
+          if (shouldPause) {
             if (typeof app.pause === "function") app.pause();
             else canvas.style.visibility = "hidden";
           } else {
@@ -228,6 +273,7 @@ export default function TubesCursorBackground({
         }
       }
       app = null;
+      appRef.current = null;
     };
   }, [enabled, reduceMotion, onFailure]);
 
