@@ -146,8 +146,17 @@ export function PlansHallway({
     offset: ["start start", "end end"],
   });
 
-  const lastZ = frames.length > 0 ? Math.abs(frames[frames.length - 1].zPos) : 0;
-  const trackZ = useTransform(scrollYProgress, [0, 1], [0, lastZ + 800]);
+  // Vertical track motion driven by scroll. We use translateY (a 2D
+  // transform) instead of translateZ so the parent does NOT need
+  // `preserve-3d`. That's important: a shared `preserve-3d` parent
+  // with rotated 3D-positioned sibling buttons triggers a Chrome
+  // pointer hit-test bug where clicks on later siblings get silently
+  // dropped. By keeping the parent purely 2D and giving each button
+  // its OWN self-contained `perspective(...) rotateY(...)` transform,
+  // every button is its own 3D scene with predictable hit-testing.
+  const totalScrollPx =
+    frames.length > 0 ? (frames.length - 1) * 700 + 200 : 0;
+  const trackY = useTransform(scrollYProgress, [0, 1], [0, -totalScrollPx]);
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
 
   // Outer container height: roughly one viewport per frame so the user has
@@ -237,16 +246,19 @@ export function PlansHallway({
         <div
           className="sticky top-0 left-0 w-full h-screen overflow-hidden"
           style={{
-            perspective: "2400px",
-            perspectiveOrigin: "50% 50%",
             background:
               "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
           }}
         >
-          {/* hallway track */}
+          {/* hallway track — pure 2D (no preserve-3d) so each card's
+              rotated button is in its own self-contained 3D scene
+              (via inline `perspective(...)` on the button transform)
+              rather than a shared 3D context. This sidesteps Chrome's
+              pointer-event hit-test bug on rotated 3D-positioned
+              sibling elements. */}
           <motion.div
             className="absolute inset-0 w-full h-full"
-            style={{ transformStyle: "preserve-3d", translateZ: trackZ }}
+            style={{ y: trackY }}
           >
             {frames.map((frame, idx) => {
               const isLeft = frame.side === "left";
@@ -254,22 +266,18 @@ export function PlansHallway({
               const price = Number(frame.plan.basePrice || 0);
               const monthly = price > 0 ? Math.round(price / 12) : 0;
               const features = (frame.plan.items || []).slice(0, 3);
-              // Cinematic tilt — but applied to a NON-INTERACTIVE inner
-              // layer (see <div class="card-tilt">) rather than to the
-              // <button> itself. Rotating the button caused Chrome's
-              // hit-tester to silently drop pointerdown events on the
-              // further-back (rotated) card. Keeping the button's own
-              // transform a simple `translateZ` means its hit-area is
-              // just its CSS rect projected straight back — pointer
-              // events land on it every time. The inner div carries the
-              // rotateY for the visual.
-              const buttonTransform = `translate3d(0, 0, ${frame.zPos}px)`;
-              const tiltTransform = `rotateY(${isLeft ? "35deg" : "-35deg"})`;
-              // Both cards use a `left:` anchor (no `right:`) so each
-              // button has a fully-computed CSS layout box — this way
-              // hit-testing on the second card is just as reliable as
-              // on the first.
+              // Self-contained per-button 3D: `perspective(...)` here
+              // is the CSS function, not the property. Each button gets
+              // its OWN perspective camera, so rotated siblings never
+              // share a 3D context. Hit-testing on each button is
+              // independent — clicks always reach the right one.
+              const buttonTransform = `perspective(2400px) rotateY(${
+                isLeft ? "35deg" : "-35deg"
+              })`;
               const leftAnchor = isLeft ? "10%" : "calc(90% - 300px)";
+              // Stagger cards vertically so they walk past the viewport
+              // as the track translates upward on scroll.
+              const topPx = 140 + idx * 700;
 
               return (
                 <button
@@ -282,9 +290,10 @@ export function PlansHallway({
                       ? " at " + frame.plan.propertyName
                       : ""
                   }`}
-                  className="absolute top-[14%] sm:top-[16%] text-left cursor-pointer block group focus:outline-none"
+                  className="absolute text-left cursor-pointer block group focus:outline-none"
                   style={{
                     left: leftAnchor,
+                    top: topPx,
                     width: 300,
                     height: 460,
                     background:
@@ -295,16 +304,8 @@ export function PlansHallway({
                     boxShadow: `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
                     transition:
                       "border-color 0.4s ease, box-shadow 0.4s ease, filter 0.4s ease",
-                    // Button is FLAT (no rotation) — this guarantees its
-                    // hit-area is the simple CSS rect projected back via
-                    // perspective, so Chrome's pointer-event hit-test
-                    // resolves to the correct sibling every time. The
-                    // visual tilt lives on the inner `.card-tilt` div.
                     transform: buttonTransform,
-                    // preserve-3d so the inner rotated layer composes
-                    // correctly with the parent perspective.
-                    transformStyle: "preserve-3d",
-                    pointerEvents: "auto",
+                    transformOrigin: "center center",
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget;
@@ -331,24 +332,6 @@ export function PlansHallway({
                     el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
                   }}
                 >
-                  {/* TILT LAYER — carries the rotateY visual. It's
-                      pointer-events:none so all clicks pass through to
-                      the parent <button>'s un-rotated rect, giving Chrome
-                      a clean, predictable hit-area. The wrapper covers
-                      the full button rect; the rotation is rendered
-                      visually but doesn't affect hit-testing. */}
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      transform: tiltTransform,
-                      transformOrigin: "center center",
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    {/* All inner card content is non-interactive so that
-                        every mouse event lands directly on the <button>
-                        and triggers its onClick — no event-bubbling race
-                        with rotated 3D hit-testing on inner spans. */}
                     {/* photo region (top half) */}
                     <div
                       className="relative h-[180px] w-full overflow-hidden pointer-events-none"
@@ -498,7 +481,6 @@ export function PlansHallway({
                         </span>
                       </div>
                     </div>
-                  </div>
                 </button>
               );
             })}
