@@ -557,7 +557,7 @@ export default function PropertySelection() {
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                      <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
                         <div className="w-8 h-8 rounded-lg bg-amber-500/20 backdrop-blur-sm border border-amber-500/30 flex items-center justify-center">
                           <Building2 className="w-4 h-4 text-amber-400" />
                         </div>
@@ -568,6 +568,33 @@ export default function PropertySelection() {
                         }`}>
                           {prop.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
                         </span>
+                        {(() => {
+                          const gp = (prop as any).genderPolicy as
+                            | "co-ed"
+                            | "male"
+                            | "female"
+                            | null
+                            | undefined;
+                          if (!gp) return null;
+                          const cfg =
+                            gp === "co-ed"
+                              ? { label: "Co-ed", cls: "bg-violet-600/90 text-white" }
+                              : gp === "male"
+                                ? { label: "Boys only", cls: "bg-sky-600/90 text-white" }
+                                : gp === "female"
+                                  ? { label: "Girls only", cls: "bg-pink-600/90 text-white" }
+                                  : null;
+                          if (!cfg) return null;
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider backdrop-blur-sm ${cfg.cls}`}
+                              data-testid={`badge-gender-${prop.id}`}
+                            >
+                              <Users className="w-3 h-3" />
+                              {cfg.label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       <div className="absolute top-4 right-4">

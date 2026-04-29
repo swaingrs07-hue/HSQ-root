@@ -3016,16 +3016,45 @@ ${allPages.map(p => `  <url>
     return enriched;
   };
 
+  // Compute gender policy from a property's floors.
+  // Returns "co-ed" if the property hosts (or can host) all genders,
+  // "male" if only male-restricted floors, "female" if only female-restricted,
+  // or null if there are no floors yet.
+  const computeGenderPolicy = (
+    floorList: Array<{ gender?: string | null }>,
+  ): "co-ed" | "male" | "female" | null => {
+    if (!floorList || floorList.length === 0) return null;
+    let hasMale = false;
+    let hasFemale = false;
+    let hasAny = false;
+    for (const f of floorList) {
+      const g = (f.gender || "any").toLowerCase();
+      if (g === "male") hasMale = true;
+      else if (g === "female") hasFemale = true;
+      else hasAny = true;
+    }
+    if (hasAny) return "co-ed";
+    if (hasMale && hasFemale) return "co-ed";
+    if (hasMale) return "male";
+    if (hasFemale) return "female";
+    return null;
+  };
+
   app.get("/api/properties", async (req, res) => {
     try {
       const properties = await storage.getAllProperties();
       const propertiesWithRooms = await Promise.all(
         properties.map(async (property) => {
-          const [roomTypes, enriched] = await Promise.all([
+          const [roomTypes, enriched, propFloors] = await Promise.all([
             storage.getRoomTypesByProperty(property.id),
             enrichPropertyWithImages(property),
+            storage.getFloorsByProperty(property.id),
           ]);
-          return { ...enriched, roomTypes };
+          return {
+            ...enriched,
+            roomTypes,
+            genderPolicy: computeGenderPolicy(propFloors),
+          };
         })
       );
       res.json(propertiesWithRooms);
@@ -3042,12 +3071,18 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const [roomTypes, enriched, nearbyLocs] = await Promise.all([
+      const [roomTypes, enriched, nearbyLocs, propFloors] = await Promise.all([
         storage.getRoomTypesByProperty(property.id),
         enrichPropertyWithImages(property),
         storage.getNearbyLocationsByProperty(property.id),
+        storage.getFloorsByProperty(property.id),
       ]);
-      res.json({ ...enriched, roomTypes, nearbyLocations: nearbyLocs });
+      res.json({
+        ...enriched,
+        roomTypes,
+        nearbyLocations: nearbyLocs,
+        genderPolicy: computeGenderPolicy(propFloors),
+      });
     } catch (error) {
       console.error("Error fetching property:", error);
       res.status(500).json({ error: "Failed to fetch property" });
