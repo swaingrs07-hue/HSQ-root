@@ -879,18 +879,45 @@ export default function SalesDashboard() {
 
               <div>
                 <Label className="text-muted-foreground mb-2 block">Remarks</Label>
-                <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                <div className="space-y-2 max-h-[150px] overflow-y-auto" data-testid="list-remarks">
                   {leadDetail.remarks?.length > 0 ? (
-                    leadDetail.remarks.map((remark: any, idx: number) => (
-                      <div key={idx} className="p-2 bg-muted rounded">
-                        <p className="text-sm">{remark.remark}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(parseISO(remark.createdAt), "MMM d, yyyy h:mm a")}
-                        </p>
-                      </div>
-                    ))
+                    leadDetail.remarks.map((remark: any, idx: number) => {
+                      const sourceLabels: Record<string, string> = {
+                        initial_note: "Initial note",
+                        lead_message: "Enquiry message",
+                        follow_up_note: "Follow-up note",
+                        lost_note: "Lost reason",
+                      };
+                      const label = remark.source && remark.source !== "remark"
+                        ? sourceLabels[remark.source] || "Note"
+                        : (remark.user?.username || remark.user?.email || "Remark");
+                      const key = remark.id || idx;
+                      const testIdSuffix = remark.id || `idx-${idx}`;
+                      return (
+                        <div
+                          key={key}
+                          className="p-2 bg-muted rounded"
+                          data-testid={`remark-item-${testIdSuffix}`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span
+                              className="text-[10px] uppercase tracking-wide font-semibold text-primary"
+                              data-testid={`text-remark-source-${testIdSuffix}`}
+                            >
+                              {label}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap" data-testid={`text-remark-${testIdSuffix}`}>
+                            {remark.remark}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(parseISO(remark.createdAt), "MMM d, yyyy h:mm a")}
+                          </p>
+                        </div>
+                      );
+                    })
                   ) : (
-                    <p className="text-muted-foreground">No remarks yet</p>
+                    <p className="text-muted-foreground" data-testid="text-no-remarks">No remarks yet</p>
                   )}
                 </div>
               </div>

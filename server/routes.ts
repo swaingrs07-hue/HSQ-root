@@ -9950,8 +9950,99 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const remarks = await storage.getLeadRemarks(req.params.id as string);
       const property = lead.propertyId ? await storage.getProperty(lead.propertyId) : null;
       const roomTypes = lead.propertyId ? await storage.getRoomTypesByProperty(lead.propertyId) : [];
-      
-      res.json({ lead, activities, remarks, property, roomTypes });
+
+      // Build a unified, chronological remarks list that merges:
+      //   - lead_remarks rows (with author user)
+      //   - the lead's initial `notes` (lead-creation remark)
+      //   - the lead's website `message` (visitor's enquiry text, when present)
+      //   - `followUpNotes` (when present)
+      //   - `lostNotes` (when present)
+      // Each entry carries enough metadata for the UI: id, remark text, createdAt, source kind, optional user.
+      const mergedRemarks: Array<{
+        id: string;
+        remark: string;
+        createdAt: Date;
+        source: "remark" | "initial_note" | "lead_message" | "follow_up_note" | "lost_note";
+        user?: any;
+      }> = [];
+
+      for (const r of remarks) {
+        mergedRemarks.push({
+          id: `remark-${r.id}`,
+          remark: r.remark,
+          createdAt: r.createdAt as Date,
+          source: "remark",
+          user: r.user,
+        });
+      }
+
+      const leadCreatedAt = lead.createdAt as Date;
+
+      // Look up the most recent activity-log entries that correspond to when
+      // each synthesized note was actually written, so the merged list is
+      // chronologically accurate (rather than always falling back to the
+      // lead's createdAt). Activities are returned newest-first by storage.
+      const lastFollowUpActivity = activities.find(
+        (a: any) => a.actionType === "follow_up_set" || a.actionType === "follow_up_updated",
+      );
+      const lastLostActivity = activities.find((a: any) => {
+        if (a.actionType !== "status_change") return false;
+        try {
+          const parsed = a.newValue ? JSON.parse(a.newValue) : null;
+          return parsed && parsed.status === "lost";
+        } catch {
+          return false;
+        }
+      });
+
+      if (lead.notes && lead.notes.trim()) {
+        mergedRemarks.push({
+          id: `initial-${lead.id}`,
+          remark: lead.notes,
+          createdAt: leadCreatedAt,
+          source: "initial_note",
+        });
+      }
+
+      if (lead.message && lead.message.trim()) {
+        mergedRemarks.push({
+          id: `message-${lead.id}`,
+          remark: lead.message,
+          createdAt: leadCreatedAt,
+          source: "lead_message",
+        });
+      }
+
+      if (lead.followUpNotes && lead.followUpNotes.trim()) {
+        mergedRemarks.push({
+          id: `followup-${lead.id}`,
+          remark: lead.followUpNotes,
+          createdAt:
+            (lastFollowUpActivity?.createdAt as Date | undefined) ||
+            (lead.followUpAt as Date | null) ||
+            leadCreatedAt,
+          source: "follow_up_note",
+          user: lastFollowUpActivity?.actor,
+        });
+      }
+
+      if (lead.lostNotes && lead.lostNotes.trim()) {
+        mergedRemarks.push({
+          id: `lost-${lead.id}`,
+          remark: lead.lostNotes,
+          createdAt: (lastLostActivity?.createdAt as Date | undefined) || leadCreatedAt,
+          source: "lost_note",
+          user: lastLostActivity?.actor,
+        });
+      }
+
+      mergedRemarks.sort((a, b) => {
+        const tA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const tB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return tB - tA;
+      });
+
+      res.json({ lead, activities, remarks: mergedRemarks, property, roomTypes });
     } catch (error) {
       console.error("Error fetching lead details:", error);
       res.status(500).json({ error: "Failed to fetch lead details" });
