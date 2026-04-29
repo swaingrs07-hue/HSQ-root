@@ -113,8 +113,53 @@ export function PlansHallway({
 
   const propertyImage = useMemo(() => {
     const m: Record<string, string> = {};
+    const fromEntry = (entry: unknown): string | null => {
+      if (typeof entry === "string" && entry.trim().length > 0) return entry;
+      if (entry && typeof entry === "object") {
+        const e = entry as Record<string, unknown>;
+        for (const key of ["url", "imageUrl", "src", "path", "href"]) {
+          const v = e[key];
+          if (typeof v === "string" && v.trim().length > 0) return v;
+        }
+      }
+      return null;
+    };
+    const pickFirstTour = (raw: unknown): string | null => {
+      if (!raw) return null;
+      try {
+        let arr: unknown = raw;
+        if (typeof raw === "string") {
+          const trimmed = raw.trim();
+          if (trimmed.startsWith("[")) {
+            arr = JSON.parse(trimmed);
+          } else if (trimmed.length > 0) {
+            return trimmed;
+          } else {
+            return null;
+          }
+        }
+        if (Array.isArray(arr)) {
+          for (const entry of arr) {
+            const url = fromEntry(entry);
+            if (url) return url;
+          }
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    };
     properties.forEach((p) => {
-      if (p.imageUrl) m[p.id] = p.imageUrl;
+      const anyP = p as any;
+      const candidate =
+        (typeof p.imageUrl === "string" && p.imageUrl) ||
+        pickFirstTour(anyP.tourOverviewImages) ||
+        pickFirstTour(anyP.tourRoomsImages) ||
+        pickFirstTour(anyP.tourAmenitiesImages) ||
+        pickFirstTour(anyP.tourLocationImages) ||
+        anyP.brochureCoverImage ||
+        "";
+      if (candidate) m[p.id] = candidate;
     });
     return m;
   }, [properties]);
@@ -387,7 +432,6 @@ export function PlansHallway({
                     transition:
                       "filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
                     transform: buttonTransform,
-                    transformStyle: "preserve-3d",
                     transformOrigin: "center center",
                     // Reference trick: parents are pointer-events:none;
                     // each card opts back in with auto + a high
@@ -430,16 +474,19 @@ export function PlansHallway({
                         <img
                           src={frame.image}
                           alt=""
-                          className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-500 mix-blend-luminosity"
+                          className="w-full h-full object-cover transition-opacity duration-500"
                           loading="lazy"
                           decoding="async"
                         />
                       )}
-                      {/* tier accent wash */}
+                      {/* tier accent wash — gentle top tint over the
+                          property photo so the tier color reads but
+                          the photo stays clearly visible. */}
                       <div
-                        className="absolute inset-0 pointer-events-none mix-blend-overlay"
+                        className="absolute inset-0 pointer-events-none"
                         style={{
-                          background: `linear-gradient(180deg, ${tier.accentSoft} 0%, transparent 60%)`,
+                          background: `linear-gradient(180deg, ${tier.accentSoft} 0%, transparent 55%)`,
+                          opacity: 0.55,
                         }}
                       />
                       {/* fade into card body */}
