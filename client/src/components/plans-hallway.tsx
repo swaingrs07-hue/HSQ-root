@@ -105,18 +105,11 @@ export function PlansHallway({
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const lastTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Backdrop video gate: skip the loop video only on save-data (the
-  // surrounding hallway is itself heavily motion-driven, so honoring
-  // prefers-reduced-motion here would gate away the very effect the
-  // user explicitly wants). The <video> also self-disables on error.
-  const [showBackdropVideo, setShowBackdropVideo] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const conn = (
-      navigator as Navigator & { connection?: { saveData?: boolean } }
-    ).connection || null;
-    if (conn?.saveData) return false;
-    return true;
-  });
+  // Backdrop video: always mount; the <video> self-disables on
+  // error. This keeps the loop visible across all browsers and
+  // test environments without relying on connection / motion hints
+  // that vary between headless and real Chromium.
+  const [showBackdropVideo, setShowBackdropVideo] = useState(true);
 
   const propertyImage = useMemo(() => {
     const m: Record<string, string> = {};
@@ -266,12 +259,11 @@ export function PlansHallway({
         <div
           className="sticky top-0 left-0 w-full h-screen overflow-hidden"
           style={{
-            // Transparent base + soft vignette so the global
-            // iridescent tubes layer (mounted in Layout at z-0)
-            // shimmers through behind the cards. The vignette
-            // keeps just enough darkness for text/cards to pop.
+            // Opaque dark backdrop — the loop video plays on top of
+            // it (luminosity-blended) but no global tubes bleed
+            // through. Keeps the corridor focused on the cards.
             background:
-              "radial-gradient(circle at 50% 40%, rgba(13,13,13,0.55) 0%, rgba(0,0,0,0.85) 70%)",
+              "radial-gradient(circle at 50% 40%, #0d0d0d 0%, #000 70%)",
             perspective: "2400px",
             perspectiveOrigin: "50% 50%",
             // Reference trick: viewport itself does NOT receive
@@ -386,8 +378,8 @@ export function PlansHallway({
                     [isLeft ? "left" : "right"]: "20%",
                     width: 260,
                     height: 380,
-                    background: "rgba(10, 10, 10, 0.6)",
-                    border: "1px solid rgba(255,255,255,0.04)",
+                    background: "#0a0a0a",
+                    border: "1px solid rgba(255,255,255,0.06)",
                     borderRadius: 4,
                     overflow: "hidden",
                     boxShadow: `0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`,
