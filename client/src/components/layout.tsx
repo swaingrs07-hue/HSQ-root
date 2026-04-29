@@ -73,15 +73,56 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // reduced-motion and save-data, and the tubes-cursor-background
   // component calls onFailure -> active=false if WebGL is unavailable,
   // so devices without WebGL fall back to the dark Layout background.
-  const [globalTubesActive, setGlobalTubesActive] = useState(() => {
+  const [tubesSupported, setTubesSupported] = useState(() => {
     if (typeof window === "undefined") return false;
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection || null;
     const saveData = !!conn?.saveData;
-    if (reduceMotion || saveData) return false;
+    if (saveData) return false;
     return true;
   });
-  const handleGlobalTubesFailure = useCallback(() => setGlobalTubesActive(false), []);
+  const handleGlobalTubesFailure = useCallback(() => setTubesSupported(false), []);
+
+  // Reactive prefers-reduced-motion + small-viewport detection. Both
+  // signals can change after mount (a user toggling OS-level
+  // reduced-motion, or rotating / resizing a window) and we want the
+  // layout to re-evaluate the global tube layer in real time so we
+  // never strand a slow device with a heavy WebGL canvas running
+  // underneath the hero video.
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (e: MediaQueryListEvent) =>
+      setPrefersReducedMotion(e.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
+  const [isSmallViewport, setIsSmallViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setIsSmallViewport(window.innerWidth < 768);
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  // Effective tube state. Tubes are skipped when the device or user
+  // signals it can't afford them (reduced-motion, save-data, no WebGL).
+  // Additionally, on the homepage specifically — where the iridescent
+  // tubes used to composite under the hero video and cause stuttering —
+  // we also skip the tube layer for small mobile viewports. Other
+  // pages (like /apply) keep their tube background regardless of
+  // viewport size, so this change is scoped to the hero-video region
+  // exactly as Task #112 requires.
+  const globalTubesActive =
+    tubesSupported &&
+    !prefersReducedMotion &&
+    !(isHomePage && isSmallViewport);
 
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }

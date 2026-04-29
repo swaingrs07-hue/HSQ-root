@@ -728,6 +728,33 @@ export default function Home() {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   }, []);
 
+  // Detect prefers-reduced-motion and small viewports so we can skip the
+  // GPU-heavy compositing tricks (tube cut-out, backdrop blur) under the
+  // hero video on the slowest devices. We re-evaluate viewport on resize
+  // so rotating a phone or resizing the window switches modes correctly.
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (e: MediaQueryListEvent) =>
+      setPrefersReducedMotion(e.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
+  const [isSmallViewport, setIsSmallViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setIsSmallViewport(window.innerWidth < 768);
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const browserCanPlay = useCallback((contentType: string) => {
     if (typeof window === "undefined") return true;
     const testVideo = document.createElement("video");
@@ -922,42 +949,50 @@ export default function Home() {
         ) : activeSlide.videoUrl &&
           videoSupported &&
           !videoFailed ? (
-          <div
-            className={`absolute inset-0 ${tubesActive ? "" : "bg-black"}`}
-            style={
-              tubesActive
-                ? {
-                    WebkitMaskImage:
-                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
-                    maskImage:
-                      "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
-                  }
-                : undefined
-            }
-          >
+          // While a video is the active hero slide we deliberately do NOT
+          // apply the tube-mask cut-out or the alpha-blend trick: those
+          // force the browser to composite the iridescent WebGL canvas
+          // underneath every video frame, which makes mid-range phones
+          // and laptops drop frames. Render the video opaque on a solid
+          // backdrop so it has a fast, single-layer paint path. The
+          // global tube layer still appears on the rest of the page
+          // (below the hero) because the hero only covers the viewport
+          // height; here it just doesn't bleed into the video region.
+          <div className="absolute inset-0 bg-black">
             <video
               ref={heroVideoRef}
-              className="w-full h-full object-cover transition-opacity duration-700"
+              className="w-full h-full object-cover transition-opacity duration-500"
               style={{
-                opacity: videoReady ? (tubesActive ? 0.55 : 1) : 0,
+                opacity: videoReady ? 1 : 0,
+                transform: "translateZ(0)",
+                willChange: "transform",
+                backfaceVisibility: "hidden",
               }}
               muted
               autoPlay
               loop
               playsInline
               preload="auto"
+              disablePictureInPicture
+              disableRemotePlayback
             />
-            {!videoReady && activeSlide.image && (
+            {activeSlide.image && (
+              // Keep the placeholder image mounted and cross-fade it to
+              // opacity 0 once the video is ready, so we don't keep
+              // painting both the image and the video for long. The
+              // 500ms transition matches the video fade-in above.
               <img
                 src={activeSlide.image}
                 alt={activeSlide.title}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
                 style={{
-                  opacity: tubesActive ? 0.55 : 1,
+                  opacity: videoReady ? 0 : 1,
+                  pointerEvents: "none",
                 }}
+                aria-hidden={videoReady}
               />
             )}
           </div>
@@ -1015,26 +1050,50 @@ export default function Home() {
               : "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,0.7) 88%, rgba(5,5,5,0) 100%)",
           }}
         />
-        {/* Frosted blur strip at the bottom of the hero so the iridescent
-            tube animation that lives behind the page bleeds up through the
-            video's masked bottom edge with a soft haze instead of a hard
-            cut. The mask hides the blur in the upper portion so the video
-            stays sharp where it matters. */}
-        {tubesActive && (
-          <div
-            className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
-            aria-hidden="true"
-            data-testid="hero-tube-blur-bridge"
-            style={{
-              backdropFilter: "blur(28px) saturate(120%)",
-              WebkitBackdropFilter: "blur(28px) saturate(120%)",
-              WebkitMaskImage:
-                "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
-              maskImage:
-                "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
-            }}
-          />
-        )}
+        {/* Soft hand-off from the bottom of the hero into the rest of the
+            page (where the iridescent tube background continues). On image
+            slides we still use a frosted backdrop-filter blur so the tubes
+            bleed up with a haze. On video slides we skip the blur entirely
+            (it forced the GPU to re-blur a moving frame every paint and was
+            the main source of hero-video stutter) and use a plain colored
+            gradient instead — the design still gets a smooth dark fade
+            into the page below, just without the per-frame blur cost.
+            Reduced-motion and small mobile viewports always get the cheap
+            gradient path so playback stays smooth on the slowest devices. */}
+        {tubesActive && (() => {
+          const heroIsVideo =
+            !!activeSlide?.videoUrl && videoSupported && !videoFailed;
+          const skipBlur =
+            heroIsVideo || prefersReducedMotion || isSmallViewport;
+          if (skipBlur) {
+            return (
+              <div
+                className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
+                aria-hidden="true"
+                data-testid="hero-tube-blur-bridge"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0.55) 55%, rgba(5,5,5,0.95) 100%)",
+                }}
+              />
+            );
+          }
+          return (
+            <div
+              className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
+              aria-hidden="true"
+              data-testid="hero-tube-blur-bridge"
+              style={{
+                backdropFilter: "blur(28px) saturate(120%)",
+                WebkitBackdropFilter: "blur(28px) saturate(120%)",
+                WebkitMaskImage:
+                  "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
+                maskImage:
+                  "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
+              }}
+            />
+          );
+        })()}
         {!hasAnyVideo && (
           <>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/30 z-[5]" />
