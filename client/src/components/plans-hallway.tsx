@@ -111,6 +111,27 @@ export function PlansHallway({
   // that vary between headless and real Chromium.
   const [showBackdropVideo, setShowBackdropVideo] = useState(true);
 
+  // Phone-sized viewport detection. The desktop layout puts cards
+  // on the left and right walls of a corridor at left:20% / right:20%
+  // with a ±35° rotateY tilt — that only fits on tablet+ and on
+  // phones the 260px-wide cards spill past the viewport edge and
+  // the gallery rhythm collapses. On phones we switch to a centered
+  // stack with a small alternating offset, a softer tilt, and a
+  // slightly larger card so the same 3D camera-walk still feels
+  // like a full-screen corridor instead of a flattened list.
+  // SSR-safe default; updates on resize so rotating the device or
+  // resizing the preview re-evaluates.
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler, { passive: true });
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const propertyImage = useMemo(() => {
     const m: Record<string, string> = {};
     const fromEntry = (entry: unknown): string | null => {
@@ -403,9 +424,26 @@ export function PlansHallway({
               // each card explicitly opts in with pointer-events:auto
               // + a high z-index, so Chrome's hit-tester only
               // considers the cards themselves.
-              const buttonTransform = `translateZ(${frame.zPos}px) rotateY(${
-                isLeft ? "35deg" : "-35deg"
-              })`;
+              // Desktop: cards live on the left/right walls of the
+              // corridor (left:20% / right:20%) at full ±35° tilt so
+              // they read as gallery frames in oblique perspective.
+              // Mobile: cards are centered (left:50%) and we add a
+              // translateX(-50%) before the depth + tilt so the same
+              // 3D perspective camera still walks past them, but they
+              // never spill outside a narrow viewport. A small ±9%
+              // X offset (relative to card width) gives the same
+              // alternating rhythm without requiring side walls, and
+              // the tilt is softened to ±15° so each card stays
+              // legible at phone width.
+              const buttonTransform = isMobile
+                ? `translate(-50%, 0) translateX(${
+                    isLeft ? "-9%" : "9%"
+                  }) translateZ(${frame.zPos}px) rotateY(${
+                    isLeft ? "15deg" : "-15deg"
+                  })`
+                : `translateZ(${frame.zPos}px) rotateY(${
+                    isLeft ? "35deg" : "-35deg"
+                  })`;
 
               return (
                 <button
@@ -427,10 +465,15 @@ export function PlansHallway({
                     // above the backdrop video is handled at the
                     // track level (z-10) so cards always render in
                     // front of the field regardless of vertical pos.
-                    top: "27%",
-                    [isLeft ? "left" : "right"]: "20%",
-                    width: 260,
-                    height: 380,
+                    // On mobile we anchor at left:50% and let the
+                    // transform's translate(-50%) center the card,
+                    // and use a slightly larger 280x410 frame so the
+                    // photo + details still read at phone width.
+                    top: isMobile ? "22%" : "27%",
+                    left: isMobile ? "50%" : isLeft ? "20%" : undefined,
+                    right: !isMobile && !isLeft ? "20%" : undefined,
+                    width: isMobile ? 280 : 260,
+                    height: isMobile ? 410 : 380,
                     background:
                       "linear-gradient(180deg, #1a1a1a 0%, #141414 55%, #0f0f0f 100%)",
                     border: "1px solid rgba(255,255,255,0.14)",
