@@ -57,6 +57,10 @@ app.use((req, res, next) => {
   // the method and request body are preserved per RFC 7538 instead
   // of silently being downgraded to a body-less GET.
   const code = req.method === "GET" || req.method === "HEAD" ? 301 : 308;
+  // Sanity log: makes regressions obvious in production logs (e.g. if
+  // someone accidentally points another domain at the deployment, we'll
+  // see redirect spam). Compact one-liner so it stays cheap.
+  console.log(`[canonical-redirect] ${code} ${req.method} ${host}${req.originalUrl} -> ${target}`);
   return res.redirect(code, target);
 });
 

@@ -14144,15 +14144,27 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           });
           const latencyMs = Date.now() - t0;
           const location = resp.headers.get("location");
-          // 30x with a Location pointing at the canonical apex => OK.
+          // Strict: HEAD probes should see a 301 (permanent SEO redirect)
+          // or a 308 (permanent redirect that preserves method) pointing
+          // at the canonical apex. 302/307 are temporary and won't
+          // consolidate Google's index, so we surface them as amber via
+          // redirect_wrong_target with an explicit hint.
           if (resp.status >= 300 && resp.status < 400 && location) {
             try {
               const target = new URL(location, `https://${host}/`);
               const targetHost = target.hostname.toLowerCase();
-              if (targetHost === expectedApex.toLowerCase()) {
+              const isPermanent = resp.status === 301 || resp.status === 308;
+              if (targetHost === expectedApex.toLowerCase() && isPermanent) {
                 return {
                   host, status: "tls_ok_redirect", httpStatus: resp.status,
                   redirectTo: location, latencyMs, error: null, hint: null,
+                };
+              }
+              if (targetHost === expectedApex.toLowerCase() && !isPermanent) {
+                return {
+                  host, status: "redirect_wrong_target", httpStatus: resp.status,
+                  redirectTo: location, latencyMs, error: null,
+                  hint: `Redirect to apex uses ${resp.status} (temporary). SEO needs a permanent 301/308 — check canonical-host middleware.`,
                 };
               }
               return {
