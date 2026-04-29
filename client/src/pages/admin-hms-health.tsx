@@ -537,7 +537,7 @@ export default function AdminHmsHealth() {
                       Linked non-canonical domains — live HTTPS probe
                     </p>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                      Each row HEAD-requests the domain and confirms it 301-redirects to{" "}
+                      Each row HEAD-requests the domain and confirms it permanently redirects (301/308) to{" "}
                       <code className="font-mono">{status.canonicality.expectedApex}</code>.
                     </p>
                   </div>

@@ -14187,12 +14187,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             redirectTo: null, latencyMs, error: null,
             hint: "Server reachable but did not redirect. Check the canonical-host middleware in server/index.ts.",
           };
-        } catch (e: any) {
+        } catch (e: unknown) {
           const latencyMs = Date.now() - t0;
           // Most TLS / DNS / connection failures land here. We surface
           // the message so the admin can tell apart "domain not linked"
           // from "TLS cert missing" from "DNS not propagated".
-          const msg = e?.message || String(e);
+          const msg = e instanceof Error ? e.message : String(e);
           return {
             host, status: "tls_failed", httpStatus: null,
             redirectTo: null, latencyMs, error: msg.slice(0, 200),
