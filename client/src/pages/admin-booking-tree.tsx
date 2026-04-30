@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useProperty } from "@/contexts/property-context";
+import { useAuth } from "@/contexts/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -276,6 +277,8 @@ export default function AdminBookingTree() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedPropertyId } = useProperty();
+  const { user, token } = useAuth();
+  const isReceptionist = user?.role === "receptionist";
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const [bedDetailOpen, setBedDetailOpen] = useState(false);
@@ -288,9 +291,16 @@ export default function AdminBookingTree() {
   const [deallocateNotes, setDeallocateNotes] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "3d">("3d");
 
+  const propertiesEndpoint = isReceptionist ? "/api/staff/properties" : "/api/properties";
   const { data: properties = [] } = useQuery<Property[]>({
-    queryKey: ["/api/properties"],
-    queryFn: async () => { const r = await fetch("/api/properties"); return r.json(); },
+    queryKey: [propertiesEndpoint],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (isReceptionist && token) headers["Authorization"] = `Bearer ${token}`;
+      const r = await fetch(propertiesEndpoint, { headers });
+      return r.json();
+    },
+    enabled: !isReceptionist || !!token,
   });
 
   const { data: treeData, isLoading: treeLoading } = useQuery({

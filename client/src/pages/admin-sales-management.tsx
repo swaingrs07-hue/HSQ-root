@@ -102,6 +102,7 @@ function AdminSalesManagementContent() {
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState("executives");
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
+  const [receptionists, setReceptionists] = useState<SalesExecutive[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,7 +153,23 @@ function AdminSalesManagementContent() {
     if (activeTab === "property-mapping") {
       loadPropertyMappings();
     }
+    if (activeTab === "receptionists") {
+      loadReceptionists();
+    }
   }, [activeTab]);
+
+  const loadReceptionists = async () => {
+    try {
+      const response = await fetch("/api/admin/receptionists", {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      if (!response.ok) throw new Error("Failed to fetch receptionists");
+      const data = await response.json();
+      setReceptionists(data || []);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
 
   const loadSalesExecs = async () => {
     try {
@@ -673,6 +690,14 @@ function AdminSalesManagementContent() {
             <Link2 className="h-4 w-4 mr-2" />
             Property Mapping
           </TabsTrigger>
+          <TabsTrigger 
+            value="receptionists" 
+            data-testid="tab-receptionists"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Receptionists
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="executives" className="mt-4">
@@ -932,6 +957,88 @@ function AdminSalesManagementContent() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="receptionists" className="mt-4">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <CardTitle className="text-lg font-semibold">Receptionists</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Assign properties to scope receptionists. Receptionists with no assignments see all properties.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {receptionists.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground" data-testid="text-no-receptionists">
+                  No receptionists found.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Assigned Properties</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {receptionists.map((rec) => (
+                      <TableRow key={rec.id} data-testid={`row-receptionist-${rec.id}`}>
+                        <TableCell className="font-medium">{rec.name}</TableCell>
+                        <TableCell>{rec.email}</TableCell>
+                        <TableCell>{rec.phone || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {(rec.assignedProperties || []).map((prop) => (
+                              <Badge key={prop.id} variant="outline" className="flex items-center gap-1">
+                                {prop.name}
+                                <button
+                                  onClick={async () => {
+                                    await removePropertyAssignment(rec.id, prop.id);
+                                    loadReceptionists();
+                                  }}
+                                  className="ml-1 hover:text-red-500"
+                                  data-testid={`button-remove-receptionist-property-${rec.id}-${prop.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                            {(!rec.assignedProperties || rec.assignedProperties.length === 0) && (
+                              <span className="text-muted-foreground text-sm">All properties (unscoped)</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={rec.isActive ? "default" : "secondary"}>
+                            {rec.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedExec(rec);
+                              setSelectedPropertyIds(rec.assignedProperties?.map((p: any) => p.id) || []);
+                              setAssignPropertyDialogOpen(true);
+                            }}
+                            data-testid={`button-assign-receptionist-properties-${rec.id}`}
+                          >
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Assign Properties
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

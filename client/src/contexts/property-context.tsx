@@ -37,7 +37,13 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   const { user, token } = useAuth();
   
   const isSalesExec = user?.role === "sales_executive";
-  const propertiesEndpoint = isSalesExec ? "/api/sales/properties" : "/api/properties";
+  const isReceptionist = user?.role === "receptionist";
+  const needsAuthFetch = isSalesExec || isReceptionist;
+  const propertiesEndpoint = isSalesExec
+    ? "/api/sales/properties"
+    : isReceptionist
+      ? "/api/staff/properties"
+      : "/api/properties";
   
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -66,7 +72,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     queryKey: [propertiesEndpoint, user?.id || "anonymous"],
     queryFn: async () => {
       const headers: Record<string, string> = {};
-      if (isSalesExec && token) {
+      if (needsAuthFetch && token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
       const res = await fetch(propertiesEndpoint, { headers });
@@ -74,7 +80,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
-    enabled: !isSalesExec || !!token,
+    enabled: !needsAuthFetch || !!token,
   });
 
   const selectedProperty = selectedPropertyId

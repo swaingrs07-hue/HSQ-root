@@ -412,10 +412,43 @@ export async function registerRoutes(
   
   // Register object storage routes for image uploads
   registerObjectStorageRoutes(app);
-  
+
+  // ============ RECEPTIONIST PROPERTY SCOPING ============
+  // Backed by the role-agnostic sales_exec_properties junction table. A
+  // receptionist with at least one assignment is "scoped" — they only see
+  // bookings/registrations/requests/booking-tree/floors-beds/property-dropdown
+  // for their assigned properties. A receptionist with zero assignments is
+  // "unscoped" and sees everything (backward-compat with pre-task-135 behavior).
+  // Returns null when the user has no scoping (admin/superadmin/manager/staff,
+  // or a receptionist with zero assignments). Returns a Set of allowed
+  // property IDs otherwise.
+  async function getReceptionistScope(req: AuthRequest): Promise<Set<string> | null> {
+    if (!req.user || req.user.role !== "receptionist") return null;
+    const assigned = await storage.getAssignedPropertiesForUser(req.user.userId);
+    if (assigned.length === 0) return null;
+    return new Set(assigned.map((p) => p.id));
+  }
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Scoped property list for any logged-in staff user. Receptionists with
+  // assignments see only those properties; everyone else sees all active
+  // properties. Used by the admin header PropertySwitcher and by per-page
+  // property dropdowns (booking-tree, floors-beds, requests-board, booking
+  // generation) so the UI never shows a property the user can't act on.
+  app.get("/api/staff/properties", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const scope = await getReceptionistScope(req);
+      const all = await storage.getAllProperties();
+      const filtered = scope ? all.filter((p) => scope.has(p.id)) : all;
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error fetching staff properties:", error);
+      res.status(500).json({ error: "Failed to fetch properties" });
+    }
   });
 
   app.get("/download/android", async (req, res) => {
@@ -3394,9 +3427,13 @@ ${allPages.map(p => `  <url>
   // List ALL room types for a property (admin/receptionist) — includes
   // inactive ones so the Shift Bed dialog can offer every legitimate target,
   // not just the currently-active set returned by the public /api/properties/:id.
-  app.get("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin", "receptionist"), async (req, res) => {
+  app.get("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.propertyId;
+      const scope = await getReceptionistScope(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
       const rows = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.propertyId, propertyId));
       // Also count beds per room type at this property so the client can prefer
       // a type that actually has beds when the booking's stored type has none.
@@ -4040,6 +4077,11 @@ ${allPages.map(p => `  <url>
       
       if (user?.role === "sales_executive") {
         filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.userId || b.createdBy === user.userId);
+      }
+
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        filtered = filtered.filter((b: any) => b.propertyId && scope.has(b.propertyId));
       }
 
       if (filtered.length === 0) {
@@ -5119,6 +5161,11 @@ ${allPages.map(p => `  <url>
         return res.status(404).json({ error: "Booking not found" });
       }
 
+      const scope = await getReceptionistScope(req);
+      if (scope && booking.propertyId && !scope.has(booking.propertyId)) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
+
       const allowedFields = [
         "customerName", "customerPhone", "customerEmail",
         "status", "stayPlanType", "academicYearPeriod",
@@ -5214,6 +5261,11 @@ ${allPages.map(p => `  <url>
 
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const scope = await getReceptionistScope(req);
+      if (scope && booking.propertyId && !scope.has(booking.propertyId)) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
 
       const allowedStatuses = ["confirmed", "active", "completed", "pending_payment"];
       if (!allowedStatuses.includes(booking.status)) {
@@ -5405,6 +5457,11 @@ ${allPages.map(p => `  <url>
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const scope = await getReceptionistScope(req);
+      if (scope && booking.propertyId && !scope.has(booking.propertyId)) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
 
       const { paymentMethod, transactionId, notes, amount, screenshotPath } = req.body;
@@ -5763,6 +5820,15 @@ ${allPages.map(p => `  <url>
 
   app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const booking = await storage.getBooking(req.params.id);
+        if (!booking) return res.status(404).json({ error: "Booking not found" });
+        if (booking.propertyId && !scope.has(booking.propertyId)) {
+          return res.status(403).json({ error: "Booking not in your assignment scope" });
+        }
+      }
+
       const built = await buildHmsSyncForBooking(req.params.id);
       if (!built.ok) {
         const status = built.error === "Booking not found" ? 404 : 400;
@@ -8231,6 +8297,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         });
       }
 
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        residents = (residents as any[]).filter((r: any) =>
+          r.activeBookingPropertyId && scope.has(r.activeBookingPropertyId)
+        );
+      }
+
       res.json(residents);
     } catch (error) {
       console.error("Error fetching registered students:", error);
@@ -8619,6 +8692,29 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ============ SALES EXECUTIVE MANAGEMENT ============
 
   // Get all sales executives (admin only)
+  // List receptionist users with their assigned-property scope so admins can
+  // manage the scoping from the same UI that handles sales executives. Mirrors
+  // the response shape of /api/admin/sales-executives but omits sales-only
+  // stat fields. A receptionist with zero assignedProperties is unscoped.
+  app.get("/api/admin/receptionists", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+    try {
+      const allUsers = await db.select().from(schema.users).where(eq(schema.users.role, "receptionist"));
+      const activeReceptionists = allUsers.filter((u: any) => !u.deletedAt);
+      const result = await Promise.all(activeReceptionists.map(async (u) => {
+        const assignedProperties = await storage.getAssignedPropertiesForUser(u.id);
+        const { password: _pw, ...safe } = u as any;
+        return {
+          ...safe,
+          assignedProperties: assignedProperties.map((p) => ({ id: p.id, name: p.name })),
+        };
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching receptionists:", error);
+      res.status(500).json({ error: "Failed to fetch receptionists" });
+    }
+  });
+
   app.get("/api/admin/sales-executives", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const salesExecs = await storage.getSalesExecutives();
@@ -10767,6 +10863,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const isSuperadmin = req.user!.role === "superadmin";
       if (!roomTypeId && !isSuperadmin) return res.status(400).json({ error: "roomTypeId query param is required" });
 
+      const scope = await getReceptionistScope(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+
       const allBeds = await storage.getBedsByProperty(propertyId);
 
       let targetOccupancy: number | null = null;
@@ -11867,6 +11968,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const propertyId = req.params.id;
 
+      const scope = await getReceptionistScope(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+
       // Get all floors with rooms and beds
       const propertyFloors = await db.query.floors.findMany({
         where: eq(schema.floors.propertyId, propertyId),
@@ -12224,6 +12330,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
+
+      const scope = await getReceptionistScope(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
 
       const unassigned = await db.select()
         .from(schema.bookings)
@@ -14049,6 +14160,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         });
       }
 
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        result = result.filter(r => r.propertyId && scope.has(r.propertyId));
+      }
+
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -14079,6 +14195,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const [request] = await db.select().from(schema.registrationRequests)
         .where(eq(schema.registrationRequests.id, req.params.id));
       if (!request) return res.status(404).json({ error: "Request not found" });
+      const scope = await getReceptionistScope(req);
+      if (scope && (!request.propertyId || !scope.has(request.propertyId))) {
+        return res.status(403).json({ error: "Request not in your assignment scope" });
+      }
       res.json(request);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

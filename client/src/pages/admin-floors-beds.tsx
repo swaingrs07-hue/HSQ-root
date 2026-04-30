@@ -141,7 +141,7 @@ export default function AdminFloorsBeds() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedPropertyId } = useProperty();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const canEditWashroom = user?.role === "admin" || user?.role === "superadmin";
   const isSuperAdmin = user?.role === "superadmin";
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
@@ -166,7 +166,19 @@ export default function AdminFloorsBeds() {
   const [allocateBookingId, setAllocateBookingId] = useState<string>("");
   const [allocateBedId, setAllocateBedId] = useState<string>("");
 
-  const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({ queryKey: ["/api/properties"] });
+  const isReceptionistRole = user?.role === "receptionist";
+  const propertiesEndpoint = isReceptionistRole ? "/api/staff/properties" : "/api/properties";
+  const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({
+    queryKey: [propertiesEndpoint],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (isReceptionistRole && token) headers["Authorization"] = `Bearer ${token}`;
+      const r = await fetch(propertiesEndpoint, { headers });
+      if (!r.ok) throw new Error("Failed to load properties");
+      return r.json();
+    },
+    enabled: !isReceptionistRole || !!token,
+  });
 
   const { data: unassignedBookings = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/properties", selectedPropertyId, "unassigned-bookings"],

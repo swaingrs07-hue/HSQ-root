@@ -48,6 +48,7 @@ Preferred communication style: Simple, everyday language.
 -   **Property URL Slugs**: Human-readable URL slugs for properties to improve SEO.
 -   **SEO Foundations**: Dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, and server-side meta tag injection for public pages.
 -   **Sales Lead Visibility Scoping**: Sales executives see leads and properties based on their assignments.
+-   **Receptionist Property Scoping**: Admins assign properties to receptionists via the Sales Management → Receptionists tab (reusing the `sales_exec_properties` junction). Scoped receptionists only see their assigned properties in dropdowns and only access bookings/registrations/registration-requests/booking-tree/floors-beds for those properties; receptionists with zero assignments see everything (backward compat).
 -   **Lead-to-Booking Attribution Chain**: Full attribution tracking from lead creation through booking completion.
 -   **Lead Assignment Notifications**: In-app notifications for sales executives regarding lead assignments.
 -   **Calendar Device Sync**: Live iCal subscription feed for sales executive follow-ups and site visits.

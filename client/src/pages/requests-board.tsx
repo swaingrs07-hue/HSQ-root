@@ -225,8 +225,12 @@ export default function RequestsBoard() {
   const loadFilters = useCallback(async () => {
     try {
       const token = getAuthToken();
+      const isReceptionist = authUser?.role === "receptionist";
+      const propsEndpoint = isReceptionist ? "/api/staff/properties" : "/api/properties";
+      const propsHeaders: Record<string, string> = {};
+      if (isReceptionist && token) propsHeaders["Authorization"] = `Bearer ${token}`;
       const [propsRes, execsRes] = await Promise.allSettled([
-        fetch("/api/properties").then((r) => (r.ok ? r.json() : [])),
+        fetch(propsEndpoint, { headers: propsHeaders }).then((r) => (r.ok ? r.json() : [])),
         token
           ? fetch("/api/admin/sales-executives", {
               headers: { Authorization: `Bearer ${token}` },

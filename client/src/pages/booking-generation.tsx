@@ -795,7 +795,9 @@ function BookingGenerationInner() {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch("/api/properties", {
+      const isReceptionist = user?.role === "receptionist";
+      const endpoint = isReceptionist ? "/api/staff/properties" : "/api/properties";
+      const response = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (response.ok) {
