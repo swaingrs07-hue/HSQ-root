@@ -417,11 +417,8 @@ export async function registerRoutes(
   // Backed by the role-agnostic sales_exec_properties junction table. A
   // receptionist with at least one assignment is "scoped" — they only see
   // bookings/registrations/requests/booking-tree/floors-beds/property-dropdown
-  // for their assigned properties. A receptionist with zero assignments is
-  // "unscoped" and sees everything (backward-compat with pre-task-135 behavior).
-  // Returns null when the user has no scoping (admin/superadmin/manager/staff,
-  // or a receptionist with zero assignments). Returns a Set of allowed
-  // property IDs otherwise.
+  // for their assigned properties. Returns null when the user is not a
+  // receptionist or has zero assignments (unscoped fallback).
   async function getReceptionistScope(req: AuthRequest): Promise<Set<string> | null> {
     if (!req.user || req.user.role !== "receptionist") return null;
     const assigned = await storage.getAssignedPropertiesForUser(req.user.userId);
@@ -434,11 +431,7 @@ export async function registerRoutes(
     res.json({ status: "ok" });
   });
 
-  // Scoped property list for any logged-in staff user. Receptionists with
-  // assignments see only those properties; everyone else sees all active
-  // properties. Used by the admin header PropertySwitcher and by per-page
-  // property dropdowns (booking-tree, floors-beds, requests-board, booking
-  // generation) so the UI never shows a property the user can't act on.
+  // Scoped property list for any logged-in staff user.
   app.get("/api/staff/properties", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const scope = await getReceptionistScope(req);
@@ -2636,7 +2629,7 @@ ${allPages.map(p => `  <url>
 
       const scope = await getReceptionistScope(req);
       if (scope) {
-        allLeads = allLeads.filter((l: any) => l.propertyId && scope.has(l.propertyId));
+        allLeads = allLeads.filter((l) => l.propertyId !== null && scope.has(l.propertyId));
       }
 
       const events: Array<{
@@ -4091,7 +4084,7 @@ ${allPages.map(p => `  <url>
 
       const scope = await getReceptionistScope(req);
       if (scope) {
-        filtered = filtered.filter((b: any) => b.propertyId && scope.has(b.propertyId));
+        filtered = filtered.filter((b) => b.propertyId !== null && scope.has(b.propertyId));
       }
 
       if (filtered.length === 0) {
@@ -4358,7 +4351,7 @@ ${allPages.map(p => `  <url>
       let bookings = await storage.getAllBookings();
       const scope = await getReceptionistScope(req);
       if (scope) {
-        bookings = bookings.filter((b: any) => b.propertyId && scope.has(b.propertyId));
+        bookings = bookings.filter((b) => b.propertyId !== null && scope.has(b.propertyId));
       }
       res.json(bookings);
     } catch (error) {
@@ -4368,11 +4361,15 @@ ${allPages.map(p => `  <url>
   });
 
   // Get booking by code
-  app.get("/api/bookings/code/:code", async (req, res) => {
+  app.get("/api/bookings/code/:code", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBookingByCode(req.params.code);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
+      }
+      const scope = await getReceptionistScope(req);
+      if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
       res.json(booking);
     } catch (error) {
@@ -6222,16 +6219,6 @@ ${allPages.map(p => `  <url>
   // ============ PROPERTY-SALES EXEC MANAGEMENT ============
 
   // Get all property-sales exec assignments
-  app.get("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
-    try {
-      const assignments = await storage.getAllPropertyAssignments();
-      res.json(assignments);
-    } catch (error) {
-      console.error("Error fetching property assignments:", error);
-      res.status(500).json({ error: "Failed to fetch property assignments" });
-    }
-  });
-
   // Get sales execs for a specific property
   app.get("/api/admin/properties/:propertyId/sales-execs", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
@@ -6240,30 +6227,6 @@ ${allPages.map(p => `  <url>
     } catch (error) {
       console.error("Error fetching property sales execs:", error);
       res.status(500).json({ error: "Failed to fetch sales executives" });
-    }
-  });
-
-  // Assign sales exec to property
-  app.post("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
-    try {
-      const authReq = req as AuthRequest;
-      const { propertyId, salesExecId } = req.body;
-
-      if (!propertyId || !salesExecId) {
-        return res.status(400).json({ error: "Property ID and Sales Exec ID are required" });
-      }
-
-      const assignment = await storage.assignPropertyToUser({
-        propertyId,
-        userId: salesExecId,
-        assignedBy: authReq.user!.userId,
-        isActive: true,
-      });
-
-      res.status(201).json(assignment);
-    } catch (error) {
-      console.error("Error assigning property:", error);
-      res.status(500).json({ error: "Failed to assign property" });
     }
   });
 
@@ -9420,26 +9383,43 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  // Assign property to sales executive (admin only)
+  // Assign property to sales executive or receptionist (admin only)
   app.post("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const { userId, propertyId } = req.body;
       const authReq = req as AuthRequest;
-      
+
+      if (!userId || !propertyId) {
+        return res.status(400).json({ error: "userId and propertyId are required" });
+      }
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (targetUser.role !== "sales_executive" && targetUser.role !== "receptionist") {
+        return res.status(400).json({ error: "Property assignments are only allowed for sales executives or receptionists" });
+      }
+
+      const targetProperty = await storage.getProperty(propertyId);
+      if (!targetProperty) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
       const assignment = await storage.assignPropertyToUser({
         userId,
         propertyId,
         assignedBy: authReq.user!.userId,
       });
-      
+
       await storage.createAuditLog({
         adminId: authReq.user!.userId,
         action: "property_assigned",
         entityType: "sales_exec_property",
         entityId: assignment.id,
-        details: JSON.stringify({ userId, propertyId }),
+        details: JSON.stringify({ userId, propertyId, targetRole: targetUser.role }),
       });
-      
+
       res.status(201).json(assignment);
     } catch (error) {
       console.error("Error assigning property:", error);
