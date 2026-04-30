@@ -3177,6 +3177,10 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
+      const recScope = await getReceptionistScopeFromHeader(req);
+      if (recScope && !recScope.has(property.id)) {
+        return res.status(403).json({ error: "Property not assigned to this receptionist" });
+      }
       const [roomTypes, enriched, nearbyLocs, propFloors] = await Promise.all([
         storage.getRoomTypesByProperty(property.id),
         enrichPropertyWithImages(property),
@@ -4497,6 +4501,13 @@ ${allPages.map(p => `  <url>
   // Get room type availability
   app.get("/api/room-types/:roomTypeId/availability", async (req, res) => {
     try {
+      const recScope = await getReceptionistScopeFromHeader(req);
+      if (recScope) {
+        const rt = await storage.getRoomType(req.params.roomTypeId);
+        if (!rt || !recScope.has(rt.propertyId)) {
+          return res.status(403).json({ error: "Room type not in receptionist's assigned properties" });
+        }
+      }
       const availability = await storage.getRoomTypeAvailability(req.params.roomTypeId);
       res.json(availability);
     } catch (error) {
@@ -12807,6 +12818,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const prop = await storage.getPropertyByIdOrSlug(req.params.propertyId);
       const resolvedId = prop?.id || req.params.propertyId;
+      const recScope = await getReceptionistScopeFromHeader(req);
+      if (recScope && !recScope.has(resolvedId)) {
+        return res.status(403).json({ error: "Property not assigned to this receptionist" });
+      }
       const plans = await db.select().from(schema.packages)
         .where(and(
           eq(schema.packages.propertyId, resolvedId),
