@@ -262,7 +262,7 @@ function AdminSalesManagementContent() {
         },
         body: JSON.stringify({
           propertyId: selectedPropertyForMapping,
-          salesExecId: selectedExecForMapping
+          userId: selectedExecForMapping
         })
       });
       
@@ -284,7 +284,7 @@ function AdminSalesManagementContent() {
 
   const removePropertyMapping = async (propertyId: string, salesExecId: string) => {
     try {
-      const response = await fetch(`/api/admin/property-assignments/${propertyId}/${salesExecId}`, {
+      const response = await fetch(`/api/admin/property-assignments/${salesExecId}/${propertyId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });

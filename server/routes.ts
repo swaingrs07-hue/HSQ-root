@@ -2109,8 +2109,16 @@ ${allPages.map(p => `  <url>
         return res.json(enriched);
       }
       
-      const allLeads = await storage.getAllLeads(propertyId);
-      
+      let allLeads = await storage.getAllLeads(propertyId);
+
+      if (user?.role === "receptionist") {
+        const assigned = await storage.getAssignedPropertiesForUser(user.id);
+        if (assigned.length > 0) {
+          const allowed = new Set(assigned.map((p) => p.id));
+          allLeads = allLeads.filter((l) => l.propertyId !== null && allowed.has(l.propertyId));
+        }
+      }
+
       const staffUsers = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
       const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
@@ -2250,6 +2258,21 @@ ${allPages.map(p => `  <url>
       if (!lead) {
         return res.status(404).json({ error: "Lead not found" });
       }
+
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const payload = verifyToken(authHeader.substring(7));
+        if (payload?.role === "receptionist") {
+          const assigned = await storage.getAssignedPropertiesForUser(payload.userId);
+          if (assigned.length > 0) {
+            const allowed = new Set(assigned.map((p) => p.id));
+            if (!lead.propertyId || !allowed.has(lead.propertyId)) {
+              return res.status(403).json({ error: "Lead not in your assignment scope" });
+            }
+          }
+        }
+      }
+
       res.json(lead);
     } catch (error) {
       console.error("Error fetching lead:", error);
@@ -2346,6 +2369,17 @@ ${allPages.map(p => `  <url>
       const user = (req as any).user;
       if (user?.role === "sales_executive" && existingLead.assignedToId !== user.userId) {
         return res.status(403).json({ error: "You can only update leads assigned to you" });
+      }
+
+      // Receptionists with property assignments can only update leads for their properties
+      if (user?.role === "receptionist") {
+        const assigned = await storage.getAssignedPropertiesForUser(user.userId);
+        if (assigned.length > 0) {
+          const allowed = new Set(assigned.map((p) => p.id));
+          if (!existingLead.propertyId || !allowed.has(existingLead.propertyId)) {
+            return res.status(403).json({ error: "Lead not in your assignment scope" });
+          }
+        }
       }
       
       let newScore = existingLead.score;
