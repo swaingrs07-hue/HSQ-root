@@ -58,8 +58,10 @@ Preferred communication style: Simple, everyday language.
 -   **Persistent Tubes Background Across Navigation**: Reuses the Three.js WebGL background across SPA navigations for performance.
 -   **Canonical Host Redirect**: Consolidates multiple domains to a single canonical apex (`hsquare.in`) for SEO.
 
-### Production deploy requirement
--   `JWT_SECRET` (or `SESSION_SECRET`) MUST be set in the deployment environment. `server/auth.ts` throws at module load when both are missing in production, which crashes the Node process before `httpServer.listen()` and causes the load balancer to serve its generic 500 page with no captured runtime logs. If a publish ever produces that symptom, verify these secrets are present in the deployment env first, then re-publish.
+### Production incident — 2026-04-30
+-   The deployment was returning Replit's generic load-balancer 500 page on `hsquare.in` even though the Node app booted cleanly (admin-user verification, background jobs, request handling all visible in deployment logs). Root cause: the canonical-host redirect middleware in `server/index.ts` was 301-redirecting Replit's autoscale health probes — which hit the container at `127.0.0.1:5000/` — to `https://hsquare.in/`. The probe expects `2xx`, got a `301`, every instance was marked unhealthy, and the load balancer served its generic 500 page. Telltale signature: deployment logs show a flood of `[canonical-redirect] 301 GET 127.0.0.1/ -> https://hsquare.in/` lines.
+-   Fix: extended the safelist in the canonical-redirect middleware so `127.0.0.1`, `::1`, and `[::1]` are passed straight through to the route handlers (alongside the existing `localhost`, `*.replit.app`, `*.replit.dev`, and dotless-host entries). SEO behaviour for real cross-domain traffic is unchanged.
+-   Debug guide for any future load-balancer 500 page: if deployment logs show a flood of `[canonical-redirect] 301 ... 127.0.0.1 ...` lines, the canonical-host middleware safelist has regressed — investigate it first. If deployment logs are silent or end immediately after process start, the Node process is failing to listen — verify `JWT_SECRET` / `SESSION_SECRET` are set in the deployment environment (`server/auth.ts` throws at module load when both are missing in production).
 
 ## External Dependencies
 

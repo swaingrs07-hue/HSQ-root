@@ -39,12 +39,22 @@ declare module "http" {
 app.use((req, res, next) => {
   const host = (req.hostname || "").toLowerCase();
   // Always allow the canonical apex itself + Replit preview hosts +
-  // localhost. Anything else that smells like a real custom domain
-  // (has a dot, isn't a Replit preview) gets redirected.
+  // localhost + IPv4/IPv6 loopback. Anything else that smells like a
+  // real custom domain (has a dot, isn't a Replit preview) gets
+  // redirected.
+  //
+  // Loopback hosts MUST be excluded: Replit's autoscale platform
+  // health-probes the container at 127.0.0.1:5000/. If we 301 that
+  // request to https://hsquare.in/, the probe fails (it expects 2xx),
+  // every instance is marked unhealthy, and the load balancer serves
+  // its generic 500 page even though the app itself is fine.
   if (
     !host ||
     host === CANONICAL_APEX ||
     host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
     host.endsWith(".replit.app") ||
     host.endsWith(".replit.dev") ||
     !host.includes(".")
