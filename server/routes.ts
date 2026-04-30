@@ -8398,9 +8398,17 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const scope = await getReceptionistScope(req);
       if (scope) {
-        residents = (residents as any[]).filter((r: any) =>
-          r.activeBookingPropertyId && scope.has(r.activeBookingPropertyId)
-        );
+        residents = (residents as any[]).map((r: any) => {
+          if (r.activeBookingPropertyId && !scope.has(r.activeBookingPropertyId)) {
+            return {
+              ...r,
+              hasActiveBooking: false,
+              activeBookingCode: null,
+              activeBookingPropertyId: null,
+            };
+          }
+          return r;
+        });
       }
 
       res.json(residents);
