@@ -434,6 +434,25 @@ export async function registerRoutes(
     return rows[0]?.propertyId ?? null;
   }
 
+  // Returns receptionist scope inferred from a Bearer token (for routes that
+  // do not declare authMiddleware but still need to enforce scoping for
+  // authenticated receptionists). Returns null when there is no token, the
+  // role is not receptionist, or the receptionist has zero assignments.
+  // Routes that use this also strip operational fields when no token is
+  // present so dropping the token does not leak occupant data.
+  async function getReceptionistScopeFromHeader(req: { headers: { authorization?: string | undefined } }): Promise<Set<string> | null> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return null;
+    const payload = verifyToken(authHeader.substring(7));
+    if (!payload || payload.role !== "receptionist") return null;
+    const assigned = await storage.getAssignedPropertiesForUser(payload.userId);
+    if (assigned.length === 0) return null;
+    return new Set(assigned.map((p) => p.id));
+  }
+  function hasBearerToken(req: { headers: { authorization?: string | undefined } }): boolean {
+    return !!req.headers.authorization?.startsWith("Bearer ");
+  }
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -11114,6 +11133,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
       const propertyId = req.params.id;
+      // Scoped receptionists may only read floors for their assigned properties.
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+      // Anonymous (no Bearer token) callers should not see operational fields
+      // like occupant name or booking code — that data is for staff only.
+      const isAuth = hasBearerToken(req);
       let floorsList = await storage.getFloorsByProperty(propertyId);
 
       if (floorsList.length === 0) {
@@ -11173,6 +11200,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
               const bedsWithInfo = await Promise.all(roomBeds.map(async (bed) => {
                 const hold = await isBedHeld(bed.id);
                 const booking = bedBookingMap[bed.id];
+                if (!isAuth) {
+                  return { ...bed, held: hold.held, occupantName: null, bookingCode: null, bookingStatus: null };
+                }
                 return { ...bed, held: hold.held, occupantName: booking?.occupantName || null, bookingCode: booking?.bookingCode || null, bookingStatus: booking?.bookingStatus || null };
               }));
               return { ...room, beds: bedsWithInfo };
@@ -11196,6 +11226,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/floors/:floorId/beds", async (req, res) => {
     try {
+      // Scoped receptionists may only read beds for their assigned properties.
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(req.params.id)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+      // Validate the floorId actually belongs to :id so callers cannot
+      // enumerate floors from other properties via a foreign floorId.
+      const floorPropertyId = await getPropertyIdForFloor(req.params.floorId);
+      if (!floorPropertyId) return res.status(404).json({ error: "Floor not found" });
+      if (floorPropertyId !== req.params.id) {
+        return res.status(400).json({ error: "Floor does not belong to this property" });
+      }
       const bedsList = await storage.getBedsByFloor(req.params.floorId);
       res.json(bedsList);
     } catch (error: any) {
@@ -11205,6 +11247,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/rooms", async (req, res) => {
     try {
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(req.params.id)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
       const roomsList = await storage.getRoomsByProperty(req.params.id);
       const roomsWithBeds = await Promise.all(
         roomsList.map(async (room) => {
@@ -11220,6 +11266,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/floors/:floorId/rooms", async (req, res) => {
     try {
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForFloor(req.params.floorId);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Floor not in your assignment scope" });
+        }
+      }
       const roomsList = await storage.getRoomsByFloor(req.params.floorId);
       const roomsWithBeds = await Promise.all(
         roomsList.map(async (room) => {
