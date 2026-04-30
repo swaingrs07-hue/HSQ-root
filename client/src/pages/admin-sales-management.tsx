@@ -65,7 +65,6 @@ interface SalesExecutive {
   name: string;
   phone: string | null;
   isActive: boolean;
-  role?: string;
   assignedProperties: { id: string; name: string }[];
   totalLeads: number;
   hotLeads: number;

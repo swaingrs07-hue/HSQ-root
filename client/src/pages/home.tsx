@@ -1249,17 +1249,6 @@ export default function Home() {
             />
           );
         })()}
-        {!hasAnyVideo && (
-          <>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/30 z-[5]" />
-            <div
-              className="absolute inset-0 z-[4] pointer-events-none"
-              style={{
-                boxShadow: "inset 0 0 200px 80px rgba(0,0,0,0.6)",
-              }}
-            />
-          </>
-        )}
 
         {!hasAnyVideo && !tubesActive && (
           <>
