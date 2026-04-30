@@ -1833,17 +1833,17 @@ function BookingGenerationInner() {
                                 onClick={() => {
                                   if (hasBooking) {
                                     toast({
-                                      title: "Already Booked",
-                                      description: `${displayName} already has an active booking${student.activeBookingCode ? ` (${student.activeBookingCode})` : ""}. Cannot create a duplicate booking.`,
-                                      variant: "destructive",
+                                      title: "Heads up: existing active booking",
+                                      description: `${displayName} already has an active booking${student.activeBookingCode ? ` (${student.activeBookingCode})` : ""}. Continue only if you are creating a renewal, retention, or season extension.`,
                                     });
-                                    return;
                                   }
                                   handleStudentSelect(student);
                                 }}
                                 className={`w-full p-3 rounded-lg border-2 text-left transition-all duration-200 ${
                                   hasBooking
-                                    ? "border-orange-200 bg-orange-50/50 opacity-70 cursor-not-allowed"
+                                    ? isSelected
+                                      ? "border-orange-400 bg-orange-50 shadow-sm"
+                                      : "border-orange-200 bg-orange-50/40 hover:border-orange-300 hover:bg-orange-50 hover:shadow-sm"
                                     : isSelected
                                       ? "border-indigo-500 bg-indigo-50 shadow-sm"
                                       : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
