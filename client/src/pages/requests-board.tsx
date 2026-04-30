@@ -247,7 +247,7 @@ export default function RequestsBoard() {
     } catch (err) {
       console.error("Failed to load filters:", err);
     }
-  }, [getAuthToken]);
+  }, [getAuthToken, authUser]);
 
   useEffect(() => {
     loadLeads();

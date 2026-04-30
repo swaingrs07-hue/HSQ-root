@@ -1102,7 +1102,9 @@ function AdminSalesManagementContent() {
         <DialogContent className="max-w-md max-h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <DialogTitle>Assign Properties to {selectedExec?.name}</DialogTitle>
-            <DialogDescription>Select properties to assign to this sales executive</DialogDescription>
+            <DialogDescription>
+              Select properties to assign to this {selectedExec?.role === "receptionist" ? "receptionist" : "sales executive"}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 min-h-0">
             {properties.filter(p => p.active).length === 0 ? (
