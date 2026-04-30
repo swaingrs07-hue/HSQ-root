@@ -58,10 +58,8 @@ Preferred communication style: Simple, everyday language.
 -   **Persistent Tubes Background Across Navigation**: Reuses the Three.js WebGL background across SPA navigations for performance.
 -   **Canonical Host Redirect**: Consolidates multiple domains to a single canonical apex (`hsquare.in`) for SEO.
 
-### Production incident — 2026-04-30
--   **Symptom**: `hsquare.in` served the generic load-balancer 500 page with no runtime logs.
--   **Root cause**: `JWT_SECRET` / `SESSION_SECRET` was unset in the deployment environment, causing `server/auth.ts` to throw at module load and crash the process before `httpServer.listen()`.
--   **Fix**: Restored the missing secret in the deployment environment. Also added a defensive `.catch()` on the startup IIFE in `server/index.ts` so any future startup async error logs `FATAL STARTUP ERROR` before exit, instead of dying silently.
+### Production deploy requirement
+-   `JWT_SECRET` (or `SESSION_SECRET`) MUST be set in the deployment environment. `server/auth.ts` throws at module load when both are missing in production, which crashes the Node process before `httpServer.listen()` and causes the load balancer to serve its generic 500 page with no captured runtime logs. If a publish ever produces that symptom, verify these secrets are present in the deployment env first, then re-publish.
 
 ## External Dependencies
 

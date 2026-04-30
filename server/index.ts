@@ -281,10 +281,7 @@ app.use((req, res, next) => {
       startHmsActivityLogCleanupJob();
     },
   );
-})().catch((err) => {
-  console.error("FATAL STARTUP ERROR:", err);
-  process.exit(1);
-});
+})();
 
 // Background job: trim hms_activity_log rows older than ~30 days so the
 // table stays small. The HMS diagnostics page only ever reads the latest
