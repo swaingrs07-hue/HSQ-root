@@ -1,15 +1,32 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 
 function getJWTSecret(): string {
   const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
-  
-  if (process.env.NODE_ENV === "production" && !secret) {
-    throw new Error("FATAL: JWT_SECRET or SESSION_SECRET must be set in production environment");
+
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === "production") {
+    // CRITICAL: do NOT throw at module load — that crashes the autoscale
+    // boot before httpServer.listen() ever runs, causing the load
+    // balancer to serve the generic "Server Error" page with no logs.
+    // Generate an ephemeral random secret so the server still boots and
+    // can serve traffic. Existing JWTs become invalid (users get logged
+    // out on cold start) but the site stays UP. The loud warning makes
+    // the misconfiguration visible in deployment logs.
+    const fallback = crypto.randomBytes(32).toString("hex");
+    console.error(
+      "WARNING: JWT_SECRET / SESSION_SECRET is not set in production. " +
+        "Using an ephemeral in-memory secret. Existing user tokens will be " +
+        "invalidated on every cold start. Set one of these secrets in the " +
+        "deployment environment to restore stable session handling."
+    );
+    return fallback;
   }
-  
-  return secret || "hsquareliving-dev-secret-key-for-development-only";
+
+  return "hsquareliving-dev-secret-key-for-development-only";
 }
 
 const JWT_SECRET = getJWTSecret();

@@ -58,6 +58,12 @@ Preferred communication style: Simple, everyday language.
 -   **Persistent Tubes Background Across Navigation**: Reuses the Three.js WebGL background across SPA navigations for performance.
 -   **Canonical Host Redirect**: Consolidates multiple domains to a single canonical apex (`hsquare.in`) for SEO.
 
+### Production incident — 2026-04-30
+-   **Symptom**: `hsquare.in` served Replit's generic load-balancer 500 page; `fetchDeploymentLogs` returned no runtime logs.
+-   **Root cause**: `server/auth.ts` called `getJWTSecret()` at module load and threw "FATAL: JWT_SECRET or SESSION_SECRET must be set in production environment" when neither var was set in the deployment env. The synchronous throw crashed the Node process before `httpServer.listen()` ran, so autoscale never had a healthy instance and no logs were emitted.
+-   **Fix**: Made `getJWTSecret()` resilient — when no secret is set in production it now logs a loud warning and returns an ephemeral `crypto.randomBytes(32)` secret so the server still boots and serves traffic. Existing JWTs become invalid on cold start, but the site stays UP and the warning makes the misconfig visible in deployment logs.
+-   **Follow-up**: Set `JWT_SECRET` (or `SESSION_SECRET`) in the deployment environment to restore stable session handling. Audit other module-load `throw` statements before adding new ones — boot-time throws bypass log capture on autoscale.
+
 ## External Dependencies
 
 ### Database

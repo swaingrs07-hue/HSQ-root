@@ -281,7 +281,15 @@ app.use((req, res, next) => {
       startHmsActivityLogCleanupJob();
     },
   );
-})();
+})().catch((err) => {
+  // Last-resort visibility for startup failures. Without this, any unhandled
+  // async throw in the IIFE above kills the Node process before httpServer
+  // ever listens — autoscale then has no healthy instance and the load
+  // balancer serves the generic 500 page with NO runtime logs (the exact
+  // failure mode that hid the root cause of the 2026-04-30 incident).
+  console.error("FATAL STARTUP ERROR:", err);
+  process.exit(1);
+});
 
 // Background job: trim hms_activity_log rows older than ~30 days so the
 // table stays small. The HMS diagnostics page only ever reads the latest
