@@ -259,8 +259,8 @@ export default function AdminHeroSlides() {
   };
 
   const handleSubmit = () => {
-    if (!form.title || !form.videoUrl) {
-      toast({ title: "Title and video are required", variant: "destructive" });
+    if (!form.title || (!form.videoUrl && !form.imageUrl)) {
+      toast({ title: "Title and at least one of image or video are required", variant: "destructive" });
       return;
     }
     const submitData = {
@@ -278,8 +278,58 @@ export default function AdminHeroSlides() {
   const slideFormContent = (
     <div className="overflow-y-auto max-h-[70vh] pr-1 -mr-1 space-y-5">
       <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Background Video *</Label>
-        <p className="text-xs text-slate-400">Upload an mp4/webm video for the hero background. Plays full-screen in a loop.</p>
+        <Label className="text-sm font-semibold text-slate-700">Background Image</Label>
+        <p className="text-xs text-slate-400">Upload a JPG/PNG/WebP image for the hero background. Used when no video is provided, or as a poster/fallback while the video loads.</p>
+        {form.imageUrl || previewUrl ? (
+          <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-black">
+            <img
+              src={previewUrl || form.imageUrl}
+              alt="Slide background"
+              className="w-full h-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => { setForm(prev => ({ ...prev, imageUrl: "" })); setPreviewUrl(null); }}
+              className="absolute top-3 right-3 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
+              data-testid="button-remove-image"
+            >
+              <X className="w-4 h-4 text-slate-700" />
+            </button>
+            <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 rounded text-white text-xs backdrop-blur-sm">Image</div>
+          </div>
+        ) : (
+          <label
+            className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-indigo-400 cursor-pointer transition-all group"
+            data-testid="dropzone-hero-image"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+              data-testid="input-hero-image"
+            />
+            {uploading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                <p className="text-sm text-slate-500">Uploading & compressing image...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                  <ImageIcon className="w-5 h-5 text-indigo-600" />
+                </div>
+                <p className="text-sm font-medium text-slate-700">Click to upload image</p>
+                <p className="text-xs text-slate-400">JPG, PNG or WebP, up to 20MB</p>
+              </div>
+            )}
+          </label>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700">Background Video</Label>
+        <p className="text-xs text-slate-400">Upload an mp4/webm video for the hero background. Plays full-screen in a loop. Optional if an image is provided.</p>
         {form.videoUrl ? (
           <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-black">
             <video
@@ -425,7 +475,7 @@ export default function AdminHeroSlides() {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!form.title || !form.videoUrl || createMutation.isPending || updateMutation.isPending}
+          disabled={!form.title || (!form.videoUrl && !form.imageUrl) || createMutation.isPending || updateMutation.isPending}
           className="bg-indigo-600 hover:bg-indigo-700"
           data-testid="button-save-slide"
         >
