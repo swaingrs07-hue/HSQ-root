@@ -1173,11 +1173,7 @@ export default function Home() {
                     .animate
                 }
                 transition={{ duration: 8, ease: "linear" }}
-                style={
-                  tubesActive
-                    ? { opacity: 0.55 }
-                    : undefined
-                }
+                style={undefined}
               />
             </motion.div>
           </AnimatePresence>
@@ -1186,9 +1182,8 @@ export default function Home() {
         <div
           className="absolute inset-0 z-[5]"
           style={{
-            background: hasAnyVideo
-              ? "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 65%, rgba(5,5,5,0.65) 88%, rgba(5,5,5,0) 100%)"
-              : "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(5,5,5,0.7) 88%, rgba(5,5,5,0) 100%)",
+            background:
+              "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 25%, transparent 75%, rgba(5,5,5,0.45) 92%, rgba(5,5,5,0) 100%)",
           }}
         />
         {/* Soft hand-off from the bottom of the hero into the rest of the
