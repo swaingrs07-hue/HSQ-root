@@ -375,6 +375,7 @@ function AdminSalesManagementContent() {
       setAssignPropertyDialogOpen(false);
       setSelectedPropertyIds([]);
       loadSalesExecs();
+      loadReceptionists();
     } catch (error) {
       toast({ title: "Error", description: "Failed to update properties", variant: "destructive" });
     }

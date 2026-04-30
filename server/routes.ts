@@ -2615,7 +2615,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/calendar/events", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive" && payload.role !== "receptionist")) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -2630,9 +2630,14 @@ ${allPages.map(p => `  <url>
         conditions.push(eq(schema.leads.assignedToId, payload.userId));
       }
 
-      const allLeads = await db.select().from(schema.leads).where(
+      let allLeads = await db.select().from(schema.leads).where(
         conditions.length > 0 ? and(...conditions) : undefined
       );
+
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        allLeads = allLeads.filter((l: any) => l.propertyId && scope.has(l.propertyId));
+      }
 
       const events: Array<{
         id: string;
@@ -3975,6 +3980,11 @@ ${allPages.map(p => `  <url>
     try {
       const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId } = req.body;
 
+      const scope = await getReceptionistScope(req);
+      if (scope && (!propertyId || !scope.has(propertyId))) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+
       // Validate room availability
       const roomType = await storage.getRoomType(roomTypeId);
       if (!roomType || roomType.availableBeds <= 0) {
@@ -4282,11 +4292,16 @@ ${allPages.map(p => `  <url>
   });
 
   // Get booking by ID with details
-  app.get("/api/bookings/:id", async (req, res) => {
+  app.get("/api/bookings/:id", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
 
       const [student, property, roomType, installments, payments] = await Promise.all([
@@ -4338,9 +4353,13 @@ ${allPages.map(p => `  <url>
   });
 
   // Get all bookings (admin)
-  app.get("/api/bookings", async (req, res) => {
+  app.get("/api/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const bookings = await storage.getAllBookings();
+      let bookings = await storage.getAllBookings();
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        bookings = bookings.filter((b: any) => b.propertyId && scope.has(b.propertyId));
+      }
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching bookings:", error);
@@ -4363,8 +4382,12 @@ ${allPages.map(p => `  <url>
   });
 
   // Get bookings by property
-  app.get("/api/properties/:propertyId/bookings", async (req, res) => {
+  app.get("/api/properties/:propertyId/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope && !scope.has(req.params.propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
       const bookings = await storage.getBookingsByProperty(req.params.propertyId);
       res.json(bookings);
     } catch (error) {
