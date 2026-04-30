@@ -426,6 +426,35 @@ export async function registerRoutes(
     return new Set(assigned.map((p) => p.id));
   }
 
+  // Returns the receptionist scope inferred from a Bearer token, even on
+  // routes that do not declare authMiddleware. Returns null when there is
+  // no token, the role is not receptionist, or the user has no assignments.
+  async function getReceptionistScopeFromHeader(req: { headers: { authorization?: string | undefined } }): Promise<Set<string> | null> {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return null;
+    const payload = verifyToken(authHeader.substring(7));
+    if (!payload || payload.role !== "receptionist") return null;
+    const assigned = await storage.getAssignedPropertiesForUser(payload.userId);
+    if (assigned.length === 0) return null;
+    return new Set(assigned.map((p) => p.id));
+  }
+
+  // Resolve the owning propertyId for a floor/room/bed using direct queries
+  // (no per-entity storage helper exists for floor lookup).
+  async function getPropertyIdForFloor(floorId: string): Promise<string | null> {
+    const rows = await db.select({ propertyId: schema.floors.propertyId })
+      .from(schema.floors).where(eq(schema.floors.id, floorId)).limit(1);
+    return rows[0]?.propertyId ?? null;
+  }
+  async function getPropertyIdForRoom(roomId: string): Promise<string | null> {
+    const room = await storage.getRoom(roomId);
+    return room?.propertyId ?? null;
+  }
+  async function getPropertyIdForBed(bedId: string): Promise<string | null> {
+    const bed = await storage.getBed(bedId);
+    return bed?.propertyId ?? null;
+  }
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -4017,6 +4046,12 @@ ${allPages.map(p => `  <url>
       if (!roomType || roomType.availableBeds <= 0) {
         return res.status(400).json({ error: "Room not available" });
       }
+      // Cross-property mutation guard: roomType must belong to propertyId.
+      // Prevents a scoped caller from decrementing an out-of-scope room
+      // type while creating a booking under an assigned property.
+      if (roomType.propertyId !== propertyId) {
+        return res.status(400).json({ error: "Room type does not belong to this property" });
+      }
 
       // Calculate total fee (including move-in charges from property)
       const totalDiscount = discount || 0;
@@ -4536,6 +4571,41 @@ ${allPages.map(p => `  <url>
         residentDetails,
         registrationRequestId,
       } = req.body;
+
+      // Receptionist scope: scoped receptionists may only generate bookings
+      // on their assigned properties, and the supplied roomType / bed / floor
+      // (when present) must belong to that same property to prevent cross-
+      // scope mutation via crafted IDs.
+      const generateScope = await getReceptionistScope(req);
+      if (generateScope) {
+        if (!propertyId || !generateScope.has(propertyId)) {
+          return res.status(403).json({ error: "Property not in your assignment scope" });
+        }
+        if (roomTypeId) {
+          const rt = await storage.getRoomType(roomTypeId);
+          if (!rt || rt.propertyId !== propertyId) {
+            return res.status(400).json({ error: "Room type does not belong to this property" });
+          }
+        }
+        if (bedId) {
+          const b = await storage.getBed(bedId);
+          if (!b || b.propertyId !== propertyId) {
+            return res.status(400).json({ error: "Bed does not belong to this property" });
+          }
+        }
+        if (floorId) {
+          const fp = await getPropertyIdForFloor(floorId);
+          if (!fp || fp !== propertyId) {
+            return res.status(400).json({ error: "Floor does not belong to this property" });
+          }
+        }
+        if (leadId) {
+          const l = await storage.getLead(leadId);
+          if (l && l.propertyId && !generateScope.has(l.propertyId)) {
+            return res.status(403).json({ error: "Lead not in your assignment scope" });
+          }
+        }
+      }
 
       let bookingEmail = walkInEmail || residentDetails?.email || null;
       if (!bookingEmail && customerType === "student" && studentId) {
@@ -8686,14 +8756,22 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  // Lock/unlock room
-  app.patch("/api/admin/rooms/:id/lock", async (req, res) => {
+  // Lock/unlock room (room type availability)
+  app.patch("/api/admin/rooms/:id/lock", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const { locked, adminId } = req.body;
       const change = locked ? -1 : 1;
-      
+
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const [rt] = await db.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, req.params.id as string)).limit(1);
+        if (!rt || !scope.has(rt.propertyId)) {
+          return res.status(403).json({ error: "Room type not in your assignment scope" });
+        }
+      }
+
       const roomType = await storage.updateRoomTypeAvailability(req.params.id as string, change);
-      
+
       await storage.createAuditLog({
         adminId,
         action: locked ? "room_locked" : "room_unlocked",
@@ -11065,6 +11143,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
       const propertyId = req.params.id;
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(propertyId)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
       let floorsList = await storage.getFloorsByProperty(propertyId);
 
       if (floorsList.length === 0) {
@@ -11147,6 +11229,19 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/floors/:floorId/beds", async (req, res) => {
     try {
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(req.params.id)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
+      // Validate floorId actually belongs to :id so callers can't enumerate
+      // floors from other properties by passing a foreign floorId.
+      const floorPropertyId = await getPropertyIdForFloor(req.params.floorId);
+      if (!floorPropertyId) {
+        return res.status(404).json({ error: "Floor not found" });
+      }
+      if (floorPropertyId !== req.params.id) {
+        return res.status(400).json({ error: "Floor does not belong to this property" });
+      }
       const bedsList = await storage.getBedsByFloor(req.params.floorId);
       res.json(bedsList);
     } catch (error: any) {
@@ -11156,6 +11251,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/rooms", async (req, res) => {
     try {
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope && !scope.has(req.params.id)) {
+        return res.status(403).json({ error: "Property not in your assignment scope" });
+      }
       const roomsList = await storage.getRoomsByProperty(req.params.id);
       const roomsWithBeds = await Promise.all(
         roomsList.map(async (room) => {
@@ -11171,6 +11270,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/floors/:floorId/rooms", async (req, res) => {
     try {
+      const scope = await getReceptionistScopeFromHeader(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForFloor(req.params.floorId);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Floor not in your assignment scope" });
+        }
+      }
       const roomsList = await storage.getRoomsByFloor(req.params.floorId);
       const roomsWithBeds = await Promise.all(
         roomsList.map(async (room) => {
@@ -11304,8 +11410,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForRoom(req.params.id);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Room not in your assignment scope" });
+        }
+      }
       const {
         status, roomNumber, typology, hasSharedWashroom, sharedWashroomSections, flatAmenities, monthlyPrice,
         basePriceOverride, academicYearPriceOverride, depositOverride, sectionPriceOverrides,
@@ -11393,10 +11506,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.delete("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.delete("/api/admin/rooms/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const roomsList = await db.select().from(schema.rooms).where(eq(schema.rooms.id, req.params.id));
       const room = roomsList[0];
+      const scope = await getReceptionistScope(req);
+      if (scope && (!room?.propertyId || !scope.has(room.propertyId))) {
+        return res.status(403).json({ error: "Room not in your assignment scope" });
+      }
       await storage.deleteRoom(req.params.id);
       if (room) {
         const allFloorBeds = await storage.getBedsByFloor(room.floorId);
@@ -11595,11 +11712,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.patch("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const { status } = req.body;
       if (!status || !["available", "occupied", "reserved", "maintenance", "blocked"].includes(status)) {
         return res.status(400).json({ error: "Invalid status. Must be one of: available, occupied, reserved, maintenance, blocked" });
+      }
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForBed(req.params.id);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Bed not in your assignment scope" });
+        }
       }
       const updated = await storage.updateBedStatus(req.params.id, status);
       if (!updated) return res.status(404).json({ error: "Bed not found" });
@@ -11609,7 +11733,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.post("/api/admin/beds/:id/block", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/beds/:id/block", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const { reason, category } = req.body;
       if (!reason || reason.trim().length < 5) {
@@ -11618,6 +11742,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const bed = await storage.getBed(req.params.id);
       if (!bed) return res.status(404).json({ error: "Bed not found" });
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!bed.propertyId || !scope.has(bed.propertyId))) {
+        return res.status(403).json({ error: "Bed not in your assignment scope" });
+      }
 
       if (bed.status === "occupied") {
         return res.status(400).json({ error: "Cannot block an occupied bed. Please unassign the resident first." });
@@ -11656,12 +11785,17 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.post("/api/admin/beds/:id/unblock", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/beds/:id/unblock", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const { note } = req.body || {};
 
       const bed = await storage.getBed(req.params.id);
       if (!bed) return res.status(404).json({ error: "Bed not found" });
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!bed.propertyId || !scope.has(bed.propertyId))) {
+        return res.status(403).json({ error: "Bed not in your assignment scope" });
+      }
 
       if (bed.status !== "blocked") {
         return res.status(400).json({ error: "Bed is not blocked" });
@@ -11715,8 +11849,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.delete("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.delete("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForFloor(req.params.id);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Floor not in your assignment scope" });
+        }
+      }
       await storage.deleteFloor(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -11724,8 +11865,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.delete("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.delete("/api/admin/beds/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForBed(req.params.id);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Bed not in your assignment scope" });
+        }
+      }
       await storage.deleteBed(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
@@ -11734,8 +11882,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Update floor metadata (name / floorNumber / gender / layoutImage)
-  app.patch("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/floors/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForFloor(req.params.id);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Floor not in your assignment scope" });
+        }
+      }
       const allowed: Record<string, unknown> = {};
       if (typeof req.body?.name === "string") allowed.name = req.body.name.trim();
       if (typeof req.body?.floorNumber === "number") allowed.floorNumber = req.body.floorNumber;
@@ -12126,7 +12281,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Get detailed bed info with full booking history and allocation timeline
-  app.get("/api/admin/beds/:id/details", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/beds/:id/details", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const bedId = req.params.id;
 
@@ -12143,6 +12298,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       if (!bed) {
         return res.status(404).json({ error: "Bed not found" });
+      }
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!bed.propertyId || !scope.has(bed.propertyId))) {
+        return res.status(403).json({ error: "Bed not in your assignment scope" });
       }
 
       // Get all allocations for this bed (history)
@@ -12250,7 +12410,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Allocate a bed to a booking
-  app.post("/api/admin/beds/:id/allocate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/beds/:id/allocate", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const bedId = req.params.id;
       const { bookingId, notes } = req.body;
@@ -12262,6 +12422,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // Check bed exists and is available
       const bed = await db.select().from(schema.beds).where(eq(schema.beds.id, bedId)).limit(1);
       if (bed.length === 0) return res.status(404).json({ error: "Bed not found" });
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!bed[0].propertyId || !scope.has(bed[0].propertyId))) {
+        return res.status(403).json({ error: "Bed not in your assignment scope" });
+      }
+
       if (bed[0].status !== "available") {
         return res.status(400).json({ error: `Bed is currently ${bed[0].status}, cannot allocate` });
       }
@@ -12280,6 +12446,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       // Check booking exists
       const booking = await db.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId)).limit(1);
       if (booking.length === 0) return res.status(404).json({ error: "Booking not found" });
+
+      // Booking property must match the bed's property; also receptionist scope
+      // must include the booking's property to prevent cross-scope allocation.
+      if (booking[0].propertyId && bed[0].propertyId && booking[0].propertyId !== bed[0].propertyId) {
+        return res.status(400).json({ error: "Booking property does not match bed property" });
+      }
+      if (scope && booking[0].propertyId && !scope.has(booking[0].propertyId)) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
 
       // Validate gender vs floor restriction
       try {
@@ -12326,10 +12501,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Deallocate a bed (free it up)
-  app.post("/api/admin/beds/:id/deallocate", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/beds/:id/deallocate", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const bedId = req.params.id;
       const { notes } = req.body;
+
+      const scope = await getReceptionistScope(req);
+      if (scope) {
+        const propertyId = await getPropertyIdForBed(bedId);
+        if (!propertyId || !scope.has(propertyId)) {
+          return res.status(403).json({ error: "Bed not in your assignment scope" });
+        }
+      }
 
       // Deactivate current allocation
       await db.update(schema.bedAllocations)
