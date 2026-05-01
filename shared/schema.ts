@@ -298,7 +298,7 @@ export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
   installmentId: varchar("installment_id").references(() => installments.id),
-  bookingPackageId: varchar("booking_package_id").references((): any => bookingPackages.id),
+  bookingPackageId: varchar("booking_package_id").references(() => bookingPackages.id),
   
   amount: integer("amount").notNull(),
   status: paymentStatusEnum("status").default("pending").notNull(),

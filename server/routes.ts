@@ -5604,12 +5604,13 @@ ${allPages.map(p => `  <url>
       if (!isCash && (!transactionId || !transactionId.trim())) {
         return res.status(400).json({ error: "Transaction ID / UTR is required" });
       }
-      if (!isCash && (!screenshotPath || !screenshotPath.trim())) {
-        return res.status(400).json({ error: "Payment screenshot is required" });
+      if (!screenshotPath || !screenshotPath.trim()) {
+        return res.status(400).json({ error: isCash ? "Cash receipt photo is required" : "Payment screenshot is required" });
       }
 
       const isAddonPayment = !!bookingPackageId;
       let addonBookingPackage: any = null;
+      let addonPackageName: string | null = null;
       if (isAddonPayment) {
         const [bp] = await db.select().from(schema.bookingPackages)
           .where(and(eq(schema.bookingPackages.id, bookingPackageId), eq(schema.bookingPackages.bookingId, booking.id)));
@@ -5617,6 +5618,10 @@ ${allPages.map(p => `  <url>
           return res.status(400).json({ error: "Add-on not found for this booking" });
         }
         addonBookingPackage = bp;
+        if (bp.packageId) {
+          const [pkg] = await db.select({ name: schema.packages.name }).from(schema.packages).where(eq(schema.packages.id, bp.packageId));
+          addonPackageName = pkg?.name || null;
+        }
         installmentId = null;
       }
 
@@ -5714,6 +5719,7 @@ ${allPages.map(p => `  <url>
             transactionId: txnId,
             bookingPackageId,
             packageId: addonBookingPackage?.packageId || null,
+            packageName: addonPackageName,
           }),
         });
 

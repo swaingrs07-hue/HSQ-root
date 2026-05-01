@@ -2394,14 +2394,31 @@ export default function CompletedBookings() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    {selectedBooking.payments.map((p: any, idx: number) => (
+                    {selectedBooking.payments.map((p: any, idx: number) => {
+                      const linkedBp = p.bookingPackageId
+                        ? (bookingPackages?.bookingPackages || []).find((bp: any) => bp.id === p.bookingPackageId)
+                        : null;
+                      const linkedInst = p.installmentId && !p.bookingPackageId
+                        ? (selectedBooking.installments || []).find((i: any) => i.id === p.installmentId)
+                        : null;
+                      return (
                       <div key={p.id || idx} className="text-sm">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
                             <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
-                            {(p.paymentMethod || p.razorpayPaymentId) && (
+                            {(p.paymentMethod || p.razorpayPaymentId || linkedBp || linkedInst) && (
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {linkedBp && (
+                                  <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium" data-testid={`payment-addon-label-${p.id || idx}`}>
+                                    for {linkedBp.package?.name || "Add-On"}
+                                  </span>
+                                )}
+                                {linkedInst && (
+                                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                                    for {linkedInst.name}
+                                  </span>
+                                )}
                                 {p.paymentMethod && (
                                   <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
                                 )}
@@ -2448,7 +2465,8 @@ export default function CompletedBookings() {
                           );
                         })()}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 );
