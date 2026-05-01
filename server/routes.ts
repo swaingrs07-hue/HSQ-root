@@ -5597,7 +5597,7 @@ ${allPages.map(p => `  <url>
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
 
-      const { paymentMethod, transactionId, notes, amount, screenshotPath } = req.body;
+      const { paymentMethod, transactionId, notes, amount, screenshotPath, bookingPackageId } = req.body;
       let { installmentId } = req.body;
 
       const isCash = paymentMethod === "cash";
@@ -5608,10 +5608,22 @@ ${allPages.map(p => `  <url>
         return res.status(400).json({ error: "Payment screenshot is required" });
       }
 
+      const isAddonPayment = !!bookingPackageId;
+      let addonBookingPackage: any = null;
+      if (isAddonPayment) {
+        const [bp] = await db.select().from(schema.bookingPackages)
+          .where(and(eq(schema.bookingPackages.id, bookingPackageId), eq(schema.bookingPackages.bookingId, booking.id)));
+        if (!bp) {
+          return res.status(400).json({ error: "Add-on not found for this booking" });
+        }
+        addonBookingPackage = bp;
+        installmentId = null;
+      }
+
       const allExistingPayments = await db.select().from(schema.payments)
         .where(and(eq(schema.payments.bookingId, booking.id), eq(schema.payments.status, "success")));
 
-      if (!installmentId) {
+      if (!installmentId && !isAddonPayment) {
         const bookingInstallments = await db.select().from(schema.installments)
           .where(eq(schema.installments.bookingId, booking.id))
           .orderBy(schema.installments.createdAt);
@@ -5631,6 +5643,7 @@ ${allPages.map(p => `  <url>
         razorpayPaymentId: txnId,
         status: "success",
         installmentId: installmentId || null,
+        bookingPackageId: isAddonPayment ? bookingPackageId : null,
         screenshotPath: screenshotPath?.trim() || null,
         notes: notes || null,
       });
@@ -5673,6 +5686,38 @@ ${allPages.map(p => `  <url>
           }).returning();
           newBalanceInstallment = balanceInst;
         }
+      }
+
+      let updatedBookingPackage: any = null;
+      if (isAddonPayment) {
+        const [bp] = await db.update(schema.bookingPackages)
+          .set({
+            paidStatus: "paid",
+            paidAmount: paymentAmount,
+            paidAt: new Date(),
+            paymentMethod: paymentMethod || "cash",
+            paymentReference: txnId,
+          })
+          .where(and(eq(schema.bookingPackages.id, bookingPackageId), eq(schema.bookingPackages.bookingId, booking.id)))
+          .returning();
+        updatedBookingPackage = bp;
+
+        await storage.createAuditLog({
+          adminId: req.user!.userId,
+          action: "MARK_ADDON_PAYMENT_DONE",
+          entityType: "booking",
+          entityId: req.params.id,
+          details: JSON.stringify({
+            bookingCode: booking.bookingCode,
+            amount: paymentAmount,
+            method: paymentMethod || "cash",
+            transactionId: txnId,
+            bookingPackageId,
+            packageId: addonBookingPackage?.packageId || null,
+          }),
+        });
+
+        return res.json({ booking, payment, bookingPackage: updatedBookingPackage });
       }
 
       const allInstallments = await db.select().from(schema.installments).where(eq(schema.installments.bookingId, booking.id));
@@ -5767,7 +5812,7 @@ ${allPages.map(p => `  <url>
 
       const allPayments = await db.select().from(schema.payments)
         .where(and(eq(schema.payments.bookingId, booking.id), eq(schema.payments.status, "success")));
-      const orphanedPayments = allPayments.filter(p => !p.installmentId);
+      const orphanedPayments = allPayments.filter(p => !p.installmentId && !p.bookingPackageId);
       if (orphanedPayments.length === 0) {
         return res.json({ message: "No orphaned payments found", fixed: 0 });
       }

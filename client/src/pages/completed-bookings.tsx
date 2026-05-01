@@ -193,6 +193,8 @@ export default function CompletedBookings() {
     notes: "",
     installmentId: null as string | null,
     installmentName: "",
+    bookingPackageId: null as string | null,
+    addonName: "",
     screenshotPath: "",
     screenshotPreview: "",
     screenshotPaths: [] as string[],
@@ -221,10 +223,6 @@ export default function CompletedBookings() {
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
   const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
-  const [addonPayBpId, setAddonPayBpId] = useState<string | null>(null);
-  const [addonPayAmount, setAddonPayAmount] = useState<string>("");
-  const [addonPayMethod, setAddonPayMethod] = useState<string>("upi");
-  const [addonPayReference, setAddonPayReference] = useState<string>("");
 
   // Single source of truth for "what price should we use for this booking-package?"
   // Honors admin override, then snapshot-at-attach, then current package base price.
@@ -547,7 +545,28 @@ export default function CompletedBookings() {
     }
   };
 
-  const openPaymentDialog = (booking: any, installment?: any) => {
+  const openPaymentDialog = (booking: any, installment?: any, addonBp?: any) => {
+    if (addonBp) {
+      const { effective } = getBookingPackagePrice(addonBp);
+      const addonName = addonBp.package?.name || "Add-On";
+      setPaymentForm({
+        amount: effective,
+        paymentMethod: "upi",
+        transactionId: "",
+        notes: `Payment for ${addonName}`,
+        installmentId: null,
+        installmentName: "",
+        bookingPackageId: addonBp.id,
+        addonName,
+        screenshotPath: "",
+        screenshotPreview: "",
+        screenshotPaths: [],
+        screenshotPreviews: [],
+      });
+      setShowPaymentDialog(true);
+      return;
+    }
+
     let selectedInst = installment;
     if (!selectedInst && booking.installments?.length) {
       const payments = booking.payments || [];
@@ -578,6 +597,8 @@ export default function CompletedBookings() {
       notes: selectedInst ? `Payment for ${selectedInst.name}` : "",
       installmentId: selectedInst?.id || null,
       installmentName: selectedInst?.name || "",
+      bookingPackageId: null,
+      addonName: "",
       screenshotPath: "",
       screenshotPreview: "",
       screenshotPaths: [],
@@ -657,8 +678,20 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment } = await res.json();
-      if (updatedInst && selectedBooking.installments) {
+      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp } = await res.json();
+      if (updatedBp) {
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        setSelectedBooking({ ...selectedBooking, ...updated, payments: updatedPayments });
+        setBookingPackages((prev: any) => {
+          if (!prev?.bookingPackages) return prev;
+          return {
+            ...prev,
+            bookingPackages: prev.bookingPackages.map((bp: any) =>
+              bp.id === updatedBp.id ? { ...bp, ...updatedBp } : bp
+            ),
+          };
+        });
+      } else if (updatedInst && selectedBooking.installments) {
         let updatedInstallments = selectedBooking.installments.map((inst: any) =>
           inst.id === updatedInst.id ? { ...inst, ...updatedInst } : inst
         );
@@ -673,9 +706,11 @@ export default function CompletedBookings() {
       }
       setShowPaymentDialog(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
-      const desc = paymentForm.installmentName
-        ? `₹${paymentForm.amount.toLocaleString("en-IN")} for ${paymentForm.installmentName} recorded`
-        : `₹${paymentForm.amount.toLocaleString("en-IN")} payment recorded`;
+      const desc = paymentForm.addonName
+        ? `₹${paymentForm.amount.toLocaleString("en-IN")} for ${paymentForm.addonName} recorded`
+        : paymentForm.installmentName
+          ? `₹${paymentForm.amount.toLocaleString("en-IN")} for ${paymentForm.installmentName} recorded`
+          : `₹${paymentForm.amount.toLocaleString("en-IN")} payment recorded`;
       toast({ title: "Payment marked as done", description: desc });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -2206,9 +2241,8 @@ export default function CompletedBookings() {
                       {payableAddons.map((bp: any) => {
                         const { effective } = getBookingPackagePrice(bp);
                         const isPaid = bp.paidStatus === "paid";
-                        const paidAmount = Number(bp.paidAmount || 0);
-                        const isEditing = addonPayBpId === bp.id;
                         const canEdit = isAdmin || isReceptionist;
+                        const addonPayments = (selectedBooking.payments || []).filter((p: any) => p.bookingPackageId === bp.id && p.status === "success");
                         return (
                           <div
                             key={bp.id}
@@ -2234,17 +2268,12 @@ export default function CompletedBookings() {
                                     {isPaid ? "PAID" : "PENDING"}
                                   </Badge>
                                 </div>
-                                {canEdit && !isPaid && !isEditing && (
+                                {canEdit && !isPaid && (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-[11px] border-orange-300 text-orange-700 hover:bg-orange-100"
-                                    onClick={() => {
-                                      setAddonPayBpId(bp.id);
-                                      setAddonPayAmount(String(effective));
-                                      setAddonPayMethod("upi");
-                                      setAddonPayReference("");
-                                    }}
+                                    onClick={() => openPaymentDialog(selectedBooking, undefined, bp)}
                                     data-testid={`button-mark-paid-${bp.id}`}
                                   >
                                     <Banknote className="w-3 h-3 mr-1" />
@@ -2268,88 +2297,47 @@ export default function CompletedBookings() {
                               </div>
                             </div>
 
-                            {isEditing && (
-                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-500">Amount (₹)</label>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="1"
-                                    value={addonPayAmount}
-                                    onChange={(e) => setAddonPayAmount(e.target.value)}
-                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
-                                    data-testid={`input-addon-paid-amount-${bp.id}`}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-500">Method</label>
-                                  <select
-                                    value={addonPayMethod}
-                                    onChange={(e) => setAddonPayMethod(e.target.value)}
-                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
-                                    data-testid={`select-addon-paid-method-${bp.id}`}
-                                  >
-                                    <option value="upi">UPI</option>
-                                    <option value="card">Card</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="bank">Bank</option>
-                                    <option value="other">Other</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-500">Reference (UTR / note)</label>
-                                  <input
-                                    type="text"
-                                    value={addonPayReference}
-                                    onChange={(e) => setAddonPayReference(e.target.value)}
-                                    placeholder="optional"
-                                    className="h-8 w-full rounded border border-slate-200 bg-white px-2 text-xs focus:border-orange-400 focus:outline-none"
-                                    data-testid={`input-addon-paid-reference-${bp.id}`}
-                                  />
-                                </div>
-                                <div className="sm:col-span-3 flex items-center gap-2 justify-end mt-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-[11px]"
-                                    onClick={() => setAddonPayBpId(null)}
-                                    data-testid={`button-cancel-addon-paid-${bp.id}`}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    onClick={async () => {
-                                      const amt = Number(addonPayAmount);
-                                      if (!Number.isFinite(amt) || amt < 0) {
-                                        toast({ title: "Enter a valid amount", variant: "destructive" });
-                                        return;
-                                      }
-                                      await updateBookingPackage(bp.id, {
-                                        paidStatus: "paid",
-                                        paidAmount: amt,
-                                        paymentMethod: addonPayMethod,
-                                        paymentReference: addonPayReference || null,
-                                      });
-                                      setAddonPayBpId(null);
-                                    }}
-                                    data-testid={`button-save-addon-paid-${bp.id}`}
-                                  >
-                                    <Check className="w-3 h-3 mr-1" />
-                                    Save
-                                  </Button>
-                                </div>
+                            {addonPayments.length > 0 && (
+                              <div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">
+                                {addonPayments.map((p: any, pIdx: number) => {
+                                  let screenshots: string[] = [];
+                                  if (p.screenshotPath) {
+                                    try { const parsed = JSON.parse(p.screenshotPath); screenshots = Array.isArray(parsed) ? parsed : [p.screenshotPath]; } catch { screenshots = [p.screenshotPath]; }
+                                  }
+                                  return (
+                                    <div key={p.id || pIdx} className="text-[11px]">
+                                      <div className="flex items-center gap-2 flex-wrap text-slate-500">
+                                        <span className="font-medium text-emerald-700">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
+                                        <span>{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : ""}</span>
+                                        {p.paymentMethod && (
+                                          <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>
+                                        )}
+                                        {p.razorpayPaymentId && (
+                                          <span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>
+                                        )}
+                                      </div>
+                                      {screenshots.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mt-1">
+                                          {screenshots.map((url: string, sIdx: number) => (
+                                            <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
+                                              <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                                                <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
+                                                <span className="text-[10px] text-emerald-600 font-medium">View</span>
+                                              </div>
+                                            </a>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
 
-                            {isPaid && !isEditing && (
+                            {isPaid && addonPayments.length === 0 && bp.paidAt && (
                               <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-slate-600 pl-1 border-l-2 border-emerald-200 ml-1">
-                                <span className="font-medium text-emerald-700">₹{paidAmount.toLocaleString("en-IN")} paid</span>
-                                {bp.paidAt && (
-                                  <span className="text-slate-500">{format(new Date(bp.paidAt), "dd MMM yyyy, hh:mm a")}</span>
-                                )}
+                                <span className="font-medium text-emerald-700">₹{Number(bp.paidAmount || 0).toLocaleString("en-IN")} paid</span>
+                                <span className="text-slate-500">{format(new Date(bp.paidAt), "dd MMM yyyy, hh:mm a")}</span>
                                 {bp.paymentMethod && (
                                   <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{bp.paymentMethod}</span>
                                 )}
@@ -2367,7 +2355,7 @@ export default function CompletedBookings() {
               })()}
 
               {(selectedBooking.payments || []).length > 0 && (() => {
-                const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && p.status === "success");
+                const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && !p.bookingPackageId && p.status === "success");
                 const hasInstallments = (selectedBooking.installments || []).length > 0;
                 return (
                 <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
@@ -3319,7 +3307,7 @@ export default function CompletedBookings() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Banknote className="h-5 w-5 text-emerald-600" />
-              {paymentForm.installmentName ? `Pay: ${paymentForm.installmentName}` : "Mark Payment Done"}
+              {paymentForm.addonName ? `Pay: ${paymentForm.addonName}` : paymentForm.installmentName ? `Pay: ${paymentForm.installmentName}` : "Mark Payment Done"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
