@@ -27,7 +27,6 @@ import {
   Shield,
   Coffee,
   Users,
-  Play,
   Star,
   MapPin,
   Calendar,
@@ -1309,22 +1308,12 @@ export default function Home() {
               <Link href="/properties">
                 <Button
                   size="lg"
-                  className="text-black hover:bg-white/90 border-none text-base px-12 h-14 rounded-full font-bold tracking-wider shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-all uppercase text-center bg-[#ffffff8a]"
+                  variant="outline"
+                  className="bg-transparent backdrop-blur-md border border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
                   data-testid="button-explore-properties"
                 >
                   Explore Properties
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/properties">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-transparent backdrop-blur-md border border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
-                  data-testid="button-take-tour"
-                >
-                  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Virtual Tour
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
               <Button
