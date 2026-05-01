@@ -3122,7 +3122,7 @@ export default function CompletedBookings() {
                   <Input
                     value={editForm.referrer}
                     onChange={(e) => setEditForm(prev => ({ ...prev, referrer: e.target.value }))}
-                    placeholder="e.g. Ganesh Sir (+91 79 7221 4683)"
+                    placeholder="e.g. Referrer Name (+91 XXXXX XXXXX)"
                     data-testid="input-edit-referrer"
                   />
                 </div>
