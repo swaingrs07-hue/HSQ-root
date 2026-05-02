@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users } from "lucide-react";
+import { ArrowRight, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock } from "lucide-react";
 
 interface Property {
   id: string;
@@ -347,6 +347,67 @@ export default function HotelsHome() {
                   <div className="text-[10px] uppercase tracking-widest text-white/40">Bar Closes</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT */}
+      <section id="contact" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-contact">
+        <div className="container mx-auto">
+          <div className="text-center mb-12 md:mb-16">
+            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
+              ◇ Get in Touch ◇
+            </p>
+            <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 sm:mb-6">
+              Let's <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>connect</span>
+            </h2>
+            <p className="text-white/50 max-w-xl mx-auto font-light text-sm sm:text-base">
+              Our concierge team is available around the clock to plan your stay, arrange transfers, or
+              answer any question — big or small.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
+            <a
+              href="mailto:support@hsquareliving.com"
+              className="p-6 sm:p-8 border border-white/10 hover:border-amber-500/30 transition-colors group"
+              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
+              data-testid="contact-email"
+            >
+              <Mail className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Email</p>
+              <p className="text-white text-base sm:text-lg break-all group-hover:text-amber-300 transition-colors">
+                support@hsquareliving.com
+              </p>
+            </a>
+
+            <a
+              href="tel:+919876543210"
+              className="p-6 sm:p-8 border border-white/10 hover:border-amber-500/30 transition-colors group"
+              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
+              data-testid="contact-phone"
+            >
+              <Phone className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Phone</p>
+              <p className="text-white text-base sm:text-lg group-hover:text-amber-300 transition-colors">
+                +91 98765 43210
+              </p>
+            </a>
+
+            <div
+              className="p-6 sm:p-8 border border-white/10 sm:col-span-2 lg:col-span-1"
+              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
+              data-testid="contact-address"
+            >
+              <MapPin className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Visit</p>
+              <p className="text-white text-base sm:text-lg leading-relaxed">
+                Mumbai, India
+              </p>
+              <p className="text-white/50 text-xs mt-2 flex items-center gap-1.5">
+                <Clock className="w-3 h-3" /> Concierge available 24/7
+              </p>
             </div>
           </div>
         </div>
