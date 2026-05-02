@@ -16,6 +16,13 @@ import { TubesContext } from "@/contexts/tubes-context";
 const TubesCursorBackground = lazy(
   () => import("@/components/tubes-cursor-background"),
 );
+// Lightweight CSS-only iridescent stand-in shown when the WebGL tubes
+// can't run on the device (no WebGL context, or adaptive FPS gate fired
+// because the GPU is too slow). See iridescent-fallback-background.tsx
+// for the rationale and rule #8 in replit.md for the invariants.
+const IridescentFallbackBackground = lazy(
+  () => import("@/components/iridescent-fallback-background"),
+);
 
 interface FooterLink { label: string; href: string; }
 interface FooterData {
@@ -71,13 +78,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // iridescent tube background (and the hero-video blur effect that
   // depends on it) is visible from the first paint. We still respect
   // reduced-motion and save-data, and the tubes-cursor-background
-  // component calls onFailure -> active=false if WebGL is unavailable,
-  // so devices without WebGL fall back to the dark Layout background.
-  const [tubesSupported, setTubesSupported] = useState(() => {
+  // component calls onFailure -> active=false if WebGL is unavailable
+  // or the adaptive FPS gate decides the device can't sustain it.
+  //
+  // We track save-data separately so we can distinguish "user opted out
+  // of richness" (save-data / reduced-motion → show NO background, just
+  // plain dark) from "device couldn't sustain WebGL" (FPS gate fired or
+  // WebGL missing → show the lightweight CSS iridescent fallback so the
+  // user still gets the same premium aesthetic without the GPU cost).
+  const [saveDataMode] = useState(() => {
     if (typeof window === "undefined") return false;
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection || null;
-    const saveData = !!conn?.saveData;
-    if (saveData) return false;
+    return !!conn?.saveData;
+  });
+  const [tubesSupported, setTubesSupported] = useState(() => {
+    if (typeof window === "undefined") return false;
     return true;
   });
   const handleGlobalTubesFailure = useCallback(() => setTubesSupported(false), []);
@@ -103,13 +118,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // Effective tube state. Tubes are skipped only when the device or
   // user signals it can't afford them (reduced-motion, save-data, or
-  // no WebGL). The mobile-homepage exclusion that used to live here
-  // existed because the iridescent tubes composited under the hero
-  // video and caused stuttering on small phones. That root cause is
-  // now solved by the hero pausing the tubes while the video is on
-  // screen (Task #127), so mobile users get the full iridescent
-  // background everywhere — including the homepage.
-  const globalTubesActive = tubesSupported && !prefersReducedMotion;
+  // no WebGL / FPS gate fired). The mobile-homepage exclusion that
+  // used to live here existed because the iridescent tubes composited
+  // under the hero video and caused stuttering on small phones. That
+  // root cause is now solved by the hero pausing the tubes while the
+  // video is on screen (Task #127), so mobile users get the full
+  // iridescent background everywhere — including the homepage.
+  const globalTubesActive = tubesSupported && !prefersReducedMotion && !saveDataMode;
+
+  // Should we render the lightweight CSS iridescent fallback in place
+  // of the WebGL tubes? Only when the device couldn't afford the WebGL
+  // version (no support, FPS gate fired) AND the user hasn't asked us
+  // to be quiet (reduced-motion / save-data). The fallback is what
+  // saves the user on a Dell G15-class machine from staring at a flat
+  // #050505 page after the FPS gate disables the real tubes.
+  const tubesFallbackActive =
+    !globalTubesActive && !prefersReducedMotion && !saveDataMode;
 
   // Allow individual pages (currently the home hero video) to ask the
   // global iridescent tube background to pause its WebGL render loop
@@ -299,6 +323,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
             data-testid="tubes-global-veil"
             style={{
               background: "rgba(5,5,5,0.22)",
+            }}
+          />
+        </>
+      )}
+      {tubesFallbackActive && (
+        <>
+          <div
+            className="fixed inset-0 z-0 pointer-events-none"
+            data-testid="tubes-fallback-layer"
+          >
+            <Suspense fallback={null}>
+              <IridescentFallbackBackground />
+            </Suspense>
+          </div>
+          {/* Slightly darker veil than the WebGL path (0.32 vs 0.22).
+              The CSS gradient blobs are flatter than the WebGL bloom
+              and need a touch more contrast on top to keep text and
+              CTAs as readable here as they are over the real tubes.
+              See replit.md rule #8 for the rationale. */}
+          <div
+            className="fixed inset-0 z-[1] pointer-events-none"
+            aria-hidden="true"
+            data-testid="tubes-fallback-veil"
+            style={{
+              background: "rgba(5,5,5,0.32)",
             }}
           />
         </>
