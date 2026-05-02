@@ -10,7 +10,7 @@ import { usePortalSwitch } from "./portal-transition";
 const HOTEL_NAV = [
   { name: "Home", href: "/hotels" },
   { name: "Rooms", href: "/hotels/rooms" },
-  { name: "Experience", href: "/hotels#experience" },
+  { name: "Experience", href: "/hotels/experience" },
   { name: "Contact", href: "/hotels/contact" },
 ];
 
@@ -308,7 +308,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
               <h4 className="text-[11px] uppercase tracking-[0.25em] mb-5 gold-text">Discover</h4>
               <ul className="space-y-3 text-sm text-white/60">
                 <li><Link href="/hotels/rooms" className="hover:text-white transition-colors">Rooms & Suites</Link></li>
-                <li><Link href="/hotels#experience" className="hover:text-white transition-colors">Experience</Link></li>
+                <li><Link href="/hotels/experience" className="hover:text-white transition-colors">Experience</Link></li>
                 <li><Link href="/hotels#dining" className="hover:text-white transition-colors">Dining</Link></li>
                 <li><Link href="/hotels/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
