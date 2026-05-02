@@ -75,13 +75,14 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 
 // Budget the optimised file MUST meet — we abort the upload if any of
-// these are violated. These are the "what good looks like" guardrails
-// from the task plan.
-const MAX_TOTAL_BYTES = 4_000_000;       // 4 MB total; comfortably under "≤ 2.5 MB" target after some headroom
-const MAX_OVERALL_BITRATE = 3_000_000;   // 3 Mbps overall (video + audio); target was ≤ 2.5 Mbps video
-const MAX_VIDEO_WIDTH = 1600;            // never wider than 1600 px
+// these are violated. These are the hard task-level acceptance gates.
+// Mirror of `server/lib/hero-video-optimizer.ts` — keep these in sync.
+const MAX_TOTAL_BYTES = 2_500_000;       // 2.5 MB total file
+const MAX_VIDEO_BITRATE = 2_500_000;     // 2.5 Mbps video stream (strict)
+const MAX_OVERALL_BITRATE = 2_700_000;   // 2.7 Mbps overall (video + 96 kbps AAC + container)
+const MAX_VIDEO_WIDTH = 1600;            // never wider than 1600 px (1280x720 is also accepted)
 const MAX_VIDEO_HEIGHT = 1080;           // safety cap; 1600x900 is the design target
-const MAX_FPS = 30;                      // hero loops never need >30 fps
+const REQUIRED_FPS = 24;                  // exact, with ±0.1 tolerance for rate-conversion drift
 const REQUIRED_VIDEO_CODEC = "h264";
 
 async function main() {
@@ -131,8 +132,8 @@ async function main() {
     "-level:v", "4.0",
     "-preset", "slow",
     "-crf", "26",
-    "-maxrate", "2500k",
-    "-bufsize", "5000k",
+    "-maxrate", "2200k",            // ~300 kbps headroom under the 2.5 Mbps stream cap
+    "-bufsize", "4400k",
     "-pix_fmt", "yuv420p",
     "-vf", "scale=1600:-2:flags=lanczos",
     "-r", "24",
@@ -166,6 +167,8 @@ async function main() {
   let sawMoov = false;
   let sawMdat = false;
   let firstNonFtypType = "";
+  let sawUuid = false;
+  let uuidOffset = -1;
   while (off + 8 <= buf.length) {
     const size = buf.readUInt32BE(off);
     const type = buf.slice(off + 4, off + 8).toString("ascii");
@@ -181,6 +184,7 @@ async function main() {
     if (off > 0 && !firstNonFtypType && type !== "free") firstNonFtypType = type;
     if (type === "moov") sawMoov = true;
     if (type === "mdat") sawMdat = true;
+    if (type === "uuid" && !sawUuid) { sawUuid = true; uuidOffset = off; }
     if (realSize < headerSize) break;
     off += realSize;
   }
@@ -190,6 +194,10 @@ async function main() {
   }
   if (firstNonFtypType !== "moov") {
     console.error(`FAIL: faststart not held — expected moov as first atom after ftyp but got ${firstNonFtypType}`);
+    process.exit(1);
+  }
+  if (sawUuid) {
+    console.error(`FAIL: top-level 'uuid' atom present at byte ${uuidOffset} (C2PA / extension metadata) — aborting upload`);
     process.exit(1);
   }
 
@@ -227,12 +235,15 @@ async function main() {
   console.log(`  video          : ${v.codec_name} ${v.profile} ${v.width}x${v.height} ${fps.toFixed(2)} fps  bitrate=${v.bit_rate || "(in container)"}`);
   console.log(`  audio          : ${a?.codec_name} ${a?.profile || ""} ${a?.sample_rate} Hz ${a?.channels}ch  bitrate=${a?.bit_rate || "(in container)"}`);
   console.log("============================================================");
+  const videoBitrate = Number(v.bit_rate || 0);
   const budgetFails: string[] = [];
   if (totalSize > MAX_TOTAL_BYTES) budgetFails.push(`size ${totalSize} > ${MAX_TOTAL_BYTES}`);
-  if (overallBitrate > MAX_OVERALL_BITRATE) budgetFails.push(`bitrate ${overallBitrate} > ${MAX_OVERALL_BITRATE}`);
+  if (overallBitrate > MAX_OVERALL_BITRATE) budgetFails.push(`overall bitrate ${overallBitrate} > ${MAX_OVERALL_BITRATE}`);
+  if (videoBitrate > MAX_VIDEO_BITRATE) budgetFails.push(`video stream bitrate ${videoBitrate} > ${MAX_VIDEO_BITRATE}`);
+  if (videoBitrate <= 0) budgetFails.push("video stream bitrate missing from ffprobe output");
   if (Number(v.width) > MAX_VIDEO_WIDTH) budgetFails.push(`width ${v.width} > ${MAX_VIDEO_WIDTH}`);
   if (Number(v.height) > MAX_VIDEO_HEIGHT) budgetFails.push(`height ${v.height} > ${MAX_VIDEO_HEIGHT}`);
-  if (fps > MAX_FPS + 0.1) budgetFails.push(`fps ${fps.toFixed(2)} > ${MAX_FPS}`);
+  if (Math.abs(fps - REQUIRED_FPS) > 0.1) budgetFails.push(`fps ${fps.toFixed(2)} != ${REQUIRED_FPS} (±0.1)`);
   if (v.codec_name !== REQUIRED_VIDEO_CODEC) budgetFails.push(`codec ${v.codec_name} != ${REQUIRED_VIDEO_CODEC}`);
   if (budgetFails.length) {
     console.error("FAIL: optimised file violates encoding budget:");

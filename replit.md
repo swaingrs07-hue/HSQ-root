@@ -45,6 +45,21 @@ Preferred communication style: Simple, everyday language.
 -   **Property Rules**: Per-floor gender restriction and per-room/section pricing overrides.
 -   **Property Brochures**: On-demand PDF and PowerPoint generation.
 -   **Homepage Enhancements**: Animated splash screen and optimized hero video pipeline with server-side transcoding.
+-   **Hero Video Encoding Checklist**: Every MP4 stored in `hero_slides.video_url` MUST satisfy ALL of the following. Enforced in code by `server/lib/hero-video-optimizer.ts` (in-request, wired into POST/PUT `/api/hero-slides`) and `scripts/optimize-hero-video.ts` (one-off backfill / rollback) — keep their constants and ffmpeg args in lock-step.
+    1. **Codec**: H.264 main profile, level 4.0, `yuv420p`
+    2. **Resolution**: ≤ 1600×900 (1280×720 also accepted); `scale='min(1600,iw)':-2:flags=lanczos`
+    3. **Frame rate**: exactly 24 fps (±0.1 tolerance); `-r 24`
+    4. **Video stream bitrate**: ≤ **2.5 Mbps** (stream-level via ffprobe `streams[].bit_rate`, NOT just overall)
+    5. **Overall file bitrate**: ≤ **2.7 Mbps** (video + 96 kbps AAC + container overhead)
+    6. **Total file size**: ≤ **2.5 MB**
+    7. **GOP**: closed every 2 s (`-g 48 -keyint_min 48 -sc_threshold 0`) so the loop seam re-decodes from a clean keyframe and the browser stops re-firing `canplay` on every loop
+    8. **Audio**: AAC LC 96 kbps stereo 48 kHz (`-c:a aac -b:a 96k -ar 48000 -ac 2`)
+    9. **Container**: `-movflags +faststart` (moov before mdat — verified by walking the top-level atom list)
+    10. **Metadata stripped**: `-map_metadata -1` AND no top-level `uuid` atom AND no `c2pa` / `C2PA` / `jumb` byte markers anywhere (Task #144 invariant — Chrome refuses some C2PA-tagged MP4s with `MEDIA_ERR_SRC_NOT_SUPPORTED`)
+    11. **Recommended encoder settings**: CRF 26 with `-maxrate 2200k -bufsize 4400k` (300 kbps headroom under the 2.5 Mbps stream cap so the verifier never trips); `-preset slow` for the offline script, `-preset medium` for the in-request server module
+    12. **Forbidden encoder flags**: do **NOT** add `-flags +bitexact` / `-fflags +bitexact` — they appeared to produce an MP4 some browsers refused with `MEDIA_ERR_SRC_NOT_SUPPORTED` (code 4); their determinism is irrelevant for a hero loop
+
+    Server-side wiring details: `safeOptimizeHeroVideoIfMp4` short-circuits for WebM (already efficient) and for MP4s that *already pass every checklist item* — gated on a structural + C2PA + `uuid` byte-level scan, never on size alone. PUT pre-fetches the row first (404s before running a 10–20 s ffmpeg pass on a non-existent slide) and only fires when the `videoUrl` actually changed. On any failure (ffmpeg missing, network error, verifier trip) the route handler logs and falls back to the original path so the admin's upload is never lost. Active hero slide currently points at `/objects/uploads/389e5936-c501-4278-b1c0-c64dfb0cad53` (2.33 MB / 2.44 Mbps overall / 2.34 Mbps video / 1600×900 / 24.00 fps / closed GOP 48 / faststart held / no C2PA / no uuid). Source-of-truth original kept at `/objects/uploads/00cd147c-9161-42e4-a63d-c97be0c0a7e7` for audit / rollback. **The headless chromium used by the Replit screenshot tool cannot decode H.264** (it reports `[hero-video] fallback-shown video-error code= 4` for every MP4 source) — verify hero-video changes by reading `[hero-video] canplay -> play()` lines from the **live browser console** (forwarded into the workflow logs), not from screenshot-tool browser logs.
 
 ## External Dependencies
 

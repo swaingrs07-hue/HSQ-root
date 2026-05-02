@@ -36,12 +36,16 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 
 // Budget the optimised file MUST meet — we abort the upload if any of
-// these are violated. Mirrors `scripts/optimize-hero-video.ts`.
-const MAX_TOTAL_BYTES = 4_000_000;       // 4 MB total
-const MAX_OVERALL_BITRATE = 3_000_000;   // 3 Mbps overall
+// these are violated. These are the hard task-level acceptance gates;
+// see replit.md "Hero Video Encoding Checklist". Mirrored verbatim by
+// `scripts/optimize-hero-video.ts`.
+const MAX_TOTAL_BYTES = 2_500_000;       // 2.5 MB total file
+const MAX_VIDEO_BITRATE = 2_500_000;     // 2.5 Mbps video stream
+const MAX_OVERALL_BITRATE = 2_700_000;   // 2.7 Mbps overall (video + 96 kbps AAC + container)
 const MAX_VIDEO_WIDTH = 1600;
 const MAX_VIDEO_HEIGHT = 1080;
-const MAX_FPS = 30;
+const REQUIRED_FPS = 24;                  // exact, with ±0.1 tolerance for rate-conversion drift
+const MAX_FPS = 30;                       // ceiling for source skip-decision only
 const REQUIRED_VIDEO_CODEC = "h264";
 
 // Skip-optimisation heuristic: a source MAY be passed through ONLY when
@@ -50,9 +54,9 @@ const REQUIRED_VIDEO_CODEC = "h264";
 // can still be HEVC, can still carry a `jumb` C2PA box that crashes
 // Chrome (the original Task #144 invariant), or can have its `moov`
 // atom at the end (no faststart). See the post-download probe.
-const SKIP_IF_BITRATE_BELOW = 3_000_000;
-const SKIP_IF_WIDTH_AT_OR_BELOW = 1600;
-const SKIP_IF_SIZE_BELOW_BYTES = 4_000_000;
+const SKIP_IF_OVERALL_BITRATE_BELOW = MAX_OVERALL_BITRATE;
+const SKIP_IF_WIDTH_AT_OR_BELOW = MAX_VIDEO_WIDTH;
+const SKIP_IF_SIZE_BELOW_BYTES = MAX_TOTAL_BYTES;
 
 export interface OptimizeResult {
   /** Original `/objects/uploads/<uuid>` path (untouched in storage). */
@@ -122,7 +126,7 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
       const codecOk = preV?.codec_name === REQUIRED_VIDEO_CODEC;
       const widthOk = preV && Number(preV.width) <= SKIP_IF_WIDTH_AT_OR_BELOW;
       const sizeOk = sourceBytes > 0 && sourceBytes <= SKIP_IF_SIZE_BELOW_BYTES;
-      const bitrateOk = preBitrate > 0 && preBitrate <= SKIP_IF_BITRATE_BELOW;
+      const bitrateOk = preBitrate > 0 && preBitrate <= SKIP_IF_OVERALL_BITRATE_BELOW;
       if (codecOk && widthOk && sizeOk && bitrateOk) {
         const srcBuf = fs.readFileSync(tmpIn);
         const sourceClean = isMp4Clean(srcBuf);
@@ -157,8 +161,8 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
       "-level:v", "4.0",
       "-preset", "medium",            // server-side runs synchronously inside the admin save, so favour speed over the last few % size win
       "-crf", "26",
-      "-maxrate", "2500k",
-      "-bufsize", "5000k",
+      "-maxrate", "2200k",            // gives ~300 kbps headroom under the 2.5 Mbps stream-level cap so the verifier never trips
+      "-bufsize", "4400k",
       "-pix_fmt", "yuv420p",
       "-vf", "scale='min(1600,iw)':-2:flags=lanczos",
       "-r", "24",
@@ -194,7 +198,8 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
       throw new Error(`optimised MP4 failed structural scan: ${cleanCheck.reason}`);
     }
 
-    // 3c. Budget verification
+    // 3c. Budget verification — strict, stream-level. Both the overall
+    // file bitrate AND the video stream bitrate must sit under the cap.
     const probeJson = execSync(
       `ffprobe -v error -show_streams -show_format -of json ${tmpOut}`,
       { encoding: "utf8" },
@@ -204,14 +209,17 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
     if (!v) throw new Error("optimised MP4 has no video stream");
     const overallBitrate = Number(probe.format?.bit_rate || 0);
     const totalSize = Number(probe.format?.size || buf.length);
+    const videoBitrate = Number(v.bit_rate || 0);
     const [fpsNum, fpsDen] = (v.r_frame_rate || "0/1").split("/").map(Number);
     const fps = fpsDen ? fpsNum / fpsDen : 0;
     const fails: string[] = [];
     if (totalSize > MAX_TOTAL_BYTES) fails.push(`size ${totalSize} > ${MAX_TOTAL_BYTES}`);
-    if (overallBitrate > MAX_OVERALL_BITRATE) fails.push(`bitrate ${overallBitrate} > ${MAX_OVERALL_BITRATE}`);
+    if (overallBitrate > MAX_OVERALL_BITRATE) fails.push(`overall bitrate ${overallBitrate} > ${MAX_OVERALL_BITRATE}`);
+    if (videoBitrate > MAX_VIDEO_BITRATE) fails.push(`video stream bitrate ${videoBitrate} > ${MAX_VIDEO_BITRATE}`);
+    if (videoBitrate <= 0) fails.push("video stream bitrate missing from ffprobe output");
     if (Number(v.width) > MAX_VIDEO_WIDTH) fails.push(`width ${v.width} > ${MAX_VIDEO_WIDTH}`);
     if (Number(v.height) > MAX_VIDEO_HEIGHT) fails.push(`height ${v.height} > ${MAX_VIDEO_HEIGHT}`);
-    if (fps > MAX_FPS + 0.1) fails.push(`fps ${fps.toFixed(2)} > ${MAX_FPS}`);
+    if (Math.abs(fps - REQUIRED_FPS) > 0.1) fails.push(`fps ${fps.toFixed(2)} != ${REQUIRED_FPS} (±0.1)`);
     if (v.codec_name !== REQUIRED_VIDEO_CODEC) fails.push(`codec ${v.codec_name} != ${REQUIRED_VIDEO_CODEC}`);
     if (fails.length) {
       throw new Error(`optimised file out of budget: ${fails.join("; ")}`);
@@ -249,7 +257,13 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
  * invariants we require for hero-loop playback:
  *   - both `moov` and `mdat` are present
  *   - faststart is held (`moov` is the first non-`ftyp` / non-`free` atom)
- *   - no C2PA / `jumb` markers anywhere in the byte stream
+ *   - NO top-level `uuid` atom anywhere (C2PA's content-credentials
+ *     box uses a `uuid` atom containing the C2PA brand UUID, and
+ *     Chrome refuses some such files with MEDIA_ERR_SRC_NOT_SUPPORTED;
+ *     we reject ALL `uuid` atoms because nothing we encode legitimately
+ *     emits one)
+ *   - no `c2pa` / `C2PA` / `jumb` markers anywhere in the byte stream
+ *     (defence-in-depth alongside the structural `uuid` rejection)
  * Returns `{ ok: true }` when clean, `{ ok: false, reason }` otherwise.
  */
 function isMp4Clean(buf: Buffer): { ok: true } | { ok: false; reason: string } {
@@ -257,6 +271,8 @@ function isMp4Clean(buf: Buffer): { ok: true } | { ok: false; reason: string } {
   let sawMoov = false;
   let sawMdat = false;
   let firstNonFtypType = "";
+  let sawUuid = false;
+  let uuidOffset = -1;
   while (off + 8 <= buf.length) {
     const size = buf.readUInt32BE(off);
     const type = buf.slice(off + 4, off + 8).toString("ascii");
@@ -272,12 +288,16 @@ function isMp4Clean(buf: Buffer): { ok: true } | { ok: false; reason: string } {
     if (off > 0 && !firstNonFtypType && type !== "free") firstNonFtypType = type;
     if (type === "moov") sawMoov = true;
     if (type === "mdat") sawMdat = true;
+    if (type === "uuid" && !sawUuid) { sawUuid = true; uuidOffset = off; }
     if (realSize < headerSize) break;
     off += realSize;
   }
   if (!sawMoov || !sawMdat) return { ok: false, reason: "missing moov or mdat atom" };
   if (firstNonFtypType !== "moov") {
     return { ok: false, reason: `faststart not held — expected moov as first atom after ftyp, got ${firstNonFtypType}` };
+  }
+  if (sawUuid) {
+    return { ok: false, reason: `top-level 'uuid' atom present at byte ${uuidOffset} (C2PA / extension metadata — must be stripped)` };
   }
   const bin = buf.toString("binary");
   for (const marker of ["c2pa", "C2PA", "jumb"]) {
