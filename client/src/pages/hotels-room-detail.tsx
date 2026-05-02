@@ -81,34 +81,34 @@ export default function HotelsRoomDetail() {
   const selectedRoom = rooms.find((r) => r.id === selectedRoomTypeId) || rooms[0];
 
   return (
-    <div className="pt-24 pb-24 min-h-screen" data-testid="hotels-room-detail-page">
+    <div className="pt-20 sm:pt-24 pb-16 sm:pb-24 min-h-screen" data-testid="hotels-room-detail-page">
       {/* Hero */}
-      <section className="relative h-[60vh] min-h-[460px] overflow-hidden">
+      <section className="relative h-[55vh] sm:h-[60vh] min-h-[380px] sm:min-h-[460px] overflow-hidden">
         <img src={heroImg} alt={property.name} className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,10,10,0.4) 0%, rgba(10,10,10,0.85) 100%)" }} />
-        <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-end pb-12">
-          <Link href="/hotels/rooms" className="text-white/60 hover:text-white text-xs uppercase tracking-widest mb-6 inline-flex items-center gap-2 self-start" data-testid="link-back-rooms">
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 h-full flex flex-col justify-end pb-8 sm:pb-12">
+          <Link href="/hotels/rooms" className="text-white/60 hover:text-white text-xs uppercase tracking-widest mb-4 sm:mb-6 inline-flex items-center gap-2 self-start" data-testid="link-back-rooms">
             <ArrowLeft className="w-3 h-3" /> All Rooms
           </Link>
-          <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] mb-3" style={{ color: "#c5a059" }}>
+          <p className="flex items-center gap-2 text-[10px] sm:text-[11px] uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-3" style={{ color: "#c5a059" }}>
             <MapPin className="w-3 h-3" /> {property.location}{property.city ? ` · ${property.city}` : ""}
           </p>
-          <h1 className="hotels-display text-white text-5xl md:text-7xl mb-4" data-testid="text-property-name">
+          <h1 className="hotels-display text-white text-3xl sm:text-5xl md:text-6xl lg:text-7xl mb-4" data-testid="text-property-name">
             {property.displayName || property.name}
           </h1>
           {property.address && (
-            <p className="text-white/60 max-w-2xl">{property.address}</p>
+            <p className="text-white/60 max-w-2xl text-sm sm:text-base">{property.address}</p>
           )}
         </div>
       </section>
 
-      <div className="container mx-auto px-6 mt-16 grid lg:grid-cols-3 gap-12">
+      <div className="container mx-auto px-4 sm:px-6 mt-10 sm:mt-16 grid lg:grid-cols-3 gap-10 lg:gap-12">
         {/* Left col: room types + amenities */}
-        <div className="lg:col-span-2 space-y-16">
+        <div className="lg:col-span-2 space-y-10 sm:space-y-16">
           {/* Room types */}
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] mb-4" style={{ color: "#c5a059" }}>◇ Choose Your Room</p>
-            <h2 className="hotels-heading text-white text-3xl mb-8">Available Rooms</h2>
+            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] mb-3 sm:mb-4" style={{ color: "#c5a059" }}>◇ Choose Your Room</p>
+            <h2 className="hotels-heading text-white text-2xl sm:text-3xl mb-6 sm:mb-8">Available Rooms</h2>
             {rooms.length === 0 ? (
               <p className="text-white/40">No room types listed yet for this property.</p>
             ) : (
@@ -119,25 +119,25 @@ export default function HotelsRoomDetail() {
                     <button
                       key={rt.id}
                       onClick={() => setSelectedRoomTypeId(rt.id)}
-                      className={`w-full text-left p-6 transition-all border ${isSelected ? "border-amber-500/60 bg-amber-500/[0.03]" : "border-white/10 hover:border-white/20"}`}
+                      className={`w-full text-left p-4 sm:p-6 transition-all border ${isSelected ? "border-amber-500/60 bg-amber-500/[0.03]" : "border-white/10 hover:border-white/20"}`}
                       data-testid={`button-select-room-${rt.id}`}
                     >
-                      <div className="flex items-start justify-between gap-6">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="hotels-heading text-xl text-white">{rt.customName || rt.name}</h3>
+                      <div className="flex items-start justify-between gap-3 sm:gap-6">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                            <h3 className="hotels-heading text-lg sm:text-xl text-white">{rt.customName || rt.name}</h3>
                             {isSelected && (
                               <span className="text-[10px] uppercase tracking-widest text-black px-2 py-0.5" style={{ backgroundColor: "#c5a059" }}>Selected</span>
                             )}
                           </div>
-                          <div className="flex flex-wrap gap-4 text-xs text-white/50 mb-3">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-white/50 mb-1">
                             <span className="flex items-center gap-1.5"><Bed className="w-3.5 h-3.5" /> {rt.name}</span>
                             <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Sleeps {rt.occupancy ?? 2}</span>
                             {rt.size && <span>{rt.size}</span>}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <div className="text-2xl font-bold text-white">₹{rt.basePrice.toLocaleString("en-IN")}</div>
+                          <div className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">₹{rt.basePrice.toLocaleString("en-IN")}</div>
                           <div className="text-[10px] uppercase tracking-widest text-white/40">/ night</div>
                         </div>
                       </div>
@@ -151,9 +151,9 @@ export default function HotelsRoomDetail() {
           {/* Amenities */}
           {property.amenities && property.amenities.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] mb-4" style={{ color: "#c5a059" }}>◇ Amenities</p>
-              <h2 className="hotels-heading text-white text-3xl mb-8">What's Included</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] mb-3 sm:mb-4" style={{ color: "#c5a059" }}>◇ Amenities</p>
+              <h2 className="hotels-heading text-white text-2xl sm:text-3xl mb-6 sm:mb-8">What's Included</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 {property.amenities.map((a) => {
                   const Icon = amenityIcon(a);
                   return (
@@ -170,7 +170,7 @@ export default function HotelsRoomDetail() {
           {/* Highlights */}
           {property.highlights && property.highlights.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] mb-4" style={{ color: "#c5a059" }}>◇ Highlights</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] mb-3 sm:mb-4" style={{ color: "#c5a059" }}>◇ Highlights</p>
               <ul className="space-y-3 text-white/70">
                 {property.highlights.map((h, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -186,7 +186,7 @@ export default function HotelsRoomDetail() {
         {/* Right col: sticky reserve card */}
         <aside className="lg:sticky lg:top-28 self-start">
           <div
-            className="p-8"
+            className="p-6 sm:p-8"
             style={{
               background: "var(--hotels-glass-bg, rgba(255,255,255,0.03))",
               backdropFilter: "blur(20px)",
@@ -196,10 +196,10 @@ export default function HotelsRoomDetail() {
             data-testid="reserve-card"
           >
             <p className="text-[10px] uppercase tracking-[0.3em] mb-2" style={{ color: "#c5a059" }}>From</p>
-            <div className="text-4xl font-black text-white mb-1">
+            <div className="text-3xl sm:text-4xl font-black text-white mb-1">
               ₹{(selectedRoom?.basePrice || rooms[0]?.basePrice || 0).toLocaleString("en-IN")}
             </div>
-            <p className="text-white/40 text-xs uppercase tracking-widest mb-8">per night</p>
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-6 sm:mb-8">per night</p>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {[

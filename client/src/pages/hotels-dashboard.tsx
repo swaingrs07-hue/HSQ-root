@@ -148,18 +148,18 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
   const hotelBookings = bookings.filter((b) => hotels.some((h) => h.id === b.propertyId)).slice(0, 25);
 
   return (
-    <div className="pt-28 pb-24 px-6 min-h-screen" data-testid="hotels-admin-view">
+    <div className="pt-24 sm:pt-28 pb-16 sm:pb-24 px-4 sm:px-6 min-h-screen" data-testid="hotels-admin-view">
       <div className="container mx-auto">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
+        <div className="mb-8 sm:mb-10 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-end justify-between gap-4 sm:gap-6">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] mb-3" style={{ color: "#c5a059" }}>◇ Hotels Operations</p>
-            <h1 className="hotels-display text-white text-5xl md:text-6xl">Admin Dashboard</h1>
+            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] mb-2 sm:mb-3" style={{ color: "#c5a059" }}>◇ Hotels Operations</p>
+            <h1 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl">Admin Dashboard</h1>
           </div>
-          <div className="flex gap-3 text-[11px] uppercase tracking-widest">
-            <Link href="/hotels" className="px-5 py-2.5 border border-white/15 text-white/70 hover:text-white">Guest View</Link>
+          <div className="flex flex-wrap gap-2 sm:gap-3 text-[11px] uppercase tracking-widest w-full sm:w-auto">
+            <Link href="/hotels" className="px-4 sm:px-5 py-2.5 border border-white/15 text-white/70 hover:text-white flex-1 sm:flex-none text-center">Guest View</Link>
             <button
               onClick={() => setShowCreateTask(true)}
-              className="px-5 py-2.5 text-black font-semibold inline-flex items-center gap-2"
+              className="px-4 sm:px-5 py-2.5 text-black font-semibold inline-flex items-center justify-center gap-2 flex-1 sm:flex-none"
               style={{ backgroundColor: "#c5a059" }}
               data-testid="button-new-housekeeping-task"
             >
@@ -169,7 +169,7 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10" data-testid="stat-cards">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10" data-testid="stat-cards">
           <StatCard icon={Calendar} label="Today's Check-Ins" value={stats?.todayCheckIns ?? 0} testId="stat-checkins" />
           <StatCard icon={BedDouble} label="Occupancy" value={`${stats?.occupancyPercent ?? 0}%`} sub={`${stats?.occupiedRooms ?? 0} / ${stats?.totalRooms ?? 0} rooms`} testId="stat-occupancy" />
           <StatCard icon={IndianRupee} label="Revenue (30d)" value={`₹${(stats?.monthRevenue ?? 0).toLocaleString("en-IN")}`} testId="stat-revenue" />
@@ -177,12 +177,12 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-8 overflow-x-auto">
+        <div className="flex border-b border-white/10 mb-6 sm:mb-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
           {(["overview", "bookings", "rooms", "housekeeping"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 text-xs uppercase tracking-widest transition-colors whitespace-nowrap ${
+              className={`px-4 sm:px-6 py-3 text-[11px] sm:text-xs uppercase tracking-widest transition-colors whitespace-nowrap ${
                 activeTab === tab ? "text-white border-b-2" : "text-white/40 hover:text-white/70"
               }`}
               style={activeTab === tab ? { borderColor: "#c5a059" } : {}}
@@ -240,26 +240,26 @@ function StaffView({ token, userId }: { token: string | null; userId: string }) 
   const hotels = properties.filter((p) => p.category === "hotel");
 
   return (
-    <div className="pt-28 pb-24 px-6 min-h-screen" data-testid="hotels-staff-view">
+    <div className="pt-24 sm:pt-28 pb-16 sm:pb-24 px-4 sm:px-6 min-h-screen" data-testid="hotels-staff-view">
       <div className="container mx-auto">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
+        <div className="mb-8 sm:mb-10 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-end justify-between gap-4 sm:gap-6">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] mb-3" style={{ color: "#c5a059" }}>◇ Today's Shift</p>
-            <h1 className="hotels-display text-white text-5xl md:text-6xl">Staff Dashboard</h1>
+            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] mb-2 sm:mb-3" style={{ color: "#c5a059" }}>◇ Today's Shift</p>
+            <h1 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl">Staff Dashboard</h1>
           </div>
-          <Link href="/hotels" className="px-5 py-2.5 border border-white/15 text-white/70 hover:text-white text-[11px] uppercase tracking-widest">
+          <Link href="/hotels" className="px-4 sm:px-5 py-2.5 border border-white/15 text-white/70 hover:text-white text-[11px] uppercase tracking-widest w-full sm:w-auto text-center">
             Guest View
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10">
           <StatCard icon={Calendar} label="My Check-Ins Today" value={stats?.todayCheckIns ?? 0} />
           <StatCard icon={Clock} label="My Check-Outs Today" value={stats?.todayCheckOuts ?? 0} />
           <StatCard icon={Sparkles} label="My Tasks Today" value={tasks.filter((t) => t.status !== "completed").length} />
           <StatCard icon={CheckCircle2} label="Completed" value={tasks.filter((t) => t.status === "completed").length} />
         </div>
 
-        <h2 className="hotels-heading text-white text-2xl mb-6">My Housekeeping Tasks</h2>
+        <h2 className="hotels-heading text-white text-xl sm:text-2xl mb-4 sm:mb-6">My Housekeeping Tasks</h2>
         <HousekeepingPanel tasks={tasks} hotels={hotels} token={token} mineOnly userId={userId} />
       </div>
     </div>
@@ -270,16 +270,16 @@ function StaffView({ token, userId }: { token: string | null; userId: string }) 
 function StatCard({ icon: Icon, label, value, sub, testId }: { icon: any; label: string; value: string | number; sub?: string; testId?: string }) {
   return (
     <div
-      className="p-6 border border-white/10 hover:border-amber-500/30 transition-colors"
+      className="p-4 sm:p-6 border border-white/10 hover:border-amber-500/30 transition-colors"
       style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
       data-testid={testId}
     >
-      <div className="flex items-center justify-between mb-4">
-        <Icon className="w-5 h-5" style={{ color: "#c5a059" }} />
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: "#c5a059" }} />
       </div>
-      <div className="text-3xl font-bold text-white mb-1">{value}</div>
-      <div className="text-[10px] uppercase tracking-widest text-white/50">{label}</div>
-      {sub && <div className="text-xs text-white/40 mt-1">{sub}</div>}
+      <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1 break-words">{value}</div>
+      <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-white/50 leading-tight">{label}</div>
+      {sub && <div className="text-[10px] sm:text-xs text-white/40 mt-1">{sub}</div>}
     </div>
   );
 }
@@ -290,10 +290,10 @@ function OverviewPanel({ hotels, bookings, tasks }: { hotels: Property[]; bookin
   const urgentTasks = tasks.filter((t) => t.status !== "completed" && (t.priority === "high" || t.priority === "urgent")).slice(0, 5);
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6" data-testid="overview-panel">
-      <div className="p-6 border border-white/10">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="hotels-heading text-lg text-white">Recent Bookings</h3>
+    <div className="grid lg:grid-cols-2 gap-4 sm:gap-6" data-testid="overview-panel">
+      <div className="p-4 sm:p-6 border border-white/10">
+        <div className="flex items-center justify-between mb-4 sm:mb-5">
+          <h3 className="hotels-heading text-base sm:text-lg text-white">Recent Bookings</h3>
           <Link href="#" className="text-[10px] uppercase tracking-widest text-amber-400">View all</Link>
         </div>
         {recentBookings.length === 0 ? (
@@ -316,9 +316,9 @@ function OverviewPanel({ hotels, bookings, tasks }: { hotels: Property[]; bookin
         )}
       </div>
 
-      <div className="p-6 border border-white/10">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="hotels-heading text-lg text-white">Urgent Tasks</h3>
+      <div className="p-4 sm:p-6 border border-white/10">
+        <div className="flex items-center justify-between mb-4 sm:mb-5">
+          <h3 className="hotels-heading text-base sm:text-lg text-white">Urgent Tasks</h3>
           <span className="text-[10px] uppercase tracking-widest text-amber-400">{urgentTasks.length} flagged</span>
         </div>
         {urgentTasks.length === 0 ? (
@@ -350,35 +350,64 @@ function BookingsPanel({ bookings, hotels }: { bookings: Booking[]; hotels: Prop
     return <p className="text-white/40 text-center py-16">No hotel bookings yet.</p>;
   }
   return (
-    <div className="border border-white/10 overflow-x-auto" data-testid="bookings-panel">
-      <table className="w-full">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-widest text-white/40 border-b border-white/10">
-            <th className="text-left p-4">Guest</th>
-            <th className="text-left p-4">Property</th>
-            <th className="text-left p-4">Check In</th>
-            <th className="text-left p-4">Check Out</th>
-            <th className="text-right p-4">Amount</th>
-            <th className="text-left p-4">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bookings.map((b) => {
-            const property = hotels.find((h) => h.id === b.propertyId);
-            return (
-              <tr key={b.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                <td className="p-4 text-white text-sm">{b.walkInName || b.bookingCode || "—"}</td>
-                <td className="p-4 text-white/70 text-sm">{property?.name || "—"}</td>
-                <td className="p-4 text-white/60 text-sm">{b.checkInDate || "TBD"}</td>
-                <td className="p-4 text-white/60 text-sm">{b.checkOutDate || "TBD"}</td>
-                <td className="p-4 text-amber-400 text-sm font-semibold text-right">₹{b.totalFee.toLocaleString("en-IN")}</td>
-                <td className="p-4"><span className="text-[10px] uppercase tracking-widest text-white/60 px-2 py-1 border border-white/10">{b.status}</span></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {/* Desktop / tablet table */}
+      <div className="hidden md:block border border-white/10 overflow-x-auto" data-testid="bookings-panel">
+        <table className="w-full min-w-[640px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-widest text-white/40 border-b border-white/10">
+              <th className="text-left p-4">Guest</th>
+              <th className="text-left p-4">Property</th>
+              <th className="text-left p-4">Check In</th>
+              <th className="text-left p-4">Check Out</th>
+              <th className="text-right p-4">Amount</th>
+              <th className="text-left p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.map((b) => {
+              const property = hotels.find((h) => h.id === b.propertyId);
+              return (
+                <tr key={b.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                  <td className="p-4 text-white text-sm">{b.walkInName || b.bookingCode || "—"}</td>
+                  <td className="p-4 text-white/70 text-sm">{property?.name || "—"}</td>
+                  <td className="p-4 text-white/60 text-sm">{b.checkInDate || "TBD"}</td>
+                  <td className="p-4 text-white/60 text-sm">{b.checkOutDate || "TBD"}</td>
+                  <td className="p-4 text-amber-400 text-sm font-semibold text-right">₹{b.totalFee.toLocaleString("en-IN")}</td>
+                  <td className="p-4"><span className="text-[10px] uppercase tracking-widest text-white/60 px-2 py-1 border border-white/10">{b.status}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3" data-testid="bookings-panel-mobile">
+        {bookings.map((b) => {
+          const property = hotels.find((h) => h.id === b.propertyId);
+          return (
+            <div key={b.id} className="border border-white/10 p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-white font-medium text-sm truncate">{b.walkInName || b.bookingCode || "—"}</div>
+                  <div className="text-white/50 text-xs truncate">{property?.name || "—"}</div>
+                </div>
+                <span className="text-[9px] uppercase tracking-widest text-white/60 px-2 py-1 border border-white/10 whitespace-nowrap">{b.status}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <div className="text-white/50">
+                  <span className="text-white/40">In:</span> {b.checkInDate || "TBD"}
+                  <span className="mx-2">·</span>
+                  <span className="text-white/40">Out:</span> {b.checkOutDate || "TBD"}
+                </div>
+                <div className="text-amber-400 font-semibold whitespace-nowrap">₹{b.totalFee.toLocaleString("en-IN")}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -397,14 +426,14 @@ function RoomsPanel({ hotels }: { hotels: Property[] }) {
     );
   }
   return (
-    <div className="grid md:grid-cols-2 gap-4" data-testid="rooms-panel">
+    <div className="grid sm:grid-cols-2 gap-3 sm:gap-4" data-testid="rooms-panel">
       {hotels.map((h) => (
-        <div key={h.id} className="p-6 border border-white/10 flex items-center justify-between">
-          <div>
-            <h4 className="text-white font-semibold mb-1">{h.name}</h4>
-            <p className="text-white/40 text-xs">{h.location}</p>
+        <div key={h.id} className="p-4 sm:p-6 border border-white/10 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h4 className="text-white font-semibold mb-1 truncate">{h.name}</h4>
+            <p className="text-white/40 text-xs truncate">{h.location}</p>
           </div>
-          <Link href={`/admin/floors-beds`} className="text-amber-400 text-[10px] uppercase tracking-widest inline-flex items-center gap-2">
+          <Link href={`/admin/floors-beds`} className="text-amber-400 text-[10px] uppercase tracking-widest inline-flex items-center gap-2 whitespace-nowrap shrink-0">
             Manage <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -471,42 +500,44 @@ function HousekeepingPanel({
             return (
               <div
                 key={t.id}
-                className="p-5 border border-white/10 grid md:grid-cols-[1fr_auto_auto] gap-4 items-center"
+                className="p-4 sm:p-5 border border-white/10 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 sm:gap-4 md:items-center"
                 data-testid={`task-${t.id}`}
               >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
                     <h4 className="text-white font-medium capitalize">{t.taskType.replace("_", " ")}</h4>
                     <span className={`text-[9px] uppercase tracking-widest ${PRIORITY_PILL[t.priority]}`}>· {t.priority}</span>
                   </div>
-                  <p className="text-white/50 text-xs">
+                  <p className="text-white/50 text-xs break-words">
                     {property?.name || "—"} · Room {t.roomLabel || "—"}
                     {t.scheduledFor ? ` · ${new Date(t.scheduledFor).toLocaleDateString()}` : ""}
                   </p>
-                  {t.notes && <p className="text-white/40 text-xs mt-1 italic">"{t.notes}"</p>}
+                  {t.notes && <p className="text-white/40 text-xs mt-1 italic break-words">"{t.notes}"</p>}
                 </div>
-                <span className={`px-3 py-1 text-[10px] uppercase tracking-widest border ${STATUS_PILL[t.status] || ""}`}>
-                  {t.status.replace("_", " ")}
-                </span>
-                <div className="flex gap-2">
-                  {t.status === "pending" && (
-                    <button
-                      onClick={() => updateTask.mutate({ id: t.id, status: "in_progress" })}
-                      className="px-4 py-2 text-[10px] uppercase tracking-widest text-amber-400 border border-amber-500/30 hover:bg-amber-500/10"
-                      data-testid={`button-start-${t.id}`}
-                    >
-                      Start
-                    </button>
-                  )}
-                  {t.status === "in_progress" && (
-                    <button
-                      onClick={() => updateTask.mutate({ id: t.id, status: "completed" })}
-                      className="px-4 py-2 text-[10px] uppercase tracking-widest text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10"
-                      data-testid={`button-complete-${t.id}`}
-                    >
-                      Mark Complete
-                    </button>
-                  )}
+                <div className="flex items-center justify-between md:justify-start gap-3 md:contents">
+                  <span className={`px-3 py-1 text-[10px] uppercase tracking-widest border ${STATUS_PILL[t.status] || ""} whitespace-nowrap`}>
+                    {t.status.replace("_", " ")}
+                  </span>
+                  <div className="flex gap-2">
+                    {t.status === "pending" && (
+                      <button
+                        onClick={() => updateTask.mutate({ id: t.id, status: "in_progress" })}
+                        className="px-3 sm:px-4 py-2 text-[10px] uppercase tracking-widest text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 whitespace-nowrap"
+                        data-testid={`button-start-${t.id}`}
+                      >
+                        Start
+                      </button>
+                    )}
+                    {t.status === "in_progress" && (
+                      <button
+                        onClick={() => updateTask.mutate({ id: t.id, status: "completed" })}
+                        className="px-3 sm:px-4 py-2 text-[10px] uppercase tracking-widest text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 whitespace-nowrap"
+                        data-testid={`button-complete-${t.id}`}
+                      >
+                        Mark Complete
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -553,13 +584,13 @@ function CreateTaskModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 sm:px-6 py-6 overflow-y-auto" onClick={onClose}>
       <div
-        className="bg-[#0a0a0a] border border-white/10 max-w-md w-full p-8"
+        className="bg-[#0a0a0a] border border-white/10 max-w-md w-full p-6 sm:p-8 my-auto max-h-full overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         data-testid="create-task-modal"
       >
-        <h3 className="hotels-heading text-2xl text-white mb-6">New Housekeeping Task</h3>
+        <h3 className="hotels-heading text-xl sm:text-2xl text-white mb-5 sm:mb-6">New Housekeeping Task</h3>
         <div className="space-y-4">
           <Field label="Property">
             <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="w-full bg-transparent text-white p-3 border border-white/10 outline-none" data-testid="select-task-property">

@@ -86,7 +86,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
         data-testid="hotels-header"
       >
         <div className={cn(
-          "container mx-auto px-6 flex items-center justify-between transition-all duration-500",
+          "container mx-auto px-4 sm:px-6 flex items-center justify-between transition-all duration-500",
           scrolled ? "h-16" : "h-20"
         )}>
           <div className="flex items-center gap-3">
@@ -225,14 +225,14 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-2xl flex flex-col pt-24 px-6" data-testid="hotels-mobile-menu">
+        <div className="md:hidden fixed inset-0 z-40 bg-black/95 backdrop-blur-2xl flex flex-col pt-20 px-4 sm:px-6 overflow-y-auto pb-8" data-testid="hotels-mobile-menu">
           <nav className="flex flex-col gap-1">
             {HOTEL_NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
-                className="py-4 px-4 text-2xl text-white/80 hover:text-white hover:bg-white/5 rounded-lg uppercase tracking-wider"
+                className="py-3 px-4 text-xl sm:text-2xl text-white/80 hover:text-white hover:bg-white/5 rounded-lg uppercase tracking-wider"
                 data-testid={`link-hotels-mobile-${item.name.toLowerCase()}`}
               >
                 {item.name}
@@ -242,7 +242,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
               <Link
                 href="/hotels/dashboard"
                 onClick={() => setMobileOpen(false)}
-                className="py-4 px-4 text-2xl text-white/80 hover:text-white rounded-lg uppercase tracking-wider flex items-center gap-3"
+                className="py-3 px-4 text-xl sm:text-2xl text-white/80 hover:text-white rounded-lg uppercase tracking-wider flex items-center gap-3"
               >
                 <LayoutDashboard className="w-5 h-5" /> Dashboard
               </Link>
@@ -290,8 +290,8 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-white/5 mt-16" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }}>
-        <div className="container mx-auto px-6 py-16">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
+        <div className="container mx-auto px-4 sm:px-6 py-12 md:py-16">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10 md:gap-12 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
                 <img src={hsquareLogo} alt="Hsquare Hotels" className="h-10 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
@@ -321,7 +321,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-white/30 uppercase tracking-widest">
             <span>© {new Date().getFullYear()} Hsquareliving Pvt Ltd. All rights reserved.</span>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-4 sm:gap-6">
               <Link href="/privacy" className="hover:text-white/60">Privacy</Link>
               <Link href="/terms" className="hover:text-white/60">Terms</Link>
               <Link href="/" className="hover:text-white/60">Hsquare Hostels</Link>
