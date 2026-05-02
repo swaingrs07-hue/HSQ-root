@@ -2258,15 +2258,21 @@ export default function Home() {
           them once the swipe is done; the hero fades to opacity 0
           (Task #149, see hero <section> style) so it doesn't show
           through those translucent areas. */}
-      {/* Task #149: dark safety floor on the post-hero wrapper. The
-          stats section's own bg crossfades from opaque to translucent
-          via a CSS variable below, so for one frame on a slow Windows
-          machine a single scroll tick *could* leave a sub-pixel gap
-          between the hero (now opacity:0) and the stats fully covering
-          it. Painting the same #050505 the page background uses here
-          means even in that worst case the user sees a continuous
-          dark page instead of a black hole or a hero-video leak. */}
-      <div className="relative z-10 bg-[#050505]">
+      {/* Task #150 fix: this wrapper is intentionally TRANSPARENT.
+          A previous revision painted `bg-[#050505]` here as a "safety
+          floor" against a hypothetical sub-pixel gap at the hero
+          handoff frame, but the wrapper sits at z-10 ABOVE the global
+          tubes layer (fixed z:0 in layout.tsx) and would mask the
+          tubes for the entire post-hero region — Why Choose, Cards,
+          Pricing, Testimonials, etc. The stats section just below
+          already serves as the safety: it's `min-h-screen` and its
+          own background crossfades from `rgba(5,5,5,1)` (fully opaque)
+          at raw progress 0..1.0 to `rgba(5,5,5,0.4)` only after the
+          hero has been hidden, so it fully covers the hero on the
+          same paint frame as the opacity flip. After the swipe, every
+          subsequent section keeps its own `bg-[#050505]/40` so the
+          tubes glow through at 60%. */}
+      <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
         className="py-28 md:py-36 min-h-screen flex items-center"
