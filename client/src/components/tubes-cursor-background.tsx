@@ -229,7 +229,22 @@ export default function TubesCursorBackground({
           //     tab throttling, battery saver, ancient hardware) and
           //     would visibly stutter even without tubes. For those
           //     devices the IridescentFallbackBackground takes over.
-          const MIN_FPS = 30;
+          //
+          //     Windows-Chrome exception: even at 40-50fps idle, the
+          //     iridescent tubes shader stacked with everything else
+          //     this page does (10+ backdrop-blur glass cards on
+          //     property pages, hero <video> decode, framer-motion
+          //     scroll subscriptions) drops the perceived smoothness
+          //     well below "premium" on the Dell G15 5515 we test
+          //     against. Raising the gate to 48 on Windows hands those
+          //     mid-tier machines the lightweight CSS fallback (5
+          //     gradient blobs animating only `transform`, no shader)
+          //     while top-tier Windows GPUs still measure 55+ at idle
+          //     and keep the WebGL tubes.
+          const isWindowsClient =
+            typeof document !== "undefined" &&
+            document.documentElement.getAttribute("data-platform") === "windows";
+          const MIN_FPS = isWindowsClient ? 48 : 30;
           if (fps < MIN_FPS) {
             console.log(
               `[TubesCursor] disabled — baseline ${fps.toFixed(1)} fps below ${MIN_FPS} threshold`,

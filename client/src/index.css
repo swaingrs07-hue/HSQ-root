@@ -339,3 +339,46 @@
   .enquiry-card-glow,
   .enquiry-card-pulse { animation: none; }
 }
+
+/*
+ * ============================================================
+ * Windows performance overrides
+ * ============================================================
+ *
+ * `data-platform="windows"` is set on <html> by main.tsx for any
+ * client running on Windows. The rules below disable the GPU-
+ * compositor effects that Windows-Chrome cannot accelerate
+ * efficiently, in particular `backdrop-filter` (used heavily on the
+ * homepage, property selection, and property booking pages as
+ * "glass" cards) and full-screen `filter: blur()` overlays.
+ *
+ * On Windows-Chrome each `backdrop-filter: blur()` element forces a
+ * separate paint of everything behind it on every frame. The property
+ * pages have 10+ glass cards visible at once; combined with the
+ * iridescent tubes WebGL canvas, scrolling drops to 15-25 fps on a
+ * Dell G15 5515. Removing only the blur (keeping the translucent
+ * background tint and border) drops the per-frame paint cost
+ * dramatically while preserving the dark glassy look.
+ *
+ * Other platforms (Mac, Linux, mobile) are unaffected — Mac and iOS
+ * compositors handle backdrop-filter on the GPU, and Linux Chrome's
+ * blink-gpu path is fast enough that we don't gain meaningfully by
+ * disabling it.
+ *
+ * Caveat: a handful of components rely on backdrop-blur for legibility
+ * over photos (e.g. nav-pill on hero images). Those should be reviewed
+ * if the dark tint alone ever feels insufficient on Windows; for now
+ * the perf win outweighs the visual loss.
+ */
+:root[data-platform="windows"] [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Splash exit blur: replaced with a fade in hsquare-loading-screen.tsx
+ * but belt-and-braces here in case any other full-screen overlay grows
+ * a `filter: blur(>=8px)` in the future and ships without thinking
+ * about Windows. */
+:root[data-platform="windows"] .hsq-loading-overlay * {
+  filter: none !important;
+}

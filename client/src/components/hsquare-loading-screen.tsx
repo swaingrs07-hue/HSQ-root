@@ -247,21 +247,43 @@ export function HsquareLoadingScreen({
           from { opacity: 0; width: 0; }
           to { opacity: 0.2; width: min(100%, 120px); }
         }
+        /*
+         * Splash exit zoom.
+         *
+         * Original version animated to scale(30) translateZ(2000px)
+         * with rotateX/rotateY/blur(20px). On Windows-Chrome that
+         * combination forced the whole overlay onto a non-accelerated
+         * compositor path: the giant scale() inflated the texture
+         * source past GPU upload limits, the blur() filter on a full-
+         * screen layer kicked the renderer into software, and the
+         * 3D rotates added a perspective transform on top. Result was
+         * a 600-1000ms freeze right when the page was supposed to
+         * reveal — the "loading lag" the user reported.
+         *
+         * Current version is a simple scale + fade that stays inside
+         * the GPU's fast path on every platform. No filter, no
+         * perspective rotate, no translateZ. Visually this still reads
+         * as "the title zooms forward and dissolves" — the user only
+         * loses the very last bit of motion blur, which Windows wasn't
+         * able to render smoothly anyway.
+         *
+         * Windows additionally short-circuits this to a pure fade via
+         * the [data-platform="windows"] override below, so even the
+         * 5x scale doesn't have to happen there.
+         */
         @keyframes hsqFinalZoomIn {
-          0% {
-            transform: scale(1) translateZ(0) rotateX(0) rotateY(0);
-            opacity: 1;
-            filter: blur(0);
-          }
-          15% {
-            transform: scale(0.98) translateZ(-50px) rotateX(-2deg) rotateY(0);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(30) translateZ(2000px) rotateX(25deg) rotateY(-10deg);
-            opacity: 0;
-            filter: blur(20px);
-          }
+          0%   { transform: scale(1);    opacity: 1; }
+          100% { transform: scale(5);    opacity: 0; }
+        }
+        @keyframes hsqFinalFadeOut {
+          0%   { transform: scale(1);    opacity: 1; }
+          100% { transform: scale(1.08); opacity: 0; }
+        }
+        :root[data-platform="windows"] .hsq-content.hsq-content-exit {
+          animation: hsqFinalFadeOut 0.6s ease-out forwards !important;
+        }
+        :root[data-platform="windows"] .hsq-progress.hsq-progress-exit {
+          animation-duration: 0.4s !important;
         }
         @media (max-width: 768px) {
           .hsq-loading-inner { padding: 30px 20px; }
