@@ -273,7 +273,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-white/30 uppercase tracking-widest">
-            <span>© {new Date().getFullYear()} Hsquare Hotels — A House of Hsquareliving</span>
+            <span>© {new Date().getFullYear()} Hsquareliving Pvt Ltd. All rights reserved.</span>
             <div className="flex gap-6">
               <Link href="/privacy" className="hover:text-white/60">Privacy</Link>
               <Link href="/terms" className="hover:text-white/60">Terms</Link>
