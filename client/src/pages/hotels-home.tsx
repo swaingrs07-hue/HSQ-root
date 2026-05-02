@@ -389,10 +389,12 @@ export default function HotelsHome() {
           <div className="mt-16 text-center">
             <Link
               href="/hotels/rooms"
-              className="inline-flex items-center gap-3 px-10 py-4 text-xs uppercase tracking-[0.3em] text-white border border-white/30 hover:bg-white/5 transition-colors font-medium"
+              className="hotels-glass-btn group relative inline-flex items-center gap-3 px-12 py-5 text-[11px] uppercase tracking-[0.32em] font-medium overflow-hidden"
               data-testid="button-view-all-rooms"
             >
-              View All Rooms <ArrowRight className="w-4 h-4" />
+              <span className="hotels-glass-btn__shine" aria-hidden />
+              <span className="relative z-10">View All Rooms</span>
+              <ArrowRight className="relative z-10 w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" />
             </Link>
           </div>
         </div>

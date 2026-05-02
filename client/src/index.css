@@ -495,12 +495,98 @@
   filter: none !important;
 }
 
-/* "View All Rooms" outline button — invisible white-on-ivory in light mode.
-   Force dark text + dark border + soft hover so it reads on the page. */
-.hotels-light [data-testid="button-view-all-rooms"] {
-  color: #1a1410 !important;
-  border-color: rgb(26 20 16 / 0.35) !important;
+/* ============================================================
+   Premium glassmorphism CTA button (.hotels-glass-btn)
+   Used for "View All Rooms" and other tertiary CTAs in the
+   Hotels portal. Reads beautifully on both the dark page and
+   the ivory light-mode page, with a soft gold edge, blurred
+   glass body, and a sweeping shine on hover.
+   ============================================================ */
+.hotels-glass-btn {
+  position: relative;
+  color: rgba(255, 255, 255, 0.92);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px -10px rgba(0, 0, 0, 0.5),
+    0 0 0 0 rgba(197, 160, 89, 0);
+  transition:
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
 }
-.hotels-light [data-testid="button-view-all-rooms"]:hover {
-  background-color: rgb(26 20 16 / 0.06) !important;
+.hotels-glass-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(197, 160, 89, 0.7);
+  background: linear-gradient(
+    180deg,
+    rgba(197, 160, 89, 0.18) 0%,
+    rgba(197, 160, 89, 0.04) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 50px -12px rgba(0, 0, 0, 0.6),
+    0 0 30px -2px rgba(197, 160, 89, 0.35);
+}
+.hotels-glass-btn__shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hotels-glass-btn:hover .hotels-glass-btn__shine {
+  transform: translateX(100%);
+}
+
+/* Light-mode variant: ivory glass with dark ink text */
+.hotels-light .hotels-glass-btn {
+  color: rgba(26, 20, 16, 0.85);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.25) 100%
+  );
+  border-color: rgba(197, 160, 89, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 30px -12px rgba(120, 90, 50, 0.18);
+}
+.hotels-light .hotels-glass-btn:hover {
+  color: #1a1410;
+  background: linear-gradient(
+    180deg,
+    rgba(197, 160, 89, 0.22) 0%,
+    rgba(197, 160, 89, 0.08) 100%
+  );
+  border-color: rgba(197, 160, 89, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 18px 45px -14px rgba(120, 90, 50, 0.3),
+    0 0 28px -4px rgba(197, 160, 89, 0.45);
+}
+.hotels-light .hotels-glass-btn__shine {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(197, 160, 89, 0.25) 50%,
+    transparent 70%
+  );
 }
