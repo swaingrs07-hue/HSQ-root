@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { AdminLayout } from "@/components/admin-layout";
+import { HotelsLayout } from "@/components/hotels-layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { AuthGuardProvider } from "@/contexts/auth-guard-context";
 import { PropertyProvider } from "@/contexts/property-context";
@@ -56,6 +57,10 @@ import ResetPasswordPage from "@/pages/admin-reset-password";
 import AdminRegistrations from "@/pages/admin-registrations";
 import AdminContactMessages from "@/pages/admin-contact-messages";
 import Apply from "@/pages/apply";
+import HotelsHome from "@/pages/hotels-home";
+import HotelsRooms from "@/pages/hotels-rooms";
+import HotelsRoomDetail from "@/pages/hotels-room-detail";
+import HotelsDashboard from "@/pages/hotels-dashboard";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import FAQ from "@/pages/faq";
@@ -125,7 +130,8 @@ function AppContent() {
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || isResetPasswordPage;
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
-  const isAdminRoute = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isReceptionist) && (location === "/profile" || location === "/settings" || location === "/help")));
+  const isHotelsRoute = location.startsWith("/hotels");
+  const isAdminRoute = !isResetPasswordPage && !isHotelsRoute && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isReceptionist) && (location === "/profile" || location === "/settings" || location === "/help")));
   const useAdminLayout = (isAdmin || isSalesExec || isReceptionist) && isAdminRoute;
 
   return (
@@ -136,7 +142,17 @@ function AppContent() {
       <Route path="/admin/reset-password" component={ResetPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route>
-        {isAuthPage ? null : useAdminLayout ? (
+        {isAuthPage ? null : isHotelsRoute ? (
+          <HotelsLayout>
+            <Switch>
+              <Route path="/hotels" component={HotelsHome} />
+              <Route path="/hotels/rooms" component={HotelsRooms} />
+              <Route path="/hotels/rooms/:slug" component={HotelsRoomDetail} />
+              <Route path="/hotels/dashboard" component={HotelsDashboard} />
+              <Route component={NotFound} />
+            </Switch>
+          </HotelsLayout>
+        ) : useAdminLayout ? (
           <AdminLayout>
             <Switch>
               <Route path="/admin" component={AdminDashboard} />

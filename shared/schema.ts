@@ -4,7 +4,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["draft", "pending_payment", "pending_approval", "confirmed", "active", "completed", "cancelled"]);
 export const approvalStatusEnum = pgEnum("approval_status", ["not_required", "pending", "approved", "rejected"]);
@@ -1657,6 +1657,43 @@ export const contactMessages = pgTable("contact_messages", {
 export const insertContactMessageSchema = createInsertSchema(contactMessages).omit({ id: true, status: true, repliedBy: true, repliedAt: true, createdAt: true });
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
+
+// ============ Hotels Module: Housekeeping ============
+export const housekeepingTaskStatusEnum = pgEnum("housekeeping_task_status", ["pending", "in_progress", "completed", "cancelled"]);
+export const housekeepingTaskTypeEnum = pgEnum("housekeeping_task_type", ["cleaning", "turnover", "deep_clean", "maintenance", "inspection", "linen_change"]);
+export const housekeepingTaskPriorityEnum = pgEnum("housekeeping_task_priority", ["low", "normal", "high", "urgent"]);
+
+export const housekeepingTasks = pgTable("housekeeping_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  roomId: varchar("room_id").references(() => rooms.id),
+  roomLabel: text("room_label"),
+  taskType: housekeepingTaskTypeEnum("task_type").default("cleaning").notNull(),
+  status: housekeepingTaskStatusEnum("status").default("pending").notNull(),
+  priority: housekeepingTaskPriorityEnum("priority").default("normal").notNull(),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  scheduledFor: timestamp("scheduled_for"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("housekeeping_tasks_property_idx").on(table.propertyId),
+  index("housekeeping_tasks_assigned_idx").on(table.assignedTo),
+  index("housekeeping_tasks_status_idx").on(table.status),
+]);
+
+export const insertHousekeepingTaskSchema = createInsertSchema(housekeepingTasks).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type HousekeepingTask = typeof housekeepingTasks.$inferSelect;
+export type InsertHousekeepingTask = z.infer<typeof insertHousekeepingTaskSchema>;
 
 // Re-export chat models for AI integrations
 export * from "./models/chat";

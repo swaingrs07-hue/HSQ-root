@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 
-export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist";
+export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist" | "hotel_admin" | "hotel_staff";
 
 interface User {
   id: string;
@@ -41,7 +41,7 @@ export function useAuth() {
 }
 
 const PUBLIC_ROUTES = ["/login", "/auth", "/admin/login"];
-const BROWSABLE_ROUTES = ["/", "/properties", "/search", "/about", "/contact"];
+const BROWSABLE_ROUTES = ["/", "/properties", "/search", "/about", "/contact", "/hotels"];
 const STORAGE_KEY = "hsquare_auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -231,6 +231,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return "/operations";
       case "sales_executive":
         return "/sales";
+      case "hotel_admin":
+      case "hotel_staff":
+        return "/hotels/dashboard";
       case "user":
       default:
         return "/dashboard";

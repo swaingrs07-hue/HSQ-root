@@ -5,7 +5,7 @@ import path from "path";
 import { storage } from "./storage";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema } from "@shared/schema";
+import { insertStudentSchema, signupSchema, loginSchema, manualLeadSchema, dealClosureSchema, insertLeadRemarkSchema, insertHeroSlideSchema, insertFloorSchema, insertRoomSchema, insertBedSchema, insertHousekeepingTaskSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, isNull, or, desc } from "drizzle-orm";
 import { hashPassword, comparePassword, generateToken, verifyToken, authMiddleware, roleMiddleware, getRoleRedirectPath, type AuthRequest } from "./auth";
@@ -14969,6 +14969,170 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       });
     } catch (error: any) {
       res.status(500).json({ ok: false, error: error?.message || "Wallet lookup failed" });
+    }
+  });
+
+  // ====================================================================
+  // ============ HOTELS MODULE — Housekeeping & Dashboard Stats =========
+  // ====================================================================
+
+  const hotelStaffRoles = roleMiddleware("admin", "superadmin", "hotel_admin", "hotel_staff");
+  const hotelAdminRoles = roleMiddleware("admin", "superadmin", "hotel_admin");
+
+  // GET /api/housekeeping/tasks — list (optionally filter by ?assignedTo=, ?propertyId=, ?status=)
+  app.get("/api/housekeeping/tasks", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
+    try {
+      const filters: { propertyId?: string; assignedTo?: string; status?: string } = {};
+      if (typeof req.query.propertyId === "string") filters.propertyId = req.query.propertyId;
+      if (typeof req.query.assignedTo === "string") filters.assignedTo = req.query.assignedTo;
+      if (typeof req.query.status === "string") filters.status = req.query.status;
+
+      // Hotel staff can only see tasks assigned to them
+      if (req.user?.role === "hotel_staff" && !filters.assignedTo) {
+        filters.assignedTo = req.user.id;
+      }
+
+      const tasks = await storage.listHousekeepingTasks(filters);
+      res.json(tasks);
+    } catch (error: any) {
+      console.error("Error listing housekeeping tasks:", error);
+      res.status(500).json({ error: "Failed to list tasks" });
+    }
+  });
+
+  // POST /api/housekeeping/tasks — create
+  app.post("/api/housekeeping/tasks", authMiddleware, hotelAdminRoles, async (req: AuthRequest, res) => {
+    try {
+      // Always use the authenticated user as createdBy — never trust client-supplied value
+      const { createdBy: _ignored, ...rest } = req.body || {};
+      const parsed = insertHousekeepingTaskSchema.parse({
+        ...rest,
+        createdBy: req.user?.id,
+      });
+      const task = await storage.createHousekeepingTask(parsed);
+      res.status(201).json(task);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid task data", details: error.errors });
+      }
+      console.error("Error creating housekeeping task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  // PATCH /api/housekeeping/tasks/:id — update (status / assignment / notes)
+  app.patch("/api/housekeeping/tasks/:id", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getHousekeepingTask(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Task not found" });
+
+      // Hotel staff can only update their own tasks (status only)
+      if (req.user?.role === "hotel_staff") {
+        if (existing.assignedTo !== req.user.id) {
+          return res.status(403).json({ error: "Not authorized to update this task" });
+        }
+        // Restrict staff to status changes only
+        const allowed: any = {};
+        if (typeof req.body.status === "string") allowed.status = req.body.status;
+        if (typeof req.body.notes === "string") allowed.notes = req.body.notes;
+        const updated = await storage.updateHousekeepingTask(req.params.id, allowed);
+        return res.json(updated);
+      }
+
+      const updated = await storage.updateHousekeepingTask(req.params.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating housekeeping task:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // DELETE /api/housekeeping/tasks/:id — admin only
+  app.delete("/api/housekeeping/tasks/:id", authMiddleware, hotelAdminRoles, async (req: AuthRequest, res) => {
+    try {
+      const ok = await storage.deleteHousekeepingTask(req.params.id);
+      if (!ok) return res.status(404).json({ error: "Task not found" });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting housekeeping task:", error);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
+  });
+
+  // GET /api/hotels/dashboard-stats — aggregate stats for hotel-category properties
+  app.get("/api/hotels/dashboard-stats", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
+    try {
+      // Find all hotel-category property IDs
+      const allProps = await storage.getAllProperties();
+      const hotelIds = allProps.filter((p: any) => p.category === "hotel").map((p: any) => p.id);
+
+      if (hotelIds.length === 0) {
+        return res.json({
+          todayCheckIns: 0, todayCheckOuts: 0, occupancyPercent: 0,
+          monthRevenue: 0, totalRooms: 0, occupiedRooms: 0,
+          pendingHousekeeping: 0, activeBookings: 0,
+        });
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      // Bookings for these hotels
+      const allBookings = await db
+        .select()
+        .from(schema.bookings)
+        .where(inArray(schema.bookings.propertyId, hotelIds));
+
+      const todayCheckIns = allBookings.filter(
+        (b: any) => b.checkInDate === today && ["confirmed", "active"].includes(b.status),
+      ).length;
+      const todayCheckOuts = allBookings.filter(
+        (b: any) => b.checkOutDate === today && ["active", "completed"].includes(b.status),
+      ).length;
+      const activeBookings = allBookings.filter((b: any) => ["active", "confirmed"].includes(b.status)).length;
+
+      // Revenue: sum successful payments tied to bookings on these hotels in last 30d
+      const bookingIds = allBookings.map((b: any) => b.id);
+      let monthRevenue = 0;
+      if (bookingIds.length > 0) {
+        const successPayments = await db
+          .select({ amount: schema.payments.amount, createdAt: schema.payments.createdAt })
+          .from(schema.payments)
+          .where(
+            and(
+              inArray(schema.payments.bookingId, bookingIds),
+              eq(schema.payments.status, "success"),
+            ),
+          );
+        monthRevenue = successPayments
+          .filter((p: any) => p.createdAt && new Date(p.createdAt) >= thirtyDaysAgo)
+          .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+      }
+
+      // Rooms / occupancy from beds
+      const bedsRows = await db
+        .select({ status: schema.beds.status })
+        .from(schema.beds)
+        .where(inArray(schema.beds.propertyId, hotelIds));
+      const totalRooms = bedsRows.length;
+      const occupiedRooms = bedsRows.filter((b: any) => b.status === "occupied").length;
+      const occupancyPercent = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+
+      const pendingHousekeeping = await storage.getPendingHousekeepingCount(hotelIds);
+
+      res.json({
+        todayCheckIns,
+        todayCheckOuts,
+        occupancyPercent,
+        monthRevenue,
+        totalRooms,
+        occupiedRooms,
+        pendingHousekeeping,
+        activeBookings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching hotel dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
 

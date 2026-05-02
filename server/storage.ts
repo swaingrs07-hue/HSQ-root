@@ -104,6 +104,9 @@ import {
   contactMessages,
   type ContactMessage,
   type InsertContactMessage,
+  housekeepingTasks,
+  type HousekeepingTask,
+  type InsertHousekeepingTask,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike, type SQL } from "drizzle-orm";
@@ -2688,6 +2691,51 @@ export class DatabaseStorage implements IStorage {
 
   async getUnreadContactMessageCount(): Promise<number> {
     const [result] = await db.select({ count: count() }).from(contactMessages).where(eq(contactMessages.status, "new"));
+    return result?.count || 0;
+  }
+
+  // ============ Housekeeping Tasks (Hotels Module) ============
+  async listHousekeepingTasks(filters?: { propertyId?: string; assignedTo?: string; status?: string }): Promise<HousekeepingTask[]> {
+    const conds: any[] = [];
+    if (filters?.propertyId) conds.push(eq(housekeepingTasks.propertyId, filters.propertyId));
+    if (filters?.assignedTo) conds.push(eq(housekeepingTasks.assignedTo, filters.assignedTo));
+    if (filters?.status) conds.push(eq(housekeepingTasks.status, filters.status as any));
+    const query = db.select().from(housekeepingTasks);
+    return conds.length
+      ? query.where(and(...conds)).orderBy(desc(housekeepingTasks.createdAt))
+      : query.orderBy(desc(housekeepingTasks.createdAt));
+  }
+
+  async getHousekeepingTask(id: string): Promise<HousekeepingTask | undefined> {
+    const [task] = await db.select().from(housekeepingTasks).where(eq(housekeepingTasks.id, id));
+    return task;
+  }
+
+  async createHousekeepingTask(data: InsertHousekeepingTask): Promise<HousekeepingTask> {
+    const [created] = await db.insert(housekeepingTasks).values(data).returning();
+    return created;
+  }
+
+  async updateHousekeepingTask(id: string, data: Partial<InsertHousekeepingTask> & { status?: string }): Promise<HousekeepingTask | undefined> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    // Auto-stamp lifecycle timestamps
+    if (data.status === "in_progress") updateData.startedAt = new Date();
+    if (data.status === "completed") updateData.completedAt = new Date();
+    const [updated] = await db.update(housekeepingTasks).set(updateData).where(eq(housekeepingTasks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteHousekeepingTask(id: string): Promise<boolean> {
+    const result = await db.delete(housekeepingTasks).where(eq(housekeepingTasks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getPendingHousekeepingCount(propertyIds?: string[]): Promise<number> {
+    const conds: any[] = [eq(housekeepingTasks.status, "pending")];
+    if (propertyIds && propertyIds.length > 0) {
+      conds.push(inArray(housekeepingTasks.propertyId, propertyIds));
+    }
+    const [result] = await db.select({ count: count() }).from(housekeepingTasks).where(and(...conds));
     return result?.count || 0;
   }
 }

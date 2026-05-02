@@ -415,14 +415,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className={cn(
           "fixed top-0 z-50 w-full transition-all duration-500 ease-out",
           headerTransparent
-            ? "bg-transparent border-b border-transparent"
+            ? "bg-transparent"
             : hasTransparentHeader
-              ? "bg-black/60 backdrop-blur-xl border-b border-white/[0.08]"
-              : "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
+              ? "bg-black/60 backdrop-blur-xl"
+              : "bg-background/95 backdrop-blur-md shadow-sm"
         )}
-        style={{
-          boxShadow: !headerTransparent && hasTransparentHeader ? "0 1px 20px rgba(245, 158, 11, 0.08), inset 0 -1px 0 rgba(245, 158, 11, 0.15)" : undefined,
-        }}
       >
         <div
           className={cn(
@@ -439,6 +436,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 scrolled ? "h-10" : "h-12"
               )}
             />
+          </Link>
+
+          {/* Floating glassmorphism Hotels switcher — always visible */}
+          <Link
+            href="/hotels"
+            className={cn(
+              "absolute left-1/2 -translate-x-1/2 hidden sm:flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 hover:scale-105 group",
+              "border backdrop-blur-xl"
+            )}
+            style={{
+              background: "rgba(197, 160, 89, 0.12)",
+              borderColor: "rgba(197, 160, 89, 0.35)",
+              boxShadow: "0 8px 24px rgba(197, 160, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}
+            data-testid="link-hotels-switcher"
+          >
+            <Star className="w-3.5 h-3.5" style={{ color: "#c5a059" }} fill="#c5a059" />
+            <span className="text-xs font-semibold tracking-[0.18em] uppercase" style={{ color: "#e9d5a3" }}>
+              Switch to Hotels
+            </span>
+            <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
+              →
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -486,6 +506,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="md:hidden flex items-center gap-1">
+            <Link
+              href="/hotels"
+              className="px-3 py-1.5 rounded-full border backdrop-blur-xl flex items-center gap-1.5 mr-1"
+              style={{
+                background: "rgba(197, 160, 89, 0.12)",
+                borderColor: "rgba(197, 160, 89, 0.35)",
+              }}
+              data-testid="link-hotels-switcher-mobile"
+            >
+              <Star className="w-3 h-3" style={{ color: "#c5a059" }} fill="#c5a059" />
+              <span className="text-[10px] font-semibold tracking-wider uppercase" style={{ color: "#e9d5a3" }}>
+                Hotels
+              </span>
+            </Link>
             <button
               className={cn("p-2 rounded-full transition-colors",
                 headerTransparent || hasTransparentHeader ? "text-white hover:bg-white/10" : "text-muted-foreground hover:bg-muted"
