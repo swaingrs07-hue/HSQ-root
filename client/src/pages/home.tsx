@@ -1587,6 +1587,19 @@ export default function Home() {
         className={`w-full h-screen overflow-hidden ${
           prefersReducedMotion ? "relative" : "sticky top-0"
         }`}
+        style={
+          prefersReducedMotion
+            ? undefined
+            : {
+                // Once the next section has fully covered the sticky
+                // hero, hide it entirely so subsequent translucent
+                // sections (Why Choose, etc.) show the iridescent
+                // tubes through them instead of the hero video peeking
+                // out from behind. Without this, sticky pins the hero
+                // for the full page height (Task #147 fix).
+                visibility: heroFullyCovered ? "hidden" : "visible",
+              }
+        }
         data-testid="hero-section"
       >
         {!activeSlide ? (
@@ -2008,14 +2021,17 @@ export default function Home() {
           hero lives inside this `relative z-10` wrapper so they paint
           ABOVE the sticky hero (which is z:auto) and ABOVE the global
           tubes layer (fixed z:0 in layout.tsx). The first section
-          (stats) uses an opaque background so it acts as the "card"
-          that fully covers the hero during the swipe; subsequent
-          sections keep their existing translucent backgrounds so the
-          iridescent tubes glow through them once the swipe is done. */}
+          (stats) uses an opaque background AND min-h-screen so it
+          fully covers the hero during the swipe — without min-h-screen
+          a short stats section would let the sticky hero peek out
+          above and below it. Subsequent sections keep their existing
+          translucent backgrounds so the iridescent tubes glow through
+          them once the swipe is done; the hero gets visibility:hidden
+          (above) so it doesn't show through those translucent areas. */}
       <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
-        className="py-28 md:py-36 bg-[#050505]"
+        className="py-28 md:py-36 bg-[#050505] min-h-screen flex items-center"
       >
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
