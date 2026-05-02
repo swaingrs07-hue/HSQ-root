@@ -146,38 +146,46 @@ export default function HotelsHome() {
           </div>
         </div>
 
-        {/* Floating glass booking bar */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-4xl hidden md:block">
-          <div
-            className="grid grid-cols-4 gap-px rounded-sm overflow-hidden"
-            style={{
-              background: "var(--hotels-glass-bg, rgba(255,255,255,0.06))",
-              backdropFilter: "blur(24px) saturate(180%)",
-              border: "1px solid rgba(197,160,89,0.18)",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
-            }}
-            data-testid="hero-booking-bar"
-          >
-            {[
-              { icon: Calendar, label: "Check In", value: "Add Date" },
-              { icon: Calendar, label: "Check Out", value: "Add Date" },
-              { icon: Users, label: "Guests", value: "2 Adults" },
-              { icon: MapPin, label: "Property", value: "Any Location" },
-            ].map((field) => {
-              const Icon = field.icon;
-              return (
-                <div key={field.label} className="px-5 py-4 bg-black/30 hover:bg-black/40 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-3 h-3" style={{ color: "#c5a059" }} />
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{field.label}</span>
-                  </div>
-                  <div className="text-sm text-white/90 font-medium">{field.value}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </section>
+
+      {/* Booking quick-search bar — sits BELOW the hero so it never overlaps the
+          Reserve / Discover buttons. Each field is a real Link to /hotels/rooms
+          so clicking any of them takes you to the search page. */}
+      <div className="hidden md:block container mx-auto px-6 -mt-12 mb-8 relative z-30">
+        <div
+          className="grid grid-cols-4 gap-px overflow-hidden"
+          style={{
+            background: "var(--hotels-glass-bg, rgba(255,255,255,0.06))",
+            backdropFilter: "blur(24px) saturate(180%)",
+            border: "1px solid rgba(197,160,89,0.25)",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+          }}
+          data-testid="hero-booking-bar"
+        >
+          {[
+            { icon: Calendar, label: "Check In", value: "Add Date" },
+            { icon: Calendar, label: "Check Out", value: "Add Date" },
+            { icon: Users, label: "Guests", value: "2 Adults" },
+            { icon: MapPin, label: "Property", value: "Any Location" },
+          ].map((field) => {
+            const Icon = field.icon;
+            return (
+              <Link
+                key={field.label}
+                href="/hotels/rooms"
+                className="block px-5 py-4 bg-black/30 hover:bg-black/40 transition-colors cursor-pointer"
+                data-testid={`booking-bar-${field.label.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{field.label}</span>
+                </div>
+                <div className="text-sm text-white/90 font-medium">{field.value}</div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
 
       {/* EXPERIENCE / SPLIT */}
       <section id="experience" className="py-24 md:py-32 px-6" data-testid="section-experience">

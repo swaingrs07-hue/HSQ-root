@@ -453,3 +453,35 @@
   background: rgba(250, 247, 242, 0.7) !important;
   border-bottom: 1px solid rgba(197, 160, 89, 0.18) !important;
 }
+
+/*
+ * The hero on /hotels sits over a dark photographic background in both
+ * themes, so its over-image text & outlined CTAs must stay white even
+ * in light mode. Scope overrides back to white inside the hero.
+ */
+.hotels-light [data-testid="hotels-hero"] .text-white { color: #ffffff !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/90 { color: rgb(255 255 255 / 0.9) !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/80 { color: rgb(255 255 255 / 0.8) !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/70 { color: rgb(255 255 255 / 0.75) !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/60 { color: rgb(255 255 255 / 0.65) !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/50 { color: rgb(255 255 255 / 0.55) !important; }
+.hotels-light [data-testid="hotels-hero"] .text-white\/40 { color: rgb(255 255 255 / 0.45) !important; }
+.hotels-light [data-testid="hotels-hero"] .border-white\/30 { border-color: rgb(255 255 255 / 0.45) !important; }
+.hotels-light [data-testid="hotels-hero"] .border-white\/15 { border-color: rgb(255 255 255 / 0.3) !important; }
+.hotels-light [data-testid="hotels-hero"] .bg-white\/5:hover,
+.hotels-light [data-testid="hotels-hero"] .hover\:bg-white\/5:hover { background-color: rgb(255 255 255 / 0.08) !important; }
+
+/* Room cards on /hotels/rooms have white text over dark image-gradient,
+ * same situation. Keep card-internal text white in light mode. */
+.hotels-light [data-testid="rooms-grid"] .text-white,
+.hotels-light [data-testid="section-rooms"] .text-white { color: #ffffff !important; }
+.hotels-light [data-testid="rooms-grid"] .text-white\/60,
+.hotels-light [data-testid="section-rooms"] .text-white\/60 { color: rgb(255 255 255 / 0.65) !important; }
+.hotels-light [data-testid="rooms-grid"] .text-white\/50,
+.hotels-light [data-testid="section-rooms"] .text-white\/50 { color: rgb(255 255 255 / 0.55) !important; }
+.hotels-light [data-testid="rooms-grid"] .text-white\/40,
+.hotels-light [data-testid="section-rooms"] .text-white\/40 { color: rgb(255 255 255 / 0.45) !important; }
+
+/* Room-detail hero photo block — over-image headline stays white */
+.hotels-light [data-testid="hotels-room-detail-page"] > div:first-child .text-white { color: #ffffff !important; }
+.hotels-light [data-testid="hotels-room-detail-page"] > div:first-child .text-white\/60 { color: rgb(255 255 255 / 0.65) !important; }
