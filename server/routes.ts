@@ -15059,6 +15059,52 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ====================================================================
+  // ============ FEATURE FLAGS (superadmin-managed runtime toggles) =====
+  // ====================================================================
+
+  // GET /api/feature-flags — public, returns map of {key: enabled}.
+  // Used by client to gate routes/UI without leaking sensitive data.
+  app.get("/api/feature-flags", async (_req, res) => {
+    try {
+      const flags = await storage.listFeatureFlags();
+      const map: Record<string, boolean> = {};
+      for (const f of flags) map[f.key] = !!f.enabled;
+      // Defaults: hotels are OFF for public until superadmin enables them
+      if (!("hotels_public" in map)) map.hotels_public = false;
+      res.json(map);
+    } catch (error: any) {
+      console.error("Error listing feature flags:", error);
+      res.status(500).json({ error: "Failed to list feature flags" });
+    }
+  });
+
+  // PATCH /api/feature-flags/:key — superadmin only
+  app.patch(
+    "/api/feature-flags/:key",
+    authMiddleware,
+    roleMiddleware("superadmin"),
+    async (req: AuthRequest, res) => {
+      try {
+        const key = req.params.key;
+        const { enabled, description } = req.body || {};
+        if (typeof enabled !== "boolean") {
+          return res.status(400).json({ error: "`enabled` must be a boolean" });
+        }
+        const flag = await storage.setFeatureFlag(
+          key,
+          enabled,
+          req.user?.userId,
+          typeof description === "string" ? description : undefined,
+        );
+        res.json(flag);
+      } catch (error: any) {
+        console.error("Error updating feature flag:", error);
+        res.status(500).json({ error: "Failed to update feature flag" });
+      }
+    },
+  );
+
   // GET /api/hotels/dashboard-stats — aggregate stats for hotel-category properties
   app.get("/api/hotels/dashboard-stats", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
     try {

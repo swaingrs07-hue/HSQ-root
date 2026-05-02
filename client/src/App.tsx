@@ -61,6 +61,7 @@ import HotelsHome from "@/pages/hotels-home";
 import HotelsRooms from "@/pages/hotels-rooms";
 import HotelsRoomDetail from "@/pages/hotels-room-detail";
 import HotelsDashboard from "@/pages/hotels-dashboard";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import FAQ from "@/pages/faq";
@@ -103,6 +104,78 @@ const PAGE_TITLES: Record<string, string> = {
 
 const SITE_URL = "https://hsquare.in";
 
+/**
+ * HotelsGate — public visitors only see /hotels/* if the superadmin has
+ * flipped the `hotels_public` feature flag ON. Authenticated staff
+ * (admin/superadmin/hotel_admin/hotel_staff) always see it so they can
+ * preview & build before launch.
+ */
+function HotelsGate({
+  user,
+  children,
+}: {
+  user: { role?: string } | null;
+  children: React.ReactNode;
+}) {
+  const { isHotelsPublic, isLoading } = useFeatureFlags();
+  const role = user?.role;
+  const isStaff =
+    role === "admin" ||
+    role === "superadmin" ||
+    role === "hotel_admin" ||
+    role === "hotel_staff";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050505]" data-testid="hotels-gate-loading">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isHotelsPublic && !isStaff) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-6 text-center"
+        style={{
+          background:
+            "radial-gradient(ellipse at top, rgba(197,160,89,0.08), transparent 60%), #050505",
+        }}
+        data-testid="hotels-gate-coming-soon"
+      >
+        <div className="max-w-md">
+          <div
+            className="inline-block text-[11px] tracking-[0.3em] uppercase mb-6 px-3 py-1 rounded-full border"
+            style={{ color: "#c5a059", borderColor: "rgba(197,160,89,0.3)" }}
+          >
+            Coming Soon
+          </div>
+          <h1
+            className="text-5xl md:text-6xl font-light text-white mb-4"
+            style={{ fontFamily: "'Cabinet Grotesk', serif" }}
+          >
+            Hsquare <span style={{ color: "#c5a059", fontStyle: "italic" }}>Hotels</span>
+          </h1>
+          <p className="text-white/60 text-base leading-relaxed mb-8">
+            We are quietly preparing something extraordinary. Our luxury hospitality
+            experience will open its doors soon.
+          </p>
+          <a
+            href="/"
+            className="inline-block px-8 py-3 text-[11px] tracking-[0.25em] uppercase border text-white hover:bg-white/5 transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.25)" }}
+            data-testid="link-back-to-hostel"
+          >
+            ← Back to Hsquareliving
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function AppContent() {
   const [location] = useLocation();
 
@@ -143,15 +216,17 @@ function AppContent() {
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route>
         {isAuthPage ? null : isHotelsRoute ? (
-          <HotelsLayout>
-            <Switch>
-              <Route path="/hotels" component={HotelsHome} />
-              <Route path="/hotels/rooms" component={HotelsRooms} />
-              <Route path="/hotels/rooms/:slug" component={HotelsRoomDetail} />
-              <Route path="/hotels/dashboard" component={HotelsDashboard} />
-              <Route component={NotFound} />
-            </Switch>
-          </HotelsLayout>
+          <HotelsGate user={user}>
+            <HotelsLayout>
+              <Switch>
+                <Route path="/hotels" component={HotelsHome} />
+                <Route path="/hotels/rooms" component={HotelsRooms} />
+                <Route path="/hotels/rooms/:slug" component={HotelsRoomDetail} />
+                <Route path="/hotels/dashboard" component={HotelsDashboard} />
+                <Route component={NotFound} />
+              </Switch>
+            </HotelsLayout>
+          </HotelsGate>
         ) : useAdminLayout ? (
           <AdminLayout>
             <Switch>

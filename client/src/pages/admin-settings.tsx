@@ -4,12 +4,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
+import { useFeatureFlags, useSetFeatureFlag } from "@/hooks/use-feature-flags";
 
 export default function AdminSettings() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
+  const { flags, isLoading: flagsLoading } = useFeatureFlags();
+  const setFlagMutation = useSetFeatureFlag();
+  const hotelsPublic = !!flags.hotels_public;
+
+  const handleHotelsToggle = async (enabled: boolean) => {
+    try {
+      await setFlagMutation.mutateAsync({ key: "hotels_public", enabled });
+      toast({
+        title: enabled ? "Hotels are now LIVE" : "Hotels hidden from public",
+        description: enabled
+          ? "Public visitors can now access /hotels and see the Switch to Hotels link."
+          : "Only admins and hotel staff can preview /hotels. The public switcher is hidden.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Failed to update",
+        description: e?.message || "Could not save the setting. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
     leadAssignment: true,
@@ -48,6 +73,65 @@ export default function AdminSettings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
+          {isSuperadmin && (
+            <Card data-testid="card-hotels-visibility">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hotel className="w-5 h-5" />
+                  Hotels Module
+                </CardTitle>
+                <CardDescription>
+                  Control whether the luxury Hotels portal (/hotels) is visible to the public.
+                  Admins and hotel staff always have preview access regardless of this setting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div
+                  className="flex items-center justify-between p-4 rounded-lg border"
+                  style={{
+                    background: hotelsPublic ? "rgb(254 252 232)" : "rgb(248 250 252)",
+                    borderColor: hotelsPublic ? "rgb(234 179 8 / 0.3)" : "rgb(226 232 240)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: hotelsPublic ? "rgb(254 240 138)" : "rgb(226 232 240)",
+                      }}
+                    >
+                      {hotelsPublic ? (
+                        <Eye className="w-5 h-5" style={{ color: "rgb(161 98 7)" }} />
+                      ) : (
+                        <EyeOff className="w-5 h-5" style={{ color: "rgb(71 85 105)" }} />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">
+                        {hotelsPublic ? "Hotels are LIVE for the public" : "Hotels are hidden from the public"}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {hotelsPublic
+                          ? "Anyone can visit /hotels and the gold \"Switch to Hotels\" pill is shown to all visitors."
+                          : "Public visitors see a \"Coming Soon\" page on /hotels. The switcher pill is hidden from non-staff."}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={hotelsPublic}
+                    disabled={flagsLoading || setFlagMutation.isPending}
+                    onCheckedChange={handleHotelsToggle}
+                    data-testid="switch-hotels-public"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Tip: Use this to soft-launch the Hotels portal — keep it OFF while
+                  you finalize rooms and pricing, then flip ON when ready to announce.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

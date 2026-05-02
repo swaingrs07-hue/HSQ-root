@@ -1695,5 +1695,26 @@ export const insertHousekeepingTaskSchema = createInsertSchema(housekeepingTasks
 export type HousekeepingTask = typeof housekeepingTasks.$inferSelect;
 export type InsertHousekeepingTask = z.infer<typeof insertHousekeepingTaskSchema>;
 
+// ============================================================================
+// FEATURE FLAGS — generic key/value boolean flags toggleable by superadmin
+// ============================================================================
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  enabled: boolean("enabled").default(false).notNull(),
+  description: text("description"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
+  id: true,
+  updatedAt: true,
+  createdAt: true,
+});
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

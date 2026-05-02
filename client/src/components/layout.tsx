@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, lazy, Suspense, useCallback, useMemo } fro
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuthGuard } from "@/contexts/auth-guard-context";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
@@ -60,6 +61,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [, setNav] = useLocation();
   const { user, logout, isAdmin } = useAuth();
   const { openAuthModal } = useAuthGuard();
+  const { isHotelsPublic } = useFeatureFlags();
+  const isHotelsStaff =
+    user?.role === "admin" ||
+    user?.role === "superadmin" ||
+    user?.role === "hotel_admin" ||
+    user?.role === "hotel_staff";
+  const showHotelsSwitcher = isHotelsPublic || isHotelsStaff;
 
   const isHomePage = location === "/";
   const isPropertyPage = /^\/properties(\/[^/]+)?$/.test(location);
@@ -439,7 +447,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               />
             </Link>
 
-            {/* Glassmorphism Hotels switcher — sits next to the logo, never overlaps nav */}
+            {/* Glassmorphism Hotels switcher — sits next to the logo, never overlaps nav.
+                Hidden from public visitors when superadmin has not enabled `hotels_public`.
+                Staff/admin always see it so they can preview before launch. */}
+            {showHotelsSwitcher && (
             <Link
               href="/hotels"
               className={cn(
@@ -461,6 +472,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 →
               </span>
             </Link>
+            )}
           </div>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -508,6 +520,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="md:hidden flex items-center gap-1">
+            {showHotelsSwitcher && (
             <Link
               href="/hotels"
               className="px-3 py-1.5 rounded-full border backdrop-blur-xl flex items-center gap-1.5 mr-1"
@@ -522,6 +535,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Hotels
               </span>
             </Link>
+            )}
             <button
               className={cn("p-2 rounded-full transition-colors",
                 headerTransparent || hasTransparentHeader ? "text-white hover:bg-white/10" : "text-muted-foreground hover:bg-muted"

@@ -107,6 +107,8 @@ import {
   housekeepingTasks,
   type HousekeepingTask,
   type InsertHousekeepingTask,
+  featureFlags,
+  type FeatureFlag,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike, type SQL } from "drizzle-orm";
@@ -2737,6 +2739,38 @@ export class DatabaseStorage implements IStorage {
     }
     const [result] = await db.select({ count: count() }).from(housekeepingTasks).where(and(...conds));
     return result?.count || 0;
+  }
+
+  // ============ Feature Flags (superadmin-managed runtime toggles) ============
+  async getFeatureFlag(key: string): Promise<FeatureFlag | undefined> {
+    const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, key));
+    return flag;
+  }
+
+  async listFeatureFlags(): Promise<FeatureFlag[]> {
+    return db.select().from(featureFlags).orderBy(asc(featureFlags.key));
+  }
+
+  async setFeatureFlag(
+    key: string,
+    enabled: boolean,
+    updatedBy?: string,
+    description?: string,
+  ): Promise<FeatureFlag> {
+    const existing = await this.getFeatureFlag(key);
+    if (existing) {
+      const [updated] = await db
+        .update(featureFlags)
+        .set({ enabled, updatedBy: updatedBy || null, updatedAt: new Date() })
+        .where(eq(featureFlags.key, key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(featureFlags)
+      .values({ key, enabled, description, updatedBy: updatedBy || null })
+      .returning();
+    return created;
   }
 }
 
