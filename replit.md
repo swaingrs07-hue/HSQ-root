@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 -   **Calendar & Email Integration**: iCal subscription for follow-ups and email reminders for sales executives.
 -   **Property Rules**: Per-floor gender restriction and per-room/section pricing overrides.
 -   **Property Brochures**: On-demand PDF and PowerPoint generation.
--   **Homepage Enhancements**: Animated splash screen, optimized hero video pipeline with server-side transcoding, and a card-swipe hero where the sticky hero is covered by the next section while the global iridescent tubes layer (driven by `--tubes-reveal-opacity` CSS variable) stays hidden through the swipe and fades in from the "Why Choose" section onward.
+-   **Homepage Enhancements**: Animated splash screen, optimized hero video pipeline with server-side transcoding, and a card-swipe hero where the sticky hero is covered by the next section while the global iridescent tubes layer (driven by `--tubes-reveal-opacity` CSS variable) stays hidden through the swipe and fades in from the "Why Choose" section onward. On small viewports (`<768px`) and for `prefers-reduced-motion` users, the hero falls back to `position: relative` with an IntersectionObserver hard-switch on `--tubes-reveal-opacity` instead of a sticky pin + scroll-tied fade — this avoids visible jumps caused by Android Chrome / iOS Safari URL-bar resize changing `window.innerHeight` mid-scroll (Task #148).
 
 ## External Dependencies
 

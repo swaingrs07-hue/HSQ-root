@@ -1244,15 +1244,26 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (prefersReducedMotion) {
-      // Reduced-motion: skip the sticky pin and the scroll-tied tube
-      // fade-in, but still keep the tubes hidden while the hero is in
-      // view. Use an IntersectionObserver on the hero element (which is
-      // `relative`, not `sticky`, in this branch) and hard-switch the
-      // tubes opacity at the hero boundary — 0 while hero intersects,
-      // 1 once the hero has scrolled out — instead of fading. This
-      // satisfies the same "tubes activate from below the hero" goal
-      // without any scroll-tied animation.
+    if (prefersReducedMotion || isSmallViewport) {
+      // Reduced-motion AND small (<768px) viewports: skip the sticky
+      // pin and the scroll-tied tube fade-in, but still keep the tubes
+      // hidden while the hero is in view. Use an IntersectionObserver
+      // on the hero element (which is `relative`, not `sticky`, in
+      // this branch) and hard-switch the tubes opacity at the hero
+      // boundary — 0 while hero intersects, 1 once the hero has
+      // scrolled out — instead of fading. This satisfies the same
+      // "tubes activate from below the hero" goal without any
+      // scroll-tied animation.
+      //
+      // Mobile (Task #148): on Android Chrome / iOS Safari the URL
+      // bar collapse/expand resizes window.innerHeight mid-scroll,
+      // which made the scroll-tied branch (below) drift the tubes
+      // opacity AND re-pin the sticky 100vh hero at a new size — both
+      // visible jumps. IntersectionObserver doesn't care about vh
+      // changes (it observes the element's geometry against the
+      // visual viewport), so handing mobile to this branch eliminates
+      // both jumps. The tubes still appear "from below the hero",
+      // just as a hard cut instead of a fade.
       const el = heroRef.current;
       if (!el || typeof IntersectionObserver === "undefined") {
         // Without IntersectionObserver we can't track the hero, so
@@ -1328,7 +1339,7 @@ export default function Home() {
       // at full strength immediately.
       setTubesRevealOpacity?.(1);
     };
-  }, [prefersReducedMotion, setTubesRevealOpacity]);
+  }, [prefersReducedMotion, isSmallViewport, setTubesRevealOpacity]);
 
   // Mirror heroInViewport into the ref consumed by `tryPlay` (declared
   // earlier in the file, where the load pipeline lives). See the long
@@ -1594,10 +1605,10 @@ export default function Home() {
       <section
         ref={heroRef}
         className={`w-full h-screen overflow-hidden ${
-          prefersReducedMotion ? "relative" : "sticky top-0"
+          prefersReducedMotion || isSmallViewport ? "relative" : "sticky top-0"
         }`}
         style={
-          prefersReducedMotion
+          prefersReducedMotion || isSmallViewport
             ? undefined
             : {
                 // Once the next section has fully covered the sticky
@@ -1606,6 +1617,14 @@ export default function Home() {
                 // tubes through them instead of the hero video peeking
                 // out from behind. Without this, sticky pins the hero
                 // for the full page height (Task #147 fix).
+                //
+                // Mobile (Task #148): small viewports take the
+                // `relative` branch above instead of sticky, so this
+                // visibility toggle isn't needed there — the hero
+                // simply scrolls out of view naturally and any
+                // translucent sections below paint over the now
+                // off-screen hero in document flow, not over a pinned
+                // overlay.
                 visibility: heroFullyCovered ? "hidden" : "visible",
               }
         }
