@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <link href="https://api.fontshare.com/v2/css?f[]=manrope@300,400,500,600,700,800,900&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800;900&display=swap');
+
+    :root {
+      --hsquare-magenta: #b41d43;
+      --hsquare-cyan: #06b6d4;
+      --bg-black: #000000;
+      --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      font-family: 'Manrope', sans-serif;
+      background: #000000;
+    }
+
+    .loading-screen {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      position: relative;
+      perspective: 1000px;
+    }
+
+    /* Main content section */
+    .content-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      transform-origin: center center;
+    }
+
+    .main-title {
+      font-family: 'Manrope', sans-serif;
+      font-size: clamp(4rem, 12vw, 5.5rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      text-align: center;
+      line-height: 1;
+      opacity: 0;
+      animation: fadeInScale 1.2s var(--ease-smooth) forwards;
+      animation-delay: 0.3s;
+      max-width: 98%;
+      word-spacing: 0.15em;
+      background: linear-gradient(135deg, #ffffff 0%, var(--hsquare-magenta) 50%, var(--hsquare-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .loading-percent {
+      font-family: 'Manrope', sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 900;
+      color: var(--hsquare-magenta);
+      text-align: center;
+      letter-spacing: -0.03em;
+      opacity: 0;
+      animation: fadeIn 0.8s var(--ease-smooth) forwards;
+      animation-delay: 0.8s;
+      min-width: 180px;
+    }
+
+    /* Progress bar */
+    .progress-bar-container {
+      position: absolute;
+      bottom: 60px;
+      width: 280px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      opacity: 0;
+      animation: fadeIn 0.8s var(--ease-smooth) forwards, fadeOutProgress 0.8s var(--ease-smooth) forwards;
+      animation-delay: 1s, 5.4s;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--hsquare-magenta), var(--hsquare-cyan));
+      border-radius: 2px;
+      animation: progressFill 5s var(--ease-smooth) forwards;
+      animation-delay: 1.2s;
+      box-shadow: 0 0 10px rgba(180, 29, 67, 0.4), 0 0 5px rgba(6, 182, 212, 0.2);
+    }
+
+    /* Animations */
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes progressFill {
+      0% { width: 0%; }
+      20% { width: 15%; }
+      50% { width: 60%; }
+      85% { width: 95%; }
+      100% { width: 100%; }
+    }
+
+    @keyframes finalZoomIn {
+      0% {
+        transform: scale(1) translateZ(0) rotateX(0) rotateY(0);
+        opacity: 1;
+        filter: blur(0);
+      }
+      15% {
+        transform: scale(0.98) translateZ(-50px) rotateX(-2deg) rotateY(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(30) translateZ(2000px) rotateX(25deg) rotateY(-10deg);
+        opacity: 0;
+        filter: blur(20px);
+      }
+    }
+
+    .exit-animation {
+      animation: finalZoomIn 1.4s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+      animation-delay: 6.2s;
+      transform-origin: center center;
+    }
+
+    /* Subtle accent lines */
+    .accent-line {
+      position: absolute;
+      background: linear-gradient(90deg, transparent, var(--hsquare-magenta), transparent);
+      opacity: 0.2;
+      pointer-events: none;
+    }
+
+    .accent-line-top {
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 1px;
+      animation: expandWidth 1.2s var(--ease-smooth) forwards;
+      opacity: 0;
+      animation-delay: 0.2s;
+    }
+
+    .accent-line-bottom {
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 1px;
+      animation: expandWidth 1.2s var(--ease-smooth) forwards;
+      opacity: 0;
+      animation-delay: 1s;
+    }
+
+    @keyframes expandWidth {
+      from {
+        opacity: 0;
+        width: 0;
+      }
+      to {
+        opacity: 0.2;
+        width: 100%;
+      }
+    }
+
+    @keyframes fadeOutProgress {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .loading-screen {
+        padding: 30px 20px;
+      }
+
+      .main-title {
+        font-size: clamp(2.8rem, 10vw, 4rem);
+      }
+
+      .loading-percent {
+        font-size: clamp(1.8rem, 5vw, 2.5rem);
+      }
+
+      .progress-bar-container {
+        width: 90%;
+        max-width: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-screen">
+    <!-- Subtle accent lines -->
+    <div class="accent-line accent-line-top"></div>
+    
+    <!-- Main content with massive text -->
+    <div class="content-section exit-animation">
+      <h1 class="main-title">HSQUARE LIVING</h1>
+      <div class="loading-percent" id="percent-counter">0%</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill"></div>
+    </div>
+
+    <div class="accent-line accent-line-bottom"></div>
+  </div>
+
+  <script>
+    // Animated percentage counter
+    const percentCounter = document.getElementById('percent-counter');
+    let currentPercent = 0;
+    const targetPercent = 100;
+    const duration = 5000; // Duration of loading
+    const startTime = 1200; // Delay before counter starts
+
+    function animatePercent() {
+      const now = Date.now();
+      const elapsed = now - animationStart;
+      
+      if (elapsed < startTime) {
+        setTimeout(animatePercent, 16);
+        return;
+      }
+
+      const animationElapsed = elapsed - startTime;
+      const progress = Math.min(animationElapsed / duration, 1);
+      
+      // Easing function for smooth progression
+      const easeProgress = progress < 0.5 
+        ? 2 * progress * progress 
+        : -1 + (4 - 2 * progress) * progress;
+      
+      currentPercent = Math.floor(easeProgress * targetPercent);
+      percentCounter.textContent = currentPercent + '%';
+
+      if (progress < 1) {
+        requestAnimationFrame(animatePercent);
+      }
+    }
+
+    const animationStart = Date.now();
+    animatePercent();
+  </script>
+</body>
+</html>
