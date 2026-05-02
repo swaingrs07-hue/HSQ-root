@@ -14979,6 +14979,25 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   const hotelStaffRoles = roleMiddleware("admin", "superadmin", "hotel_admin", "hotel_staff");
   const hotelAdminRoles = roleMiddleware("admin", "superadmin", "hotel_admin");
 
+  // GET /api/hotels/staff — list hotel staff users (for assigning housekeeping
+  // tasks). Admin-only: hotel admins, hostel admins, and superadmins. Returns
+  // a minimal projection (id, name, email) — no password hashes or sensitive
+  // fields ever leave the server.
+  app.get("/api/hotels/staff", authMiddleware, hotelAdminRoles, async (_req: AuthRequest, res) => {
+    try {
+      const staff = await storage.getUsersByRole(["hotel_staff"]);
+      const minimal = staff.map((u) => ({
+        id: u.id,
+        name: u.name || u.email || "Staff",
+        email: u.email,
+      }));
+      res.json(minimal);
+    } catch (error: any) {
+      console.error("Error listing hotel staff:", error);
+      res.status(500).json({ error: "Failed to list hotel staff" });
+    }
+  });
+
   // GET /api/housekeeping/tasks — list (optionally filter by ?assignedTo=, ?propertyId=, ?status=)
   app.get("/api/housekeeping/tasks", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
     try {

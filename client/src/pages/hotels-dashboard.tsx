@@ -549,6 +549,12 @@ function HousekeepingPanel({
 }
 
 /* ============ Create Task Modal ============ */
+interface StaffMember {
+  id: string;
+  name: string;
+  email?: string | null;
+}
+
 function CreateTaskModal({
   token, hotels, userId, onClose,
 }: { token: string | null; hotels: Property[]; userId: string; onClose: () => void }) {
@@ -557,7 +563,19 @@ function CreateTaskModal({
   const [roomLabel, setRoomLabel] = useState("");
   const [taskType, setTaskType] = useState("cleaning");
   const [priority, setPriority] = useState("normal");
+  const [assignedTo, setAssignedTo] = useState<string>("");
   const [notes, setNotes] = useState("");
+
+  // Fetch hotel staff so admins can assign the task at creation time.
+  const { data: staff = [], isLoading: staffLoading } = useQuery<StaffMember[]>({
+    queryKey: ["/api/hotels/staff"],
+    queryFn: async () => {
+      const res = await fetch("/api/hotels/staff", { headers: authHeaders(token) });
+      if (!res.ok) throw new Error("Failed to load staff");
+      return res.json();
+    },
+    enabled: !!token,
+  });
 
   const createTask = useMutation({
     mutationFn: async () => {
@@ -569,6 +587,7 @@ function CreateTaskModal({
           roomLabel: roomLabel || null,
           taskType,
           priority,
+          assignedTo: assignedTo || null,
           notes: notes || null,
           createdBy: userId,
         }),
@@ -619,6 +638,29 @@ function CreateTaskModal({
               </select>
             </Field>
           </div>
+          <Field label="Assign To">
+            <select
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              className="w-full bg-transparent text-white p-3 border border-white/10 outline-none"
+              data-testid="select-task-assignee"
+              disabled={staffLoading}
+            >
+              <option value="" className="bg-black">
+                {staffLoading ? "Loading staff..." : "Unassigned"}
+              </option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id} className="bg-black">
+                  {s.name}{s.email ? ` (${s.email})` : ""}
+                </option>
+              ))}
+            </select>
+            {!staffLoading && staff.length === 0 && (
+              <p className="text-[10px] text-white/40 mt-1.5">
+                No hotel staff users yet. Add a user with role "hotel_staff" to assign tasks.
+              </p>
+            )}
+          </Field>
           <Field label="Notes">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full bg-transparent text-white p-3 border border-white/10 outline-none resize-none placeholder:text-white/30" placeholder="Any specific instructions..." data-testid="textarea-task-notes" />
           </Field>
