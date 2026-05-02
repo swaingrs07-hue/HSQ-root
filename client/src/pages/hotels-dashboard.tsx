@@ -271,7 +271,7 @@ function StatCard({ icon: Icon, label, value, sub, testId }: { icon: any; label:
   return (
     <div
       className="p-6 border border-white/10 hover:border-amber-500/30 transition-colors"
-      style={{ background: "rgba(255,255,255,0.02)" }}
+      style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
       data-testid={testId}
     >
       <div className="flex items-center justify-between mb-4">

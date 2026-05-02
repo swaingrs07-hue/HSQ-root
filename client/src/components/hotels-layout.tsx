@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home } from "lucide-react";
+import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home, Sun, Moon } from "lucide-react";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { useAuth } from "@/contexts/auth-context";
 import { ProfileDropdown } from "./profile-dropdown";
@@ -13,10 +13,17 @@ const HOTEL_NAV = [
   { name: "Contact", href: "/contact" },
 ];
 
+type HotelsTheme = "dark" | "light";
+
 export function HotelsLayout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setTheme] = useState<HotelsTheme>(() => {
+    if (typeof window === "undefined") return "dark";
+    const stored = window.localStorage.getItem("hotels-theme");
+    return stored === "light" ? "light" : "dark";
+  });
   const { user, logout } = useAuth();
 
   const isStaffRole = user && ["hotel_admin", "hotel_staff", "admin", "superadmin"].includes(user.role);
@@ -33,13 +40,23 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
+  useEffect(() => {
+    try { window.localStorage.setItem("hotels-theme", theme); } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
   return (
     <div
-      className="min-h-screen flex flex-col text-white"
+      className={cn(
+        "min-h-screen flex flex-col text-white",
+        theme === "light" && "hotels-light"
+      )}
       style={{
-        background: "#0a0a0a",
+        background: "var(--hotels-page-bg, #0a0a0a)",
         fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
       }}
+      data-hotels-theme={theme}
       data-testid="hotels-layout-root"
     >
       <style>{`
@@ -145,6 +162,20 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full border transition-all duration-300 hover:scale-110"
+              style={{
+                borderColor: "rgba(197, 160, 89, 0.35)",
+                background: "rgba(197, 160, 89, 0.08)",
+              }}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              data-testid="button-hotels-theme-toggle"
+            >
+              {theme === "dark"
+                ? <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />
+                : <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />}
+            </button>
             {user ? (
               <ProfileDropdown />
             ) : (
@@ -166,14 +197,30 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          <button
-            className="md:hidden p-2 text-white"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            data-testid="button-hotels-mobile-menu"
-            aria-label="Menu"
-          >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full border"
+              style={{
+                borderColor: "rgba(197, 160, 89, 0.35)",
+                background: "rgba(197, 160, 89, 0.08)",
+              }}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              data-testid="button-hotels-theme-toggle-mobile"
+            >
+              {theme === "dark"
+                ? <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />
+                : <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />}
+            </button>
+            <button
+              className="p-2 text-white"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              data-testid="button-hotels-mobile-menu"
+              aria-label="Menu"
+            >
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -242,7 +289,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-white/5 mt-16" style={{ backgroundColor: "#080808" }}>
+      <footer className="border-t border-white/5 mt-16" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }}>
         <div className="container mx-auto px-6 py-16">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2">

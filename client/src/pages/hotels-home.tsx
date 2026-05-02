@@ -151,7 +151,7 @@ export default function HotelsHome() {
           <div
             className="grid grid-cols-4 gap-px rounded-sm overflow-hidden"
             style={{
-              background: "rgba(255,255,255,0.06)",
+              background: "var(--hotels-glass-bg, rgba(255,255,255,0.06))",
               backdropFilter: "blur(24px) saturate(180%)",
               border: "1px solid rgba(197,160,89,0.18)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
@@ -233,7 +233,7 @@ export default function HotelsHome() {
       </section>
 
       {/* FEATURED ROOMS */}
-      <section className="py-24 md:py-32 px-6" style={{ backgroundColor: "#080808" }} data-testid="section-rooms">
+      <section className="py-24 md:py-32 px-6" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }} data-testid="section-rooms">
         <div className="container mx-auto">
           <div className="text-center mb-16 md:mb-24">
             <p className="text-[11px] uppercase tracking-[0.4em] mb-6" style={{ color: "#c5a059" }}>
@@ -345,7 +345,7 @@ export default function HotelsHome() {
       </section>
 
       {/* MASSIVE CTA */}
-      <section className="relative py-32 px-6 overflow-hidden" style={{ backgroundColor: "#080808" }} data-testid="section-cta">
+      <section className="relative py-32 px-6 overflow-hidden" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }} data-testid="section-cta">
         <h2
           className="hotels-display absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-white/[0.03] pointer-events-none select-none"
           style={{ fontSize: "clamp(80px, 18vw, 280px)", lineHeight: 0.8 }}

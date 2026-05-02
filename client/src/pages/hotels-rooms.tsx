@@ -94,7 +94,7 @@ export default function HotelsRooms() {
         <div
           className="mb-16 p-5 grid md:grid-cols-[1fr_auto_auto_auto] gap-4 items-center"
           style={{
-            background: "rgba(255,255,255,0.03)",
+            background: "var(--hotels-glass-bg, rgba(255,255,255,0.03))",
             backdropFilter: "blur(20px)",
             border: "1px solid rgba(197,160,89,0.15)",
           }}

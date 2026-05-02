@@ -401,3 +401,55 @@
 :root[data-page="home"] [data-testid="tubes-fallback-veil"] {
   transition: opacity 320ms ease-out;
 }
+
+/*
+ * ============================================================
+ * Hotels module light theme — Task #155
+ * ============================================================
+ *
+ * The Hotels portal is dark-by-default (Valora-style luxury
+ * aesthetic). Adding the `hotels-light` class to the
+ * HotelsLayout root div flips the chrome to a warm ivory palette
+ * via CSS overrides. Gold (#c5a059) brand accent is preserved
+ * everywhere. Hero gradients painted over images stay moody on
+ * purpose so over-image white text remains legible. Inline
+ * section/glass backgrounds use `var(--hotels-*, <dark-fallback>)`
+ * so unthemed callers still render dark.
+ */
+.hotels-light {
+  --hotels-page-bg: #faf7f2;
+  --hotels-section-bg: #f0e9dd;
+  --hotels-glass-bg: rgba(20, 15, 10, 0.04);
+  color-scheme: light;
+}
+
+.hotels-light .text-white { color: #1a1410 !important; }
+.hotels-light .text-white\/90 { color: rgb(26 20 16 / 0.9) !important; }
+.hotels-light .text-white\/85 { color: rgb(26 20 16 / 0.85) !important; }
+.hotels-light .text-white\/80 { color: rgb(26 20 16 / 0.8) !important; }
+.hotels-light .text-white\/70 { color: rgb(26 20 16 / 0.7) !important; }
+.hotels-light .text-white\/60 { color: rgb(26 20 16 / 0.65) !important; }
+.hotels-light .text-white\/50 { color: rgb(26 20 16 / 0.55) !important; }
+.hotels-light .text-white\/40 { color: rgb(26 20 16 / 0.5) !important; }
+.hotels-light .text-white\/30 { color: rgb(26 20 16 / 0.42) !important; }
+.hotels-light .text-white\/20 { color: rgb(26 20 16 / 0.32) !important; }
+
+.hotels-light .border-white\/30 { border-color: rgb(26 20 16 / 0.2) !important; }
+.hotels-light .border-white\/15 { border-color: rgb(26 20 16 / 0.12) !important; }
+.hotels-light .border-white\/10 { border-color: rgb(26 20 16 / 0.1) !important; }
+.hotels-light .border-white\/5  { border-color: rgb(26 20 16 / 0.06) !important; }
+
+.hotels-light .bg-white\/5 { background-color: rgb(26 20 16 / 0.04) !important; }
+.hotels-light .bg-black { background-color: var(--hotels-page-bg) !important; }
+.hotels-light .bg-\[\#0a0a0a\] { background-color: var(--hotels-page-bg) !important; }
+
+/* Mobile menu scrim, modal scrim, and over-photo darkeners */
+.hotels-light .bg-black\/95 { background-color: rgb(250 247 242 / 0.97) !important; }
+.hotels-light .bg-black\/70 { background-color: rgb(40 30 20 / 0.45) !important; }
+.hotels-light .bg-black\/40 { background-color: rgb(20 15 10 / 0.1) !important; }
+.hotels-light .bg-black\/30 { background-color: rgb(20 15 10 / 0.06) !important; }
+
+.hotels-light .glass-nav-h {
+  background: rgba(250, 247, 242, 0.7) !important;
+  border-bottom: 1px solid rgba(197, 160, 89, 0.18) !important;
+}

@@ -188,7 +188,7 @@ export default function HotelsRoomDetail() {
           <div
             className="p-8"
             style={{
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--hotels-glass-bg, rgba(255,255,255,0.03))",
               backdropFilter: "blur(20px)",
               border: "1px solid rgba(197,160,89,0.2)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
