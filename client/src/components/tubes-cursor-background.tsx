@@ -201,23 +201,35 @@ export default function TubesCursorBackground({
             requestAnimationFrame(tick);
           });
           if (cancelled) return;
-          // Threshold raised from 45 → 55 fps after user reports of
-          // sustained lag on a Dell G15 5515 (i5-11400H + RTX 3050)
-          // that was passing the 45fps gate at ~87fps idle. The
-          // 900ms baseline measurement happens BEFORE any heavy
-          // page assets are loaded (hero video decode, framer-motion
-          // scroll subscriptions, hallway 3D perspective track,
-          // particle canvas), so the idle baseline overestimates the
-          // sustained framerate by a wide margin once the page is
-          // active. A higher threshold gives more headroom and gates
-          // out the mid-tier integrated/discrete GPUs that pass at
-          // idle but stutter under realistic load. Apple machines
-          // routinely measure 120+ fps here so they continue to get
-          // the iridescent layer; the cost is some Windows machines
-          // that previously squeaked through at 45-54 fps now fall
-          // back to the plain dark background — still smooth, just
-          // less visually rich.
-          const MIN_FPS = 55;
+          // Threshold history (this gate has been re-tuned twice as
+          // we learned more about which workloads actually contended
+          // with the tubes on Windows):
+          //   - 45 fps: original. Caught nothing useful — most pages
+          //     measure 60+ at idle even on weak hardware.
+          //   - 55 fps: raised after a Dell G15 5515 user reported
+          //     sustained lag. But this disabled tubes on the SAME
+          //     Dell where the user had previously seen and loved
+          //     them, leaving them with a bland gradient fallback.
+          //   - 30 fps: current. The user explicitly asked for the
+          //     real tubes back. The right architectural answer is to
+          //     let the tubes run on every machine that can actually
+          //     render WebGL2 at a reasonable rate, and trust the
+          //     other Windows-Chrome optimizations (hero video pauses
+          //     off-screen, tubes pause WHILE the hero video plays,
+          //     hallway video re-encoded + paused off-screen, hallway
+          //     cards layer-isolated, hero video mask UA-gated) to
+          //     keep the rest of the page smooth. Those mitigations
+          //     mean the tubes never compete with another heavy GPU
+          //     consumer at the same time, so the original "tubes
+          //     stack with everything" justification for an
+          //     aggressive gate is largely gone.
+          //
+          //     30 fps remains a hard floor — anything measuring
+          //     below that at idle is genuinely broken (background
+          //     tab throttling, battery saver, ancient hardware) and
+          //     would visibly stutter even without tubes. For those
+          //     devices the IridescentFallbackBackground takes over.
+          const MIN_FPS = 30;
           if (fps < MIN_FPS) {
             console.log(
               `[TubesCursor] disabled — baseline ${fps.toFixed(1)} fps below ${MIN_FPS} threshold`,
