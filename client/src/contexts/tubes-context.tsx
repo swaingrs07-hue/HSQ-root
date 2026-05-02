@@ -10,6 +10,18 @@ export interface TubesContextValue {
    */
   ready: boolean;
   setPauseRequested?: (paused: boolean) => void;
+  /**
+   * Per-page scroll-tied opacity (0-1) for the global tubes layer. Default
+   * is full brightness (1.0). Currently used by the homepage card-swipe
+   * (Task #147) to keep the iridescent tubes hidden while the hero is in
+   * view, then fade them in once the next section has covered the hero.
+   *
+   * Implementation note: the layout writes the value to a CSS custom
+   * property on `documentElement` (`--tubes-reveal-opacity`) and the
+   * tubes / veil layers consume it via `opacity: var(...)`. This avoids
+   * triggering a React re-render on every scroll frame.
+   */
+  setRevealOpacity?: (opacity: number) => void;
 }
 
 export const TubesContext = createContext<TubesContextValue>({

@@ -1193,23 +1193,135 @@ export default function Home() {
     };
   }, [isAutoPlaying, nextSlide, heroSlides.length, hasAnyVideo]);
 
-  // Track whether the hero section is on screen so we only pause the
-  // global tube background while the user is actually looking at the
-  // hero. Once they scroll past it the background can resume.
-  const [heroInViewport, setHeroInViewport] = useState(true);
+  // Track whether the hero section has been fully covered by the next
+  // section (the card-swipe in Task #147). When false, the hero is still
+  // visible (or partially visible) — the hero <video> should keep playing
+  // and the existing tube-pause logic should keep the global tubes
+  // paused. When true, the hero is invisible behind the next section so
+  // we let the video pause and the tubes resume.
+  //
+  // We can't observe the hero element with an IntersectionObserver any
+  // more, because in Task #147 the hero became `position: sticky` and
+  // therefore always reports `isIntersecting: true` (it's pinned to the
+  // top of the viewport for the entire scroll length of the page). So we
+  // derive the off-screen signal from window.scrollY in a passive scroll
+  // handler — once scrollY exceeds one viewport-height of scroll the
+  // next section has fully covered the sticky hero.
+  //
+  // The same scroll handler also drives the `--tubes-reveal-opacity`
+  // CSS variable consumed by the global tubes/veil layers in layout.tsx,
+  // so the iridescent tubes fade in only after the card-swipe completes
+  // (matching the user's reference screenshot for Task #147 where the
+  // tubes "activate" from the Why Choose section). The CSS-variable
+  // approach means scroll updates do not trigger React re-renders.
+  //
+  // Reduced-motion users get the old IntersectionObserver behaviour and
+  // the tubes stay at full brightness throughout (no scroll-tied fade).
+  const [heroFullyCovered, setHeroFullyCovered] = useState(false);
+  const heroInViewport = !heroFullyCovered;
   useEffect(() => {
-    const el = heroRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const e = entries[0];
-        if (e) setHeroInViewport(e.isIntersecting);
-      },
-      { threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+    if (typeof window === "undefined") return;
+
+    if (prefersReducedMotion) {
+      // Reduced-motion: skip the sticky pin and the scroll-tied tube
+      // fade-in, but still keep the tubes hidden while the hero is in
+      // view. Use an IntersectionObserver on the hero element (which is
+      // `relative`, not `sticky`, in this branch) and hard-switch the
+      // tubes opacity at the hero boundary — 0 while hero intersects,
+      // 1 once the hero has scrolled out — instead of fading. This
+      // satisfies the same "tubes activate from below the hero" goal
+      // without any scroll-tied animation.
+      const el = heroRef.current;
+      if (!el || typeof IntersectionObserver === "undefined") {
+        // Without IntersectionObserver we can't track the hero, so
+        // fall back to leaving the tubes at full brightness so the
+        // user still sees the iridescent background somewhere.
+        document.documentElement.style.setProperty(
+          "--tubes-reveal-opacity",
+          "1",
+        );
+        return;
+      }
+      // Initial state: hero is in view at mount, so tubes start hidden.
+      document.documentElement.style.setProperty(
+        "--tubes-reveal-opacity",
+        "0",
+      );
+      const obs = new IntersectionObserver(
+        (entries) => {
+          const e = entries[0];
+          if (!e) return;
+          const covered = !e.isIntersecting;
+          setHeroFullyCovered(covered);
+          document.documentElement.style.setProperty(
+            "--tubes-reveal-opacity",
+            covered ? "1" : "0",
+          );
+        },
+        { threshold: 0 },
+      );
+      obs.observe(el);
+      return () => {
+        obs.disconnect();
+        // Restore tubes to full brightness on unmount so other routes
+        // (which don't run this effect) see the tubes immediately.
+        document.documentElement.style.setProperty(
+          "--tubes-reveal-opacity",
+          "1",
+        );
+      };
+    }
+
+    let ticking = false;
+    let lastFullyCovered = false;
+    const update = () => {
+      ticking = false;
+      const vh = window.innerHeight || 1;
+      const sy = window.scrollY || 0;
+      // progress is scrollY measured in viewport-heights:
+      //   0     = hero in full view, no scroll
+      //   1.0   = hero just fully covered by the next section
+      //   1.3+  = past the card-swipe by a comfortable margin
+      const progress = sy / vh;
+      const fullyCovered = progress >= 0.99;
+      if (fullyCovered !== lastFullyCovered) {
+        lastFullyCovered = fullyCovered;
+        setHeroFullyCovered(fullyCovered);
+      }
+      // Tubes opacity stays at 0 for the entire hero + card-swipe
+      // (progress 0..1.0) so the swipe reads as a clean opaque card
+      // sliding over the hero — no iridescent tubes leaking onto
+      // either layer. Once the swipe completes, the tubes ramp 0 -> 1
+      // over the next 0.3 viewport-heights of scroll, so by the time
+      // the user has fully entered the Why Choose section the tubes
+      // are at full brightness behind it.
+      const opacity = Math.max(0, Math.min(1, (progress - 1.0) / 0.3));
+      document.documentElement.style.setProperty(
+        "--tubes-reveal-opacity",
+        String(opacity),
+      );
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", update);
+      // Restore tubes to full brightness on unmount so subsequent
+      // routes (which do not run this scroll handler) see the tubes
+      // at full strength immediately.
+      document.documentElement.style.setProperty(
+        "--tubes-reveal-opacity",
+        "1",
+      );
+    };
+  }, [prefersReducedMotion]);
 
   // Mirror heroInViewport into the ref consumed by `tryPlay` (declared
   // earlier in the file, where the load pipeline lives). See the long
@@ -1472,7 +1584,9 @@ export default function Home() {
       `}</style>
       <section
         ref={heroRef}
-        className="relative w-full h-screen overflow-hidden"
+        className={`w-full h-screen overflow-hidden ${
+          prefersReducedMotion ? "relative" : "sticky top-0"
+        }`}
         data-testid="hero-section"
       >
         {!activeSlide ? (
@@ -1890,9 +2004,18 @@ export default function Home() {
             </div>
           </div>
       </section>
+      {/* Card-swipe overlay (Task #147): every section after the sticky
+          hero lives inside this `relative z-10` wrapper so they paint
+          ABOVE the sticky hero (which is z:auto) and ABOVE the global
+          tubes layer (fixed z:0 in layout.tsx). The first section
+          (stats) uses an opaque background so it acts as the "card"
+          that fully covers the hero during the swipe; subsequent
+          sections keep their existing translucent backgrounds so the
+          iridescent tubes glow through them once the swipe is done. */}
+      <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
-        className="py-28 md:py-36 bg-[#050505]/40"
+        className="py-28 md:py-36 bg-[#050505]"
       >
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
@@ -3242,6 +3365,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </div>
 
       <AnimatePresence>
         {showScrollTop && (

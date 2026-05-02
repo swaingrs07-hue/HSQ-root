@@ -146,6 +146,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
     setTubesPauseRequested(paused);
   }, []);
 
+  // Scroll-tied opacity setter for the global tubes layer. Pages (currently
+  // the homepage card-swipe in Task #147) call this on scroll to fade the
+  // iridescent tubes in only after the hero has been covered. We deliberately
+  // route this through a CSS custom property instead of React state so that
+  // a 60Hz scroll handler doesn't re-render the entire Layout subtree on
+  // every frame — the property mutation is a constant-time DOM write and
+  // the tubes / veil layers consume it via `opacity: var(--tubes-reveal-opacity, 1)`.
+  // Pages MUST reset the property to "1" on unmount so that subsequent
+  // routes (which don't run the scroll handler) see the tubes at full
+  // brightness immediately.
+  const handleSetTubesRevealOpacity = useCallback((opacity: number) => {
+    if (typeof document === "undefined") return;
+    const clamped = Math.max(0, Math.min(1, opacity));
+    document.documentElement.style.setProperty(
+      "--tubes-reveal-opacity",
+      String(clamped),
+    );
+  }, []);
+
   // Track whether the global iridescent tube background has actually
   // rendered its first WebGL frame. The homepage loading overlay reads
   // this through TubesContext so it can hold the splash on screen until
@@ -288,6 +307,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         active: globalTubesActive,
         ready: effectiveTubesReady,
         setPauseRequested: handleSetTubesPauseRequested,
+        setRevealOpacity: handleSetTubesRevealOpacity,
       }}
     >
     <div
@@ -304,6 +324,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               willChange: "transform",
               contain: "strict",
               isolation: "isolate",
+              // Scroll-tied opacity. Default 1 (full brightness) on every
+              // page. The homepage card-swipe (Task #147) drives this to
+              // 0 while the hero is in view and ramps it back to 1 once
+              // the next section has covered the hero, so the tubes
+              // visually "activate from" the Why Choose section.
+              opacity: "var(--tubes-reveal-opacity, 1)",
             }}
           >
             <Suspense fallback={null}>
@@ -316,13 +342,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Suspense>
           </div>
           {/* A whisper-thin dark veil: tubes stay full-bright everywhere
-              while text gains just enough contrast to read comfortably. */}
+              while text gains just enough contrast to read comfortably.
+              Fades alongside the tubes so the hero doesn't get an extra
+              dark wash during the card-swipe (Task #147). */}
           <div
             className="fixed inset-0 z-[1] pointer-events-none"
             aria-hidden="true"
             data-testid="tubes-global-veil"
             style={{
               background: "rgba(5,5,5,0.22)",
+              opacity: "var(--tubes-reveal-opacity, 1)",
             }}
           />
         </>
@@ -332,6 +361,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div
             className="fixed inset-0 z-0 pointer-events-none"
             data-testid="tubes-fallback-layer"
+            style={{
+              opacity: "var(--tubes-reveal-opacity, 1)",
+            }}
           >
             <Suspense fallback={null}>
               <IridescentFallbackBackground />
@@ -348,6 +380,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             data-testid="tubes-fallback-veil"
             style={{
               background: "rgba(5,5,5,0.32)",
+              opacity: "var(--tubes-reveal-opacity, 1)",
             }}
           />
         </>
