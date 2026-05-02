@@ -1301,11 +1301,14 @@ export default function Home() {
       // Tubes opacity stays at 0 for the entire hero + card-swipe
       // (progress 0..1.0) so the swipe reads as a clean opaque card
       // sliding over the hero — no iridescent tubes leaking onto
-      // either layer. Once the swipe completes, the tubes ramp 0 -> 1
-      // over the next 0.3 viewport-heights of scroll, so by the time
-      // the user has fully entered the Why Choose section the tubes
-      // are at full brightness behind it.
-      const opacity = Math.max(0, Math.min(1, (progress - 1.0) / 0.3));
+      // either layer. Once the stats card has fully covered the hero
+      // we hard-switch the tubes to full brightness so they appear
+      // behind the (now translucent) stats section. The transition
+      // reads as instant because the stats bg also flips translucent
+      // at the same heroFullyCovered threshold, so the user sees the
+      // tubes pop in only at the moment the section is ready to show
+      // them through.
+      const opacity = fullyCovered ? 1 : 0;
       setTubesRevealOpacity?.(opacity);
     };
     const onScroll = () => {
@@ -2037,7 +2040,15 @@ export default function Home() {
       <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
-        className="py-28 md:py-36 bg-[#050505] min-h-screen flex items-center"
+        className={`py-28 md:py-36 min-h-screen flex items-center transition-colors duration-300 ${
+          // While the stats card is sliding up over the hero (swipe in
+          // progress) the background MUST be fully opaque so the hero
+          // is hidden behind it. Once the swipe is done and the hero
+          // has been switched to visibility:hidden, we drop the bg to
+          // a translucent wash so the iridescent tubes glow through
+          // the stats section instead of leaving it as a black slab.
+          heroFullyCovered ? "bg-[#050505]/40" : "bg-[#050505]"
+        }`}
       >
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
