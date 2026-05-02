@@ -195,15 +195,6 @@ export default function HotelsHome() {
               <div className="aspect-[4/5] overflow-hidden">
                 <img src={EXPERIENCE_IMAGE} alt="Experience" className="w-full h-full object-cover" loading="lazy" />
               </div>
-              <div
-                className="absolute -bottom-6 -right-4 sm:-bottom-8 sm:-right-8 px-5 py-4 sm:px-8 sm:py-6"
-                style={{ backgroundColor: "#c5a059" }}
-              >
-                <div className="text-black">
-                  <div className="text-3xl sm:text-4xl font-black">15+</div>
-                  <div className="text-[10px] uppercase tracking-[0.25em] mt-1">Years of Craft</div>
-                </div>
-              </div>
             </div>
             <div>
               <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
