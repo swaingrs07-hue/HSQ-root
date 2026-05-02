@@ -11,6 +11,13 @@ interface TubesCursorBackgroundProps {
    */
   paused?: boolean;
   onFailure?: () => void;
+  /**
+   * Called once the WebGL canvas has been initialized and its first frame
+   * has been requested (fires right after we set canvas opacity to 1).
+   * Used by the homepage loading overlay to know when the 3D background
+   * is ready so the loader can stop holding back the hero reveal.
+   */
+  onReady?: () => void;
 }
 
 interface TubesController {
@@ -64,6 +71,7 @@ export default function TubesCursorBackground({
   reduceMotion = false,
   paused = false,
   onFailure,
+  onReady,
 }: TubesCursorBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Track the live app instance and the latest pause-request so the
@@ -183,6 +191,15 @@ export default function TubesCursorBackground({
 
         canvas.style.opacity = "1";
 
+        // Notify any listener (e.g. the homepage loading overlay) that the
+        // 3D background is up. Defer one frame so the first iridescent
+        // pixels actually land on screen before we say "ready".
+        if (onReady) {
+          requestAnimationFrame(() => {
+            if (!cancelled) onReady();
+          });
+        }
+
         // If the caller asked to pause before init finished, honor it
         // — but defer by one animation frame so the WebGL renderer has
         // a chance to draw at least one full iridescent frame to the
@@ -289,7 +306,7 @@ export default function TubesCursorBackground({
       app = null;
       appRef.current = null;
     };
-  }, [enabled, reduceMotion, onFailure]);
+  }, [enabled, reduceMotion, onFailure, onReady]);
 
   if (!enabled || reduceMotion) return null;
 

@@ -63,7 +63,14 @@ import { SmartSearch } from "@/components/smart-search";
 import { getProperties } from "@/lib/api";
 import { ParticleBackground } from "@/components/particle-background";
 import { TubesContext, useTubesActive } from "@/contexts/tubes-context";
+import { HsquareLoadingScreen } from "@/components/hsquare-loading-screen";
 import { PlansHallway } from "@/components/plans-hallway";
+
+// Module-level flag: once the HSQUARE LIVING splash has played to
+// completion in this tab, never show it again — even if the user
+// navigates away and comes back to "/". A full page reload resets
+// this naturally because the module is re-evaluated.
+let loaderSeen = false;
 
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
@@ -1013,8 +1020,47 @@ export default function Home() {
     window.scrollTo({ top: window.innerHeight - 80, behavior: "smooth" });
   };
 
+  // Animated HSQUARE LIVING splash overlay. We show it once per browser
+  // tab session (tracked at module level so SPA navigation back to "/"
+  // does not replay the splash) and use it to mask the real load time
+  // of the hero: background WebGL tubes initialising + signed-URL
+  // fetch + the first hero video reaching `canplay`. The overlay
+  // enforces its own 2s minimum hold and 10s safety cap, so the worst
+  // case is bounded even if a signal never arrives. Once the exit
+  // animation has played, `loaderSeen` flips and the splash never
+  // returns for the lifetime of this tab.
+  const [loaderDone, setLoaderDone] = useState(() => loaderSeen);
+  const handleLoaderDone = useCallback(() => {
+    loaderSeen = true;
+    setLoaderDone(true);
+  }, []);
+  // Hero is ready when:
+  //  - there is no slide to display at all, OR
+  //  - the active slide has no video, OR
+  //  - the video has finished its async preflight and we know it has
+  //    failed (either signed-URL fetch failed, codec unsupported, or
+  //    the <video> element fired error), OR
+  //  - the <video> element fired canplay / loadeddata.
+  // We deliberately do NOT treat the initial videoSupported=false as
+  // "settled", because that flag defaults to false BEFORE preflight
+  // completes — using it would let the loader exit before the video
+  // is actually ready. videoFailed becomes true in all real "we can't
+  // play" branches, which is what we want here.
+  const heroVideoSettled =
+    !activeSlide ||
+    !activeSlide.videoUrl ||
+    videoFailed ||
+    videoReady;
+  const loaderReady = heroVideoSettled && tubesCtx.ready;
+
   return (
     <div className="flex flex-col relative">
+      {!loaderDone && (
+        <HsquareLoadingScreen
+          ready={loaderReady}
+          onComplete={handleLoaderDone}
+        />
+      )}
       <style>{`
         @keyframes shimmerGradient {
           0% { background-position: 200% 0%; }

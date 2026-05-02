@@ -122,6 +122,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
     setTubesPauseRequested(paused);
   }, []);
 
+  // Track whether the global iridescent tube background has actually
+  // rendered its first WebGL frame. The homepage loading overlay reads
+  // this through TubesContext so it can hold the splash on screen until
+  // the 3D background is visually present (and thus avoid a hard pop-in
+  // moment when the loader exits). When the tubes are intentionally
+  // disabled (reduced-motion, save-data, no WebGL), there is nothing to
+  // wait for, so we report "ready" immediately to never block the loader.
+  const [tubesReady, setTubesReady] = useState(false);
+  const handleTubesReady = useCallback(() => setTubesReady(true), []);
+  useEffect(() => {
+    if (!globalTubesActive) setTubesReady(true);
+  }, [globalTubesActive]);
+  const effectiveTubesReady = !globalTubesActive || tubesReady;
+
   useEffect(() => {
     if (!hasTransparentHeader) { setScrolled(true); return; }
     const handleScroll = () => {
@@ -248,6 +262,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <TubesContext.Provider
       value={{
         active: globalTubesActive,
+        ready: effectiveTubesReady,
         setPauseRequested: handleSetTubesPauseRequested,
       }}
     >
@@ -272,6 +287,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 enabled={globalTubesActive}
                 paused={tubesPauseRequested}
                 onFailure={handleGlobalTubesFailure}
+                onReady={handleTubesReady}
               />
             </Suspense>
           </div>
