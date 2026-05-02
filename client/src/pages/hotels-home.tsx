@@ -1,7 +1,7 @@
-import { Link } from "wouter";
-import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock } from "lucide-react";
+import { ArrowRight, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search } from "lucide-react";
 
 interface Property {
   id: string;
@@ -50,6 +50,15 @@ const FALLBACK_ROOMS = [
 export default function HotelsHome() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [parallax, setParallax] = useState(0);
+  const [, navigate] = useLocation();
+
+  // Booking quick-search state
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+  const [checkIn, setCheckIn] = useState<string>(today);
+  const [checkOut, setCheckOut] = useState<string>(tomorrow);
+  const [guests, setGuests] = useState<number>(2);
+  const [searchLocation, setSearchLocation] = useState<string>("all");
 
   useEffect(() => {
     const onScroll = () => {
@@ -65,6 +74,23 @@ export default function HotelsHome() {
   });
 
   const hotels = allProperties.filter((p) => p.category === "hotel");
+
+  const hotelLocations = useMemo(() => {
+    const set = new Set<string>();
+    hotels.forEach((h) => h.location && set.add(h.location));
+    return Array.from(set);
+  }, [hotels]);
+
+  const handleBookingSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const params = new URLSearchParams();
+    if (searchLocation && searchLocation !== "all") params.set("location", searchLocation);
+    if (checkIn) params.set("checkIn", checkIn);
+    if (checkOut) params.set("checkOut", checkOut);
+    if (guests) params.set("guests", String(guests));
+    const qs = params.toString();
+    navigate(qs ? `/hotels/rooms?${qs}` : "/hotels/rooms");
+  };
   const featuredRooms = hotels
     .flatMap((p) =>
       (p.roomTypes || []).slice(0, 1).map((rt) => ({
@@ -108,7 +134,7 @@ export default function HotelsHome() {
           }}
         />
 
-        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-16 text-center">
+        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-32 sm:pb-40 lg:pb-48 text-center">
           <div className="hotels-fade-in">
             <p
               className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
@@ -122,7 +148,7 @@ export default function HotelsHome() {
               <br />
               <span style={{ fontStyle: "italic", fontWeight: 300, color: "#c5a059" }}>of Luxury</span>
             </h1>
-            <p className="text-white/70 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-12 font-light leading-relaxed px-2">
+            <p className="text-white/70 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 font-light leading-relaxed px-2">
               Curated stays for travellers who value craft, calm, and detail. Step into a sanctuary designed
               around you.
             </p>
@@ -146,46 +172,112 @@ export default function HotelsHome() {
           </div>
         </div>
 
-      </section>
-
-      {/* Booking quick-search bar — sits BELOW the hero so it never overlaps the
-          Reserve / Discover buttons. Each field is a real Link to /hotels/rooms
-          so clicking any of them takes you to the search page. */}
-      <div className="container mx-auto px-4 sm:px-6 -mt-8 sm:-mt-12 mb-8 relative z-30">
-        <div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden"
-          style={{
-            background: "var(--hotels-glass-bg, rgba(255,255,255,0.06))",
-            backdropFilter: "blur(24px) saturate(180%)",
-            border: "1px solid rgba(197,160,89,0.25)",
-            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
-          }}
+        {/* Functional booking quick-search bar — sits at the BOTTOM of the hero,
+            overlapping into the next section. Real inputs that submit to
+            /hotels/rooms with query params for location/dates/guests. */}
+        <form
+          onSubmit={handleBookingSearch}
+          className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 z-30 w-full max-w-6xl px-4 sm:px-6"
           data-testid="hero-booking-bar"
         >
-          {[
-            { icon: Calendar, label: "Check In", value: "Add Date" },
-            { icon: Calendar, label: "Check Out", value: "Add Date" },
-            { icon: Users, label: "Guests", value: "2 Adults" },
-            { icon: MapPin, label: "Property", value: "Any Location" },
-          ].map((field) => {
-            const Icon = field.icon;
-            return (
-              <Link
-                key={field.label}
-                href="/hotels/rooms"
-                className="block px-5 py-4 bg-black/30 hover:bg-black/40 transition-colors cursor-pointer"
-                data-testid={`booking-bar-${field.label.toLowerCase().replace(/\s+/g, "-")}`}
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-px overflow-hidden rounded-sm"
+            style={{
+              background: "rgba(197,160,89,0.25)",
+              backdropFilter: "blur(24px) saturate(180%)",
+              border: "1px solid rgba(197,160,89,0.35)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+            }}
+          >
+            {/* Check In */}
+            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Check In</span>
+              </div>
+              <input
+                type="date"
+                value={checkIn}
+                min={today}
+                onChange={(e) => setCheckIn(e.target.value)}
+                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer [color-scheme:dark]"
+                data-testid="input-checkin"
+              />
+            </label>
+
+            {/* Check Out */}
+            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Check Out</span>
+              </div>
+              <input
+                type="date"
+                value={checkOut}
+                min={checkIn || today}
+                onChange={(e) => setCheckOut(e.target.value)}
+                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer [color-scheme:dark]"
+                data-testid="input-checkout"
+              />
+            </label>
+
+            {/* Guests */}
+            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Guests</span>
+              </div>
+              <select
+                value={guests}
+                onChange={(e) => setGuests(Number(e.target.value))}
+                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer appearance-none"
+                data-testid="select-guests"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon className="w-3 h-3" style={{ color: "#c5a059" }} />
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">{field.label}</span>
-                </div>
-                <div className="text-sm text-white/90 font-medium">{field.value}</div>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n} className="bg-black text-white">
+                    {n} {n === 1 ? "Adult" : "Adults"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Property / Location */}
+            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Location</span>
+              </div>
+              <select
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer appearance-none truncate"
+                data-testid="select-location"
+              >
+                <option value="all" className="bg-black text-white">Any Location</option>
+                {hotelLocations.map((loc) => (
+                  <option key={loc} value={loc} className="bg-black text-white">
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Search button */}
+            <button
+              type="submit"
+              className="px-6 py-4 sm:py-0 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: "#c5a059" }}
+              data-testid="button-search-rooms"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* Spacer to compensate for the booking bar that overlaps into this area */}
+      <div className="h-24 sm:h-20 lg:h-16" aria-hidden></div>
 
       {/* EXPERIENCE / SPLIT */}
       <section id="experience" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-experience">

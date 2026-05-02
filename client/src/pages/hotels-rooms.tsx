@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, MapPin, Search, SlidersHorizontal, Calendar, Users } from "lucide-react";
 
 interface RoomType {
   id: string;
@@ -31,6 +31,23 @@ export default function HotelsRooms() {
   const [search, setSearch] = useState("");
   const [maxPrice, setMaxPrice] = useState<number>(50000);
   const [location, setLocation] = useState<string>("all");
+  const [checkIn, setCheckIn] = useState<string>("");
+  const [checkOut, setCheckOut] = useState<string>("");
+  const [guests, setGuests] = useState<number>(0);
+
+  // Read query params from the URL on mount and apply them as filters.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const loc = params.get("location");
+    const ci = params.get("checkIn");
+    const co = params.get("checkOut");
+    const g = params.get("guests");
+    if (loc) setLocation(loc);
+    if (ci) setCheckIn(ci);
+    if (co) setCheckOut(co);
+    if (g) setGuests(Number(g) || 0);
+  }, []);
 
   const { data: allProperties = [], isLoading } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
@@ -71,8 +88,19 @@ export default function HotelsRooms() {
     }
     if (location !== "all" && r.propertyLocation !== location) return false;
     if (r.basePrice > maxPrice) return false;
+    if (guests > 0 && r.occupancy < guests) return false;
     return true;
   });
+
+  const hasSearchContext = checkIn || checkOut || guests > 0 || location !== "all";
+  const formatDate = (d: string) => {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    } catch {
+      return d;
+    }
+  };
 
   return (
     <div className="pt-28 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6 min-h-screen" data-testid="hotels-rooms-page">
@@ -88,6 +116,38 @@ export default function HotelsRooms() {
           <p className="text-white/50 max-w-xl mx-auto font-light text-sm sm:text-base">
             Browse our collection of curated rooms across Mumbai's finest neighbourhoods.
           </p>
+
+          {/* Active search context from booking bar */}
+          {hasSearchContext && (
+            <div className="mt-6 flex flex-wrap justify-center gap-2 sm:gap-3" data-testid="search-context">
+              {checkIn && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-amber-500/30 text-xs text-white/80" style={{ background: "rgba(197,160,89,0.08)" }}>
+                  <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-white/50 uppercase tracking-wider text-[10px]">In</span>
+                  <span>{formatDate(checkIn)}</span>
+                </div>
+              )}
+              {checkOut && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-amber-500/30 text-xs text-white/80" style={{ background: "rgba(197,160,89,0.08)" }}>
+                  <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-white/50 uppercase tracking-wider text-[10px]">Out</span>
+                  <span>{formatDate(checkOut)}</span>
+                </div>
+              )}
+              {guests > 0 && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-amber-500/30 text-xs text-white/80" style={{ background: "rgba(197,160,89,0.08)" }}>
+                  <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span>{guests} {guests === 1 ? "Guest" : "Guests"}</span>
+                </div>
+              )}
+              {location !== "all" && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-amber-500/30 text-xs text-white/80" style={{ background: "rgba(197,160,89,0.08)" }}>
+                  <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span>{location}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Filter Bar */}
