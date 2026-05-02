@@ -134,7 +134,7 @@ export default function HotelsHome() {
           }}
         />
 
-        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-32 sm:pb-40 lg:pb-48 text-center">
+        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-44 sm:pb-52 lg:pb-56 text-center">
           <div className="hotels-fade-in">
             <p
               className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
@@ -172,65 +172,66 @@ export default function HotelsHome() {
           </div>
         </div>
 
-        {/* Functional booking quick-search bar — sits at the BOTTOM of the hero,
-            overlapping into the next section. Real inputs that submit to
-            /hotels/rooms with query params for location/dates/guests. */}
+        {/* Functional booking quick-search bar — sits inside the hero near the
+            bottom (no overlap into the next section). Real inputs that submit
+            to /hotels/rooms with query params for location/dates/guests. */}
         <form
           onSubmit={handleBookingSearch}
-          className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 z-30 w-full max-w-6xl px-4 sm:px-6"
+          className="absolute left-1/2 -translate-x-1/2 bottom-10 sm:bottom-14 z-30 w-full max-w-6xl px-4 sm:px-6"
           data-testid="hero-booking-bar"
         >
           <div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-px overflow-hidden rounded-sm"
             style={{
-              background: "rgba(197,160,89,0.25)",
+              background: "rgba(197,160,89,0.4)",
               backdropFilter: "blur(24px) saturate(180%)",
-              border: "1px solid rgba(197,160,89,0.35)",
+              WebkitBackdropFilter: "blur(24px) saturate(180%)",
+              border: "1px solid rgba(197,160,89,0.45)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
             }}
           >
             {/* Check In */}
-            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1">
+            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1.5">
                 <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Check In</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check In</span>
               </div>
               <input
                 type="date"
                 value={checkIn}
                 min={today}
                 onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer [color-scheme:dark]"
+                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
                 data-testid="input-checkin"
               />
             </label>
 
             {/* Check Out */}
-            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1">
+            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1.5">
                 <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Check Out</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check Out</span>
               </div>
               <input
                 type="date"
                 value={checkOut}
                 min={checkIn || today}
                 onChange={(e) => setCheckOut(e.target.value)}
-                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer [color-scheme:dark]"
+                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
                 data-testid="input-checkout"
               />
             </label>
 
             {/* Guests */}
-            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1">
+            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1.5">
                 <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Guests</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Guests</span>
               </div>
               <select
                 value={guests}
                 onChange={(e) => setGuests(Number(e.target.value))}
-                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer appearance-none"
+                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none"
                 data-testid="select-guests"
               >
                 {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -242,15 +243,15 @@ export default function HotelsHome() {
             </label>
 
             {/* Property / Location */}
-            <label className="block px-5 py-4 bg-black/70 hover:bg-black/60 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1">
+            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2 mb-1.5">
                 <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Location</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Location</span>
               </div>
               <select
                 value={searchLocation}
                 onChange={(e) => setSearchLocation(e.target.value)}
-                className="w-full bg-transparent text-sm text-white/90 font-medium outline-none cursor-pointer appearance-none truncate"
+                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none truncate"
                 data-testid="select-location"
               >
                 <option value="all" className="bg-black text-white">Any Location</option>
@@ -262,10 +263,10 @@ export default function HotelsHome() {
               </select>
             </label>
 
-            {/* Search button */}
+            {/* Search button — full height, full width on mobile */}
             <button
               type="submit"
-              className="px-6 py-4 sm:py-0 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              className="w-full lg:w-auto min-h-[78px] px-8 py-4 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#c5a059" }}
               data-testid="button-search-rooms"
             >
@@ -275,9 +276,6 @@ export default function HotelsHome() {
           </div>
         </form>
       </section>
-
-      {/* Spacer to compensate for the booking bar that overlaps into this area */}
-      <div className="h-24 sm:h-20 lg:h-16" aria-hidden></div>
 
       {/* EXPERIENCE / SPLIT */}
       <section id="experience" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-experience">
