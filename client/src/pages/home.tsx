@@ -1038,10 +1038,22 @@ export default function Home() {
         });
     };
 
-    const onCanPlay = () => tryPlay();
-    const onLoadedData = () => {
-      if (!videoReady) tryPlay();
-    };
+    // First-load smoothness on Windows-Chrome: wait for
+    // `canplaythrough` (readyState 4 = HAVE_ENOUGH_DATA, browser
+    // estimates it can play through to the end without re-buffering)
+    // instead of `canplay` / `loadeddata` (readyState 2-3 = only the
+    // current frame or one frame ahead is decoded). The earlier
+    // events fire the moment the browser can show ONE frame, so the
+    // video starts playing while the rest of the MP4 is still
+    // streaming over the network — visible as the first-load stutter
+    // users reported on Windows. canplaythrough holds the poster a
+    // beat longer but guarantees the first play() is smooth.
+    //
+    // Safety: the progressive failsafe below still calls tryPlay()
+    // when `readyState >= 2` after the 12s soft cap, so a slow
+    // network that never reaches HAVE_ENOUGH_DATA can't hang the
+    // hero — we fall back to the old "play as soon as we can" path.
+    const onCanPlayThrough = () => tryPlay();
     const onError = () => {
       console.debug(
         "[hero-video] fallback-shown video-error",
@@ -1060,8 +1072,7 @@ export default function Home() {
     // we get a chance to listen — leaving video.error set with
     // nobody to react to it. The Task #143 e2e test caught
     // exactly this regression.
-    video.addEventListener("canplay", onCanPlay);
-    video.addEventListener("loadeddata", onLoadedData);
+    video.addEventListener("canplaythrough", onCanPlayThrough);
     video.addEventListener("error", onError);
 
     video.src = resolvedVideoUrl;
@@ -1179,8 +1190,7 @@ export default function Home() {
     }, POLL_MS);
 
     return () => {
-      video.removeEventListener("canplay", onCanPlay);
-      video.removeEventListener("loadeddata", onLoadedData);
+      video.removeEventListener("canplaythrough", onCanPlayThrough);
       video.removeEventListener("error", onError);
       window.clearInterval(failsafeId);
     };
@@ -1759,6 +1769,27 @@ export default function Home() {
     videoFailed ||
     videoReady;
   const loaderReady = heroVideoSettled && tubesCtx.ready;
+
+  // Once the splash overlay has exited, bump the hero <video>'s
+  // `preload` attribute from "metadata" to "auto" so the browser
+  // greedily buffers ahead. We start with "metadata" so the first
+  // load doesn't contend with splash assets / Tubes WebGL init /
+  // fonts on the critical path (the original Task #143 reasoning),
+  // but the moment the splash is gone that contention window is
+  // over and aggressive buffering is exactly what makes
+  // `canplaythrough` arrive quickly on Windows-Chrome — turning the
+  // first hero playback from "stutter, then smooth" into "smooth
+  // from the first frame". This is a hint to the user agent: we
+  // do NOT call load() again, so any in-flight playback is never
+  // interrupted.
+  useEffect(() => {
+    if (!loaderDone) return;
+    const v = heroVideoRef.current;
+    if (!v) return;
+    if (v.preload !== "auto") {
+      v.preload = "auto";
+    }
+  }, [loaderDone, resolvedVideoUrl]);
 
   return (
     <div className="flex flex-col relative">
