@@ -94,8 +94,8 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
             <img
               src={hsquareLogo}
               alt="Hsquare Hotels"
-              className={cn("w-auto object-contain transition-all duration-500", scrolled ? "h-9" : "h-11")}
-              style={{ filter: "brightness(0) invert(1)", border: "none" }}
+              className={cn("hotels-logo w-auto object-contain transition-all duration-500", scrolled ? "h-9" : "h-11")}
+              style={{ border: "none" }}
             />
             <span className="hidden sm:inline-block text-xs uppercase tracking-[0.3em] text-white/40 border-l border-white/15 pl-3 ml-1">
               Hotels
@@ -294,7 +294,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10 md:gap-12 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <img src={hsquareLogo} alt="Hsquare Hotels" className="h-10 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
+                <img src={hsquareLogo} alt="Hsquare Hotels" className="hotels-logo h-10 w-auto" />
                 <span className="text-xs uppercase tracking-[0.3em] text-white/40 border-l border-white/15 pl-3">Hotels</span>
               </div>
               <p className="text-white/50 max-w-md leading-relaxed">
