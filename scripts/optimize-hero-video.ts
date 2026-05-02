@@ -152,9 +152,6 @@ async function main() {
     // ---- container ----
     "-movflags", "+faststart",
     "-map_metadata", "-1",
-    "-fflags", "+bitexact",
-    "-flags:v", "+bitexact",
-    "-flags:a", "+bitexact",
     tmpOut,
   ];
   console.log("ffmpeg cmd:", ffmpegArgs.join(" "));

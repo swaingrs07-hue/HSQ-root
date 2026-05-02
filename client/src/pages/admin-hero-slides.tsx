@@ -83,7 +83,7 @@ export default function AdminHeroSlides() {
       queryClient.invalidateQueries({ queryKey: ["/api/hero-slides"] });
       resetForm();
       setIsAddOpen(false);
-      toast({ title: "Slide added successfully" });
+      toast({ title: "Slide added successfully", description: "Video was optimized for fast playback." });
     },
     onError: () => toast({ title: "Failed to add slide", variant: "destructive" }),
   });
@@ -109,6 +109,11 @@ export default function AdminHeroSlides() {
     },
     onError: () => toast({ title: "Failed to update slide", variant: "destructive" }),
   });
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const willOptimizeVideo =
+    !!form.videoUrl &&
+    (!editingSlide || editingSlide.videoUrl !== form.videoUrl);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -330,6 +335,7 @@ export default function AdminHeroSlides() {
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-slate-700">Background Video</Label>
         <p className="text-xs text-slate-400">Upload an mp4/webm video for the hero background. Plays full-screen in a loop. Optional if an image is provided.</p>
+        <p className="text-xs text-indigo-500">Heavy MP4s are automatically re-encoded on save (1600x900, ~2.5 Mbps) so the homepage stays smooth — saving may take 10-20 seconds.</p>
         {form.videoUrl ? (
           <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 aspect-video bg-black">
             <video
@@ -475,14 +481,20 @@ export default function AdminHeroSlides() {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!form.title || (!form.videoUrl && !form.imageUrl) || createMutation.isPending || updateMutation.isPending}
+          disabled={!form.title || (!form.videoUrl && !form.imageUrl) || isSaving}
           className="bg-indigo-600 hover:bg-indigo-700"
           data-testid="button-save-slide"
         >
-          {(createMutation.isPending || updateMutation.isPending) && (
+          {isSaving && (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
           )}
-          {editingSlide ? "Update Slide" : "Add Slide"}
+          {isSaving && willOptimizeVideo
+            ? "Optimizing video..."
+            : isSaving
+              ? "Saving..."
+              : editingSlide
+                ? "Update Slide"
+                : "Add Slide"}
         </Button>
       </div>
     </div>

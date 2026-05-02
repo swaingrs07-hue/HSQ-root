@@ -23,6 +23,7 @@ import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
 import { checkAndSendMilestone } from "./milestone-service";
 import { resolveCanonicalApex } from "./canonical-host";
+import { safeOptimizeHeroVideoIfMp4 } from "./lib/hero-video-optimizer";
 
 const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -693,9 +694,18 @@ ${allPages.map(p => `  <url>
     try {
       const parsed = insertHeroSlideSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
-      const slide = await storage.createHeroSlide(parsed.data);
+      // Auto-optimize the just-uploaded MP4 to a web-friendly bitrate
+      // before persisting (see server/lib/hero-video-optimizer.ts). On
+      // failure this is a no-op — the original path is preserved so the
+      // admin's upload is never lost.
+      const data = { ...parsed.data };
+      if (data.videoUrl) {
+        data.videoUrl = await safeOptimizeHeroVideoIfMp4(data.videoUrl);
+      }
+      const slide = await storage.createHeroSlide(data);
       res.status(201).json(slide);
     } catch (error) {
+      console.error("[hero-slides] create failed", error);
       res.status(500).json({ error: "Failed to create hero slide" });
     }
   });
@@ -704,10 +714,21 @@ ${allPages.map(p => `  <url>
     try {
       const parsed = insertHeroSlideSchema.partial().safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid slide data", details: parsed.error.format() });
-      const slide = await storage.updateHeroSlide(req.params.id, parsed.data);
+      // Pre-fetch the existing row first so we 404 BEFORE running a
+      // 10–20 s ffmpeg transcode on a non-existent slide.
+      const existing = await storage.getHeroSlide(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Slide not found" });
+      // Only optimize when the video actually changed — re-encoding on
+      // every edit would burn CPU for no reason.
+      const data = { ...parsed.data };
+      if (data.videoUrl !== undefined && data.videoUrl && existing.videoUrl !== data.videoUrl) {
+        data.videoUrl = await safeOptimizeHeroVideoIfMp4(data.videoUrl);
+      }
+      const slide = await storage.updateHeroSlide(req.params.id, data);
       if (!slide) return res.status(404).json({ error: "Slide not found" });
       res.json(slide);
     } catch (error) {
+      console.error("[hero-slides] update failed", error);
       res.status(500).json({ error: "Failed to update hero slide" });
     }
   });
