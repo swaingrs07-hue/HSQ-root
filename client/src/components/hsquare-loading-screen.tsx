@@ -174,19 +174,6 @@ export function HsquareLoadingScreen({
           color: transparent;
           margin: 0;
         }
-        .hsq-percent {
-          font-family: 'Manrope', sans-serif;
-          font-size: clamp(2rem, 5vw, 3rem);
-          font-weight: 900;
-          color: #b41d43;
-          text-align: center;
-          letter-spacing: -0.03em;
-          opacity: 0;
-          animation: hsqFadeIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-          animation-delay: 0.8s;
-          min-width: 180px;
-          font-variant-numeric: tabular-nums;
-        }
         .hsq-progress {
           position: absolute;
           bottom: 60px;
@@ -288,7 +275,6 @@ export function HsquareLoadingScreen({
         @media (max-width: 768px) {
           .hsq-loading-inner { padding: 30px 20px; }
           .hsq-title { font-size: clamp(2.8rem, 10vw, 4rem); }
-          .hsq-percent { font-size: clamp(1.8rem, 5vw, 2.5rem); min-width: 140px; }
           .hsq-progress { width: 90%; max-width: 280px; }
         }
       `}</style>
@@ -298,9 +284,6 @@ export function HsquareLoadingScreen({
           className={`hsq-content${exiting ? " hsq-content-exit" : ""}`}
         >
           <h1 className="hsq-title">HSQUARE LIVING</h1>
-          <div className="hsq-percent" data-testid="text-loading-percent">
-            {displayPercent}%
-          </div>
         </div>
         <div
           className={`hsq-progress${exiting ? " hsq-progress-exit" : ""}`}
