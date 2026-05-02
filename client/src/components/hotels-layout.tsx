@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home, Sun, Moon } from "lucide-react";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
@@ -14,7 +14,29 @@ const HOTEL_NAV = [
   { name: "Contact", href: "/hotels/contact" },
 ];
 
-type HotelsTheme = "dark" | "light";
+/* Three-way theme: classic dark, warm ivory light, and a third
+   "studio" theme — a deep black / liquid-glass / Instrument-Serif
+   look inspired by AI-agency landing sites. The toggle in the nav
+   cycles dark → light → studio → dark. Persisted in localStorage. */
+export type HotelsTheme = "dark" | "light" | "studio";
+
+const HotelsThemeContext = createContext<HotelsTheme>("dark");
+export const useHotelsTheme = () => useContext(HotelsThemeContext);
+
+const THEME_ORDER: HotelsTheme[] = ["dark", "light", "studio"];
+const nextTheme = (t: HotelsTheme): HotelsTheme =>
+  THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length];
+
+const themeLabel = (t: HotelsTheme) =>
+  t === "dark" ? "Switch to light theme"
+  : t === "light" ? "Switch to studio theme"
+  : "Switch to dark theme";
+
+const ThemeIcon = ({ theme }: { theme: HotelsTheme }) => {
+  if (theme === "dark") return <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />;
+  if (theme === "light") return <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />;
+  return <Sparkles className="w-4 h-4" style={{ color: "#c5a059" }} />;
+};
 
 export function HotelsLayout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
@@ -23,7 +45,8 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<HotelsTheme>(() => {
     if (typeof window === "undefined") return "dark";
     const stored = window.localStorage.getItem("hotels-theme");
-    return stored === "light" ? "light" : "dark";
+    if (stored === "light" || stored === "studio" || stored === "dark") return stored;
+    return "dark";
   });
   const { user, logout } = useAuth();
   const switchPortal = usePortalSwitch();
@@ -46,17 +69,21 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     try { window.localStorage.setItem("hotels-theme", theme); } catch {}
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const toggleTheme = () => setTheme(nextTheme);
 
   return (
+    <HotelsThemeContext.Provider value={theme}>
     <div
       className={cn(
         "min-h-screen flex flex-col text-white",
-        theme === "light" && "hotels-light"
+        theme === "light" && "hotels-light",
+        theme === "studio" && "hotels-studio"
       )}
       style={{
         background: "var(--hotels-page-bg, #0a0a0a)",
-        fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
+        fontFamily: theme === "studio"
+          ? '"Barlow", "Inter", system-ui, sans-serif'
+          : '"Inter", system-ui, -apple-system, sans-serif',
       }}
       data-hotels-theme={theme}
       data-testid="hotels-layout-root"
@@ -172,12 +199,11 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
                 borderColor: "rgba(197, 160, 89, 0.35)",
                 background: "rgba(197, 160, 89, 0.08)",
               }}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              aria-label={themeLabel(theme)}
+              title={themeLabel(theme)}
               data-testid="button-hotels-theme-toggle"
             >
-              {theme === "dark"
-                ? <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />
-                : <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />}
+              <ThemeIcon theme={theme} />
             </button>
             {user ? (
               <ProfileDropdown />
@@ -208,12 +234,10 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
                 borderColor: "rgba(197, 160, 89, 0.35)",
                 background: "rgba(197, 160, 89, 0.08)",
               }}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              aria-label={themeLabel(theme)}
               data-testid="button-hotels-theme-toggle-mobile"
             >
-              {theme === "dark"
-                ? <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />
-                : <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />}
+              <ThemeIcon theme={theme} />
             </button>
             <button
               className="p-2 text-white"
@@ -333,5 +357,6 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
     </div>
+    </HotelsThemeContext.Provider>
   );
 }
