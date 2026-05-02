@@ -1433,9 +1433,10 @@ export default function Home() {
                 // The feathered alpha mask is the per-frame composite
                 // cost we want to defer until the video is the only
                 // visible hero layer. Until placeholderHidden flips
-                // (~800ms after canplay), the placeholder <img> below
-                // owns the visible feather and the video plays
-                // full-bleed underneath, which means weak GPUs
+                // (500ms after canplay, aligned with the placeholder's
+                // transition-opacity duration-500), the placeholder
+                // <img> below owns the visible feather and the video
+                // plays full-bleed underneath, which means weak GPUs
                 // composite ONE alpha-blended layer instead of two
                 // during the cross-fade window.
                 ...(placeholderHidden
@@ -1464,8 +1465,11 @@ export default function Home() {
             />
             {!placeholderHidden && (
               // Cross-fade the placeholder image while the video warms
-              // up, then fully unmount it ~800ms after the video is
-              // playing. Keeping it mounted at opacity 0 forever
+              // up, then fully unmount it 500ms after the video is
+              // playing (matches transition-opacity duration-500 on
+              // this <img> so the mask handoff to the <video> happens
+              // the instant the placeholder is no longer visible).
+              // Keeping it mounted at opacity 0 forever
               // forces the browser to composite two full-screen layers
               // every frame, which contributed to hero-video stutter
               // on integrated GPUs. We re-mount it on every slide
