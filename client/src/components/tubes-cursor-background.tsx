@@ -201,7 +201,23 @@ export default function TubesCursorBackground({
             requestAnimationFrame(tick);
           });
           if (cancelled) return;
-          const MIN_FPS = 45;
+          // Threshold raised from 45 → 55 fps after user reports of
+          // sustained lag on a Dell G15 5515 (i5-11400H + RTX 3050)
+          // that was passing the 45fps gate at ~87fps idle. The
+          // 900ms baseline measurement happens BEFORE any heavy
+          // page assets are loaded (hero video decode, framer-motion
+          // scroll subscriptions, hallway 3D perspective track,
+          // particle canvas), so the idle baseline overestimates the
+          // sustained framerate by a wide margin once the page is
+          // active. A higher threshold gives more headroom and gates
+          // out the mid-tier integrated/discrete GPUs that pass at
+          // idle but stutter under realistic load. Apple machines
+          // routinely measure 120+ fps here so they continue to get
+          // the iridescent layer; the cost is some Windows machines
+          // that previously squeaked through at 45-54 fps now fall
+          // back to the plain dark background — still smooth, just
+          // less visually rich.
+          const MIN_FPS = 55;
           if (fps < MIN_FPS) {
             console.log(
               `[TubesCursor] disabled — baseline ${fps.toFixed(1)} fps below ${MIN_FPS} threshold`,

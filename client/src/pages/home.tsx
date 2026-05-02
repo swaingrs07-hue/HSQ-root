@@ -72,6 +72,20 @@ import { PlansHallway } from "@/components/plans-hallway";
 // this naturally because the module is re-evaluated.
 let loaderSeen = false;
 
+// True when the user is on a platform whose browser compositor handles
+// `mask-image` on a playing <video> without dropping into a software
+// path. Apple platforms (Mac Safari/Chrome and iOS) handle it on the
+// GPU; Windows-Chrome and most Linux builds fall to a CPU compositor
+// that visibly tanks framerate of the entire page (this is the same
+// invariant documented in replit.md for the plans-hallway video).
+// We use this to gate any per-frame mask effects applied to playing
+// video elements — static images and non-playing layers are unaffected.
+// SSR-safe: returns false (the safe path — skip the mask) on the
+// server, so the first hydrate paint matches the client.
+const IS_FAST_VIDEO_COMPOSITOR =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
+
 // Tiny inline SVG data URL used as the absolute-last-resort hero
 // poster when the active slide has no image, the API hasn't
 // returned a property image yet, and we still need *something*
@@ -958,6 +972,21 @@ export default function Home() {
   // indicate a real playback problem.
   const videoPlaybackStartRef = useRef<number | null>(null);
 
+  // Ref the load-time playback path (`tryPlay` below, which is
+  // recreated only when src changes) consults so it can see the
+  // latest viewport state without being recreated on every scroll.
+  // The actual heroInViewport state is declared further down in the
+  // function (after this effect, because of the ordering of the load
+  // pipeline), so we seed the ref with the same default the state
+  // uses (`true` — pessimistic; if the user is already scrolled past
+  // the IntersectionObserver corrects it on first observation) and
+  // mirror real updates via a separate effect attached at the state
+  // declaration site. This closes the race the architect caught: a
+  // `canplay` arriving AFTER the user has already scrolled past the
+  // hero would otherwise call `play()` and defeat the dedicated
+  // pause effect, because that effect's deps wouldn't fire again.
+  const heroInViewportRef = useRef(true);
+
   useEffect(() => {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
@@ -969,8 +998,29 @@ export default function Home() {
       if (videoPlaybackStartRef.current === null) {
         videoPlaybackStartRef.current = performance.now();
       }
-      console.debug("[hero-video] canplay -> play()");
+      // Always flip videoReady so the cross-fade and loader hand-off
+      // complete on schedule even if the hero happens to be off-screen
+      // — the user wouldn't see the video frame anyway.
       setVideoReady(true);
+      // Don't start decoding off-screen or in a hidden tab. The
+      // dedicated pause/resume effect below owns playback for those
+      // cases — when the hero scrolls back into view (or the tab
+      // returns to visible) it will call play() at that point. Without
+      // this gate, a `canplay` arriving after the user has scrolled
+      // past the hero would restart decode and quietly defeat the
+      // off-screen pause that exists to save GPU on Windows laptops.
+      if (!heroInViewportRef.current) {
+        console.debug("[hero-video] canplay -> deferred (off-screen)");
+        return;
+      }
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        console.debug("[hero-video] canplay -> deferred (hidden tab)");
+        return;
+      }
+      console.debug("[hero-video] canplay -> play()");
       const playPromise = video.play();
       if (playPromise)
         playPromise.catch(() => {
@@ -1161,6 +1211,13 @@ export default function Home() {
     return () => obs.disconnect();
   }, []);
 
+  // Mirror heroInViewport into the ref consumed by `tryPlay` (declared
+  // earlier in the file, where the load pipeline lives). See the long
+  // comment at the heroInViewportRef declaration for the full rationale.
+  useEffect(() => {
+    heroInViewportRef.current = heroInViewport;
+  }, [heroInViewport]);
+
   // Whenever a hero video slide is the active slide AND the hero is
   // visible, ask the global iridescent tube background to pause its
   // WebGL render loop. This frees the GPU so the <video> element
@@ -1182,6 +1239,50 @@ export default function Home() {
       setPauseRequested(false);
     };
   }, [heroVideoActive, heroInViewport, tubesCtx.setPauseRequested]);
+
+  // Pause/resume the hero <video> based on viewport AND tab visibility.
+  // The browser will happily keep decoding 24fps of H.264 forever even
+  // when the element isn't visible, which on a Windows laptop with an
+  // integrated GPU is a meaningful per-frame cost stacked on top of
+  // everything else further down the page.
+  //
+  // Three things have to be true for the video to be playing:
+  //   1) the active slide is a video slide (heroVideoActive)
+  //   2) the hero is on-screen (heroInViewport)
+  //   3) the tab is visible (document.visibilityState === 'visible')
+  //
+  // We also depend on `videoReady` so this effect re-fires the moment
+  // canplay arrives — covering the case where the video became ready
+  // while the user was already viewing the hero (tryPlay deferred its
+  // own play() and we own the resume here) — and we attach a
+  // visibilitychange listener so tab hide/show alone is enough to
+  // pause/resume even without any other state change.
+  useEffect(() => {
+    if (!heroVideoActive) return;
+    if (!videoReady) return;
+    const v = heroVideoRef.current;
+    if (!v) return;
+
+    const updatePlayState = () => {
+      const shouldPlay =
+        heroInViewport &&
+        (typeof document === "undefined" ||
+          document.visibilityState === "visible");
+      if (shouldPlay) {
+        v.play().catch(() => {});
+      } else {
+        v.pause();
+      }
+    };
+
+    updatePlayState();
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", updatePlayState);
+      return () => {
+        document.removeEventListener("visibilitychange", updatePlayState);
+      };
+    }
+  }, [heroVideoActive, heroInViewport, videoReady]);
 
   // Once the video has been ready and playing for a brief settle
   // window, fully unmount the placeholder <img>. Until now we kept
@@ -1439,7 +1540,20 @@ export default function Home() {
                 // plays full-bleed underneath, which means weak GPUs
                 // composite ONE alpha-blended layer instead of two
                 // during the cross-fade window.
-                ...(placeholderHidden
+                // The bottom-feather mask reveals the iridescent tubes
+                // through the video's lower 30%. On Apple platforms
+                // this is GPU-cheap. On Windows-Chrome (and most Linux
+                // builds) `mask-image` on a *playing* <video> forces
+                // the compositor onto a software path that visibly
+                // tanks framerate of the entire page — the same
+                // invariant documented in replit.md for the
+                // plans-hallway backdrop video. So we only apply the
+                // mask on platforms whose compositor can sustain it.
+                // Windows users lose the bottom feather aesthetic but
+                // gain smooth 60fps hero playback; the existing dark
+                // bottom gradient overlay (rendered just below in the
+                // tree) still hands the hero off into the page softly.
+                ...(placeholderHidden && IS_FAST_VIDEO_COMPOSITOR
                   ? {
                       WebkitMaskImage:
                         "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
