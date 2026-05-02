@@ -61,6 +61,7 @@ import HotelsHome from "@/pages/hotels-home";
 import HotelsRooms from "@/pages/hotels-rooms";
 import HotelsRoomDetail from "@/pages/hotels-room-detail";
 import HotelsDashboard from "@/pages/hotels-dashboard";
+import HotelsContact from "@/pages/hotels-contact";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
@@ -223,6 +224,7 @@ function AppContent() {
                 <Route path="/hotels" component={HotelsHome} />
                 <Route path="/hotels/rooms" component={HotelsRooms} />
                 <Route path="/hotels/rooms/:slug" component={HotelsRoomDetail} />
+                <Route path="/hotels/contact" component={HotelsContact} />
                 <Route path="/hotels/dashboard" component={HotelsDashboard} />
                 <Route component={NotFound} />
               </Switch>

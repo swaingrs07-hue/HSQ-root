@@ -11,7 +11,7 @@ const HOTEL_NAV = [
   { name: "Home", href: "/hotels" },
   { name: "Rooms", href: "/hotels/rooms" },
   { name: "Experience", href: "/hotels#experience" },
-  { name: "Contact", href: "/hotels#contact" },
+  { name: "Contact", href: "/hotels/contact" },
 ];
 
 type HotelsTheme = "dark" | "light";
@@ -310,7 +310,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
                 <li><Link href="/hotels/rooms" className="hover:text-white transition-colors">Rooms & Suites</Link></li>
                 <li><Link href="/hotels#experience" className="hover:text-white transition-colors">Experience</Link></li>
                 <li><Link href="/hotels#dining" className="hover:text-white transition-colors">Dining</Link></li>
-                <li><Link href="/hotels#contact" className="hover:text-white transition-colors">Contact</Link></li>
+                <li><Link href="/hotels/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
             <div>
