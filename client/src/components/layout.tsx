@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight, MessageSquare, Smartphone, Star } from "lucide-react";
-import { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuthGuard } from "@/contexts/auth-guard-context";
@@ -301,15 +301,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const headerTransparent = hasTransparentHeader && !scrolled && !mobileMenuOpen;
 
+  // Memoize the context value so it only changes when its primitive
+  // members do. Without this, every Layout render (e.g. on scroll
+  // state changes) would hand consumers a brand-new object literal,
+  // causing any consumer that depends on `tubesCtx` (or even on the
+  // whole context value) to re-run effects on every parent render.
+  // The home page in particular drives a 60Hz scroll handler that
+  // would otherwise tear down and rebind listeners constantly.
+  const tubesContextValue = useMemo(
+    () => ({
+      active: globalTubesActive,
+      ready: effectiveTubesReady,
+      setPauseRequested: handleSetTubesPauseRequested,
+      setRevealOpacity: handleSetTubesRevealOpacity,
+    }),
+    [
+      globalTubesActive,
+      effectiveTubesReady,
+      handleSetTubesPauseRequested,
+      handleSetTubesRevealOpacity,
+    ],
+  );
+
   return (
-    <TubesContext.Provider
-      value={{
-        active: globalTubesActive,
-        ready: effectiveTubesReady,
-        setPauseRequested: handleSetTubesPauseRequested,
-        setRevealOpacity: handleSetTubesRevealOpacity,
-      }}
-    >
+    <TubesContext.Provider value={tubesContextValue}>
     <div
       className="min-h-screen bg-[#050505] flex flex-col font-sans relative"
       data-testid="layout-root"

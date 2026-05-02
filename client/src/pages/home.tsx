@@ -1221,6 +1221,14 @@ export default function Home() {
   const [heroFullyCovered, setHeroFullyCovered] = useState(false);
   const heroInViewport = !heroFullyCovered;
   const tubesCtx = useContext(TubesContext);
+  // Pin a stable reference to the setter so we can use IT (not the
+  // whole tubesCtx object) as the effect dependency below. The
+  // provider in layout.tsx memoizes the context value, but using the
+  // specific callback as the dep is safer and more explicit — it
+  // guarantees the scroll effect doesn't tear down on every Layout
+  // re-render even if the memoization upstream is ever broken.
+  const setTubesRevealOpacity = tubesCtx.setRevealOpacity;
+  const setTubesPauseRequested = tubesCtx.setPauseRequested;
   // Prevent first-paint flash of the iridescent tubes on the home
   // route. The CSS variable defaults to `1` in layout.tsx, so without
   // this synchronous pre-paint write the tubes would be momentarily
@@ -1231,8 +1239,8 @@ export default function Home() {
   // because the dedicated reduced-motion branch below also starts at
   // 0 and only flips to 1 once the hero scrolls out of view.
   useLayoutEffect(() => {
-    tubesCtx.setRevealOpacity?.(0);
-  }, [tubesCtx]);
+    setTubesRevealOpacity?.(0);
+  }, [setTubesRevealOpacity]);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1250,18 +1258,18 @@ export default function Home() {
         // Without IntersectionObserver we can't track the hero, so
         // fall back to leaving the tubes at full brightness so the
         // user still sees the iridescent background somewhere.
-        tubesCtx.setRevealOpacity?.(1);
+        setTubesRevealOpacity?.(1);
         return;
       }
       // Initial state: hero is in view at mount, so tubes start hidden.
-      tubesCtx.setRevealOpacity?.(0);
+      setTubesRevealOpacity?.(0);
       const obs = new IntersectionObserver(
         (entries) => {
           const e = entries[0];
           if (!e) return;
           const covered = !e.isIntersecting;
           setHeroFullyCovered(covered);
-          tubesCtx.setRevealOpacity?.(covered ? 1 : 0);
+          setTubesRevealOpacity?.(covered ? 1 : 0);
         },
         { threshold: 0 },
       );
@@ -1270,7 +1278,7 @@ export default function Home() {
         obs.disconnect();
         // Restore tubes to full brightness on unmount so other routes
         // (which don't run this effect) see the tubes immediately.
-        tubesCtx.setRevealOpacity?.(1);
+        setTubesRevealOpacity?.(1);
       };
     }
 
@@ -1298,7 +1306,7 @@ export default function Home() {
       // the user has fully entered the Why Choose section the tubes
       // are at full brightness behind it.
       const opacity = Math.max(0, Math.min(1, (progress - 1.0) / 0.3));
-      tubesCtx.setRevealOpacity?.(opacity);
+      setTubesRevealOpacity?.(opacity);
     };
     const onScroll = () => {
       if (!ticking) {
@@ -1315,9 +1323,9 @@ export default function Home() {
       // Restore tubes to full brightness on unmount so subsequent
       // routes (which do not run this scroll handler) see the tubes
       // at full strength immediately.
-      tubesCtx.setRevealOpacity?.(1);
+      setTubesRevealOpacity?.(1);
     };
-  }, [prefersReducedMotion, tubesCtx]);
+  }, [prefersReducedMotion, setTubesRevealOpacity]);
 
   // Mirror heroInViewport into the ref consumed by `tryPlay` (declared
   // earlier in the file, where the load pipeline lives). See the long
@@ -1337,18 +1345,18 @@ export default function Home() {
     videoSupported &&
     !videoFailed
   );
-  // Note: `tubesCtx` is already declared above (with the heroFullyCovered
-  // / setRevealOpacity wiring for the card-swipe scroll handler), so we
-  // reuse the same reference here for the pause-requested coordination.
+  // Reuse the stable `setTubesPauseRequested` reference pulled from
+  // tubesCtx earlier. Depending on the function reference (not the
+  // whole context object) prevents the effect from tearing down on
+  // every Layout re-render.
   useEffect(() => {
-    const setPauseRequested = tubesCtx.setPauseRequested;
-    if (!setPauseRequested) return;
+    if (!setTubesPauseRequested) return;
     const shouldPause = heroVideoActive && heroInViewport;
-    setPauseRequested(shouldPause);
+    setTubesPauseRequested(shouldPause);
     return () => {
-      setPauseRequested(false);
+      setTubesPauseRequested(false);
     };
-  }, [heroVideoActive, heroInViewport, tubesCtx.setPauseRequested]);
+  }, [heroVideoActive, heroInViewport, setTubesPauseRequested]);
 
   // Pause/resume the hero <video> based on viewport AND tab visibility.
   // The browser will happily keep decoding 24fps of H.264 forever even
