@@ -45,18 +45,14 @@ const MAX_OVERALL_BITRATE = 2_700_000;   // 2.7 Mbps overall (video + 96 kbps AA
 const MAX_VIDEO_WIDTH = 1600;
 const MAX_VIDEO_HEIGHT = 1080;
 const REQUIRED_FPS = 24;                  // exact, with ±0.1 tolerance for rate-conversion drift
-const MAX_FPS = 30;                       // ceiling for source skip-decision only
 const REQUIRED_VIDEO_CODEC = "h264";
 
-// Skip-optimisation heuristic: a source MAY be passed through ONLY when
-// it satisfies *every* one of these conditions AND a structural/C2PA
-// scan of the bytes passes. We never trust size alone — a 100 KB MP4
-// can still be HEVC, can still carry a `jumb` C2PA box that crashes
-// Chrome (the original Task #144 invariant), or can have its `moov`
-// atom at the end (no faststart). See the post-download probe.
-const SKIP_IF_OVERALL_BITRATE_BELOW = MAX_OVERALL_BITRATE;
-const SKIP_IF_WIDTH_AT_OR_BELOW = MAX_VIDEO_WIDTH;
-const SKIP_IF_SIZE_BELOW_BYTES = MAX_TOTAL_BYTES;
+// Note: there is intentionally no source-skip heuristic. Every MP4
+// is unconditionally re-encoded — see the long comment in step 1b
+// of `optimizeHeroVideoObject` for why partial probe-based skipping
+// is unsafe (closed-GOP cadence is not robustly observable from
+// ffprobe and the only way to guarantee a deterministic compliant
+// output is to produce it ourselves).
 
 export interface OptimizeResult {
   /** Original `/objects/uploads/<uuid>` path (untouched in storage). */
@@ -66,10 +62,6 @@ export interface OptimizeResult {
   /** Bytes before / after — for log lines. */
   sourceBytes: number;
   optimisedBytes: number;
-  /** True when source already met the budget and we passed it through. */
-  skipped: boolean;
-  /** Skip reason — populated when `skipped === true`. */
-  skipReason?: string;
 }
 
 /**
@@ -112,42 +104,22 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
       r.pipe(w);
     });
 
-    // 1b. Pre-encode probe + structural scan — only skip if the source
-    // ALREADY satisfies every invariant (codec, dims, bitrate, atom
-    // layout, no C2PA). Anything less and we re-encode.
-    try {
-      const preProbeJson = execSync(
-        `ffprobe -v error -show_streams -show_format -of json ${tmpIn}`,
-        { encoding: "utf8" },
-      );
-      const preProbe = JSON.parse(preProbeJson);
-      const preV = preProbe.streams?.find((s: any) => s.codec_type === "video");
-      const preBitrate = Number(preProbe.format?.bit_rate || 0);
-      const codecOk = preV?.codec_name === REQUIRED_VIDEO_CODEC;
-      const widthOk = preV && Number(preV.width) <= SKIP_IF_WIDTH_AT_OR_BELOW;
-      const sizeOk = sourceBytes > 0 && sourceBytes <= SKIP_IF_SIZE_BELOW_BYTES;
-      const bitrateOk = preBitrate > 0 && preBitrate <= SKIP_IF_OVERALL_BITRATE_BELOW;
-      if (codecOk && widthOk && sizeOk && bitrateOk) {
-        const srcBuf = fs.readFileSync(tmpIn);
-        const sourceClean = isMp4Clean(srcBuf);
-        if (sourceClean.ok) {
-          return {
-            sourcePath: objectPath,
-            optimisedPath: objectPath,
-            sourceBytes,
-            optimisedBytes: sourceBytes,
-            skipped: true,
-            skipReason: `source already within budget + structurally clean (codec=${preV.codec_name} ${preV.width}x${preV.height} ${(preBitrate / 1_000_000).toFixed(2)} Mbps)`,
-          };
-        }
-        // Source has a structural issue (C2PA, no faststart, etc.) — fall
-        // through to the re-encode, which strips it.
-      }
-    } catch (probeErr) {
-      // Continue — failing the pre-probe just means we proceed with the
-      // re-encode (the safer default).
-    }
-
+    // 1b. NO source-skip pass for MP4 inputs.
+    //
+    // Earlier rounds of this module had a skip-fast-pass: if the
+    // source already met an N-of-checklist subset (codec/dims/bitrate
+    // + structural scan), we'd reuse it as-is. The reviewer flagged
+    // this as too permissive — to safely skip we'd need to verify
+    // EVERY checklist item including exact-24-fps, stream-level
+    // video bitrate, profile/level/pix_fmt, AND closed-GOP cadence.
+    // Closed-GOP cadence is not robustly observable from ffprobe's
+    // default output (would need per-frame `-show_frames` parsing,
+    // which doesn't even guarantee deterministic GOP layout for the
+    // bytes we'd actually serve back). So we always re-encode MP4 —
+    // it's the only way to guarantee a deterministic compliant
+    // output. Cost: ~10–20 s of CPU per admin save (admin uploads
+    // are rare and authenticated).
+    //
     // 2. Re-encode
     if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut);
     const ffmpegCmd = [
@@ -190,9 +162,9 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
     }
     const buf = fs.readFileSync(tmpOut);
 
-    // 3a-b. Structural + no-C2PA scan — shared with the source pre-skip
-    // path so a "skipped" source and a "transcoded" output are held to
-    // the exact same byte-level invariant.
+    // 3a-b. Structural + no-C2PA scan — held to the same byte-level
+    // invariant the docs promise (faststart, no `uuid` atom, no
+    // `c2pa`/`C2PA`/`jumb` markers anywhere).
     const cleanCheck = isMp4Clean(buf);
     if (!cleanCheck.ok) {
       throw new Error(`optimised MP4 failed structural scan: ${cleanCheck.reason}`);
@@ -244,7 +216,6 @@ export async function optimizeHeroVideoObject(objectPath: string): Promise<Optim
       optimisedPath: `/objects/uploads/${newId}`,
       sourceBytes,
       optimisedBytes: buf.length,
-      skipped: false,
     };
   } finally {
     try { fs.unlinkSync(tmpIn); } catch {}
@@ -333,20 +304,14 @@ export async function safeOptimizeHeroVideoIfMp4(
     const t0 = Date.now();
     const result = await optimizeHeroVideoObject(videoUrl);
     const dtMs = Date.now() - t0;
-    if (result.skipped) {
-      console.log(
-        `[hero-optimize] skipped ${videoUrl} (${result.skipReason}) in ${dtMs}ms`,
-      );
-    } else {
-      const before = (result.sourceBytes / 1024 / 1024).toFixed(2);
-      const after = (result.optimisedBytes / 1024 / 1024).toFixed(2);
-      const pct = result.sourceBytes
-        ? Math.round((1 - result.optimisedBytes / result.sourceBytes) * 100)
-        : 0;
-      console.log(
-        `[hero-optimize] ${videoUrl} -> ${result.optimisedPath} (${before}MB -> ${after}MB, ${pct}% smaller, ${dtMs}ms)`,
-      );
-    }
+    const before = (result.sourceBytes / 1024 / 1024).toFixed(2);
+    const after = (result.optimisedBytes / 1024 / 1024).toFixed(2);
+    const pct = result.sourceBytes
+      ? Math.round((1 - result.optimisedBytes / result.sourceBytes) * 100)
+      : 0;
+    console.log(
+      `[hero-optimize] ${videoUrl} -> ${result.optimisedPath} (${before}MB -> ${after}MB, ${pct}% smaller, ${dtMs}ms)`,
+    );
     return result.optimisedPath;
   } catch (err) {
     console.error(
