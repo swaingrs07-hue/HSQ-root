@@ -284,20 +284,34 @@ function isMp4Clean(buf: Buffer): { ok: true } | { ok: false; reason: string } {
  * missing, network error, budget violation), logs the failure and
  * returns the original path so the admin's upload is never lost.
  *
- * Pass the source content-type so we can short-circuit non-MP4 uploads
- * (WebM is already efficient and we don't want to re-encode it).
+ * Detects the source content-type via object-storage metadata FIRST so
+ * non-MP4 uploads (WebM is the common case — already efficient codec)
+ * are cleanly short-circuited with a `[hero-optimize] skipped (<type>)`
+ * log line, NOT routed through the catch-block error log.
  */
 export async function safeOptimizeHeroVideoIfMp4(
   videoUrl: string,
-  contentTypeHint?: string,
 ): Promise<string> {
   // Only handle our own object-storage uploads.
   if (!videoUrl || !videoUrl.startsWith("/objects/uploads/")) return videoUrl;
 
-  // WebM short-circuit (cheap path — avoid downloading just to detect it).
-  if (contentTypeHint && contentTypeHint.toLowerCase().includes("webm")) {
-    console.log(`[hero-optimize] skipped (webm) ${videoUrl}`);
-    return videoUrl;
+  // Cheap content-type lookup against the object metadata BEFORE we
+  // start the ffmpeg pipeline. Anything other than video/mp4 is a clean
+  // skip — log at info level, not as a failure.
+  try {
+    const svc = new ObjectStorageService();
+    const file = await svc.getObjectEntityFile(videoUrl);
+    const [meta] = await file.getMetadata();
+    const ct = (meta.contentType || "").toLowerCase();
+    if (!ct.startsWith("video/mp4")) {
+      console.log(`[hero-optimize] skipped (content-type=${ct || "<unset>"}) ${videoUrl}`);
+      return videoUrl;
+    }
+  } catch (err) {
+    // Couldn't read metadata — fall through and let optimizeHeroVideoObject
+    // attempt the full pipeline; if it also fails the catch below preserves
+    // the admin's upload.
+    console.warn(`[hero-optimize] could not read metadata for ${videoUrl} — proceeding with full pipeline`);
   }
 
   try {
