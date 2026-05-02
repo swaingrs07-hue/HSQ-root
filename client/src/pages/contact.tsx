@@ -107,61 +107,69 @@ export default function Contact() {
         </motion.div>
       </section>
 
+      {/* All content below the hero sits on an opaque dark base so the
+          global iridescent tubes layer (fixed z:0 in layout.tsx) does not
+          bleed through form fields, labels, or info cards. The hero above
+          intentionally keeps its translucent backdrop for atmosphere. */}
+      <div className="relative bg-[#070707]">
       <div className="w-full h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
 
       <section className="relative py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16">
-            <motion.div {...fadeUp}>
-              <h2 className="text-2xl md:text-3xl font-heading font-bold mb-4">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+            <motion.div
+              {...fadeUp}
+              className="rounded-3xl p-6 sm:p-8 md:p-10 bg-white/[0.025] border border-white/[0.08] backdrop-blur-xl shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+            >
+              <h2 className="text-2xl md:text-3xl font-heading font-bold mb-3">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">Send us a Message</span>
               </h2>
-              <p className="text-white/40 mb-8">Fill in the form and our team will respond within 24 hours.</p>
+              <p className="text-white/50 mb-8">Fill in the form and our team will respond within 24 hours.</p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm text-white/50 mb-2">Full Name *</label>
+                    <label className="block text-sm text-white/60 mb-2">Full Name *</label>
                     <input
                       data-testid="input-contact-name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.06] transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/60 focus:bg-black/60 transition-all"
                       placeholder="Your name"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-white/50 mb-2">Email *</label>
+                    <label className="block text-sm text-white/60 mb-2">Email *</label>
                     <input
                       data-testid="input-contact-email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.06] transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/60 focus:bg-black/60 transition-all"
                       placeholder="your@email.com"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm text-white/50 mb-2">Phone</label>
+                  <label className="block text-sm text-white/60 mb-2">Phone</label>
                   <input
                     data-testid="input-contact-phone"
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.06] transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/60 focus:bg-black/60 transition-all"
                     placeholder="+91 XXXXX XXXXX"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-white/50 mb-2">Message *</label>
+                  <label className="block text-sm text-white/60 mb-2">Message *</label>
                   <textarea
                     data-testid="input-contact-message"
                     rows={5}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.06] transition-all resize-none"
+                    className="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/60 focus:bg-black/60 transition-all resize-none"
                     placeholder="How can we help you?"
                   />
                 </div>
@@ -183,36 +191,36 @@ export default function Contact() {
               </h2>
 
               <div className="space-y-4">
-                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-500/20 flex items-center justify-center shrink-0">
                     <Mail className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-white/40 mb-1">Email</p>
+                    <p className="text-sm text-white/50 mb-1">Email</p>
                     <a href={`mailto:${contactInfo.email}`} className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-email">
                       {contactInfo.email}
                     </a>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-500/20 flex items-center justify-center shrink-0">
                     <Phone className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-white/40 mb-1">Phone</p>
+                    <p className="text-sm text-white/50 mb-1">Phone</p>
                     <a href={`tel:${contactInfo.phone.replace(/\s/g, '')}`} className="text-white hover:text-amber-400 transition-colors" data-testid="link-contact-phone">
                       {contactInfo.phone}
                     </a>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-500/20 flex items-center justify-center shrink-0">
                     <Clock className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-white/40 mb-1">Office Hours</p>
+                    <p className="text-sm text-white/50 mb-1">Office Hours</p>
                     <p className="text-white">Monday – Saturday</p>
                     <p className="text-white/60 text-sm">10:00 AM – 6:00 PM IST</p>
                   </div>
@@ -220,16 +228,16 @@ export default function Contact() {
               </div>
 
               <div className="pt-4">
-                <p className="text-sm text-white/40 mb-3">Follow us</p>
+                <p className="text-sm text-white/50 mb-3">Follow us</p>
                 <div className="flex gap-3">
-                  <a href="https://instagram.com/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.05] hover:bg-amber-500/20 border border-white/[0.08] flex items-center justify-center transition-all" data-testid="link-social-instagram-contact">
-                    <Instagram className="w-4 h-4 text-white/60 hover:text-amber-400" />
+                  <a href="https://instagram.com/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.06] hover:bg-amber-500/20 border border-white/10 flex items-center justify-center transition-all" data-testid="link-social-instagram-contact">
+                    <Instagram className="w-4 h-4 text-white/70 hover:text-amber-400" />
                   </a>
-                  <a href="https://facebook.com/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.05] hover:bg-amber-500/20 border border-white/[0.08] flex items-center justify-center transition-all" data-testid="link-social-facebook-contact">
-                    <Facebook className="w-4 h-4 text-white/60 hover:text-amber-400" />
+                  <a href="https://facebook.com/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.06] hover:bg-amber-500/20 border border-white/10 flex items-center justify-center transition-all" data-testid="link-social-facebook-contact">
+                    <Facebook className="w-4 h-4 text-white/70 hover:text-amber-400" />
                   </a>
-                  <a href="https://linkedin.com/company/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.05] hover:bg-amber-500/20 border border-white/[0.08] flex items-center justify-center transition-all" data-testid="link-social-linkedin-contact">
-                    <Linkedin className="w-4 h-4 text-white/60 hover:text-amber-400" />
+                  <a href="https://linkedin.com/company/hsquareliving" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/[0.06] hover:bg-amber-500/20 border border-white/10 flex items-center justify-center transition-all" data-testid="link-social-linkedin-contact">
+                    <Linkedin className="w-4 h-4 text-white/70 hover:text-amber-400" />
                   </a>
                 </div>
               </div>
@@ -314,7 +322,7 @@ export default function Contact() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">Ready to Find Your </span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">Perfect Stay?</span>
             </h2>
-            <p className="text-white/40 mb-8 max-w-lg mx-auto">
+            <p className="text-white/50 mb-8 max-w-lg mx-auto">
               Browse our properties across Mumbai and book your ideal student accommodation today.
             </p>
             <Link href="/properties">
@@ -330,6 +338,7 @@ export default function Contact() {
           </motion.div>
         </div>
       </section>
+      </div>
     </div>
   );
 }
