@@ -427,39 +427,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
             scrolled ? "h-16" : "h-20"
           )}
         >
-          <Link href="/" className="flex items-center gap-2 group">
-            <AnimatedLogo
-              src={activeLogo}
-              alt="Hsquare Living"
-              className={cn(
-                "w-auto object-contain transition-all duration-500",
-                scrolled ? "h-10" : "h-12"
-              )}
-            />
-          </Link>
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
+              <AnimatedLogo
+                src={activeLogo}
+                alt="Hsquare Living"
+                className={cn(
+                  "w-auto object-contain transition-all duration-500",
+                  scrolled ? "h-10" : "h-12"
+                )}
+              />
+            </Link>
 
-          {/* Floating glassmorphism Hotels switcher — always visible */}
-          <Link
-            href="/hotels"
-            className={cn(
-              "absolute left-1/2 -translate-x-1/2 hidden sm:flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 hover:scale-105 group",
-              "border backdrop-blur-xl"
-            )}
-            style={{
-              background: "rgba(197, 160, 89, 0.12)",
-              borderColor: "rgba(197, 160, 89, 0.35)",
-              boxShadow: "0 8px 24px rgba(197, 160, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-            data-testid="link-hotels-switcher"
-          >
-            <Star className="w-3.5 h-3.5" style={{ color: "#c5a059" }} fill="#c5a059" />
-            <span className="text-xs font-semibold tracking-[0.18em] uppercase" style={{ color: "#e9d5a3" }}>
-              Switch to Hotels
-            </span>
-            <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
-              →
-            </span>
-          </Link>
+            {/* Glassmorphism Hotels switcher — sits next to the logo, never overlaps nav */}
+            <Link
+              href="/hotels"
+              className={cn(
+                "hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
+                "border backdrop-blur-xl"
+              )}
+              style={{
+                background: "rgba(197, 160, 89, 0.12)",
+                borderColor: "rgba(197, 160, 89, 0.35)",
+                boxShadow: "0 8px 24px rgba(197, 160, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
+              }}
+              data-testid="link-hotels-switcher"
+            >
+              <Star className="w-3.5 h-3.5" style={{ color: "#c5a059" }} fill="#c5a059" />
+              <span className="text-[11px] font-semibold tracking-[0.16em] uppercase whitespace-nowrap" style={{ color: "#e9d5a3" }}>
+                Switch to Hotels
+              </span>
+              <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
+                →
+              </span>
+            </Link>
+          </div>
 
           <nav className="hidden md:flex items-center gap-6">
             {navItems.map((item) => (
