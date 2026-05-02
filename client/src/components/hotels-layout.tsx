@@ -5,6 +5,7 @@ import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home, Sun, Moon } from "luc
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { useAuth } from "@/contexts/auth-context";
 import { ProfileDropdown } from "./profile-dropdown";
+import { usePortalSwitch } from "./portal-transition";
 
 const HOTEL_NAV = [
   { name: "Home", href: "/hotels" },
@@ -25,6 +26,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     return stored === "light" ? "light" : "dark";
   });
   const { user, logout } = useAuth();
+  const switchPortal = usePortalSwitch();
 
   const isStaffRole = user && ["hotel_admin", "hotel_staff", "admin", "superadmin"].includes(user.role);
 
@@ -103,8 +105,9 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
             {/* Switch back to Hostel — mirrors the main-app Hotels pill */}
-            <Link
-              href="/"
+            <button
+              type="button"
+              onClick={() => switchPortal("to-hostel", "/")}
               className={cn(
                 "hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
                 "border backdrop-blur-xl"
@@ -123,7 +126,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] text-white/60 group-hover:-translate-x-0.5 transition-transform">
                 ←
               </span>
-            </Link>
+            </button>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -275,14 +278,14 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
                 Sign In
               </button>
             )}
-            <Link
-              href="/"
-              onClick={() => setMobileOpen(false)}
+            <button
+              type="button"
+              onClick={() => { setMobileOpen(false); switchPortal("to-hostel", "/"); }}
               className="block w-full py-3 text-center text-white/50 uppercase text-xs tracking-widest hover:text-white"
               data-testid="link-hotels-mobile-back-hostels"
             >
               ← Back to Hostels
-            </Link>
+            </button>
           </div>
         </div>
       )}

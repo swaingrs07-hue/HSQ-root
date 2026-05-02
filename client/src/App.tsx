@@ -69,6 +69,7 @@ import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import CollegeLandingPage from "@/pages/college-landing";
 import { ChatbotWidget } from "@/components/chatbot-widget";
+import { PortalTransitionProvider } from "@/components/portal-transition";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Hsquare Hostel Mumbai | Hostel & Co-Living in Goregaon, Juhu & Andheri near NMIMS, Mithibai",
@@ -334,7 +335,9 @@ function App() {
         <AuthProvider>
           <AuthGuardProvider>
             <PropertyProvider>
-              <AppContent />
+              <PortalTransitionProvider>
+                <AppContent />
+              </PortalTransitionProvider>
             </PropertyProvider>
           </AuthGuardProvider>
         </AuthProvider>

@@ -12,6 +12,7 @@ import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
 import { PullToRefresh } from "./pull-to-refresh";
 import { TubesContext } from "@/contexts/tubes-context";
+import { usePortalSwitch } from "./portal-transition";
 
 const TubesCursorBackground = lazy(
   () => import("@/components/tubes-cursor-background"),
@@ -67,6 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     user?.role === "hotel_admin" ||
     user?.role === "hotel_staff";
   const showHotelsSwitcher = isHotelsPublic || isHotelsStaff;
+  const switchPortal = usePortalSwitch();
 
   const isHomePage = location === "/";
   const isPropertyPage = /^\/properties(\/[^/]+)?$/.test(location);
@@ -450,8 +452,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Hidden from public visitors when superadmin has not enabled `hotels_public`.
                 Staff/admin always see it so they can preview before launch. */}
             {showHotelsSwitcher && (
-            <Link
-              href="/hotels"
+            <button
+              type="button"
+              onClick={() => switchPortal("to-hotels", "/hotels")}
               className={cn(
                 "hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
                 "border backdrop-blur-xl"
@@ -470,7 +473,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
                 →
               </span>
-            </Link>
+            </button>
             )}
           </div>
 
@@ -520,8 +523,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="md:hidden flex items-center gap-1">
             {showHotelsSwitcher && (
-            <Link
-              href="/hotels"
+            <button
+              type="button"
+              onClick={() => switchPortal("to-hotels", "/hotels")}
               className="px-3 py-1.5 rounded-full border backdrop-blur-xl flex items-center gap-1.5 mr-1"
               style={{
                 background: "rgba(197, 160, 89, 0.12)",
@@ -533,7 +537,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-semibold tracking-wider uppercase" style={{ color: "#e9d5a3" }}>
                 Hotels
               </span>
-            </Link>
+            </button>
             )}
             <button
               className={cn("p-2 rounded-full transition-colors",
