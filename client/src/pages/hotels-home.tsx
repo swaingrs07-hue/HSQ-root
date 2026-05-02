@@ -134,7 +134,7 @@ export default function HotelsHome() {
           }}
         />
 
-        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-44 sm:pb-52 lg:pb-56 text-center">
+        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-[30rem] sm:pb-96 lg:pb-56 text-center">
           <div className="hotels-fade-in">
             <p
               className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
@@ -177,7 +177,7 @@ export default function HotelsHome() {
             to /hotels/rooms with query params for location/dates/guests. */}
         <form
           onSubmit={handleBookingSearch}
-          className="absolute left-1/2 -translate-x-1/2 bottom-10 sm:bottom-14 z-30 w-full max-w-6xl px-4 sm:px-6"
+          className="absolute left-1/2 -translate-x-1/2 bottom-12 sm:bottom-16 lg:bottom-20 z-30 w-full max-w-6xl px-4 sm:px-6"
           data-testid="hero-booking-bar"
         >
           <div
