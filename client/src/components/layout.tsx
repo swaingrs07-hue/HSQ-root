@@ -10,7 +10,6 @@ import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
-import { AnimatedLogo } from "./animated-logo";
 import { PullToRefresh } from "./pull-to-refresh";
 import { TubesContext } from "@/contexts/tubes-context";
 
@@ -437,7 +436,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-              <AnimatedLogo
+              <img
                 src={activeLogo}
                 alt="Hsquare Living"
                 className={cn(
