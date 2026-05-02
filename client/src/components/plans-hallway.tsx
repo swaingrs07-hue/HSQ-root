@@ -110,6 +110,13 @@ export function PlansHallway({
   // test environments without relying on connection / motion hints
   // that vary between headless and real Chromium.
   const [showBackdropVideo, setShowBackdropVideo] = useState(true);
+  const backdropVideoRef = useRef<HTMLVideoElement>(null);
+
+  // The off-screen-pause IntersectionObserver effect lives further
+  // down — it must be declared AFTER `frames` is built so it can
+  // depend on `frames.length` and re-attach the moment the <section>
+  // actually mounts (the component returns null while plans are
+  // still loading).
 
   // Phone-sized viewport detection. The desktop layout puts cards
   // on the left and right walls of a corridor at left:20% / right:20%
@@ -244,6 +251,46 @@ export function PlansHallway({
   const trackTransform = useMotionTemplate`translateZ(${cameraZ}px)`;
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
 
+  // Pause the backdrop video whenever this section is fully off-screen.
+  // Continuous decode of a looping <video> behind a CSS-3D perspective
+  // transform is one of the heaviest things a browser can do — on
+  // Windows + Chrome it visibly drops the frame rate of the rest of
+  // the page even when the user has scrolled far past this section.
+  // IntersectionObserver gives us a cheap, framework-free way to free
+  // the decoder while the section isn't visible.
+  //
+  // NOTE: this effect depends on `frames.length > 0` so it re-runs the
+  // moment plans data arrives and the <section> actually mounts. The
+  // component returns null while `frames.length === 0`, so an `[]`-deps
+  // effect would run once with a null ref and never re-attach.
+  const sectionMounted = frames.length > 0;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!sectionMounted) return;
+    const sec = containerRef.current;
+    if (!sec) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const v = backdropVideoRef.current;
+        if (!v) return;
+        if (entry.isIntersecting) {
+          // Don't bother trying to play in a hidden tab — Chrome will
+          // queue and reject the promise anyway, and on resume the
+          // `autoPlay` attribute brings it back without our help.
+          if (document.visibilityState !== "visible") return;
+          // Resume — ignore the promise; autoplay policy may still
+          // block but the <video> will retry on next interaction.
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      },
+      { threshold: 0 },
+    );
+    obs.observe(sec);
+    return () => obs.disconnect();
+  }, [sectionMounted]);
+
   // Outer container height: roughly one viewport per frame so the user has
   // enough scroll runway to walk through the entire archive. On mobile we
   // pair this with the tighter zStep above so a swipe-window equals about
@@ -363,6 +410,7 @@ export function PlansHallway({
               aria-hidden="true"
             >
               <video
+                ref={backdropVideoRef}
                 src={hallwayLoopVideo}
                 muted
                 autoPlay
@@ -376,13 +424,33 @@ export function PlansHallway({
                 className="w-full h-full object-cover"
                 style={{
                   opacity: 0.6,
-                  WebkitMaskImage:
-                    "linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
-                  maskImage:
-                    "linear-gradient(180deg, transparent 0%, black 12%, black 88%, transparent 100%)",
                   transform: "translateZ(0)",
                   willChange: "transform",
                   backfaceVisibility: "hidden",
+                }}
+              />
+              {/* Top + bottom fade-to-black overlays. We used to apply
+                  these as `mask-image: linear-gradient(...)` directly
+                  on the <video>, but mask-image on a playing video
+                  forces Windows-Chrome's compositor onto a slower
+                  path that visibly tanks the framerate of the entire
+                  page. Two sibling gradient divs hand the compositor
+                  pure rectangle blends instead, which it accelerates
+                  on the GPU on every platform. The same visual fade
+                  is preserved because the divs sit above the video
+                  in the same z-index band. */}
+              <div
+                className="absolute top-0 left-0 right-0 h-[12%] pointer-events-none"
+                style={{
+                  background:
+                    "linear-gradient(180deg, #000 0%, transparent 100%)",
+                }}
+              />
+              <div
+                className="absolute bottom-0 left-0 right-0 h-[12%] pointer-events-none"
+                style={{
+                  background:
+                    "linear-gradient(0deg, #000 0%, transparent 100%)",
                 }}
               />
             </div>

@@ -171,6 +171,47 @@ export default function TubesCursorBackground({
           return;
         }
 
+        // Adaptive FPS gate — measure the page's baseline frame rate
+        // BEFORE instantiating the heavy WebGL context. On Windows +
+        // an integrated or older discrete GPU the iridescent shader
+        // stacked with the rest of the page (CSS-3D perspective in
+        // plans-hallway, particle canvas, framer-motion scroll
+        // subscriptions) can't sustain 60fps and the user perceives
+        // the whole site as laggy even on a decent gaming laptop.
+        // Apple GPUs handle this load fine, so we don't disable
+        // outright — we measure first and only bail when we KNOW the
+        // device can't afford it. Hidden tabs (and headless test
+        // environments) report 0 fps from RAF, so we skip the gate
+        // when the tab isn't visible to avoid a false positive.
+        if (document.visibilityState === "visible") {
+          const fps = await new Promise<number>((resolve) => {
+            const SAMPLE_MS = 900;
+            let frames = 0;
+            const t0 = performance.now();
+            const tick = () => {
+              if (cancelled) return resolve(60); // bail measurement on teardown
+              frames++;
+              const elapsed = performance.now() - t0;
+              if (elapsed >= SAMPLE_MS) {
+                resolve((frames / elapsed) * 1000);
+              } else {
+                requestAnimationFrame(tick);
+              }
+            };
+            requestAnimationFrame(tick);
+          });
+          if (cancelled) return;
+          const MIN_FPS = 45;
+          if (fps < MIN_FPS) {
+            console.log(
+              `[TubesCursor] disabled — baseline ${fps.toFixed(1)} fps below ${MIN_FPS} threshold`,
+            );
+            fail(`baseline frame rate ${fps.toFixed(1)} fps too low`);
+            return;
+          }
+          console.log(`[TubesCursor] baseline ${fps.toFixed(1)} fps — enabling`);
+        }
+
         // Verify the canvas can actually produce a WebGL context BEFORE
         // handing it to the lib. The lib reads getContext("webgl2")
         // internally and if the browser refuses (iframe sandbox,
