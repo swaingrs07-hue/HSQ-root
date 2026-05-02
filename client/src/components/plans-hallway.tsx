@@ -571,9 +571,26 @@ export function PlansHallway({
                     borderRadius: 6,
                     overflow: "hidden",
                     isolation: "isolate",
-                    boxShadow: `0 30px 80px -20px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,0,0,0.6) inset, 0 0 60px -10px ${tier.glow}`,
+                    // Resting shadow: cut blur radii roughly in half vs the
+                    // original (was 80px / 60px). Each card has to be
+                    // re-rasterized whenever the parent track's scroll-driven
+                    // translateZ moves it through 3D space, and the blur
+                    // radius dominates that cost on Windows-Chrome where
+                    // every card was visibly dragging during scroll. The
+                    // larger glow lives on the hover shadow below where
+                    // the user is on a single card and re-rasterization
+                    // happens once.
+                    boxShadow: `0 18px 40px -16px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,0,0,0.6) inset, 0 0 25px -8px ${tier.glow}`,
+                    // Don't include `transform` in the transition list —
+                    // transform NEVER animates on these cards (the parent
+                    // track owns the scroll-driven translateZ; the card's
+                    // own transform is computed once per render). Listing
+                    // it here just makes Chrome track every transform
+                    // change for transition purposes during scroll, which
+                    // it then has to discard. Drop it for a measurable
+                    // win on Windows.
                     transition:
-                      "filter 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
+                      "filter 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
                     transform: buttonTransform,
                     transformOrigin: "center center",
                     // Reference trick: parents are pointer-events:none;
@@ -582,24 +599,35 @@ export function PlansHallway({
                     // only considers the cards themselves.
                     pointerEvents: "auto",
                     zIndex: 20,
+                    // Hint to the compositor that this card should live on
+                    // its own GPU layer. Combined with `contain: paint`
+                    // (which guarantees nothing inside the card paints
+                    // outside its border) the card becomes a stable
+                    // pre-composited bitmap that the parent's scroll-driven
+                    // translateZ can simply translate, instead of forcing
+                    // Chrome to re-rasterize the box-shadow + content on
+                    // every scroll frame. Only safe to add here because
+                    // we know the card count is small (~8 max).
+                    willChange: "transform",
+                    contain: "layout paint",
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget;
                     el.style.filter = "brightness(1.18)";
                     el.style.borderColor = tier.accent;
-                    el.style.boxShadow = `0 0 0 1px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
+                    el.style.boxShadow = `0 0 0 1px ${tier.accentSoft}, 0 22px 50px -16px rgba(0,0,0,0.9), 0 0 50px -6px ${tier.glow}`;
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget;
                     el.style.filter = "";
                     el.style.borderColor = tier.chipBorder;
-                    el.style.boxShadow = `0 0 0 1px rgba(0,0,0,0.6), 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 60px -10px ${tier.glow}`;
+                    el.style.boxShadow = `0 18px 40px -16px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,0,0,0.6) inset, 0 0 25px -8px ${tier.glow}`;
                   }}
                   onFocus={(e) => {
                     const el = e.currentTarget;
                     el.style.filter = "brightness(1.18)";
                     el.style.borderColor = tier.accent;
-                    el.style.boxShadow = `0 0 0 2px ${tier.accentSoft}, 0 30px 80px -20px rgba(0,0,0,0.9), 0 0 90px -5px ${tier.glow}`;
+                    el.style.boxShadow = `0 0 0 2px ${tier.accentSoft}, 0 22px 50px -16px rgba(0,0,0,0.9), 0 0 50px -6px ${tier.glow}`;
                   }}
                   onBlur={(e) => {
                     const el = e.currentTarget;
