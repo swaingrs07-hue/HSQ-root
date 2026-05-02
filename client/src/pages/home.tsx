@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   useMemo,
@@ -1219,6 +1220,19 @@ export default function Home() {
   // the tubes stay at full brightness throughout (no scroll-tied fade).
   const [heroFullyCovered, setHeroFullyCovered] = useState(false);
   const heroInViewport = !heroFullyCovered;
+  const tubesCtx = useContext(TubesContext);
+  // Prevent first-paint flash of the iridescent tubes on the home
+  // route. The CSS variable defaults to `1` in layout.tsx, so without
+  // this synchronous pre-paint write the tubes would be momentarily
+  // visible behind the hero between mount and the scroll effect below
+  // running. useLayoutEffect runs after DOM mutations but before the
+  // browser paints, so the tubes start hidden from the very first
+  // frame on this route. Reduced-motion users still see this hide
+  // because the dedicated reduced-motion branch below also starts at
+  // 0 and only flips to 1 once the hero scrolls out of view.
+  useLayoutEffect(() => {
+    tubesCtx.setRevealOpacity?.(0);
+  }, [tubesCtx]);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1236,27 +1250,18 @@ export default function Home() {
         // Without IntersectionObserver we can't track the hero, so
         // fall back to leaving the tubes at full brightness so the
         // user still sees the iridescent background somewhere.
-        document.documentElement.style.setProperty(
-          "--tubes-reveal-opacity",
-          "1",
-        );
+        tubesCtx.setRevealOpacity?.(1);
         return;
       }
       // Initial state: hero is in view at mount, so tubes start hidden.
-      document.documentElement.style.setProperty(
-        "--tubes-reveal-opacity",
-        "0",
-      );
+      tubesCtx.setRevealOpacity?.(0);
       const obs = new IntersectionObserver(
         (entries) => {
           const e = entries[0];
           if (!e) return;
           const covered = !e.isIntersecting;
           setHeroFullyCovered(covered);
-          document.documentElement.style.setProperty(
-            "--tubes-reveal-opacity",
-            covered ? "1" : "0",
-          );
+          tubesCtx.setRevealOpacity?.(covered ? 1 : 0);
         },
         { threshold: 0 },
       );
@@ -1265,10 +1270,7 @@ export default function Home() {
         obs.disconnect();
         // Restore tubes to full brightness on unmount so other routes
         // (which don't run this effect) see the tubes immediately.
-        document.documentElement.style.setProperty(
-          "--tubes-reveal-opacity",
-          "1",
-        );
+        tubesCtx.setRevealOpacity?.(1);
       };
     }
 
@@ -1296,10 +1298,7 @@ export default function Home() {
       // the user has fully entered the Why Choose section the tubes
       // are at full brightness behind it.
       const opacity = Math.max(0, Math.min(1, (progress - 1.0) / 0.3));
-      document.documentElement.style.setProperty(
-        "--tubes-reveal-opacity",
-        String(opacity),
-      );
+      tubesCtx.setRevealOpacity?.(opacity);
     };
     const onScroll = () => {
       if (!ticking) {
@@ -1316,12 +1315,9 @@ export default function Home() {
       // Restore tubes to full brightness on unmount so subsequent
       // routes (which do not run this scroll handler) see the tubes
       // at full strength immediately.
-      document.documentElement.style.setProperty(
-        "--tubes-reveal-opacity",
-        "1",
-      );
+      tubesCtx.setRevealOpacity?.(1);
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, tubesCtx]);
 
   // Mirror heroInViewport into the ref consumed by `tryPlay` (declared
   // earlier in the file, where the load pipeline lives). See the long
@@ -1341,7 +1337,9 @@ export default function Home() {
     videoSupported &&
     !videoFailed
   );
-  const tubesCtx = useContext(TubesContext);
+  // Note: `tubesCtx` is already declared above (with the heroFullyCovered
+  // / setRevealOpacity wiring for the card-swipe scroll handler), so we
+  // reuse the same reference here for the pause-requested coordination.
   useEffect(() => {
     const setPauseRequested = tubesCtx.setPauseRequested;
     if (!setPauseRequested) return;
