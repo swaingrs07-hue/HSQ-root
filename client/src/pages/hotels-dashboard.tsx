@@ -442,6 +442,12 @@ function RoomsPanel({ hotels }: { hotels: Property[] }) {
   );
 }
 
+interface StaffMember {
+  id: string;
+  name: string;
+  email?: string | null;
+}
+
 /* ============ Housekeeping Panel ============ */
 function HousekeepingPanel({
   tasks, hotels, token, mineOnly, userId,
@@ -449,12 +455,29 @@ function HousekeepingPanel({
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
+  // Admins can reassign existing tasks — load staff for the inline dropdown.
+  const canAssign = !mineOnly;
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["/api/hotels/staff"],
+    queryFn: async () => {
+      const res = await fetch("/api/hotels/staff", { headers: authHeaders(token) });
+      if (!res.ok) throw new Error("Failed to load staff");
+      return res.json();
+    },
+    enabled: !!token && canAssign,
+  });
+  const staffById = useMemo(() => {
+    const m = new Map<string, StaffMember>();
+    staff.forEach((s) => m.set(s.id, s));
+    return m;
+  }, [staff]);
+
   const updateTask = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
       const res = await fetch(`/api/housekeeping/tasks/${id}`, {
         method: "PATCH",
         headers: authHeaders(token),
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error("Failed to update");
       return res.json();
@@ -512,16 +535,36 @@ function HousekeepingPanel({
                     {property?.name || "—"} · Room {t.roomLabel || "—"}
                     {t.scheduledFor ? ` · ${new Date(t.scheduledFor).toLocaleDateString()}` : ""}
                   </p>
+                  <p className="text-white/40 text-[11px] mt-1" data-testid={`text-assignee-${t.id}`}>
+                    Assigned to: {t.assignedTo ? (staffById.get(t.assignedTo)?.name || "—") : "Unassigned"}
+                  </p>
                   {t.notes && <p className="text-white/40 text-xs mt-1 italic break-words">"{t.notes}"</p>}
                 </div>
                 <div className="flex items-center justify-between md:justify-start gap-3 md:contents">
                   <span className={`px-3 py-1 text-[10px] uppercase tracking-widest border ${STATUS_PILL[t.status] || ""} whitespace-nowrap`}>
                     {t.status.replace("_", " ")}
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canAssign && (
+                      <select
+                        value={t.assignedTo || ""}
+                        onChange={(e) =>
+                          updateTask.mutate({ id: t.id, patch: { assignedTo: e.target.value || null } })
+                        }
+                        className="bg-transparent text-white/70 text-[10px] uppercase tracking-widest p-2 border border-white/10 outline-none"
+                        data-testid={`select-reassign-${t.id}`}
+                      >
+                        <option value="" className="bg-black">Unassigned</option>
+                        {staff.map((s) => (
+                          <option key={s.id} value={s.id} className="bg-black">
+                            {s.name}{s.email ? ` (${s.email})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {t.status === "pending" && (
                       <button
-                        onClick={() => updateTask.mutate({ id: t.id, status: "in_progress" })}
+                        onClick={() => updateTask.mutate({ id: t.id, patch: { status: "in_progress" } })}
                         className="px-3 sm:px-4 py-2 text-[10px] uppercase tracking-widest text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 whitespace-nowrap"
                         data-testid={`button-start-${t.id}`}
                       >
@@ -530,7 +573,7 @@ function HousekeepingPanel({
                     )}
                     {t.status === "in_progress" && (
                       <button
-                        onClick={() => updateTask.mutate({ id: t.id, status: "completed" })}
+                        onClick={() => updateTask.mutate({ id: t.id, patch: { status: "completed" } })}
                         className="px-3 sm:px-4 py-2 text-[10px] uppercase tracking-widest text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 whitespace-nowrap"
                         data-testid={`button-complete-${t.id}`}
                       >
@@ -549,12 +592,6 @@ function HousekeepingPanel({
 }
 
 /* ============ Create Task Modal ============ */
-interface StaffMember {
-  id: string;
-  name: string;
-  email?: string | null;
-}
-
 function CreateTaskModal({
   token, hotels, userId, onClose,
 }: { token: string | null; hotels: Property[]; userId: string; onClose: () => void }) {
