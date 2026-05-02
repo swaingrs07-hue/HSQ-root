@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Menu, X, Sparkles, LayoutDashboard, LogOut } from "lucide-react";
+import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home } from "lucide-react";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { useAuth } from "@/contexts/auth-context";
 import { ProfileDropdown } from "./profile-dropdown";
@@ -72,6 +72,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           "container mx-auto px-6 flex items-center justify-between transition-all duration-500",
           scrolled ? "h-16" : "h-20"
         )}>
+          <div className="flex items-center gap-3">
           <Link href="/hotels" className="flex items-center gap-3 group" data-testid="link-hotels-logo">
             <img
               src={hsquareLogo}
@@ -83,6 +84,30 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
               Hotels
             </span>
           </Link>
+
+            {/* Switch back to Hostel — mirrors the main-app Hotels pill */}
+            <Link
+              href="/"
+              className={cn(
+                "hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
+                "border backdrop-blur-xl"
+              )}
+              style={{
+                background: "rgba(255, 255, 255, 0.06)",
+                borderColor: "rgba(255, 255, 255, 0.18)",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
+              }}
+              data-testid="link-hostel-switcher"
+            >
+              <Home className="w-3.5 h-3.5 text-white/80" />
+              <span className="text-[11px] font-semibold tracking-[0.16em] uppercase whitespace-nowrap text-white/85">
+                Switch to Hostel
+              </span>
+              <span className="text-[10px] text-white/60 group-hover:-translate-x-0.5 transition-transform">
+                ←
+              </span>
+            </Link>
+          </div>
 
           <nav className="hidden md:flex items-center gap-8">
             {HOTEL_NAV.map((item) => {
