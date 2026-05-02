@@ -12,3 +12,9 @@ id = "k-xwv8pH--Fl9xywmSE4v"
 uri = "file://exports/hsquare-juhu-brochure.pptx"
 type = "slides"
 title = "Hsquare Juhu - Brochure (PPT, mirrors PDF)"
+
+[[outputs]]
+id = "Jl-TUU83w8UKK080JUeH9"
+uri = "file://.local/test-hero.jpeg"
+type = "image"
+title = "Playwright test screenshot"

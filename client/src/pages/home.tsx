@@ -72,6 +72,24 @@ import { PlansHallway } from "@/components/plans-hallway";
 // this naturally because the module is re-evaluated.
 let loaderSeen = false;
 
+// Tiny inline SVG data URL used as the absolute-last-resort hero
+// poster when the active slide has no image, the API hasn't
+// returned a property image yet, and we still need *something*
+// visible so the hero is never black behind the splash. Dark
+// brand-gradient (matches the splash background) and ~400 bytes,
+// so it costs nothing on the wire.
+const HERO_POSTER_FALLBACK =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='xMidYMid slice'>" +
+      "<defs><radialGradient id='g' cx='50%' cy='40%' r='80%'>" +
+      "<stop offset='0%' stop-color='#1a0a16'/>" +
+      "<stop offset='55%' stop-color='#0a0a0a'/>" +
+      "<stop offset='100%' stop-color='#000'/>" +
+      "</radialGradient></defs>" +
+      "<rect width='1920' height='1080' fill='url(#g)'/></svg>",
+  );
+
 function useMouseTilt(intensity = 15) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -786,8 +804,102 @@ export default function Home() {
   const signedUrlCache = useRef<
     Record<string, { url: string; expires: number; contentType?: string }>
   >({});
+  // In-flight dedupe: when both the parallel prewarm effect and the
+  // active-slide resolver want the same signed URL, share a single
+  // promise instead of firing two parallel fetches for the same
+  // object path.
+  const signedUrlInFlight = useRef<
+    Record<
+      string,
+      Promise<{ url: string; contentType?: string } | null> | undefined
+    >
+  >({});
+
+  const fetchSignedUrl = useCallback(
+    async (
+      objectPath: string,
+    ): Promise<{ url: string; contentType?: string } | null> => {
+      const cached = signedUrlCache.current[objectPath];
+      if (cached && cached.expires > Date.now()) {
+        return { url: cached.url, contentType: cached.contentType };
+      }
+      const existing = signedUrlInFlight.current[objectPath];
+      if (existing) return existing;
+      const promise = (async () => {
+        try {
+          const r = await fetch(
+            `/api/uploads/signed-url?path=${encodeURIComponent(objectPath)}`,
+          );
+          if (!r.ok) return null;
+          const data = await r.json();
+          if (!data?.url) return null;
+          signedUrlCache.current[objectPath] = {
+            url: data.url,
+            expires: Date.now() + 50 * 60 * 1000,
+            contentType: data.contentType,
+          };
+          return { url: data.url, contentType: data.contentType };
+        } catch {
+          return null;
+        } finally {
+          delete signedUrlInFlight.current[objectPath];
+        }
+      })();
+      signedUrlInFlight.current[objectPath] = promise;
+      return promise;
+    },
+    [],
+  );
 
   const hasAnyVideo = heroSlides.some((s) => s.videoUrl);
+
+  // Parallel signed-URL pre-warm: as soon as we have any hero slides
+  // with a videoUrl, kick off (capped) parallel fetches for ALL of
+  // them and prime the cache. By the time the user's active slide
+  // changes, the resolved URL is already there — no serial waterfall
+  // before video.src can even be set. Cap is 3 concurrent fetches
+  // so we don't hammer the signed-url endpoint if a future hero has
+  // many video slides.
+  useEffect(() => {
+    const slideUrls = heroSlides
+      .map((s) => s.videoUrl)
+      .filter((u): u is string => !!u);
+    if (slideUrls.length === 0) return;
+    let cancelled = false;
+    // Active slide first so its URL gets prioritized.
+    const queue = [
+      ...slideUrls.filter((u) => u === currentVideoUrl),
+      ...slideUrls.filter((u) => u !== currentVideoUrl),
+    ];
+    let inFlight = 0;
+    const pump = () => {
+      if (cancelled) return;
+      while (inFlight < 3 && queue.length > 0) {
+        const url = queue.shift()!;
+        const cached = signedUrlCache.current[url];
+        if (cached && cached.expires > Date.now()) continue;
+        inFlight += 1;
+        fetchSignedUrl(url)
+          .then((res) => {
+            if (cancelled || !res) return;
+            console.debug("[hero-video] signed-url-prewarmed", url);
+          })
+          .finally(() => {
+            inFlight -= 1;
+            pump();
+          });
+      }
+    };
+    pump();
+    return () => {
+      cancelled = true;
+    };
+  // currentVideoUrl is intentionally read but excluded from deps —
+  // we only re-run the prefetch when the slide LIST changes; the
+  // active-slide effect below handles per-slide resolution and will
+  // hit the warmed cache.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroSlides]);
 
   useEffect(() => {
     if (!currentVideoUrl) {
@@ -795,43 +907,42 @@ export default function Home() {
       setVideoSupported(false);
       return;
     }
+    console.debug("[hero-video] slide-picked", currentVideoUrl);
     const cached = signedUrlCache.current[currentVideoUrl];
     if (cached && cached.expires > Date.now()) {
       const ct = cached.contentType || inferContentType(currentVideoUrl);
       const supported = ct ? browserCanPlay(ct) : true;
+      console.debug("[hero-video] signed-url-cache-hit", { supported, ct });
       setVideoSupported(supported);
       setResolvedVideoUrl(supported ? cached.url : null);
-      if (!supported) setVideoFailed(true);
+      if (!supported) {
+        console.debug("[hero-video] fallback-shown unsupported-codec", ct);
+        setVideoFailed(true);
+      }
       return;
     }
     let cancelled = false;
-    fetch(`/api/uploads/signed-url?path=${encodeURIComponent(currentVideoUrl)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
+    fetchSignedUrl(currentVideoUrl)
+      .then((res) => {
         if (cancelled) return;
-        if (data?.url) {
-          signedUrlCache.current[currentVideoUrl] = {
-            url: data.url,
-            expires: Date.now() + 50 * 60 * 1000,
-            contentType: data.contentType,
-          };
+        if (res?.url) {
           const ct =
-            data.contentType || inferContentType(currentVideoUrl) || "";
+            res.contentType || inferContentType(currentVideoUrl) || "";
           const supported = ct ? browserCanPlay(ct) : true;
+          console.debug("[hero-video] signed-url-ok", { supported, ct });
           setVideoSupported(supported);
           if (supported) {
-            setResolvedVideoUrl(data.url);
+            setResolvedVideoUrl(res.url);
           } else {
+            console.debug(
+              "[hero-video] fallback-shown unsupported-codec",
+              ct,
+            );
             setResolvedVideoUrl(null);
             setVideoFailed(true);
           }
         } else {
-          setVideoSupported(false);
-          setVideoFailed(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
+          console.debug("[hero-video] signed-url-fail empty-response");
           setVideoSupported(false);
           setVideoFailed(true);
         }
@@ -839,24 +950,36 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [currentVideoUrl, browserCanPlay, inferContentType]);
+  }, [currentVideoUrl, browserCanPlay, inferContentType, fetchSignedUrl]);
+
+  // Track when the video became playable (canplay fired). The
+  // playback-quality watchdog uses this to skip the first 4s of
+  // decoder warm-up, where dropped frames are normal and don't
+  // indicate a real playback problem.
+  const videoPlaybackStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!resolvedVideoUrl || !heroVideoRef.current) return;
     const video = heroVideoRef.current;
     setVideoReady(false);
     setVideoFailed(false);
-
-    video.src = resolvedVideoUrl;
-    video.load();
+    videoPlaybackStartRef.current = null;
 
     const tryPlay = () => {
+      if (videoPlaybackStartRef.current === null) {
+        videoPlaybackStartRef.current = performance.now();
+      }
+      console.debug("[hero-video] canplay -> play()");
       setVideoReady(true);
       const playPromise = video.play();
       if (playPromise)
         playPromise.catch(() => {
           video.muted = true;
-          video.play().catch(() => {
+          video.play().catch((err) => {
+            console.debug(
+              "[hero-video] fallback-shown play-rejected",
+              err?.message || err,
+            );
             setVideoFailed(true);
           });
         });
@@ -867,29 +990,146 @@ export default function Home() {
       if (!videoReady) tryPlay();
     };
     const onError = () => {
+      console.debug(
+        "[hero-video] fallback-shown video-error",
+        "code=",
+        video.error?.code,
+        "msg=",
+        video.error?.message,
+      );
       setVideoFailed(true);
       setVideoReady(false);
     };
 
+    // Listeners MUST be attached BEFORE setting src and calling
+    // load(), otherwise an immediate (sync or microtask) error
+    // event from setting an invalid/expired src can fire before
+    // we get a chance to listen — leaving video.error set with
+    // nobody to react to it. The Task #143 e2e test caught
+    // exactly this regression.
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("loadeddata", onLoadedData);
     video.addEventListener("error", onError);
 
-    const failsafeTimeout = setTimeout(() => {
-      if (!videoReady) {
-        if (video.readyState >= 2) {
-          tryPlay();
-        } else {
-          setVideoFailed(true);
-        }
+    video.src = resolvedVideoUrl;
+    video.load();
+    // We deliberately DO NOT call video.play() here. The autoPlay
+    // attribute on the <video> element handles initial playback
+    // once the browser has buffered enough metadata. Calling
+    // play() manually right after load() races with autoPlay and
+    // can produce spurious aborted-play errors on some
+    // browsers / playwright environments.
+
+    // Progressive failsafe (Task #143-tuned, then hardened after
+    // the architect review caught a hang risk):
+    //   - First check at 12s. We used to flip videoFailed
+    //     unconditionally, but with preload="metadata" the
+    //     browser legitimately takes longer to reach
+    //     HAVE_CURRENT_DATA on slow networks — and a poster is
+    //     always visible during the wait so there's no UX cost
+    //     to being patient.
+    //   - If still not ready and video has had no real error,
+    //     keep checking every 4s. Each check tries to detect
+    //     forward progress (buffered length growing) and gives
+    //     up if there has been no progress across 2 consecutive
+    //     idle checks (~8s of true silence after the 12s
+    //     initial wait).
+    //   - Hard cap at 30s total — if we're still not ready by
+    //     then, fall back to the static image regardless. This
+    //     prevents the "video mode but never ready" hang the
+    //     architect warned about.
+    const SOFT_CAP_MS = 12000;
+    const HARD_CAP_MS = 30000;
+    const POLL_MS = 4000;
+    const startedAt = performance.now();
+    let lastBufferedEnd = -1;
+    let idleChecks = 0;
+    const failsafeId = window.setInterval(() => {
+      if (videoReady) {
+        window.clearInterval(failsafeId);
+        return;
       }
-    }, 5000);
+      const elapsed = performance.now() - startedAt;
+      if (elapsed < SOFT_CAP_MS) return;
+      if (video.error) {
+        console.debug(
+          "[hero-video] failsafe-fired fallback-shown video-error",
+          "code=",
+          video.error.code,
+          "msg=",
+          video.error.message,
+        );
+        setVideoFailed(true);
+        window.clearInterval(failsafeId);
+        return;
+      }
+      if (video.readyState >= 2) {
+        console.debug("[hero-video] failsafe-fired readyState>=2");
+        tryPlay();
+        window.clearInterval(failsafeId);
+        return;
+      }
+      // NETWORK_NO_SOURCE === 3 — browser gave up on the URL.
+      if (video.networkState === 3) {
+        console.debug("[hero-video] failsafe-fired fallback-shown no-source");
+        setVideoFailed(true);
+        window.clearInterval(failsafeId);
+        return;
+      }
+      // Hard cap: don't let the user sit on a poster forever.
+      if (elapsed >= HARD_CAP_MS) {
+        console.debug(
+          "[hero-video] failsafe-fired fallback-shown hard-cap",
+          "readyState=",
+          video.readyState,
+          "networkState=",
+          video.networkState,
+        );
+        setVideoFailed(true);
+        window.clearInterval(failsafeId);
+        return;
+      }
+      // Progress check: is the browser still pulling bytes?
+      let bufferedEnd = 0;
+      try {
+        if (video.buffered && video.buffered.length > 0) {
+          bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        }
+      } catch {
+        // ignore
+      }
+      if (bufferedEnd > lastBufferedEnd) {
+        lastBufferedEnd = bufferedEnd;
+        idleChecks = 0;
+      } else {
+        idleChecks += 1;
+      }
+      if (idleChecks >= 2) {
+        console.debug(
+          "[hero-video] failsafe-fired fallback-shown no-progress",
+          "bufferedEnd=",
+          bufferedEnd,
+        );
+        setVideoFailed(true);
+        window.clearInterval(failsafeId);
+        return;
+      }
+      console.debug(
+        "[hero-video] failsafe-fired keep-waiting",
+        "elapsed=",
+        Math.round(elapsed),
+        "readyState=",
+        video.readyState,
+        "bufferedEnd=",
+        bufferedEnd,
+      );
+    }, POLL_MS);
 
     return () => {
       video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("loadeddata", onLoadedData);
       video.removeEventListener("error", onError);
-      clearTimeout(failsafeTimeout);
+      window.clearInterval(failsafeId);
     };
   }, [resolvedVideoUrl]);
 
@@ -958,7 +1198,15 @@ export default function Home() {
       setPlaceholderHidden(false);
       return;
     }
-    const t = window.setTimeout(() => setPlaceholderHidden(true), 800);
+    // Match the placeholder's transition-opacity duration-500
+    // (was 800ms): if we waited 300ms past the visible fade we
+    // ended up with a window where the placeholder was opacity:0
+    // but still mounted (so its mask was inert) AND the video
+    // mask was still gated off (waiting for placeholderHidden) —
+    // so the bottom of the hero showed a hard edge for ~300ms
+    // before the feather reappeared. Aligning to 500ms hands the
+    // mask off cleanly the instant the placeholder is gone.
+    const t = window.setTimeout(() => setPlaceholderHidden(true), 500);
     return () => window.clearTimeout(t);
   }, [videoReady, currentSlide]);
 
@@ -969,10 +1217,20 @@ export default function Home() {
   // codec / canPlayType pre-flight can't predict (decoder backpressure
   // on slow CPUs, thermal throttling on phones, contended GPUs, etc.)
   // and prevents users from ever sitting through visible stutter.
+  //
+  // Tunables (after Task #143 — was firing prematurely during decoder
+  // warm-up which read to users as "the video hangs"):
+  //   - WARMUP_MS: skip the first 4s after canplay; warm-up + tube
+  //     pause coordination + font swap legitimately drop frames here.
+  //   - droppedDelta > 40 AND droppedDelta/totalDelta > 0.15: was
+  //     > 20 AND > 0.10. Less twitchy on integrated GPUs.
+  //   - badWindows >= 3 (was 2): require sustained badness so a
+  //     single GC pause or tab-switch glitch can't hide the video.
   useEffect(() => {
     if (!videoReady || videoFailed) return;
     const video = heroVideoRef.current;
     if (!video || typeof video.getVideoPlaybackQuality !== "function") return;
+    const WARMUP_MS = 4000;
     let lastDropped = 0;
     let lastTotal = 0;
     let badWindows = 0;
@@ -984,22 +1242,39 @@ export default function Home() {
       return;
     }
     const id = window.setInterval(() => {
+      const playbackStart = videoPlaybackStartRef.current;
+      const inWarmup =
+        playbackStart === null ||
+        performance.now() - playbackStart < WARMUP_MS;
       try {
         const q = video.getVideoPlaybackQuality();
+        if (inWarmup) {
+          // Reset the baseline during warm-up so warm-up drops
+          // never count against the post-warm-up windows.
+          lastDropped = q.droppedVideoFrames;
+          lastTotal = q.totalVideoFrames;
+          return;
+        }
         const droppedDelta = q.droppedVideoFrames - lastDropped;
         const totalDelta = q.totalVideoFrames - lastTotal;
         lastDropped = q.droppedVideoFrames;
         lastTotal = q.totalVideoFrames;
         const tooManyDropped =
           totalDelta > 0 &&
-          droppedDelta > 20 &&
-          droppedDelta / totalDelta > 0.1;
+          droppedDelta > 40 &&
+          droppedDelta / totalDelta > 0.15;
         if (tooManyDropped) {
           badWindows += 1;
         } else {
           badWindows = 0;
         }
-        if (badWindows >= 2) {
+        if (badWindows >= 3) {
+          console.debug("[hero-video] quality-watchdog-fired", {
+            droppedDelta,
+            totalDelta,
+            rate: droppedDelta / totalDelta,
+          });
+          console.debug("[hero-video] fallback-shown quality-watchdog");
           setVideoFailed(true);
         }
       } catch {
@@ -1008,6 +1283,21 @@ export default function Home() {
     }, 2000);
     return () => window.clearInterval(id);
   }, [videoReady, videoFailed, currentSlide]);
+
+  // Compute the poster source for the hero video. Always returns a
+  // visible image so the hero is never black behind the splash —
+  // even when the active slide has no image_url and the API hasn't
+  // returned a property image yet. Order:
+  //   1) the active slide's own image (admin-set hero photo)
+  //   2) the first published property's hero image (we already have
+  //      it loaded for the rest of the homepage, costs nothing)
+  //   3) a baked-in dark-gradient SVG (HERO_POSTER_FALLBACK)
+  const heroPosterSrc = useMemo<string>(() => {
+    if (activeSlide?.image) return activeSlide.image;
+    const first = properties[0];
+    if (first?.imageUrl) return first.imageUrl as string;
+    return HERO_POSTER_FALLBACK;
+  }, [activeSlide?.image, properties]);
 
   const handleSearchResults = (results: any) => {
     if (results.totalResults > 0 || results.interpretation) {
@@ -1133,26 +1423,46 @@ export default function Home() {
           <div className="absolute inset-0">
             <video
               ref={heroVideoRef}
+              poster={heroPosterSrc}
               className="w-full h-full object-cover transition-opacity duration-500"
               style={{
                 opacity: videoReady ? 1 : 0,
                 transform: "translateZ(0)",
                 willChange: "transform",
                 backfaceVisibility: "hidden",
-                WebkitMaskImage:
-                  "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
+                // The feathered alpha mask is the per-frame composite
+                // cost we want to defer until the video is the only
+                // visible hero layer. Until placeholderHidden flips
+                // (~800ms after canplay), the placeholder <img> below
+                // owns the visible feather and the video plays
+                // full-bleed underneath, which means weak GPUs
+                // composite ONE alpha-blended layer instead of two
+                // during the cross-fade window.
+                ...(placeholderHidden
+                  ? {
+                      WebkitMaskImage:
+                        "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
+                      maskImage:
+                        "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
+                    }
+                  : {}),
               }}
               muted
               autoPlay
               loop
               playsInline
-              preload="auto"
+              // preload="metadata" (was "auto"): "auto" greedily
+              // downloads the entire MP4 in parallel with the slide
+              // API, the Tubes WebGL init, fonts, and splash
+              // assets — on real hardware that contention stalls
+              // the page and reads as a hang. "metadata" lets the
+              // browser fetch enough to know dimensions/duration,
+              // then progressively buffer once playback starts.
+              preload="metadata"
               disablePictureInPicture
               disableRemotePlayback
             />
-            {activeSlide.image && !placeholderHidden && (
+            {!placeholderHidden && (
               // Cross-fade the placeholder image while the video warms
               // up, then fully unmount it ~800ms after the video is
               // playing. Keeping it mounted at opacity 0 forever
@@ -1163,9 +1473,16 @@ export default function Home() {
               // over a poster. The same feathered mask is applied so
               // the cross-fade has no visible hard edge at the bottom
               // — both layers reveal the tubes underneath identically.
+              //
+              // After Task #143: this <img> is rendered for EVERY
+              // hero-video slide, even when activeSlide.image is
+              // empty, by falling back to the first published
+              // property image and finally to a baked-in dark
+              // gradient SVG. That guarantees the hero is never
+              // black behind the splash on a fresh load.
               <img
-                src={activeSlide.image}
-                alt={activeSlide.title}
+                src={heroPosterSrc}
+                alt={activeSlide.title || "Hsquare Living"}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 fetchPriority="high"
                 loading="eager"
@@ -1203,7 +1520,7 @@ export default function Home() {
               }
             >
               <motion.img
-                src={activeSlide.image}
+                src={activeSlide.image || heroPosterSrc}
                 alt={activeSlide.title}
                 className="w-full h-full object-cover will-change-transform"
                 {...(currentSlide === 0
