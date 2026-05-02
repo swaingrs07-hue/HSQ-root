@@ -1304,7 +1304,19 @@ export default function Home() {
       //   1.0   = hero just fully covered by the next section
       //   1.3+  = past the card-swipe by a comfortable margin
       const progress = sy / vh;
-      const fullyCovered = progress >= 0.99;
+      // Hysteresis: enter "covered" at progress >= 1.0 but only LEAVE
+      // at progress < 0.92. This prevents tiny scroll wobbles right at
+      // the boundary from rapidly flipping heroFullyCovered (and with
+      // it the hero visibility, the stats bg, the tubes opacity, AND
+      // the video pause/play state) — that thrash is what the user was
+      // seeing as a "glitch" of the hero video flashing during scroll
+      // and as video lag while tubes/decoder fight for the GPU near
+      // the threshold.
+      const enterThreshold = 1.0;
+      const leaveThreshold = 0.92;
+      const fullyCovered = lastFullyCovered
+        ? progress >= leaveThreshold
+        : progress >= enterThreshold;
       if (fullyCovered !== lastFullyCovered) {
         lastFullyCovered = fullyCovered;
         setHeroFullyCovered(fullyCovered);
@@ -2059,13 +2071,19 @@ export default function Home() {
       <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
-        className={`py-28 md:py-36 min-h-screen flex items-center transition-colors duration-300 ${
+        className={`py-28 md:py-36 min-h-screen flex items-center ${
           // While the stats card is sliding up over the hero (swipe in
           // progress) the background MUST be fully opaque so the hero
           // is hidden behind it. Once the swipe is done and the hero
           // has been switched to visibility:hidden, we drop the bg to
           // a translucent wash so the iridescent tubes glow through
           // the stats section instead of leaving it as a black slab.
+          //
+          // The bg flip is INSTANT (no transition-colors) so it lands
+          // on the exact same frame as the hero visibility flip and
+          // the tubes opacity flip — without that synchrony, scrolling
+          // back up across the threshold would briefly show the hero
+          // video through a still-translucent stats bg.
           heroFullyCovered ? "bg-[#050505]/40" : "bg-[#050505]"
         }`}
       >
