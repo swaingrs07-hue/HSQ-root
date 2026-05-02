@@ -2306,7 +2306,7 @@ export default function Home() {
       <div className="relative z-10">
       <ImmersiveScene
         variant="aurora"
-        className="py-28 md:py-36 min-h-screen flex items-center"
+        className="pt-12 pb-16 md:pt-16 md:pb-24 min-h-screen flex items-end"
         // Stats section background is driven by the same scroll-tied
         // CSS variable as the hero opacity and the tubes ramp (Task
         // #149). It stays at full alpha 1.0 throughout the entire
@@ -2352,7 +2352,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <ImmersiveScene variant="grid" className="py-28 md:py-40 bg-[#050505]/40">
+      <ImmersiveScene variant="grid" className="pt-12 pb-28 md:pt-16 md:pb-40 bg-[#050505]/40">
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-20">
             <motion.p
