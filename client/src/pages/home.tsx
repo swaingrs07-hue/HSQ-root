@@ -306,10 +306,12 @@ function ImmersiveScene({
   children,
   className = "",
   variant = "default",
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
   variant?: "default" | "fog" | "grid" | "aurora" | "depth";
+  style?: React.CSSProperties;
   [key: string]: any;
 }) {
   const backgrounds: Record<string, React.ReactNode> = {
@@ -352,7 +354,7 @@ function ImmersiveScene({
   };
 
   return (
-    <section className={`relative ${className}`}>
+    <section className={`relative ${className}`} style={style}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {backgrounds[variant]}
       </div>
@@ -1373,59 +1375,106 @@ export default function Home() {
 
     let ticking = false;
     let lastFullyCovered = false;
+    const root = document.documentElement;
     const update = () => {
       ticking = false;
       const vh = window.innerHeight || 1;
       const sy = window.scrollY || 0;
-      // progress is scrollY measured in viewport-heights:
+      // raw progress is scrollY measured in viewport-heights:
       //   0     = hero in full view, no scroll
-      //   1.0   = hero just fully covered by the next section
+      //   1.0   = hero just fully covered by the stats section
       //   1.3+  = past the card-swipe by a comfortable margin
-      const progress = sy / vh;
-      // Hysteresis: enter "covered" at progress >= 1.0 but only LEAVE
-      // at progress < 0.985. The dead zone is intentionally TINY
-      // (~1.5vh) — wide enough to absorb sub-pixel scroll jitter at
-      // the threshold (which was thrashing hero visibility, stats bg,
-      // tubes opacity, and video pause/play together and showing up
-      // as the "glitch" the user reported), but narrow enough that on
-      // a slow reverse scroll the user doesn't see an empty band of
-      // tubes/translucent-stats where the top of the hero should be
-      // re-appearing.
+      const raw = sy / vh;
+
+      // ===== Compositor-driven CSS variables (Task #149) =====
+      //
+      // The handoff is now a short ramp window driven entirely from
+      // CSS custom properties on `documentElement`. We do NOT set
+      // React state on every scroll tick — re-rendering the homepage
+      // tree at 60Hz is what made the three writes (hero hide, stats
+      // bg flip, tubes opacity flip) land on different commit/paint
+      // frames on Windows-Chrome and produced the visible flash /
+      // black band the user reported. By writing CSS variables
+      // instead, the stats bg, hero opacity, and tubes opacity all
+      // derive from the same scroll value via CSS calc() and are
+      // committed by the compositor on the same paint frame as the
+      // scroll itself.
+      //
+      // Phase 1 — Hero hide (`--hero-handoff-cover`, step at raw=1.0)
+      //   The hero <section> uses `opacity: calc(1 - var(...))`.
+      //   Opacity changes don't invalidate layout and are committed
+      //   by the compositor without a main-thread paint, so the hide
+      //   lands on the exact frame the scroll crosses the threshold.
+      //   No hysteresis is needed in CSS: setting "0" or "1"
+      //   repeatedly is a no-op write, so sub-pixel jitter at the
+      //   threshold cannot thrash anything.
+      const heroCoveredCss = raw >= 1.0 ? "1" : "0";
+      root.style.setProperty("--hero-handoff-cover", heroCoveredCss);
+
+      // Phase 2 — Post-cover ramp (`--hero-handoff-post-cover`, 0..1
+      // across raw 1.005 → 1.05). Drives the stats bg crossfade
+      // (rgba alpha 1.0 → 0.4). The ramp deliberately starts ~0.5vh
+      // AFTER the hero hides, so for at least one paint frame the
+      // stats card sits fully opaque over the (now opacity:0) hero
+      // before its own bg starts going translucent. The tubes are
+      // not ramped here — they're driven by the one-shot LATCH
+      // below (Task #150), which fires the moment fullyCovered first
+      // becomes true. The latch fires at raw>=1.0 while the stats bg
+      // crossfade hasn't started yet (raw<1.005), so the brightness
+      // pop of the tubes appearing is masked behind a still-opaque
+      // stats card on the same paint frame. By the time the stats bg
+      // has reached its translucent end-state, the tubes have already
+      // been latched on and softly faded by the scoped CSS transition
+      // in index.css — the whole sequence reads as a single seamless
+      // handoff with no flash on Windows-Chrome (Task #149).
+      const postCover = Math.max(0, Math.min(1, (raw - 1.005) / 0.045));
+      root.style.setProperty("--hero-handoff-post-cover", String(postCover));
+
+      // ===== React state for non-visual consumers =====
+      //
+      // heroFullyCovered drives the hero <video> pause/resume and the
+      // setTubesPauseRequested signal — neither is a per-frame visual
+      // state, so a frame or two of React commit lag is invisible.
+      // We keep the hysteresis (enter at 1.0, leave at 0.985) so the
+      // video play state doesn't thrash from sub-pixel scroll jitter.
       const enterThreshold = 1.0;
       const leaveThreshold = 0.985;
       const fullyCovered = lastFullyCovered
-        ? progress >= leaveThreshold
-        : progress >= enterThreshold;
+        ? raw >= leaveThreshold
+        : raw >= enterThreshold;
       if (fullyCovered !== lastFullyCovered) {
         lastFullyCovered = fullyCovered;
         setHeroFullyCovered(fullyCovered);
-        // Drive the hero visibility imperatively on the SAME frame the
-        // scroll position crosses the threshold. If we relied only on
-        // setHeroFullyCovered above, React would commit the inline
-        // style change a frame or two later — and during a fast scroll
-        // that lag is exactly when the user sees the hero video flash
-        // through the next translucent section before the visibility
-        // flip lands. The React state still updates so other consumers
-        // (stats bg, video pause) see the change; the imperative write
-        // here just makes sure the DOM reflects it immediately.
+        // Imperative pointer-events flip so the (now invisible) hero
+        // stops capturing clicks the moment it's hidden, without
+        // waiting for the React commit. Using a direct style write
+        // (not a CSS variable) avoids the React types complaining
+        // about `pointerEvents: 'var(...)'`.
         if (heroRef.current) {
-          heroRef.current.style.visibility = fullyCovered ? "hidden" : "visible";
+          heroRef.current.style.pointerEvents = fullyCovered
+            ? "none"
+            : "auto";
         }
       }
-      // Tubes opacity stays at 0 for the entire hero + card-swipe
-      // (progress 0..1.0) so the swipe reads as a clean opaque card
-      // sliding over the hero — no iridescent tubes leaking onto
-      // either layer. Once the stats card has fully covered the hero
-      // for the first time, we LATCH the tubes to full brightness
-      // (Task #150) and never write a value below 1 again on this
-      // mount. Without the latch the user occasionally saw the tubes
-      // flicker 0->1->0->1 right at the threshold during slow / jittery
-      // scrolls. The hero is sticky and z-indexed above the tubes
-      // layer, so even if the user scrolls back up to view the hero
-      // the latched-on tubes are still hidden behind it visually.
-      // A scoped CSS transition (in index.css, gated on
+      // Tubes opacity LATCH (Task #150). Tubes stay at 0 for the
+      // entire hero + card-swipe (progress 0..1.0) so the swipe reads
+      // as a clean opaque card sliding over the hero — no iridescent
+      // tubes leaking onto either layer. Once the stats card has
+      // fully covered the hero for the first time we LATCH the tubes
+      // to full brightness and never write a value below 1 again on
+      // this mount. Without the latch the user occasionally saw the
+      // tubes flicker 0->1->0->1 right at the threshold during slow
+      // / jittery scrolls. The hero is sticky and z-indexed above
+      // the tubes layer, so even if the user scrolls back up to view
+      // the hero the latched-on tubes are still hidden behind it
+      // visually. A scoped CSS transition (in index.css, gated on
       // `:root[data-page="home"]`) softens the latched 0->1 jump into
       // a brief fade so it reads as a reveal rather than a pop.
+      // Note (Task #149): the brightness pop of this latched 0->1
+      // also lands while the stats section is still fully opaque
+      // (the post-cover stats-bg crossfade above only starts at
+      // raw=1.005, ~0.5vh after the latch fires at raw=1.0), so the
+      // pop is masked behind an opaque card on the same paint frame.
       if (fullyCovered && !tubesLatchedOnRef.current) {
         tubesLatchedOnRef.current = true;
         setTubesRevealOpacity?.(1);
@@ -1443,22 +1492,34 @@ export default function Home() {
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", update);
-      // Only reset tubes opacity here if the latch already fired.
-      // The "ensure tubes are on for other routes" reset on TRUE
-      // unmount lives in the data-page useEffect above; this
-      // cleanup also fires on prefersReducedMotion / isSmallViewport
-      // changes, and we don't want to flash the tubes 0 -> 1 mid-scroll
-      // if the user resized between branches before the first reveal.
+      // Only reset tubes opacity here if the latch already fired
+      // (Task #150). The "ensure tubes are on for other routes"
+      // reset on TRUE unmount lives in the data-page useEffect
+      // above; this cleanup also fires on prefersReducedMotion /
+      // isSmallViewport changes (live resize crossing the 768px
+      // breakpoint), and we don't want to flash the tubes 0 -> 1
+      // mid-scroll if the user resized between branches before the
+      // first reveal.
       if (tubesLatchedOnRef.current) {
         setTubesRevealOpacity?.(1);
       }
-      // Defensive: also reset hero visibility in case this branch was
-      // active (sticky desktop) and we're tearing down because the
-      // viewport just crossed the small/large breakpoint or the user
-      // toggled prefers-reduced-motion. Without this, the IO branch
-      // could mount onto a hero element still carrying the imperative
-      // visibility:hidden from a previous fully-covered scroll state.
+      // Clear the handoff CSS vars (Task #149) unconditionally so
+      // other routes — and a possible remount of this effect on the
+      // IO branch (after a resize across 768px or a reduced-motion
+      // toggle) — don't inherit a stale "covered" state that would
+      // leave the hero invisible.
+      root.style.removeProperty("--hero-handoff-cover");
+      root.style.removeProperty("--hero-handoff-post-cover");
+      // Defensive: also reset hero pointer-events AND visibility in
+      // case this branch was active (sticky desktop) and we're
+      // tearing down because the viewport just crossed the
+      // small/large breakpoint or the user toggled
+      // prefers-reduced-motion. Without this, the IO branch could
+      // mount onto a hero element still carrying the imperative
+      // pointer-events:none from a previous fully-covered scroll
+      // state, or the visibility:hidden from earlier code paths.
       if (heroRef.current) {
+        heroRef.current.style.pointerEvents = "auto";
         heroRef.current.style.visibility = "visible";
       }
     };
@@ -1741,14 +1802,31 @@ export default function Home() {
                 // out from behind. Without this, sticky pins the hero
                 // for the full page height (Task #147 fix).
                 //
+                // Task #149: hide via opacity (compositor-only) rather
+                // than `visibility: hidden`. `visibility` is a main-
+                // thread property and forces a paint invalidation; on
+                // Windows-Chrome that paint can land a frame after the
+                // scroll-driven stats translation, producing the
+                // visible flash / black band the user reported.
+                // Opacity is committed by the GPU compositor on the
+                // same frame the scroll position crosses the
+                // threshold. The CSS variable is driven by the scroll
+                // handler above so this style does NOT cause a React
+                // re-render per scroll tick. `translateZ(0)` keeps
+                // the section on its own GPU layer; `willChange:
+                // opacity` hints the compositor to keep that layer
+                // ready to fade. Pointer-events are flipped
+                // imperatively in the scroll handler.
+                //
                 // Mobile (Task #148): small viewports take the
                 // `relative` branch above instead of sticky, so this
-                // visibility toggle isn't needed there — the hero
-                // simply scrolls out of view naturally and any
-                // translucent sections below paint over the now
-                // off-screen hero in document flow, not over a pinned
-                // overlay.
-                visibility: heroFullyCovered ? "hidden" : "visible",
+                // toggle isn't needed there — the hero simply scrolls
+                // out of view naturally and any translucent sections
+                // below paint over the now off-screen hero in
+                // document flow, not over a pinned overlay.
+                opacity: "calc(1 - var(--hero-handoff-cover, 0))",
+                transform: "translateZ(0)",
+                willChange: "opacity",
               }
         }
         data-testid="hero-section"
@@ -2177,26 +2255,37 @@ export default function Home() {
           a short stats section would let the sticky hero peek out
           above and below it. Subsequent sections keep their existing
           translucent backgrounds so the iridescent tubes glow through
-          them once the swipe is done; the hero gets visibility:hidden
-          (above) so it doesn't show through those translucent areas. */}
-      <div className="relative z-10">
+          them once the swipe is done; the hero fades to opacity 0
+          (Task #149, see hero <section> style) so it doesn't show
+          through those translucent areas. */}
+      {/* Task #149: dark safety floor on the post-hero wrapper. The
+          stats section's own bg crossfades from opaque to translucent
+          via a CSS variable below, so for one frame on a slow Windows
+          machine a single scroll tick *could* leave a sub-pixel gap
+          between the hero (now opacity:0) and the stats fully covering
+          it. Painting the same #050505 the page background uses here
+          means even in that worst case the user sees a continuous
+          dark page instead of a black hole or a hero-video leak. */}
+      <div className="relative z-10 bg-[#050505]">
       <ImmersiveScene
         variant="aurora"
-        className={`py-28 md:py-36 min-h-screen flex items-center ${
-          // While the stats card is sliding up over the hero (swipe in
-          // progress) the background MUST be fully opaque so the hero
-          // is hidden behind it. Once the swipe is done and the hero
-          // has been switched to visibility:hidden, we drop the bg to
-          // a translucent wash so the iridescent tubes glow through
-          // the stats section instead of leaving it as a black slab.
-          //
-          // The bg flip is INSTANT (no transition-colors) so it lands
-          // on the exact same frame as the hero visibility flip and
-          // the tubes opacity flip — without that synchrony, scrolling
-          // back up across the threshold would briefly show the hero
-          // video through a still-translucent stats bg.
-          heroFullyCovered ? "bg-[#050505]/40" : "bg-[#050505]"
-        }`}
+        className="py-28 md:py-36 min-h-screen flex items-center"
+        // Stats section background is driven by the same scroll-tied
+        // CSS variable as the hero opacity and the tubes ramp (Task
+        // #149). It stays at full alpha 1.0 throughout the entire
+        // card-swipe (raw progress 0..1.0) so the swipe reads as a
+        // clean opaque card sliding up over the hero — no iridescent
+        // tubes leaking onto either layer. Once the hero has been
+        // hidden (raw >= 1.0) the alpha crossfades from 1.0 → 0.4
+        // across the next ~4.5vh of scroll, in lockstep with the
+        // tubes opacity ramping in behind it. Because both writes
+        // come from the same CSS var on the same paint frame, they
+        // can never disagree on screen the way they did when each was
+        // a separate React state flip on Windows-Chrome.
+        style={{
+          backgroundColor:
+            "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0) * 0.6))",
+        }}
       >
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
