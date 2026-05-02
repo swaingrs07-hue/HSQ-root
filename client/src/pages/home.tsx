@@ -1280,10 +1280,11 @@ export default function Home() {
       // "make sure other routes see tubes immediately" guarantee.
       setTubesRevealOpacity?.(1);
     };
-    // setTubesRevealOpacity is memoized in the layout provider; we
-    // intentionally only want this effect to run once on mount/unmount,
-    // so we omit it from deps and let the closure capture the latest
-    // value from the surrounding render.
+    // setTubesRevealOpacity is memoized in the layout provider via
+    // useCallback (stable for the component lifetime), so we omit it
+    // from deps to keep this effect strictly mount/unmount-only. The
+    // closure captures the mount-time setter, which is fine because
+    // it never changes identity in practice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
