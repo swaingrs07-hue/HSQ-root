@@ -1221,6 +1221,20 @@ export default function Home() {
   const [heroFullyCovered, setHeroFullyCovered] = useState(false);
   const heroInViewport = !heroFullyCovered;
   const tubesCtx = useContext(TubesContext);
+  // Once the iridescent tubes have been revealed for the first time on
+  // this homepage mount, latch them ON. The hero card-swipe threshold
+  // is sub-pixel jittery on a slow scroll, and three things flip on
+  // the same frame at that threshold (tubes opacity, stats bg, hero
+  // visibility) — pre-latch the user occasionally saw the tubes pop
+  // 0->1->0->1 right at the boundary, which read as a flicker. After
+  // the latch lands, the scroll handler still toggles `heroFullyCovered`
+  // both ways (so the hero `visibility` and stats bg keep working as
+  // before), but the tubes-reveal opacity is one-shot: 0 until the
+  // first reveal, 1 forever after, until this page unmounts. The hero
+  // is sticky and z-indexed above the tubes layer, so latching tubes
+  // on while the user scrolls back up to the hero is visually safe —
+  // the hero still covers the tubes when in view.
+  const tubesLatchedOnRef = useRef(false);
   // Pin a stable reference to the setter so we can use IT (not the
   // whole tubesCtx object) as the effect dependency below. The
   // provider in layout.tsx memoizes the context value, but using the
@@ -1241,6 +1255,37 @@ export default function Home() {
   useLayoutEffect(() => {
     setTubesRevealOpacity?.(0);
   }, [setTubesRevealOpacity]);
+  // Tag the document so the scoped CSS transition on the tubes/veil
+  // layers (in index.css) only applies while the homepage is mounted.
+  // Without this tag, every route navigation would briefly fade the
+  // tubes in/out — we only want the soft fade for the homepage's
+  // first-reveal moment described in Task #150.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.setAttribute("data-page", "home");
+    return () => {
+      // Defensive: only clear if we still own the value. If a future
+      // route also sets data-page (and remounts before our cleanup
+      // runs in dev / strict mode), we don't want to clobber its tag.
+      if (document.documentElement.getAttribute("data-page") === "home") {
+        document.documentElement.removeAttribute("data-page");
+      }
+      // True-unmount-only opacity reset. The branch effects below also
+      // run a cleanup, but theirs fires on every prefersReducedMotion /
+      // isSmallViewport change too (live resize across the 768px
+      // breakpoint, OS reduced-motion toggle), and resetting to 1 in
+      // that case can briefly flash the tubes if the latch hasn't
+      // fired yet. This data-page effect has no deps so its cleanup
+      // ONLY runs on real unmount — so it's the safe place to put the
+      // "make sure other routes see tubes immediately" guarantee.
+      setTubesRevealOpacity?.(1);
+    };
+    // setTubesRevealOpacity is memoized in the layout provider; we
+    // intentionally only want this effect to run once on mount/unmount,
+    // so we omit it from deps and let the closure capture the latest
+    // value from the surrounding render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1273,14 +1318,29 @@ export default function Home() {
         return;
       }
       // Initial state: hero is in view at mount, so tubes start hidden.
-      setTubesRevealOpacity?.(0);
+      // Skip this if the latch already fired (e.g. user resized between
+      // breakpoints after the tubes were revealed) — we don't want to
+      // briefly hide already-revealed tubes.
+      if (!tubesLatchedOnRef.current) {
+        setTubesRevealOpacity?.(0);
+      }
       const obs = new IntersectionObserver(
         (entries) => {
           const e = entries[0];
           if (!e) return;
           const covered = !e.isIntersecting;
           setHeroFullyCovered(covered);
-          setTubesRevealOpacity?.(covered ? 1 : 0);
+          // One-shot latch (Task #150): once the hero leaves the
+          // viewport for the first time on this homepage mount, set
+          // tubes opacity to 1 and never set it back to 0. The hero
+          // is sticky and z-indexed above the tubes, so when the user
+          // scrolls back up the hero still covers the tubes — keeping
+          // the tubes latched on costs nothing visually and eliminates
+          // the flicker that the user reported at the stats section.
+          if (covered && !tubesLatchedOnRef.current) {
+            tubesLatchedOnRef.current = true;
+            setTubesRevealOpacity?.(1);
+          }
           // Imperative DOM write (no React commit lag) so the hero is
           // hidden on the same frame the IO callback fires. The React
           // state above will re-render with the matching inline style
@@ -1294,9 +1354,16 @@ export default function Home() {
       obs.observe(el);
       return () => {
         obs.disconnect();
-        // Restore tubes to full brightness on unmount so other routes
-        // (which don't run this effect) see the tubes immediately.
-        setTubesRevealOpacity?.(1);
+        // Only reset tubes opacity here if the latch already fired.
+        // The "ensure tubes are on for other routes" reset on TRUE
+        // unmount lives in the data-page useEffect above; this
+        // cleanup also fires on prefersReducedMotion / isSmallViewport
+        // changes (live resize crossing the 768px breakpoint), and we
+        // don't want to flash the tubes from 0 -> 1 mid-scroll if the
+        // user just resized while still on the hero.
+        if (tubesLatchedOnRef.current) {
+          setTubesRevealOpacity?.(1);
+        }
         if (heroRef.current) {
           heroRef.current.style.visibility = "visible";
         }
@@ -1348,14 +1415,20 @@ export default function Home() {
       // (progress 0..1.0) so the swipe reads as a clean opaque card
       // sliding over the hero — no iridescent tubes leaking onto
       // either layer. Once the stats card has fully covered the hero
-      // we hard-switch the tubes to full brightness so they appear
-      // behind the (now translucent) stats section. The transition
-      // reads as instant because the stats bg also flips translucent
-      // at the same heroFullyCovered threshold, so the user sees the
-      // tubes pop in only at the moment the section is ready to show
-      // them through.
-      const opacity = fullyCovered ? 1 : 0;
-      setTubesRevealOpacity?.(opacity);
+      // for the first time, we LATCH the tubes to full brightness
+      // (Task #150) and never write a value below 1 again on this
+      // mount. Without the latch the user occasionally saw the tubes
+      // flicker 0->1->0->1 right at the threshold during slow / jittery
+      // scrolls. The hero is sticky and z-indexed above the tubes
+      // layer, so even if the user scrolls back up to view the hero
+      // the latched-on tubes are still hidden behind it visually.
+      // A scoped CSS transition (in index.css, gated on
+      // `:root[data-page="home"]`) softens the latched 0->1 jump into
+      // a brief fade so it reads as a reveal rather than a pop.
+      if (fullyCovered && !tubesLatchedOnRef.current) {
+        tubesLatchedOnRef.current = true;
+        setTubesRevealOpacity?.(1);
+      }
     };
     const onScroll = () => {
       if (!ticking) {
@@ -1369,10 +1442,15 @@ export default function Home() {
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", update);
-      // Restore tubes to full brightness on unmount so subsequent
-      // routes (which do not run this scroll handler) see the tubes
-      // at full strength immediately.
-      setTubesRevealOpacity?.(1);
+      // Only reset tubes opacity here if the latch already fired.
+      // The "ensure tubes are on for other routes" reset on TRUE
+      // unmount lives in the data-page useEffect above; this
+      // cleanup also fires on prefersReducedMotion / isSmallViewport
+      // changes, and we don't want to flash the tubes 0 -> 1 mid-scroll
+      // if the user resized between branches before the first reveal.
+      if (tubesLatchedOnRef.current) {
+        setTubesRevealOpacity?.(1);
+      }
       // Defensive: also reset hero visibility in case this branch was
       // active (sticky desktop) and we're tearing down because the
       // viewport just crossed the small/large breakpoint or the user

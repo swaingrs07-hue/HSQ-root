@@ -382,3 +382,22 @@
 :root[data-platform="windows"] .hsq-loading-overlay * {
   filter: none !important;
 }
+
+/*
+ * ============================================================
+ * Tubes reveal soft fade (homepage only) — Task #150
+ * ============================================================
+ *
+ * The homepage drives `--tubes-reveal-opacity` from 0 to 1 once the
+ * hero card-swipe completes. The transition is gated on the
+ * `data-page="home"` attribute that home.tsx sets on <html> on mount
+ * (and removes on unmount), so the soft fade only applies for the
+ * homepage's first-reveal moment — every other route still gets the
+ * tubes at full opacity from the very first paint with no entry fade.
+ */
+:root[data-page="home"] [data-testid="tubes-global-layer"],
+:root[data-page="home"] [data-testid="tubes-global-veil"],
+:root[data-page="home"] [data-testid="tubes-fallback-layer"],
+:root[data-page="home"] [data-testid="tubes-fallback-veil"] {
+  transition: opacity 320ms ease-out;
+}
