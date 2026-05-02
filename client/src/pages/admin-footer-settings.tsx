@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Smartphone } from "lucide-react";
+import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Smartphone, Film } from "lucide-react";
 
 interface FooterLink {
   label: string;
@@ -25,6 +25,8 @@ interface FooterData {
   socialTwitter?: string;
   socialLinkedin?: string;
   androidDownloadUrl?: string;
+  homeHeroVideoUrl?: string;
+  homeSectionVideoUrl?: string;
 }
 
 export default function AdminFooterSettings() {
@@ -60,6 +62,8 @@ export default function AdminFooterSettings() {
           socialTwitter: settings.socialTwitter || "",
           socialLinkedin: settings.socialLinkedin || "",
           androidDownloadUrl: settings.androidDownloadUrl || "",
+          homeHeroVideoUrl: settings.homeHeroVideoUrl || "",
+          homeSectionVideoUrl: settings.homeSectionVideoUrl || "",
         });
         setLoading(false);
       })
@@ -94,6 +98,8 @@ export default function AdminFooterSettings() {
         socialTwitter: updated.socialTwitter || "",
         socialLinkedin: updated.socialLinkedin || "",
         androidDownloadUrl: updated.androidDownloadUrl || "",
+        homeHeroVideoUrl: updated.homeHeroVideoUrl || "",
+        homeSectionVideoUrl: updated.homeSectionVideoUrl || "",
       });
       setSaved(true);
       toast({ title: "Saved", description: "Footer settings updated successfully. Changes will appear on the website." });
@@ -321,6 +327,39 @@ export default function AdminFooterSettings() {
                     data-testid="input-social-linkedin"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2 border-[#c5a059]/30 bg-gradient-to-br from-[#c5a059]/[0.03] to-transparent">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Film className="w-4 h-4 text-[#c5a059]" /> Homepage Cinematic Videos
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Full superadmin control over the two background videos that play on the public hostel homepage. Upload videos to Object Storage (or any CDN) and paste the public URLs here. Leave blank to use the built-in defaults.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Hero Section Video URL <span className="text-[#c5a059]">(top of homepage)</span></label>
+                <Input
+                  value={data.homeHeroVideoUrl || ""}
+                  onChange={e => setData(prev => ({ ...prev, homeHeroVideoUrl: e.target.value }))}
+                  placeholder="https://your-cdn.example.com/hero.mp4"
+                  data-testid="input-home-hero-video"
+                />
+                <p className="text-xs text-muted-foreground mt-1">MP4 / WebM. Will loop, autoplay muted, and serve as the full-bleed hero background. No property images are shown — this is the only visual.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">"Why Choose" Section Video URL <span className="text-[#c5a059]">(2nd cinematic section)</span></label>
+                <Input
+                  value={data.homeSectionVideoUrl || ""}
+                  onChange={e => setData(prev => ({ ...prev, homeSectionVideoUrl: e.target.value }))}
+                  placeholder="https://your-cdn.example.com/why-choose.mp4"
+                  data-testid="input-home-section-video"
+                />
+                <p className="text-xs text-muted-foreground mt-1">MP4 / WebM. Loops behind the "Why Choose Hsquareliving" capabilities cards.</p>
               </div>
             </CardContent>
           </Card>

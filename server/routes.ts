@@ -768,6 +768,8 @@ ${allPages.map(p => `  <url>
           quickLinks: [{ label: "Properties", href: "/properties" }, { label: "About Us", href: "/about" }, { label: "Contact", href: "/contact" }],
           supportLinks: [{ label: "FAQs", href: "/faq" }, { label: "Terms & Conditions", href: "/terms" }, { label: "Privacy Policy", href: "/privacy" }],
           androidDownloadUrl: "",
+          homeHeroVideoUrl: "",
+          homeSectionVideoUrl: "",
         });
       }
       res.json({
@@ -794,6 +796,8 @@ ${allPages.map(p => `  <url>
     socialTwitter: z.string().nullable().optional(),
     socialLinkedin: z.string().nullable().optional(),
     androidDownloadUrl: z.string().nullable().optional(),
+    homeHeroVideoUrl: z.string().nullable().optional(),
+    homeSectionVideoUrl: z.string().nullable().optional(),
   });
 
   app.put("/api/footer-settings", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {

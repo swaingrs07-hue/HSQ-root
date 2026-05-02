@@ -622,6 +622,20 @@ export default function Home() {
   const [isAutoPlaying] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
+  // Superadmin-controlled cinematic background videos (set in Admin → Footer Settings).
+  // Defaults are baked-in CloudFront URLs so the page is never blank if unconfigured.
+  const HOME_HERO_VIDEO_DEFAULT = "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_080021_d598092b-c4c2-4e53-8e46-94cf9064cd50.mp4";
+  const HOME_SECTION_VIDEO_DEFAULT = "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_094631_d30ab262-45ee-4b7d-99f3-5d5848c8ef13.mp4";
+  const [homeHeroVideoUrl, setHomeHeroVideoUrl] = useState<string>(HOME_HERO_VIDEO_DEFAULT);
+  const [homeSectionVideoUrl, setHomeSectionVideoUrl] = useState<string>(HOME_SECTION_VIDEO_DEFAULT);
+  // The new cinematic hero is decorative — its video is not required for the
+  // page to be usable. Dismiss the splash after a short hold so users don't
+  // wait on a CDN video that's still buffering. The video continues to load
+  // and play in the background once it's ready.
+  useEffect(() => {
+    const t = window.setTimeout(() => setVideoReady(true), 1200);
+    return () => window.clearTimeout(t);
+  }, []);
   const [heroSlides, setHeroSlides] = useState<SlideData[]>(() => {
     if (typeof window !== "undefined") {
       const initial = (window as Window & {
@@ -700,6 +714,8 @@ export default function Home() {
         if (data?.phone) setFooterPhone(data.phone);
         if (data?.androidDownloadUrl)
           setAndroidDownloadUrl(data.androidDownloadUrl);
+        if (data?.homeHeroVideoUrl) setHomeHeroVideoUrl(data.homeHeroVideoUrl);
+        if (data?.homeSectionVideoUrl) setHomeSectionVideoUrl(data.homeSectionVideoUrl);
       })
       .catch(() => {});
     fetch("/api/homepage-amenities")
@@ -1862,421 +1878,150 @@ export default function Home() {
         }
         data-testid="hero-section"
       >
-        {!activeSlide ? (
-          // Empty-state fallback: no published-property images and no admin
-          // slides yet. Render a dark gradient hero so the page never crashes
-          // and users still see a polished header instead of a blank section.
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#1a1a1a] to-[#0a0a0a]">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center px-6">
-                <div className="text-xs tracking-[0.4em] text-white/50 mb-3">HSQUARE LIVING</div>
-                <div className="text-3xl md:text-5xl font-semibold text-white">
-                  Premium Student Living in Mumbai
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : activeSlide.videoUrl &&
-          videoSupported &&
-          !videoFailed ? (
-          // The hero video used to be rendered on a solid bg-black
-          // backdrop with the iridescent tube background completely
-          // hidden — so on every device the hero felt cut off from
-          // the rest of the page (no signature glow). We now use a
-          // transparent backdrop and apply a soft alpha mask to the
-          // video itself so the centre of the frame stays fully
-          // opaque (the cityscape / bridge / wherever the user is
-          // looking reads crisp, exactly as before) while the bottom
-          // 18% feathers to transparent. The global tube canvas
-          // sitting underneath the hero (z-0 in Layout) shows
-          // through this feathered band as an iridescent halo
-          // glow under the CTA buttons.
-          //
-          // Performance: the tubes are still paused while the hero
-          // video is the active slide (see the heroVideoActive
-          // useEffect above) so the WebGL render loop is NOT
-          // competing with the video decoder for GPU bandwidth on
-          // mid-range Windows / Android hardware — that's the same
-          // optimisation that was already there. Pausing freezes
-          // the canvas on its last rendered frame, which for slow-
-          // moving iridescent tubes still reads as the same glow.
-          // The instant the user scrolls past the hero, the tubes
-          // resume animating as before.
-          //
-          // Cost: one alpha-blended band across the bottom of the
-          // hero. That's a single composite op, not a per-pixel
-          // shader, so the same Windows laptops that struggled
-          // with the old "tubes-under-video" approach are not
-          // re-affected here.
+        {/* Cinematic full-bleed video hero — superadmin-controlled via
+              footer settings. NO property images, NO slide carousel, NO
+              smart search — clean and focused. The looping muted MP4 is
+              served from CloudFront and feathered at the bottom so the
+              global iridescent tubes glow through into the next section. */}
           <div className="absolute inset-0">
             <video
-              ref={heroVideoRef}
-              poster={heroPosterSrc}
-              className="w-full h-full object-cover transition-opacity duration-500"
+              className="absolute left-1/2 top-0 -translate-x-1/2 object-cover object-top"
               style={{
-                opacity: videoReady ? 1 : 0,
-                transform: "translateZ(0)",
+                width: "120%",
+                height: "120%",
+                transform: "translate(-50%, 0) translateZ(0)",
                 willChange: "transform",
                 backfaceVisibility: "hidden",
-                // The feathered alpha mask is the per-frame composite
-                // cost we want to defer until the video is the only
-                // visible hero layer. Until placeholderHidden flips
-                // (500ms after canplay, aligned with the placeholder's
-                // transition-opacity duration-500), the placeholder
-                // <img> below owns the visible feather and the video
-                // plays full-bleed underneath, which means weak GPUs
-                // composite ONE alpha-blended layer instead of two
-                // during the cross-fade window.
-                // The bottom-feather mask reveals the iridescent tubes
-                // through the video's lower 30%. On Apple platforms
-                // this is GPU-cheap. On Windows-Chrome (and most Linux
-                // builds) `mask-image` on a *playing* <video> forces
-                // the compositor onto a software path that visibly
-                // tanks framerate of the entire page — the same
-                // invariant documented in replit.md for the
-                // plans-hallway backdrop video. So we only apply the
-                // mask on platforms whose compositor can sustain it.
-                // Windows users lose the bottom feather aesthetic but
-                // gain smooth 60fps hero playback; the existing dark
-                // bottom gradient overlay (rendered just below in the
-                // tree) still hands the hero off into the page softly.
-                ...(placeholderHidden && IS_FAST_VIDEO_COMPOSITOR
-                  ? {
-                      WebkitMaskImage:
-                        "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
-                      maskImage:
-                        "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
-                    }
-                  : {}),
+                WebkitMaskImage:
+                  "linear-gradient(180deg, black 0%, black 72%, rgba(0,0,0,0.6) 90%, transparent 100%)",
+                maskImage:
+                  "linear-gradient(180deg, black 0%, black 72%, rgba(0,0,0,0.6) 90%, transparent 100%)",
               }}
-              muted
+              src={homeHeroVideoUrl}
               autoPlay
+              muted
               loop
               playsInline
-              // preload="metadata" (was "auto"): "auto" greedily
-              // downloads the entire MP4 in parallel with the slide
-              // API, the Tubes WebGL init, fonts, and splash
-              // assets — on real hardware that contention stalls
-              // the page and reads as a hang. "metadata" lets the
-              // browser fetch enough to know dimensions/duration,
-              // then progressively buffer once playback starts.
-              preload="metadata"
+              preload="auto"
               disablePictureInPicture
               disableRemotePlayback
+              onCanPlay={() => setVideoReady(true)}
+              onLoadedData={() => setVideoReady(true)}
+              onError={() => setVideoFailed(true)}
+              data-testid="video-home-hero"
             />
-            {!placeholderHidden && (
-              // Cross-fade the placeholder image while the video warms
-              // up, then fully unmount it 500ms after the video is
-              // playing (matches transition-opacity duration-500 on
-              // this <img> so the mask handoff to the <video> happens
-              // the instant the placeholder is no longer visible).
-              // Keeping it mounted at opacity 0 forever
-              // forces the browser to composite two full-screen layers
-              // every frame, which contributed to hero-video stutter
-              // on integrated GPUs. We re-mount it on every slide
-              // change so the next video's first frame still fades in
-              // over a poster. The same feathered mask is applied so
-              // the cross-fade has no visible hard edge at the bottom
-              // — both layers reveal the tubes underneath identically.
-              //
-              // After Task #143: this <img> is rendered for EVERY
-              // hero-video slide, even when activeSlide.image is
-              // empty, by falling back to the first published
-              // property image and finally to a baked-in dark
-              // gradient SVG. That guarantees the hero is never
-              // black behind the splash on a fresh load.
-              <img
-                src={heroPosterSrc}
-                alt={activeSlide.title || "Hsquare Living"}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-                fetchPriority="high"
-                loading="eager"
-                decoding="async"
-                style={{
-                  opacity: videoReady ? 0 : 1,
-                  pointerEvents: "none",
-                  WebkitMaskImage:
-                    "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
-                  maskImage:
-                    "linear-gradient(180deg, black 0%, black 70%, transparent 100%)",
-                }}
-                aria-hidden={videoReady}
-              />
-            )}
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.5, ease: "easeInOut" }}
-              className="absolute inset-0"
-              style={
-                tubesActive
-                  ? {
-                      WebkitMaskImage:
-                        "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
-                      maskImage:
-                        "linear-gradient(180deg, black 0%, black 78%, rgba(0,0,0,0.45) 92%, transparent 100%)",
-                    }
-                  : {}
-              }
-            >
-              <motion.img
-                src={activeSlide.image || heroPosterSrc}
-                alt={activeSlide.title}
-                className="w-full h-full object-cover will-change-transform"
-                {...(currentSlide === 0
-                  ? { fetchPriority: "high", loading: "eager", decoding: "async" }
-                  : { loading: "lazy", decoding: "async" })}
-                initial={
-                  KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length]
-                    .initial
-                }
-                animate={
-                  KEN_BURNS_VARIANTS[currentSlide % KEN_BURNS_VARIANTS.length]
-                    .animate
-                }
-                transition={{ duration: 8, ease: "linear" }}
-                style={undefined}
-              />
-            </motion.div>
-          </AnimatePresence>
-        )}
-
-        <div
-          className="absolute inset-0 z-[5]"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 25%, transparent 75%, rgba(5,5,5,0.45) 92%, rgba(5,5,5,0) 100%)",
-          }}
-        />
-        {/* Soft hand-off from the bottom of the hero into the rest of the
-            page (where the iridescent tube background continues). On image
-            slides we still use a frosted backdrop-filter blur so the tubes
-            bleed up with a haze. On video slides we skip the blur entirely
-            (it forced the GPU to re-blur a moving frame every paint and was
-            the main source of hero-video stutter) and use a plain colored
-            gradient instead — the design still gets a smooth dark fade
-            into the page below, just without the per-frame blur cost.
-            Reduced-motion and small mobile viewports always get the cheap
-            gradient path so playback stays smooth on the slowest devices. */}
-        {tubesActive && (() => {
-          const heroIsVideo =
-            !!activeSlide?.videoUrl && videoSupported && !videoFailed;
-          const skipBlur =
-            heroIsVideo || prefersReducedMotion || isSmallViewport;
-          if (skipBlur) {
-            // On video slides the hero <video> already feathers its
-            // bottom 30% to transparent (see the mask above) so the
-            // global iridescent tubes are meant to glow through this
-            // band as a halo behind the CTAs. The old bridge gradient
-            // here was nearly opaque at the bottom (rgba(5,5,5,0.95))
-            // which painted right over that halo and hid the tubes.
-            // We lighten it heavily on video slides — the top 60%
-            // stays fully transparent so tubes read at full
-            // brightness behind the buttons, and only the very
-            // bottom edge has a soft dark wash for a clean handoff
-            // into the next section. This is still a single colour
-            // gradient (no per-frame blur), so the same mid-range
-            // Windows / Android laptops that benefited from the
-            // original skipBlur path are not impacted.
-            return (
-              <div
-                className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
-                aria-hidden="true"
-                data-testid="hero-tube-blur-bridge"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(5,5,5,0) 0%, rgba(5,5,5,0) 60%, rgba(5,5,5,0.35) 85%, rgba(5,5,5,0.7) 100%)",
-                }}
-              />
-            );
-          }
-          return (
+            {/* Subtle dark vignette so the chrome stays legible */}
             <div
-              className="absolute inset-x-0 bottom-0 h-40 md:h-56 z-[6] pointer-events-none"
-              aria-hidden="true"
-              data-testid="hero-tube-blur-bridge"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                backdropFilter: "blur(28px) saturate(120%)",
-                WebkitBackdropFilter: "blur(28px) saturate(120%)",
-                WebkitMaskImage:
-                  "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
-                maskImage:
-                  "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.55) 55%, black 100%)",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 18%, rgba(0,0,0,0) 45%, rgba(0,0,0,0) 65%, rgba(5,5,5,0.55) 100%)",
               }}
             />
-          );
-        })()}
-
-        {!hasAnyVideo && !tubesActive && (
-          <>
-            <div className="absolute inset-0 z-[8]">
-              <ParticleBackground
-                preset="hero"
-                className="absolute inset-0"
-                id="hero-particles"
-              />
-            </div>
-
-            <Floating3DShape
-              type="ring"
-              size={50}
-              color="#f59e0b"
-              delay={0}
-              x="10%"
-              y="25%"
-              duration={25}
-            />
-            <Floating3DShape
-              type="diamond"
-              size={25}
-              color="#06b6d4"
-              delay={2}
-              x="85%"
-              y="35%"
-              duration={20}
-            />
-            <Floating3DShape
-              type="hexagon"
-              size={35}
-              color="#8b5cf6"
-              delay={4}
-              x="75%"
-              y="65%"
-              duration={22}
-            />
-          </>
-        )}
-
-        <div
-          className="absolute bottom-28 left-6 md:left-10 z-20 flex items-center gap-3 opacity-15 pointer-events-none select-none"
-          data-testid="hero-watermark"
-        >
-          <img
-            src={hsquareLogo}
-            alt=""
-            className="w-10 h-10 md:w-12 md:h-12 brightness-0 invert"
-          />
-          <span className="text-white text-base md:text-lg font-heading font-bold tracking-widest uppercase">
-            Hsquare Living
-          </span>
-        </div>
-
-        <div className="absolute inset-0 z-20 flex flex-col justify-end items-center pb-12 md:pb-16 px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <Link href="/properties">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-transparent backdrop-blur-md border border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
-                  data-testid="button-explore-properties"
-                >
-                  Explore Properties
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-emerald-500/10 backdrop-blur-md border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50 text-base px-12 h-14 rounded-full font-semibold tracking-wider group uppercase"
-                data-testid="button-download-app"
-                onClick={() => {
-                  const el = document.getElementById("app-download-section");
-                  if (el)
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                <Smartphone className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Resident App
-              </Button>
-            </motion.div>
           </div>
 
-        <div className="absolute left-0 right-0 bottom-0 z-30">
-          <div className="flex items-center justify-between px-4 md:px-8 py-4">
-            <div className="flex items-center gap-3">
-              {!hasAnyVideo && heroSlides.length > 1 && (
-                  <>
-                    <button
-                      onClick={prevSlide}
-                      className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all"
-                      data-testid="button-hero-prev"
-                      aria-label="Previous slide"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={nextSlide}
-                      className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all"
-                      data-testid="button-hero-next"
-                      aria-label="Next slide"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                    <div className="flex gap-2 ml-4">
-                      {heroSlides.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setSlideDirection(i > currentSlide ? 1 : -1);
-                            setCurrentSlide(i);
-                          }}
-                          className="relative h-1 rounded-full overflow-hidden transition-all duration-500"
-                          style={{
-                            width: i === currentSlide ? "2.5rem" : "0.75rem",
-                          }}
-                          data-testid={`button-hero-dot-${i}`}
-                        >
-                          <span
-                            className={`absolute inset-0 rounded-full ${i === currentSlide ? "bg-white/20" : "bg-white/10 hover:bg-white/30"}`}
-                          />
-                          {i === currentSlide && isAutoPlaying && (
-                            <motion.span
-                              className="absolute inset-0 rounded-full bg-white origin-left"
-                              initial={{ scaleX: 0 }}
-                              animate={{ scaleX: 1 }}
-                              transition={{ duration: 6, ease: "linear" }}
-                              key={`progress-${currentSlide}`}
-                            />
-                          )}
-                          {i === currentSlide && !isAutoPlaying && (
-                            <span className="absolute inset-0 rounded-full bg-white" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <button
-                onClick={scrollToContent}
-                className="hidden md:flex items-center gap-2 text-white/30 hover:text-white/60 transition-colors text-sm tracking-widest group uppercase"
+          {/* Hero content — eyebrow badge, italic Instrument Serif headline,
+              subhead, dual CTAs. Centered, framed by the cinematic video. */}
+          <div className="absolute inset-0 z-20 flex flex-col">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 pt-24 text-center">
+              <motion.div
+                initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ delay: 0.4, duration: 0.7, ease: "easeOut" }}
+                className="home-glass rounded-full inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 mb-8"
+                data-testid="badge-home-eyebrow"
               >
-                Scroll to explore
-                <motion.div
-                  animate={{ y: [0, 8, 0] }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
+                <span className="bg-white text-black px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide font-cinematic-body">
+                  New
+                </span>
+                <span className="text-sm text-white/90 font-cinematic-body">
+                  Premium Student Living, Reimagined
+                </span>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ delay: 0.6, duration: 0.8, ease: "easeOut" }}
+                className="font-cinematic-display text-white leading-[0.85] text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] max-w-3xl"
+                data-testid="text-home-headline"
+              >
+                Your home away
+                <br />
+                from <span className="text-[#c5a059]">home.</span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ delay: 0.8, duration: 0.7, ease: "easeOut" }}
+                className="mt-6 text-sm md:text-base text-white/85 max-w-xl font-cinematic-body font-light leading-relaxed"
+              >
+                Thoughtfully designed spaces, curated communities, and an
+                intelligent platform that quietly takes care of everything —
+                so you can focus on what matters.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ delay: 1.0, duration: 0.7, ease: "easeOut" }}
+                className="flex flex-col sm:flex-row items-center gap-4 mt-9"
+              >
+                <Link href="/properties">
+                  <button
+                    className="home-glass-strong rounded-full px-6 py-3 text-sm font-medium text-white inline-flex items-center gap-2 font-cinematic-body group"
+                    data-testid="button-explore-properties"
+                  >
+                    Explore Properties
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </Link>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById("app-download-section");
+                    if (el)
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
+                  className="text-white/90 hover:text-white text-sm font-medium inline-flex items-center gap-2 px-3 py-3 font-cinematic-body group"
+                  data-testid="button-download-app"
                 >
-                  <ChevronDown className="w-4 h-4" />
-                </motion.div>
-              </button>
+                  <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  Resident App
+                </button>
+              </motion.div>
             </div>
+
+            {/* Hsquare watermark — subtle bottom-left */}
+            <div
+              className="absolute bottom-10 left-6 md:left-10 flex items-center gap-3 opacity-40 pointer-events-none select-none"
+              data-testid="hero-watermark"
+            >
+              <img
+                src={hsquareLogo}
+                alt=""
+                className="w-9 h-9 md:w-10 md:h-10 brightness-0 invert"
+              />
+              <span className="text-white text-xs md:text-sm font-cinematic-body font-medium tracking-[0.3em] uppercase">
+                Hsquare Living
+              </span>
+            </div>
+
+            {/* Scroll-to-explore prompt — subtle bottom-right */}
+            <button
+              onClick={scrollToContent}
+              className="hidden md:flex absolute bottom-10 right-10 items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-xs tracking-[0.3em] uppercase font-cinematic-body group"
+            >
+              Scroll
+              <motion.div
+                animate={{ y: [0, 6, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ChevronDown className="w-4 h-4" />
+              </motion.div>
+            </button>
           </div>
-      </section>
+        </section>
       {/* Card-swipe overlay (Task #147): every section after the sticky
           hero lives inside this `relative z-10` wrapper so they paint
           ABOVE the sticky hero (which is z:auto) and ABOVE the global
@@ -2352,136 +2097,125 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      <ImmersiveScene variant="grid" className="pt-12 pb-28 md:pt-16 md:pb-40 bg-[#050505]/40">
+      <section
+        className="relative overflow-hidden py-28 md:py-40"
+        data-testid="section-why-choose"
+      >
+        {/* Cinematic full-bleed video background — superadmin-controlled */}
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          src={homeSectionVideoUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          disablePictureInPicture
+          disableRemotePlayback
+          data-testid="video-why-choose"
+          style={{ transform: "translateZ(0)" }}
+        />
+        {/* Heavy darkening overlay so cards + copy stay legible over any footage */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.62) 35%, rgba(0,0,0,0.62) 65%, rgba(0,0,0,0.85) 100%)",
+          }}
+        />
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-20">
-            <motion.p
-              className="text-cyan-400/80 text-xs tracking-[0.5em] uppercase font-medium mb-6"
-              initial={{ opacity: 0, y: -20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-            >
-              Discover
-            </motion.p>
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-black text-white mb-6 tracking-tight leading-[1.15]">
-              <CinematicText delay={0.1}>Why Choose</CinematicText>
-              <br />
-              <CinematicText delay={0.4} gradient>
-                Hsquareliving
-              </CinematicText>
-            </h2>
             <motion.div
-              initial={{ scaleX: 0 }}
-              whileInView={{ scaleX: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 1, delay: 0.4 }}
-              className="w-24 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/60 to-transparent mx-auto mb-8"
-            />
-            <motion.p
-              className="text-white/30 text-lg max-w-2xl mx-auto font-light"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.6 }}
+              transition={{ duration: 0.7 }}
+              className="home-glass rounded-full inline-flex items-center gap-2 px-4 py-1.5 mb-7"
             >
-              An ecosystem thoughtfully designed for students to thrive, study,
-              and build lifelong connections.
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]" />
+              <span className="text-xs uppercase tracking-[0.3em] text-white/80 font-cinematic-body">
+                Why Hsquareliving
+              </span>
+            </motion.div>
+
+            <motion.h2
+              initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+              whileInView={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="font-cinematic-display text-white leading-[0.9] text-5xl md:text-6xl lg:text-7xl tracking-tight"
+            >
+              An ecosystem built
+              <br />
+              for how you <span className="text-[#c5a059]">actually live.</span>
+            </motion.h2>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2, duration: 0.7 }}
+              className="text-white/70 text-base md:text-lg max-w-2xl mx-auto font-cinematic-body font-light mt-6"
+            >
+              Four pillars that quietly run in the background, so you can
+              focus on studying, friendships, and the big stuff.
             </motion.p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
               {
                 icon: Wifi,
                 title: "High-Speed WiFi",
-                desc: "Enterprise-grade connectivity for seamless studies and entertainment.",
-                accent: "from-cyan-500 to-blue-400",
-                glow: "rgba(6,182,212,0.2)",
-                border: "border-cyan-500/20 hover:border-cyan-500/40",
+                desc: "Enterprise-grade connectivity for seamless studies, streaming, and late-night collabs.",
               },
               {
                 icon: Shield,
                 title: "24/7 Security",
-                desc: "Biometric access, CCTV surveillance, and round-the-clock security staff.",
-                accent: "from-emerald-500 to-teal-400",
-                glow: "rgba(16,185,129,0.2)",
-                border: "border-emerald-500/20 hover:border-emerald-500/40",
+                desc: "Biometric access, CCTV surveillance, and round-the-clock security staff on every floor.",
               },
               {
                 icon: Utensils,
                 title: "Gourmet Meals",
-                desc: "Chef-prepared nutritious meals with diverse cuisine options daily.",
-                accent: "from-amber-500 to-orange-400",
-                glow: "rgba(245,158,11,0.2)",
-                border: "border-amber-500/20 hover:border-amber-500/40",
+                desc: "Chef-prepared nutritious meals with diverse cuisine options served fresh, daily.",
               },
               {
                 icon: Users,
                 title: "Vibrant Community",
-                desc: "Events, workshops, and curated spaces to connect with brilliant peers.",
-                accent: "from-violet-500 to-purple-400",
-                glow: "rgba(139,92,246,0.2)",
-                border: "border-violet-500/20 hover:border-violet-500/40",
+                desc: "Curated events, workshops, and shared spaces to connect with brilliant peers.",
               },
             ].map((feature, i) => (
-              <TiltCard
+              <motion.div
                 key={i}
-                intensity={12}
-                glowColor={feature.glow}
-                className="relative group cursor-default h-full"
+                initial={{ opacity: 0, y: 60 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{
+                  delay: i * 0.1,
+                  duration: 0.7,
+                  type: "spring",
+                  stiffness: 100,
+                  damping: 16,
+                }}
+                whileHover={{ y: -8, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+                className="home-glass-strong rounded-3xl p-7 h-full flex flex-col group"
+                data-testid={"card-why-choose-" + i}
               >
-                <motion.div
-                  initial={{ opacity: 0, y: 80, rotateX: 30 }}
-                  whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{
-                    delay: i * 0.12,
-                    duration: 0.8,
-                    type: "spring",
-                    stiffness: 100,
-                    damping: 14,
-                  }}
-                  whileHover={{
-                    y: -12,
-                    transition: { type: "spring", stiffness: 300, damping: 20 },
-                  }}
-                  className="h-full"
-                >
-                  <div
-                    className={`p-6 md:p-8 rounded-2xl border ${feature.border} bg-white/[0.02] relative overflow-hidden transition-all duration-500 h-full flex flex-col`}
-                  >
-                    <div
-                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl"
-                      style={{
-                        background: `radial-gradient(ellipse at 50% 0%, ${feature.glow} 0%, transparent 60%)`,
-                      }}
-                    />
-
-                    <motion.div
-                      className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${feature.accent} flex items-center justify-center mb-5 shadow-lg relative z-10 shrink-0`}
-                      style={{ boxShadow: `0 8px 30px ${feature.glow}` }}
-                      whileHover={{ scale: 1.15, rotate: 5 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 400,
-                        damping: 15,
-                      }}
-                    >
-                      <feature.icon className="w-6 h-6 md:w-7 md:h-7 text-white" />
-                    </motion.div>
-                    <h3 className="font-heading font-bold text-lg md:text-xl text-white mb-2 relative z-10 leading-tight">
-                      {feature.title}
-                    </h3>
-                    <p className="text-white/30 text-sm leading-relaxed relative z-10 flex-1">
-                      {feature.desc}
-                    </p>
-                  </div>
-                </motion.div>
-              </TiltCard>
+                <div className="w-12 h-12 rounded-2xl bg-[#c5a059]/15 ring-1 ring-[#c5a059]/30 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-[#c5a059]/25 transition-all">
+                  <feature.icon className="w-5 h-5 text-[#c5a059]" />
+                </div>
+                <h3 className="font-cinematic-display text-2xl md:text-3xl text-white mb-3 leading-tight">
+                  {feature.title}
+                </h3>
+                <p className="text-white/65 text-sm leading-relaxed font-cinematic-body font-light flex-1">
+                  {feature.desc}
+                </p>
+              </motion.div>
             ))}
           </div>
         </div>
-      </ImmersiveScene>
+      </section>
       <ImmersiveScene variant="fog" className="py-28 md:py-40 bg-[#050505]/40">
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-20">
