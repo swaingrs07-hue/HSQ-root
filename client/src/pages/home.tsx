@@ -1281,6 +1281,13 @@ export default function Home() {
           const covered = !e.isIntersecting;
           setHeroFullyCovered(covered);
           setTubesRevealOpacity?.(covered ? 1 : 0);
+          // Imperative DOM write (no React commit lag) so the hero is
+          // hidden on the same frame the IO callback fires. The React
+          // state above will re-render with the matching inline style
+          // shortly after; both write the same value so no flicker.
+          if (heroRef.current) {
+            heroRef.current.style.visibility = covered ? "hidden" : "visible";
+          }
         },
         { threshold: 0 },
       );
@@ -1290,6 +1297,9 @@ export default function Home() {
         // Restore tubes to full brightness on unmount so other routes
         // (which don't run this effect) see the tubes immediately.
         setTubesRevealOpacity?.(1);
+        if (heroRef.current) {
+          heroRef.current.style.visibility = "visible";
+        }
       };
     }
 
@@ -1305,21 +1315,34 @@ export default function Home() {
       //   1.3+  = past the card-swipe by a comfortable margin
       const progress = sy / vh;
       // Hysteresis: enter "covered" at progress >= 1.0 but only LEAVE
-      // at progress < 0.92. This prevents tiny scroll wobbles right at
-      // the boundary from rapidly flipping heroFullyCovered (and with
-      // it the hero visibility, the stats bg, the tubes opacity, AND
-      // the video pause/play state) — that thrash is what the user was
-      // seeing as a "glitch" of the hero video flashing during scroll
-      // and as video lag while tubes/decoder fight for the GPU near
-      // the threshold.
+      // at progress < 0.985. The dead zone is intentionally TINY
+      // (~1.5vh) — wide enough to absorb sub-pixel scroll jitter at
+      // the threshold (which was thrashing hero visibility, stats bg,
+      // tubes opacity, and video pause/play together and showing up
+      // as the "glitch" the user reported), but narrow enough that on
+      // a slow reverse scroll the user doesn't see an empty band of
+      // tubes/translucent-stats where the top of the hero should be
+      // re-appearing.
       const enterThreshold = 1.0;
-      const leaveThreshold = 0.92;
+      const leaveThreshold = 0.985;
       const fullyCovered = lastFullyCovered
         ? progress >= leaveThreshold
         : progress >= enterThreshold;
       if (fullyCovered !== lastFullyCovered) {
         lastFullyCovered = fullyCovered;
         setHeroFullyCovered(fullyCovered);
+        // Drive the hero visibility imperatively on the SAME frame the
+        // scroll position crosses the threshold. If we relied only on
+        // setHeroFullyCovered above, React would commit the inline
+        // style change a frame or two later — and during a fast scroll
+        // that lag is exactly when the user sees the hero video flash
+        // through the next translucent section before the visibility
+        // flip lands. The React state still updates so other consumers
+        // (stats bg, video pause) see the change; the imperative write
+        // here just makes sure the DOM reflects it immediately.
+        if (heroRef.current) {
+          heroRef.current.style.visibility = fullyCovered ? "hidden" : "visible";
+        }
       }
       // Tubes opacity stays at 0 for the entire hero + card-swipe
       // (progress 0..1.0) so the swipe reads as a clean opaque card
@@ -1350,6 +1373,15 @@ export default function Home() {
       // routes (which do not run this scroll handler) see the tubes
       // at full strength immediately.
       setTubesRevealOpacity?.(1);
+      // Defensive: also reset hero visibility in case this branch was
+      // active (sticky desktop) and we're tearing down because the
+      // viewport just crossed the small/large breakpoint or the user
+      // toggled prefers-reduced-motion. Without this, the IO branch
+      // could mount onto a hero element still carrying the imperative
+      // visibility:hidden from a previous fully-covered scroll state.
+      if (heroRef.current) {
+        heroRef.current.style.visibility = "visible";
+      }
     };
   }, [prefersReducedMotion, isSmallViewport, setTubesRevealOpacity]);
 
