@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { createContext, useContext, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Menu, X, Sparkles, LayoutDashboard, LogOut, Home, Sun, Moon } from "lucide-react";
+import { Menu, X, LayoutDashboard, LogOut, Home, Sun, Moon } from "lucide-react";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { useAuth } from "@/contexts/auth-context";
 import { ProfileDropdown } from "./profile-dropdown";
@@ -14,11 +14,12 @@ const HOTEL_NAV = [
   { name: "Contact", href: "/hotels/contact" },
 ];
 
-/* Three-way theme: classic dark, warm ivory light, and a third
-   "studio" theme — a deep black / liquid-glass / Instrument-Serif
-   look inspired by AI-agency landing sites. The toggle in the nav
-   cycles dark → light → studio → dark. Persisted in localStorage. */
-export type HotelsTheme = "dark" | "light" | "studio";
+/* Two-way theme: classic dark (Night) and warm ivory light (Day).
+   The Studio theme was removed — it didn't add value over the classic
+   themes and the user asked to merge it back in. Persisted in
+   localStorage under the same "hotels-theme" key; legacy "studio"
+   values are normalized to "dark" on load. */
+export type HotelsTheme = "dark" | "light";
 
 const HotelsThemeContext = createContext<HotelsTheme>("dark");
 export const useHotelsTheme = () => useContext(HotelsThemeContext);
@@ -27,7 +28,6 @@ type ThemeOption = { key: HotelsTheme; label: string; Icon: typeof Sun };
 const THEME_OPTIONS: ThemeOption[] = [
   { key: "light", label: "Day", Icon: Sun },
   { key: "dark", label: "Night", Icon: Moon },
-  { key: "studio", label: "Studio", Icon: Sparkles },
 ];
 
 interface ThemeSegmentedControlProps {
@@ -87,7 +87,8 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<HotelsTheme>(() => {
     if (typeof window === "undefined") return "dark";
     const stored = window.localStorage.getItem("hotels-theme");
-    if (stored === "light" || stored === "studio" || stored === "dark") return stored;
+    if (stored === "light") return "light";
+    if (stored === "dark" || stored === "studio") return "dark";
     return "dark";
   });
   const { user, logout } = useAuth();
@@ -117,14 +118,11 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "min-h-screen flex flex-col text-white",
-        theme === "light" && "hotels-light",
-        theme === "studio" && "hotels-studio"
+        theme === "light" && "hotels-light"
       )}
       style={{
         background: "var(--hotels-page-bg, #0a0a0a)",
-        fontFamily: theme === "studio"
-          ? '"Barlow", "Inter", system-ui, sans-serif'
-          : '"Inter", system-ui, -apple-system, sans-serif',
+        fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
       }}
       data-hotels-theme={theme}
       data-testid="hotels-layout-root"
