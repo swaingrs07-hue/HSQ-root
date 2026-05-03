@@ -514,11 +514,23 @@ function AnimatedCounter({
   end,
   suffix,
   label,
+  variant = "default",
 }: {
   end: number;
   suffix: string;
   label: string;
+  variant?: "default" | "cinematic";
 }) {
+  const isCinematic = variant === "cinematic";
+  const numberClass = isCinematic
+    ? "font-cinematic-display text-5xl md:text-7xl text-[#c5a059] leading-[0.9] tracking-tight"
+    : "text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50";
+  const labelClass = isCinematic
+    ? "text-[10px] md:text-xs text-white/70 uppercase tracking-[0.32em] font-cinematic-body mt-3"
+    : "text-[10px] md:text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-3";
+  const numberStyle = isCinematic
+    ? { textShadow: "0 0 30px rgba(197,160,89,0.25)" }
+    : undefined;
   const [count, setCount] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
   const [done, setDone] = useState(false);
@@ -558,7 +570,7 @@ function AnimatedCounter({
         className="flex flex-col items-center justify-center text-center"
       >
         <motion.div
-          className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50"
+          className={numberClass}
           initial={{ scale: 0.5, opacity: 0 }}
           whileInView={{ scale: 1, opacity: 1 }}
           viewport={{ once: true }}
@@ -568,13 +580,15 @@ function AnimatedCounter({
             damping: 15,
             delay: 0.3,
           }}
-          style={{ textShadow: "0 0 60px rgba(0,200,255,0.3)" }}
+          style={
+            isCinematic
+              ? numberStyle
+              : { textShadow: "0 0 60px rgba(0,200,255,0.3)" }
+          }
         >
           24/7
         </motion.div>
-        <div className="text-[10px] md:text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-3">
-          {label}
-        </div>
+        <div className={labelClass}>{label}</div>
       </div>
     );
   }
@@ -585,9 +599,9 @@ function AnimatedCounter({
       className="flex flex-col items-center justify-center text-center"
     >
       <motion.div
-        className="text-5xl md:text-7xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50"
+        className={numberClass}
         animate={
-          done
+          !isCinematic && done
             ? {
                 scale: [1, 1.15, 1],
                 filter: [
@@ -599,14 +613,16 @@ function AnimatedCounter({
             : {}
         }
         transition={{ duration: 0.6 }}
-        style={{ textShadow: done ? "0 0 40px rgba(0,200,255,0.2)" : "none" }}
+        style={
+          isCinematic
+            ? numberStyle
+            : { textShadow: done ? "0 0 40px rgba(0,200,255,0.2)" : "none" }
+        }
       >
         {count.toLocaleString()}
         {suffix}
       </motion.div>
-      <div className="text-[10px] md:text-xs text-white/30 uppercase tracking-[0.3em] font-medium mt-3">
-        {label}
-      </div>
+      <div className={labelClass}>{label}</div>
     </div>
   );
 }
@@ -2085,7 +2101,7 @@ export default function Home() {
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundColor:
-              "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0)))",
+              "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0) * 0.6))",
           }}
         />
 
@@ -2151,6 +2167,7 @@ export default function Home() {
                   end={stat.numericEnd}
                   suffix={stat.suffix}
                   label={stat.label}
+                  variant="cinematic"
                 />
               </motion.div>
             ))}
