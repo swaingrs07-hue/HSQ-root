@@ -456,7 +456,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => switchPortal("to-hotels", "/hotels")}
               className={cn(
-                "hidden xl:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
+                "hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
                 "border backdrop-blur-xl"
               )}
               style={{
