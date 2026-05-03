@@ -118,6 +118,12 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "min-h-screen flex flex-col text-white",
+        // `hotels-studio` is applied unconditionally — it scopes the
+        // liquid-glass utilities and Instrument Serif `.hotels-display`
+        // headings used by the cinematic hero. Body font stays Inter
+        // (we no longer set a Barlow inline override) so Day/Night
+        // body type is unchanged from the original look.
+        "hotels-studio",
         theme === "light" && "hotels-light"
       )}
       style={{

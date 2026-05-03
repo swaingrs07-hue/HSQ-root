@@ -1,7 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Play, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search } from "lucide-react";
+
+/* Cinematic looping background for the hero. CDN-hosted MP4
+   (autoplay-friendly: muted + playsInline + loop). Falls back to
+   a luxury hotel poster image while the video loads. */
+const STUDIO_HERO_VIDEO = "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260307_083826_e938b29f-a43a-41ec-a153-3d4730578ab8.mp4";
+const STUDIO_HERO_POSTER = "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=2400&q=80";
+
+/* Press credits shown in the hero "Featured by" bar. Real luxury
+   hospitality benchmarks — italic Instrument Serif, restrained spacing. */
+const STUDIO_PRESS = ["Condé Nast Traveler", "Travel + Leisure", "Vogue", "Forbes Travel Guide", "Tatler"];
+
 interface Property {
   id: string;
   name: string;
@@ -205,72 +216,117 @@ export default function HotelsHome() {
         </form>
   );
 
-  /* Classic hero — original photo + parallax + gold accents.
-     Used for both "dark" and "light" themes. */
+  /* Cinematic hero — video bg, liquid-glass pills, italic Instrument
+     Serif headline, and a "Featured by" press bar. Used for both Day
+     and Night themes. (Originally the studio-theme variant; restored
+     as the only hero per user request.) */
   const classicHero = (
-      <section
-        ref={heroRef}
-        className="relative min-h-screen flex items-center justify-center overflow-hidden"
-        data-testid="hotels-hero"
+    <section
+      ref={heroRef}
+      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black"
+      data-testid="hotels-hero"
+    >
+      {/* Cinematic video background */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        poster={STUDIO_HERO_POSTER}
+        className="absolute inset-0 w-full h-full object-cover z-0"
+        data-testid="video-studio-hero"
       >
-        <div
-          className="absolute inset-0 z-0"
-          style={{
-            backgroundImage: `url(${HERO_IMAGE})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            transform: `translateY(${parallax}px) scale(1.1)`,
-            willChange: "transform",
-          }}
-        />
-        <div
-          className="absolute inset-0 z-10"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.4) 35%, rgba(10,10,10,0.85) 100%)",
-          }}
-        />
+        <source src={STUDIO_HERO_VIDEO} type="video/mp4" />
+      </video>
+      {/* Vignette + bottom-fade for legible over-image text */}
+      <div
+        className="absolute inset-0 z-10 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)",
+        }}
+      />
+      <div
+        className="absolute left-0 right-0 bottom-0 h-72 z-10 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, transparent, var(--hotels-page-bg, #050505))" }}
+      />
 
-        <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 pb-[30rem] sm:pb-96 lg:pb-56 text-center">
-          <div className="hotels-fade-in">
-            <p
-              className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
-              style={{ color: "#c5a059" }}
-              data-testid="text-hotel-tagline"
+      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-32 pb-[28rem] sm:pb-[30rem] lg:pb-72 text-center">
+        <div className="hotels-fade-in flex flex-col items-center">
+          {/* Liquid-glass badge pill */}
+          <div
+            className="liquid-glass inline-flex items-center gap-2 rounded-full px-1.5 py-1 mb-6 sm:mb-8"
+            data-testid="badge-studio-eyebrow"
+          >
+            <span className="bg-white text-black rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider">
+              New
+            </span>
+            <span className="px-3 text-[12px] sm:text-[13px] text-white/85" style={{ fontFamily: '"Barlow", sans-serif' }}>
+              Introducing AI-curated stays
+            </span>
+          </div>
+
+          <h1
+            className="hotels-display text-white text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] xl:text-[9rem] mb-6 max-w-5xl"
+            data-testid="text-hotel-headline"
+          >
+            The stay your{" "}
+            <span style={{ color: "#c5a059" }}>story</span>
+            <br />
+            deserves
+          </h1>
+          <p
+            className="text-white/75 text-base sm:text-lg max-w-xl mx-auto mb-8 leading-relaxed"
+            style={{ fontFamily: '"Barlow", sans-serif', fontWeight: 300 }}
+          >
+            Cinematic interiors. Effortless service. Quietly refined hospitality —
+            reimagined for the way you travel today.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
+            <Link
+              href="/hotels/rooms"
+              className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+              data-testid="button-hero-reserve"
             >
-              ◇ Beyond Exceptional Hospitality ◇
-            </p>
-            <h1 className="hotels-display text-white text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl mb-6 sm:mb-8" data-testid="text-hotel-headline">
-              A New Chapter
-              <br />
-              <span style={{ fontStyle: "italic", fontWeight: 300, color: "#c5a059" }}>of Luxury</span>
-            </h1>
-            <p className="text-white/70 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 font-light leading-relaxed px-2">
-              Curated stays for travellers who value craft, calm, and detail. Step into a sanctuary designed
-              around you.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
-              <Link
-                href="/hotels/rooms"
-                className="w-full sm:w-auto px-8 sm:px-10 py-4 text-black uppercase text-xs tracking-[0.25em] sm:tracking-[0.3em] font-semibold transition-all duration-300 hover:scale-[1.05] inline-flex items-center justify-center gap-3"
-                style={{ backgroundColor: "#c5a059", boxShadow: "0 12px 36px rgba(197,160,89,0.4)" }}
-                data-testid="button-hero-reserve"
-              >
-                Reserve Your Stay <ArrowRight className="w-4 h-4" />
-              </Link>
-              <a
-                href="#experience"
-                className="w-full sm:w-auto px-8 sm:px-10 py-4 uppercase text-xs tracking-[0.25em] sm:tracking-[0.3em] text-white border border-white/30 hover:bg-white/5 transition-colors text-center"
-                data-testid="button-hero-discover"
-              >
-                Discover More
-              </a>
+              Reserve Your Stay <ArrowUpRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/hotels/experience"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white/90 hover:text-white text-[12px] uppercase tracking-[0.22em] font-medium transition-colors"
+              data-testid="button-hero-watch-film"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" /> Watch the Film
+            </Link>
+          </div>
+
+          {/* Featured-by press bar — Instrument Serif italic credits */}
+          <div className="mt-16 sm:mt-20 flex flex-col items-center gap-5 sm:gap-6" data-testid="studio-press-bar">
+            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/70" style={{ fontFamily: '"Barlow", sans-serif' }}>
+                Featured by
+              </span>
+            </div>
+            <div
+              className="flex flex-wrap items-center justify-center gap-x-10 sm:gap-x-14 gap-y-3"
+              style={{ fontFamily: '"Instrument Serif", serif', fontStyle: "italic" }}
+            >
+              {STUDIO_PRESS.map((name) => (
+                <span
+                  key={name}
+                  className="text-xl sm:text-2xl md:text-3xl text-white/80"
+                  data-testid={`text-press-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  {name}
+                </span>
+              ))}
             </div>
           </div>
         </div>
+      </div>
 
-        {bookingBar}
-      </section>
+      {bookingBar}
+    </section>
   );
 
   return (
