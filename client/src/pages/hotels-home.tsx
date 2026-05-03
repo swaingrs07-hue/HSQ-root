@@ -123,9 +123,27 @@ export default function HotelsHome() {
     const qs = params.toString();
     navigate(qs ? `/hotels/rooms?${qs}` : "/hotels/rooms");
   };
-  const featuredRooms = hotels
-    .flatMap((p) =>
-      (p.roomTypes || []).slice(0, 1).map((rt) => ({
+  // Featured grid on /hotels: take up to 3 real rooms across listed hotels.
+  // Show one room per property first (variety), then fill remaining slots with
+  // additional room types so a single hotel with multiple rooms still fills
+  // the grid. Only fall back to placeholder rooms when ZERO hotels exist.
+  const realFeatured = (() => {
+    const primaries = hotels
+      .map((p) => {
+        const rt = (p.roomTypes || [])[0];
+        if (!rt) return null;
+        return {
+          id: `${p.id}::${rt.id}`,
+          name: rt.name,
+          propertyName: p.displayName || p.name,
+          image: rt.imageUrl || p.imageUrl || FALLBACK_ROOMS[0].image,
+          price: rt.basePrice,
+          propertySlug: p.slug || p.id,
+        };
+      })
+      .filter(Boolean) as Array<{ id: string; name: string; propertyName: string; image: string; price: number; propertySlug: string }>;
+    const extras = hotels.flatMap((p) =>
+      (p.roomTypes || []).slice(1).map((rt) => ({
         id: `${p.id}::${rt.id}`,
         name: rt.name,
         propertyName: p.displayName || p.name,
@@ -133,11 +151,12 @@ export default function HotelsHome() {
         price: rt.basePrice,
         propertySlug: p.slug || p.id,
       }))
-    )
-    .slice(0, 3);
+    );
+    return [...primaries, ...extras].slice(0, 3);
+  })();
 
-  const displayRooms = featuredRooms.length >= 3
-    ? featuredRooms.map((r, i) => ({ ...r, elevated: i === 1 }))
+  const displayRooms = realFeatured.length > 0
+    ? realFeatured.map((r, i) => ({ ...r, elevated: i === 1 || (realFeatured.length === 1 && i === 0) }))
     : FALLBACK_ROOMS;
 
   /* The functional booking quick-search bar shown inside the hero.
