@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,8 @@ import {
   Calendar,
   Copy,
   Sparkles,
+  Target,
+  ChevronsUpDown,
 } from "lucide-react";
 
 type CouponStatus = "active" | "paused" | "expired" | "exhausted";
@@ -103,6 +106,20 @@ interface FormState {
   perUserLimit: string;
   firstBookingOnly: boolean;
   status: CouponStatus;
+  applicablePropertyIds: string[];
+  applicableRoomTypeIds: string[];
+}
+
+interface PropertyWithRoomTypes {
+  id: string;
+  name: string;
+  location?: string | null;
+  roomTypes: Array<{
+    id: string;
+    name: string;
+    customName?: string | null;
+    propertyId: string;
+  }>;
 }
 
 const emptyForm: FormState = {
@@ -119,9 +136,47 @@ const emptyForm: FormState = {
   perUserLimit: "1",
   firstBookingOnly: false,
   status: "active",
+  applicablePropertyIds: [],
+  applicableRoomTypeIds: [],
 };
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+function getAuthToken(): string {
+  try {
+    const raw = localStorage.getItem("hsquare_auth");
+    if (!raw) return "";
+    return JSON.parse(raw).token || "";
+  } catch {
+    return "";
+  }
+}
+
+async function authedFetcher({ queryKey }: { queryKey: readonly unknown[] }) {
+  const url = queryKey.join("/") as string;
+  const token = getAuthToken();
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function authedRequest(method: string, url: string, body?: unknown): Promise<Response> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(url, {
+    method,
+    credentials: "include",
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+  return res;
+}
 
 function statusVariant(status: CouponStatus): { bg: string; text: string; label: string } {
   switch (status) {
@@ -151,6 +206,8 @@ function toFormState(c: Coupon): FormState {
     perUserLimit: c.perUserLimit === null ? "" : String(c.perUserLimit),
     firstBookingOnly: c.firstBookingOnly,
     status: c.status,
+    applicablePropertyIds: c.applicablePropertyIds ?? [],
+    applicableRoomTypeIds: c.applicableRoomTypeIds ?? [],
   };
 }
 
@@ -170,6 +227,8 @@ function buildPayload(f: FormState) {
     perUserLimit: f.perUserLimit.trim() === "" ? null : Number(f.perUserLimit),
     firstBookingOnly: f.firstBookingOnly,
     status: f.status,
+    applicablePropertyIds: f.applicablePropertyIds.length ? f.applicablePropertyIds : null,
+    applicableRoomTypeIds: f.applicableRoomTypeIds.length ? f.applicableRoomTypeIds : null,
   };
 }
 
@@ -185,11 +244,47 @@ export default function AdminCoupons() {
 
   const { data: coupons = [], isLoading } = useQuery<Coupon[]>({
     queryKey: ["/api/admin/coupons"],
+    queryFn: authedFetcher,
   });
+
+  const { data: properties = [] } = useQuery<PropertyWithRoomTypes[]>({
+    queryKey: ["/api/admin/properties"],
+    queryFn: authedFetcher,
+  });
+
+  const allRoomTypes = useMemo(
+    () =>
+      properties.flatMap((p) =>
+        (p.roomTypes ?? []).map((rt) => ({
+          id: rt.id,
+          label: rt.customName || rt.name,
+          propertyName: p.name,
+        }))
+      ),
+    [properties]
+  );
+
+  const togglePropertyId = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      applicablePropertyIds: prev.applicablePropertyIds.includes(id)
+        ? prev.applicablePropertyIds.filter((x) => x !== id)
+        : [...prev.applicablePropertyIds, id],
+    }));
+  };
+
+  const toggleRoomTypeId = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      applicableRoomTypeIds: prev.applicableRoomTypeIds.includes(id)
+        ? prev.applicableRoomTypeIds.filter((x) => x !== id)
+        : [...prev.applicableRoomTypeIds, id],
+    }));
+  };
 
   const createMutation = useMutation({
     mutationFn: async (payload: ReturnType<typeof buildPayload>) => {
-      const res = await apiRequest("POST", "/api/admin/coupons", payload);
+      const res = await authedRequest("POST", "/api/admin/coupons", payload);
       return res.json();
     },
     onSuccess: () => {
@@ -203,7 +298,7 @@ export default function AdminCoupons() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
-      const res = await apiRequest("PATCH", `/api/admin/coupons/${id}`, payload);
+      const res = await authedRequest("PATCH", `/api/admin/coupons/${id}`, payload);
       return res.json();
     },
     onSuccess: () => {
@@ -217,7 +312,7 @@ export default function AdminCoupons() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => apiRequest("DELETE", `/api/admin/coupons/${id}`),
+    mutationFn: async (id: string) => authedRequest("DELETE", `/api/admin/coupons/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
       toast({ title: "Coupon deleted" });
@@ -416,6 +511,17 @@ export default function AdminCoupons() {
                             <div className="text-[10px] text-amber-600 uppercase tracking-wide font-semibold mt-0.5">
                               First booking only
                             </div>
+                          )}
+                          {((c.applicablePropertyIds?.length ?? 0) > 0 ||
+                            (c.applicableRoomTypeIds?.length ?? 0) > 0) && (
+                            <Badge
+                              variant="outline"
+                              className="mt-1 gap-1 border-indigo-200 bg-indigo-50 text-indigo-700 text-[10px] px-1.5 py-0"
+                              data-testid={`badge-targeted-${c.id}`}
+                            >
+                              <Target className="h-2.5 w-2.5" />
+                              Targeted
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>
@@ -658,6 +764,164 @@ export default function AdminCoupons() {
                 data-testid="switch-first-booking"
               />
               <Label htmlFor="first-only" className="text-sm cursor-pointer">First booking only</Label>
+            </div>
+
+            <div className="md:col-span-2 border-t pt-4 mt-2">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="h-4 w-4 text-indigo-600" />
+                <Label className="text-sm font-semibold">Targeting (optional)</Label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Leave empty to apply to <span className="font-medium">all</span> properties / room types.
+              </p>
+            </div>
+
+            <div>
+              <Label>Properties</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                    type="button"
+                    data-testid="button-select-properties"
+                  >
+                    <span className="truncate">
+                      {form.applicablePropertyIds.length === 0
+                        ? "All properties"
+                        : `${form.applicablePropertyIds.length} selected`}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0" align="start">
+                  <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                    {properties.length === 0 ? (
+                      <div className="text-xs text-muted-foreground p-2">No properties available</div>
+                    ) : (
+                      properties.map((p) => {
+                        const checked = form.applicablePropertyIds.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                            data-testid={`option-property-${p.id}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => togglePropertyId(p.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{p.name}</div>
+                              {p.location && (
+                                <div className="text-[10px] text-muted-foreground truncate">{p.location}</div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  {form.applicablePropertyIds.length > 0 && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs h-7"
+                        onClick={() => setForm({ ...form, applicablePropertyIds: [] })}
+                        data-testid="button-clear-properties"
+                      >
+                        Clear selection
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {form.applicablePropertyIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {form.applicablePropertyIds.map((id) => {
+                    const p = properties.find((x) => x.id === id);
+                    return (
+                      <Badge key={id} variant="secondary" className="text-[10px]">
+                        {p?.name ?? id}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label>Room Types</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                    type="button"
+                    data-testid="button-select-room-types"
+                  >
+                    <span className="truncate">
+                      {form.applicableRoomTypeIds.length === 0
+                        ? "All room types"
+                        : `${form.applicableRoomTypeIds.length} selected`}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0" align="start">
+                  <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                    {allRoomTypes.length === 0 ? (
+                      <div className="text-xs text-muted-foreground p-2">No room types available</div>
+                    ) : (
+                      allRoomTypes.map((rt) => {
+                        const checked = form.applicableRoomTypeIds.includes(rt.id);
+                        return (
+                          <label
+                            key={rt.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                            data-testid={`option-room-type-${rt.id}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleRoomTypeId(rt.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{rt.label}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{rt.propertyName}</div>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  {form.applicableRoomTypeIds.length > 0 && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs h-7"
+                        onClick={() => setForm({ ...form, applicableRoomTypeIds: [] })}
+                        data-testid="button-clear-room-types"
+                      >
+                        Clear selection
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {form.applicableRoomTypeIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {form.applicableRoomTypeIds.map((id) => {
+                    const rt = allRoomTypes.find((x) => x.id === id);
+                    return (
+                      <Badge key={id} variant="secondary" className="text-[10px]">
+                        {rt ? `${rt.label} · ${rt.propertyName}` : id}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
