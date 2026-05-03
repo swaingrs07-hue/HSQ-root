@@ -577,6 +577,63 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
   const [videoUrl, setVideoUrl] = useState<string>(scroll.videoUrl || "");
   const [msg, setMsg] = useState<string>("");
 
+  // ---- Testimonials editor state ----
+  const TESTIMONIALS_KEY = "hotels_testimonials";
+  type Testimonial = { quote: string; name: string; role: string };
+  type TestimonialsContent = { eyebrow: string; headline: string; accent: string; items: Testimonial[] };
+  const DEFAULT_TESTIMONIALS: TestimonialsContent = {
+    eyebrow: "What They Say",
+    headline: "Don't take our word",
+    accent: "for it.",
+    items: [
+      { quote: "Quietly the best stay I've had in Mumbai. The room felt designed for me — not for everyone.", name: "Sarah Chen", role: "Founder, Luminary" },
+      { quote: "Concierge handled the airport, the dinner reservation, even a last-minute meeting room. Effortless.", name: "Marcus Webb", role: "Head of Growth, Arcline" },
+      { quote: "It feels less like a hotel and more like a home you didn't know you had. We'll be back.", name: "Elena Voss", role: "Brand Director, Helix" },
+    ],
+  };
+  const savedTestimonials = getContent<TestimonialsContent>(TESTIMONIALS_KEY, DEFAULT_TESTIMONIALS);
+  const [testimonials, setTestimonials] = useState<TestimonialsContent>(savedTestimonials);
+  const [savingTestimonials, setSavingTestimonials] = useState(false);
+
+  function updateTestimonialField(field: "eyebrow" | "headline" | "accent", value: string) {
+    setTestimonials((t) => ({ ...t, [field]: value }));
+  }
+  function updateTestimonialItem(idx: number, field: keyof Testimonial, value: string) {
+    setTestimonials((t) => ({ ...t, items: t.items.map((it, i) => (i === idx ? { ...it, [field]: value } : it)) }));
+  }
+  function addTestimonial() {
+    setTestimonials((t) => ({ ...t, items: [...t.items, { quote: "", name: "", role: "" }] }));
+  }
+  function removeTestimonial(idx: number) {
+    setTestimonials((t) => ({ ...t, items: t.items.filter((_, i) => i !== idx) }));
+  }
+  async function saveTestimonials() {
+    if (!isSuper) return;
+    try {
+      setSavingTestimonials(true);
+      await setContent.mutateAsync({ key: TESTIMONIALS_KEY, value: testimonials });
+      setMsg("Testimonials updated. Refresh /hotels to see them live.");
+    } catch (e: any) {
+      setMsg(`Failed: ${e?.message || "unknown error"}`);
+    } finally {
+      setSavingTestimonials(false);
+    }
+  }
+  async function resetTestimonials() {
+    if (!isSuper) return;
+    if (!confirm("Reset testimonials to defaults? Your custom quotes will be lost.")) return;
+    setTestimonials(DEFAULT_TESTIMONIALS);
+    try {
+      setSavingTestimonials(true);
+      await setContent.mutateAsync({ key: TESTIMONIALS_KEY, value: DEFAULT_TESTIMONIALS });
+      setMsg("Testimonials reset to defaults.");
+    } catch (e: any) {
+      setMsg(`Failed: ${e?.message || "unknown error"}`);
+    } finally {
+      setSavingTestimonials(false);
+    }
+  }
+
   const hotelsPublic = !!flags.hotels_public;
 
   async function toggleHotelsPublic() {
@@ -689,6 +746,131 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
         ) : (
           <p className="text-[10px] uppercase tracking-widest text-white/30">Superadmin only</p>
         )}
+      </div>
+
+      {/* Testimonials editor */}
+      <div className="p-5 border border-white/10 mb-4" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }} data-testid="card-edit-testimonials">
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <div className="text-white font-medium mb-1 flex items-center gap-2">
+              <UserCog className="w-4 h-4" style={{ color: "#c5a059" }} /> Testimonials section
+            </div>
+            <p className="text-white/50 text-xs leading-relaxed">
+              Edit the "What they say" block on the Hotels homepage. Eyebrow, headline, gold accent words and the guest quote cards are all live.
+            </p>
+          </div>
+        </div>
+
+        <fieldset disabled={!isSuper} className="space-y-3 disabled:opacity-50">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-white/50 mb-1.5">Eyebrow</label>
+              <input
+                type="text"
+                value={testimonials.eyebrow}
+                onChange={(e) => updateTestimonialField("eyebrow", e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                data-testid="input-testimonials-eyebrow"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-white/50 mb-1.5">Headline (white)</label>
+              <input
+                type="text"
+                value={testimonials.headline}
+                onChange={(e) => updateTestimonialField("headline", e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                data-testid="input-testimonials-headline"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-white/50 mb-1.5">Accent (gold)</label>
+              <input
+                type="text"
+                value={testimonials.accent}
+                onChange={(e) => updateTestimonialField("accent", e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                data-testid="input-testimonials-accent"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {testimonials.items.map((it, idx) => (
+              <div key={idx} className="p-4 border border-white/10 rounded-lg bg-black/20" data-testid={`row-testimonial-${idx}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-[0.25em]" style={{ color: "#c5a059" }}>Card {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeTestimonial(idx)}
+                    className="text-[10px] uppercase tracking-widest text-rose-300 hover:text-rose-200 inline-flex items-center gap-1"
+                    data-testid={`button-remove-testimonial-${idx}`}
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                </div>
+                <textarea
+                  value={it.quote}
+                  onChange={(e) => updateTestimonialItem(idx, "quote", e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30 resize-none mb-2"
+                  placeholder="Guest quote…"
+                  data-testid={`input-testimonial-quote-${idx}`}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={it.name}
+                    onChange={(e) => updateTestimonialItem(idx, "name", e.target.value)}
+                    className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                    placeholder="Guest name"
+                    data-testid={`input-testimonial-name-${idx}`}
+                  />
+                  <input
+                    type="text"
+                    value={it.role}
+                    onChange={(e) => updateTestimonialItem(idx, "role", e.target.value)}
+                    className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                    placeholder="Title, Company"
+                    data-testid={`input-testimonial-role-${idx}`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={addTestimonial}
+              className="px-3 py-2 border border-white/15 text-white/80 hover:text-white text-[11px] uppercase tracking-widest rounded inline-flex items-center gap-2"
+              data-testid="button-add-testimonial"
+            >
+              <Plus className="w-3 h-3" /> Add card
+            </button>
+            <button
+              type="button"
+              onClick={resetTestimonials}
+              className="px-3 py-2 border border-white/10 text-white/50 hover:text-white/80 text-[11px] uppercase tracking-widest rounded"
+              data-testid="button-reset-testimonials"
+            >
+              Reset to defaults
+            </button>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={saveTestimonials}
+              disabled={savingTestimonials}
+              className="px-5 py-2 text-black font-semibold text-[11px] uppercase tracking-widest rounded disabled:opacity-50"
+              style={{ backgroundColor: "#c5a059" }}
+              data-testid="button-save-testimonials"
+            >
+              {savingTestimonials ? "Saving…" : "Save testimonials"}
+            </button>
+          </div>
+        </fieldset>
+
+        {!isSuper && <p className="text-[10px] uppercase tracking-widest text-white/30 mt-3">Superadmin only</p>}
       </div>
 
       {/* Theme defaults info */}

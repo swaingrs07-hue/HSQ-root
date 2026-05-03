@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ArrowUpRight, Play, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search, Zap, BarChart3, Shield, Quote } from "lucide-react";
 import { ScrollReactSequence } from "@/components/scroll-react-sequence";
+import { useSiteContent } from "@/hooks/use-site-content";
 
 /* Cinematic looping background for the hero. CDN-hosted MP4
    (autoplay-friendly: muted + playsInline + loop). Falls back to
@@ -58,10 +59,30 @@ const FALLBACK_ROOMS = [
   },
 ];
 
+type Testimonial = { quote: string; name: string; role: string };
+type TestimonialsContent = {
+  eyebrow: string;
+  headline: string;
+  accent: string;
+  items: Testimonial[];
+};
+const DEFAULT_TESTIMONIALS: TestimonialsContent = {
+  eyebrow: "What They Say",
+  headline: "Don't take our word",
+  accent: "for it.",
+  items: [
+    { quote: "Quietly the best stay I've had in Mumbai. The room felt designed for me — not for everyone.", name: "Sarah Chen", role: "Founder, Luminary" },
+    { quote: "Concierge handled the airport, the dinner reservation, even a last-minute meeting room. Effortless.", name: "Marcus Webb", role: "Head of Growth, Arcline" },
+    { quote: "It feels less like a hotel and more like a home you didn't know you had. We'll be back.", name: "Elena Voss", role: "Brand Director, Helix" },
+  ],
+};
+
 export default function HotelsHome() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [parallax, setParallax] = useState(0);
   const [, navigate] = useLocation();
+  const { getContent } = useSiteContent();
+  const testimonials = getContent<TestimonialsContent>("hotels_testimonials", DEFAULT_TESTIMONIALS);
 
   // Booking quick-search state
   const today = new Date().toISOString().split("T")[0];
@@ -666,32 +687,16 @@ export default function HotelsHome() {
           <div className="text-center mb-12 md:mb-16">
             <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-5">
               <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
-                What They Say
+                {testimonials.eyebrow}
               </span>
             </div>
             <h2 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-[0.95]">
-              Don't take our word <span style={{ color: "#c5a059" }}>for it.</span>
+              {testimonials.headline} <span style={{ color: "#c5a059" }}>{testimonials.accent}</span>
             </h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
-            {[
-              {
-                quote: "Quietly the best stay I've had in Mumbai. The room felt designed for me — not for everyone.",
-                name: "Sarah Chen",
-                role: "Founder, Luminary",
-              },
-              {
-                quote: "Concierge handled the airport, the dinner reservation, even a last-minute meeting room. Effortless.",
-                name: "Marcus Webb",
-                role: "Head of Growth, Arcline",
-              },
-              {
-                quote: "It feels less like a hotel and more like a home you didn't know you had. We'll be back.",
-                name: "Elena Voss",
-                role: "Brand Director, Helix",
-              },
-            ].map((t, i) => (
+            {(testimonials.items || []).map((t, i) => (
               <div
                 key={t.name}
                 className="liquid-glass rounded-2xl p-7 sm:p-8 flex flex-col"
