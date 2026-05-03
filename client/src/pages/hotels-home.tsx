@@ -408,12 +408,13 @@ export default function HotelsHome() {
           via Admin → Settings → General → "Hotels Cinematic Section". */}
       <ScrollReactSequence />
 
-      {/* HOW IT WORKS — cinematic video background, liquid-glass content */}
-      <section
-        id="experience"
-        className="relative py-24 md:py-32 lg:py-40 px-4 sm:px-6 overflow-hidden"
-        data-testid="section-experience"
-      >
+      {/* HOW IT WORKS — enters as an OTA-style card from beneath the scroll reel */}
+      <CardEnter>
+        <section
+          id="experience"
+          className="relative py-24 md:py-32 lg:py-40 px-4 sm:px-6 overflow-hidden"
+          data-testid="section-experience"
+        >
         <video
           autoPlay
           loop
@@ -456,7 +457,8 @@ export default function HotelsHome() {
             Start Your Stay <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
-      </section>
+        </section>
+      </CardEnter>
 
       {/* FEATURES CHESS — alternating image/text rows in liquid-glass frames */}
       <section className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-features-chess">
@@ -815,6 +817,37 @@ export default function HotelsHome() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ───────── Card-entry wrapper ─────────
+   Lifts its child section over the previous full-bleed scroll-reel
+   like an OTA-style sheet (rounded top, soft shadow, slide+scale-in).
+   Uses IntersectionObserver so the animation only fires once. */
+function CardEnter({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            el.classList.add("is-visible");
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -10% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="hotels-card-enter">
+      {children}
     </div>
   );
 }
