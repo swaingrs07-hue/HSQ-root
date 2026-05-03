@@ -156,6 +156,16 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
             <h1 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl">Admin Dashboard</h1>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 text-[11px] uppercase tracking-widest w-full sm:w-auto">
+            {(user?.role === "admin" || user?.role === "superadmin") && (
+              <Link
+                href="/admin"
+                className="px-4 sm:px-5 py-2.5 border flex-1 sm:flex-none text-center inline-flex items-center justify-center gap-2"
+                style={{ borderColor: "rgba(197,160,89,0.45)", color: "#c5a059", background: "rgba(197,160,89,0.08)" }}
+                data-testid="link-full-admin-panel"
+              >
+                <LayoutDashboard className="w-3 h-3" /> Full Control Panel
+              </Link>
+            )}
             <Link href="/hotels" className="px-4 sm:px-5 py-2.5 border border-white/15 text-white/70 hover:text-white flex-1 sm:flex-none text-center">Guest View</Link>
             <button
               onClick={() => setShowCreateTask(true)}
