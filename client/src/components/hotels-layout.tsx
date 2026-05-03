@@ -23,20 +23,62 @@ export type HotelsTheme = "dark" | "light" | "studio";
 const HotelsThemeContext = createContext<HotelsTheme>("dark");
 export const useHotelsTheme = () => useContext(HotelsThemeContext);
 
-const THEME_ORDER: HotelsTheme[] = ["dark", "light", "studio"];
-const nextTheme = (t: HotelsTheme): HotelsTheme =>
-  THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length];
+type ThemeOption = { key: HotelsTheme; label: string; Icon: typeof Sun };
+const THEME_OPTIONS: ThemeOption[] = [
+  { key: "light", label: "Day", Icon: Sun },
+  { key: "dark", label: "Night", Icon: Moon },
+  { key: "studio", label: "Studio", Icon: Sparkles },
+];
 
-const themeLabel = (t: HotelsTheme) =>
-  t === "dark" ? "Switch to light theme"
-  : t === "light" ? "Switch to studio theme"
-  : "Switch to dark theme";
+interface ThemeSegmentedControlProps {
+  theme: HotelsTheme;
+  onChange: (t: HotelsTheme) => void;
+  testIdPrefix: string;
+  compact?: boolean;
+}
 
-const ThemeIcon = ({ theme }: { theme: HotelsTheme }) => {
-  if (theme === "dark") return <Sun className="w-4 h-4" style={{ color: "#c5a059" }} />;
-  if (theme === "light") return <Moon className="w-4 h-4" style={{ color: "#c5a059" }} />;
-  return <Sparkles className="w-4 h-4" style={{ color: "#c5a059" }} />;
-};
+function ThemeSegmentedControl({ theme, onChange, testIdPrefix, compact }: ThemeSegmentedControlProps) {
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded-full p-1 border"
+      style={{
+        borderColor: "rgba(197, 160, 89, 0.35)",
+        background: "rgba(197, 160, 89, 0.06)",
+      }}
+      role="radiogroup"
+      aria-label="Hotels theme"
+    >
+      {THEME_OPTIONS.map(({ key, label, Icon }) => {
+        const active = theme === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(key)}
+            className={`flex items-center gap-1.5 rounded-full transition-all duration-200 ${
+              compact ? "px-2 py-1" : "px-2.5 py-1"
+            } ${active ? "shadow-sm" : "opacity-60 hover:opacity-100"}`}
+            style={{
+              background: active ? "#c5a059" : "transparent",
+              color: active ? "#000" : "rgba(255,255,255,0.85)",
+            }}
+            title={`${label} mode`}
+            data-testid={`${testIdPrefix}-${key}`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {!compact && (
+              <span className="text-[10px] uppercase tracking-[0.18em] font-semibold">
+                {label}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function HotelsLayout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
@@ -69,7 +111,6 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
     try { window.localStorage.setItem("hotels-theme", theme); } catch {}
   }, [theme]);
 
-  const toggleTheme = () => setTheme(nextTheme);
 
   return (
     <HotelsThemeContext.Provider value={theme}>
@@ -192,19 +233,11 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full border transition-all duration-300 hover:scale-110"
-              style={{
-                borderColor: "rgba(197, 160, 89, 0.35)",
-                background: "rgba(197, 160, 89, 0.08)",
-              }}
-              aria-label={themeLabel(theme)}
-              title={themeLabel(theme)}
-              data-testid="button-hotels-theme-toggle"
-            >
-              <ThemeIcon theme={theme} />
-            </button>
+            <ThemeSegmentedControl
+              theme={theme}
+              onChange={setTheme}
+              testIdPrefix="button-hotels-theme"
+            />
             {user ? (
               <ProfileDropdown />
             ) : (
@@ -227,18 +260,12 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="md:hidden flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full border"
-              style={{
-                borderColor: "rgba(197, 160, 89, 0.35)",
-                background: "rgba(197, 160, 89, 0.08)",
-              }}
-              aria-label={themeLabel(theme)}
-              data-testid="button-hotels-theme-toggle-mobile"
-            >
-              <ThemeIcon theme={theme} />
-            </button>
+            <ThemeSegmentedControl
+              theme={theme}
+              onChange={setTheme}
+              testIdPrefix="button-hotels-theme-mobile"
+              compact
+            />
             <button
               className="p-2 text-white"
               onClick={() => setMobileOpen(!mobileOpen)}
