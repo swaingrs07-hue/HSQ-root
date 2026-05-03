@@ -130,6 +130,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
   }, [useVideo]);
 
   useEffect(() => {
+    if (useVideo) return;
     let raf = 0;
     let scheduled = false;
     let lastIdx = -1;
@@ -205,7 +206,49 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [useVideo]);
+
+  /* VIDEO MODE — single-screen section, one <video>, no scroll-pin, no rAF.
+     This avoids the lag caused by the 320vh sticky overlay + double-decoded
+     video that the frame-sequence layout was originally built for. */
+  if (useVideo) {
+    return (
+      <section
+        ref={sectionRef}
+        className="relative bg-black overflow-hidden"
+        style={{ minHeight: "100vh" }}
+        data-testid="section-scroll-react-sequence"
+      >
+        <video
+          src={videoUrl}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          data-testid="video-scrollreact"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/15 to-black/75" />
+        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-6 lg:px-12 py-24">
+          <span
+            className="px-4 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] uppercase tracking-[0.35em] mb-6"
+            style={{ color: "#c5a059" }}
+            data-testid="text-scrollreact-eyebrow"
+          >
+            {eyebrow}
+          </span>
+          <h2
+            className="hotels-display text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl max-w-4xl leading-[0.95]"
+            style={{ textShadow: "0 6px 30px rgba(0,0,0,0.85)" }}
+            data-testid="text-scrollreact-title"
+          >
+            {titleLine1} <span style={{ color: "#c5a059" }}>{titleAccent}</span>
+          </h2>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -214,27 +257,14 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       style={{ height: "320vh" }}
       data-testid="section-scroll-react-sequence"
     >
-      {/* Static first frame / poster so the section looks alive before scroll lock */}
+      {/* Static first frame so the section looks alive before scroll lock */}
       <div className="absolute top-0 left-0 w-full h-screen overflow-hidden">
-        {useVideo ? (
-          <video
-            src={videoUrl}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden="true"
-          />
-        ) : (
-          <img
-            src={framePath(0)}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        )}
+        <img
+          src={framePath(0)}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center gap-4">
           <span
@@ -264,20 +294,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
           transform: "translateZ(0)",
         }}
       >
-        {useVideo ? (
-          <video
-            src={videoUrl}
-            className="absolute inset-0 w-full h-full object-cover bg-black"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden="true"
-          />
-        ) : (
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-black" />
-        )}
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-black" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center">
           <div ref={headlineRef} className="sr-headline max-w-4xl text-center">
