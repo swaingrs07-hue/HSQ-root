@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useSiteContent } from "@/hooks/use-site-content";
 
-const FRAME_COUNT = 240;
+const DEFAULT_FRAME_COUNT = 240;
 const BASE = (import.meta as any).env?.BASE_URL ?? "/";
 
-function framePath(i: number) {
+function defaultFramePath(i: number) {
   const n = String(i + 1).padStart(3, "0");
   return `${BASE}scrollreact/ezgif-frame-${n}.jpg`;
 }
@@ -24,6 +24,7 @@ interface ScrollReactContent {
   titleLine1: string;
   titleAccent: string;
   videoUrl?: string;
+  frames?: string[];
   enabled?: boolean;
 }
 
@@ -32,6 +33,7 @@ const DEFAULT_CONTENT: ScrollReactContent = {
   titleLine1: "Every Frame,",
   titleAccent: "Every Stay",
   videoUrl: "",
+  frames: [],
   enabled: true,
 };
 
@@ -53,6 +55,9 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
   const titleAccent = props.titleAccent ?? stored.titleAccent;
   const videoUrl = (stored.videoUrl ?? "").trim();
   const useVideo = videoUrl.length > 0;
+  const customFrames = Array.isArray(stored.frames) ? stored.frames.filter(Boolean) : [];
+  const FRAME_COUNT = customFrames.length > 0 ? customFrames.length : DEFAULT_FRAME_COUNT;
+  const framePath = (i: number) => (customFrames.length > 0 ? customFrames[i] : defaultFramePath(i));
 
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -74,7 +79,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       }
     }
     if (pickIdx === -1) {
-      for (let i = idx + 1; i < FRAME_COUNT; i++) {
+      for (let i = idx + 1; i < imagesRef.current.length; i++) {
         const im = imagesRef.current[i];
         if (im && im.complete && im.naturalWidth > 0) {
           pickIdx = i;
@@ -130,7 +135,8 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       imgs.push(img);
     }
     imagesRef.current = imgs;
-  }, [useVideo]);
+    lastDrawnRef.current = -1;
+  }, [useVideo, FRAME_COUNT, customFrames.join("|")]);
 
   useEffect(() => {
     if (useVideo) return;
@@ -175,9 +181,10 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
 
       const playRange = total * 0.58;
       const progress = Math.min(1, Math.max(0, -rect.top / Math.max(1, playRange)));
+      const fc = imagesRef.current.length || FRAME_COUNT;
       const idx = Math.min(
-        FRAME_COUNT - 1,
-        Math.max(0, Math.round(progress * (FRAME_COUNT - 1))),
+        fc - 1,
+        Math.max(0, Math.round(progress * (fc - 1))),
       );
       targetIdxRef.current = idx;
       if (idx !== lastIdx) {

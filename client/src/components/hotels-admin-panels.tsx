@@ -1033,12 +1033,13 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
   const setContent = useSetSiteContent();
 
   const SCROLL_KEY = "hotels_scrollreact";
-  type ReelContent = { eyebrow: string; titleLine1: string; titleAccent: string; videoUrl?: string; enabled?: boolean };
+  type ReelContent = { eyebrow: string; titleLine1: string; titleAccent: string; videoUrl?: string; frames?: string[]; enabled?: boolean };
   const DEFAULTS: ReelContent = {
     eyebrow: "The Experience",
     titleLine1: "Every Frame,",
     titleAccent: "Every Stay",
     videoUrl: "",
+    frames: [],
     enabled: true,
   };
 
@@ -1047,14 +1048,31 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
   const [titleLine1, setTitleLine1] = useState(stored.titleLine1);
   const [titleAccent, setTitleAccent] = useState(stored.titleAccent);
   const [videoUrl, setVideoUrl] = useState<string>(stored.videoUrl || "");
+  const [frames, setFrames] = useState<string[]>(Array.isArray(stored.frames) ? stored.frames : []);
   const [enabled, setEnabled] = useState<boolean>(stored.enabled !== false);
   const [msg, setMsg] = useState("");
   const [savingCopy, setSavingCopy] = useState(false);
   const [savingEnabled, setSavingEnabled] = useState(false);
+  const [clearingFrames, setClearingFrames] = useState(false);
 
   async function persist(patch: Partial<ReelContent>) {
-    const value = { eyebrow, titleLine1, titleAccent, videoUrl, enabled, ...patch };
+    const value = { eyebrow, titleLine1, titleAccent, videoUrl, frames, enabled, ...patch };
     return setContent.mutateAsync({ key: SCROLL_KEY, value });
+  }
+
+  async function clearFrames() {
+    if (!isSuper) return;
+    if (!confirm(`Remove all ${frames.length} uploaded frames and revert to the default 240-frame flower sequence?`)) return;
+    try {
+      setClearingFrames(true);
+      setFrames([]);
+      await persist({ frames: [] });
+      setMsg("Custom frame sequence cleared. Default flower sequence is back on /hotels.");
+    } catch (e: any) {
+      setMsg(`Failed to clear: ${e?.message || "unknown"}`);
+    } finally {
+      setClearingFrames(false);
+    }
   }
 
   async function toggleEnabled() {
@@ -1207,6 +1225,96 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
             buttonClassName="w-full text-black font-semibold py-3 inline-flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest rounded"
           >
             <Upload className="w-4 h-4" /> {videoUrl ? "Replace video" : "Upload video"}
+          </ObjectUploader>
+        ) : (
+          <p className="text-[10px] uppercase tracking-widest text-white/30">Superadmin only</p>
+        )}
+      </div>
+
+      {/* Custom frame sequence uploader */}
+      <div className="p-5 border border-white/10 mb-4 rounded-lg" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }} data-testid="card-frame-sequence">
+        <div className="text-white font-medium mb-1 flex items-center gap-2">
+          <Film className="w-4 h-4" style={{ color: "#c5a059" }} /> Custom frame sequence
+        </div>
+        <p className="text-white/50 text-xs leading-relaxed mb-4">
+          Upload a series of images (JPG / PNG) — the homepage will scrub through them as the visitor scrolls, exactly like the default flower sequence. Images are played <strong>sorted by file name</strong>, so name them <code className="text-amber-300">frame-001.jpg, frame-002.jpg…</code> Recommended: 60–240 frames at 1920×1080, each under 500 KB. Leaving this empty falls back to the built-in 240-frame flower sequence. A custom video (above) takes priority over frames.
+        </p>
+
+        {frames.length > 0 ? (
+          <div className="border border-white/10 bg-black/30 mb-3 rounded p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-white/70" data-testid="text-frame-count">
+                <span className="text-amber-300 font-semibold">{frames.length}</span> custom frame{frames.length === 1 ? "" : "s"} uploaded
+              </span>
+              <button
+                onClick={clearFrames}
+                disabled={!isSuper || clearingFrames}
+                className="text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1 disabled:opacity-40"
+                data-testid="button-clear-frames"
+              >
+                <X className="w-3 h-3" /> {clearingFrames ? "Clearing…" : "Clear all"}
+              </button>
+            </div>
+            <div className="grid grid-cols-8 sm:grid-cols-12 gap-1 max-h-48 overflow-y-auto">
+              {frames.slice(0, 96).map((src, i) => (
+                <div key={`${src}-${i}`} className="aspect-square bg-black border border-white/5 overflow-hidden rounded-sm">
+                  <img src={src} alt={`frame ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              ))}
+              {frames.length > 96 && (
+                <div className="col-span-full text-[10px] uppercase tracking-widest text-white/30 mt-1">
+                  Showing first 96 of {frames.length}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="border border-dashed border-white/15 px-4 py-8 text-center mb-3 rounded">
+            <Film className="w-10 h-10 mx-auto text-white/30 mb-2" />
+            <p className="text-sm text-white/50">No custom frames — using the default flower sequence.</p>
+          </div>
+        )}
+
+        {isSuper ? (
+          <ObjectUploader
+            maxNumberOfFiles={300}
+            maxFileSize={5242880}
+            onGetUploadParameters={async (file) => {
+              const res = await fetch("/api/uploads/request-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+              });
+              const data = await res.json();
+              (file as any).objectPath = data.objectPath;
+              (file as any).origName = file.name;
+              return {
+                method: "PUT",
+                url: data.uploadURL,
+                headers: { "Content-Type": (file.type as string) || "image/jpeg" },
+              };
+            }}
+            onComplete={async (result) => {
+              const successful = result.successful || [];
+              if (successful.length === 0) return;
+              const newOnes = successful
+                .map((f: any) => ({ name: (f.origName || f.name || "") as string, path: f.objectPath as string | undefined }))
+                .filter((x) => !!x.path)
+                .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }))
+                .map((x) => x.path as string);
+              if (newOnes.length === 0) return;
+              const next = [...frames, ...newOnes];
+              setFrames(next);
+              try {
+                await persist({ frames: next });
+                setMsg(`Added ${newOnes.length} frame${newOnes.length === 1 ? "" : "s"}. Total now: ${next.length}.`);
+              } catch (e: any) {
+                setMsg(`Saved uploads, failed to update: ${e?.message || ""}`);
+              }
+            }}
+            buttonClassName="w-full text-black font-semibold py-3 inline-flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest rounded"
+          >
+            <Upload className="w-4 h-4" /> {frames.length > 0 ? "Add more frames" : "Upload frame sequence"}
           </ObjectUploader>
         ) : (
           <p className="text-[10px] uppercase tracking-widest text-white/30">Superadmin only</p>
