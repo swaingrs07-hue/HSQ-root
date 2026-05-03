@@ -140,7 +140,7 @@ export function PropertiesPanel({ hotels }: { hotels: Property[] }) {
         icon={Building2}
         title="Hotel Properties"
         subtitle={`${hotels.length} ${hotels.length === 1 ? "property" : "properties"} in your hotels portfolio`}
-        action={<GoldButton href="/admin/properties/new" testId="button-new-hotel-property"><Plus className="w-3 h-3" /> New Hotel</GoldButton>}
+        action={<GoldButton href="/admin/add-property?category=hotel" testId="button-new-hotel-property"><Plus className="w-3 h-3" /> New Hotel</GoldButton>}
       />
       {hotels.length === 0 ? (
         <Empty>No hotel properties yet. Click "New Hotel" to add your first.</Empty>
@@ -163,7 +163,7 @@ export function PropertiesPanel({ hotels }: { hotels: Property[] }) {
               <td className="px-4 py-3">
                 <div className="flex gap-2">
                   <GhostButton href={`/hotels/rooms/${p.slug || p.id}`} testId={`button-view-${p.id}`}><ExternalLink className="w-3 h-3" /> View</GhostButton>
-                  <GhostButton href={`/admin/properties/${p.id}`} testId={`button-edit-${p.id}`}><Edit className="w-3 h-3" /> Edit</GhostButton>
+                  <GhostButton href={`/admin?editProperty=${p.id}`} testId={`button-edit-${p.id}`}><Edit className="w-3 h-3" /> Edit</GhostButton>
                 </div>
               </td>
             </tr>

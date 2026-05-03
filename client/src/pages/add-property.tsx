@@ -180,6 +180,12 @@ async function compressImage(file: File, maxSizeBytes: number = MAX_FILE_SIZE, m
 
 export default function AddProperty() {
   const [, setLocation] = useLocation();
+  // Read ?category=hotel from URL so the Hotels admin "New Hotel" button
+  // can pre-select the category (and hide the hostel-only Booking Mode).
+  const initialCategory: "hotel" | "hostel" =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("category") === "hotel"
+      ? "hotel"
+      : "hostel";
   const { user, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -218,7 +224,7 @@ export default function AddProperty() {
       state: "",
       pincode: "",
       description: "",
-      category: "hostel",
+      category: initialCategory,
       bookingMode: "monthly",
       googleMapsUrl: "",
       amenities: [],
