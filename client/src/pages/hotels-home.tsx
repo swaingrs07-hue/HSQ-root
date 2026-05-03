@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ArrowUpRight, Play, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Play, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search, Zap, BarChart3, Shield, Quote } from "lucide-react";
 
 /* Cinematic looping background for the hero. CDN-hosted MP4
    (autoplay-friendly: muted + playsInline + loop). Falls back to
@@ -322,45 +322,129 @@ export default function HotelsHome() {
     <div data-testid="hotels-home-page">
       {classicHero}
 
-      {/* EXPERIENCE / SPLIT */}
-      <section id="experience" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-experience">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 md:gap-16 lg:gap-24 items-center">
-            <div className="relative">
-              <div className="aspect-[4/5] overflow-hidden">
-                <img src={EXPERIENCE_IMAGE} alt="Experience" className="w-full h-full object-cover" loading="lazy" />
+      {/* HOW IT WORKS — cinematic video background, liquid-glass content */}
+      <section
+        id="experience"
+        className="relative py-24 md:py-32 lg:py-40 px-4 sm:px-6 overflow-hidden"
+        data-testid="section-experience"
+      >
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={STUDIO_HERO_POSTER}
+          className="absolute inset-0 w-full h-full object-cover z-0 opacity-60"
+        >
+          <source src={STUDIO_HERO_VIDEO} type="video/mp4" />
+        </video>
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, var(--hotels-page-bg, #050505) 0%, transparent 18%, transparent 82%, var(--hotels-page-bg, #050505) 100%)",
+          }}
+        />
+        <div className="absolute inset-0 z-10 pointer-events-none bg-black/40" />
+
+        <div className="relative z-20 container mx-auto text-center max-w-4xl">
+          <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-6">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
+              How It Works
+            </span>
+          </div>
+          <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 leading-[0.95]">
+            You dream it. <br className="sm:hidden" />
+            <span style={{ color: "#c5a059" }}>We host it.</span>
+          </h2>
+          <p className="text-white/70 text-sm sm:text-base md:text-lg max-w-xl mx-auto mb-8 leading-relaxed font-light px-2">
+            Tell us your dates and your taste. Our concierge handles the rest —
+            tailored rooms, in-house dining, transfers, and quiet luxury at every
+            turn.
+          </p>
+          <Link
+            href="/hotels/rooms"
+            className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+            data-testid="button-howitworks-cta"
+          >
+            Start Your Stay <ArrowUpRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* FEATURES CHESS — alternating image/text rows in liquid-glass frames */}
+      <section className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-features-chess">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12 md:mb-16">
+            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
+                Capabilities
+              </span>
+            </div>
+            <h2 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-[0.95]">
+              Quiet luxury. <span style={{ color: "#c5a059" }}>Zero compromise.</span>
+            </h2>
+          </div>
+
+          {/* Row 1: text left, image right */}
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center mb-12 md:mb-20">
+            <div className="order-2 lg:order-1">
+              <h3 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl mb-5 leading-[0.95]">
+                Designed to delight. <span style={{ color: "#c5a059" }}>Built to repeat.</span>
+              </h3>
+              <p className="text-white/65 text-sm sm:text-base mb-7 leading-relaxed font-light">
+                Every room is curated, not configured. Hand-finished joinery, calm
+                tonal palettes, considered lighting — quiet detail that returns
+                guests night after night.
+              </p>
+              <Link
+                href="/hotels/rooms"
+                className="liquid-glass-strong inline-flex items-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+                data-testid="button-features-row1"
+              >
+                Explore Rooms <ArrowUpRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="liquid-glass rounded-2xl overflow-hidden order-1 lg:order-2">
+              <div className="aspect-[4/3]">
+                <img
+                  src={EXPERIENCE_IMAGE}
+                  alt="Curated rooms"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: image left, text right */}
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+            <div className="liquid-glass rounded-2xl overflow-hidden">
+              <div className="aspect-[4/3]">
+                <img
+                  src={DINING_IMAGE}
+                  alt="In-house dining"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               </div>
             </div>
             <div>
-              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
-                ◇ The Experience
+              <h3 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl mb-5 leading-[0.95]">
+                A kitchen that <span style={{ color: "#c5a059" }}>knows the season.</span>
+              </h3>
+              <p className="text-white/65 text-sm sm:text-base mb-7 leading-relaxed font-light">
+                Slow breakfasts, all-day kitchens, evening cocktails — crafted
+                in-house by chefs who source from the closest farms. Reservations
+                open daily, exclusive to in-house guests.
               </p>
-              <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 sm:mb-8">
-                Where Every <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>Detail</span>
-                <br />
-                Speaks Louder
-              </h2>
-              <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-8 sm:mb-10 font-light">
-                From the moment you arrive, every corner whispers intention. Hand-finished joinery, calm tonal
-                palettes, slow-poured coffees, and rooms with a view that invites you to stay a little longer.
-              </p>
-              <div className="grid grid-cols-2 gap-6 sm:gap-8">
-                {[
-                  { icon: Sparkles, title: "Bespoke Service", desc: "24/7 attentive concierge" },
-                  { icon: Coffee, title: "Curated Dining", desc: "Seasonal kitchen, slow coffee" },
-                  { icon: Wifi, title: "Effortless Stay", desc: "Hyper-fast wifi, smart rooms" },
-                  { icon: Star, title: "Award-Winning", desc: "Top 5 boutique stays in Mumbai" },
-                ].map((f) => {
-                  const Icon = f.icon;
-                  return (
-                    <div key={f.title} className="border-l border-white/10 pl-4">
-                      <Icon className="w-5 h-5 mb-3" style={{ color: "#c5a059" }} />
-                      <h4 className="text-white font-semibold text-sm mb-1">{f.title}</h4>
-                      <p className="text-white/50 text-xs">{f.desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
+              <Link
+                href="/hotels/rooms"
+                className="liquid-glass-strong inline-flex items-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+                data-testid="button-features-row2"
+              >
+                See the Menu <ArrowUpRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </div>
@@ -370,11 +454,13 @@ export default function HotelsHome() {
       <section className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }} data-testid="section-rooms">
         <div className="container mx-auto">
           <div className="text-center mb-12 md:mb-16 lg:mb-24">
-            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
-              ◇ Rooms & Suites ◇
-            </p>
-            <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl">
-              Sanctuary, <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>elevated</span>
+            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
+                Rooms &amp; Suites
+              </span>
+            </div>
+            <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[0.95]">
+              Sanctuary, <span style={{ color: "#c5a059" }}>elevated</span>
             </h2>
           </div>
 
@@ -443,130 +529,218 @@ export default function HotelsHome() {
         </div>
       </section>
 
-      {/* DINING / SECONDARY VISUAL */}
-      <section id="dining" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-dining">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-5 gap-12 md:gap-16 items-center">
-            <div className="lg:col-span-2 lg:order-2">
-              <div className="aspect-[4/5] overflow-hidden">
-                <img src={DINING_IMAGE} alt="Dining" className="w-full h-full object-cover" loading="lazy" />
-              </div>
-            </div>
-            <div className="lg:col-span-3 lg:order-1">
-              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
-                ◇ Dining
-              </p>
-              <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 sm:mb-8">
-                A kitchen that
-                <br />
-                <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>knows the season</span>
-              </h2>
-              <p className="text-white/60 text-base sm:text-lg leading-relaxed mb-8 font-light max-w-xl">
-                Slow breakfasts, all-day kitchens, and evening cocktails crafted in-house by chefs who source
-                from the closest farms. Reservations open daily.
-              </p>
-              <div className="flex gap-6 text-sm">
-                <div>
-                  <div className="text-2xl sm:text-3xl font-bold text-white mb-1">7AM</div>
-                  <div className="text-[10px] uppercase tracking-widest text-white/40">Breakfast Opens</div>
-                </div>
-                <div className="border-l border-white/10 pl-6">
-                  <div className="text-2xl sm:text-3xl font-bold text-white mb-1">11PM</div>
-                  <div className="text-[10px] uppercase tracking-widest text-white/40">Bar Closes</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CONTACT */}
-      <section id="contact" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-contact">
-        <div className="container mx-auto">
+      {/* WHY US — 4 liquid-glass feature cards */}
+      <section id="why-us" className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-why-us">
+        <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12 md:mb-16">
-            <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6" style={{ color: "#c5a059" }}>
-              ◇ Get in Touch ◇
-            </p>
-            <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 sm:mb-6">
-              Let's <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>connect</span>
+            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
+                Why Us
+              </span>
+            </div>
+            <h2 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-[0.95]">
+              The difference is <span style={{ color: "#c5a059" }}>everything.</span>
             </h2>
-            <p className="text-white/50 max-w-xl mx-auto font-light text-sm sm:text-base">
-              Our concierge team is available around the clock to plan your stay, arrange transfers, or
-              answer any question — big or small.
-            </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
-            <a
-              href="mailto:support@hsquareliving.com"
-              className="p-6 sm:p-8 border border-white/10 hover:border-amber-500/30 transition-colors group"
-              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
-              data-testid="contact-email"
-            >
-              <Mail className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Email</p>
-              <p className="text-white text-base sm:text-lg break-all group-hover:text-amber-300 transition-colors">
-                support@hsquareliving.com
-              </p>
-            </a>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+            {[
+              { icon: Zap, title: "Days, Not Weeks", desc: "Confirmed in minutes. Checked in on arrival. No friction, no waiting." },
+              { icon: Sparkles, title: "Obsessively Crafted", desc: "Every room considered. Every finish refined. Detail you can feel." },
+              { icon: BarChart3, title: "Built to Convert", desc: "Returning guests, glowing reviews. Hospitality measured in repeat stays." },
+              { icon: Shield, title: "Secure by Default", desc: "Encrypted payments, verified identity, 24/7 on-site staff. Always." },
+            ].map((f) => {
+              const Icon = f.icon;
+              return (
+                <div
+                  key={f.title}
+                  className="liquid-glass rounded-2xl p-6 sm:p-7"
+                  data-testid={`card-why-us-${f.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <div className="liquid-glass-strong rounded-full w-10 h-10 flex items-center justify-center mb-5">
+                    <Icon className="w-4 h-4" style={{ color: "#c5a059" }} />
+                  </div>
+                  <h4 className="hotels-heading text-white text-xl sm:text-2xl mb-2">{f.title}</h4>
+                  <p className="text-white/60 text-xs sm:text-sm leading-relaxed font-light">{f.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-            <a
-              href="tel:+919876543210"
-              className="p-6 sm:p-8 border border-white/10 hover:border-amber-500/30 transition-colors group"
-              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
-              data-testid="contact-phone"
-            >
-              <Phone className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Phone</p>
-              <p className="text-white text-base sm:text-lg group-hover:text-amber-300 transition-colors">
-                +91 98765 43210
-              </p>
-            </a>
+      {/* STATS — desaturated cinematic video bg, single liquid-glass card */}
+      <section className="relative py-20 md:py-28 lg:py-32 px-4 sm:px-6 overflow-hidden" data-testid="section-stats">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={STUDIO_HERO_POSTER}
+          className="absolute inset-0 w-full h-full object-cover z-0 opacity-40"
+          style={{ filter: "saturate(0)" }}
+        >
+          <source src={STUDIO_HERO_VIDEO} type="video/mp4" />
+        </video>
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, var(--hotels-page-bg, #050505) 0%, transparent 22%, transparent 78%, var(--hotels-page-bg, #050505) 100%)",
+          }}
+        />
+        <div className="absolute inset-0 z-10 pointer-events-none bg-black/35" />
 
-            <div
-              className="p-6 sm:p-8 border border-white/10 sm:col-span-2 lg:col-span-1"
-              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
-              data-testid="contact-address"
-            >
-              <MapPin className="w-6 h-6 mb-4" style={{ color: "#c5a059" }} />
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">Visit</p>
-              <p className="text-white text-base sm:text-lg leading-relaxed">
-                Mumbai, India
-              </p>
-              <p className="text-white/50 text-xs mt-2 flex items-center gap-1.5">
-                <Clock className="w-3 h-3" /> Concierge available 24/7
-              </p>
+        <div className="relative z-20 container mx-auto max-w-6xl">
+          <div className="liquid-glass rounded-3xl p-8 sm:p-12 md:p-16">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6 text-center">
+              {[
+                { value: "200+", label: "Rooms launched" },
+                { value: "98%", label: "Guest satisfaction" },
+                { value: "4.9", label: "Average review" },
+                { value: "24/7", label: "Concierge on-site" },
+              ].map((s) => (
+                <div key={s.label} data-testid={`stat-${s.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+                  <div className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl mb-2 leading-none" style={{ color: "#c5a059" }}>
+                    {s.value}
+                  </div>
+                  <div className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] font-light">
+                    {s.label}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* MASSIVE CTA */}
-      <section className="relative py-20 md:py-28 lg:py-32 px-4 sm:px-6 overflow-hidden" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }} data-testid="section-cta">
+      {/* TESTIMONIALS — 3 liquid-glass cards */}
+      <section className="py-16 md:py-24 lg:py-32 px-4 sm:px-6" data-testid="section-testimonials">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12 md:mb-16">
+            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5 mb-5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/80">
+                What They Say
+              </span>
+            </div>
+            <h2 className="hotels-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-[0.95]">
+              Don't take our word <span style={{ color: "#c5a059" }}>for it.</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
+            {[
+              {
+                quote: "Quietly the best stay I've had in Mumbai. The room felt designed for me — not for everyone.",
+                name: "Sarah Chen",
+                role: "Founder, Luminary",
+              },
+              {
+                quote: "Concierge handled the airport, the dinner reservation, even a last-minute meeting room. Effortless.",
+                name: "Marcus Webb",
+                role: "Head of Growth, Arcline",
+              },
+              {
+                quote: "It feels less like a hotel and more like a home you didn't know you had. We'll be back.",
+                name: "Elena Voss",
+                role: "Brand Director, Helix",
+              },
+            ].map((t, i) => (
+              <div
+                key={t.name}
+                className="liquid-glass rounded-2xl p-7 sm:p-8 flex flex-col"
+                data-testid={`card-testimonial-${i}`}
+              >
+                <Quote className="w-5 h-5 mb-4" style={{ color: "#c5a059" }} />
+                <p className="text-white/80 text-sm sm:text-base font-light italic leading-relaxed mb-6 flex-1">
+                  {t.quote}
+                </p>
+                <div>
+                  <p className="text-white text-sm font-medium">{t.name}</p>
+                  <p className="text-white/50 text-xs font-light">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA + FOOTER — cinematic video bg, big italic CTA, footer bar */}
+      <section
+        className="relative pt-20 md:pt-28 lg:pt-32 pb-10 px-4 sm:px-6 overflow-hidden"
+        data-testid="section-cta"
+      >
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={STUDIO_HERO_POSTER}
+          className="absolute inset-0 w-full h-full object-cover z-0 opacity-50"
+        >
+          <source src={STUDIO_HERO_VIDEO} type="video/mp4" />
+        </video>
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, var(--hotels-page-bg, #050505) 0%, transparent 18%, transparent 65%, var(--hotels-page-bg, #050505) 100%)",
+          }}
+        />
+        <div className="absolute inset-0 z-10 pointer-events-none bg-black/45" />
+
+        {/* Watermark wordmark */}
         <h2
-          className="hotels-display absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-white/[0.03] pointer-events-none select-none"
+          className="hotels-display absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-white/[0.04] pointer-events-none select-none z-10"
           style={{ fontSize: "clamp(60px, 18vw, 280px)", lineHeight: 0.8 }}
           aria-hidden
         >
           HSQUARE
         </h2>
-        <div className="relative z-10 container mx-auto text-center">
-          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-6 sm:mb-8" style={{ color: "#c5a059" }}>
-            ◇ Begin Your Stay ◇
-          </p>
-          <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-8xl mb-8 sm:mb-10">
-            Reserve in
-            <br />
-            <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>under a minute</span>
+
+        <div className="relative z-20 container mx-auto text-center max-w-4xl">
+          <h2 className="hotels-display text-white text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 leading-[0.95]">
+            Your next stay <br className="sm:hidden" />
+            <span style={{ color: "#c5a059" }}>starts here.</span>
           </h2>
-          <Link
-            href="/hotels/rooms"
-            className="inline-flex items-center gap-3 px-8 sm:px-12 py-4 sm:py-5 text-black uppercase text-xs tracking-[0.25em] sm:tracking-[0.3em] font-semibold transition-all duration-300 hover:scale-[1.05]"
-            style={{ backgroundColor: "#c5a059", boxShadow: "0 16px 48px rgba(197,160,89,0.4)" }}
-            data-testid="button-cta-reserve"
-          >
-            Reserve Your Stay <ArrowRight className="w-4 h-4" />
-          </Link>
+          <p className="text-white/70 text-sm sm:text-base md:text-lg max-w-xl mx-auto mb-8 leading-relaxed font-light px-2">
+            Pick your room. Pick your dates. We handle the rest. No commitment,
+            no pressure — just possibilities.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center px-4 sm:px-0">
+            <Link
+              href="/hotels/rooms"
+              className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+              data-testid="button-cta-reserve"
+            >
+              Reserve Your Stay <ArrowUpRight className="w-4 h-4" />
+            </Link>
+            <a
+              href="mailto:support@hsquareliving.com"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-black px-6 py-3 text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:opacity-90 transition-opacity"
+              data-testid="button-cta-contact"
+            >
+              Talk to Concierge
+            </a>
+          </div>
+        </div>
+
+        {/* Footer bar */}
+        <div className="relative z-20 container mx-auto mt-24 sm:mt-32 pt-6 sm:pt-8 border-t border-white/10">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-white/40">
+            <p data-testid="text-footer-copy">© 2026 Hsquare Hotels. All rights reserved.</p>
+            <div className="flex items-center gap-5 sm:gap-6">
+              <a href="mailto:support@hsquareliving.com" className="hover:text-white transition-colors flex items-center gap-1.5" data-testid="link-footer-email">
+                <Mail className="w-3 h-3" /> Email
+              </a>
+              <a href="tel:+919876543210" className="hover:text-white transition-colors flex items-center gap-1.5" data-testid="link-footer-phone">
+                <Phone className="w-3 h-3" /> +91 98765 43210
+              </a>
+              <span className="flex items-center gap-1.5" data-testid="text-footer-location">
+                <MapPin className="w-3 h-3" /> Mumbai
+              </span>
+            </div>
+          </div>
         </div>
       </section>
     </div>
