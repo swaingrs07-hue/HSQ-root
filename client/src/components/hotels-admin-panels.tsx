@@ -1522,14 +1522,3 @@ export function ExperienceReelsPanel({ userRole }: { userRole: string }) {
   );
 }
 
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
-  return (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-5 h-5" style={{ color: "#c5a059" }} />
-        <h2 className="hotels-heading text-white text-2xl sm:text-3xl">{title}</h2>
-      </div>
-      <p className="text-white/55 text-sm">{subtitle}</p>
-    </div>
-  );
-}
