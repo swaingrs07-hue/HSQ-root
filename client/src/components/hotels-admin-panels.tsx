@@ -1033,12 +1033,13 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
   const setContent = useSetSiteContent();
 
   const SCROLL_KEY = "hotels_scrollreact";
-  type ReelContent = { eyebrow: string; titleLine1: string; titleAccent: string; videoUrl?: string };
+  type ReelContent = { eyebrow: string; titleLine1: string; titleAccent: string; videoUrl?: string; enabled?: boolean };
   const DEFAULTS: ReelContent = {
     eyebrow: "The Experience",
     titleLine1: "Every Frame,",
     titleAccent: "Every Stay",
     videoUrl: "",
+    enabled: true,
   };
 
   const stored = getContent<ReelContent>(SCROLL_KEY, DEFAULTS);
@@ -1046,12 +1047,30 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
   const [titleLine1, setTitleLine1] = useState(stored.titleLine1);
   const [titleAccent, setTitleAccent] = useState(stored.titleAccent);
   const [videoUrl, setVideoUrl] = useState<string>(stored.videoUrl || "");
+  const [enabled, setEnabled] = useState<boolean>(stored.enabled !== false);
   const [msg, setMsg] = useState("");
   const [savingCopy, setSavingCopy] = useState(false);
+  const [savingEnabled, setSavingEnabled] = useState(false);
 
   async function persist(patch: Partial<ReelContent>) {
-    const value = { eyebrow, titleLine1, titleAccent, videoUrl, ...patch };
+    const value = { eyebrow, titleLine1, titleAccent, videoUrl, enabled, ...patch };
     return setContent.mutateAsync({ key: SCROLL_KEY, value });
+  }
+
+  async function toggleEnabled() {
+    if (!isSuper) return;
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      setSavingEnabled(true);
+      await persist({ enabled: next });
+      setMsg(next ? "Scroll Reel section is now LIVE on /hotels." : "Scroll Reel section is HIDDEN from /hotels.");
+    } catch (e: any) {
+      setEnabled(!next);
+      setMsg(`Failed: ${e?.message || "unknown"}`);
+    } finally {
+      setSavingEnabled(false);
+    }
   }
 
   async function saveCopy() {
@@ -1087,6 +1106,35 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
       />
 
       {msg && <div className="mb-4 p-3 border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs rounded">{msg}</div>}
+
+      {/* Active / Disable toggle */}
+      <div className="p-5 border border-white/10 mb-4 rounded-lg" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }} data-testid="card-reel-enabled">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-white font-medium mb-1">Section visibility</div>
+            <p className="text-white/50 text-xs leading-relaxed">
+              When ON, the cinematic scroll section appears on the Hotels homepage. When OFF, the entire section is removed for all visitors — useful while you swap videos or rework copy.
+            </p>
+            <p className="text-[10px] uppercase tracking-widest mt-2" style={{ color: enabled ? "#86efac" : "#fca5a5" }}>
+              Currently {enabled ? "Active" : "Disabled"}
+            </p>
+          </div>
+          <button
+            onClick={toggleEnabled}
+            disabled={!isSuper || savingEnabled}
+            className="flex-shrink-0 disabled:opacity-40"
+            data-testid="toggle-reel-enabled"
+            aria-label={enabled ? "Disable Scroll Reel section" : "Enable Scroll Reel section"}
+          >
+            {enabled ? (
+              <ToggleRight className="w-12 h-12" style={{ color: "#c5a059" }} />
+            ) : (
+              <ToggleLeft className="w-12 h-12 text-white/30" />
+            )}
+          </button>
+        </div>
+        {!isSuper && <p className="text-[10px] uppercase tracking-widest text-white/30 mt-3">Superadmin only</p>}
+      </div>
 
       {/* Video upload card */}
       <div className="p-5 border border-white/10 mb-4 rounded-lg" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}>

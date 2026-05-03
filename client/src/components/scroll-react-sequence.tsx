@@ -24,6 +24,7 @@ interface ScrollReactContent {
   titleLine1: string;
   titleAccent: string;
   videoUrl?: string;
+  enabled?: boolean;
 }
 
 const DEFAULT_CONTENT: ScrollReactContent = {
@@ -31,6 +32,7 @@ const DEFAULT_CONTENT: ScrollReactContent = {
   titleLine1: "Every Frame,",
   titleAccent: "Every Stay",
   videoUrl: "",
+  enabled: true,
 };
 
 /**
@@ -45,6 +47,7 @@ const DEFAULT_CONTENT: ScrollReactContent = {
 export function ScrollReactSequence(props: ScrollReactSequenceProps) {
   const { getContent } = useSiteContent();
   const stored = getContent<ScrollReactContent>("hotels_scrollreact", DEFAULT_CONTENT);
+  const enabled = stored.enabled !== false;
   const eyebrow = props.eyebrow ?? stored.eyebrow;
   const titleLine1 = props.titleLine1 ?? stored.titleLine1;
   const titleAccent = props.titleAccent ?? stored.titleAccent;
@@ -207,6 +210,9 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       cancelAnimationFrame(raf);
     };
   }, [useVideo]);
+
+  // Superadmin can hide the entire section from the live homepage.
+  if (!enabled) return null;
 
   /* VIDEO MODE — single-screen section, one <video>, no scroll-pin, no rAF.
      This avoids the lag caused by the 320vh sticky overlay + double-decoded
