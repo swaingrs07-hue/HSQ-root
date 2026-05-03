@@ -907,7 +907,17 @@ export default function AddProperty() {
                         <Label htmlFor="category">Category *</Label>
                         <Select
                           value={form.watch("category")}
-                          onValueChange={(value) => form.setValue("category", value as "hotel" | "hostel")}
+                          onValueChange={(value) => {
+                            const cat = value as "hotel" | "hostel";
+                            form.setValue("category", cat);
+                            // Hotels are nightly stays — booking-mode is a hostel-only
+                            // concept (academic year vs. monthly). Default hotels to
+                            // "monthly" silently so the schema stays valid even though
+                            // the field is hidden in the UI for hotel category.
+                            if (cat === "hotel") {
+                              form.setValue("bookingMode", "monthly");
+                            }
+                          }}
                         >
                           <SelectTrigger className="mt-1" data-testid="select-category">
                             <SelectValue placeholder="Select category" />
@@ -934,6 +944,7 @@ export default function AddProperty() {
                       </div>
                     </div>
 
+                    {form.watch("category") === "hostel" && (
                     <div className="border-t pt-6">
                       <Label className="text-base font-semibold mb-4 block">Booking Mode *</Label>
                       <p className="text-sm text-muted-foreground mb-4">
@@ -992,6 +1003,7 @@ export default function AddProperty() {
                         </div>
                       </div>
                     </div>
+                    )}
 
                     <div>
                       <Label htmlFor="description">Description</Label>
