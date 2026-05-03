@@ -977,8 +977,57 @@ export default function AdminDashboard() {
   const revenueDisplay = formatAmount(stats.totalRevenue);
   const pendingDisplay = formatAmount(stats.pendingPayments);
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  })();
+  const firstName = (user?.name || "").split(" ")[0] || "there";
+  const todayLabel = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const handleRefresh = () => {
+    loadStats();
+    loadChartData();
+    loadOverdueFollowUps();
+    loadPropertyAssignmentStats();
+    loadAIRecommendations(true);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-slate-200/70 pb-5">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400 font-semibold">
+            {todayLabel}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            {greeting}, {firstName}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {isReceptionist
+              ? "Here's what's happening at your property today."
+              : "Here's what's happening across your portfolio today."}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading || chartsLoading}
+          className="gap-2 border-slate-200 hover:bg-slate-50 self-start sm:self-auto"
+          data-testid="button-refresh-dashboard"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading || chartsLoading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+
       {/* Tab Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-1 px-1 scrollbar-hide">
@@ -1013,15 +1062,16 @@ export default function AdminDashboard() {
               <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Leads
             </Button>
           )}
-          <Button 
+          <Button
             variant={activeTab === "approvals" ? "default" : "ghost"}
-            className={`gap-2 relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
+            size="sm"
+            className={`gap-1.5 shrink-0 text-xs sm:text-sm relative ${activeTab === "approvals" ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md" : ""}`}
             onClick={() => setActiveTab("approvals")}
             data-testid="tab-approvals"
           >
-            <AlertTriangle className="h-4 w-4" /> Approvals
+            <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Approvals
             {pendingApprovals.length > 0 && (
-              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
                 {pendingApprovals.length}
               </Badge>
             )}
@@ -1103,7 +1153,19 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {loading ? (
+        {loading && activeTab === "overview" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} className="relative overflow-hidden border-0 shadow-lg">
+                <CardContent className="p-6">
+                  <Skeleton className="h-4 w-24 mb-3" />
+                  <Skeleton className="h-8 w-32 mb-2" />
+                  <Skeleton className="h-3 w-20" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
@@ -1159,42 +1221,57 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* System Status Card */}
+                {/* Operational snapshot */}
                 <Card className="border-0 shadow-lg">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Activity className="h-5 w-5 text-indigo-500" />
-                      System Status
+                      Operational Snapshot
                     </CardTitle>
-                    <CardDescription>Real-time platform health monitoring</CardDescription>
+                    <CardDescription>Live portfolio metrics at a glance</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-                        <div className="p-2 bg-emerald-100 rounded-lg">
-                          <CheckCircle className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">Database</p>
-                          <p className="text-xs text-slate-500">PostgreSQL Connected</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-                        <div className="p-2 bg-emerald-100 rounded-lg">
-                          <CheckCircle className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">API Server</p>
-                          <p className="text-xs text-slate-500">Express Running</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl" data-testid="snapshot-occupancy">
                         <div className="p-2 bg-indigo-100 rounded-lg">
                           <TrendingUp className="h-5 w-5 text-indigo-600" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">Occupancy Rate</p>
-                          <p className="text-xs text-slate-500">{occupancyRate}% ({stats.occupiedBeds}/{stats.totalBeds} beds)</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-700">Occupancy</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            <span className="font-semibold text-slate-700">{occupancyRate}%</span>
+                            <span className="ml-1">·  {stats.occupiedBeds.toLocaleString("en-IN")}/{stats.totalBeds.toLocaleString("en-IN")} beds</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl" data-testid="snapshot-due-week">
+                        <div className={`p-2 rounded-lg ${stats.pendingDueThisWeek > 0 ? "bg-amber-100" : "bg-emerald-100"}`}>
+                          <Clock className={`h-5 w-5 ${stats.pendingDueThisWeek > 0 ? "text-amber-600" : "text-emerald-600"}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-700">Due This Week</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {stats.pendingDueThisWeek > 0
+                              ? `₹${stats.pendingDueThisWeek.toLocaleString("en-IN")} pending collection`
+                              : "All collected — nothing due"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl" data-testid="snapshot-approvals">
+                        <div className={`p-2 rounded-lg ${pendingApprovals.length > 0 ? "bg-rose-100" : "bg-emerald-100"}`}>
+                          {pendingApprovals.length > 0 ? (
+                            <AlertTriangle className="h-5 w-5 text-rose-600" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5 text-emerald-600" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-700">Approvals</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {pendingApprovals.length > 0
+                              ? `${pendingApprovals.length} booking${pendingApprovals.length === 1 ? "" : "s"} awaiting review`
+                              : "Inbox zero — no pending reviews"}
+                          </p>
                         </div>
                       </div>
                     </div>
