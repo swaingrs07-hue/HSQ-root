@@ -5,7 +5,85 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Smartphone, Film } from "lucide-react";
+import { Save, Plus, Trash2, Loader2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Smartphone, Film, Upload, Video } from "lucide-react";
+
+interface HomepageVideoFieldProps {
+  label: string;
+  helper: string;
+  value: string;
+  onChange: (value: string) => void;
+  token: string | null;
+  inputTestId: string;
+  uploadTestId: string;
+}
+
+function HomepageVideoField({ label, helper, value, onChange, token, inputTestId, uploadTestId }: HomepageVideoFieldProps) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 1024 * 1024 * 1024) {
+      toast({ title: "Video must be under 1GB", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!uploadRes.ok) throw new Error("Failed to upload video");
+      onChange(objectPath);
+      toast({ title: `${label} uploaded successfully` });
+    } catch {
+      toast({ title: "Failed to upload video", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-[#c5a059]/20 bg-black/[0.02] dark:bg-white/[0.02] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-semibold flex items-center gap-2">
+          <Video className="w-3.5 h-3.5 text-[#c5a059]" /> {label}
+        </label>
+        <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition ${uploading ? "bg-muted text-muted-foreground cursor-wait" : "bg-[#c5a059] text-black hover:bg-[#b8924a]"}`}>
+          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          {uploading ? "Uploading..." : "Upload video"}
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleUpload(f);
+              e.target.value = "";
+            }}
+            data-testid={uploadTestId}
+          />
+        </label>
+      </div>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="https://your-cdn.example.com/video.mp4 or /objects/uploads/..."
+        data-testid={inputTestId}
+      />
+      {value && (
+        <div className="mt-3 rounded-md overflow-hidden bg-black aspect-video max-w-sm">
+          <video src={value} className="w-full h-full object-cover" muted controls preload="metadata" />
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground mt-2">{helper}</p>
+    </div>
+  );
+}
 
 interface FooterLink {
   label: string;
@@ -337,30 +415,28 @@ export default function AdminFooterSettings() {
                 <Film className="w-4 h-4 text-[#c5a059]" /> Homepage Cinematic Videos
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Full superadmin control over the two background videos that play on the public hostel homepage. Upload videos to Object Storage (or any CDN) and paste the public URLs here. Leave blank to use the built-in defaults.
+                Full superadmin control over the two background videos that play on the public hostel homepage. Upload an MP4 / WebM file directly, or paste an existing CDN URL. Leave blank to use the built-in defaults.
               </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Hero Section Video URL <span className="text-[#c5a059]">(top of homepage)</span></label>
-                <Input
-                  value={data.homeHeroVideoUrl || ""}
-                  onChange={e => setData(prev => ({ ...prev, homeHeroVideoUrl: e.target.value }))}
-                  placeholder="https://your-cdn.example.com/hero.mp4"
-                  data-testid="input-home-hero-video"
-                />
-                <p className="text-xs text-muted-foreground mt-1">MP4 / WebM. Will loop, autoplay muted, and serve as the full-bleed hero background. No property images are shown — this is the only visual.</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">"Why Choose" Section Video URL <span className="text-[#c5a059]">(2nd cinematic section)</span></label>
-                <Input
-                  value={data.homeSectionVideoUrl || ""}
-                  onChange={e => setData(prev => ({ ...prev, homeSectionVideoUrl: e.target.value }))}
-                  placeholder="https://your-cdn.example.com/why-choose.mp4"
-                  data-testid="input-home-section-video"
-                />
-                <p className="text-xs text-muted-foreground mt-1">MP4 / WebM. Loops behind the "Why Choose Hsquareliving" capabilities cards.</p>
-              </div>
+            <CardContent className="space-y-6">
+              <HomepageVideoField
+                label="Hero Section Video"
+                helper="Top of homepage. Loops, autoplay muted, full-bleed background. No property images are shown — this is the only visual."
+                value={data.homeHeroVideoUrl || ""}
+                onChange={(v) => setData(prev => ({ ...prev, homeHeroVideoUrl: v }))}
+                token={token}
+                inputTestId="input-home-hero-video"
+                uploadTestId="button-upload-home-hero-video"
+              />
+              <HomepageVideoField
+                label='"Why Choose" Section Video'
+                helper='2nd cinematic section. Loops behind the "Why Choose Hsquareliving" capabilities cards.'
+                value={data.homeSectionVideoUrl || ""}
+                onChange={(v) => setData(prev => ({ ...prev, homeSectionVideoUrl: v }))}
+                token={token}
+                inputTestId="input-home-section-video"
+                uploadTestId="button-upload-home-section-video"
+              />
             </CardContent>
           </Card>
 

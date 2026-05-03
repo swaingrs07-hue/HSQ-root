@@ -1879,24 +1879,14 @@ export default function Home() {
         data-testid="hero-section"
       >
         {/* Cinematic full-bleed video hero — superadmin-controlled via
-              footer settings. NO property images, NO slide carousel, NO
-              smart search — clean and focused. The looping muted MP4 is
-              served from CloudFront and feathered at the bottom so the
-              global iridescent tubes glow through into the next section. */}
+              footer settings. Same visual treatment as the "Why Choose"
+              section below so the two read as one unified cinematic
+              experience: solid full-cover video + heavy darkening
+              gradient. NO mask, NO property images, NO slide carousel. */}
           <div className="absolute inset-0">
             <video
-              className="absolute left-1/2 top-0 -translate-x-1/2 object-cover object-top"
-              style={{
-                width: "120%",
-                height: "120%",
-                transform: "translate(-50%, 0) translateZ(0)",
-                willChange: "transform",
-                backfaceVisibility: "hidden",
-                WebkitMaskImage:
-                  "linear-gradient(180deg, black 0%, black 72%, rgba(0,0,0,0.6) 90%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(180deg, black 0%, black 72%, rgba(0,0,0,0.6) 90%, transparent 100%)",
-              }}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: "translateZ(0)" }}
               src={homeHeroVideoUrl}
               autoPlay
               muted
@@ -1910,12 +1900,13 @@ export default function Home() {
               onError={() => setVideoFailed(true)}
               data-testid="video-home-hero"
             />
-            {/* Subtle dark vignette so the chrome stays legible */}
+            {/* Same darkening overlay as the Why Choose section so both
+                sections read as one continuous cinematic surface. */}
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 18%, rgba(0,0,0,0) 45%, rgba(0,0,0,0) 65%, rgba(5,5,5,0.55) 100%)",
+                  "linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.62) 35%, rgba(0,0,0,0.62) 65%, rgba(0,0,0,0.85) 100%)",
               }}
             />
           </div>
