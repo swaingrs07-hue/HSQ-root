@@ -1,0 +1,145 @@
+Enhance HSquare Harmony Living with a complete OTA-style Discount & Promotion Engine.
+
+--------------------------------------
+
+🎯 OBJECTIVE
+
+Maximize occupancy + revenue using:
+- Smart discounts
+- Coupon systems
+- Campaign-based pricing
+- User-targeted offers
+
+--------------------------------------
+
+🧩 DISCOUNT TYPES
+
+1. Base Discounts
+- Flat % discount (e.g., 10% off)
+- Fixed discount (₹500 off)
+
+2. Conditional Discounts
+- Stay 3 nights → get 1 free
+- Book before X days → early bird discount
+- Last-minute deals (within 24–48 hrs)
+
+3. Occupancy-Based Discounts (AUTO)
+- If occupancy < 40% → auto apply discount
+- If high occupancy → remove discounts
+
+4. Time-Based Discounts
+- Weekday offers
+- Weekend surge pricing (inverse discount)
+
+5. Seasonal Campaigns
+- Festival offers (Diwali, New Year)
+- Monsoon sale / Summer deals
+
+--------------------------------------
+
+🎟️ COUPON SYSTEM (LIKE MMT)
+
+Features:
+- Coupon Code (e.g., HSQ100, NEWUSER50)
+- Expiry date
+- Usage limit
+- Per user limit
+- Min booking value
+
+Types:
+- New user coupon
+- First booking discount
+- Referral coupon
+- Loyalty reward coupon
+
+--------------------------------------
+
+🧠 SMART DISCOUNT ENGINE (AI + RULE BASED)
+
+Inputs:
+- Occupancy rate
+- Booking trend
+- Room demand
+- Time left to fill inventory
+
+Logic:
+- Low demand → increase discount
+- High demand → reduce/remove discounts
+- Suggest best discount % for max conversion
+
+--------------------------------------
+
+📊 PROMOTION DASHBOARD
+
+Show:
+- Active offers
+- Conversion rate
+- Revenue impact
+- Coupon usage stats
+
+--------------------------------------
+
+⚙️ ADMIN CONTROLS
+
+Super Admin can:
+- Create/edit/delete offers
+- Schedule campaigns
+- Assign offers to:
+  - Specific property
+  - Room type
+  - Date range
+
+--------------------------------------
+
+🎨 UI FEATURES
+
+1. Booking Page
+- Show:
+  - “Best Deal Applied”
+  - Discount breakdown
+  - Coupon apply box
+
+2. Dashboard Widget
+- “Top Performing Offers”
+- “Low occupancy → suggested campaign”
+
+--------------------------------------
+
+🗄️ DATABASE TABLES
+
+- Discounts (id, type, value, rules)
+- Coupons (code, expiry, usage_limit)
+- Campaigns (name, start_date, end_date)
+- CouponUsage (user_id, coupon_id)
+
+--------------------------------------
+
+🔗 PRICING FLOW (IMPORTANT)
+
+Final Price =
+Base Price
+→ Apply AI Dynamic Pricing
+→ Apply Discount Rules
+→ Apply Coupon
+→ Final Payable Amount
+
+--------------------------------------
+
+🚀 ADVANCED FEATURES (OTA LEVEL)
+
+- A/B testing offers
+- Personalized pricing (repeat users)
+- Geo-targeted discounts
+- Flash sales with countdown timer
+- “Only 2 beds left” urgency system
+
+--------------------------------------
+
+🎯 GOAL
+
+Create a revenue optimization system similar to:
+- MakeMyTrip
+- Booking.com
+- Airbnb pricing engine
+
+Focus on automation + conversion + occupancy growth.

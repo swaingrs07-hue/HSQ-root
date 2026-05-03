@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ArrowUpRight, Play, Star, MapPin, Wifi, Coffee, Sparkles, Calendar, Users, Mail, Phone, Clock, Search, Zap, BarChart3, Shield, Quote } from "lucide-react";
+import { ScrollReactSequence } from "@/components/scroll-react-sequence";
 
 /* Cinematic looping background for the hero. CDN-hosted MP4
    (autoplay-friendly: muted + playsInline + loop). Falls back to
@@ -321,6 +322,11 @@ export default function HotelsHome() {
   return (
     <div data-testid="hotels-home-page">
       {classicHero}
+
+      {/* SCROLL-DRIVEN CINEMATIC FRAME SEQUENCE — sits directly under the hero.
+          240 JPGs scrubbed against scroll position. Copy editable by superadmin
+          via Admin → Settings → General → "Hotels Cinematic Section". */}
+      <ScrollReactSequence />
 
       {/* HOW IT WORKS — cinematic video background, liquid-glass content */}
       <section

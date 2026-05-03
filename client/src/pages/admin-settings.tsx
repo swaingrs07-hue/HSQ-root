@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useFeatureFlags, useSetFeatureFlag } from "@/hooks/use-feature-flags";
+import { useSiteContent, useSetSiteContent } from "@/hooks/use-site-content";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -17,6 +18,38 @@ export default function AdminSettings() {
   const { flags, isLoading: flagsLoading } = useFeatureFlags();
   const setFlagMutation = useSetFeatureFlag();
   const hotelsPublic = !!flags.hotels_public;
+
+  // Editable copy for the cinematic scroll section under the Hotels hero
+  const { getContent, isLoading: contentLoading } = useSiteContent();
+  const setContentMutation = useSetSiteContent();
+  const SCROLL_KEY = "hotels_scrollreact";
+  const SCROLL_DEFAULTS = {
+    eyebrow: "The Experience",
+    titleLine1: "Every Frame,",
+    titleAccent: "Every Stay",
+  };
+  const stored = getContent(SCROLL_KEY, SCROLL_DEFAULTS);
+  const [scrollContent, setScrollContent] = useState(stored);
+  useEffect(() => {
+    setScrollContent({ ...SCROLL_DEFAULTS, ...stored });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentLoading]);
+
+  const handleSaveScrollContent = async () => {
+    try {
+      await setContentMutation.mutateAsync({ key: SCROLL_KEY, value: scrollContent });
+      toast({
+        title: "Cinematic section updated",
+        description: "Visitors will see the new copy on /hotels.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Failed to save",
+        description: e?.message || "Could not update the section.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleHotelsToggle = async (enabled: boolean) => {
     try {
@@ -127,6 +160,74 @@ export default function AdminSettings() {
                 <p className="text-xs text-slate-500">
                   Tip: Use this to soft-launch the Hotels portal — keep it OFF while
                   you finalize rooms and pricing, then flip ON when ready to announce.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isSuperadmin && (
+            <Card data-testid="card-hotels-scrollreact">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Film className="w-5 h-5" />
+                  Hotels Cinematic Section
+                </CardTitle>
+                <CardDescription>
+                  Edit the headline copy for the scroll-driven cinematic section that
+                  sits directly under the Hotels hero on /hotels.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="scroll-eyebrow">Eyebrow (small uppercase label)</Label>
+                  <Input
+                    id="scroll-eyebrow"
+                    value={scrollContent.eyebrow}
+                    onChange={(e) =>
+                      setScrollContent({ ...scrollContent, eyebrow: e.target.value })
+                    }
+                    placeholder="The Experience"
+                    data-testid="input-scroll-eyebrow"
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="scroll-line1">Headline (main)</Label>
+                    <Input
+                      id="scroll-line1"
+                      value={scrollContent.titleLine1}
+                      onChange={(e) =>
+                        setScrollContent({ ...scrollContent, titleLine1: e.target.value })
+                      }
+                      placeholder="Every Frame,"
+                      data-testid="input-scroll-line1"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="scroll-accent">Headline (gold accent)</Label>
+                    <Input
+                      id="scroll-accent"
+                      value={scrollContent.titleAccent}
+                      onChange={(e) =>
+                        setScrollContent({ ...scrollContent, titleAccent: e.target.value })
+                      }
+                      placeholder="Every Stay"
+                      data-testid="input-scroll-accent"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSaveScrollContent}
+                    disabled={setContentMutation.isPending || contentLoading}
+                    data-testid="button-save-scroll-content"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Cinematic Section
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Tip: Keep the headline short (2–4 words per part). The accent shows in gold.
                 </p>
               </CardContent>
             </Card>

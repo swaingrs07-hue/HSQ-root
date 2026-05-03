@@ -787,3 +787,114 @@
 .font-cinematic-body {
   font-family: 'Barlow', sans-serif;
 }
+
+/* ─────────────────────────────────────────────────────────
+   ScrollReactSequence — cinematic text effects
+   Driven by --sr-progress 0→1 and --sr-textOut 0→1, set
+   imperatively by the component on each rAF tick.
+   ───────────────────────────────────────────────────────── */
+.sr-headline {
+  --sr-progress: 0;
+  --sr-textOut: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05em;
+  transform-origin: 50% 50%;
+  transform: translate3d(
+      0,
+      calc(var(--sr-progress) * -22px + var(--sr-textOut) * -40px),
+      0
+    )
+    scale(calc(1 + var(--sr-progress) * 0.04 + var(--sr-textOut) * 0.06));
+  opacity: calc(1 - var(--sr-textOut));
+  filter: blur(calc(var(--sr-textOut) * 8px));
+  will-change: transform, opacity, filter;
+}
+.sr-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 0.28em;
+  line-height: 0.95;
+}
+.sr-word {
+  display: inline-block;
+  --sr-rev: clamp(0, (var(--sr-progress) - var(--i, 0) * 0.05) * 12, 1);
+  transform: translate3d(0, calc((1 - var(--sr-rev)) * 70px), 0);
+  opacity: var(--sr-rev);
+  filter: blur(calc((1 - var(--sr-rev)) * 14px));
+  will-change: transform, opacity, filter;
+}
+.sr-word--accent {
+  color: #c5a059;
+  text-shadow:
+    0 6px 30px rgba(0, 0, 0, 0.85),
+    0 0 calc(var(--sr-progress) * 40px) rgba(197, 160, 89, calc(var(--sr-progress) * 0.55));
+}
+.sr-eyebrow {
+  --sr-rev: clamp(0, var(--sr-progress) * 16, 1);
+  transform: translate3d(0, calc((1 - var(--sr-rev)) * -24px), 0);
+  opacity: calc(var(--sr-rev) * (1 - var(--sr-textOut)));
+  letter-spacing: calc(0.35em + var(--sr-progress) * 0.05em);
+  transition: letter-spacing 120ms linear;
+  display: inline-block;
+}
+.sr-meta {
+  position: absolute;
+  inset: auto 0 6vh 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  opacity: calc(clamp(0, var(--sr-progress) * 8, 1) * (1 - var(--sr-textOut)));
+  transition: opacity 200ms linear;
+  pointer-events: none;
+}
+.sr-counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+}
+.sr-counter-current {
+  font-size: 1.05rem;
+  color: #c5a059;
+}
+.sr-counter-divider,
+.sr-counter-total {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+.sr-rail {
+  position: relative;
+  width: min(360px, 60vw);
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.sr-rail::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--sr-progress) * 100%);
+  background: linear-gradient(90deg, #d4a437, #c5a059);
+  border-radius: 999px;
+  box-shadow: 0 0 14px rgba(197, 160, 89, 0.6);
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr-headline,
+  .sr-word,
+  .sr-eyebrow {
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+}

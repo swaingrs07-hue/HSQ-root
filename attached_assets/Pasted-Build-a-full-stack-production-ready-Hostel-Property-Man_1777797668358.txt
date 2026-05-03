@@ -1,0 +1,160 @@
+Build a full-stack, production-ready Hostel & Property Management System (SaaS) called "HSquare Harmony Living".
+
+Tech Stack:
+- Frontend: React (Next.js preferred), Tailwind CSS, Framer Motion
+- Backend: Node.js with Express OR Next.js API routes
+- Database: PostgreSQL (use Prisma ORM)
+- Auth: JWT + Role-Based Access Control (RBAC)
+- File Upload: Cloudinary or S3
+- State Management: Zustand or Redux Toolkit
+- Deployment Ready: Docker support + environment configs
+
+--------------------------------------
+
+🔐 USER ROLES & PERMISSIONS
+
+1. Super Admin
+- Full system control
+- Create/Edit/Delete Admins
+- Manage all properties
+- Control pricing, inventory, bookings
+- Access analytics dashboard
+- Assign permissions to Admins
+
+2. Admin (Property Manager)
+- Manage only assigned properties
+- Add/Edit/Delete rooms, beds
+- Handle bookings & check-ins
+- Upload images/videos of property
+- View limited analytics
+
+3. Staff
+- Check-in/check-out guests
+- Update room status
+- View bookings
+
+--------------------------------------
+
+🏨 CORE MODULES
+
+1. Dashboard (Dynamic)
+- Revenue analytics (daily/monthly/yearly)
+- Occupancy rate
+- Active bookings
+- Available rooms/beds
+- Charts (use Recharts)
+
+2. Property Management
+- Add Property (name, location, type: hostel/hotel/apartment)
+- Upload images/videos
+- Amenities selection
+- Room types (Private / Shared / Dorm)
+- Pricing per bed / room
+
+3. Inventory Management
+- Room-wise bed allocation
+- Bed status: Available / Booked / Maintenance
+- Real-time availability sync
+
+4. Booking System
+- Create booking manually
+- Guest details (name, ID proof, contact)
+- Auto room/bed allocation
+- Booking status:
+  - Pending
+  - Confirmed
+  - Checked-in
+  - Checked-out
+  - Cancelled
+
+5. Payment System
+- Payment status: Paid / Partial / Unpaid
+- Multiple payment modes (UPI, Cash, Card)
+- Generate invoice (PDF)
+
+6. Calendar View
+- Booking calendar like hotel systems
+- Drag & drop booking management
+
+7. Notifications
+- Email + in-app notifications
+- Booking confirmation alerts
+
+8. Reports & Analytics
+- Revenue reports
+- Occupancy trends
+- Property performance comparison
+
+--------------------------------------
+
+🧠 ADVANCED FEATURES
+
+- Multi-property support
+- Real-time updates (WebSockets)
+- Search & filter (property, date, availability)
+- Pagination & lazy loading
+- Dark mode UI
+- Activity logs (who did what)
+
+--------------------------------------
+
+🎨 UI/UX DESIGN
+
+- Clean SaaS dashboard UI
+- Sidebar navigation:
+  Dashboard
+  Properties
+  Bookings
+  Inventory
+  Payments
+  Reports
+  Settings
+
+- Cards with soft shadows
+- Smooth animations (Framer Motion)
+- Mobile responsive
+
+--------------------------------------
+
+🧩 DATABASE SCHEMA (IMPORTANT)
+
+Tables:
+- Users (id, name, email, role)
+- Properties (id, name, location, type)
+- Rooms (id, property_id, type, price)
+- Beds (id, room_id, status)
+- Bookings (id, user_id, property_id, status, dates)
+- Payments (id, booking_id, amount, status)
+- Amenities
+- ActivityLogs
+
+--------------------------------------
+
+⚙️ ADMIN CONTROL PANEL
+
+- Super Admin can:
+  - Enable/Disable features
+  - Limit admin permissions
+  - Control content & uploads
+  - Manage global pricing rules
+
+--------------------------------------
+
+📦 EXTRA
+
+- API documentation (Swagger)
+- Clean folder structure
+- Reusable components
+- Error handling + validation
+- SEO optimized frontend
+
+--------------------------------------
+
+🎯 GOAL
+
+Build a scalable SaaS-level hostel/property management platform similar to:
+- OYO backend
+- Hostelworld admin
+- Hotel PMS systems
+
+Focus on performance, clean UI, and real-world usability.

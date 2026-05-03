@@ -1718,5 +1718,26 @@ export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 
+// ============================================================================
+// SITE CONTENT — generic key/value JSON content blocks editable by superadmin
+// Used for editable headlines, subtitles, eyebrows, etc. on marketing pages.
+// ============================================================================
+export const siteContent = pgTable("site_content", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertSiteContentSchema = createInsertSchema(siteContent).omit({
+  id: true,
+  updatedAt: true,
+  createdAt: true,
+});
+export type SiteContent = typeof siteContent.$inferSelect;
+export type InsertSiteContent = z.infer<typeof insertSiteContentSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

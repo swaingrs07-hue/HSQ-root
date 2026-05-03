@@ -1,0 +1,136 @@
+Add an AI-powered Dynamic Pricing Engine to the HSquare Harmony Living system.
+
+--------------------------------------
+
+🎯 OBJECTIVE
+
+Automatically suggest optimal room/bed pricing based on:
+- Demand
+- Occupancy rate
+- Seasonality
+- Local events
+- Booking trends
+
+--------------------------------------
+
+📊 DATA INPUTS
+
+The AI model should use:
+
+1. Internal Data:
+- Current occupancy rate (%)
+- Total bookings (last 7 / 30 days)
+- Room type demand (Dorm vs Private)
+- Remaining inventory
+
+2. Time-Based Factors:
+- Day of week (weekend vs weekday)
+- Season/month trends
+- Upcoming holidays
+
+3. External Factors (optional API-ready):
+- Local events (festivals, concerts)
+- Competitor pricing (if available)
+
+--------------------------------------
+
+🧠 PRICING LOGIC (INITIAL RULE-BASED AI)
+
+If Occupancy > 80%:
+→ Increase price by 15–25%
+
+If Occupancy < 40%:
+→ Decrease price by 10–20%
+
+Weekend:
+→ Increase by 10–15%
+
+High Demand Room Type:
+→ Increase price dynamically
+
+Low Demand Inventory:
+→ Offer discount suggestions
+
+--------------------------------------
+
+📈 MACHINE LEARNING (ADVANCED)
+
+- Track historical pricing vs booking success
+- Learn which prices convert best
+- Predict future demand trends
+- Suggest:
+  - Optimal price
+  - Discount campaigns
+  - Surge pricing
+
+--------------------------------------
+
+🧩 FEATURES TO BUILD
+
+1. Pricing Dashboard Widget
+- Show:
+  - Suggested Price
+  - Current Price
+  - % Increase/Decrease
+  - Reason (AI explanation)
+
+2. Auto vs Manual Mode
+- Toggle:
+  [ ] Auto Apply AI Pricing
+  [ ] Manual Override
+
+3. Smart Alerts
+- “High demand detected – increase price”
+- “Low occupancy – consider discount”
+
+4. Graphs
+- Price vs Occupancy trend
+- Revenue optimization chart
+
+--------------------------------------
+
+⚙️ BACKEND IMPLEMENTATION
+
+- Create service: pricingEngine.js
+
+Functions:
+- calculateDynamicPrice(propertyId)
+- getDemandScore()
+- getSeasonMultiplier()
+- getOccupancyFactor()
+
+--------------------------------------
+
+🗄️ DATABASE ADDITIONS
+
+Add fields:
+- dynamic_price_enabled (boolean)
+- base_price
+- suggested_price
+- last_price_update
+
+--------------------------------------
+
+🎨 UI ADDITIONS
+
+In Property → Room Settings:
+- Toggle AI Pricing
+- Show live suggested price
+
+In Dashboard:
+- “AI Pricing Insights” card
+
+--------------------------------------
+
+🚀 FUTURE EXTENSION
+
+- Integrate OpenAI or ML model
+- Use regression / time-series forecasting
+- Competitor scraping API
+- Smart discount campaigns
+
+--------------------------------------
+
+🎯 GOAL
+
+Maximize revenue automatically while maintaining high occupancy using intelligent pricing.

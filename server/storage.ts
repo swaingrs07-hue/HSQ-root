@@ -109,6 +109,8 @@ import {
   type InsertHousekeepingTask,
   featureFlags,
   type FeatureFlag,
+  siteContent,
+  type SiteContent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike, type SQL } from "drizzle-orm";
@@ -2769,6 +2771,38 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db
       .insert(featureFlags)
       .values({ key, enabled, description, updatedBy: updatedBy || null })
+      .returning();
+    return created;
+  }
+
+  // ============ Site Content (superadmin-managed editable content) ============
+  async getSiteContent(key: string): Promise<SiteContent | undefined> {
+    const [row] = await db.select().from(siteContent).where(eq(siteContent.key, key));
+    return row;
+  }
+
+  async listSiteContent(): Promise<SiteContent[]> {
+    return db.select().from(siteContent).orderBy(asc(siteContent.key));
+  }
+
+  async setSiteContent(
+    key: string,
+    value: unknown,
+    updatedBy?: string,
+    description?: string,
+  ): Promise<SiteContent> {
+    const existing = await this.getSiteContent(key);
+    if (existing) {
+      const [updated] = await db
+        .update(siteContent)
+        .set({ value: value as any, updatedBy: updatedBy || null, updatedAt: new Date() })
+        .where(eq(siteContent.key, key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(siteContent)
+      .values({ key, value: value as any, description, updatedBy: updatedBy || null })
       .returning();
     return created;
   }

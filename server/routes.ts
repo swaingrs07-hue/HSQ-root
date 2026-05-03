@@ -15128,6 +15128,50 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     },
   );
 
+  // ====================================================================
+  // ============ SITE CONTENT (superadmin-managed editable copy) ========
+  // ====================================================================
+
+  // GET /api/site-content — public, returns map of {key: value}.
+  // Frontend uses this for editable headlines/eyebrows on marketing pages.
+  app.get("/api/site-content", async (_req, res) => {
+    try {
+      const rows = await storage.listSiteContent();
+      const map: Record<string, unknown> = {};
+      for (const r of rows) map[r.key] = r.value;
+      res.json(map);
+    } catch (error: any) {
+      console.error("Error listing site content:", error);
+      res.status(500).json({ error: "Failed to list site content" });
+    }
+  });
+
+  // PATCH /api/site-content/:key — superadmin only
+  app.patch(
+    "/api/site-content/:key",
+    authMiddleware,
+    roleMiddleware("superadmin"),
+    async (req: AuthRequest, res) => {
+      try {
+        const key = req.params.key;
+        const { value, description } = req.body || {};
+        if (typeof value === "undefined") {
+          return res.status(400).json({ error: "`value` is required" });
+        }
+        const row = await storage.setSiteContent(
+          key,
+          value,
+          req.user?.userId,
+          typeof description === "string" ? description : undefined,
+        );
+        res.json(row);
+      } catch (error: any) {
+        console.error("Error updating site content:", error);
+        res.status(500).json({ error: "Failed to update site content" });
+      }
+    },
+  );
+
   // GET /api/hotels/dashboard-stats — aggregate stats for hotel-category properties
   app.get("/api/hotels/dashboard-stats", authMiddleware, hotelStaffRoles, async (req: AuthRequest, res) => {
     try {
