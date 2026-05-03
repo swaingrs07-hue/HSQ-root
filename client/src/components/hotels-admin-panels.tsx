@@ -1371,3 +1371,165 @@ export function ScrollReelPanel({ userRole }: { userRole: string }) {
     </div>
   );
 }
+
+/* ============ Experience Chapter Reels (videos for /hotels/experience) ============ */
+type ChapterVideoMap = Record<string, string>;
+
+const EXPERIENCE_CHAPTERS = [
+  { number: "01", eyebrow: "Arrival",     title: "A welcome",            italic: "without ceremony" },
+  { number: "02", eyebrow: "The Suites",  title: "Spaces designed for",  italic: "stillness" },
+  { number: "03", eyebrow: "The Table",   title: "Cuisine, written",     italic: "by season" },
+  { number: "04", eyebrow: "Wellness",    title: "A sanctuary",          italic: "by design" },
+  { number: "05", eyebrow: "Departure",   title: "A goodbye that",       italic: "lingers" },
+] as const;
+
+export const EXPERIENCE_VIDEOS_KEY = "hotels_experience_videos";
+
+export function ExperienceReelsPanel({ userRole }: { userRole: string }) {
+  const isSuper = userRole === "superadmin" || userRole === "admin" || userRole === "hotel_admin";
+  const { getContent } = useSiteContent();
+  const setContent = useSetSiteContent();
+
+  const stored = getContent<ChapterVideoMap>(EXPERIENCE_VIDEOS_KEY, {});
+  const [videos, setVideos] = useState<ChapterVideoMap>(stored);
+  const [msg, setMsg] = useState("");
+
+  async function persist(next: ChapterVideoMap) {
+    setVideos(next);
+    try {
+      await setContent.mutateAsync({ key: EXPERIENCE_VIDEOS_KEY, value: next });
+      setMsg("Saved. Visitors will now see your video on /hotels/experience.");
+    } catch (e: any) {
+      setMsg(`Failed to save: ${e?.message || "unknown"}`);
+    }
+  }
+
+  return (
+    <div data-testid="panel-experience-reels" className="max-w-4xl">
+      <SectionHeader
+        icon={Film}
+        title="Experience Chapter Films"
+        subtitle="Upload one short film per chapter for the /hotels/experience page. Without a video the chapter falls back to its still poster."
+      />
+
+      {msg && (
+        <div className="mb-4 p-3 border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs rounded">
+          {msg}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {EXPERIENCE_CHAPTERS.map((ch) => {
+          const url = videos[ch.number] || "";
+          return (
+            <div
+              key={ch.number}
+              className="p-5 border border-white/10 rounded-lg"
+              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
+              data-testid={`card-chapter-${ch.number}`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span
+                  className="hotels-display text-3xl"
+                  style={{ color: "#c5a059", fontWeight: 300 }}
+                >
+                  {ch.number}
+                </span>
+                <div className="h-px flex-1" style={{ backgroundColor: "rgba(197,160,89,0.3)" }} />
+                <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#c5a059" }}>
+                  {ch.eyebrow}
+                </span>
+              </div>
+              <div className="text-white font-medium mb-1">
+                {ch.title}{" "}
+                <span style={{ fontStyle: "italic", color: "#c5a059", fontWeight: 300 }}>
+                  {ch.italic}
+                </span>
+              </div>
+              <p className="text-white/50 text-xs mb-4">
+                MP4 / WebM, plays muted &amp; loops on hover. Recommended 1080p, under 50&nbsp;MB.
+              </p>
+
+              {url ? (
+                <div className="border border-white/10 overflow-hidden bg-black mb-3 rounded">
+                  <video
+                    src={url}
+                    className="w-full max-h-64 object-contain bg-black"
+                    controls
+                    muted
+                    playsInline
+                    data-testid={`video-preview-${ch.number}`}
+                  />
+                  <div className="flex items-center justify-between px-3 py-2 border-t border-white/10">
+                    <span className="text-xs text-white/50 truncate font-mono">{url}</span>
+                    <button
+                      onClick={() => {
+                        const next = { ...videos };
+                        delete next[ch.number];
+                        persist(next);
+                      }}
+                      disabled={!isSuper}
+                      className="text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1 disabled:opacity-40"
+                      data-testid={`button-remove-${ch.number}`}
+                    >
+                      <X className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-dashed border-white/15 px-4 py-6 text-center mb-3 rounded">
+                  <Film className="w-8 h-8 mx-auto text-white/30 mb-2" />
+                  <p className="text-xs text-white/50">No film yet — chapter shows its still poster.</p>
+                </div>
+              )}
+
+              {isSuper ? (
+                <ObjectUploader
+                  maxNumberOfFiles={1}
+                  maxFileSize={52428800}
+                  onGetUploadParameters={async (file) => {
+                    const res = await fetch("/api/uploads/request-url", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+                    });
+                    const data = await res.json();
+                    (file as any).objectPath = data.objectPath;
+                    return {
+                      method: "PUT",
+                      url: data.uploadURL,
+                      headers: { "Content-Type": (file.type as string) || "video/mp4" },
+                    };
+                  }}
+                  onComplete={async (result) => {
+                    const f = result.successful?.[0];
+                    const objectPath = (f as any)?.objectPath;
+                    if (!objectPath) return;
+                    await persist({ ...videos, [ch.number]: objectPath });
+                  }}
+                  buttonClassName="w-full text-black font-semibold py-2.5 inline-flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest rounded"
+                >
+                  <Upload className="w-4 h-4" /> {url ? "Replace film" : "Upload film"}
+                </ObjectUploader>
+              ) : (
+                <p className="text-[10px] uppercase tracking-widest text-white/30">Admins only</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="w-5 h-5" style={{ color: "#c5a059" }} />
+        <h2 className="hotels-heading text-white text-2xl sm:text-3xl">{title}</h2>
+      </div>
+      <p className="text-white/55 text-sm">{subtitle}</p>
+    </div>
+  );
+}

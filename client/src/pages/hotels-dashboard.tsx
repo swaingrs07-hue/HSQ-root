@@ -12,6 +12,7 @@ import {
 import {
   PropertiesPanel, GuestsPanel, PaymentsPanel, CouponsPanel,
   StaffPanel, ReportsPanel, SettingsPanel, ScrollReelPanel,
+  ExperienceReelsPanel,
 } from "@/components/hotels-admin-panels";
 
 interface DashboardStats {
@@ -112,7 +113,7 @@ export default function HotelsDashboard() {
 /* ============ Admin View ============ */
 function AdminView({ token, userId, userRole }: { token: string | null; userId: string; userRole: string }) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "messages" | "reports" | "reel" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "messages" | "reports" | "reel" | "experience" | "settings">("overview");
   const [showCreateTask, setShowCreateTask] = useState(false);
 
   const { data: stats } = useQuery<DashboardStats>({
@@ -205,6 +206,7 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
                 { key: "messages", label: "Messages", icon: Mail },
                 { key: "reports", label: "Reports", icon: FileText },
                 { key: "reel", label: "Scroll Reel", icon: Film },
+                { key: "experience", label: "Chapter Films", icon: Film },
                 { key: "settings", label: "Settings", icon: SettingsIcon },
               ] as const).map(({ key, label, icon: Icon }) => {
                 const active = activeTab === key;
@@ -273,6 +275,9 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
             )}
             {activeTab === "reel" && (
               <ScrollReelPanel userRole={userRole} />
+            )}
+            {activeTab === "experience" && (
+              <ExperienceReelsPanel userRole={userRole} />
             )}
             {activeTab === "settings" && (
               <SettingsPanel userRole={userRole} />

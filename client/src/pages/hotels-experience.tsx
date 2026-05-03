@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Play, ArrowRight, Sparkles } from "lucide-react";
+import { useSiteContent } from "@/hooks/use-site-content";
+import { EXPERIENCE_VIDEOS_KEY } from "@/components/hotels-admin-panels";
 
 type Chapter = {
   number: string;
@@ -140,9 +142,7 @@ export default function HotelsExperience() {
       </section>
 
       {/* CHAPTERS */}
-      {CHAPTERS.map((c, i) => (
-        <ChapterSection key={c.number} chapter={c} index={i} />
-      ))}
+      <ChapterList />
 
       {/* CLOSING CTA */}
       <section
@@ -185,6 +185,21 @@ export default function HotelsExperience() {
         </div>
       </section>
     </div>
+  );
+}
+
+/* ───────── Chapter list (consumes per-chapter video URLs from site content) ───────── */
+
+function ChapterList() {
+  const { getContent } = useSiteContent();
+  const videos = getContent<Record<string, string>>(EXPERIENCE_VIDEOS_KEY, {});
+  return (
+    <>
+      {CHAPTERS.map((c, i) => {
+        const merged: Chapter = { ...c, videoSrc: videos[c.number] || c.videoSrc };
+        return <ChapterSection key={c.number} chapter={merged} index={i} />;
+      })}
+    </>
   );
 }
 
