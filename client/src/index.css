@@ -485,6 +485,22 @@
 }
 
 /*
+ * Hotels desktop nav links (HOME / ROOMS / EXPERIENCE / CONTACT / DASHBOARD)
+ * sit over the hero photo which bleeds through the translucent ivory
+ * navbar in day mode. The default dark-on-dark flip makes them invisible.
+ * Force a deep brand-brown color and add a soft white text-shadow halo so
+ * the labels stay legible against any background tone.
+ */
+.hotels-light [data-testid^="link-hotel-nav-"] {
+  color: #1a1410 !important;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85), 0 0 8px rgba(255, 255, 255, 0.55) !important;
+  filter: none !important;
+}
+.hotels-light [data-testid^="link-hotel-nav-"]:hover {
+  color: #000000 !important;
+}
+
+/*
  * The hero on /hotels sits over a dark photographic background in both
  * themes, so its over-image text & outlined CTAs must stay white even
  * in light mode. Scope overrides back to white inside the hero.
