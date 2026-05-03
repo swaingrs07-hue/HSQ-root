@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
@@ -27,6 +28,7 @@ export default function AdminSettings() {
     eyebrow: "The Experience",
     titleLine1: "Every Frame,",
     titleAccent: "Every Stay",
+    videoUrl: "",
   };
   const stored = getContent(SCROLL_KEY, SCROLL_DEFAULTS);
   const [scrollContent, setScrollContent] = useState(stored);
@@ -229,6 +231,96 @@ export default function AdminSettings() {
                 <p className="text-xs text-slate-500">
                   Tip: Keep the headline short (2–4 words per part). The accent shows in gold.
                 </p>
+
+                <div className="border-t border-slate-200 pt-4 mt-2 space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium">Background asset</Label>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Upload an MP4 / WebM video to replace the default 240-frame flower
+                      sequence. Leave empty to use the default. Recommended: 1080p, under 50 MB,
+                      muted-friendly (the video plays silently on loop).
+                    </p>
+                  </div>
+                  {scrollContent.videoUrl ? (
+                    <div className="rounded-lg border border-slate-200 overflow-hidden bg-black">
+                      <video
+                        src={scrollContent.videoUrl}
+                        className="w-full max-h-64 object-contain bg-black"
+                        controls
+                        muted
+                        playsInline
+                        data-testid="video-scroll-preview"
+                      />
+                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-t border-slate-200">
+                        <span className="text-xs text-slate-600 truncate" data-testid="text-scroll-video-url">
+                          {scrollContent.videoUrl}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            const next = { ...scrollContent, videoUrl: "" };
+                            setScrollContent(next);
+                            try {
+                              await setContentMutation.mutateAsync({ key: SCROLL_KEY, value: next });
+                              toast({ title: "Video removed", description: "The default frame sequence is back." });
+                            } catch (e: any) {
+                              toast({ title: "Failed to remove", description: e?.message ?? "Try again.", variant: "destructive" });
+                            }
+                          }}
+                          data-testid="button-remove-scroll-video"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center bg-slate-50">
+                      <Film className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                      <p className="text-sm text-slate-600 mb-3">No custom video — using the default flower sequence.</p>
+                    </div>
+                  )}
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    maxFileSize={52428800}
+                    onGetUploadParameters={async (file) => {
+                      const res = await fetch("/api/uploads/request-url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          name: file.name,
+                          size: file.size,
+                          contentType: file.type,
+                        }),
+                      });
+                      const data = await res.json();
+                      (file as any).objectPath = data.objectPath;
+                      return {
+                        method: "PUT",
+                        url: data.uploadURL,
+                        headers: { "Content-Type": (file.type as string) || "video/mp4" },
+                      };
+                    }}
+                    onComplete={async (result) => {
+                      const f = result.successful?.[0];
+                      const objectPath = (f as any)?.objectPath;
+                      if (!objectPath) return;
+                      const next = { ...scrollContent, videoUrl: objectPath };
+                      setScrollContent(next);
+                      try {
+                        await setContentMutation.mutateAsync({ key: SCROLL_KEY, value: next });
+                        toast({ title: "Video uploaded", description: "Visitors will now see your custom video on /hotels." });
+                      } catch (e: any) {
+                        toast({ title: "Saved upload, failed to update", description: e?.message ?? "Try saving again.", variant: "destructive" });
+                      }
+                    }}
+                    buttonClassName="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {scrollContent.videoUrl ? "Replace video" : "Upload video"}
+                  </ObjectUploader>
+                </div>
               </CardContent>
             </Card>
           )}

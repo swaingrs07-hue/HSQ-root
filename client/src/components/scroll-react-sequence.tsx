@@ -23,19 +23,24 @@ interface ScrollReactContent {
   eyebrow: string;
   titleLine1: string;
   titleAccent: string;
+  videoUrl?: string;
 }
 
 const DEFAULT_CONTENT: ScrollReactContent = {
   eyebrow: "The Experience",
   titleLine1: "Every Frame,",
   titleAccent: "Every Stay",
+  videoUrl: "",
 };
 
 /**
- * Cinematic scroll-driven frame sequence — 240 JPGs in /scrollreact/ played
- * imperatively against scroll position with rAF throttling, animated headline,
- * frame counter, and progress rail. All copy is editable by superadmin via the
- * `hotels_scrollreact` site-content key.
+ * Cinematic scroll-driven section. Two source modes:
+ *   1) Default: 240 JPGs in /scrollreact/ rendered to a canvas, scrubbed by
+ *      scroll position with rAF throttling.
+ *   2) Custom video: when superadmin sets `videoUrl` on the
+ *      `hotels_scrollreact` site-content key, the canvas is replaced by an
+ *      autoplaying muted loop of that file.
+ * All copy is editable by superadmin via the `hotels_scrollreact` key.
  */
 export function ScrollReactSequence(props: ScrollReactSequenceProps) {
   const { getContent } = useSiteContent();
@@ -43,12 +48,13 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
   const eyebrow = props.eyebrow ?? stored.eyebrow;
   const titleLine1 = props.titleLine1 ?? stored.titleLine1;
   const titleAccent = props.titleAccent ?? stored.titleAccent;
+  const videoUrl = (stored.videoUrl ?? "").trim();
+  const useVideo = videoUrl.length > 0;
 
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLSpanElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
   const lastDrawnRef = useRef(-1);
   const targetIdxRef = useRef(0);
@@ -105,8 +111,9 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
     lastDrawnRef.current = idx;
   };
 
-  // Preload all frames
+  // Preload all frames (skipped when superadmin uploaded a video)
   useEffect(() => {
+    if (useVideo) return;
     const imgs: HTMLImageElement[] = [];
     for (let i = 0; i < FRAME_COUNT; i++) {
       const img = new Image();
@@ -120,7 +127,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       imgs.push(img);
     }
     imagesRef.current = imgs;
-  }, []);
+  }, [useVideo]);
 
   useEffect(() => {
     let raf = 0;
@@ -129,7 +136,6 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
     let lastVisible: boolean | null = null;
     const root = document.documentElement;
     const headline = headlineRef.current;
-    const counter = counterRef.current;
 
     const tick = () => {
       scheduled = false;
@@ -172,8 +178,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       targetIdxRef.current = idx;
       if (idx !== lastIdx) {
         lastIdx = idx;
-        drawFrame(idx);
-        if (counter) counter.textContent = String(idx + 1).padStart(3, "0");
+        if (!useVideo) drawFrame(idx);
       }
       if (headline) {
         const textOut = Math.min(1, Math.max(0, (progress - 0.75) / 0.25));
@@ -209,14 +214,27 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
       style={{ height: "320vh" }}
       data-testid="section-scroll-react-sequence"
     >
-      {/* Static first frame so the section looks alive before scroll lock */}
+      {/* Static first frame / poster so the section looks alive before scroll lock */}
       <div className="absolute top-0 left-0 w-full h-screen overflow-hidden">
-        <img
-          src={framePath(0)}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+        {useVideo ? (
+          <video
+            src={videoUrl}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+          />
+        ) : (
+          <img
+            src={framePath(0)}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center gap-4">
           <span
@@ -246,7 +264,20 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
           transform: "translateZ(0)",
         }}
       >
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-black" />
+        {useVideo ? (
+          <video
+            src={videoUrl}
+            className="absolute inset-0 w-full h-full object-cover bg-black"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+          />
+        ) : (
+          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-black" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center">
           <div ref={headlineRef} className="sr-headline max-w-4xl text-center">
@@ -265,16 +296,6 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
               <AnimatedHeadline line1={titleLine1} accent={titleAccent} />
             </h2>
           </div>
-        </div>
-        <div className="sr-meta">
-          <div className="sr-counter">
-            <span ref={counterRef} className="sr-counter-current" data-testid="text-scrollreact-counter">
-              001
-            </span>
-            <span className="sr-counter-divider">/</span>
-            <span className="sr-counter-total">{String(FRAME_COUNT).padStart(3, "0")}</span>
-          </div>
-          <div className="sr-rail" aria-hidden="true" />
         </div>
       </div>
     </section>
