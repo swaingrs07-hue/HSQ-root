@@ -354,7 +354,18 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-white/5 mt-16" style={{ backgroundColor: "var(--hotels-section-bg, #080808)" }}>
+      <footer
+        className="hotels-footer-card border-t border-white/5"
+        style={{
+          backgroundColor: "var(--hotels-section-bg, #080808)",
+          position: "relative",
+          zIndex: 10,
+          borderTopLeftRadius: "32px",
+          borderTopRightRadius: "32px",
+          marginTop: "-40px",
+          boxShadow: "0 -28px 60px -12px rgba(0, 0, 0, 0.65)",
+        }}
+      >
         <div className="container mx-auto px-4 sm:px-6 py-12 md:py-16">
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10 md:gap-12 mb-12">
             <div className="md:col-span-2">

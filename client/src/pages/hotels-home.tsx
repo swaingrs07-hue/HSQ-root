@@ -711,10 +711,12 @@ export default function HotelsHome() {
         </div>
       </section>
 
-      {/* CTA + FOOTER — cinematic video bg, big italic CTA, footer bar */}
+      {/* CTA — last section. Sticky-pinned so the footer slides UP over it
+           like a card cover. Smooth, CSS-only, no scroll JS needed. */}
       <section
-        className="relative pt-20 md:pt-28 lg:pt-32 pb-10 px-4 sm:px-6 overflow-hidden"
+        className="hotels-cta-sticky relative pt-20 md:pt-28 lg:pt-32 pb-10 px-4 sm:px-6 overflow-hidden"
         data-testid="section-cta"
+        style={{ position: "sticky", top: 0, minHeight: "100vh", zIndex: 1 }}
       >
         <video
           autoPlay
