@@ -124,7 +124,7 @@ export default function HotelsHome() {
   const bookingBar = (
         <form
           onSubmit={handleBookingSearch}
-          className="absolute left-1/2 -translate-x-1/2 bottom-12 sm:bottom-16 lg:bottom-20 z-30 w-full max-w-6xl px-4 sm:px-6"
+          className="absolute left-1/2 -translate-x-1/2 bottom-6 sm:bottom-12 lg:bottom-20 z-30 w-full max-w-6xl px-3 sm:px-6"
           data-testid="hero-booking-bar"
         >
           <div
@@ -138,7 +138,7 @@ export default function HotelsHome() {
             }}
           >
             {/* Check In */}
-            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
               <div className="flex items-center gap-2 mb-1.5">
                 <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check In</span>
@@ -152,7 +152,7 @@ export default function HotelsHome() {
                 data-testid="input-checkin"
               />
             </label>
-            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
               <div className="flex items-center gap-2 mb-1.5">
                 <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check Out</span>
@@ -166,7 +166,7 @@ export default function HotelsHome() {
                 data-testid="input-checkout"
               />
             </label>
-            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
               <div className="flex items-center gap-2 mb-1.5">
                 <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Guests</span>
@@ -184,7 +184,7 @@ export default function HotelsHome() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col justify-center px-5 py-3.5 min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
+            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
               <div className="flex items-center gap-2 mb-1.5">
                 <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Location</span>
@@ -205,7 +205,7 @@ export default function HotelsHome() {
             </label>
             <button
               type="submit"
-              className="w-full lg:w-auto min-h-[78px] px-8 py-4 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              className="w-full lg:w-auto min-h-[56px] sm:min-h-[78px] px-6 sm:px-8 py-3.5 sm:py-4 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#c5a059" }}
               data-testid="button-search-rooms"
             >
@@ -251,10 +251,10 @@ export default function HotelsHome() {
         style={{ background: "linear-gradient(to bottom, transparent, var(--hotels-page-bg, #050505))" }}
       />
 
-      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-32 pb-[28rem] sm:pb-[30rem] lg:pb-72 text-center">
+      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 sm:pt-32 pb-[26rem] sm:pb-[24rem] lg:pb-72 text-center">
         <div className="hotels-fade-in flex flex-col items-center">
           <h1
-            className="hotels-display text-white text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] xl:text-[9rem] mb-6 max-w-5xl"
+            className="hotels-display text-white text-[2.5rem] leading-[1] sm:text-6xl md:text-7xl lg:text-[7.5rem] xl:text-[9rem] mb-5 sm:mb-6 max-w-5xl px-2"
             data-testid="text-hotel-headline"
           >
             The stay your{" "}
@@ -263,45 +263,47 @@ export default function HotelsHome() {
             deserves
           </h1>
           <p
-            className="text-white/75 text-base sm:text-lg max-w-xl mx-auto mb-8 leading-relaxed"
+            className="text-white/75 text-sm sm:text-base md:text-lg max-w-xs sm:max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed px-2"
             style={{ fontFamily: '"Barlow", sans-serif', fontWeight: 300 }}
           >
             Cinematic interiors. Effortless service. Quietly refined hospitality —
             reimagined for the way you travel today.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full sm:w-auto px-4 sm:px-0">
             <Link
               href="/hotels/rooms"
-              className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+              className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
               data-testid="button-hero-reserve"
             >
               Reserve Your Stay <ArrowUpRight className="w-4 h-4" />
             </Link>
             <Link
               href="/hotels/experience"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white/90 hover:text-white text-[12px] uppercase tracking-[0.22em] font-medium transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white/90 hover:text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium transition-colors"
               data-testid="button-hero-watch-film"
             >
               <Play className="w-3.5 h-3.5 fill-current" /> Watch the Film
             </Link>
           </div>
 
-          {/* Featured-by press bar — Instrument Serif italic credits */}
-          <div className="mt-16 sm:mt-20 flex flex-col items-center gap-5 sm:gap-6" data-testid="studio-press-bar">
+          {/* Featured-by press bar — Instrument Serif italic credits.
+              Hidden on small phones to keep the hero clean and let the
+              booking bar breathe; reappears from sm: upward. */}
+          <div className="hidden sm:flex mt-10 sm:mt-16 lg:mt-20 flex-col items-center gap-4 sm:gap-6" data-testid="studio-press-bar">
             <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5">
               <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/70" style={{ fontFamily: '"Barlow", sans-serif' }}>
                 Featured by
               </span>
             </div>
             <div
-              className="flex flex-wrap items-center justify-center gap-x-10 sm:gap-x-14 gap-y-3"
+              className="flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-10 lg:gap-x-14 gap-y-2 sm:gap-y-3 px-4"
               style={{ fontFamily: '"Instrument Serif", serif', fontStyle: "italic" }}
             >
               {STUDIO_PRESS.map((name) => (
                 <span
                   key={name}
-                  className="text-xl sm:text-2xl md:text-3xl text-white/80"
+                  className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white/80 whitespace-nowrap"
                   data-testid={`text-press-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                 >
                   {name}
