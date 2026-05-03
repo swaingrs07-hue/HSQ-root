@@ -7,6 +7,7 @@ import {
   Users, AlertCircle, CheckCircle2, Clock, ArrowRight, Plus,
   Building2, TrendingUp, Filter, CreditCard, Tag, UserCog,
   FileText, Settings as SettingsIcon, ClipboardList, Film,
+  Mail, Phone as PhoneIcon, Archive, Eye,
 } from "lucide-react";
 import {
   PropertiesPanel, GuestsPanel, PaymentsPanel, CouponsPanel,
@@ -111,7 +112,7 @@ export default function HotelsDashboard() {
 /* ============ Admin View ============ */
 function AdminView({ token, userId, userRole }: { token: string | null; userId: string; userRole: string }) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "reports" | "reel" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "messages" | "reports" | "reel" | "settings">("overview");
   const [showCreateTask, setShowCreateTask] = useState(false);
 
   const { data: stats } = useQuery<DashboardStats>({
@@ -201,6 +202,7 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
                 { key: "payments", label: "Payments", icon: CreditCard },
                 { key: "coupons", label: "Coupons", icon: Tag },
                 { key: "staff", label: "Staff", icon: UserCog },
+                { key: "messages", label: "Messages", icon: Mail },
                 { key: "reports", label: "Reports", icon: FileText },
                 { key: "reel", label: "Scroll Reel", icon: Film },
                 { key: "settings", label: "Settings", icon: SettingsIcon },
@@ -262,6 +264,9 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
             )}
             {activeTab === "staff" && (
               <StaffPanel token={token} hotels={hotels as any} />
+            )}
+            {activeTab === "messages" && (
+              <HotelMessagesPanel token={token} />
             )}
             {activeTab === "reports" && (
               <ReportsPanel hotelBookings={hotelBookings as any} stats={stats} />
@@ -798,6 +803,183 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-2">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/* ============ Hotel Messages Panel ============ */
+interface HotelContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  message: string;
+  status: "new" | "read" | "replied" | "archived";
+  source?: string | null;
+  createdAt: string;
+}
+
+const MSG_STATUS_PILL: Record<string, string> = {
+  new: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  read: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  replied: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  archived: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
+};
+
+function HotelMessagesPanel({ token }: { token: string | null }) {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const { data, isLoading } = useQuery<{ messages: HotelContactMessage[]; unreadCount: number }>({
+    queryKey: ["/api/hotels/contact-messages"],
+    queryFn: async () => {
+      const res = await fetch("/api/hotels/contact-messages", { headers: authHeaders(token) });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!token,
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(`/api/admin/contact-messages/${id}/status`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/hotels/contact-messages"] }),
+  });
+
+  const messages = data?.messages || [];
+  const filtered = messages.filter((m) => {
+    if (filterStatus !== "all" && m.status !== filterStatus) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        m.message.toLowerCase().includes(q) ||
+        (m.phone && m.phone.includes(q))
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div data-testid="panel-hotel-messages">
+      <div className="mb-6">
+        <h2 className="hotels-heading text-white text-2xl sm:text-3xl mb-1">Concierge Messages</h2>
+        <p className="text-white/55 text-sm">
+          Enquiries submitted from <span className="text-amber-300">/hotels/contact</span>. Hostel enquiries stay in the main admin inbox.
+        </p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, email, phone, or text…"
+            className="w-full bg-white/5 border border-white/10 text-white text-sm px-4 py-2.5 rounded-lg outline-none focus:border-amber-500/40 placeholder:text-white/30"
+            data-testid="input-search-messages"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {(["all", "new", "read", "replied", "archived"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`px-3 py-2 text-[11px] uppercase tracking-widest rounded-lg border transition-colors ${
+                filterStatus === s
+                  ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
+                  : "bg-white/5 text-white/60 border-white/10 hover:text-white"
+              }`}
+              data-testid={`filter-status-${s}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12 text-white/50 text-sm">Loading messages…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 border border-dashed border-white/10 rounded-lg">
+          <Mail className="w-10 h-10 mx-auto text-white/30 mb-3" />
+          <p className="text-white/50 text-sm">No hotel messages {search || filterStatus !== "all" ? "match your filter" : "yet"}.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((m) => (
+            <div
+              key={m.id}
+              className="p-4 sm:p-5 border border-white/10 rounded-lg"
+              style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}
+              data-testid={`row-message-${m.id}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <div className="text-white font-medium" data-testid={`text-msg-name-${m.id}`}>{m.name}</div>
+                  <div className="flex flex-wrap gap-3 text-xs text-white/55 mt-1">
+                    <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1 hover:text-amber-300">
+                      <Mail className="w-3 h-3" /> {m.email}
+                    </a>
+                    {m.phone && (
+                      <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 hover:text-amber-300">
+                        <PhoneIcon className="w-3 h-3" /> {m.phone}
+                      </a>
+                    )}
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {new Date(m.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded text-[10px] uppercase tracking-widest border ${MSG_STATUS_PILL[m.status]}`}>
+                  {m.status}
+                </span>
+              </div>
+              <p className="text-white/75 text-sm leading-relaxed whitespace-pre-wrap mb-4" data-testid={`text-msg-body-${m.id}`}>
+                {m.message}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {m.status === "new" && (
+                  <button
+                    onClick={() => updateStatus.mutate({ id: m.id, status: "read" })}
+                    className="text-[11px] uppercase tracking-widest px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded border border-white/10 inline-flex items-center gap-1"
+                    data-testid={`button-mark-read-${m.id}`}
+                  >
+                    <Eye className="w-3 h-3" /> Mark read
+                  </button>
+                )}
+                {m.status !== "replied" && (
+                  <button
+                    onClick={() => updateStatus.mutate({ id: m.id, status: "replied" })}
+                    className="text-[11px] uppercase tracking-widest px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30 inline-flex items-center gap-1"
+                    data-testid={`button-mark-replied-${m.id}`}
+                  >
+                    <CheckCircle2 className="w-3 h-3" /> Mark replied
+                  </button>
+                )}
+                {m.status !== "archived" && (
+                  <button
+                    onClick={() => updateStatus.mutate({ id: m.id, status: "archived" })}
+                    className="text-[11px] uppercase tracking-widest px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/55 hover:text-white rounded border border-white/10 inline-flex items-center gap-1"
+                    data-testid={`button-archive-${m.id}`}
+                  >
+                    <Archive className="w-3 h-3" /> Archive
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -36,7 +36,8 @@ export default function HotelsContact() {
           name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim() || null,
-          message: `[Hotels enquiry] ${form.message.trim()}`,
+          message: form.message.trim(),
+          source: "hotel",
         }),
       });
       if (!res.ok) throw new Error("Failed");

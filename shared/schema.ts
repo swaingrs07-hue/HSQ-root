@@ -1656,6 +1656,7 @@ export const contactMessages = pgTable("contact_messages", {
   email: varchar("email", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }),
   message: text("message").notNull(),
+  source: varchar("source", { length: 20 }).default("hostel").notNull(),
   status: contactMessageStatusEnum("status").default("new").notNull(),
   repliedBy: varchar("replied_by"),
   repliedAt: timestamp("replied_at"),

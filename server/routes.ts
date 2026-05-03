@@ -487,11 +487,12 @@ export async function registerRoutes(
 
   app.post("/api/contact", async (req, res) => {
     try {
-      const { name, email, phone, message } = req.body;
+      const { name, email, phone, message, source } = req.body;
       if (!name || !email || !message) {
         return res.status(400).json({ error: "Name, email, and message are required" });
       }
-      const saved = await storage.createContactMessage({ name, email, phone: phone || null, message });
+      const normSource = source === "hotel" ? "hotel" : "hostel";
+      const saved = await storage.createContactMessage({ name, email, phone: phone || null, message, source: normSource } as any);
       console.log(`[Contact Form] Saved message ${saved.id} from ${name} <${email}>`);
 
       try {
@@ -536,12 +537,35 @@ export async function registerRoutes(
       const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
       const user = await storage.getUser(decoded.userId);
       if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
-      const messages = await storage.getAllContactMessages();
-      const unreadCount = await storage.getUnreadContactMessageCount();
+      const all = await storage.getAllContactMessages();
+      // Hostel admin inbox: only show hostel-sourced messages. Hotel-sourced
+      // messages live in the hotels dashboard under /api/hotels/contact-messages.
+      const messages = all.filter((m: any) => (m.source ?? "hostel") !== "hotel");
+      const unreadCount = messages.filter((m: any) => m.status === "new").length;
       res.json({ messages, unreadCount });
     } catch (error) {
       console.error("[Contact Messages] Error:", error);
       res.status(500).json({ error: "Failed to fetch contact messages" });
+    }
+  });
+
+  // Hotels-only inbox: returns only hotel-sourced contact messages.
+  app.get("/api/hotels/contact-messages", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
+      const jwt = await import("jsonwebtoken");
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
+      const user = await storage.getUser(decoded.userId);
+      if (!user || !["admin", "superadmin", "hotel_admin"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      const all = await storage.getAllContactMessages();
+      const messages = all.filter((m: any) => (m.source ?? "hostel") === "hotel");
+      const unreadCount = messages.filter((m: any) => m.status === "new").length;
+      res.json({ messages, unreadCount });
+    } catch (error) {
+      console.error("[Hotels Contact Messages] Error:", error);
+      res.status(500).json({ error: "Failed to fetch hotel contact messages" });
     }
   });
 
