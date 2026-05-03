@@ -460,6 +460,31 @@
 }
 
 /*
+ * "Switch to Hostel" pill (desktop + mobile back-link) sits over the hero
+ * photo which bleeds through the translucent navbar. The default inline
+ * white/glass background disappears in light mode. Force a dark-glass
+ * container with bright text so the pill stays legible against any
+ * background in day mode.
+ */
+.hotels-light [data-testid="link-hostel-switcher"] {
+  background: rgba(26, 20, 16, 0.78) !important;
+  border-color: rgba(197, 160, 89, 0.45) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+}
+.hotels-light [data-testid="link-hostel-switcher"] svg,
+.hotels-light [data-testid="link-hostel-switcher"] span {
+  color: #ffffff !important;
+}
+.hotels-light [data-testid="link-hostel-switcher"] .text-white\/60 {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+/* Mobile back-link inside the hotels mobile menu */
+.hotels-light [data-testid="link-hostel-switcher-mobile"] {
+  color: #1a1410 !important;
+}
+
+/*
  * The hero on /hotels sits over a dark photographic background in both
  * themes, so its over-image text & outlined CTAs must stay white even
  * in light mode. Scope overrides back to white inside the hero.
