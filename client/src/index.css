@@ -429,6 +429,17 @@
 }
 
 .hotels-light .text-white { color: #1a1410 !important; }
+/* Hero text painted directly over a dark photo must stay white in every theme. */
+.hotels-light .hotels-over-image,
+.hotels-light .hotels-over-image .text-white { color: #fff !important; }
+.hotels-light .hotels-over-image .text-white\/90 { color: rgb(255 255 255 / 0.9) !important; }
+.hotels-light .hotels-over-image .text-white\/80 { color: rgb(255 255 255 / 0.85) !important; }
+.hotels-light .hotels-over-image .text-white\/75 { color: rgb(255 255 255 / 0.82) !important; }
+.hotels-light .hotels-over-image .text-white\/70 { color: rgb(255 255 255 / 0.8) !important; }
+.hotels-light .hotels-over-image .text-white\/65 { color: rgb(255 255 255 / 0.75) !important; }
+.hotels-light .hotels-over-image .text-white\/60 { color: rgb(255 255 255 / 0.7) !important; }
+.hotels-light .hotels-over-image .text-white\/55 { color: rgb(255 255 255 / 0.7) !important; }
+.hotels-light .hotels-over-image .text-white\/50 { color: rgb(255 255 255 / 0.65) !important; }
 .hotels-light .text-white\/90 { color: rgb(26 20 16 / 0.9) !important; }
 .hotels-light .text-white\/85 { color: rgb(26 20 16 / 0.85) !important; }
 .hotels-light .text-white\/80 { color: rgb(26 20 16 / 0.8) !important; }

@@ -80,7 +80,7 @@ export default function HotelsContact() {
               "linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.4) 30%, rgba(10,10,10,0.95) 100%)",
           }}
         />
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 pb-16 sm:pb-24 pt-32">
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 pb-16 sm:pb-24 pt-32 hotels-over-image">
           <div className="max-w-3xl">
             <p
               className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] sm:tracking-[0.4em] mb-4 sm:mb-6"
