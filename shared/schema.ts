@@ -271,6 +271,12 @@ export const bookings = pgTable("bookings", {
 
   welcomeEmailSent: boolean("welcome_email_sent").default(false).notNull(),
 
+  // Coupon (Promotion Engine)
+  couponId: varchar("coupon_id"),
+  couponCode: text("coupon_code"),
+  couponDiscount: integer("coupon_discount").default(0),
+  couponRedeemedAt: timestamp("coupon_redeemed_at"),
+
   confirmedBy: varchar("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at"),
   
@@ -1786,7 +1792,11 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
   bookingValue: integer("booking_value").notNull(),
   discountAmount: integer("discount_amount").notNull(),
   redeemedAt: timestamp("redeemed_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("coupon_redemptions_booking_id_unique")
+    .on(table.bookingId)
+    .where(sql`${table.bookingId} is not null`),
+]);
 export const insertCouponRedemptionSchema = createInsertSchema(couponRedemptions).omit({
   id: true,
   redeemedAt: true,

@@ -64,8 +64,32 @@ export async function createBooking(data: {
   paymentPlanId: string;
   discount?: number;
   discountReason?: string;
+  couponCode?: string;
 }): Promise<{ booking: Booking; installments: Installment[] }> {
   return fetchAPI("/bookings", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function validateCoupon(data: {
+  code: string;
+  bookingValue: number;
+  propertyId?: string;
+  roomTypeId?: string;
+  userId?: string;
+}): Promise<{
+  valid: boolean;
+  error?: string;
+  coupon?: { id: string; code: string; name: string; description?: string };
+  discount?: number;
+  finalAmount?: number;
+}> {
+  // Use fetchAPI for consistent non-2xx handling (e.g. 404 "Coupon not found"
+  // becomes a thrown Error). The endpoint also returns 200 with {valid:false}
+  // for soft-fail cases (targeting / per-user / first-booking), which the
+  // caller handles via the `valid` flag.
+  return fetchAPI("/coupons/validate", {
     method: "POST",
     body: JSON.stringify(data),
   });

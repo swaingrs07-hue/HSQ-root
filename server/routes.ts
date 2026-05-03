@@ -4061,7 +4061,7 @@ ${allPages.map(p => `  <url>
   // Create booking
   app.post("/api/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId } = req.body;
+      const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId, couponCode } = req.body;
 
       const scope = await getReceptionistScope(req);
       if (scope && (!propertyId || !scope.has(propertyId))) {
@@ -4080,12 +4080,71 @@ ${allPages.map(p => `  <url>
         return res.status(400).json({ error: "Room type does not belong to this property" });
       }
 
-      // Calculate total fee (including move-in charges from property)
-      const totalDiscount = discount || 0;
+      // Re-validate coupon server-side (do not trust client discount)
+      let couponRecord: typeof schema.coupons.$inferSelect | null = null;
+      let couponDiscountAmount = 0;
+      if (couponCode) {
+        const userId = (req as AuthRequest).user!.userId;
+        const [c] = await db
+          .select()
+          .from(schema.coupons)
+          .where(eq(schema.coupons.code, String(couponCode).trim().toUpperCase()))
+          .limit(1);
+        if (!c) return res.status(400).json({ error: "Coupon not found" });
+        if (c.status !== "active") return res.status(400).json({ error: "Coupon is not active" });
+        if (c.validUntil && new Date(c.validUntil) < new Date()) return res.status(400).json({ error: "Coupon has expired" });
+        if (c.validFrom && new Date(c.validFrom) > new Date()) return res.status(400).json({ error: "Coupon is not yet valid" });
+        if (c.usageLimit && c.usageCount >= c.usageLimit) return res.status(400).json({ error: "Coupon usage limit reached" });
+        if (c.applicablePropertyIds?.length && !c.applicablePropertyIds.includes(propertyId)) {
+          return res.status(400).json({ error: "Coupon not valid for this property" });
+        }
+        if (c.applicableRoomTypeIds?.length && !c.applicableRoomTypeIds.includes(roomTypeId)) {
+          return res.status(400).json({ error: "Coupon not valid for this room type" });
+        }
+        if (c.minBookingValue && baseFee < c.minBookingValue) {
+          return res.status(400).json({ error: `Minimum booking value is ₹${c.minBookingValue}` });
+        }
+        if (c.perUserLimit) {
+          const [usedRow] = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(schema.couponRedemptions)
+            .where(and(eq(schema.couponRedemptions.couponId, c.id), eq(schema.couponRedemptions.userId, userId)));
+          if ((usedRow?.count ?? 0) >= c.perUserLimit) {
+            return res.status(400).json({ error: "You have already used this coupon" });
+          }
+        }
+        if (c.firstBookingOnly) {
+          const [b] = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(schema.bookings)
+            .where(eq(schema.bookings.createdBy, userId));
+          if ((b?.count ?? 0) > 0) {
+            return res.status(400).json({ error: "This coupon is for first-time bookings only" });
+          }
+        }
+        if (c.discountType === "percent") {
+          couponDiscountAmount = Math.floor((baseFee * c.discountValue) / 100);
+          if (c.maxDiscount && couponDiscountAmount > c.maxDiscount) couponDiscountAmount = c.maxDiscount;
+        } else {
+          couponDiscountAmount = c.discountValue;
+        }
+        if (couponDiscountAmount > baseFee) couponDiscountAmount = baseFee;
+        couponRecord = c;
+      }
+
+      // Calculate total fee (including move-in charges from property).
+      // Cap the combined discount at baseFee so a coupon stacked on top of a
+      // plan-level discount can never push the booking total negative.
+      let totalDiscount = (discount || 0) + couponDiscountAmount;
+      if (totalDiscount > baseFee) {
+        const overflow = totalDiscount - baseFee;
+        couponDiscountAmount = Math.max(0, couponDiscountAmount - overflow);
+        totalDiscount = baseFee;
+      }
       const legacyProperty = await storage.getProperty(propertyId);
       const legacyMic = legacyProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
       const legacyMicTotal = (legacyMic?.serviceLegalCharges || 0) || ((legacyMic?.policeVerification || 0) + (legacyMic?.agreement || 0));
-      const totalFee = baseFee - totalDiscount + legacyMicTotal;
+      const totalFee = Math.max(0, baseFee - totalDiscount + legacyMicTotal);
 
       const booking = await storage.createBooking({
         studentId,
@@ -4095,12 +4154,15 @@ ${allPages.map(p => `  <url>
         discount: totalDiscount,
         totalFee,
         paymentPlanId,
-        discountReason: discountReason || null,
+        discountReason: discountReason || (couponRecord ? `Coupon ${couponRecord.code}` : null),
         discountApprovedBy: null,
         discountApprovedAt: null,
         agreementUrl: null,
         signatureData: null,
         createdBy: (req as AuthRequest).user!.userId,
+        couponId: couponRecord?.id ?? null,
+        couponCode: couponRecord?.code ?? null,
+        couponDiscount: couponDiscountAmount,
       });
 
       // Create installments
@@ -5099,7 +5161,27 @@ ${allPages.map(p => `  <url>
       }
 
       const authUser = (req as AuthRequest).user!;
-      const confirmed = await storage.confirmBooking(req.params.id, approvedBy);
+
+      // Redeem the coupon BEFORE flipping the booking to confirmed so that
+      // per-user-limit / first-booking-only / usage-limit failures block the
+      // confirm entirely (the booking stays in pending_payment / draft).
+      // If the subsequent confirm step fails for an unrelated reason we
+      // compensate by rolling the redemption back.
+      let didRedeemHere = false;
+      try {
+        didRedeemHere = await redeemCouponForBooking(req.params.id);
+      } catch (err: any) {
+        return res.status(400).json({ error: err?.message || "Coupon could not be applied" });
+      }
+
+      let confirmed;
+      try {
+        confirmed = await storage.confirmBooking(req.params.id, approvedBy);
+      } catch (err) {
+        // Only rollback if THIS call actually created the redemption row.
+        if (didRedeemHere) await rollbackCouponRedemption(req.params.id);
+        throw err;
+      }
 
       if (confirmed && confirmed.status === "confirmed") {
         await db.update(schema.bookings)
@@ -5244,6 +5326,40 @@ ${allPages.map(p => `  <url>
         // Update booking status if booking amount paid
         const booking = await storage.getBooking(bookingId);
         if (booking && booking.status === "pending_payment") {
+          // Redeem coupon (if any) BEFORE flipping the booking to active so
+          // that limit/per-user/first-booking violations actually block
+          // activation rather than being silently logged. On failure we mark
+          // the payment for reconciliation and skip activation entirely so
+          // an admin can intervene; the discount on the booking is removed
+          // so the user is not "owed" a coupon they could not redeem.
+          if (booking.couponId && !booking.couponRedeemedAt) {
+            try {
+              await redeemCouponForBooking(bookingId);
+            } catch (err: any) {
+              console.error("[Coupon] Redemption after online payment failed - leaving booking pending and removing coupon:", err);
+              await storage.updatePayment(payment.id, {
+                failureReason: `Coupon redemption failed: ${err?.message || "unknown"} — manual reconciliation required`,
+              });
+              // Recompute totalFee using the same components as booking
+              // creation: baseFee - newDiscount + move-in charges. This keeps
+              // the manual-reconciliation totals accurate instead of dropping
+              // legacy move-in charges.
+              const newDiscount = Math.max(0, (booking.discount || 0) - (booking.couponDiscount || 0));
+              const fbProperty = await storage.getProperty(booking.propertyId);
+              const fbMic = fbProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+              const fbMicTotal = (fbMic?.serviceLegalCharges || 0) || ((fbMic?.policeVerification || 0) + (fbMic?.agreement || 0));
+              const newTotal = Math.max(0, (booking.baseFee || 0) - newDiscount + fbMicTotal);
+              await storage.updateBooking(bookingId, {
+                couponId: null,
+                couponCode: null,
+                couponDiscount: 0,
+                discount: newDiscount,
+                totalFee: newTotal,
+              });
+              return; // skip activation; admin will reconcile
+            }
+          }
+
           await storage.updateBooking(bookingId, {
             status: "active",
           });
@@ -5286,6 +5402,7 @@ ${allPages.map(p => `  <url>
             checkAndSendMilestone(updatedBooking.propertyId).catch(err => {
               console.error("[Milestone] Background check after payment failed:", err);
             });
+
           }
         }
       }, 2000);
@@ -15280,6 +15397,137 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     return { discount, finalAmount: bookingValue - discount };
   }
 
+  // Atomic, idempotent coupon redemption — called after a booking transitions
+  // to a "paid / confirmed" state. Inserts a coupon_redemptions row and bumps
+  // coupons.usage_count atomically. Re-checks per-user-limit and
+  // first-booking-only at confirm time so they cannot be bypassed via races
+  // between validate and confirm.
+  async function redeemCouponForBooking(bookingId: string): Promise<boolean> {
+    const [b] = await db.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId)).limit(1);
+    if (!b || !b.couponId || b.couponRedeemedAt) return false; // nothing to do / already redeemed
+
+    let didRedeem = false;
+    await db.transaction(async (tx) => {
+      // Lock the coupon row first to serialise concurrent redemptions for this code
+      const [coupon] = await tx
+        .select()
+        .from(schema.coupons)
+        .where(eq(schema.coupons.id, b.couponId!))
+        .for("update")
+        .limit(1);
+      if (!coupon) throw new Error("Coupon not found");
+
+      // Idempotency guard (also enforced by partial unique index on booking_id):
+      // bail cleanly if this booking already has a redemption row. didRedeem
+      // stays false in that case so callers don't trigger a compensating
+      // rollback for work they didn't perform.
+      const [existing] = await tx
+        .select({ id: schema.couponRedemptions.id })
+        .from(schema.couponRedemptions)
+        .where(eq(schema.couponRedemptions.bookingId, b.id))
+        .limit(1);
+      if (existing) return;
+
+      // Per-user-limit re-check
+      if (coupon.perUserLimit && b.createdBy) {
+        const [usedRow] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.couponRedemptions)
+          .where(and(
+            eq(schema.couponRedemptions.couponId, coupon.id),
+            eq(schema.couponRedemptions.userId, b.createdBy),
+          ));
+        if ((usedRow?.count ?? 0) >= coupon.perUserLimit) {
+          throw new Error("Per-user coupon limit exceeded");
+        }
+      }
+      // First-booking-only re-check (count other confirmed/active/completed bookings by this user)
+      if (coupon.firstBookingOnly && b.createdBy) {
+        const [other] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.bookings)
+          .where(and(
+            eq(schema.bookings.createdBy, b.createdBy),
+            sql`${schema.bookings.id} <> ${b.id}`,
+            sql`${schema.bookings.status} in ('active','confirmed','completed')`,
+          ));
+        if ((other?.count ?? 0) > 0) {
+          throw new Error("Coupon is for first-time bookings only");
+        }
+      }
+
+      // Atomic conditional bump: only succeeds when usage_count < usage_limit
+      // (or when usage_limit is null). Returns the row if the bump happened.
+      const bumped = await tx
+        .update(schema.coupons)
+        .set({
+          usageCount: sql`${schema.coupons.usageCount} + 1`,
+          status: sql`case when ${schema.coupons.usageLimit} is not null and ${schema.coupons.usageCount} + 1 >= ${schema.coupons.usageLimit} then 'exhausted'::coupon_status else ${schema.coupons.status} end`,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(schema.coupons.id, coupon.id),
+          sql`(${schema.coupons.usageLimit} is null or ${schema.coupons.usageCount} < ${schema.coupons.usageLimit})`,
+        ))
+        .returning({ id: schema.coupons.id });
+      if (bumped.length === 0) {
+        throw new Error("Coupon usage limit reached");
+      }
+
+      // Insert redemption row — partial unique index on booking_id will reject
+      // any concurrent duplicate insert, making this fully idempotent at the DB.
+      await tx.insert(schema.couponRedemptions).values({
+        couponId: coupon.id,
+        userId: b.createdBy ?? null,
+        bookingId: b.id,
+        bookingValue: b.baseFee,
+        discountAmount: b.couponDiscount ?? 0,
+      });
+
+      await tx
+        .update(schema.bookings)
+        .set({ couponRedeemedAt: new Date() })
+        .where(eq(schema.bookings.id, b.id));
+
+      didRedeem = true;
+    });
+    return didRedeem;
+  }
+
+  // Compensating action: undo a redemption that was just performed when a
+  // downstream step (booking confirm / activation) fails. Best-effort and
+  // logged on failure — used so a stranded redemption row + decremented
+  // usage count does not block legitimate retries.
+  async function rollbackCouponRedemption(bookingId: string): Promise<void> {
+    try {
+      await db.transaction(async (tx) => {
+        const [b] = await tx.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId)).limit(1);
+        if (!b || !b.couponId) return;
+        const [r] = await tx
+          .select()
+          .from(schema.couponRedemptions)
+          .where(eq(schema.couponRedemptions.bookingId, bookingId))
+          .limit(1);
+        if (!r) return;
+        await tx.delete(schema.couponRedemptions).where(eq(schema.couponRedemptions.id, r.id));
+        await tx
+          .update(schema.coupons)
+          .set({
+            usageCount: sql`greatest(${schema.coupons.usageCount} - 1, 0)`,
+            status: sql`case when ${schema.coupons.status} = 'exhausted'::coupon_status and ${schema.coupons.usageCount} - 1 < coalesce(${schema.coupons.usageLimit}, 2147483647) then 'active'::coupon_status else ${schema.coupons.status} end`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.coupons.id, b.couponId));
+        await tx
+          .update(schema.bookings)
+          .set({ couponRedeemedAt: null })
+          .where(eq(schema.bookings.id, bookingId));
+      });
+    } catch (err: any) {
+      console.error("[coupon rollback]", bookingId, err?.message ?? err);
+    }
+  }
+
   // PUBLIC: validate a coupon for a booking context (no redemption side-effect)
   app.post("/api/coupons/validate", async (req, res) => {
     try {
@@ -15318,7 +15566,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const [b] = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(schema.bookings)
-          .where(eq(schema.bookings.userId, userId));
+          .where(eq(schema.bookings.createdBy, userId));
         if ((b?.count ?? 0) > 0) {
           return res.json({ valid: false, error: "This coupon is for first-time bookings only" });
         }

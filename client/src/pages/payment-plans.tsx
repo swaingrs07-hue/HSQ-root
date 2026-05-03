@@ -1,13 +1,14 @@
 import { PAYMENT_PLANS } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Tag, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createBooking } from "@/lib/api";
+import { createBooking, validateCoupon } from "@/lib/api";
 
 interface SelectedRoom {
   propId: string;
@@ -23,6 +24,14 @@ export default function PaymentPlans() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>(PAYMENT_PLANS[0].id);
   const [roomData, setRoomData] = useState<SelectedRoom | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    name?: string;
+    discount: number;
+  } | null>(null);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -36,6 +45,52 @@ export default function PaymentPlans() {
   }, []);
 
   if (!roomData) return null;
+
+  const handleApplyCoupon = async () => {
+    if (!roomData) return;
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setCouponError("Enter a coupon code");
+      return;
+    }
+    setCouponApplying(true);
+    setCouponError(null);
+    try {
+      const studentRaw = localStorage.getItem("hsquare_student");
+      const student = studentRaw ? JSON.parse(studentRaw) : null;
+      const result = await validateCoupon({
+        code,
+        bookingValue: roomData.price,
+        propertyId: roomData.propId,
+        roomTypeId: roomData.roomId,
+        userId: student?.userId || student?.id,
+      });
+      if (!result.valid) {
+        setAppliedCoupon(null);
+        setCouponError(result.error || "Invalid coupon");
+        return;
+      }
+      setAppliedCoupon({
+        code: result.coupon!.code,
+        name: result.coupon!.name,
+        discount: result.discount || 0,
+      });
+      toast({
+        title: "Coupon applied",
+        description: `${result.coupon!.code} — you save ₹${(result.discount || 0).toLocaleString("en-IN")}`,
+      });
+    } catch (err: any) {
+      setCouponError(err?.message || "Could not validate coupon");
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
 
   const handleProceed = async () => {
     try {
@@ -64,6 +119,7 @@ export default function PaymentPlans() {
         baseFee: roomData.price,
         paymentPlanId: selectedPlanId,
         discount: plan?.discount || 0,
+        couponCode: appliedCoupon?.code,
       });
 
       // Store booking info
@@ -163,19 +219,88 @@ export default function PaymentPlans() {
                     <p className="font-medium">₹{roomData.deposit?.toLocaleString()}</p>
                   </div>
                 )}
+                {appliedCoupon && (
+                  <div className="flex justify-between items-center mb-2" data-testid="row-coupon-discount">
+                    <p className="text-sm text-emerald-700 flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      Coupon ({appliedCoupon.code})
+                    </p>
+                    <p className="font-medium text-emerald-700">- ₹{appliedCoupon.discount.toLocaleString("en-IN")}</p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-lg font-bold text-primary mt-4 pt-4 border-t border-primary/10">
                   <p>Total Payable</p>
-                  <p>
-                    ₹{(
-                      roomData.price + (roomData.deposit || 0) - (PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || 0)
-                    ).toLocaleString()}
+                  <p data-testid="text-total-payable">
+                    ₹{Math.max(0, (
+                      roomData.price + (roomData.deposit || 0)
+                      - (PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || 0)
+                      - (appliedCoupon?.discount || 0)
+                    )).toLocaleString()}
                   </p>
                 </div>
-                {PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount ? (
+                {(PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || appliedCoupon) ? (
                   <p className="text-xs text-green-600 text-right mt-1 font-medium">
-                    (Includes ₹{PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount?.toLocaleString()} Discount)
+                    (Includes ₹{(
+                      (PAYMENT_PLANS.find(p => p.id === selectedPlanId)?.discount || 0)
+                      + (appliedCoupon?.discount || 0)
+                    ).toLocaleString()} Discount)
                   </p>
                 ) : null}
+              </div>
+
+              {/* Coupon entry */}
+              <div className="pt-4 border-t border-primary/10">
+                <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-primary" />
+                  Have a coupon?
+                </p>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3" data-testid="card-applied-coupon">
+                    <div>
+                      <p className="font-mono text-sm font-bold text-emerald-700" data-testid="text-applied-coupon-code">{appliedCoupon.code}</p>
+                      {appliedCoupon.name && (
+                        <p className="text-xs text-emerald-600">{appliedCoupon.name}</p>
+                      )}
+                      <p className="text-xs text-emerald-700 mt-0.5">You save ₹{appliedCoupon.discount.toLocaleString("en-IN")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-emerald-700 hover:text-emerald-900 p-1 rounded"
+                      aria-label="Remove coupon"
+                      data-testid="button-remove-coupon"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter code (e.g. HSQ100)"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+                        className="h-9 uppercase"
+                        disabled={couponApplying}
+                        data-testid="input-coupon-code"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleApplyCoupon}
+                        disabled={couponApplying || !couponInput.trim()}
+                        data-testid="button-apply-coupon"
+                      >
+                        {couponApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
+                      </Button>
+                    </div>
+                    {couponError && (
+                      <p className="text-xs text-red-600 mt-1.5" data-testid="text-coupon-error">{couponError}</p>
+                    )}
+                  </>
+                )}
               </div>
             </CardContent>
             <CardFooter>
