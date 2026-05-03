@@ -1739,5 +1739,60 @@ export const insertSiteContentSchema = createInsertSchema(siteContent).omit({
 export type SiteContent = typeof siteContent.$inferSelect;
 export type InsertSiteContent = z.infer<typeof insertSiteContentSchema>;
 
+// ============================================================================
+// PROMOTION ENGINE — coupons + redemptions
+// ============================================================================
+export const couponTypeEnum = pgEnum("coupon_type", ["percent", "flat"]);
+export const couponStatusEnum = pgEnum("coupon_status", ["active", "paused", "expired", "exhausted"]);
+
+export const coupons = pgTable("coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  discountType: couponTypeEnum("discount_type").notNull(),
+  discountValue: integer("discount_value").notNull(), // % (1-100) or ₹ flat
+  minBookingValue: integer("min_booking_value").default(0).notNull(),
+  maxDiscount: integer("max_discount"), // cap for % type
+  validFrom: timestamp("valid_from").defaultNow().notNull(),
+  validUntil: timestamp("valid_until"),
+  usageLimit: integer("usage_limit"), // null = unlimited
+  perUserLimit: integer("per_user_limit").default(1),
+  usageCount: integer("usage_count").default(0).notNull(),
+  // Targeting (null arrays = applies to all)
+  applicablePropertyIds: text("applicable_property_ids").array(),
+  applicableRoomTypeIds: text("applicable_room_type_ids").array(),
+  // First-booking only (loyalty / new-user campaigns)
+  firstBookingOnly: boolean("first_booking_only").default(false).notNull(),
+  status: couponStatusEnum("status").default("active").notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  usageCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type Coupon = typeof coupons.$inferSelect;
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+
+export const couponRedemptions = pgTable("coupon_redemptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  couponId: varchar("coupon_id").references(() => coupons.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  bookingId: varchar("booking_id").references(() => bookings.id),
+  bookingValue: integer("booking_value").notNull(),
+  discountAmount: integer("discount_amount").notNull(),
+  redeemedAt: timestamp("redeemed_at").defaultNow().notNull(),
+});
+export const insertCouponRedemptionSchema = createInsertSchema(couponRedemptions).omit({
+  id: true,
+  redeemedAt: true,
+});
+export type CouponRedemption = typeof couponRedemptions.$inferSelect;
+export type InsertCouponRedemption = z.infer<typeof insertCouponRedemptionSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

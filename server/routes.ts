@@ -15249,5 +15249,185 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ============================================================================
+  // PROMOTION ENGINE — Coupons CRUD + public validation/redemption
+  // ============================================================================
+
+  // Compute the discount a coupon yields against a given booking value.
+  // Returns null with a reason string when the coupon cannot be applied.
+  function computeCouponDiscount(
+    coupon: schema.Coupon,
+    bookingValue: number,
+  ): { discount: number; finalAmount: number } | { error: string } {
+    const now = new Date();
+    if (coupon.status !== "active") return { error: `Coupon is ${coupon.status}` };
+    if (coupon.validFrom && new Date(coupon.validFrom) > now) return { error: "Coupon is not active yet" };
+    if (coupon.validUntil && new Date(coupon.validUntil) < now) return { error: "Coupon has expired" };
+    if (coupon.usageLimit !== null && coupon.usageLimit !== undefined && coupon.usageCount >= coupon.usageLimit) {
+      return { error: "Coupon usage limit reached" };
+    }
+    if (bookingValue < coupon.minBookingValue) {
+      return { error: `Minimum booking value is ₹${coupon.minBookingValue}` };
+    }
+    let discount = 0;
+    if (coupon.discountType === "percent") {
+      discount = Math.floor((bookingValue * coupon.discountValue) / 100);
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) discount = coupon.maxDiscount;
+    } else {
+      discount = coupon.discountValue;
+    }
+    if (discount > bookingValue) discount = bookingValue;
+    return { discount, finalAmount: bookingValue - discount };
+  }
+
+  // PUBLIC: validate a coupon for a booking context (no redemption side-effect)
+  app.post("/api/coupons/validate", async (req, res) => {
+    try {
+      const { code, bookingValue, propertyId, roomTypeId, userId } = req.body ?? {};
+      if (!code || typeof bookingValue !== "number" || bookingValue <= 0) {
+        return res.status(400).json({ valid: false, error: "Invalid request" });
+      }
+      const [coupon] = await db
+        .select()
+        .from(schema.coupons)
+        .where(eq(schema.coupons.code, String(code).trim().toUpperCase()))
+        .limit(1);
+      if (!coupon) return res.status(404).json({ valid: false, error: "Coupon not found" });
+
+      // Targeting checks
+      if (coupon.applicablePropertyIds?.length && propertyId && !coupon.applicablePropertyIds.includes(propertyId)) {
+        return res.json({ valid: false, error: "Coupon not valid for this property" });
+      }
+      if (coupon.applicableRoomTypeIds?.length && roomTypeId && !coupon.applicableRoomTypeIds.includes(roomTypeId)) {
+        return res.json({ valid: false, error: "Coupon not valid for this room type" });
+      }
+
+      // Per-user limit
+      if (userId && coupon.perUserLimit) {
+        const [usedRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.couponRedemptions)
+          .where(and(eq(schema.couponRedemptions.couponId, coupon.id), eq(schema.couponRedemptions.userId, userId)));
+        if ((usedRow?.count ?? 0) >= coupon.perUserLimit) {
+          return res.json({ valid: false, error: "You have already used this coupon" });
+        }
+      }
+
+      // First-booking only
+      if (coupon.firstBookingOnly && userId) {
+        const [b] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.bookings)
+          .where(eq(schema.bookings.userId, userId));
+        if ((b?.count ?? 0) > 0) {
+          return res.json({ valid: false, error: "This coupon is for first-time bookings only" });
+        }
+      }
+
+      const result = computeCouponDiscount(coupon, bookingValue);
+      if ("error" in result) return res.json({ valid: false, error: result.error });
+
+      res.json({
+        valid: true,
+        coupon: { id: coupon.id, code: coupon.code, name: coupon.name, description: coupon.description },
+        discount: result.discount,
+        finalAmount: result.finalAmount,
+      });
+    } catch (e: any) {
+      console.error("[coupons/validate]", e);
+      res.status(500).json({ valid: false, error: "Validation failed" });
+    }
+  });
+
+  // ADMIN: list all coupons with usage stats
+  app.get("/api/admin/coupons", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.coupons).orderBy(sql`${schema.coupons.createdAt} DESC`);
+      // Aggregate per-coupon redemption stats
+      const stats = await db
+        .select({
+          couponId: schema.couponRedemptions.couponId,
+          redemptions: sql<number>`count(*)::int`,
+          totalDiscount: sql<number>`coalesce(sum(${schema.couponRedemptions.discountAmount}),0)::int`,
+          totalRevenue: sql<number>`coalesce(sum(${schema.couponRedemptions.bookingValue}),0)::int`,
+        })
+        .from(schema.couponRedemptions)
+        .groupBy(schema.couponRedemptions.couponId);
+      const statMap = new Map(stats.map((s) => [s.couponId, s]));
+      res.json(
+        rows.map((c) => ({
+          ...c,
+          stats: statMap.get(c.id) ?? { redemptions: 0, totalDiscount: 0, totalRevenue: 0 },
+        })),
+      );
+    } catch (e: any) {
+      console.error("[admin/coupons GET]", e);
+      res.status(500).json({ error: "Failed to load coupons" });
+    }
+  });
+
+  // ADMIN: create coupon
+  app.post("/api/admin/coupons", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const body = { ...req.body, code: String(req.body?.code ?? "").trim().toUpperCase(), createdBy: req.user!.userId };
+      // Coerce date strings into Date objects (zod schema below expects Date)
+      if (body.validFrom && typeof body.validFrom === "string") body.validFrom = new Date(body.validFrom);
+      if (body.validUntil && typeof body.validUntil === "string") body.validUntil = new Date(body.validUntil);
+      const parsed = schema.insertCouponSchema.parse(body);
+      const [created] = await db.insert(schema.coupons).values(parsed).returning();
+      res.json(created);
+    } catch (e: any) {
+      console.error("[admin/coupons POST]", e);
+      if (e?.code === "23505") return res.status(409).json({ error: "Coupon code already exists" });
+      res.status(400).json({ error: e?.message ?? "Failed to create coupon" });
+    }
+  });
+
+  // ADMIN: update coupon
+  app.patch("/api/admin/coupons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const patch: any = { ...req.body, updatedAt: new Date() };
+      if (patch.code) patch.code = String(patch.code).trim().toUpperCase();
+      if (patch.validFrom && typeof patch.validFrom === "string") patch.validFrom = new Date(patch.validFrom);
+      if (patch.validUntil && typeof patch.validUntil === "string") patch.validUntil = new Date(patch.validUntil);
+      delete patch.id;
+      delete patch.usageCount;
+      delete patch.createdAt;
+      const [updated] = await db.update(schema.coupons).set(patch).where(eq(schema.coupons.id, req.params.id)).returning();
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (e: any) {
+      console.error("[admin/coupons PATCH]", e);
+      res.status(400).json({ error: e?.message ?? "Update failed" });
+    }
+  });
+
+  // ADMIN: delete coupon
+  app.delete("/api/admin/coupons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      await db.delete(schema.coupons).where(eq(schema.coupons.id, req.params.id));
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error("[admin/coupons DELETE]", e);
+      res.status(500).json({ error: "Delete failed" });
+    }
+  });
+
+  // ADMIN: redemption history for a coupon
+  app.get("/api/admin/coupons/:id/redemptions", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const rows = await db
+        .select()
+        .from(schema.couponRedemptions)
+        .where(eq(schema.couponRedemptions.couponId, req.params.id))
+        .orderBy(sql`${schema.couponRedemptions.redeemedAt} DESC`)
+        .limit(200);
+      res.json(rows);
+    } catch (e: any) {
+      console.error("[admin/coupons redemptions]", e);
+      res.status(500).json({ error: "Failed" });
+    }
+  });
+
   return httpServer;
 }
