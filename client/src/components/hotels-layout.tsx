@@ -140,10 +140,16 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
         .gold-bg { background-color: #c5a059; }
         .gold-border { border-color: #c5a059; }
         .glass-nav-h {
-          background: rgba(10, 10, 10, 0.55);
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border-bottom: 1px solid rgba(197, 160, 89, 0.12);
+          background: rgba(10, 10, 10, 0.72);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border-bottom: 1px solid rgba(197, 160, 89, 0.18);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        }
+        .glass-nav-h-soft {
+          background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 100%);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
         }
         @keyframes hotelsFadeIn {
           from { opacity: 0; transform: translateY(20px); }
@@ -155,7 +161,7 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
-          scrolled ? "glass-nav-h" : "bg-transparent"
+          scrolled ? "glass-nav-h" : "glass-nav-h-soft"
         )}
         data-testid="hotels-header"
       >
@@ -210,7 +216,8 @@ export function HotelsLayout({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={cn(
                     "text-[13px] uppercase tracking-[0.18em] transition-colors duration-300 relative group",
-                    active ? "text-white" : "text-white/60 hover:text-white"
+                    active ? "text-white" : "text-white/85 hover:text-white",
+                    "drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
                   )}
                   data-testid={`link-hotel-nav-${item.name.toLowerCase()}`}
                 >
