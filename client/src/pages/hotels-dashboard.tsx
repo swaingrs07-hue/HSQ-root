@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/auth-context";
 import {
   LayoutDashboard, IndianRupee, BedDouble, Calendar, Sparkles,
   Users, AlertCircle, CheckCircle2, Clock, ArrowRight, Plus,
-  Building2, TrendingUp, Filter,
+  Building2, TrendingUp, Filter, CreditCard, Tag, UserCog,
+  FileText, Settings as SettingsIcon, ClipboardList,
 } from "lucide-react";
 import {
   PropertiesPanel, GuestsPanel, PaymentsPanel, CouponsPanel,
@@ -180,59 +181,95 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
           <StatCard icon={Sparkles} label="Pending Cleaning" value={stats?.pendingHousekeeping ?? 0} testId="stat-pending-housekeeping" />
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-6 sm:mb-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
-          {([
-            "overview", "bookings", "rooms", "housekeeping",
-            "properties", "guests", "payments", "coupons", "staff", "reports", "settings",
-          ] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 sm:px-6 py-3 text-[11px] sm:text-xs uppercase tracking-widest transition-colors whitespace-nowrap ${
-                activeTab === tab ? "text-white border-b-2" : "text-white/40 hover:text-white/70"
-              }`}
-              style={activeTab === tab ? { borderColor: "#c5a059" } : {}}
-              data-testid={`tab-${tab}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        {/* Sidebar + Panel layout (hostel-admin style) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 lg:gap-8">
+          {/* Sidebar */}
+          <aside
+            className="rounded-xl border border-white/10 p-2 sm:p-3 lg:sticky lg:top-28 lg:self-start"
+            style={{ backgroundColor: "rgba(255,255,255,0.02)" }}
+            data-testid="hotels-admin-sidebar"
+          >
+            <p className="px-3 pt-2 pb-3 text-[10px] uppercase tracking-[0.25em] text-white/35">Manage</p>
+            <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible scrollbar-hide -mx-1 lg:mx-0 px-1 lg:px-0">
+              {([
+                { key: "overview", label: "Overview", icon: LayoutDashboard },
+                { key: "bookings", label: "Bookings", icon: Calendar },
+                { key: "rooms", label: "Rooms", icon: BedDouble },
+                { key: "housekeeping", label: "Housekeeping", icon: Sparkles },
+                { key: "properties", label: "Properties", icon: Building2 },
+                { key: "guests", label: "Guests", icon: Users },
+                { key: "payments", label: "Payments", icon: CreditCard },
+                { key: "coupons", label: "Coupons", icon: Tag },
+                { key: "staff", label: "Staff", icon: UserCog },
+                { key: "reports", label: "Reports", icon: FileText },
+                { key: "settings", label: "Settings", icon: SettingsIcon },
+              ] as const).map(({ key, label, icon: Icon }) => {
+                const active = activeTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] uppercase tracking-[0.18em] whitespace-nowrap transition-all ${
+                      active
+                        ? "text-white"
+                        : "text-white/45 hover:text-white/85 hover:bg-white/5"
+                    }`}
+                    style={
+                      active
+                        ? {
+                            background: "linear-gradient(90deg, rgba(197,160,89,0.18) 0%, rgba(197,160,89,0.04) 100%)",
+                            borderLeft: "2px solid #c5a059",
+                            paddingLeft: "calc(0.75rem - 2px)",
+                          }
+                        : { borderLeft: "2px solid transparent" }
+                    }
+                    data-testid={`tab-${key}`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" style={active ? { color: "#c5a059" } : {}} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
 
-        {activeTab === "overview" && (
-          <OverviewPanel hotels={hotels} bookings={hotelBookings} tasks={tasks} />
-        )}
-        {activeTab === "bookings" && (
-          <BookingsPanel bookings={hotelBookings} hotels={hotels} />
-        )}
-        {activeTab === "rooms" && (
-          <RoomsPanel hotels={hotels} />
-        )}
-        {activeTab === "housekeeping" && (
-          <HousekeepingPanel tasks={tasks} hotels={hotels} token={token} mineOnly={false} userId={userId} />
-        )}
-        {activeTab === "properties" && (
-          <PropertiesPanel hotels={hotels as any} />
-        )}
-        {activeTab === "guests" && (
-          <GuestsPanel bookings={hotelBookings as any} />
-        )}
-        {activeTab === "payments" && (
-          <PaymentsPanel token={token} hotelBookings={hotelBookings as any} />
-        )}
-        {activeTab === "coupons" && (
-          <CouponsPanel token={token} hotelIds={hotels.map((h) => h.id)} />
-        )}
-        {activeTab === "staff" && (
-          <StaffPanel token={token} hotels={hotels as any} />
-        )}
-        {activeTab === "reports" && (
-          <ReportsPanel hotelBookings={hotelBookings as any} stats={stats} />
-        )}
-        {activeTab === "settings" && (
-          <SettingsPanel userRole={userRole} />
-        )}
+          {/* Panel */}
+          <div className="min-w-0" data-testid="hotels-admin-panel">
+            {activeTab === "overview" && (
+              <OverviewPanel hotels={hotels} bookings={hotelBookings} tasks={tasks} />
+            )}
+            {activeTab === "bookings" && (
+              <BookingsPanel bookings={hotelBookings} hotels={hotels} />
+            )}
+            {activeTab === "rooms" && (
+              <RoomsPanel hotels={hotels} />
+            )}
+            {activeTab === "housekeeping" && (
+              <HousekeepingPanel tasks={tasks} hotels={hotels} token={token} mineOnly={false} userId={userId} />
+            )}
+            {activeTab === "properties" && (
+              <PropertiesPanel hotels={hotels as any} />
+            )}
+            {activeTab === "guests" && (
+              <GuestsPanel bookings={hotelBookings as any} />
+            )}
+            {activeTab === "payments" && (
+              <PaymentsPanel token={token} hotelBookings={hotelBookings as any} />
+            )}
+            {activeTab === "coupons" && (
+              <CouponsPanel token={token} hotelIds={hotels.map((h) => h.id)} />
+            )}
+            {activeTab === "staff" && (
+              <StaffPanel token={token} hotels={hotels as any} />
+            )}
+            {activeTab === "reports" && (
+              <ReportsPanel hotelBookings={hotelBookings as any} stats={stats} />
+            )}
+            {activeTab === "settings" && (
+              <SettingsPanel userRole={userRole} />
+            )}
+          </div>
+        </div>
       </div>
 
       {showCreateTask && (
