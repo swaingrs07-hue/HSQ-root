@@ -2040,56 +2040,17 @@ export default function Home() {
           subsequent section keeps its own `bg-[#050505]/40` so the
           tubes glow through at 60%. */}
       <div className="relative z-10">
-      <ImmersiveScene
-        variant="aurora"
-        className="pt-12 pb-16 md:pt-16 md:pb-24 min-h-screen flex items-end"
-        // Stats section background is driven by the same scroll-tied
-        // CSS variable as the hero opacity and the tubes ramp (Task
-        // #149). It stays at full alpha 1.0 throughout the entire
-        // card-swipe (raw progress 0..1.0) so the swipe reads as a
-        // clean opaque card sliding up over the hero — no iridescent
-        // tubes leaking onto either layer. Once the hero has been
-        // hidden (raw >= 1.0) the alpha crossfades from 1.0 → 0.4
-        // across the next ~4.5vh of scroll, in lockstep with the
-        // tubes opacity ramping in behind it. Because both writes
-        // come from the same CSS var on the same paint frame, they
-        // can never disagree on screen the way they did when each was
-        // a separate React state flip on Windows-Chrome.
-        style={{
-          backgroundColor:
-            "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0) * 0.6))",
-        }}
-      >
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-            {STATS.map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 80, scale: 0.5 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{
-                  delay: i * 0.15,
-                  duration: 0.8,
-                  type: "spring",
-                  stiffness: 120,
-                  damping: 12,
-                }}
-                className="relative flex items-center justify-center"
-                data-testid={`stat-value-${i}`}
-              >
-                <AnimatedCounter
-                  end={stat.numericEnd}
-                  suffix={stat.suffix}
-                  label={stat.label}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </ImmersiveScene>
+      {/* Why Hsquareliving (now also hosts the stats band — Task #156).
+          This section now plays the role the standalone stats band used
+          to play in the hero card-swipe handoff (Tasks #147-#150): it's
+          `min-h-screen` so it fully covers the sticky hero during the
+          swipe, and its scroll-tied opaque cover layer (driven by the
+          same `--hero-handoff-post-cover` CSS var as the tubes ramp)
+          crossfades from rgba(5,5,5,1) → rgba(5,5,5,0) only AFTER the
+          hero has been hidden, so the cinematic video underneath
+          reveals smoothly without leaking the hero through. */}
       <section
-        className="relative overflow-hidden py-28 md:py-40"
+        className="relative overflow-hidden min-h-screen py-28 md:py-40"
         data-testid="section-why-choose"
       >
         {/* Cinematic full-bleed video background — superadmin-controlled */}
@@ -2112,6 +2073,19 @@ export default function Home() {
           style={{
             background:
               "linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.62) 35%, rgba(0,0,0,0.62) 65%, rgba(0,0,0,0.85) 100%)",
+          }}
+        />
+        {/* Scroll-tied opaque cover for the hero card-swipe handoff —
+            stays fully opaque (alpha 1.0) until the hero is hidden,
+            then crossfades to alpha 0 over the next ~4.5vh in lockstep
+            with the global tubes ramp (single CSS var = single paint
+            frame, no flicker on Windows-Chrome). Sits above the video
+            and gradient overlay; content is z-10 above this. */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundColor:
+              "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0)))",
           }}
         />
 
@@ -2153,6 +2127,44 @@ export default function Home() {
               focus on studying, friendships, and the big stuff.
             </motion.p>
           </div>
+
+          {/* Merged stats row (Task #156) — same numbers that previously
+              lived in the standalone band right below the hero. */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mb-16 md:mb-20">
+            {STATS.map((stat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 60, scale: 0.6 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{
+                  delay: i * 0.12,
+                  duration: 0.7,
+                  type: "spring",
+                  stiffness: 120,
+                  damping: 14,
+                }}
+                className="relative flex items-center justify-center"
+                data-testid={`stat-value-${i}`}
+              >
+                <AnimatedCounter
+                  end={stat.numericEnd}
+                  suffix={stat.suffix}
+                  label={stat.label}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Thin gold divider separating stats from capability cards */}
+          <div
+            className="mx-auto mb-16 md:mb-20 h-px w-3/5 max-w-2xl"
+            style={{
+              background:
+                "linear-gradient(90deg, transparent 0%, rgba(197,160,89,0.45) 50%, transparent 100%)",
+            }}
+            aria-hidden="true"
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
