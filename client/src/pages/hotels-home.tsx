@@ -122,96 +122,131 @@ export default function HotelsHome() {
   /* The functional booking quick-search bar shown inside the hero.
      Real inputs that submit to /hotels/rooms with query params for
      location/dates/guests. */
+  /* Glassmorphism booking card — lives in the right column of the hero
+     grid. 2x2 grid of fields (Check In / Check Out / Guests / Location)
+     plus a full-width gold Search button. */
   const bookingBar = (
         <form
           onSubmit={handleBookingSearch}
-          className="absolute left-1/2 -translate-x-1/2 bottom-6 sm:bottom-12 lg:bottom-20 z-30 w-full max-w-6xl px-3 sm:px-6"
+          className="w-full max-w-md lg:max-w-lg ml-auto"
           data-testid="hero-booking-bar"
         >
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-px overflow-hidden rounded-sm"
+            className="rounded-2xl p-5 sm:p-6 backdrop-blur-2xl"
             style={{
-              background: "rgba(197,160,89,0.4)",
-              backdropFilter: "blur(24px) saturate(180%)",
-              WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              border: "1px solid rgba(197,160,89,0.45)",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+              background: "rgba(15,15,15,0.45)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              boxShadow:
+                "0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)",
             }}
           >
-            {/* Check In */}
-            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check In</span>
-              </div>
-              <input
-                type="date"
-                value={checkIn}
-                min={today}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
-                data-testid="input-checkin"
-              />
-            </label>
-            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Check Out</span>
-              </div>
-              <input
-                type="date"
-                value={checkOut}
-                min={checkIn || today}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
-                data-testid="input-checkout"
-              />
-            </label>
-            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Guests</span>
-              </div>
-              <select
-                value={guests}
-                onChange={(e) => setGuests(Number(e.target.value))}
-                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none"
-                data-testid="select-guests"
+            <div className="mb-4 sm:mb-5">
+              <span
+                className="text-[10px] uppercase tracking-[0.3em]"
+                style={{ color: "#c5a059", fontFamily: '"Barlow", sans-serif' }}
               >
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <option key={n} value={n} className="bg-black text-white">
-                    {n} {n === 1 ? "Adult" : "Adults"}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col justify-center px-4 sm:px-5 py-2.5 sm:py-3.5 min-h-[60px] sm:min-h-[78px] bg-black/85 hover:bg-black/75 transition-colors cursor-pointer">
-              <div className="flex items-center gap-2 mb-1.5">
-                <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Location</span>
-              </div>
-              <select
-                value={searchLocation}
-                onChange={(e) => setSearchLocation(e.target.value)}
-                className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none truncate"
-                data-testid="select-location"
+                Reserve Your Stay
+              </span>
+              <h3
+                className="hotels-display text-white text-2xl sm:text-3xl mt-1"
+                data-testid="text-booking-card-title"
               >
-                <option value="all" className="bg-black text-white">Any Location</option>
-                {hotelLocations.map((loc) => (
-                  <option key={loc} value={loc} className="bg-black text-white">
-                    {loc}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Plan your escape
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Check In */}
+              <label
+                className="flex flex-col justify-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/60">Check In</span>
+                </div>
+                <input
+                  type="date"
+                  value={checkIn}
+                  min={today}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
+                  data-testid="input-checkin"
+                />
+              </label>
+              {/* Check Out */}
+              <label
+                className="flex flex-col justify-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Calendar className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/60">Check Out</span>
+                </div>
+                <input
+                  type="date"
+                  value={checkOut}
+                  min={checkIn || today}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer [color-scheme:dark]"
+                  data-testid="input-checkout"
+                />
+              </label>
+              {/* Guests */}
+              <label
+                className="flex flex-col justify-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Users className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/60">Guests</span>
+                </div>
+                <select
+                  value={guests}
+                  onChange={(e) => setGuests(Number(e.target.value))}
+                  className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none"
+                  data-testid="select-guests"
+                >
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n} className="bg-black text-white">
+                      {n} {n === 1 ? "Adult" : "Adults"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {/* Location */}
+              <label
+                className="flex flex-col justify-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <MapPin className="w-3 h-3" style={{ color: "#c5a059" }} />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/60">Location</span>
+                </div>
+                <select
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  className="w-full bg-transparent text-sm text-white font-medium outline-none cursor-pointer appearance-none truncate"
+                  data-testid="select-location"
+                >
+                  <option value="all" className="bg-black text-white">Any Location</option>
+                  {hotelLocations.map((loc) => (
+                    <option key={loc} value={loc} className="bg-black text-white">
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <button
               type="submit"
-              className="w-full lg:w-auto min-h-[56px] sm:min-h-[78px] px-6 sm:px-8 py-3.5 sm:py-4 text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              className="mt-4 w-full min-h-[52px] px-6 py-3.5 rounded-lg text-black font-semibold text-xs uppercase tracking-[0.25em] inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#c5a059" }}
               data-testid="button-search-rooms"
             >
               <Search className="w-4 h-4" />
-              <span>Search</span>
+              <span>Search Stays</span>
             </button>
           </div>
         </form>
@@ -252,70 +287,75 @@ export default function HotelsHome() {
         style={{ background: "linear-gradient(to bottom, transparent, var(--hotels-page-bg, #050505))" }}
       />
 
-      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 sm:pt-32 pb-[26rem] sm:pb-[24rem] lg:pb-72 text-center">
-        <div className="hotels-fade-in flex flex-col items-center">
-          <h1
-            className="hotels-display text-white text-[2.5rem] leading-[1] sm:text-6xl md:text-7xl lg:text-[7.5rem] xl:text-[9rem] mb-5 sm:mb-6 max-w-5xl px-2"
-            data-testid="text-hotel-headline"
-          >
-            The stay your{" "}
-            <span style={{ color: "#c5a059" }}>story</span>
-            <br />
-            deserves
-          </h1>
-          <p
-            className="text-white/75 text-sm sm:text-base md:text-lg max-w-xs sm:max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed px-2"
-            style={{ fontFamily: '"Barlow", sans-serif', fontWeight: 300 }}
-          >
-            Cinematic interiors. Effortless service. Quietly refined hospitality —
-            reimagined for the way you travel today.
-          </p>
+      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-24 sm:pt-32 pb-20 lg:pb-32">
+        <div className="hotels-fade-in grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-10 lg:gap-12 items-center">
+          {/* LEFT: headline + subhead + CTAs */}
+          <div className="text-center lg:text-left flex flex-col items-center lg:items-start">
+            <h1
+              className="hotels-display text-white text-[2.5rem] leading-[1] sm:text-6xl md:text-7xl lg:text-[6rem] xl:text-[7.5rem] mb-5 sm:mb-6 max-w-3xl px-2 lg:px-0"
+              data-testid="text-hotel-headline"
+            >
+              The stay your{" "}
+              <span style={{ color: "#c5a059" }}>story</span>
+              <br />
+              deserves
+            </h1>
+            <p
+              className="text-white/75 text-sm sm:text-base md:text-lg max-w-xs sm:max-w-xl mb-6 sm:mb-8 leading-relaxed px-2 lg:px-0"
+              style={{ fontFamily: '"Barlow", sans-serif', fontWeight: 300 }}
+            >
+              Cinematic interiors. Effortless service. Quietly refined hospitality —
+              reimagined for the way you travel today.
+            </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full sm:w-auto px-4 sm:px-0">
-            <Link
-              href="/hotels/rooms"
-              className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
-              data-testid="button-hero-reserve"
-            >
-              Reserve Your Stay <ArrowUpRight className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/hotels/experience"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white/90 hover:text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium transition-colors"
-              data-testid="button-hero-watch-film"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" /> Watch the Film
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start items-stretch sm:items-center w-full sm:w-auto px-4 sm:px-0">
+              <Link
+                href="/hotels/rooms"
+                className="liquid-glass-strong inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium hover:scale-[1.03] transition-transform"
+                data-testid="button-hero-reserve"
+              >
+                Reserve Your Stay <ArrowUpRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/hotels/experience"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-white/90 hover:text-white text-[11px] sm:text-[12px] uppercase tracking-[0.22em] font-medium transition-colors"
+                data-testid="button-hero-watch-film"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" /> Watch the Film
+              </Link>
+            </div>
+
+            {/* Featured-by press bar — Instrument Serif italic credits.
+                Hidden on small phones to keep the hero clean. */}
+            <div className="hidden sm:flex mt-10 lg:mt-14 flex-col items-center lg:items-start gap-4 sm:gap-5" data-testid="studio-press-bar">
+              <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5">
+                <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/70" style={{ fontFamily: '"Barlow", sans-serif' }}>
+                  Featured by
+                </span>
+              </div>
+              <div
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 sm:gap-x-8 lg:gap-x-10 gap-y-2 sm:gap-y-3"
+                style={{ fontFamily: '"Instrument Serif", serif', fontStyle: "italic" }}
+              >
+                {STUDIO_PRESS.map((name) => (
+                  <span
+                    key={name}
+                    className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 whitespace-nowrap"
+                    data-testid={`text-press-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Featured-by press bar — Instrument Serif italic credits.
-              Hidden on small phones to keep the hero clean and let the
-              booking bar breathe; reappears from sm: upward. */}
-          <div className="hidden sm:flex mt-10 sm:mt-16 lg:mt-20 flex-col items-center gap-4 sm:gap-6" data-testid="studio-press-bar">
-            <div className="liquid-glass inline-flex items-center rounded-full px-4 py-1.5">
-              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/70" style={{ fontFamily: '"Barlow", sans-serif' }}>
-                Featured by
-              </span>
-            </div>
-            <div
-              className="flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-10 lg:gap-x-14 gap-y-2 sm:gap-y-3 px-4"
-              style={{ fontFamily: '"Instrument Serif", serif', fontStyle: "italic" }}
-            >
-              {STUDIO_PRESS.map((name) => (
-                <span
-                  key={name}
-                  className="text-base sm:text-xl md:text-2xl lg:text-3xl text-white/80 whitespace-nowrap"
-                  data-testid={`text-press-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
+          {/* RIGHT: glassmorphism booking card */}
+          <div className="w-full flex justify-center lg:justify-end">
+            {bookingBar}
           </div>
         </div>
       </div>
-
-      {bookingBar}
     </section>
   );
 
