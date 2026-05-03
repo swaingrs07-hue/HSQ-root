@@ -7,6 +7,10 @@ import {
   Users, AlertCircle, CheckCircle2, Clock, ArrowRight, Plus,
   Building2, TrendingUp, Filter,
 } from "lucide-react";
+import {
+  PropertiesPanel, GuestsPanel, PaymentsPanel, CouponsPanel,
+  StaffPanel, ReportsPanel, SettingsPanel,
+} from "@/components/hotels-admin-panels";
 
 interface DashboardStats {
   todayCheckIns: number;
@@ -97,16 +101,16 @@ export default function HotelsDashboard() {
   if (!hasAccess) return null;
 
   return isAdminLevel ? (
-    <AdminView token={token} userId={user.id} />
+    <AdminView token={token} userId={user.id} userRole={user.role} />
   ) : (
     <StaffView token={token} userId={user.id} />
   );
 }
 
 /* ============ Admin View ============ */
-function AdminView({ token, userId }: { token: string | null; userId: string }) {
+function AdminView({ token, userId, userRole }: { token: string | null; userId: string; userRole: string }) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "reports" | "settings">("overview");
   const [showCreateTask, setShowCreateTask] = useState(false);
 
   const { data: stats } = useQuery<DashboardStats>({
@@ -178,7 +182,10 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-6 sm:mb-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide">
-          {(["overview", "bookings", "rooms", "housekeeping"] as const).map((tab) => (
+          {([
+            "overview", "bookings", "rooms", "housekeeping",
+            "properties", "guests", "payments", "coupons", "staff", "reports", "settings",
+          ] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -204,6 +211,27 @@ function AdminView({ token, userId }: { token: string | null; userId: string }) 
         )}
         {activeTab === "housekeeping" && (
           <HousekeepingPanel tasks={tasks} hotels={hotels} token={token} mineOnly={false} userId={userId} />
+        )}
+        {activeTab === "properties" && (
+          <PropertiesPanel hotels={hotels as any} />
+        )}
+        {activeTab === "guests" && (
+          <GuestsPanel bookings={hotelBookings as any} />
+        )}
+        {activeTab === "payments" && (
+          <PaymentsPanel token={token} hotelBookings={hotelBookings as any} />
+        )}
+        {activeTab === "coupons" && (
+          <CouponsPanel token={token} hotelIds={hotels.map((h) => h.id)} />
+        )}
+        {activeTab === "staff" && (
+          <StaffPanel token={token} hotels={hotels as any} />
+        )}
+        {activeTab === "reports" && (
+          <ReportsPanel hotelBookings={hotelBookings as any} stats={stats} />
+        )}
+        {activeTab === "settings" && (
+          <SettingsPanel userRole={userRole} />
         )}
       </div>
 
