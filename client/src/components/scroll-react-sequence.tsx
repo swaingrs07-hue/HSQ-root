@@ -242,7 +242,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
           preload="metadata"
           data-testid="video-scrollreact"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/15 to-black/75" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/15 to-black" />
         <div className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-6 lg:px-12 py-24">
           <span
             className="px-4 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] uppercase tracking-[0.35em] mb-6"
@@ -278,7 +278,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center gap-4">
           <span
             className="px-4 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] uppercase tracking-[0.35em]"
@@ -308,7 +308,7 @@ export function ScrollReactSequence(props: ScrollReactSequenceProps) {
         }}
       >
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full bg-black" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black" />
         <div className="absolute inset-x-0 top-0 pt-24 px-6 lg:px-12 flex flex-col items-center">
           <div ref={headlineRef} className="sr-headline max-w-4xl text-center">
             <span
