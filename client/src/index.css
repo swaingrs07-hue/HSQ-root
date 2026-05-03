@@ -520,7 +520,11 @@
  * this file (CSS spec requires @import to precede other rules).
  */
 
-.hotels-studio {
+/* Only apply the deep-black studio canvas when NOT in light mode.
+   `.hotels-studio` is now applied unconditionally on the layout root
+   (so .liquid-glass / .hotels-display utilities resolve in both
+   themes), but its dark canvas vars must yield to .hotels-light. */
+.hotels-studio:not(.hotels-light) {
   --hotels-page-bg: #050505;
   --hotels-section-bg: #050505;
   --hotels-alt-bg: #0a0a0a;
