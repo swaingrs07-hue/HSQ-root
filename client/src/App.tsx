@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -208,8 +208,16 @@ function AppContent() {
   const isSalesExec = user?.role === "sales_executive";
   const isReceptionist = user?.role === "receptionist";
   const isHotelsRoute = location.startsWith("/hotels");
+  const isHotelOnlyRole = user?.role === "hotel_admin" || user?.role === "hotel_staff";
+  const isHostelAdminPath = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location.startsWith("/operations") || location === "/booking/generate");
   const isAdminRoute = !isResetPasswordPage && !isHotelsRoute && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isReceptionist) && (location === "/profile" || location === "/settings" || location === "/help")));
   const useAdminLayout = (isAdmin || isSalesExec || isReceptionist) && isAdminRoute;
+
+  // Hotel-only roles must never see the hostel admin/sales/operations layouts —
+  // bounce them straight back to their hotels dashboard.
+  if (isHotelOnlyRole && isHostelAdminPath) {
+    return <Redirect to="/hotels/dashboard" />;
+  }
 
   return (
     <Switch>

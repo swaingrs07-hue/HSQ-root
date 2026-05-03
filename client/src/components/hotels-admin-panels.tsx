@@ -363,6 +363,7 @@ export function CouponsPanel({ token, hotelIds }: { token: string | null; hotelI
 /* ============ Staff Panel ============ */
 export function StaffPanel({ token, hotels }: { token: string | null; hotels: Property[] }) {
   const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
@@ -400,12 +401,32 @@ export function StaffPanel({ token, hotels }: { token: string | null; hotels: Pr
         icon={UserCog}
         title="Hotel Staff"
         subtitle={`${hotelStaff.length} hotel admins & staff members`}
-        action={<GoldButton href="/admin/users" testId="button-manage-staff"><Plus className="w-3 h-3" /> Add / Manage</GoldButton>}
+        action={
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-[11px] uppercase tracking-widest text-black font-semibold rounded"
+            style={{ backgroundColor: "#c5a059" }}
+            data-testid="button-manage-staff"
+          >
+            <Plus className="w-3 h-3" /> Add Staff
+          </button>
+        }
       />
+      {showCreate && (
+        <CreateHotelStaffModal
+          token={token}
+          hotels={hotels}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+          }}
+        />
+      )}
       {isLoading ? (
         <div className="text-center py-8 text-white/40 text-sm">Loading staff…</div>
       ) : hotelStaff.length === 0 ? (
-        <Empty>No hotel staff yet. Click "Add / Manage" to create accounts with the hotel_admin or hotel_staff role.</Empty>
+        <Empty>No hotel staff yet. Click "Add Staff" to create a hotel admin or housekeeping account.</Empty>
       ) : (
         <Table headers={["Name", "Email", "Role", "Assigned Hotels", "Status", "Actions"]}>
           {hotelStaff.map((u) => {
@@ -677,6 +698,213 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
           The Hotels portal supports three themes — <span className="text-white/80">dark</span> (default luxury), <span className="text-white/80">light</span> (warm ivory), and <span className="text-white/80">studio</span> (cinematic AI-agency aesthetic). Each visitor's theme choice is saved in their browser. The default for new visitors is "dark".
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ============ Create Hotel Staff Modal ============ */
+function CreateHotelStaffModal({
+  token,
+  hotels,
+  onClose,
+  onCreated,
+}: {
+  token: string | null;
+  hotels: Property[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"hotel_admin" | "hotel_staff">("hotel_staff");
+  const [assignedPropertyIds, setAssignedPropertyIds] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleProperty = (id: string) => {
+    setAssignedPropertyIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (!name || !email || !password) {
+      setError("Name, email and password are required.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders(token) },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phone || undefined,
+          password,
+          role,
+          assignedPropertyIds,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to create staff");
+      }
+      onCreated();
+    } catch (e: any) {
+      setError(e?.message || "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
+      onClick={onClose}
+      data-testid="modal-create-hotel-staff"
+    >
+      <div
+        className="w-full max-w-lg rounded-xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: "#0f0f0f", border: "1px solid rgba(197,160,89,0.3)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#c5a059" }}>◇ Hotel Team</p>
+            <h2 className="hotels-display text-white text-2xl mt-1">Add Staff Member</h2>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white" data-testid="button-close-staff-modal">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <Field label="Full Name *">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+              placeholder="Jane Doe"
+              data-testid="input-staff-name"
+            />
+          </Field>
+          <Field label="Email *">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+              placeholder="jane@hsquareliving.com"
+              data-testid="input-staff-email"
+            />
+          </Field>
+          <Field label="Phone">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+              placeholder="+91 ..."
+              data-testid="input-staff-phone"
+            />
+          </Field>
+          <Field label="Temporary Password *">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+              placeholder="Min 6 characters"
+              data-testid="input-staff-password"
+            />
+          </Field>
+          <Field label="Role *">
+            <div className="grid grid-cols-2 gap-2">
+              {(["hotel_admin", "hotel_staff"] as const).map((r) => {
+                const active = role === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRole(r)}
+                    className={`px-3 py-2.5 text-[11px] uppercase tracking-widest rounded border transition-colors ${
+                      active ? "text-white" : "text-white/40 hover:text-white/70"
+                    }`}
+                    style={{
+                      borderColor: active ? "#c5a059" : "rgba(255,255,255,0.1)",
+                      backgroundColor: active ? "rgba(197,160,89,0.12)" : "transparent",
+                    }}
+                    data-testid={`button-role-${r}`}
+                  >
+                    {r === "hotel_admin" ? "Hotel Admin" : "Housekeeping / Staff"}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+          {hotels.length > 0 && (
+            <Field label="Assigned Hotels (leave empty for all)">
+              <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto p-2 border border-white/10 rounded bg-black/30">
+                {hotels.map((h) => (
+                  <label key={h.id} className="flex items-center gap-2 text-white/80 text-sm cursor-pointer hover:bg-white/5 px-2 py-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={assignedPropertyIds.includes(h.id)}
+                      onChange={() => toggleProperty(h.id)}
+                      className="accent-[#c5a059]"
+                      data-testid={`check-assign-${h.id}`}
+                    />
+                    <span>{h.name}</span>
+                    <span className="text-white/30 text-xs ml-auto">{h.location}</span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+          )}
+
+          {error && (
+            <div className="text-rose-300 text-xs px-3 py-2 border border-rose-500/30 rounded bg-rose-950/30" data-testid="text-staff-error">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-white/15 text-white/70 hover:text-white text-[11px] uppercase tracking-widest rounded"
+              data-testid="button-cancel-staff"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 text-black font-semibold text-[11px] uppercase tracking-widest rounded disabled:opacity-50"
+              style={{ backgroundColor: "#c5a059" }}
+              data-testid="button-submit-staff"
+            >
+              {submitting ? "Creating…" : "Create Staff"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-[0.2em] text-white/50 mb-1.5">{label}</label>
+      {children}
     </div>
   );
 }
