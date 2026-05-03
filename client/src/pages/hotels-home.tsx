@@ -253,19 +253,6 @@ export default function HotelsHome() {
 
       <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-32 pb-[28rem] sm:pb-[30rem] lg:pb-72 text-center">
         <div className="hotels-fade-in flex flex-col items-center">
-          {/* Liquid-glass badge pill */}
-          <div
-            className="liquid-glass inline-flex items-center gap-2 rounded-full px-1.5 py-1 mb-6 sm:mb-8"
-            data-testid="badge-studio-eyebrow"
-          >
-            <span className="bg-white text-black rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider">
-              New
-            </span>
-            <span className="px-3 text-[12px] sm:text-[13px] text-white/85" style={{ fontFamily: '"Barlow", sans-serif' }}>
-              Introducing AI-curated stays
-            </span>
-          </div>
-
           <h1
             className="hotels-display text-white text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] xl:text-[9rem] mb-6 max-w-5xl"
             data-testid="text-hotel-headline"
