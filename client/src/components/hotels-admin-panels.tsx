@@ -572,9 +572,6 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
   const { getContent } = useSiteContent();
   const setContent = useSetSiteContent();
 
-  const SCROLL_KEY = "hotels_scrollreact";
-  const scroll = getContent<{ videoUrl?: string }>(SCROLL_KEY, { videoUrl: "" });
-  const [videoUrl, setVideoUrl] = useState<string>(scroll.videoUrl || "");
   const [msg, setMsg] = useState<string>("");
 
   // ---- Testimonials editor state ----
@@ -646,15 +643,6 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
     }
   }
 
-  async function removeVideo() {
-    setVideoUrl("");
-    try {
-      await setContent.mutateAsync({ key: SCROLL_KEY, value: { ...scroll, videoUrl: "" } });
-      setMsg("Cinematic video removed. Default flower sequence is back.");
-    } catch (e: any) {
-      setMsg(`Failed: ${e?.message || "unknown error"}`);
-    }
-  }
 
   return (
     <div data-testid="panel-settings" className="max-w-3xl">
@@ -687,65 +675,12 @@ export function SettingsPanel({ userRole }: { userRole: string }) {
         {!isSuper && <p className="text-[10px] uppercase tracking-widest text-white/30 mt-3">Superadmin only</p>}
       </div>
 
-      {/* Cinematic video uploader */}
+      {/* Quick link to dedicated Scroll Reel tab */}
       <div className="p-5 border border-white/10 mb-4" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}>
-        <div className="text-white font-medium mb-1 flex items-center gap-2"><Film className="w-4 h-4" style={{ color: "#c5a059" }} /> Cinematic section background</div>
-        <p className="text-white/50 text-xs leading-relaxed mb-4">
-          Upload an MP4 / WebM video to replace the default flower sequence on the hotels homepage scroll-cinematic section. Recommended: 1080p, under 50 MB, plays muted on loop.
+        <div className="text-white font-medium mb-1 flex items-center gap-2"><Film className="w-4 h-4" style={{ color: "#c5a059" }} /> Scroll Reel & cinematic background</div>
+        <p className="text-white/50 text-xs leading-relaxed">
+          The scroll-driven cinematic section now has its own dedicated tab — open <span className="text-white/80">"Scroll Reel"</span> from the sidebar to upload an MP4/WebM video and edit the headline copy.
         </p>
-        {videoUrl ? (
-          <div className="border border-white/10 overflow-hidden bg-black mb-3">
-            <video src={videoUrl} className="w-full max-h-64 object-contain bg-black" controls muted playsInline data-testid="video-preview" />
-            <div className="flex items-center justify-between px-3 py-2 border-t border-white/10">
-              <span className="text-xs text-white/50 truncate font-mono">{videoUrl}</span>
-              <button onClick={removeVideo} disabled={!isSuper} className="text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1 disabled:opacity-40" data-testid="button-remove-video">
-                <X className="w-3 h-3" /> Remove
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="border border-dashed border-white/15 px-4 py-6 text-center mb-3">
-            <Film className="w-8 h-8 mx-auto text-white/30 mb-2" />
-            <p className="text-sm text-white/50">No custom video — using the default flower sequence.</p>
-          </div>
-        )}
-        {isSuper ? (
-          <ObjectUploader
-            maxNumberOfFiles={1}
-            maxFileSize={52428800}
-            onGetUploadParameters={async (file) => {
-              const res = await fetch("/api/uploads/request-url", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-              });
-              const data = await res.json();
-              (file as any).objectPath = data.objectPath;
-              return {
-                method: "PUT",
-                url: data.uploadURL,
-                headers: { "Content-Type": (file.type as string) || "video/mp4" },
-              };
-            }}
-            onComplete={async (result) => {
-              const f = result.successful?.[0];
-              const objectPath = (f as any)?.objectPath;
-              if (!objectPath) return;
-              setVideoUrl(objectPath);
-              try {
-                await setContent.mutateAsync({ key: SCROLL_KEY, value: { ...scroll, videoUrl: objectPath } });
-                setMsg("Video uploaded. Visitors will now see your custom video on /hotels.");
-              } catch (e: any) {
-                setMsg(`Saved upload, failed to update: ${e?.message || ""}`);
-              }
-            }}
-            buttonClassName="w-full text-black font-semibold py-3 inline-flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest"
-          >
-            <Upload className="w-4 h-4" /> {videoUrl ? "Replace video" : "Upload video"}
-          </ObjectUploader>
-        ) : (
-          <p className="text-[10px] uppercase tracking-widest text-white/30">Superadmin only</p>
-        )}
       </div>
 
       {/* Testimonials editor */}
@@ -1087,6 +1022,196 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-[10px] uppercase tracking-[0.2em] text-white/50 mb-1.5">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/* ============ Scroll Reel Panel (dedicated tab) ============ */
+export function ScrollReelPanel({ userRole }: { userRole: string }) {
+  const isSuper = userRole === "superadmin";
+  const { getContent } = useSiteContent();
+  const setContent = useSetSiteContent();
+
+  const SCROLL_KEY = "hotels_scrollreact";
+  type ReelContent = { eyebrow: string; titleLine1: string; titleAccent: string; videoUrl?: string };
+  const DEFAULTS: ReelContent = {
+    eyebrow: "The Experience",
+    titleLine1: "Every Frame,",
+    titleAccent: "Every Stay",
+    videoUrl: "",
+  };
+
+  const stored = getContent<ReelContent>(SCROLL_KEY, DEFAULTS);
+  const [eyebrow, setEyebrow] = useState(stored.eyebrow);
+  const [titleLine1, setTitleLine1] = useState(stored.titleLine1);
+  const [titleAccent, setTitleAccent] = useState(stored.titleAccent);
+  const [videoUrl, setVideoUrl] = useState<string>(stored.videoUrl || "");
+  const [msg, setMsg] = useState("");
+  const [savingCopy, setSavingCopy] = useState(false);
+
+  async function persist(patch: Partial<ReelContent>) {
+    const value = { eyebrow, titleLine1, titleAccent, videoUrl, ...patch };
+    return setContent.mutateAsync({ key: SCROLL_KEY, value });
+  }
+
+  async function saveCopy() {
+    if (!isSuper) return;
+    try {
+      setSavingCopy(true);
+      await persist({});
+      setMsg("Reel copy saved.");
+    } catch (e: any) {
+      setMsg(`Failed: ${e?.message || "unknown"}`);
+    } finally {
+      setSavingCopy(false);
+    }
+  }
+
+  async function removeVideo() {
+    if (!isSuper) return;
+    setVideoUrl("");
+    try {
+      await persist({ videoUrl: "" });
+      setMsg("Custom video removed. Default flower sequence is back.");
+    } catch (e: any) {
+      setMsg(`Failed: ${e?.message || "unknown"}`);
+    }
+  }
+
+  return (
+    <div data-testid="panel-scroll-reel" className="max-w-3xl">
+      <SectionHeader
+        icon={Film}
+        title="Scroll Reel"
+        subtitle="Cinematic scroll-driven section on the Hotels homepage"
+      />
+
+      {msg && <div className="mb-4 p-3 border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs rounded">{msg}</div>}
+
+      {/* Video upload card */}
+      <div className="p-5 border border-white/10 mb-4 rounded-lg" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}>
+        <div className="text-white font-medium mb-1 flex items-center gap-2">
+          <Film className="w-4 h-4" style={{ color: "#c5a059" }} /> Cinematic video
+        </div>
+        <p className="text-white/50 text-xs leading-relaxed mb-4">
+          Upload an MP4 / WebM to replace the default 240-frame flower sequence. Plays muted, loops, scrubs with scroll. Recommended: 1080p, under 50 MB.
+        </p>
+
+        {videoUrl ? (
+          <div className="border border-white/10 overflow-hidden bg-black mb-3 rounded">
+            <video
+              src={videoUrl}
+              className="w-full max-h-72 object-contain bg-black"
+              controls
+              muted
+              playsInline
+              data-testid="video-preview-reel"
+            />
+            <div className="flex items-center justify-between px-3 py-2 border-t border-white/10">
+              <span className="text-xs text-white/50 truncate font-mono">{videoUrl}</span>
+              <button
+                onClick={removeVideo}
+                disabled={!isSuper}
+                className="text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1 disabled:opacity-40"
+                data-testid="button-remove-reel-video"
+              >
+                <X className="w-3 h-3" /> Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-dashed border-white/15 px-4 py-8 text-center mb-3 rounded">
+            <Film className="w-10 h-10 mx-auto text-white/30 mb-2" />
+            <p className="text-sm text-white/50">No custom video — using the default flower sequence.</p>
+          </div>
+        )}
+
+        {isSuper ? (
+          <ObjectUploader
+            maxNumberOfFiles={1}
+            maxFileSize={52428800}
+            onGetUploadParameters={async (file) => {
+              const res = await fetch("/api/uploads/request-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+              });
+              const data = await res.json();
+              (file as any).objectPath = data.objectPath;
+              return {
+                method: "PUT",
+                url: data.uploadURL,
+                headers: { "Content-Type": (file.type as string) || "video/mp4" },
+              };
+            }}
+            onComplete={async (result) => {
+              const f = result.successful?.[0];
+              const objectPath = (f as any)?.objectPath;
+              if (!objectPath) return;
+              setVideoUrl(objectPath);
+              try {
+                await persist({ videoUrl: objectPath });
+                setMsg("Video uploaded. Visitors will now see your custom video on /hotels.");
+              } catch (e: any) {
+                setMsg(`Saved upload, failed to update: ${e?.message || ""}`);
+              }
+            }}
+            buttonClassName="w-full text-black font-semibold py-3 inline-flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest rounded"
+          >
+            <Upload className="w-4 h-4" /> {videoUrl ? "Replace video" : "Upload video"}
+          </ObjectUploader>
+        ) : (
+          <p className="text-[10px] uppercase tracking-widest text-white/30">Superadmin only</p>
+        )}
+      </div>
+
+      {/* Copy editor */}
+      <div className="p-5 border border-white/10 rounded-lg" style={{ background: "var(--hotels-glass-bg, rgba(255,255,255,0.02))" }}>
+        <div className="text-white font-medium mb-3">Section copy</div>
+        <fieldset disabled={!isSuper} className="space-y-3 disabled:opacity-50">
+          <Field label="Eyebrow">
+            <input
+              type="text"
+              value={eyebrow}
+              onChange={(e) => setEyebrow(e.target.value)}
+              className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+              data-testid="input-reel-eyebrow"
+            />
+          </Field>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Title line (white)">
+              <input
+                type="text"
+                value={titleLine1}
+                onChange={(e) => setTitleLine1(e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                data-testid="input-reel-title"
+              />
+            </Field>
+            <Field label="Accent (gold)">
+              <input
+                type="text"
+                value={titleAccent}
+                onChange={(e) => setTitleAccent(e.target.value)}
+                className="w-full px-3 py-2 bg-black/40 border border-white/10 text-white text-sm rounded focus:outline-none focus:border-white/30"
+                data-testid="input-reel-accent"
+              />
+            </Field>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={saveCopy}
+              disabled={savingCopy}
+              className="px-5 py-2 text-black font-semibold text-[11px] uppercase tracking-widest rounded disabled:opacity-50"
+              style={{ backgroundColor: "#c5a059" }}
+              data-testid="button-save-reel-copy"
+            >
+              {savingCopy ? "Saving…" : "Save copy"}
+            </button>
+          </div>
+        </fieldset>
+        {!isSuper && <p className="text-[10px] uppercase tracking-widest text-white/30 mt-3">Superadmin only</p>}
+      </div>
     </div>
   );
 }

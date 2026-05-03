@@ -6,11 +6,11 @@ import {
   LayoutDashboard, IndianRupee, BedDouble, Calendar, Sparkles,
   Users, AlertCircle, CheckCircle2, Clock, ArrowRight, Plus,
   Building2, TrendingUp, Filter, CreditCard, Tag, UserCog,
-  FileText, Settings as SettingsIcon, ClipboardList,
+  FileText, Settings as SettingsIcon, ClipboardList, Film,
 } from "lucide-react";
 import {
   PropertiesPanel, GuestsPanel, PaymentsPanel, CouponsPanel,
-  StaffPanel, ReportsPanel, SettingsPanel,
+  StaffPanel, ReportsPanel, SettingsPanel, ScrollReelPanel,
 } from "@/components/hotels-admin-panels";
 
 interface DashboardStats {
@@ -111,7 +111,7 @@ export default function HotelsDashboard() {
 /* ============ Admin View ============ */
 function AdminView({ token, userId, userRole }: { token: string | null; userId: string; userRole: string }) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "reports" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "bookings" | "rooms" | "housekeeping" | "properties" | "guests" | "payments" | "coupons" | "staff" | "reports" | "reel" | "settings">("overview");
   const [showCreateTask, setShowCreateTask] = useState(false);
 
   const { data: stats } = useQuery<DashboardStats>({
@@ -202,6 +202,7 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
                 { key: "coupons", label: "Coupons", icon: Tag },
                 { key: "staff", label: "Staff", icon: UserCog },
                 { key: "reports", label: "Reports", icon: FileText },
+                { key: "reel", label: "Scroll Reel", icon: Film },
                 { key: "settings", label: "Settings", icon: SettingsIcon },
               ] as const).map(({ key, label, icon: Icon }) => {
                 const active = activeTab === key;
@@ -264,6 +265,9 @@ function AdminView({ token, userId, userRole }: { token: string | null; userId: 
             )}
             {activeTab === "reports" && (
               <ReportsPanel hotelBookings={hotelBookings as any} stats={stats} />
+            )}
+            {activeTab === "reel" && (
+              <ScrollReelPanel userRole={userRole} />
             )}
             {activeTab === "settings" && (
               <SettingsPanel userRole={userRole} />
