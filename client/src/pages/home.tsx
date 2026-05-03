@@ -2062,9 +2062,11 @@ export default function Home() {
           `min-h-screen` so it fully covers the sticky hero during the
           swipe, and its scroll-tied opaque cover layer (driven by the
           same `--hero-handoff-post-cover` CSS var as the tubes ramp)
-          crossfades from rgba(5,5,5,1) → rgba(5,5,5,0) only AFTER the
-          hero has been hidden, so the cinematic video underneath
-          reveals smoothly without leaking the hero through. */}
+          crossfades from rgba(5,5,5,1) → rgba(5,5,5,0.4) only AFTER
+          the hero has been hidden, so the cinematic video underneath
+          reveals smoothly without leaking the hero through. The 0.4
+          floor matches the previous standalone stats band's behavior
+          and keeps the section moody enough for legibility. */}
       <section
         className="relative overflow-hidden min-h-screen py-28 md:py-40"
         data-testid="section-why-choose"
@@ -2093,10 +2095,11 @@ export default function Home() {
         />
         {/* Scroll-tied opaque cover for the hero card-swipe handoff —
             stays fully opaque (alpha 1.0) until the hero is hidden,
-            then crossfades to alpha 0 over the next ~4.5vh in lockstep
-            with the global tubes ramp (single CSS var = single paint
-            frame, no flicker on Windows-Chrome). Sits above the video
-            and gradient overlay; content is z-10 above this. */}
+            then crossfades to alpha 0.4 over the next ~4.5vh in
+            lockstep with the global tubes ramp (single CSS var =
+            single paint frame, no flicker on Windows-Chrome). Sits
+            above the video and gradient overlay; content is z-10
+            above this. */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
