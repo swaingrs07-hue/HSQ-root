@@ -103,6 +103,16 @@ async function cleanExpiredHolds(): Promise<void> {
   await db.delete(schema.bedHolds).where(sql`${schema.bedHolds.expiresAt} <= NOW()`);
 }
 
+// Rate limiter for login — prevents brute-force password attacks
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per IP per window
+  message: { error: "Too many login attempts. Please wait 15 minutes and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // only count failures toward the limit
+});
+
 // Rate limiter for web leads endpoint
 const webLeadsRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -498,19 +508,20 @@ export async function registerRoutes(
       try {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
+        const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         await resend.emails.send({
           from: "Hsquare Living <noreply@hsquarehostels.com>",
           to: ["gyan@hsquareliving.com", "shreekant@hsquareliving.com", "ganesh@hsquareliving.com"],
           replyTo: email,
-          subject: `New Contact Form Message from ${name}`,
+          subject: `New Contact Form Message from ${esc(name)}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #333;">New Contact Form Submission</h2>
               <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${name}</td></tr>
-                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${email}">${email}</a></td></tr>
-                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Phone</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${phone || "Not provided"}</td></tr>
-                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Message</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${message}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Name</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${esc(name)}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email</td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${esc(email)}">${esc(email)}</a></td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Phone</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${phone ? esc(phone) : "Not provided"}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Message</td><td style="padding: 8px; border-bottom: 1px solid #eee; white-space: pre-wrap;">${esc(message)}</td></tr>
               </table>
               <p style="color: #666; font-size: 12px; margin-top: 20px;">View all messages at <a href="${process.env.APP_PUBLIC_URL || "https://hsquare.in"}/admin/contact-messages">Admin Dashboard</a></p>
             </div>
@@ -528,14 +539,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/contact-messages", async (req, res) => {
+  app.get("/api/admin/contact-messages", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
-      const jwt = await import("jsonwebtoken");
-      const token = authHeader.split(" ")[1];
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
-      const user = await storage.getUser(decoded.userId);
+      const user = await storage.getUser(req.user!.userId);
       if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
       const all = await storage.getAllContactMessages();
       // Hostel admin inbox: only show hostel-sourced messages. Hotel-sourced
@@ -550,14 +556,9 @@ export async function registerRoutes(
   });
 
   // Hotels-only inbox: returns only hotel-sourced contact messages.
-  app.get("/api/hotels/contact-messages", async (req, res) => {
+  app.get("/api/hotels/contact-messages", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
-      const jwt = await import("jsonwebtoken");
-      const token = authHeader.split(" ")[1];
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
-      const user = await storage.getUser(decoded.userId);
+      const user = await storage.getUser(req.user!.userId);
       if (!user || !["admin", "superadmin", "hotel_admin"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
       const all = await storage.getAllContactMessages();
       const messages = all.filter((m: any) => (m.source ?? "hostel") === "hotel");
@@ -569,14 +570,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/admin/contact-messages/:id/status", async (req, res) => {
+  app.patch("/api/admin/contact-messages/:id/status", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
-      const jwt = await import("jsonwebtoken");
-      const token = authHeader.split(" ")[1];
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only") as any;
-      const user = await storage.getUser(decoded.userId);
+      const user = await storage.getUser(req.user!.userId);
       if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
       const { status } = req.body;
       if (!["new", "read", "replied", "archived"].includes(status)) return res.status(400).json({ error: "Invalid status" });
@@ -1632,7 +1628,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Login - Authenticate existing user
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginRateLimiter, async (req, res) => {
     try {
       const validationResult = loginSchema.safeParse(req.body);
       
@@ -6210,7 +6206,8 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Missing or invalid receipt token" });
       }
 
-      const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only";
+      const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+      if (!secret) return res.status(500).json({ error: "Server misconfiguration" });
       const expectedToken = crypto.createHmac("sha256", secret).update(`receipt:${bookingId}`).digest("hex").substring(0, 32);
 
       if (token !== expectedToken) {

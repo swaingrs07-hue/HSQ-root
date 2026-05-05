@@ -6,7 +6,8 @@ import { generateBookingReceiptPdf } from "./receipt-pdf";
 import type { Booking } from "@shared/schema";
 
 function generateReceiptToken(bookingId: string): string {
-  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "hsquareliving-dev-secret-key-for-development-only";
+  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+  if (!secret) throw new Error("FATAL: JWT_SECRET or SESSION_SECRET must be set");
   return crypto.createHmac("sha256", secret).update(`receipt:${bookingId}`).digest("hex").substring(0, 32);
 }
 

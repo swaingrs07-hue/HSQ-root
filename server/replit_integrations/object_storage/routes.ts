@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { verifyToken } from "../../auth";
 
 /**
  * Register object storage routes for file uploads.
@@ -37,6 +38,16 @@ export function registerObjectStorageRoutes(app: Express): void {
    */
   app.post("/api/uploads/request-url", async (req, res) => {
     try {
+      // Require a valid JWT — only authenticated users may upload files.
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Authentication required to upload files" });
+      }
+      const payload = verifyToken(authHeader.split(" ")[1]);
+      if (!payload) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
       const { name, size, contentType } = req.body;
 
       if (!name) {
