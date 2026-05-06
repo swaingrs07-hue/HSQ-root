@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -84,10 +84,24 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
     notes: "",
     budgetMin: "",
     budgetMax: "",
+    propertyId: "" as string,
     followUpAt: null as Date | null,
     followUpStatus: "" as string,
     followUpNotes: "",
   });
+
+  const [properties, setProperties] = useState<Array<{ id: string; name: string }>>([]);
+  const propertiesFetched = useRef(false);
+  useEffect(() => {
+    if (propertiesFetched.current) return;
+    propertiesFetched.current = true;
+    fetch("/api/staff/properties", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setProperties(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [token]);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("10:00");
@@ -101,6 +115,7 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
         notes: lead.notes || "",
         budgetMin: lead.budgetMin?.toString() || "",
         budgetMax: lead.budgetMax?.toString() || "",
+        propertyId: lead.propertyId || "",
         followUpAt: lead.followUpAt ? new Date(lead.followUpAt) : null,
         followUpStatus: lead.followUpStatus || "",
         followUpNotes: lead.followUpNotes || "",
@@ -117,7 +132,7 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
   }, [lead]);
 
   const updateLeadMutation = useMutation({
-    mutationFn: async (data: Partial<Lead>) => {
+    mutationFn: async (data: Partial<Lead> & { propertyId?: string }) => {
       const res = await fetch(`/api/leads/${lead?.id}`, {
         method: "PATCH",
         headers: {
@@ -179,13 +194,14 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
   });
 
   const handleSave = () => {
-    const updates: Partial<Lead> = {
+    const updates: Partial<Lead> & { propertyId?: string } = {
       name: formData.name,
       email: formData.email || null,
       phone: formData.phone || null,
       notes: formData.notes || null,
       budgetMin: formData.budgetMin ? parseInt(formData.budgetMin) : null,
       budgetMax: formData.budgetMax ? parseInt(formData.budgetMax) : null,
+      propertyId: formData.propertyId || null,
     };
     updateLeadMutation.mutate(updates);
   };
@@ -338,6 +354,28 @@ export function EditLeadModal({ lead, open, onClose, onSave }: EditLeadModalProp
                     data-testid="input-edit-lead-email"
                   />
                 </div>
+              </div>
+
+              {/* Property */}
+              <div className="space-y-2">
+                <Label htmlFor="propertyId" className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-slate-500" />
+                  Property
+                </Label>
+                <Select
+                  value={formData.propertyId || "__none__"}
+                  onValueChange={(v) => setFormData({ ...formData, propertyId: v === "__none__" ? "" : v })}
+                >
+                  <SelectTrigger id="propertyId" data-testid="select-edit-lead-property">
+                    <SelectValue placeholder="Select a property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No property</SelectItem>
+                    {properties.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

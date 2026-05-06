@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail, Search, X } from "lucide-react";
+import { Target, Phone, PhoneCall, Calendar, Clock, TrendingUp, XCircle, AlertTriangle, Plus, Eye, MessageSquare, Building2, CalendarPlus, Download, Mail, Search, X, Pencil } from "lucide-react";
+import { EditLeadModal } from "@/components/edit-lead-modal";
 import { buildGoogleCalendarUrl, downloadICS } from "@/lib/calendar-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
@@ -70,6 +71,8 @@ export default function SalesDashboard() {
 
   const [createLeadDialogOpen, setCreateLeadDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [editLeadOpen, setEditLeadOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [leadDetailDialogOpen, setLeadDetailDialogOpen] = useState(false);
   const [updateStatusDialogOpen, setUpdateStatusDialogOpen] = useState(false);
   const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
@@ -692,6 +695,7 @@ export default function SalesDashboard() {
                             <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); loadLeadDetail(lead.id); }} title="View Details" data-testid={`button-view-lead-${lead.id}`}><Eye className="h-4 w-4" /></Button>
                             {!lead.isLocked && (
                               <>
+                                <Button variant="ghost" size="icon" onClick={() => { setEditingLead(lead); setEditLeadOpen(true); }} title="Edit Lead" data-testid={`button-edit-lead-${lead.id}`}><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setStatusForm({ status: lead.status, lostReason: "", lostNotes: "" }); setUpdateStatusDialogOpen(true); }} title="Update Status" data-testid={`button-status-lead-${lead.id}`}><TrendingUp className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setFollowUpForm({ followUpAt: "", notes: "" }); setFollowUpDialogOpen(true); }} title="Schedule Follow-up" data-testid={`button-followup-lead-${lead.id}`}><Calendar className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" onClick={() => { setSelectedLead(lead); setRemarkDialogOpen(true); }} title="Add Remark" data-testid={`button-remark-lead-${lead.id}`}><MessageSquare className="h-4 w-4" /></Button>
@@ -1073,6 +1077,12 @@ export default function SalesDashboard() {
         </DialogContent>
       </Dialog>
 
+      <EditLeadModal
+        lead={editingLead as any}
+        open={editLeadOpen}
+        onClose={() => { setEditLeadOpen(false); setEditingLead(null); }}
+        onSave={() => loadLeads()}
+      />
     </div>
   );
 }

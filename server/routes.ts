@@ -2360,7 +2360,7 @@ ${allPages.map(p => `  <url>
   // Update lead (update status, notes, source)
   app.patch("/api/leads/:id", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const { status, notes, source, name, email, phone, alternatePhone, budgetMin, budgetMax, priority } = req.body;
+      const { status, notes, source, name, email, phone, alternatePhone, budgetMin, budgetMax, priority, propertyId } = req.body;
       const updateData: Record<string, any> = {};
 
       if (status !== undefined) {
@@ -2396,6 +2396,7 @@ ${allPages.map(p => `  <url>
         updateData.budgetMax = budgetMax === null || budgetMax === "" ? null : Number(budgetMax);
       }
       if (priority !== undefined) updateData.priority = priority;
+      if (propertyId !== undefined) updateData.propertyId = propertyId || null;
 
       // Sales executives may only edit leads assigned to them.
       if (req.user?.role === "sales_executive") {

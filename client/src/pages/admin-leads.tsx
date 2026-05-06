@@ -70,10 +70,12 @@ import {
   AlertTriangle,
   MessageSquare,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Lead } from "@shared/schema";
 import { useProperty } from "@/contexts/property-context";
+import { EditLeadModal } from "@/components/edit-lead-modal";
 
 type EnrichedLead = Lead & {
   createdByName?: string | null;
@@ -158,7 +160,10 @@ export default function AdminLeads() {
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [selectedExecId, setSelectedExecId] = useState<string>("");
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyDialogTab, setHistoryDialogTab] = useState("details");
   const [selectedLeadForHistory, setSelectedLeadForHistory] = useState<Lead | null>(null);
+  const [editLeadOpen, setEditLeadOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<EnrichedLead | null>(null);
   const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<string>("lastActivityAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -1007,18 +1012,34 @@ export default function AdminLeads() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedLeadForHistory(lead);
+                                    setHistoryDialogTab("details");
+                                    setHistoryDialogOpen(true);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedLeadForHistory(lead);
+                                    setHistoryDialogTab("history");
                                     setHistoryDialogOpen(true);
                                   }}
                                 >
                                   <History className="w-4 h-4 mr-2" />
                                   View History
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Details
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingLead(lead);
+                                    setEditLeadOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Edit Lead
                                 </DropdownMenuItem>
                                 {lead.assignedToId && (
                                   <>
@@ -1133,7 +1154,7 @@ export default function AdminLeads() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
-            <Tabs defaultValue="details" className="w-full mt-4">
+            <Tabs value={historyDialogTab} onValueChange={setHistoryDialogTab} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details">Details & UTM</TabsTrigger>
                 <TabsTrigger value="remarks">Remarks ({leadRemarks.length})</TabsTrigger>
@@ -1299,6 +1320,12 @@ export default function AdminLeads() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditLeadModal
+        lead={editingLead as any}
+        open={editLeadOpen}
+        onClose={() => { setEditLeadOpen(false); setEditingLead(null); }}
+      />
 
       <Dialog open={createLeadOpen} onOpenChange={setCreateLeadOpen}>
         <DialogContent className="max-w-lg">
