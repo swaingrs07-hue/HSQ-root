@@ -230,6 +230,7 @@ export default function Apply() {
                     placeholder="Enter full name"
                     value={form.fullName}
                     onChange={e => updateField("fullName", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -240,6 +241,7 @@ export default function Apply() {
                     placeholder="+91 XXXXX XXXXX"
                     value={form.phone}
                     onChange={e => updateField("phone", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -251,6 +253,7 @@ export default function Apply() {
                     placeholder="email@example.com"
                     value={form.email}
                     onChange={e => updateField("email", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -274,6 +277,7 @@ export default function Apply() {
                     type="date"
                     value={form.dob}
                     onChange={e => updateField("dob", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
@@ -341,6 +345,7 @@ export default function Apply() {
                     placeholder="e.g. NMIMS, Mithibai College"
                     value={form.instituteName}
                     onChange={e => updateField("instituteName", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -351,6 +356,7 @@ export default function Apply() {
                     placeholder="e.g. B.Tech, MBA"
                     value={form.courseName}
                     onChange={e => updateField("courseName", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -361,6 +367,7 @@ export default function Apply() {
                     type="date"
                     value={form.moveInDate}
                     onChange={e => updateField("moveInDate", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
@@ -371,6 +378,7 @@ export default function Apply() {
                     type="date"
                     value={form.checkOutDate}
                     onChange={e => updateField("checkOutDate", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white h-12"
                   />
                 </div>
@@ -396,6 +404,7 @@ export default function Apply() {
                     placeholder="Full name"
                     value={form.parentName}
                     onChange={e => updateField("parentName", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -421,6 +430,7 @@ export default function Apply() {
                     placeholder="+91 XXXXX XXXXX"
                     value={form.parentPhone}
                     onChange={e => updateField("parentPhone", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>
@@ -432,6 +442,7 @@ export default function Apply() {
                     placeholder="parent@email.com"
                     value={form.parentEmail}
                     onChange={e => updateField("parentEmail", e.target.value)}
+                    required
                     className="bg-black/40 border-white/[0.15] text-white placeholder:text-white/30 focus:border-violet-500/50 h-12"
                   />
                 </div>

@@ -1,6 +1,17 @@
 import type { Express } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { verifyToken } from "../../auth";
+import rateLimit from "express-rate-limit";
+
+// Unauthenticated callers (e.g. public /apply form) are rate-limited to
+// prevent storage abuse. Authenticated callers bypass this limiter entirely.
+const publicUploadRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many upload requests. Please wait and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * Register object storage routes for file uploads.
@@ -36,18 +47,16 @@ export function registerObjectStorageRoutes(app: Express): void {
    * IMPORTANT: The client should NOT send the file to this endpoint.
    * Send JSON metadata only, then upload the file directly to uploadURL.
    */
-  app.post("/api/uploads/request-url", async (req, res) => {
+  app.post("/api/uploads/request-url", (req, res, next) => {
+    // Authenticated callers skip the rate limiter entirely.
+    // Public callers (e.g. /apply form with no login) are rate-limited.
+    const authHeader = req.headers.authorization;
+    const isAuthenticated = authHeader?.startsWith("Bearer ") &&
+      !!verifyToken(authHeader.split(" ")[1]);
+    if (isAuthenticated) return next();
+    return publicUploadRateLimiter(req, res, next);
+  }, async (req, res) => {
     try {
-      // Require a valid JWT — only authenticated users may upload files.
-      const authHeader = req.headers.authorization;
-      if (!authHeader?.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Authentication required to upload files" });
-      }
-      const payload = verifyToken(authHeader.split(" ")[1]);
-      if (!payload) {
-        return res.status(401).json({ error: "Invalid or expired token" });
-      }
-
       const { name, size, contentType } = req.body;
 
       if (!name) {
