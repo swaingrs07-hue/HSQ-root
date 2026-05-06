@@ -4428,8 +4428,8 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Get pending approval bookings (admin only) — must be before /:id route
-  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin", "manager"), async (req, res) => {
+  // Get pending approval bookings — must be before /:id route
+  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin", "manager", "receptionist"), async (req, res) => {
     try {
       const bookings = await storage.getPendingApprovalBookings();
       
@@ -6023,7 +6023,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -6049,7 +6049,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/admin/bookings/:id/resend-welcome-email", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/resend-welcome-email", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -12731,7 +12731,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   // ============ PACKAGE MANAGEMENT ============
 
-  app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const category = req.query.category as string | undefined;
       const conditions = [];
@@ -13095,7 +13095,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/bookings/:bookingId/packages", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const bps = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, req.params.bookingId)).orderBy(sql`${schema.bookingPackages.createdAt} DESC`);
       const result = [];
@@ -13427,7 +13427,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   // ============ PACKAGE UPGRADE ============
 
-  app.get("/api/admin/bookings/:bookingId/packages/upgrade-options", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-options", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const result = await storage.getPackageUpgradeOptions(req.params.bookingId);
       res.json(result);
@@ -13480,7 +13480,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/bookings/:bookingId/packages/upgrade-history", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-history", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
       const history = await storage.getUpgradeHistory(req.params.bookingId);
       res.json(history);
