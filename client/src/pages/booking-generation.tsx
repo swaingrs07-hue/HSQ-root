@@ -793,6 +793,30 @@ function BookingGenerationInner() {
     }
   }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes, selectedPlanPrice]);
 
+  // Auto-compute check-out date whenever check-in date or duration months changes (monthly plan only)
+  useEffect(() => {
+    if (formData.stayPlanType !== "monthly" || !formData.checkInDate || !formData.durationMonths) return;
+    const checkIn = new Date(formData.checkInDate);
+    if (isNaN(checkIn.getTime())) return;
+    const checkOut = new Date(checkIn);
+    checkOut.setMonth(checkOut.getMonth() + Number(formData.durationMonths));
+    const computed = checkOut.toISOString().split("T")[0];
+    setFormData(prev => {
+      if (prev.checkOutDate === computed) return prev;
+      return { ...prev, checkOutDate: computed };
+    });
+  }, [formData.checkInDate, formData.durationMonths, formData.stayPlanType]);
+
+  // Keep step-3 resident move-in / check-out dates in sync with the booking dates
+  useEffect(() => {
+    if (!formData.checkInDate) return;
+    setFormData(prev => ({
+      ...prev,
+      residentMoveInDate: formData.checkInDate,
+      ...(formData.checkOutDate ? { residentCheckOutDate: formData.checkOutDate } : {}),
+    }));
+  }, [formData.checkInDate, formData.checkOutDate]);
+
   const fetchProperties = async () => {
     try {
       const isReceptionist = user?.role === "receptionist";
@@ -2539,7 +2563,21 @@ function BookingGenerationInner() {
                             <Input
                               type="date"
                               value={formData.checkOutDate}
-                              onChange={(e) => setFormData(prev => ({ ...prev, checkOutDate: e.target.value }))}
+                              onChange={(e) => {
+                                const newCheckOut = e.target.value;
+                                let newDuration = formData.durationMonths;
+                                if (formData.checkInDate && newCheckOut) {
+                                  const ci = new Date(formData.checkInDate);
+                                  const co = new Date(newCheckOut);
+                                  if (!isNaN(ci.getTime()) && !isNaN(co.getTime()) && co > ci) {
+                                    newDuration = Math.max(1,
+                                      (co.getFullYear() - ci.getFullYear()) * 12 +
+                                      (co.getMonth() - ci.getMonth())
+                                    );
+                                  }
+                                }
+                                setFormData(prev => ({ ...prev, checkOutDate: newCheckOut, durationMonths: newDuration }));
+                              }}
                               className="bg-white border-slate-300"
                               data-testid="input-checkout-date"
                             />
