@@ -1901,7 +1901,7 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
-        <DialogContent className="!fixed bkd-page">
+        <DialogContent className="!fixed !inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-screen !rounded-none !p-0 !gap-0 flex flex-col bkd-page [&>button.absolute]:hidden">
           {/* ── Top Header Bar ── */}
           <div className="bkd-topbar flex items-center justify-between px-5 py-3 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
