@@ -242,6 +242,8 @@ export default function CompletedBookings() {
   const [sdForm, setSdForm] = useState<{ depositType: string; deposit: number; depositProofPath: string }>({ depositType: "cash", deposit: 0, depositProofPath: "" });
   const [markingSd, setMarkingSd] = useState(false);
   const [sdProofUploading, setSdProofUploading] = useState(false);
+  const [sdProofAddUploading, setSdProofAddUploading] = useState(false);
+  const [sdProofOpeningIdx, setSdProofOpeningIdx] = useState<number | null>(null);
   const [sdRefundDialog, setSdRefundDialog] = useState(false);
   const [sdRefundForm, setSdRefundForm] = useState({ refundDate: new Date().toISOString().slice(0, 10), refundAmount: 0, refundMethod: "cash", refundNotes: "" });
   const [recordingRefund, setRecordingRefund] = useState(false);
@@ -341,6 +343,40 @@ export default function CompletedBookings() {
     } finally {
       setSdProofUploading(false);
     }
+  };
+
+  const openSdProof = async (path: string, idx: number) => {
+    setSdProofOpeningIdx(idx);
+    try {
+      const token = getAuthToken();
+      if (path.startsWith("/objects/") || path.startsWith("/.private/")) {
+        const res = await fetch(`/api/uploads/signed-url?path=${encodeURIComponent(path)}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) { const { url } = await res.json(); window.open(url, "_blank"); return; }
+      }
+      window.open(path, "_blank");
+    } catch { window.open(path, "_blank"); }
+    finally { setSdProofOpeningIdx(null); }
+  };
+
+  const uploadAndSaveSdProof = async (file: File) => {
+    if (!selectedBooking) return;
+    setSdProofAddUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ depositProofPath: objectPath }) });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to save proof");
+      const updated = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Proof saved successfully" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally { setSdProofAddUploading(false); }
   };
 
   const fetchBookingPackages = async (bookingId: string) => {
@@ -2416,21 +2452,83 @@ export default function CompletedBookings() {
                           const dtMap: Record<string,{label:string;color:string;bg:string}> = {cash:{label:"Cash",color:"text-emerald-700",bg:"bg-emerald-50 border-emerald-200"},upi:{label:"UPI",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},online:{label:"Online Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},bank_transfer:{label:"Bank Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},cheque:{label:"Cheque",color:"text-amber-700",bg:"bg-amber-50 border-amber-200"},card:{label:"Card",color:"text-purple-700",bg:"bg-purple-50 border-purple-200"},paid_last_year:{label:"Paid Last Year",color:"text-violet-700",bg:"bg-violet-50 border-violet-200"},waived:{label:"Waived",color:"text-slate-500",bg:"bg-slate-50 border-slate-200"},other:{label:"Other",color:"text-slate-600",bg:"bg-slate-50 border-slate-200"}};
                           const sdPending = !selectedBooking.depositType;
                           const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
+                          const proofPaths: string[] = (() => {
+                            if (!selectedBooking.depositProofPath) return [];
+                            try { const p = JSON.parse(selectedBooking.depositProofPath); return Array.isArray(p) ? p : [selectedBooking.depositProofPath]; }
+                            catch { return [selectedBooking.depositProofPath]; }
+                          })();
                           return (
-                            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100" data-testid="booking-sd-row">
-                              <div>
-                                <p className="text-xs text-slate-500 mb-0.5">Security Deposit</p>
-                                {sdPending?(<span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-orange-50 border-orange-200 text-orange-600"><Shield className="h-3 w-3"/>Pending</span>)
-                                :selectedBooking.depositRefunded?(<span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-teal-50 border-teal-200 text-teal-700" data-testid="badge-sd-refunded"><RotateCcw className="h-3 w-3"/>Refunded</span>)
-                                :(<span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}><Shield className="h-3 w-3"/>{dt!.label}</span>)}
+                            <div className="pt-3 border-t border-slate-100 space-y-3" data-testid="booking-sd-row">
+                              {/* Row 1: label + amount */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Security Deposit</p>
+                                  {sdPending
+                                    ? <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-orange-50 border-orange-200 text-orange-600"><Shield className="h-3 w-3"/>Pending</span>
+                                    : selectedBooking.depositRefunded
+                                      ? <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-teal-50 border-teal-200 text-teal-700" data-testid="badge-sd-refunded"><RotateCcw className="h-3 w-3"/>Refunded</span>
+                                      : <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}><Shield className="h-3 w-3"/>{dt!.label}</span>
+                                  }
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}</p>
+                                  {selectedBooking.depositTransactionId && <span className="text-[10px] text-slate-400 font-mono block" data-testid="text-sd-transaction-id">UTR: {selectedBooking.depositTransactionId}</span>}
+                                  {selectedBooking.depositRefunded && selectedBooking.depositRefundAmount != null && (
+                                    <p className="text-[11px] text-teal-600 font-medium" data-testid="text-sd-refund-amount">
+                                      Refunded ₹{Number(selectedBooking.depositRefundAmount).toLocaleString("en-IN")}
+                                      {selectedBooking.depositRefundedAt ? ` on ${format(new Date(selectedBooking.depositRefundedAt),"dd MMM yyyy")}` : ""}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-right flex flex-col items-end gap-1">
-                                <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}</p>
-                                {selectedBooking.depositTransactionId&&(<span className="text-[10px] text-slate-500 font-mono" data-testid="text-sd-transaction-id">UTR: {selectedBooking.depositTransactionId}</span>)}
-                                {selectedBooking.depositRefunded&&selectedBooking.depositRefundAmount!=null&&(<p className="text-[11px] text-teal-600 font-medium" data-testid="text-sd-refund-amount">Refunded ₹{Number(selectedBooking.depositRefundAmount).toLocaleString("en-IN")}{selectedBooking.depositRefundedAt?` on ${format(new Date(selectedBooking.depositRefundedAt),"dd MMM yyyy")}`:""}</p>)}
-                                {selectedBooking.depositProofPath&&(()=>{let pu:string[]=[];try{const p2=JSON.parse(selectedBooking.depositProofPath);pu=Array.isArray(p2)?p2:[selectedBooking.depositProofPath];}catch{pu=[selectedBooking.depositProofPath];}return pu.map((url,i)=>(<a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 underline hover:text-indigo-700" data-testid={`link-sd-proof-${i}`}>{pu.length>1?`View proof ${i+1}`:"View proof"}</a>));})()}
-                                {sdPending&&(isAdmin||isReceptionist)&&(<Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => openPaymentDialog(selectedBooking,undefined,undefined,true)} data-testid="button-mark-sd-paid"><CreditCard className="h-3 w-3"/>Mark as Paid</Button>)}
-                                {!sdPending&&!selectedBooking.depositRefunded&&isAdmin&&(<Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50" onClick={() => { setSdRefundForm({refundDate:new Date().toISOString().slice(0,10),refundAmount:selectedBooking.deposit??0,refundMethod:"cash",refundNotes:""});setSdRefundDialog(true); }} data-testid="button-record-sd-refund"><RotateCcw className="h-3 w-3"/>Record Refund</Button>)}
+
+                              {/* Row 2: proof links */}
+                              {proofPaths.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {proofPaths.map((path, i) => (
+                                    <button key={i} type="button"
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-60"
+                                      disabled={sdProofOpeningIdx === i}
+                                      onClick={() => openSdProof(path, i)}
+                                      data-testid={`link-sd-proof-${i}`}>
+                                      {sdProofOpeningIdx === i ? <Loader2 className="h-3 w-3 animate-spin"/> : <Eye className="h-3 w-3"/>}
+                                      {proofPaths.length > 1 ? `View Proof ${i + 1}` : "View Proof"}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Row 3: upload proof (when paid but no proof yet) */}
+                              {!sdPending && proofPaths.length === 0 && (isAdmin || isReceptionist) && (
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2.5">
+                                  <p className="text-[10px] text-slate-400 mb-1.5 font-medium uppercase tracking-wide">No proof uploaded</p>
+                                  <label className="cursor-pointer">
+                                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndSaveSdProof(f); e.currentTarget.value = ""; }}
+                                      data-testid="input-sd-proof-add" />
+                                    <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-colors">
+                                      {sdProofAddUploading ? <Loader2 className="h-3 w-3 animate-spin text-indigo-500"/> : <Upload className="h-3 w-3"/>}
+                                      {sdProofAddUploading ? "Uploading…" : "Upload Proof"}
+                                    </div>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Row 4: action buttons */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {sdPending && (isAdmin || isReceptionist) && (
+                                  <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
+                                    onClick={() => openPaymentDialog(selectedBooking, undefined, undefined, true)} data-testid="button-mark-sd-paid">
+                                    <CreditCard className="h-3 w-3"/> Mark Payment Method
+                                  </Button>
+                                )}
+                                {!sdPending && !selectedBooking.depositRefunded && isAdmin && (
+                                  <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50"
+                                    onClick={() => { setSdRefundForm({ refundDate: new Date().toISOString().slice(0,10), refundAmount: selectedBooking.deposit ?? 0, refundMethod: "cash", refundNotes: "" }); setSdRefundDialog(true); }}
+                                    data-testid="button-record-sd-refund">
+                                    <RotateCcw className="h-3 w-3"/> Record Refund
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           );
