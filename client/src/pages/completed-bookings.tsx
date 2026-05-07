@@ -65,6 +65,8 @@ import {
   Users,
   Activity,
   Shield,
+  FileText,
+  RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -2112,100 +2114,121 @@ export default function CompletedBookings() {
 
               {/* Mark SD — only when no deposit recorded yet */}
               {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200" data-testid="mark-sd-panel">
-                  <h4 className="text-xs font-semibold text-amber-700 uppercase mb-1.5 flex items-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5" /> Security Deposit (SD)
-                  </h4>
-                  <p className="text-[11px] text-amber-600 mb-3">SD not collected at booking time — record it now.</p>
-                  <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm" data-testid="mark-sd-panel">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
+                        <Shield className="h-3.5 w-3.5 text-indigo-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Security Deposit</span>
+                    </div>
+                    <span className="text-[10px] font-medium text-orange-500 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">Pending</span>
+                  </div>
+
+                  <div className="px-5 py-4 space-y-4">
+                    {/* Deposit Type */}
                     <div>
-                      <p className="text-xs font-medium text-amber-700 mb-2">Deposit Type</p>
-                      <div className="grid grid-cols-5 gap-1.5">
+                      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Payment Mode</p>
+                      <div className="flex flex-wrap gap-2">
                         {([
-                          { value: "cash", label: "Cash", icon: "💵" },
-                          { value: "online", label: "Online", icon: "🏦" },
-                          { value: "cheque", label: "Cheque", icon: "📄" },
-                          { value: "paid_last_year", label: "Paid Last Year", icon: "🔄" },
-                          { value: "waived", label: "Waived", icon: "✅" },
-                        ] as const).map(opt => (
+                          { value: "cash",           label: "Cash",           Icon: Banknote },
+                          { value: "online",         label: "Online",         Icon: CreditCard },
+                          { value: "cheque",         label: "Cheque",         Icon: FileText },
+                          { value: "paid_last_year", label: "Carried Fwd",   Icon: RotateCcw },
+                          { value: "waived",         label: "Waived",         Icon: CheckCircle2 },
+                        ] as const).map(({ value, label, Icon }) => (
                           <button
-                            key={opt.value}
+                            key={value}
                             type="button"
-                            onClick={() => setSdForm(prev => ({ ...prev, depositType: opt.value }))}
-                            className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 text-center transition-all ${
-                              sdForm.depositType === opt.value
-                                ? "border-amber-500 bg-amber-100 text-amber-700"
-                                : "border-amber-200 bg-white text-slate-600 hover:border-amber-300"
+                            onClick={() => setSdForm(prev => ({ ...prev, depositType: value }))}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                              sdForm.depositType === value
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                                : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
                             }`}
-                            data-testid={`btn-sd-type-${opt.value}`}
+                            data-testid={`btn-sd-type-${value}`}
                           >
-                            <span className="text-base">{opt.icon}</span>
-                            <span className="text-[10px] font-medium leading-tight">{opt.label}</span>
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
                           </button>
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-amber-700 mb-1.5">Deposit Amount</p>
-                      <div className="flex items-center gap-2 border border-amber-200 rounded-lg bg-white px-3 py-2">
-                        <IndianRupee className="h-4 w-4 text-amber-500 shrink-0" />
-                        <input
-                          type="number"
-                          placeholder="Enter deposit amount"
-                          value={sdForm.deposit || ""}
-                          onChange={(e) => setSdForm(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                          className="flex-1 text-sm outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-                          data-testid="input-sd-amount"
-                        />
+
+                    {/* Amount + Proof side-by-side on wider screens */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {/* Amount */}
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Deposit Amount</p>
+                        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 bg-white transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100 ${sdForm.depositType === "waived" ? "opacity-50 pointer-events-none border-slate-200" : "border-slate-200"}`}>
+                          <IndianRupee className="h-4 w-4 text-slate-400 shrink-0" />
+                          <input
+                            type="number"
+                            min={0}
+                            placeholder="0"
+                            value={sdForm.deposit || ""}
+                            onChange={(e) => setSdForm(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
+                            className="flex-1 text-sm font-semibold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full"
+                            data-testid="input-sd-amount"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Proof upload */}
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                          Proof <span className="font-normal normal-case text-slate-400">(optional)</span>
+                        </p>
+                        {sdForm.depositProofPath ? (
+                          <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2.5 h-[42px]">
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Proof uploaded
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSdForm(prev => ({ ...prev, depositProofPath: "" }))}
+                              className="text-[11px] text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block">
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdProof(f); }}
+                              data-testid="input-sd-proof"
+                            />
+                            <div className="flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg h-[42px] hover:border-indigo-400 hover:bg-indigo-50/40 transition-all group">
+                              {sdProofUploading ? (
+                                <Loader2 className="h-4 w-4 text-slate-400 animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                  <span className="text-xs text-slate-500 group-hover:text-indigo-600 transition-colors">Upload file</span>
+                                </>
+                              )}
+                            </div>
+                          </label>
+                        )}
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-amber-700 mb-1.5">
-                        Deposit Proof <span className="font-normal text-amber-500">(Optional)</span>
-                      </p>
-                      {sdForm.depositProofPath ? (
-                        <div className="flex items-center justify-between bg-white border border-amber-200 rounded-lg px-3 py-2">
-                          <span className="text-xs text-emerald-600 font-medium">✓ Proof uploaded</span>
-                          <button
-                            type="button"
-                            onClick={() => setSdForm(prev => ({ ...prev, depositProofPath: "" }))}
-                            className="text-xs text-slate-400 hover:text-red-500"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer block">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdProof(f); }}
-                            data-testid="input-sd-proof"
-                          />
-                          <div className="border-2 border-dashed border-amber-300 rounded-lg p-4 text-center hover:border-amber-400 transition-colors">
-                            {sdProofUploading ? (
-                              <Loader2 className="h-5 w-5 text-amber-400 mx-auto animate-spin" />
-                            ) : (
-                              <>
-                                <Upload className="h-5 w-5 text-amber-400 mx-auto mb-1" />
-                                <p className="text-xs text-amber-600 font-medium">Upload deposit proof</p>
-                                <p className="text-[10px] text-amber-400">JPG, PNG under 10MB</p>
-                              </>
-                            )}
-                          </div>
-                        </label>
-                      )}
-                    </div>
+
+                    {/* CTA */}
                     <Button
-                      size="sm"
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-1.5"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-9 text-sm font-semibold shadow-sm"
                       onClick={saveSdDetails}
                       disabled={markingSd || (sdForm.depositType !== "waived" && sdForm.deposit <= 0)}
                       data-testid="btn-save-sd"
                     >
-                      {markingSd ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
-                      {markingSd ? "Saving..." : "Mark Security Deposit"}
+                      {markingSd ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                      ) : (
+                        <><Shield className="h-4 w-4" /> Mark Security Deposit as Received</>
+                      )}
                     </Button>
                   </div>
                 </div>
