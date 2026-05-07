@@ -2350,7 +2350,8 @@ export default function CompletedBookings() {
                   const excludedAddonTotal = activeAddons.reduce((s: number, bp: any) => { if(bp.includeInTotal!==false)return s; const{effective}=getBookingPackagePrice(bp); return s+(effective>0?effective:0); }, 0);
                   const mic = (selectedBooking as any).propertyMoveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
                   const micTotal = mic ? ((mic.serviceLegalCharges || 0) || ((mic.policeVerification || 0) + (mic.agreement || 0))) : 0;
-                  const grand = baseTotal + includedAddonTotal + micTotal;
+                  // micTotal is already included inside totalFee — show for transparency only, do NOT add again
+                  const grand = baseTotal + includedAddonTotal;
                   const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
                   const housingPlan = bookingPackages?.bookingPackages?.find((bp: any) => bp.package?.category==="housing_plan" && bp.status==="ACTIVE");
                   const hpkg = housingPlan?.package;
@@ -2379,6 +2380,7 @@ export default function CompletedBookings() {
                                     {(mic?.agreement ?? 0) > 0 && <span className="text-xs text-amber-800 font-medium">Agreement: ₹{(mic!.agreement!).toLocaleString("en-IN")}</span>}
                                   </>
                                 )}
+                                <span className="text-[10px] text-amber-600 italic">(already included in total)</span>
                               </div>
                             </div>
                             <p className="text-sm font-bold text-amber-700 shrink-0">₹{micTotal.toLocaleString("en-IN")}</p>
@@ -2388,10 +2390,11 @@ export default function CompletedBookings() {
                           <span className="bkd-field-label text-indigo-400">Total Payable</span>
                           <p className="text-2xl font-bold text-indigo-600 mt-1" data-testid="text-payment-grand-total">₹{grand.toLocaleString("en-IN")}</p>
                           <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-between text-[11px] text-slate-500">
-                              <span>Fee total</span><span className="font-medium">₹{baseTotal.toLocaleString("en-IN")}</span>
-                            </div>
-                            {micTotal>0&&(<div className="flex items-center justify-between text-[11px] text-amber-600"><span>+ Legal / Move-in charges</span><span className="font-medium">₹{micTotal.toLocaleString("en-IN")}</span></div>)}
+                            {(includedAddonTotal>0||excludedAddonTotal>0) && (
+                              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                <span>Fee total (incl. legal charges)</span><span className="font-medium">₹{baseTotal.toLocaleString("en-IN")}</span>
+                              </div>
+                            )}
                             {includedAddonTotal>0&&(<div className="flex items-center justify-between text-[11px] text-slate-500"><span>+ Add-ons (included)</span><span className="font-medium text-indigo-600" data-testid="text-payment-addons-included">₹{includedAddonTotal.toLocaleString("en-IN")}</span></div>)}
                             {excludedAddonTotal>0&&(<div className="flex items-center justify-between text-[10px] text-slate-400"><span>Excluded add-ons</span><span className="line-through" data-testid="text-payment-addons-excluded">₹{excludedAddonTotal.toLocaleString("en-IN")}</span></div>)}
                           </div>
