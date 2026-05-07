@@ -64,6 +64,7 @@ import {
   Share2,
   Users,
   Activity,
+  Shield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -115,6 +116,9 @@ interface CompletedBooking {
   occupancy: number;
   baseFee: number;
   discount: number;
+  deposit?: number;
+  depositType?: string;
+  depositProofPath?: string;
   totalFee: number;
   status: string;
   createdAt: string;
@@ -1984,6 +1988,43 @@ export default function CompletedBookings() {
                         <p className="text-sm font-bold text-slate-800">₹{baseTotal.toLocaleString("en-IN")}</p>
                       </div>
                     </div>
+                    {(selectedBooking.deposit ?? 0) > 0 && (() => {
+                      const dtMap: Record<string, { label: string; color: string; bg: string }> = {
+                        cash:           { label: "Cash",                  color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
+                        online:         { label: "Online Transfer",        color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
+                        cheque:         { label: "Cheque",                 color: "text-amber-700",   bg: "bg-amber-50 border-amber-200" },
+                        paid_last_year: { label: "Paid Last Year (Carried Forward)", color: "text-violet-700", bg: "bg-violet-50 border-violet-200" },
+                        waived:         { label: "Waived",                 color: "text-slate-500",   bg: "bg-slate-50 border-slate-200" },
+                      };
+                      const dt = dtMap[selectedBooking.depositType || "cash"] ?? dtMap.cash;
+                      return (
+                        <div className={`mt-3 pt-3 border-t border-indigo-200 flex items-center justify-between gap-2`} data-testid="booking-sd-row">
+                          <div>
+                            <p className="text-xs text-slate-500 mb-0.5">Security Deposit</p>
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt.bg} ${dt.color}`}>
+                              <Shield className="h-3 w-3" />
+                              {dt.label}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">
+                              ₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}
+                            </p>
+                            {selectedBooking.depositProofPath && (
+                              <a
+                                href={selectedBooking.depositProofPath}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-indigo-500 underline hover:text-indigo-700"
+                                data-testid="link-sd-proof"
+                              >
+                                View proof
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {hasAddonInfo && (
                       <div className="mt-3 pt-3 border-t border-indigo-200 space-y-1.5">
                         {includedAddonTotal > 0 && (
