@@ -3357,10 +3357,17 @@ export default function CompletedBookings() {
                 <option value="cheque">Cheque</option>
                 <option value="card">Card (Debit/Credit)</option>
                 <option value="online">Online Payment</option>
+                <option value="paid_last_year">🔁 Paid in Last Year (Carried Forward)</option>
                 <option value="other">Other</option>
               </select>
+              {paymentForm.paymentMethod === "paid_last_year" && (
+                <div className="mt-2 flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                  <svg className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={10}/><line x1={12} y1={8} x2={12} y2={12}/><line x1={12} y1={16} x2={12.01} y2={16}/></svg>
+                  <p className="text-xs text-blue-700">Security deposit was collected in the previous academic year. This will be recorded as a carried-forward entry — no fresh payment needed.</p>
+                </div>
+              )}
             </div>
-            {paymentForm.paymentMethod !== "cash" && (
+            {paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && (
               <div>
                 <Label className="text-xs font-medium text-slate-500">Transaction ID / UTR <span className="text-red-500">*</span></Label>
                 <Input
@@ -3375,6 +3382,7 @@ export default function CompletedBookings() {
                 )}
               </div>
             )}
+            {paymentForm.paymentMethod !== "paid_last_year" && (
             <div>
               <Label className="text-xs font-medium text-slate-500">
                 {paymentForm.paymentMethod === "cash" ? "Cash Receipt Photo" : "Payment Screenshots"} <span className="text-red-500">*</span>
@@ -3422,6 +3430,7 @@ export default function CompletedBookings() {
                 <p className="text-[11px] text-red-400 mt-1">{paymentForm.paymentMethod === "cash" ? "Cash receipt photo is required" : "Payment screenshot is required"}</p>
               )}
             </div>
+            )}
             <div>
               <Label className="text-xs font-medium text-slate-500">Notes (Optional)</Label>
               <Textarea
@@ -3446,7 +3455,12 @@ export default function CompletedBookings() {
                 size="sm"
                 className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={markPaymentDone}
-                disabled={markingPayment || (paymentForm.paymentMethod !== "cash" && !paymentForm.transactionId.trim()) || paymentForm.screenshotPaths.length === 0 || screenshotUploading}
+                disabled={
+                  markingPayment ||
+                  screenshotUploading ||
+                  (paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && !paymentForm.transactionId.trim()) ||
+                  (paymentForm.paymentMethod !== "paid_last_year" && paymentForm.screenshotPaths.length === 0)
+                }
                 data-testid="button-confirm-payment"
               >
                 <Check className="h-3.5 w-3.5" />

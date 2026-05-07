@@ -5764,10 +5764,11 @@ ${allPages.map(p => `  <url>
       let { installmentId } = req.body;
 
       const isCash = paymentMethod === "cash";
-      if (!isCash && (!transactionId || !transactionId.trim())) {
+      const isPaidLastYear = paymentMethod === "paid_last_year";
+      if (!isPaidLastYear && !isCash && (!transactionId || !transactionId.trim())) {
         return res.status(400).json({ error: "Transaction ID / UTR is required" });
       }
-      if (!screenshotPath || !screenshotPath.trim()) {
+      if (!isPaidLastYear && (!screenshotPath || !screenshotPath.trim())) {
         return res.status(400).json({ error: isCash ? "Cash receipt photo is required" : "Payment screenshot is required" });
       }
 
@@ -5802,7 +5803,11 @@ ${allPages.map(p => `  <url>
       }
 
       const paymentAmount = amount || booking.totalFee;
-      const txnId = isCash ? (transactionId?.trim() || `CASH-${Date.now()}`) : transactionId.trim();
+      const txnId = isPaidLastYear
+        ? `PREV-YEAR-${booking.id}-${Date.now()}`
+        : isCash
+        ? (transactionId?.trim() || `CASH-${Date.now()}`)
+        : transactionId.trim();
 
       const payment = await storage.createPayment({
         bookingId: booking.id,

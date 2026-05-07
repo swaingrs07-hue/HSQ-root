@@ -59,6 +59,7 @@ import {
   Gem,
   Share2,
   ShieldAlert,
+  Info,
 } from "lucide-react";
 
 interface Property {
@@ -322,6 +323,8 @@ function BookingGenerationInner() {
     durationMonths: 11,
     baseFee: 0,
     deposit: 0,
+    depositType: "cash",
+    depositProofPath: "",
     discount: 0,
     discountReason: "",
     paymentType: "full",
@@ -1201,6 +1204,8 @@ function BookingGenerationInner() {
           durationMonths: formData.durationMonths,
           baseFee: formData.baseFee,
           deposit: formData.deposit,
+          depositType: (formData as any).depositType || "cash",
+          depositProofPath: (formData as any).depositProofPath || null,
           discount: formData.discount,
           discountReason: formData.discountReason,
           paymentType: formData.paymentType,
@@ -3027,34 +3032,177 @@ function BookingGenerationInner() {
 
                       {(() => {
                         const propDeposit = getSelectedProperty()?.deposit || getSelectedRoomType()?.deposit || 0;
+                        const sdTypes = [
+                          { value: "cash", label: "Cash", icon: "💵" },
+                          { value: "online", label: "Online", icon: "🏦" },
+                          { value: "cheque", label: "Cheque", icon: "📄" },
+                          { value: "paid_last_year", label: "Paid Last Year", icon: "🔁" },
+                          { value: "waived", label: "Waived", icon: "✅" },
+                        ];
+                        const currentDepositType = (formData as any).depositType || "cash";
+                        const isPaidLastYear = currentDepositType === "paid_last_year";
+                        const isWaived = currentDepositType === "waived";
                         return (
                           <>
                             {(propDeposit > 0 || !isRegularUser) && (
-                              <div className="space-y-2">
-                                <Label className="text-sm font-medium text-slate-700">Security Deposit</Label>
-                                <div className="relative">
-                                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                  {isRegularUser ? (
-                                    <Input
-                                      type="number"
-                                      value={propDeposit}
-                                      readOnly
-                                      className="pl-10 bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed"
-                                      data-testid="input-deposit"
-                                    />
-                                  ) : (
-                                    <Input
-                                      type="number"
-                                      value={formData.deposit || ""}
-                                      onChange={(e) => setFormData(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                                      className="pl-10 bg-white border-slate-300"
-                                      placeholder="Enter deposit amount"
-                                      data-testid="input-deposit"
-                                    />
-                                  )}
+                              <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                                <div className="flex items-center gap-2">
+                                  <Shield className="h-4 w-4 text-amber-600" />
+                                  <Label className="text-sm font-semibold text-amber-800">Security Deposit (SD)</Label>
                                 </div>
-                                {isRegularUser && propDeposit > 0 && (
-                                  <p className="text-xs text-slate-500">Set by property</p>
+
+                                {/* SD Type selector — like package type */}
+                                {!isRegularUser && (
+                                  <div className="space-y-1.5">
+                                    <p className="text-xs text-amber-700 font-medium">Deposit Type</p>
+                                    <div className="grid grid-cols-5 gap-1.5">
+                                      {sdTypes.map(t => (
+                                        <button
+                                          key={t.value}
+                                          type="button"
+                                          onClick={() => setFormData((prev: any) => ({
+                                            ...prev,
+                                            depositType: t.value,
+                                            deposit: t.value === "waived" ? 0 : prev.deposit,
+                                          }))}
+                                          className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-lg border-2 text-center transition-all ${
+                                            currentDepositType === t.value
+                                              ? "border-amber-500 bg-amber-100 text-amber-800"
+                                              : "border-amber-200 bg-white text-slate-600 hover:border-amber-300"
+                                          }`}
+                                          data-testid={`btn-deposit-type-${t.value}`}
+                                        >
+                                          <span className="text-base leading-none">{t.icon}</span>
+                                          <span className="text-[10px] font-medium leading-tight">{t.label}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Amount — hidden when waived */}
+                                {!isWaived && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-amber-700 font-medium">Deposit Amount</p>
+                                    <div className="relative">
+                                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                      {isRegularUser ? (
+                                        <Input
+                                          type="number"
+                                          value={propDeposit}
+                                          readOnly
+                                          className="pl-10 bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed"
+                                          data-testid="input-deposit"
+                                        />
+                                      ) : (
+                                        <Input
+                                          type="number"
+                                          value={formData.deposit || ""}
+                                          onChange={(e) => setFormData((prev: any) => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
+                                          className="pl-10 bg-white border-amber-300 focus:border-amber-500"
+                                          placeholder="Enter deposit amount"
+                                          data-testid="input-deposit"
+                                        />
+                                      )}
+                                    </div>
+                                    {isRegularUser && propDeposit > 0 && (
+                                      <p className="text-xs text-slate-500">Set by property</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Paid last year note */}
+                                {isPaidLastYear && (
+                                  <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-blue-700">SD was collected in the previous academic year and is being carried forward. No fresh collection needed.</p>
+                                  </div>
+                                )}
+
+                                {/* Waived note */}
+                                {isWaived && (
+                                  <div className="flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-green-700">Security deposit has been waived for this booking. No deposit will be collected.</p>
+                                  </div>
+                                )}
+
+                                {/* Deposit proof upload — hide for paid_last_year and waived */}
+                                {!isRegularUser && !isPaidLastYear && !isWaived && (
+                                  <div className="space-y-1.5">
+                                    <p className="text-xs text-amber-700 font-medium">Deposit Proof (Optional)</p>
+                                    {(formData as any).depositProofPreview ? (
+                                      <div className="relative group w-full">
+                                        <img
+                                          src={(formData as any).depositProofPreview}
+                                          alt="Deposit proof"
+                                          className="w-full h-28 object-cover rounded-lg border border-amber-200"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => setFormData((prev: any) => ({ ...prev, depositProofPath: "", depositProofPreview: "" }))}
+                                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          data-testid="btn-remove-deposit-proof"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <label className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${(formData as any).depositProofUploading ? "border-slate-200 bg-slate-50" : "border-amber-300 bg-amber-50/50 hover:border-amber-400 hover:bg-amber-50"}`}>
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          data-testid="input-deposit-proof"
+                                          disabled={(formData as any).depositProofUploading}
+                                          onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            if (!file.type.startsWith("image/")) {
+                                              toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
+                                              return;
+                                            }
+                                            if (file.size > 10 * 1024 * 1024) {
+                                              toast({ title: "File too large", description: "Must be under 10MB.", variant: "destructive" });
+                                              return;
+                                            }
+                                            setFormData((prev: any) => ({ ...prev, depositProofUploading: true }));
+                                            try {
+                                              const res = await fetch("/api/uploads/request-url", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
+                                                body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+                                              });
+                                              if (!res.ok) throw new Error("Failed to get upload URL");
+                                              const { uploadURL, objectPath } = await res.json();
+                                              const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+                                              if (!uploadRes.ok) throw new Error("Upload failed");
+                                              setFormData((prev: any) => ({
+                                                ...prev,
+                                                depositProofPath: objectPath,
+                                                depositProofPreview: URL.createObjectURL(file),
+                                                depositProofUploading: false,
+                                              }));
+                                              toast({ title: "Deposit proof uploaded" });
+                                            } catch (err) {
+                                              setFormData((prev: any) => ({ ...prev, depositProofUploading: false }));
+                                              toast({ title: "Upload failed", variant: "destructive" });
+                                            }
+                                            e.target.value = "";
+                                          }}
+                                        />
+                                        {(formData as any).depositProofUploading ? (
+                                          <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                                        ) : (
+                                          <Upload className="h-4 w-4 text-amber-500" />
+                                        )}
+                                        <span className="text-xs text-amber-700 font-medium">
+                                          {(formData as any).depositProofUploading ? "Uploading..." : "Upload deposit proof"}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400">JPG, PNG under 10MB</span>
+                                      </label>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -3187,7 +3335,7 @@ function BookingGenerationInner() {
                                     d.setMonth(d.getMonth() + j);
                                     defaultDates.push(d.toISOString().split("T")[0]);
                                   }
-                                  setFormData((prev: any) => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentAmounts: [], installmentDueDates: defaultDates }));
+                                  setFormData((prev: any) => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentAmounts: [], installmentDueDates: defaultDates, pinnedInstallmentIdx: null, pinnedInstallmentAmt: 0 }));
                                 }}
                                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                                   formData.numberOfInstallments === num
@@ -3202,56 +3350,75 @@ function BookingGenerationInner() {
                             ))}
                           </div>
                           <div className="space-y-2 mt-2">
+                            {/* Reset to equal button */}
+                            {((formData as any).installmentAmounts || []).some((a: number) => a > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData((prev: any) => ({ ...prev, installmentAmounts: [], customBookingAmount: 0, pinnedInstallmentIdx: null, pinnedInstallmentAmt: 0 }))}
+                                className="text-[11px] text-purple-600 underline underline-offset-2 hover:text-purple-800 transition-colors"
+                                data-testid="btn-reset-installments"
+                              >
+                                ↺ Reset to equal split
+                              </button>
+                            )}
                             {(() => {
                               const total = calculateTotal();
                               const n = formData.numberOfInstallments;
-                              const customAmounts: number[] = (formData as any).installmentAmounts || [];
-                              const amounts: number[] = [];
-                              let usedByCustom = 0;
-                              const customIndices: number[] = [];
-                              for (let i = 0; i < n; i++) {
-                                if (customAmounts[i] !== undefined && customAmounts[i] > 0) {
-                                  amounts.push(customAmounts[i]);
-                                  usedByCustom += customAmounts[i];
-                                  customIndices.push(i);
-                                } else {
-                                  amounts.push(0);
-                                }
-                              }
-                              const autoIndices = Array.from({ length: n }, (_, i) => i).filter(i => !customIndices.includes(i));
-                              if (autoIndices.length > 0) {
-                                const remaining = total - usedByCustom;
-                                const perAuto = Math.round(remaining / autoIndices.length);
-                                autoIndices.forEach((idx, j) => {
-                                  amounts[idx] = j === autoIndices.length - 1
-                                    ? remaining - perAuto * (autoIndices.length - 1)
-                                    : perAuto;
-                                });
-                              }
+                              // pinnedIdx: only the single explicitly-edited installment index
+                              const pinnedIdx: number | null = (formData as any).pinnedInstallmentIdx ?? null;
+                              const pinnedAmt: number = (formData as any).pinnedInstallmentAmt ?? 0;
+
+                              // Build final amounts: pinned slot stays fixed, rest split equally
+                              const amounts: number[] = Array.from({ length: n }, (_, i) => {
+                                if (pinnedIdx !== null && i === pinnedIdx) return pinnedAmt;
+                                const remaining = total - (pinnedIdx !== null ? pinnedAmt : 0);
+                                const autoCount = pinnedIdx !== null ? n - 1 : n;
+                                const perSlot = Math.round(remaining / autoCount);
+                                const autoPos = pinnedIdx !== null
+                                  ? Array.from({ length: n }, (_, k) => k).filter(k => k !== pinnedIdx).indexOf(i)
+                                  : i;
+                                if (autoPos === autoCount - 1) return remaining - perSlot * (autoCount - 1);
+                                return perSlot;
+                              });
+
                               return amounts.map((amount, i) => {
                                 const dueDate = formData.installmentDueDates[i] || "";
-                                const isCustom = customIndices.includes(i);
+                                const isPinned = pinnedIdx === i;
                                 return (
                                   <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
                                     <div className="flex justify-between items-center">
-                                      <span className="text-sm font-medium text-purple-700">{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-sm font-medium text-purple-700">{i === 0 ? "Booking Amount" : `Installment ${i}`}</span>
+                                        {isPinned && (
+                                          <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">pinned</span>
+                                        )}
+                                      </div>
                                       <div className="flex items-center gap-1">
                                         <span className="text-xs text-purple-500">₹</span>
                                         <input
                                           type="number"
-                                          value={isCustom ? customAmounts[i] : amount}
+                                          value={amount}
                                           onChange={(e) => {
                                             const val = parseInt(e.target.value) || 0;
-                                            const maxAllowed = total - (n - 1) * 100;
+                                            const maxAllowed = Math.max(0, total - (n - 1) * 100);
                                             const clamped = Math.max(0, Math.min(val, maxAllowed));
-                                            setFormData((prev: any) => {
-                                              const newAmounts = [...(prev.installmentAmounts || [])];
-                                              while (newAmounts.length < n) newAmounts.push(0);
-                                              newAmounts[i] = clamped;
-                                              return { ...prev, installmentAmounts: newAmounts, customBookingAmount: newAmounts[0] || 0 };
-                                            });
+                                            setFormData((prev: any) => ({
+                                              ...prev,
+                                              pinnedInstallmentIdx: i,
+                                              pinnedInstallmentAmt: clamped,
+                                              customBookingAmount: i === 0 ? clamped : prev.customBookingAmount,
+                                              // keep installmentAmounts in sync for submission
+                                              installmentAmounts: Array.from({ length: n }, (_, k) => {
+                                                if (k === i) return clamped;
+                                                const rem = total - clamped;
+                                                const autoC = n - 1;
+                                                const perS = Math.round(rem / autoC);
+                                                const ap = Array.from({ length: n }, (_, m) => m).filter(m => m !== i).indexOf(k);
+                                                return ap === autoC - 1 ? rem - perS * (autoC - 1) : perS;
+                                              }),
+                                            }));
                                           }}
-                                          className={`w-28 text-right text-sm font-semibold border rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400 ${isCustom ? "text-purple-700 border-purple-300 bg-purple-50" : "text-purple-700 border-purple-200"}`}
+                                          className={`w-28 text-right text-sm font-semibold border rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400 ${isPinned ? "text-purple-700 border-purple-300 bg-purple-50" : "text-slate-600 border-purple-200"}`}
                                           data-testid={`input-installment-amount-${i}`}
                                         />
                                       </div>
