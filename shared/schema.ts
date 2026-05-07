@@ -225,6 +225,7 @@ export const bookings = pgTable("bookings", {
   deposit: integer("deposit").default(0),
   depositType: text("deposit_type").default("cash"), // cash, online, cheque, paid_last_year, waived
   depositProofPath: text("deposit_proof_path"),
+  depositTransactionId: text("deposit_transaction_id"),
 
   // Discount details
   discountReason: text("discount_reason"),

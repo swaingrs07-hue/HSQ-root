@@ -754,6 +754,7 @@ export default function CompletedBookings() {
           body: JSON.stringify({
             depositType: paymentForm.paymentMethod,
             depositProofPath: depositProofPath || null,
+            depositTransactionId: paymentForm.transactionId.trim() || null,
           }),
         });
         if (!res.ok) throw new Error((await res.json()).error || "Failed to record deposit");
@@ -2124,6 +2125,11 @@ export default function CompletedBookings() {
                             <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">
                               ₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}
                             </p>
+                            {selectedBooking.depositTransactionId && (
+                              <span className="text-[10px] text-slate-500 font-mono" data-testid="text-sd-transaction-id">
+                                UTR: {selectedBooking.depositTransactionId}
+                              </span>
+                            )}
                             {selectedBooking.depositProofPath && (() => {
                               let proofUrls: string[] = [];
                               try {
