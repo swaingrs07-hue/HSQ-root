@@ -41,6 +41,8 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronLeft,
+  ChevronRight,
+  BookOpen,
   Loader2,
   Wallet,
   UtensilsCrossed,
@@ -219,6 +221,7 @@ export default function CompletedBookings() {
   const [bookingPackages, setBookingPackages] = useState<any>(null);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [showPackages, setShowPackages] = useState(false);
+  const [activeSec, setActiveSec] = useState("sec-resident");
   const [allPackages, setAllPackages] = useState<any[]>([]);
   const [attachDialog, setAttachDialog] = useState(false);
   const [attachTab, setAttachTab] = useState<"housing" | "addon">("housing");
@@ -1906,32 +1909,36 @@ export default function CompletedBookings() {
           <div className="bkd-topbar flex items-center justify-between px-5 py-3 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <button
-                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
                 onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
                 data-testid="btn-back-dialog"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="flex items-center gap-2.5">
-                <DialogTitle className="text-white font-semibold text-base leading-none">
+              {/* Breadcrumb */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <span>Completed Bookings</span>
+                <ChevronRight className="h-3 w-3" />
+                <span className="text-slate-700 font-semibold">
                   {isEditing ? "Edit Booking" : (selectedBooking?.customerName || "Booking Details")}
-                </DialogTitle>
-                {selectedBooking?.bookingCode && (
-                  <span className="text-white/35 font-mono text-xs">{selectedBooking.bookingCode}</span>
-                )}
-                {selectedBooking && !isEditing && (
-                  <span className="ml-1">{getStatusBadge(selectedBooking.status)}</span>
-                )}
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <DialogTitle className="sr-only">{selectedBooking?.customerName || "Booking Details"}</DialogTitle>
+              {selectedBooking?.bookingCode && (
+                <span className="text-slate-400 font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">{selectedBooking.bookingCode}</span>
+              )}
+              {selectedBooking && !isEditing && (
+                <span>{getStatusBadge(selectedBooking.status)}</span>
+              )}
               {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
-                <Button variant="outline" size="sm" className="gap-1.5 border-white/20 bg-white/6 hover:bg-white/12 text-white/80 text-xs"
+                <Button variant="outline" size="sm" className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs shadow-sm"
                   onClick={() => startEditing(selectedBooking)} data-testid="button-edit-booking">
                   <Pencil className="h-3.5 w-3.5" /> Edit Details
                 </Button>
               )}
-              <Button size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs border-0"
+              <Button size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs border-0 shadow-sm"
                 onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
                 data-testid="btn-close-dialog">
                 <X className="h-3.5 w-3.5" /> Close
@@ -1943,8 +1950,18 @@ export default function CompletedBookings() {
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* ── Left Sidebar ── */}
             <div className="bkd-sidebar w-52 flex-shrink-0 flex flex-col overflow-y-auto">
-              <div className="px-3 pt-5 pb-2">
-                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest px-2 mb-2">Sections</p>
+              {/* Sidebar brand strip */}
+              <div className="px-4 pt-5 pb-3 border-b border-indigo-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center">
+                    <BookOpen className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 tracking-tight">Booking Detail</span>
+                </div>
+              </div>
+              {/* Nav items */}
+              <div className="px-3 pt-4 pb-2 flex-1">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Navigation</p>
                 {([
                   { label: "Resident Info",    icon: User,       anchor: "sec-resident"     },
                   { label: "Room & Stay",       icon: BedDouble,  anchor: "sec-room"         },
@@ -1955,16 +1972,17 @@ export default function CompletedBookings() {
                   { label: "Packages",          icon: Sparkles,   anchor: "sec-packages"     },
                 ] as { label: string; icon: any; anchor: string }[]).map(({ label, icon: Icon, anchor }) => (
                   <button key={anchor}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/7 transition-colors text-left mb-0.5"
-                    onClick={() => { const el = document.getElementById(anchor); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="text-xs font-medium">{label}</span>
+                    className={`bkd-nav-item mb-0.5${activeSec === anchor ? " active" : ""}`}
+                    onClick={() => { setActiveSec(anchor); const el = document.getElementById(anchor); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
                   </button>
                 ))}
               </div>
+              {/* Actions at bottom */}
               {(isAdmin || isReceptionist || isSalesExec) && selectedBooking && !isEditing && (
-                <div className="mt-auto px-3 pb-5 pt-3 border-t border-white/8 space-y-1.5">
-                  <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest px-2 mb-2">Actions</p>
+                <div className="px-3 pb-5 pt-3 border-t border-indigo-50 space-y-1.5">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Actions</p>
                   {(() => {
                     const _pmts = selectedBooking.payments || [];
                     const _hasUnpaid = (selectedBooking.installments || []).some((inst: any) => {
@@ -1974,13 +1992,13 @@ export default function CompletedBookings() {
                     });
                     const showPayBtn = ["pending_payment","draft","confirmed","active"].includes(selectedBooking.status) || _hasUnpaid;
                     return showPayBtn && !["cancelled","completed"].includes(selectedBooking.status) ? (
-                      <button className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                      <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 transition-colors"
                         onClick={() => openPaymentDialog(selectedBooking)} data-testid="button-mark-payment">
                         <Banknote className="h-3.5 w-3.5 shrink-0" /> Mark Payment Done
                       </button>
                     ) : null;
                   })()}
-                  <button className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-500/12 text-red-400 hover:bg-red-500/22 transition-colors"
+                  <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition-colors"
                     onClick={() => setDeleteBooking(selectedBooking)} data-testid="button-delete-booking">
                     <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete Booking
                   </button>
