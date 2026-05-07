@@ -3335,7 +3335,21 @@ function BookingGenerationInner() {
                                     d.setMonth(d.getMonth() + j);
                                     defaultDates.push(d.toISOString().split("T")[0]);
                                   }
-                                  setFormData((prev: any) => ({ ...prev, numberOfInstallments: num, customBookingAmount: 0, installmentAmounts: [], installmentDueDates: defaultDates, pinnedInstallmentIdx: null, pinnedInstallmentAmt: 0 }));
+                                  setFormData((prev: any) => {
+                                    // If the Booking Amount (slot 0) was manually pinned, preserve it when switching parts
+                                    const prevPinnedIdx = prev.pinnedInstallmentIdx ?? null;
+                                    const prevPinnedAmt = prev.pinnedInstallmentAmt ?? 0;
+                                    const keepBookingAmountPin = prevPinnedIdx === 0 && prevPinnedAmt > 0;
+                                    return {
+                                      ...prev,
+                                      numberOfInstallments: num,
+                                      installmentAmounts: [],
+                                      installmentDueDates: defaultDates,
+                                      customBookingAmount: keepBookingAmountPin ? prevPinnedAmt : 0,
+                                      pinnedInstallmentIdx: keepBookingAmountPin ? 0 : null,
+                                      pinnedInstallmentAmt: keepBookingAmountPin ? prevPinnedAmt : 0,
+                                    };
+                                  });
                                 }}
                                 className={`p-3 rounded-lg border-2 text-center transition-all ${
                                   formData.numberOfInstallments === num
