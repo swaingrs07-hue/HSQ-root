@@ -205,6 +205,7 @@ export default function CompletedBookings() {
     screenshotPreview: "",
     screenshotPaths: [] as string[],
     screenshotPreviews: [] as string[],
+    isDepositPayment: false,
   });
   const [markingPayment, setMarkingPayment] = useState(false);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
@@ -602,7 +603,27 @@ export default function CompletedBookings() {
     }
   };
 
-  const openPaymentDialog = (booking: any, installment?: any, addonBp?: any) => {
+  const openPaymentDialog = (booking: any, installment?: any, addonBp?: any, forDeposit?: boolean) => {
+    if (forDeposit) {
+      setPaymentForm({
+        amount: Number(booking.deposit) || 0,
+        paymentMethod: "cash",
+        transactionId: "",
+        notes: "Security Deposit payment",
+        installmentId: null,
+        installmentName: "Security Deposit",
+        bookingPackageId: null,
+        addonName: "",
+        screenshotPath: "",
+        screenshotPreview: "",
+        screenshotPaths: [],
+        screenshotPreviews: [],
+        isDepositPayment: true,
+      });
+      setShowPaymentDialog(true);
+      return;
+    }
+
     if (addonBp) {
       const { effective } = getBookingPackagePrice(addonBp);
       const addonName = addonBp.package?.name || "Add-On";
@@ -619,6 +640,7 @@ export default function CompletedBookings() {
         screenshotPreview: "",
         screenshotPaths: [],
         screenshotPreviews: [],
+        isDepositPayment: false,
       });
       setShowPaymentDialog(true);
       return;
@@ -660,6 +682,7 @@ export default function CompletedBookings() {
       screenshotPreview: "",
       screenshotPaths: [],
       screenshotPreviews: [],
+      isDepositPayment: false,
     });
     setShowPaymentDialog(true);
   };
@@ -720,6 +743,28 @@ export default function CompletedBookings() {
     try {
       const authData = localStorage.getItem("hsquare_auth");
       const token = authData ? JSON.parse(authData)?.token : null;
+
+      if (paymentForm.isDepositPayment) {
+        const depositProofPath = paymentForm.screenshotPaths.length > 1
+          ? JSON.stringify(paymentForm.screenshotPaths)
+          : paymentForm.screenshotPaths[0] || "";
+        const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            depositType: paymentForm.paymentMethod,
+            depositProofPath: depositProofPath || null,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || "Failed to record deposit");
+        const updated = await res.json();
+        setSelectedBooking({ ...selectedBooking, ...updated });
+        setShowPaymentDialog(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+        toast({ title: "Security Deposit recorded", description: `₹${paymentForm.amount.toLocaleString("en-IN")} via ${paymentForm.paymentMethod} recorded` });
+        return;
+      }
+
       const formData = {
         ...paymentForm,
         screenshotPath: paymentForm.screenshotPaths.length > 1
@@ -2048,35 +2093,69 @@ export default function CompletedBookings() {
                     {(selectedBooking.deposit ?? 0) > 0 && (() => {
                       const dtMap: Record<string, { label: string; color: string; bg: string }> = {
                         cash:           { label: "Cash",                  color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
+                        upi:            { label: "UPI",                   color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
                         online:         { label: "Online Transfer",        color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
+                        bank_transfer:  { label: "Bank Transfer",          color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
                         cheque:         { label: "Cheque",                 color: "text-amber-700",   bg: "bg-amber-50 border-amber-200" },
+                        card:           { label: "Card",                   color: "text-purple-700",  bg: "bg-purple-50 border-purple-200" },
                         paid_last_year: { label: "Paid Last Year (Carried Forward)", color: "text-violet-700", bg: "bg-violet-50 border-violet-200" },
                         waived:         { label: "Waived",                 color: "text-slate-500",   bg: "bg-slate-50 border-slate-200" },
+                        other:          { label: "Other",                  color: "text-slate-600",   bg: "bg-slate-50 border-slate-200" },
                       };
-                      const dt = dtMap[selectedBooking.depositType || "cash"] ?? dtMap.cash;
+                      const sdPending = !selectedBooking.depositType;
+                      const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
                       return (
                         <div className={`mt-3 pt-3 border-t border-indigo-200 flex items-center justify-between gap-2`} data-testid="booking-sd-row">
                           <div>
                             <p className="text-xs text-slate-500 mb-0.5">Security Deposit</p>
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt.bg} ${dt.color}`}>
-                              <Shield className="h-3 w-3" />
-                              {dt.label}
-                            </span>
+                            {sdPending ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-orange-50 border-orange-200 text-orange-600">
+                                <Shield className="h-3 w-3" />
+                                Pending
+                              </span>
+                            ) : (
+                              <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}>
+                                <Shield className="h-3 w-3" />
+                                {dt!.label}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex flex-col items-end gap-1">
                             <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">
                               ₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}
                             </p>
-                            {selectedBooking.depositProofPath && (
-                              <a
-                                href={selectedBooking.depositProofPath}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-indigo-500 underline hover:text-indigo-700"
-                                data-testid="link-sd-proof"
+                            {selectedBooking.depositProofPath && (() => {
+                              let proofUrls: string[] = [];
+                              try {
+                                const parsed = JSON.parse(selectedBooking.depositProofPath);
+                                proofUrls = Array.isArray(parsed) ? parsed : [selectedBooking.depositProofPath];
+                              } catch {
+                                proofUrls = [selectedBooking.depositProofPath];
+                              }
+                              return proofUrls.map((url, idx) => (
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-indigo-500 underline hover:text-indigo-700"
+                                  data-testid={`link-sd-proof-${idx}`}
+                                >
+                                  {proofUrls.length > 1 ? `View proof ${idx + 1}` : "View proof"}
+                                </a>
+                              ));
+                            })()}
+                            {sdPending && (isAdmin || isReceptionist) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[11px] px-2 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
+                                onClick={() => openPaymentDialog(selectedBooking, undefined, undefined, true)}
+                                data-testid="button-mark-sd-paid"
                               >
-                                View proof
-                              </a>
+                                <CreditCard className="h-3 w-3" />
+                                Mark as Paid
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -2112,7 +2191,7 @@ export default function CompletedBookings() {
                 );
               })()}
 
-              {/* Mark SD — only when no deposit recorded yet */}
+              {/* Mark SD — only when deposit amount is 0 (not yet set at booking time) */}
               {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
                 <div
                   className="rounded-2xl overflow-hidden"
@@ -3647,6 +3726,7 @@ export default function CompletedBookings() {
                 <option value="card">Card (Debit/Credit)</option>
                 <option value="online">Online Payment</option>
                 <option value="paid_last_year">🔁 Paid in Last Year (Carried Forward)</option>
+                {paymentForm.isDepositPayment && <option value="waived">✓ Waived</option>}
                 <option value="other">Other</option>
               </select>
               {paymentForm.paymentMethod === "paid_last_year" && (
@@ -3655,8 +3735,14 @@ export default function CompletedBookings() {
                   <p className="text-xs text-blue-700">Security deposit was collected in the previous academic year. This will be recorded as a carried-forward entry — no fresh payment needed.</p>
                 </div>
               )}
+              {paymentForm.paymentMethod === "waived" && (
+                <div className="mt-2 flex items-start gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                  <svg className="h-3.5 w-3.5 text-slate-500 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={10}/><line x1={12} y1={8} x2={12} y2={12}/><line x1={12} y1={16} x2={12.01} y2={16}/></svg>
+                  <p className="text-xs text-slate-600">Security deposit is being waived — no collection required. This will be recorded as a waived entry.</p>
+                </div>
+              )}
             </div>
-            {paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && (
+            {paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && paymentForm.paymentMethod !== "waived" && (
               <div>
                 <Label className="text-xs font-medium text-slate-500">Transaction ID / UTR <span className="text-red-500">*</span></Label>
                 <Input
@@ -3671,7 +3757,7 @@ export default function CompletedBookings() {
                 )}
               </div>
             )}
-            {paymentForm.paymentMethod !== "paid_last_year" && (
+            {paymentForm.paymentMethod !== "paid_last_year" && paymentForm.paymentMethod !== "waived" && (
             <div>
               <Label className="text-xs font-medium text-slate-500">
                 {paymentForm.paymentMethod === "cash" ? "Cash Receipt Photo" : "Payment Screenshots"} <span className="text-red-500">*</span>
@@ -3747,8 +3833,8 @@ export default function CompletedBookings() {
                 disabled={
                   markingPayment ||
                   screenshotUploading ||
-                  (paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && !paymentForm.transactionId.trim()) ||
-                  (paymentForm.paymentMethod !== "paid_last_year" && paymentForm.screenshotPaths.length === 0)
+                  (paymentForm.paymentMethod !== "cash" && paymentForm.paymentMethod !== "paid_last_year" && paymentForm.paymentMethod !== "waived" && !paymentForm.transactionId.trim()) ||
+                  (paymentForm.paymentMethod !== "paid_last_year" && paymentForm.paymentMethod !== "waived" && paymentForm.screenshotPaths.length === 0)
                 }
                 data-testid="button-confirm-payment"
               >
