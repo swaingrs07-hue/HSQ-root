@@ -924,7 +924,7 @@ function BookingGenerationInner() {
   };
 
   const calculateTotal = () => {
-    return formData.baseFee - (formData.discount || 0) + (formData.deposit || 0) + getMoveInChargesTotal();
+    return formData.baseFee - (formData.discount || 0) + getMoveInChargesTotal();
   };
 
   const getDiscountPercent = () => {
