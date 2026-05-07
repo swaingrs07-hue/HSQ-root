@@ -121,6 +121,11 @@ interface CompletedBooking {
   deposit?: number;
   depositType?: string;
   depositProofPath?: string;
+  depositRefunded?: boolean;
+  depositRefundedAt?: string;
+  depositRefundAmount?: number;
+  depositRefundMethod?: string;
+  depositRefundNotes?: string;
   totalFee: number;
   status: string;
   createdAt: string;
@@ -233,6 +238,9 @@ export default function CompletedBookings() {
   const [sdForm, setSdForm] = useState<{ depositType: string; deposit: number; depositProofPath: string }>({ depositType: "cash", deposit: 0, depositProofPath: "" });
   const [markingSd, setMarkingSd] = useState(false);
   const [sdProofUploading, setSdProofUploading] = useState(false);
+  const [sdRefundDialog, setSdRefundDialog] = useState(false);
+  const [sdRefundForm, setSdRefundForm] = useState({ refundDate: new Date().toISOString().slice(0, 10), refundAmount: 0, refundMethod: "cash", refundNotes: "" });
+  const [recordingRefund, setRecordingRefund] = useState(false);
 
   // Single source of truth for "what price should we use for this booking-package?"
   // Honors admin override, then snapshot-at-attach, then current package base price.
@@ -277,6 +285,36 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setMarkingSd(false);
+    }
+  };
+
+  const recordSdRefund = async () => {
+    if (!selectedBooking) return;
+    if (!sdRefundForm.refundDate) return;
+    if (sdRefundForm.refundAmount <= 0) return;
+    setRecordingRefund(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/sd-refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          refundDate: sdRefundForm.refundDate,
+          refundAmount: sdRefundForm.refundAmount,
+          refundMethod: sdRefundForm.refundMethod,
+          refundNotes: sdRefundForm.refundNotes,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to record refund");
+      const updated = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      setSdRefundDialog(false);
+      toast({ title: "Security deposit refund recorded successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setRecordingRefund(false);
     }
   };
 
@@ -2144,6 +2182,11 @@ export default function CompletedBookings() {
                                 <Shield className="h-3 w-3" />
                                 Pending
                               </span>
+                            ) : selectedBooking.depositRefunded ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-teal-50 border-teal-200 text-teal-700" data-testid="badge-sd-refunded">
+                                <RotateCcw className="h-3 w-3" />
+                                Refunded
+                              </span>
                             ) : (
                               <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}>
                                 <Shield className="h-3 w-3" />
@@ -2159,6 +2202,12 @@ export default function CompletedBookings() {
                               <span className="text-[10px] text-slate-500 font-mono" data-testid="text-sd-transaction-id">
                                 UTR: {selectedBooking.depositTransactionId}
                               </span>
+                            )}
+                            {selectedBooking.depositRefunded && selectedBooking.depositRefundAmount != null && (
+                              <p className="text-[11px] text-teal-600 font-medium" data-testid="text-sd-refund-amount">
+                                Refunded ₹{Number(selectedBooking.depositRefundAmount).toLocaleString("en-IN")}
+                                {selectedBooking.depositRefundedAt ? ` on ${format(new Date(selectedBooking.depositRefundedAt), "dd MMM yyyy")}` : ""}
+                              </p>
                             )}
                             {selectedBooking.depositProofPath && (() => {
                               let proofUrls: string[] = [];
@@ -2191,6 +2240,21 @@ export default function CompletedBookings() {
                               >
                                 <CreditCard className="h-3 w-3" />
                                 Mark as Paid
+                              </Button>
+                            )}
+                            {!sdPending && !selectedBooking.depositRefunded && isAdmin && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[11px] px-2 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50"
+                                onClick={() => {
+                                  setSdRefundForm({ refundDate: new Date().toISOString().slice(0, 10), refundAmount: selectedBooking.deposit ?? 0, refundMethod: "cash", refundNotes: "" });
+                                  setSdRefundDialog(true);
+                                }}
+                                data-testid="button-record-sd-refund"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                Record Refund
                               </Button>
                             )}
                           </div>
@@ -4234,6 +4298,81 @@ export default function CompletedBookings() {
             <Button className={`w-full ${walletForm.type === "topup" ? "bg-emerald-600" : "bg-red-600"}`} onClick={handleWallet} data-testid="button-confirm-wallet">
               {walletForm.type === "topup" ? "Add Credit" : "Debit Amount"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* SD Refund Dialog */}
+      <Dialog open={sdRefundDialog} onOpenChange={(open) => { if (!open) setSdRefundDialog(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-teal-600" />
+              Record Security Deposit Refund
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-teal-50 border border-teal-100 text-sm text-teal-700">
+              Recording that ₹{Number(selectedBooking?.deposit ?? 0).toLocaleString("en-IN")} SD was refunded to the resident at checkout.
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Refund Date</Label>
+              <Input
+                type="date"
+                value={sdRefundForm.refundDate}
+                onChange={e => setSdRefundForm(p => ({ ...p, refundDate: e.target.value }))}
+                data-testid="input-sd-refund-date"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Refund Amount (₹)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={sdRefundForm.refundAmount || ""}
+                onChange={e => setSdRefundForm(p => ({ ...p, refundAmount: Number(e.target.value) || 0 }))}
+                placeholder="Enter amount"
+                data-testid="input-sd-refund-amount"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Refund Method</Label>
+              <Select value={sdRefundForm.refundMethod} onValueChange={v => setSdRefundForm(p => ({ ...p, refundMethod: v }))}>
+                <SelectTrigger data-testid="select-sd-refund-method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="online">Online Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Notes <span className="font-normal normal-case text-slate-400">(optional)</span></Label>
+              <Textarea
+                value={sdRefundForm.refundNotes}
+                onChange={e => setSdRefundForm(p => ({ ...p, refundNotes: e.target.value }))}
+                placeholder="e.g. deducted ₹500 for damages"
+                rows={2}
+                data-testid="input-sd-refund-notes"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setSdRefundDialog(false)} data-testid="button-cancel-sd-refund">
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white"
+                onClick={recordSdRefund}
+                disabled={recordingRefund || !sdRefundForm.refundDate || sdRefundForm.refundAmount <= 0}
+                data-testid="button-confirm-sd-refund"
+              >
+                {recordingRefund ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Saving…</> : <><RotateCcw className="h-4 w-4 mr-1" /> Confirm Refund</>}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

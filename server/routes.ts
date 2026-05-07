@@ -5549,6 +5549,47 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Record security deposit refund
+  app.post("/api/admin/bookings/:id/sd-refund", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+      if (!booking.depositType) return res.status(400).json({ error: "Security deposit has not been marked as paid yet" });
+      if ((booking as any).depositRefunded) return res.status(400).json({ error: "Deposit has already been refunded" });
+
+      const scope = await getReceptionistScope(req);
+      if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
+
+      const { refundDate, refundAmount, refundMethod, refundNotes } = req.body;
+      if (!refundDate) return res.status(400).json({ error: "Refund date is required" });
+      const amount = Number(refundAmount);
+      if (!amount || amount <= 0) return res.status(400).json({ error: "Refund amount must be greater than 0" });
+
+      const updated = await storage.updateBooking(req.params.id, {
+        depositRefunded: true,
+        depositRefundedAt: refundDate,
+        depositRefundAmount: amount,
+        depositRefundMethod: refundMethod || "cash",
+        depositRefundNotes: refundNotes || null,
+      } as any);
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "SD_REFUND_RECORDED",
+        entityType: "booking",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, refundDate, refundAmount: amount, refundMethod }),
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error recording SD refund:", error);
+      res.status(500).json({ error: error.message || "Failed to record refund" });
+    }
+  });
+
   // Admin bed shift / room transfer
   app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
     try {
