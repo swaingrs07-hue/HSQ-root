@@ -1888,9 +1888,10 @@ export default function CompletedBookings() {
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto">
           {selectedBooking && !isEditing && (
-            <div className="px-6 py-5 max-w-3xl mx-auto space-y-5">
+            <div className="px-8 py-7 max-w-3xl mx-auto space-y-5">
+              {/* Profile row */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   {(() => {
                     const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
                     const avatarContent = photoSrc ? (
@@ -1898,7 +1899,7 @@ export default function CompletedBookings() {
                         <img
                           src={photoSrc}
                           alt={selectedBooking.customerName || ""}
-                          className="w-12 h-12 rounded-full object-cover shadow-sm"
+                          className="w-16 h-16 rounded-full object-cover shadow"
                           data-testid="img-booking-avatar"
                           onError={(e) => {
                             const img = e.currentTarget;
@@ -1907,19 +1908,19 @@ export default function CompletedBookings() {
                             if (fallback) fallback.classList.remove("hidden");
                           }}
                         />
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg hidden">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl hidden">
                           {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                       </>
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl">
                         {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
                       </div>
                     );
                     return (
                       <label className="relative group cursor-pointer" data-testid="btn-upload-profile-photo">
                         {avatarContent}
-                        <div className="absolute inset-0 w-12 h-12 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 w-16 h-16 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           {profilePhotoUploading ? (
                             <Loader2 className="h-4 w-4 text-white animate-spin" />
                           ) : (
@@ -1941,65 +1942,92 @@ export default function CompletedBookings() {
                     );
                   })()}
                   <div>
-                    <h3 className="font-bold text-slate-900" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
+                    <h3 className="text-xl font-bold text-slate-900" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
                     {selectedBooking.bookingCode && (
-                      <p className="text-xs font-mono text-slate-400">{selectedBooking.bookingCode}</p>
+                      <p className="text-xs font-mono text-slate-400 mt-0.5">{selectedBooking.bookingCode}</p>
                     )}
                   </div>
                 </div>
                 {getStatusBadge(selectedBooking.status)}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-xs font-medium text-slate-500 uppercase mb-1">Property</p>
+              {/* Info grid — 2×2 clean bordered cells */}
+              <div className="grid grid-cols-2 gap-0 rounded-xl border border-slate-200 overflow-hidden">
+                <div className="p-4 border-b border-r border-slate-200 bg-white">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Property</p>
                   <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+                    <Building2 className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                     {selectedBooking.propertyName}
                   </p>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-xs font-medium text-slate-500 uppercase mb-1">Room Type</p>
+                <div className="p-4 border-b border-slate-200 bg-white">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Room Type</p>
                   <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    <BedDouble className="h-3.5 w-3.5 text-indigo-500" />
+                    <BedDouble className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                     {selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}
+                  </p>
+                </div>
+                <div className="p-4 border-r border-slate-200 bg-white">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Phone</p>
+                  <p className="text-sm text-slate-700 flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                    {selectedBooking.customerPhone || "—"}
+                  </p>
+                </div>
+                <div className="p-4 bg-white">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Email</p>
+                  <p className="text-sm text-slate-700 flex items-center gap-1.5 truncate">
+                    <Mail className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                    {selectedBooking.customerEmail || "—"}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {selectedBooking.customerPhone && (
-                  <div className="p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs font-medium text-slate-500 uppercase mb-1">Phone</p>
-                    <p className="text-sm text-slate-800 flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-slate-400" />
-                      {selectedBooking.customerPhone}
-                    </p>
-                  </div>
-                )}
-                {selectedBooking.customerEmail && (
-                  <div className="p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs font-medium text-slate-500 uppercase mb-1">Email</p>
-                    <p className="text-sm text-slate-800 flex items-center gap-1.5 truncate">
-                      <Mail className="h-3.5 w-3.5 text-slate-400" />
-                      {selectedBooking.customerEmail}
-                    </p>
-                  </div>
-                )}
-              </div>
-
               {(selectedBooking.stayPlanType || selectedBooking.durationMonths || selectedBooking.checkInDate || selectedBooking.checkOutDate || selectedBooking.deposit) && (
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> Stay Plan Details
-                  </h4>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <AdminDetailRow label="Stay Plan" value={selectedBooking.stayPlanType === "academic_year" ? "Academic Year" : selectedBooking.stayPlanType === "monthly" ? "Monthly" : selectedBooking.stayPlanType} capitalize />
-                    {selectedBooking.academicYearPeriod && <AdminDetailRow label="Period" value={selectedBooking.academicYearPeriod} />}
-                    <AdminDetailRow label="Duration" value={selectedBooking.durationMonths ? `${selectedBooking.durationMonths} months` : undefined} />
-                    <AdminDetailRow label="Check-in" value={selectedBooking.checkInDate ? format(new Date(selectedBooking.checkInDate), "dd MMM yyyy") : undefined} />
-                    <AdminDetailRow label="Check-out" value={selectedBooking.checkOutDate ? format(new Date(selectedBooking.checkOutDate), "dd MMM yyyy") : undefined} />
-                    <AdminDetailRow label="Deposit" value={selectedBooking.deposit ? `₹${Number(selectedBooking.deposit).toLocaleString("en-IN")}` : undefined} />
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-200">
+                    <Calendar className="h-3.5 w-3.5 text-emerald-600" />
+                    <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Stay Plan Details</h4>
+                  </div>
+                  <div className="px-4 py-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    {selectedBooking.stayPlanType && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Stay Plan</p>
+                        <p className="font-semibold text-slate-800">
+                          {selectedBooking.stayPlanType === "academic_year" ? "Academic Year" : selectedBooking.stayPlanType === "monthly" ? "Monthly" : selectedBooking.stayPlanType}
+                        </p>
+                      </div>
+                    )}
+                    {selectedBooking.durationMonths && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Duration</p>
+                        <p className="font-semibold text-slate-800">{selectedBooking.durationMonths} months</p>
+                      </div>
+                    )}
+                    {selectedBooking.academicYearPeriod && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Period</p>
+                        <p className="font-semibold text-slate-800">{selectedBooking.academicYearPeriod}</p>
+                      </div>
+                    )}
+                    {selectedBooking.checkInDate && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Check-in</p>
+                        <p className="font-semibold text-slate-800">{format(new Date(selectedBooking.checkInDate), "dd MMM yyyy")}</p>
+                      </div>
+                    )}
+                    {selectedBooking.checkOutDate && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Check-out</p>
+                        <p className="font-semibold text-slate-800">{format(new Date(selectedBooking.checkOutDate), "dd MMM yyyy")}</p>
+                      </div>
+                    )}
+                    {selectedBooking.deposit ? (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Deposit</p>
+                        <p className="font-semibold text-slate-800">₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}</p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -2071,23 +2099,25 @@ export default function CompletedBookings() {
                 const grand = baseTotal + includedAddonTotal;
                 const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
                 return (
-                  <div className="p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-100" data-testid="payment-summary-widget">
-                    <h4 className="text-xs font-semibold text-indigo-600 uppercase mb-3 flex items-center gap-1.5">
-                      <CreditCard className="h-3.5 w-3.5" /> Payment Summary
-                    </h4>
-                    <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 overflow-hidden" data-testid="payment-summary-widget">
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-indigo-200">
+                      <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
+                      <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Payment Summary</h4>
+                    </div>
+                    <div className="px-4 py-4">
+                    <div className="grid grid-cols-3 gap-3 mb-0">
                       <div>
-                        <p className="text-xs text-slate-500">Base Fee</p>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Base Fee</p>
                         <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Discount</p>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Discount</p>
                         <p className="text-sm font-bold text-green-600">
                           {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Total</p>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Total</p>
                         <p className="text-sm font-bold text-slate-800">₹{baseTotal.toLocaleString("en-IN")}</p>
                       </div>
                     </div>
@@ -2193,6 +2223,7 @@ export default function CompletedBookings() {
                         </div>
                       </div>
                     )}
+                  </div>
                   </div>
                 );
               })()}
@@ -2387,23 +2418,26 @@ export default function CompletedBookings() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between text-sm text-slate-500">
+              {/* Footer row — date + booked by */}
+              <div className="flex items-center justify-between text-xs text-slate-400 py-1">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
                   {selectedBooking.createdAt ? format(new Date(selectedBooking.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}
                 </span>
-                {!isSalesExec && selectedBooking.salesExecName && (
-                  <span className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" />
-                    {selectedBooking.salesExecName}
-                  </span>
-                )}
-                {isAdmin && selectedBooking.createdByName && (
-                  <span className="flex items-center gap-1.5 text-indigo-600" data-testid="text-detail-booked-by">
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    Booked by {selectedBooking.createdByName}
-                  </span>
-                )}
+                <div className="flex items-center gap-4">
+                  {!isSalesExec && selectedBooking.salesExecName && (
+                    <span className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" />
+                      {selectedBooking.salesExecName}
+                    </span>
+                  )}
+                  {isAdmin && selectedBooking.createdByName && (
+                    <span className="flex items-center gap-1.5 text-indigo-500 font-medium" data-testid="text-detail-booked-by">
+                      <ClipboardCheck className="h-3.5 w-3.5" />
+                      Booked by {selectedBooking.createdByName}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {selectedBooking.referrer && (
@@ -2415,8 +2449,12 @@ export default function CompletedBookings() {
               )}
 
               {selectedBooking.residentDetails && (selectedBooking.residentDetails.name || selectedBooking.residentDetails.phone || selectedBooking.residentDetails.email) && (
-                <div className="p-4 bg-pink-50 rounded-xl border border-pink-100">
-                  <h4 className="text-xs font-semibold text-pink-600 uppercase mb-3">Resident Details</h4>
+                <div className="rounded-xl border border-pink-200 bg-pink-50 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-pink-200">
+                    <User className="h-3.5 w-3.5 text-pink-500" />
+                    <h4 className="text-xs font-bold text-pink-600 uppercase tracking-widest">Resident Details</h4>
+                  </div>
+                  <div className="px-4 py-4">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <AdminDetailRow label="Name" value={selectedBooking.residentDetails.name} />
                     <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.phone} />
@@ -2448,6 +2486,7 @@ export default function CompletedBookings() {
                     <AdminDetailRow label="Diet" value={selectedBooking.residentDetails.dietaryPreference} capitalize />
                     <AdminDetailRow label="Institute" value={selectedBooking.residentDetails.institute} />
                     <AdminDetailRow label="Course" value={selectedBooking.residentDetails.course} />
+                  </div>
                   </div>
                 </div>
               )}
