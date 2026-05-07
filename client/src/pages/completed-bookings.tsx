@@ -2114,75 +2114,130 @@ export default function CompletedBookings() {
 
               {/* Mark SD — only when no deposit recorded yet */}
               {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
-                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm" data-testid="mark-sd-panel">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
+                <div
+                  className="rounded-2xl overflow-hidden"
+                  style={{
+                    background: "rgba(255,255,255,0.55)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255,255,255,0.7)",
+                    boxShadow: "0 8px 32px rgba(99,102,241,0.10), 0 1.5px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)",
+                  }}
+                  data-testid="mark-sd-panel"
+                >
+                  {/* Glass header */}
+                  <div
+                    className="flex items-center justify-between px-5 py-3"
+                    style={{
+                      background: "rgba(238,240,255,0.60)",
+                      borderBottom: "1px solid rgba(99,102,241,0.12)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{
+                          background: "rgba(99,102,241,0.15)",
+                          border: "1px solid rgba(99,102,241,0.25)",
+                          backdropFilter: "blur(8px)",
+                        }}
+                      >
                         <Shield className="h-3.5 w-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Security Deposit</span>
+                      <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Security Deposit</span>
                     </div>
-                    <span className="text-[10px] font-medium text-orange-500 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">Pending</span>
+                    <span
+                      className="text-[10px] font-semibold text-orange-600 rounded-full px-2.5 py-0.5"
+                      style={{
+                        background: "rgba(251,146,60,0.12)",
+                        border: "1px solid rgba(251,146,60,0.30)",
+                      }}
+                    >
+                      Pending
+                    </span>
                   </div>
 
                   <div className="px-5 py-4 space-y-4">
-                    {/* Deposit Type */}
+                    {/* Payment Mode */}
                     <div>
-                      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Payment Mode</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Payment Mode</p>
                       <div className="flex flex-wrap gap-2">
                         {([
-                          { value: "cash",           label: "Cash",           Icon: Banknote },
-                          { value: "online",         label: "Online",         Icon: CreditCard },
-                          { value: "cheque",         label: "Cheque",         Icon: FileText },
-                          { value: "paid_last_year", label: "Carried Fwd",   Icon: RotateCcw },
-                          { value: "waived",         label: "Waived",         Icon: CheckCircle2 },
-                        ] as const).map(({ value, label, Icon }) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setSdForm(prev => ({ ...prev, depositType: value }))}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                              sdForm.depositType === value
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                                : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
-                            }`}
-                            data-testid={`btn-sd-type-${value}`}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            {label}
-                          </button>
-                        ))}
+                          { value: "cash",           label: "Cash",         Icon: Banknote },
+                          { value: "online",         label: "Online",       Icon: CreditCard },
+                          { value: "cheque",         label: "Cheque",       Icon: FileText },
+                          { value: "paid_last_year", label: "Carried Fwd", Icon: RotateCcw },
+                          { value: "waived",         label: "Waived",       Icon: CheckCircle2 },
+                        ] as const).map(({ value, label, Icon }) => {
+                          const active = sdForm.depositType === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setSdForm(prev => ({ ...prev, depositType: value }))}
+                              style={active ? {
+                                background: "rgba(99,102,241,0.88)",
+                                border: "1px solid rgba(99,102,241,0.6)",
+                                boxShadow: "0 2px 12px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",
+                                backdropFilter: "blur(8px)",
+                              } : {
+                                background: "rgba(255,255,255,0.55)",
+                                border: "1px solid rgba(203,213,225,0.70)",
+                                backdropFilter: "blur(8px)",
+                              }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                active ? "text-white" : "text-slate-600 hover:text-indigo-600"
+                              }`}
+                              data-testid={`btn-sd-type-${value}`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Amount + Proof side-by-side on wider screens */}
+                    {/* Amount + Proof */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {/* Amount */}
                       <div>
-                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Deposit Amount</p>
-                        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 bg-white transition-colors focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-100 ${sdForm.depositType === "waived" ? "opacity-50 pointer-events-none border-slate-200" : "border-slate-200"}`}>
-                          <IndianRupee className="h-4 w-4 text-slate-400 shrink-0" />
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Deposit Amount</p>
+                        <div
+                          className={`flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all ${sdForm.depositType === "waived" ? "opacity-40 pointer-events-none" : ""}`}
+                          style={{
+                            background: "rgba(255,255,255,0.65)",
+                            border: "1px solid rgba(203,213,225,0.60)",
+                            backdropFilter: "blur(8px)",
+                            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          <IndianRupee className="h-4 w-4 text-indigo-400 shrink-0" />
                           <input
                             type="number"
                             min={0}
                             placeholder="0"
                             value={sdForm.deposit || ""}
                             onChange={(e) => setSdForm(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                            className="flex-1 text-sm font-semibold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full"
+                            className="flex-1 text-sm font-bold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full"
                             data-testid="input-sd-amount"
                           />
                         </div>
                       </div>
 
-                      {/* Proof upload */}
                       <div>
-                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                          Proof <span className="font-normal normal-case text-slate-400">(optional)</span>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                          Proof <span className="font-normal normal-case text-slate-300">(optional)</span>
                         </p>
                         {sdForm.depositProofPath ? (
-                          <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2.5 h-[42px]">
-                            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                          <div
+                            className="flex items-center justify-between rounded-xl px-3 py-2.5 h-[42px]"
+                            style={{
+                              background: "rgba(209,250,229,0.55)",
+                              border: "1px solid rgba(52,211,153,0.35)",
+                              backdropFilter: "blur(8px)",
+                            }}
+                          >
+                            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
                               <CheckCircle2 className="h-3.5 w-3.5" /> Proof uploaded
                             </span>
                             <button
@@ -2202,13 +2257,20 @@ export default function CompletedBookings() {
                               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdProof(f); }}
                               data-testid="input-sd-proof"
                             />
-                            <div className="flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg h-[42px] hover:border-indigo-400 hover:bg-indigo-50/40 transition-all group">
+                            <div
+                              className="flex items-center justify-center gap-2 rounded-xl h-[42px] transition-all group hover:scale-[1.01]"
+                              style={{
+                                background: "rgba(255,255,255,0.40)",
+                                border: "1.5px dashed rgba(148,163,184,0.55)",
+                                backdropFilter: "blur(8px)",
+                              }}
+                            >
                               {sdProofUploading ? (
-                                <Loader2 className="h-4 w-4 text-slate-400 animate-spin" />
+                                <Loader2 className="h-4 w-4 text-indigo-400 animate-spin" />
                               ) : (
                                 <>
                                   <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                  <span className="text-xs text-slate-500 group-hover:text-indigo-600 transition-colors">Upload file</span>
+                                  <span className="text-xs text-slate-500 group-hover:text-indigo-600 font-medium transition-colors">Upload file</span>
                                 </>
                               )}
                             </div>
@@ -2218,10 +2280,16 @@ export default function CompletedBookings() {
                     </div>
 
                     {/* CTA */}
-                    <Button
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-9 text-sm font-semibold shadow-sm"
+                    <button
                       onClick={saveSdDetails}
                       disabled={markingSd || (sdForm.depositType !== "waived" && sdForm.deposit <= 0)}
+                      className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(99,102,241,0.95) 0%, rgba(79,70,229,0.98) 100%)",
+                        boxShadow: "0 4px 20px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.20)",
+                        border: "1px solid rgba(99,102,241,0.50)",
+                        backdropFilter: "blur(8px)",
+                      }}
                       data-testid="btn-save-sd"
                     >
                       {markingSd ? (
@@ -2229,7 +2297,7 @@ export default function CompletedBookings() {
                       ) : (
                         <><Shield className="h-4 w-4" /> Mark Security Deposit as Received</>
                       )}
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
