@@ -227,9 +227,7 @@ export default function CompletedBookings() {
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
   const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
-  const [sdForm, setSdForm] = useState<{ depositType: string; deposit: number; depositProofPath: string }>({ depositType: "cash", deposit: 0, depositProofPath: "" });
   const [markingSd, setMarkingSd] = useState(false);
-  const [sdProofUploading, setSdProofUploading] = useState(false);
 
   // Single source of truth for "what price should we use for this booking-package?"
   // Honors admin override, then snapshot-at-attach, then current package base price.
@@ -250,50 +248,25 @@ export default function CompletedBookings() {
     return authData ? JSON.parse(authData)?.token : null;
   };
 
-  const saveSdDetails = async () => {
-    if (!selectedBooking || sdForm.deposit <= 0) return;
+  const markSdReceived = async () => {
+    if (!selectedBooking) return;
     setMarkingSd(true);
     try {
       const token = getAuthToken();
       const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          deposit: sdForm.deposit,
-          depositType: sdForm.depositType,
-          depositProofPath: sdForm.depositProofPath || null,
-        }),
+        body: JSON.stringify({ depositCollected: true }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
       const updated = await res.json();
       setSelectedBooking({ ...selectedBooking, ...updated });
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
-      toast({ title: "Security Deposit recorded successfully" });
+      toast({ title: "Security Deposit marked as received" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setMarkingSd(false);
-    }
-  };
-
-  const uploadSdProof = async (file: File) => {
-    setSdProofUploading(true);
-    try {
-      const urlRes = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      setSdForm(prev => ({ ...prev, depositProofPath: objectPath }));
-      toast({ title: "Proof uploaded" });
-    } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-    } finally {
-      setSdProofUploading(false);
     }
   };
 
