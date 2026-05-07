@@ -227,6 +227,9 @@ export default function CompletedBookings() {
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
   const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+  const [sdForm, setSdForm] = useState<{ depositType: string; deposit: number; depositProofPath: string }>({ depositType: "cash", deposit: 0, depositProofPath: "" });
+  const [markingSd, setMarkingSd] = useState(false);
+  const [sdProofUploading, setSdProofUploading] = useState(false);
 
   // Single source of truth for "what price should we use for this booking-package?"
   // Honors admin override, then snapshot-at-attach, then current package base price.
@@ -245,6 +248,53 @@ export default function CompletedBookings() {
   const getAuthToken = () => {
     const authData = localStorage.getItem("hsquare_auth");
     return authData ? JSON.parse(authData)?.token : null;
+  };
+
+  const saveSdDetails = async () => {
+    if (!selectedBooking || sdForm.deposit <= 0) return;
+    setMarkingSd(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          deposit: sdForm.deposit,
+          depositType: sdForm.depositType,
+          depositProofPath: sdForm.depositProofPath || null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
+      const updated = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Security Deposit recorded successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setMarkingSd(false);
+    }
+  };
+
+  const uploadSdProof = async (file: File) => {
+    setSdProofUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      setSdForm(prev => ({ ...prev, depositProofPath: objectPath }));
+      toast({ title: "Proof uploaded" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setSdProofUploading(false);
+    }
   };
 
   const fetchBookingPackages = async (bookingId: string) => {
@@ -1762,30 +1812,34 @@ export default function CompletedBookings() {
         </div>
       )}
 
-      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); } }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-indigo-500" />
-                {isEditing ? "Edit Booking" : "Booking Details"}
-              </span>
-              {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                  onClick={() => startEditing(selectedBooking)}
-                  data-testid="button-edit-booking"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </Button>
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
+        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden">
+          {/* Sticky header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-white flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+              <ClipboardCheck className="h-5 w-5 text-indigo-500" />
+              {isEditing ? "Edit Booking" : "Booking Details"}
+              {selectedBooking?.bookingCode && (
+                <span className="text-sm font-normal text-slate-400 ml-1">— {selectedBooking.bookingCode}</span>
               )}
             </DialogTitle>
-          </DialogHeader>
+            {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                onClick={() => startEditing(selectedBooking)}
+                data-testid="button-edit-booking"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            )}
+          </div>
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto">
           {selectedBooking && !isEditing && (
-            <div className="space-y-5">
+            <div className="px-6 py-5 max-w-3xl mx-auto space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {(() => {
@@ -2054,6 +2108,107 @@ export default function CompletedBookings() {
                   </div>
                 );
               })()}
+
+              {/* Mark SD — only when no deposit recorded yet */}
+              {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200" data-testid="mark-sd-panel">
+                  <h4 className="text-xs font-semibold text-amber-700 uppercase mb-1.5 flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5" /> Security Deposit (SD)
+                  </h4>
+                  <p className="text-[11px] text-amber-600 mb-3">SD not collected at booking time — record it now.</p>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-2">Deposit Type</p>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {([
+                          { value: "cash", label: "Cash", icon: "💵" },
+                          { value: "online", label: "Online", icon: "🏦" },
+                          { value: "cheque", label: "Cheque", icon: "📄" },
+                          { value: "paid_last_year", label: "Paid Last Year", icon: "🔄" },
+                          { value: "waived", label: "Waived", icon: "✅" },
+                        ] as const).map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setSdForm(prev => ({ ...prev, depositType: opt.value }))}
+                            className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 text-center transition-all ${
+                              sdForm.depositType === opt.value
+                                ? "border-amber-500 bg-amber-100 text-amber-700"
+                                : "border-amber-200 bg-white text-slate-600 hover:border-amber-300"
+                            }`}
+                            data-testid={`btn-sd-type-${opt.value}`}
+                          >
+                            <span className="text-base">{opt.icon}</span>
+                            <span className="text-[10px] font-medium leading-tight">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-1.5">Deposit Amount</p>
+                      <div className="flex items-center gap-2 border border-amber-200 rounded-lg bg-white px-3 py-2">
+                        <IndianRupee className="h-4 w-4 text-amber-500 shrink-0" />
+                        <input
+                          type="number"
+                          placeholder="Enter deposit amount"
+                          value={sdForm.deposit || ""}
+                          onChange={(e) => setSdForm(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
+                          className="flex-1 text-sm outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                          data-testid="input-sd-amount"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-1.5">
+                        Deposit Proof <span className="font-normal text-amber-500">(Optional)</span>
+                      </p>
+                      {sdForm.depositProofPath ? (
+                        <div className="flex items-center justify-between bg-white border border-amber-200 rounded-lg px-3 py-2">
+                          <span className="text-xs text-emerald-600 font-medium">✓ Proof uploaded</span>
+                          <button
+                            type="button"
+                            onClick={() => setSdForm(prev => ({ ...prev, depositProofPath: "" }))}
+                            className="text-xs text-slate-400 hover:text-red-500"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdProof(f); }}
+                            data-testid="input-sd-proof"
+                          />
+                          <div className="border-2 border-dashed border-amber-300 rounded-lg p-4 text-center hover:border-amber-400 transition-colors">
+                            {sdProofUploading ? (
+                              <Loader2 className="h-5 w-5 text-amber-400 mx-auto animate-spin" />
+                            ) : (
+                              <>
+                                <Upload className="h-5 w-5 text-amber-400 mx-auto mb-1" />
+                                <p className="text-xs text-amber-600 font-medium">Upload deposit proof</p>
+                                <p className="text-[10px] text-amber-400">JPG, PNG under 10MB</p>
+                              </>
+                            )}
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-1.5"
+                      onClick={saveSdDetails}
+                      disabled={markingSd || sdForm.deposit <= 0 || sdForm.depositType === "waived" ? false : sdForm.deposit <= 0}
+                      data-testid="btn-save-sd"
+                    >
+                      {markingSd ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
+                      {markingSd ? "Saving..." : "Mark Security Deposit"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <span className="flex items-center gap-1.5">
@@ -3096,7 +3251,7 @@ export default function CompletedBookings() {
           )}
 
           {selectedBooking && isEditing && (
-            <div className="space-y-4">
+            <div className="px-6 py-5 max-w-3xl mx-auto space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-4 pb-2">
                   {(() => {
@@ -3358,6 +3513,7 @@ export default function CompletedBookings() {
               </div>
             </div>
           )}
+          </div>{/* end flex-1 overflow-y-auto */}
         </DialogContent>
       </Dialog>
 

@@ -5467,7 +5467,7 @@ ${allPages.map(p => `  <url>
         "status", "stayPlanType", "academicYearPeriod",
         "checkInDate", "checkOutDate", "durationMonths",
         "paymentType", "tokenAmount", "numberOfInstallments",
-        "referrer",
+        "referrer", "deposit", "depositType", "depositProofPath",
       ];
 
       const fieldMapping: Record<string, string> = {
