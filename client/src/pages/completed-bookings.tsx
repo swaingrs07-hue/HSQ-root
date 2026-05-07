@@ -40,6 +40,7 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   Loader2,
   Wallet,
   UtensilsCrossed,
@@ -1900,1653 +1901,688 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
-        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden booking-liquid-bg !fixed">
-          {/* Animated background blobs */}
-          <div className="booking-blob w-[420px] h-[420px] bg-indigo-300 top-[-80px] left-[-80px]" style={{animationDelay:"0s"}} />
-          <div className="booking-blob w-[380px] h-[380px] bg-purple-200 bottom-[-60px] right-[-60px]" style={{animationDelay:"-7s"}} />
-          <div className="booking-blob w-[300px] h-[300px] bg-cyan-200 top-1/2 right-1/4" style={{animationDelay:"-13s"}} />
-          {/* Sticky header */}
-          <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 booking-glass-header relative z-10">
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-              <ClipboardCheck className="h-5 w-5 text-indigo-500" />
-              {isEditing ? "Edit Booking" : "Booking Details"}
-              {selectedBooking?.bookingCode && (
-                <span className="text-sm font-normal text-slate-400 ml-1">— {selectedBooking.bookingCode}</span>
-              )}
-            </DialogTitle>
-            {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                onClick={() => startEditing(selectedBooking)}
-                data-testid="button-edit-booking"
+        <DialogContent className="!fixed bkd-page">
+          {/* ── Top Header Bar ── */}
+          <div className="bkd-topbar flex items-center justify-between px-5 py-3 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
+                data-testid="btn-back-dialog"
               >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-2.5">
+                <DialogTitle className="text-white font-semibold text-base leading-none">
+                  {isEditing ? "Edit Booking" : (selectedBooking?.customerName || "Booking Details")}
+                </DialogTitle>
+                {selectedBooking?.bookingCode && (
+                  <span className="text-white/35 font-mono text-xs">{selectedBooking.bookingCode}</span>
+                )}
+                {selectedBooking && !isEditing && (
+                  <span className="ml-1">{getStatusBadge(selectedBooking.status)}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
+                <Button variant="outline" size="sm" className="gap-1.5 border-white/20 bg-white/6 hover:bg-white/12 text-white/80 text-xs"
+                  onClick={() => startEditing(selectedBooking)} data-testid="button-edit-booking">
+                  <Pencil className="h-3.5 w-3.5" /> Edit Details
+                </Button>
+              )}
+              <Button size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs border-0"
+                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
+                data-testid="btn-close-dialog">
+                <X className="h-3.5 w-3.5" /> Close
               </Button>
-            )}
+            </div>
           </div>
-          {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto relative z-10">
-          {selectedBooking && !isEditing && (
-            <div className="px-8 py-7 max-w-3xl mx-auto space-y-5">
-              {/* Profile row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+
+          {/* ── Body: Sidebar + Content ── */}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* ── Left Sidebar ── */}
+            <div className="bkd-sidebar w-52 flex-shrink-0 flex flex-col overflow-y-auto">
+              <div className="px-3 pt-5 pb-2">
+                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest px-2 mb-2">Sections</p>
+                {([
+                  { label: "Resident Info",    icon: User,       anchor: "sec-resident"     },
+                  { label: "Room & Stay",       icon: BedDouble,  anchor: "sec-room"         },
+                  { label: "Financial",         icon: CreditCard, anchor: "sec-financial"    },
+                  { label: "Emergency Contact", icon: Phone,      anchor: "sec-contact"      },
+                  { label: "Installments",      icon: Banknote,   anchor: "sec-installments" },
+                  { label: "Included Services", icon: Package,    anchor: "sec-services"     },
+                  { label: "Packages",          icon: Sparkles,   anchor: "sec-packages"     },
+                ] as { label: string; icon: any; anchor: string }[]).map(({ label, icon: Icon, anchor }) => (
+                  <button key={anchor}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/7 transition-colors text-left mb-0.5"
+                    onClick={() => { const el = document.getElementById(anchor); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+              {(isAdmin || isReceptionist || isSalesExec) && selectedBooking && !isEditing && (
+                <div className="mt-auto px-3 pb-5 pt-3 border-t border-white/8 space-y-1.5">
+                  <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest px-2 mb-2">Actions</p>
                   {(() => {
-                    const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
-                    const avatarContent = photoSrc ? (
-                      <>
-                        <img
-                          src={photoSrc}
-                          alt={selectedBooking.customerName || ""}
-                          className="w-16 h-16 rounded-full object-cover shadow"
-                          data-testid="img-booking-avatar"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            img.style.display = "none";
-                            const fallback = img.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.classList.remove("hidden");
-                          }}
-                        />
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl hidden">
+                    const _pmts = selectedBooking.payments || [];
+                    const _hasUnpaid = (selectedBooking.installments || []).some((inst: any) => {
+                      if (inst.paid) return false;
+                      const paid = _pmts.filter((p: any) => p.installmentId === inst.id && p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+                      return paid < (inst.amount || 0);
+                    });
+                    const showPayBtn = ["pending_payment","draft","confirmed","active"].includes(selectedBooking.status) || _hasUnpaid;
+                    return showPayBtn && !["cancelled","completed"].includes(selectedBooking.status) ? (
+                      <button className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                        onClick={() => openPaymentDialog(selectedBooking)} data-testid="button-mark-payment">
+                        <Banknote className="h-3.5 w-3.5 shrink-0" /> Mark Payment Done
+                      </button>
+                    ) : null;
+                  })()}
+                  <button className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-500/12 text-red-400 hover:bg-red-500/22 transition-colors"
+                    onClick={() => setDeleteBooking(selectedBooking)} data-testid="button-delete-booking">
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete Booking
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Main Scrollable Content ── */}
+            <div className="flex-1 overflow-y-auto bkd-content-bg">
+          {selectedBooking && !isEditing && (
+            <div className="p-5 grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
+
+              {/* ═══════════ LEFT COLUMN ═══════════ */}
+              <div className="space-y-4">
+
+                {/* ─── RESIDENT INFORMATION ─── */}
+                <div id="sec-resident" className="bkd-card">
+                  <div className="bkd-sec-hdr">
+                    <User className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="bkd-sec-label text-indigo-600">Resident Information</span>
+                  </div>
+                  <div className="px-4 py-4 flex items-center gap-4 border-b border-slate-100">
+                    {(() => {
+                      const photoSrc = getBookingPhotoUrl(selectedBooking.residentDetails);
+                      const avatarEl = photoSrc ? (
+                        <>
+                          <img src={photoSrc} alt={selectedBooking.customerName || ""}
+                            className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-100"
+                            data-testid="img-booking-avatar"
+                            onError={(e) => { const img = e.currentTarget; img.style.display = "none"; const fb = img.nextElementSibling as HTMLElement | null; if (fb) fb.classList.remove("hidden"); }}
+                          />
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl hidden">
+                            {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
                           {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
                         </div>
-                      </>
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl">
-                        {selectedBooking.customerName?.charAt(0)?.toUpperCase() || "?"}
-                      </div>
-                    );
-                    return (
-                      <label className="relative group cursor-pointer" data-testid="btn-upload-profile-photo">
-                        {avatarContent}
-                        <div className="absolute inset-0 w-16 h-16 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          {profilePhotoUploading ? (
-                            <Loader2 className="h-4 w-4 text-white animate-spin" />
-                          ) : (
-                            <Camera className="h-4 w-4 text-white" />
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={profilePhotoUploading}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadProfilePhoto(file);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                    );
-                  })()}
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
-                    {selectedBooking.bookingCode && (
-                      <p className="text-xs font-mono text-slate-400 mt-0.5">{selectedBooking.bookingCode}</p>
-                    )}
-                  </div>
-                </div>
-                {getStatusBadge(selectedBooking.status)}
-              </div>
-
-              {/* Info grid — 2×2 glass cells */}
-              <div className="grid grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-white/60 shadow-sm">
-                <div className="p-4 border-b border-r border-white/50 booking-glass-cell">
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Property</p>
-                  <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                    {selectedBooking.propertyName}
-                  </p>
-                </div>
-                <div className="p-4 border-b border-white/50 booking-glass-cell">
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Room Type</p>
-                  <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                    <BedDouble className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                    {selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}
-                  </p>
-                </div>
-                <div className="p-4 border-r border-white/50 booking-glass-cell">
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Phone</p>
-                  <p className="text-sm text-slate-700 flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
-                    {selectedBooking.customerPhone || "—"}
-                  </p>
-                </div>
-                <div className="p-4 booking-glass-cell">
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Email</p>
-                  <p className="text-sm text-slate-700 flex items-center gap-1.5 truncate">
-                    <Mail className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
-                    {selectedBooking.customerEmail || "—"}
-                  </p>
-                </div>
-              </div>
-
-              {(selectedBooking.stayPlanType || selectedBooking.durationMonths || selectedBooking.checkInDate || selectedBooking.checkOutDate || selectedBooking.deposit) && (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(52,211,153,0.35)"}}>
-                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(52,211,153,0.25)",background:"rgba(209,250,229,0.35)"}}>
-                    <Calendar className="h-3.5 w-3.5 text-emerald-600" />
-                    <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Stay Plan Details</h4>
-                  </div>
-                  <div className="px-4 py-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    {selectedBooking.stayPlanType && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Stay Plan</p>
-                        <p className="font-semibold text-slate-800">
-                          {selectedBooking.stayPlanType === "academic_year" ? "Academic Year" : selectedBooking.stayPlanType === "monthly" ? "Monthly" : selectedBooking.stayPlanType}
-                        </p>
-                      </div>
-                    )}
-                    {selectedBooking.durationMonths && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Duration</p>
-                        <p className="font-semibold text-slate-800">{selectedBooking.durationMonths} months</p>
-                      </div>
-                    )}
-                    {selectedBooking.academicYearPeriod && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Period</p>
-                        <p className="font-semibold text-slate-800">{selectedBooking.academicYearPeriod}</p>
-                      </div>
-                    )}
-                    {selectedBooking.checkInDate && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Check-in</p>
-                        <p className="font-semibold text-slate-800">{format(new Date(selectedBooking.checkInDate), "dd MMM yyyy")}</p>
-                      </div>
-                    )}
-                    {selectedBooking.checkOutDate && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Check-out</p>
-                        <p className="font-semibold text-slate-800">{format(new Date(selectedBooking.checkOutDate), "dd MMM yyyy")}</p>
-                      </div>
-                    )}
-                    {selectedBooking.deposit ? (
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Deposit</p>
-                        <p className="font-semibold text-slate-800">₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-
-              {(() => {
-                const housingPlan = bookingPackages?.bookingPackages?.find((bp: any) => bp.package?.category === "housing_plan" && bp.status === "ACTIVE");
-                if (!housingPlan) return null;
-                const pkg = housingPlan.package;
-                const tier = pkg?.tierLevel ?? 0;
-                const planColors = tier >= 2
-                  ? { bg: "from-amber-50 via-yellow-50 to-orange-50", border: "border-amber-200", accent: "text-amber-700", badge: "bg-gradient-to-r from-amber-500 to-yellow-500 text-white", icon: "text-amber-500", glow: "shadow-amber-100" }
-                  : tier >= 1
-                  ? { bg: "from-slate-50 via-gray-50 to-slate-100", border: "border-slate-300", accent: "text-slate-700", badge: "bg-gradient-to-r from-slate-500 to-gray-500 text-white", icon: "text-slate-500", glow: "shadow-slate-100" }
-                  : { bg: "from-violet-50 via-purple-50 to-indigo-50", border: "border-violet-200", accent: "text-violet-700", badge: "bg-gradient-to-r from-violet-500 to-purple-500 text-white", icon: "text-violet-500", glow: "shadow-violet-100" };
-                const tierLabel = tier >= 2 ? "PREMIUM" : tier >= 1 ? "CLASSIC" : "ESSENTIAL";
-                return (
-                  <div className={`p-4 bg-gradient-to-br ${planColors.bg} rounded-xl border ${planColors.border} ${planColors.glow} shadow-sm`} data-testid="booking-plan-card">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className={`text-xs font-semibold ${planColors.accent} uppercase flex items-center gap-1.5`}>
-                        <Sparkles className="h-3.5 w-3.5" /> Housing Plan
-                      </h4>
-                      <Badge className={`${planColors.badge} text-[10px] px-2 py-0.5 border-0 font-bold`}>{tierLabel}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-10 h-10 rounded-xl ${planColors.badge} flex items-center justify-center`}>
-                        <Star className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className={`font-bold text-base ${planColors.accent}`}>{pkg?.name || "Housing Plan"}</p>
-                        {pkg?.tagline && <p className="text-[11px] text-slate-500">{pkg.tagline}</p>}
-                      </div>
-                      {(housingPlan.priceSnapshot?.totalPrice > 0 || pkg?.basePrice > 0) && (
-                        <div className="ml-auto text-right">
-                          <p className={`font-bold text-lg ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot?.totalPrice || pkg?.basePrice || 0).toLocaleString("en-IN")}</p>
-                          <p className="text-[10px] text-slate-400">{housingPlan.priceSnapshot?.totalPrice ? "total" : (pkg?.priceType === "PER_MONTH" ? "/mo" : "/year")}</p>
-                        </div>
-                      )}
-                    </div>
-                    {pkg?.items && pkg.items.length > 0 && (
-                      <div className="grid grid-cols-2 gap-1.5 mt-2">
-                        {pkg.items.map((item: any) => (
-                          <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-600 bg-white/60 rounded-lg px-2 py-1.5">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                            <span className="truncate">{item.label || item.name}</span>
-                            {item.featureValue && <span className="ml-auto text-[10px] text-slate-400 shrink-0">{item.featureValue}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {(() => {
-                const baseTotal = Number(selectedBooking.totalFee || 0);
-                const activeAddons = (bookingPackages?.bookingPackages || []).filter(
-                  (bp: any) => bp.status === "ACTIVE" && bp.package?.category === "addon_service",
-                );
-                const includedAddonTotal = activeAddons.reduce((s: number, bp: any) => {
-                  if (bp.includeInTotal === false) return s;
-                  const { effective } = getBookingPackagePrice(bp);
-                  return s + (effective > 0 ? effective : 0);
-                }, 0);
-                const excludedAddonTotal = activeAddons.reduce((s: number, bp: any) => {
-                  if (bp.includeInTotal !== false) return s;
-                  const { effective } = getBookingPackagePrice(bp);
-                  return s + (effective > 0 ? effective : 0);
-                }, 0);
-                const grand = baseTotal + includedAddonTotal;
-                const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
-                return (
-                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="payment-summary-widget" style={{borderColor:"rgba(99,102,241,0.30)"}}>
-                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(99,102,241,0.20)",background:"rgba(224,231,255,0.38)"}}>
-                      <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
-                      <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Payment Summary</h4>
-                    </div>
-                    <div className="px-4 py-4">
-                    <div className="grid grid-cols-3 gap-3 mb-0">
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Base Fee</p>
-                        <p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Discount</p>
-                        <p className="text-sm font-bold text-green-600">
-                          {selectedBooking.discount ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Total</p>
-                        <p className="text-sm font-bold text-slate-800">₹{baseTotal.toLocaleString("en-IN")}</p>
-                      </div>
-                    </div>
-                    {(selectedBooking.deposit ?? 0) > 0 && (() => {
-                      const dtMap: Record<string, { label: string; color: string; bg: string }> = {
-                        cash:           { label: "Cash",                  color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
-                        upi:            { label: "UPI",                   color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
-                        online:         { label: "Online Transfer",        color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
-                        bank_transfer:  { label: "Bank Transfer",          color: "text-blue-700",    bg: "bg-blue-50 border-blue-200" },
-                        cheque:         { label: "Cheque",                 color: "text-amber-700",   bg: "bg-amber-50 border-amber-200" },
-                        card:           { label: "Card",                   color: "text-purple-700",  bg: "bg-purple-50 border-purple-200" },
-                        paid_last_year: { label: "Paid Last Year (Carried Forward)", color: "text-violet-700", bg: "bg-violet-50 border-violet-200" },
-                        waived:         { label: "Waived",                 color: "text-slate-500",   bg: "bg-slate-50 border-slate-200" },
-                        other:          { label: "Other",                  color: "text-slate-600",   bg: "bg-slate-50 border-slate-200" },
-                      };
-                      const sdPending = !selectedBooking.depositType;
-                      const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
+                      );
                       return (
-                        <div className={`mt-3 pt-3 border-t border-indigo-200 flex items-center justify-between gap-2`} data-testid="booking-sd-row">
-                          <div>
-                            <p className="text-xs text-slate-500 mb-0.5">Security Deposit</p>
-                            {sdPending ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-orange-50 border-orange-200 text-orange-600">
-                                <Shield className="h-3 w-3" />
-                                Pending
-                              </span>
-                            ) : selectedBooking.depositRefunded ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-teal-50 border-teal-200 text-teal-700" data-testid="badge-sd-refunded">
-                                <RotateCcw className="h-3 w-3" />
-                                Refunded
-                              </span>
-                            ) : (
-                              <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}>
-                                <Shield className="h-3 w-3" />
-                                {dt!.label}
-                              </span>
-                            )}
+                        <label className="relative group cursor-pointer shrink-0" data-testid="btn-upload-profile-photo">
+                          {avatarEl}
+                          <div className="absolute inset-0 w-14 h-14 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            {profilePhotoUploading ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Camera className="h-4 w-4 text-white" />}
                           </div>
-                          <div className="text-right flex flex-col items-end gap-1">
-                            <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">
-                              ₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}
-                            </p>
-                            {selectedBooking.depositTransactionId && (
-                              <span className="text-[10px] text-slate-500 font-mono" data-testid="text-sd-transaction-id">
-                                UTR: {selectedBooking.depositTransactionId}
-                              </span>
-                            )}
-                            {selectedBooking.depositRefunded && selectedBooking.depositRefundAmount != null && (
-                              <p className="text-[11px] text-teal-600 font-medium" data-testid="text-sd-refund-amount">
-                                Refunded ₹{Number(selectedBooking.depositRefundAmount).toLocaleString("en-IN")}
-                                {selectedBooking.depositRefundedAt ? ` on ${format(new Date(selectedBooking.depositRefundedAt), "dd MMM yyyy")}` : ""}
-                              </p>
-                            )}
-                            {selectedBooking.depositProofPath && (() => {
-                              let proofUrls: string[] = [];
-                              try {
-                                const parsed = JSON.parse(selectedBooking.depositProofPath);
-                                proofUrls = Array.isArray(parsed) ? parsed : [selectedBooking.depositProofPath];
-                              } catch {
-                                proofUrls = [selectedBooking.depositProofPath];
-                              }
-                              return proofUrls.map((url, idx) => (
-                                <a
-                                  key={idx}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] text-indigo-500 underline hover:text-indigo-700"
-                                  data-testid={`link-sd-proof-${idx}`}
-                                >
-                                  {proofUrls.length > 1 ? `View proof ${idx + 1}` : "View proof"}
-                                </a>
-                              ));
-                            })()}
-                            {sdPending && (isAdmin || isReceptionist) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[11px] px-2 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
-                                onClick={() => openPaymentDialog(selectedBooking, undefined, undefined, true)}
-                                data-testid="button-mark-sd-paid"
-                              >
-                                <CreditCard className="h-3 w-3" />
-                                Mark as Paid
-                              </Button>
-                            )}
-                            {!sdPending && !selectedBooking.depositRefunded && isAdmin && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[11px] px-2 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50"
-                                onClick={() => {
-                                  setSdRefundForm({ refundDate: new Date().toISOString().slice(0, 10), refundAmount: selectedBooking.deposit ?? 0, refundMethod: "cash", refundNotes: "" });
-                                  setSdRefundDialog(true);
-                                }}
-                                data-testid="button-record-sd-refund"
-                              >
-                                <RotateCcw className="h-3 w-3" />
-                                Record Refund
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                          <input type="file" accept="image/*" className="hidden" disabled={profilePhotoUploading}
+                            onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadProfilePhoto(file); e.target.value = ""; }} />
+                        </label>
                       );
                     })()}
-                    {hasAddonInfo && (
-                      <div className="mt-3 pt-3 border-t border-indigo-200 space-y-1.5">
-                        {includedAddonTotal > 0 && (
-                          <div className="flex items-center justify-between text-[11px] text-slate-600">
-                            <span>+ Add-ons (included)</span>
-                            <span className="font-medium text-indigo-700" data-testid="text-payment-addons-included">
-                              ₹{includedAddonTotal.toLocaleString("en-IN")}
-                            </span>
-                          </div>
-                        )}
-                        {excludedAddonTotal > 0 && (
-                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span>Add-ons (excluded)</span>
-                            <span className="line-through" data-testid="text-payment-addons-excluded">
-                              ₹{excludedAddonTotal.toLocaleString("en-IN")}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between pt-1.5 border-t border-indigo-100">
-                          <span className="text-xs font-semibold text-slate-700">Grand Total</span>
-                          <span className="text-lg font-bold text-indigo-700" data-testid="text-payment-grand-total">
-                            ₹{grand.toLocaleString("en-IN")}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  </div>
-                );
-              })()}
-
-              {/* Mark SD — only when deposit amount is 0 (not yet set at booking time) */}
-              {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
-                <div
-                  className="rounded-2xl overflow-hidden"
-                  style={{
-                    background: "rgba(255,255,255,0.55)",
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    border: "1px solid rgba(255,255,255,0.7)",
-                    boxShadow: "0 8px 32px rgba(99,102,241,0.10), 0 1.5px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)",
-                  }}
-                  data-testid="mark-sd-panel"
-                >
-                  {/* Glass header */}
-                  <div
-                    className="flex items-center justify-between px-5 py-3"
-                    style={{
-                      background: "rgba(238,240,255,0.60)",
-                      borderBottom: "1px solid rgba(99,102,241,0.12)",
-                    }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{
-                          background: "rgba(99,102,241,0.15)",
-                          border: "1px solid rgba(99,102,241,0.25)",
-                          backdropFilter: "blur(8px)",
-                        }}
-                      >
-                        <Shield className="h-3.5 w-3.5 text-indigo-600" />
-                      </div>
-                      <span className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Security Deposit</span>
-                    </div>
-                    <span
-                      className="text-[10px] font-semibold text-orange-600 rounded-full px-2.5 py-0.5"
-                      style={{
-                        background: "rgba(251,146,60,0.12)",
-                        border: "1px solid rgba(251,146,60,0.30)",
-                      }}
-                    >
-                      Pending
-                    </span>
-                  </div>
-
-                  <div className="px-5 py-4 space-y-4">
-                    {/* Payment Mode */}
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Payment Mode</p>
-                      <div className="flex flex-wrap gap-2">
-                        {([
-                          { value: "cash",           label: "Cash",         Icon: Banknote },
-                          { value: "online",         label: "Online",       Icon: CreditCard },
-                          { value: "cheque",         label: "Cheque",       Icon: FileText },
-                          { value: "paid_last_year", label: "Carried Fwd", Icon: RotateCcw },
-                          { value: "waived",         label: "Waived",       Icon: CheckCircle2 },
-                        ] as const).map(({ value, label, Icon }) => {
-                          const active = sdForm.depositType === value;
+                      <h3 className="font-bold text-slate-900 text-base leading-tight" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
+                      {selectedBooking.bookingCode && <p className="text-xs font-mono text-slate-400 mt-0.5">{selectedBooking.bookingCode}</p>}
+                    </div>
+                  </div>
+                  <div className="px-4 py-4 grid grid-cols-2 gap-x-8 gap-y-3.5">
+                    <div><span className="bkd-field-label">Property</span><p className="bkd-field-value flex items-center gap-1"><Building2 className="h-3 w-3 text-indigo-400 shrink-0" />{selectedBooking.propertyName}</p></div>
+                    <div><span className="bkd-field-label">Room Type</span><p className="bkd-field-value">{selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}</p></div>
+                    <div><span className="bkd-field-label">Phone</span><p className="bkd-field-value">{selectedBooking.customerPhone || "—"}</p></div>
+                    <div><span className="bkd-field-label">Email</span><p className="bkd-field-value text-[12px] truncate">{selectedBooking.customerEmail || "—"}</p></div>
+                    {selectedBooking.residentDetails?.gender && (<div><span className="bkd-field-label">Gender</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.gender}</p></div>)}
+                    {selectedBooking.residentDetails?.dob && (<div><span className="bkd-field-label">Date of Birth</span><p className="bkd-field-value">{selectedBooking.residentDetails.dob}</p></div>)}
+                    {selectedBooking.residentDetails?.roomNo && (<div><span className="bkd-field-label">Room No.</span><p className="bkd-field-value">{selectedBooking.residentDetails.roomNo}</p></div>)}
+                    {selectedBooking.residentDetails?.bedNo && (<div><span className="bkd-field-label">Bed No.</span><p className="bkd-field-value">{selectedBooking.residentDetails.bedNo}</p></div>)}
+                    {selectedBooking.residentDetails?.institute && (<div><span className="bkd-field-label">Institute</span><p className="bkd-field-value">{selectedBooking.residentDetails.institute}</p></div>)}
+                    {selectedBooking.residentDetails?.course && (<div><span className="bkd-field-label">Course</span><p className="bkd-field-value">{selectedBooking.residentDetails.course}</p></div>)}
+                    {selectedBooking.residentDetails?.dietaryPreference && (<div><span className="bkd-field-label">Diet</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.dietaryPreference}</p></div>)}
+                    {selectedBooking.residentDetails?.checkOutDate && (<div><span className="bkd-field-label">Resident Check-out</span><p className="bkd-field-value">{selectedBooking.residentDetails.checkOutDate}</p></div>)}
+                  </div>
+                  {(isAdmin || isReceptionist) && (
+                    <div className="px-4 pb-3">
+                      <BedShiftSelector booking={selectedBooking} onShifted={(updated) => { setSelectedBooking({ ...selectedBooking, ...updated }); queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] }); }} />
+                    </div>
+                  )}
+                  <div className="px-4 pb-4 grid grid-cols-2 gap-x-8 gap-y-3.5">
+                    <EditableMoveInDate bookingId={selectedBooking.id} currentValue={selectedBooking.residentDetails?.moveInDate} onUpdated={() => { queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] }); }} />
+                  </div>
+                  <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                    <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{selectedBooking.createdAt ? format(new Date(selectedBooking.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</span>
+                    <div className="flex items-center gap-3">
+                      {!isSalesExec && selectedBooking.salesExecName && (<span className="flex items-center gap-1"><User className="h-3 w-3" />{selectedBooking.salesExecName}</span>)}
+                      {isAdmin && selectedBooking.createdByName && (<span className="flex items-center gap-1 text-indigo-500 font-medium" data-testid="text-detail-booked-by"><ClipboardCheck className="h-3 w-3" />Booked by {selectedBooking.createdByName}</span>)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── ROOM & STAY DETAILS ─── */}
+                {(selectedBooking.stayPlanType || selectedBooking.durationMonths || selectedBooking.checkInDate || selectedBooking.checkOutDate) && (
+                  <div id="sec-room" className="bkd-card">
+                    <div className="bkd-sec-hdr">
+                      <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="bkd-sec-label text-emerald-600">Room & Stay Details</span>
+                    </div>
+                    <div className="px-4 py-4">
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="bkd-stat"><span className="bkd-field-label">Status</span><div className="mt-1 scale-90 origin-left">{getStatusBadge(selectedBooking.status)}</div></div>
+                        <div className="bkd-stat"><span className="bkd-field-label">Room Type</span><p className="text-[12px] font-semibold text-slate-800 mt-0.5 leading-tight">{selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}</p></div>
+                        <div className="bkd-stat"><span className="bkd-field-label">Duration</span><p className="text-sm font-semibold text-slate-800 mt-0.5">{selectedBooking.durationMonths ? `${selectedBooking.durationMonths}m` : "N/A"}</p></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-3.5">
+                        {selectedBooking.stayPlanType && (<div><span className="bkd-field-label">Stay Plan</span><p className="bkd-field-value">{selectedBooking.stayPlanType === "academic_year" ? "Academic Year" : selectedBooking.stayPlanType === "monthly" ? "Monthly" : selectedBooking.stayPlanType}</p></div>)}
+                        {selectedBooking.academicYearPeriod && (<div><span className="bkd-field-label">Period</span><p className="bkd-field-value">{selectedBooking.academicYearPeriod}</p></div>)}
+                        {selectedBooking.checkInDate && (<div><span className="bkd-field-label">Check-in</span><p className="bkd-field-value">{format(new Date(selectedBooking.checkInDate), "dd MMM yyyy")}</p></div>)}
+                        {selectedBooking.checkOutDate && (<div><span className="bkd-field-label">Check-out</span><p className="bkd-field-value">{format(new Date(selectedBooking.checkOutDate), "dd MMM yyyy")}</p></div>)}
+                        {selectedBooking.referrer && (<div><span className="bkd-field-label">Referral</span><p className="bkd-field-value text-indigo-600">{selectedBooking.referrer}</p></div>)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── INCLUDED SERVICES ─── */}
+                {(() => {
+                  const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];
+                  if (includedServices.length === 0) return null;
+                  const SVC_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
+                  const MEAL_LBL: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+                  const allActivePkgs = bookingPackages?.bookingPackages?.filter((bp: any) => bp.status === "ACTIVE") || [];
+                  const activePkg = allActivePkgs.find((bp: any) => bp.package?.category === "housing_plan");
+                  return (
+                    <div id="sec-services" className="bkd-card" data-testid="included-services-section">
+                      <div className="bkd-sec-hdr"><Package className="h-3.5 w-3.5 text-teal-500" /><span className="bkd-sec-label text-teal-600">Included Services</span></div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        {includedServices.map((svc: any, idx: number) => {
+                          const Icon = SVC_ICONS[svc.type] || Tag;
+                          const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
+                          let pkgSvcFeature = pkgSvcItem?.featureValue;
+                          let pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
+                          const addonPkgs = allActivePkgs.filter((bp: any) => bp.package?.category === "addon_service");
+                          for (const addonBp of addonPkgs) { const ai = addonBp.package?.items?.find((i: any) => i.type === svc.type); if (ai) { if (svc.type === "meals") { const ac = ai.includedQty || 0; if (ac > pkgMealCount) { pkgMealCount = ac; pkgSvcFeature = ai.featureValue || pkgSvcFeature; } } else { pkgSvcFeature = ai.featureValue || pkgSvcFeature; } } }
                           return (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => setSdForm(prev => ({ ...prev, depositType: value }))}
-                              style={active ? {
-                                background: "rgba(99,102,241,0.88)",
-                                border: "1px solid rgba(99,102,241,0.6)",
-                                boxShadow: "0 2px 12px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",
-                                backdropFilter: "blur(8px)",
-                              } : {
-                                background: "rgba(255,255,255,0.55)",
-                                border: "1px solid rgba(203,213,225,0.70)",
-                                backdropFilter: "blur(8px)",
-                              }}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                active ? "text-white" : "text-slate-600 hover:text-indigo-600"
-                              }`}
-                              data-testid={`btn-sd-type-${value}`}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                              {label}
-                            </button>
+                            <div key={idx} className="rounded-xl p-2.5 bg-slate-50 border border-slate-100" data-testid={`included-svc-${idx}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-teal-100"><Icon className="h-3.5 w-3.5 text-teal-600" /></div>
+                                <span className="font-semibold text-xs text-slate-800">{svc.label}</span>
+                                {pkgSvcFeature && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">{pkgSvcFeature}</span>}
+                              </div>
+                              {svc.type !== "meals" && !pkgSvcFeature && svc.description && <p className="text-[10px] text-slate-500 ml-8">{svc.description}</p>}
+                              {svc.type === "meals" && svc.schedule && (() => {
+                                const ALL_M = ["breakfast","lunch","evening_snacks","dinner"];
+                                const gm = (dr: any, tc: number) => { if (!dr) return { count: tc||0, names: [] as string[] }; if (typeof dr==="number") return { count: Math.max(dr,tc), names: [] as string[] }; let m = Array.isArray(dr.meals)?[...dr.meals]:[]; const bc=dr.count??m.length; if(tc>0&&tc>bc){const miss=ALL_M.filter(x=>!m.includes(x));const add=miss.slice(0,tc-bc);m=[...m,...add];m.sort((a,b)=>ALL_M.indexOf(a)-ALL_M.indexOf(b));} return{count:Math.max(bc,tc>0?tc:bc),names:m.map((x:string)=>MEAL_LBL[x]||x)}; };
+                                const wd=gm(svc.schedule.weekday,pkgMealCount); const sat=gm(svc.schedule.saturday,pkgMealCount); const sun=gm(svc.schedule.sunday,pkgMealCount);
+                                return (<div className="ml-8 space-y-0.5">
+                                  <div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span><span className="text-slate-700">{wd.count} meals{wd.names.length>0?` — ${wd.names.join(", ")}`:""}</span></div>
+                                  {(sat.count!==wd.count||sat.names.join(",")!==wd.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sat</span><span className="text-slate-700">{sat.count} meals{sat.names.length>0?` — ${sat.names.join(", ")}`:""}</span></div>)}
+                                  {(sun.count!==wd.count||sun.names.join(",")!==wd.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sun</span><span className="text-slate-700">{sun.count} meals{sun.names.length>0?` — ${sun.names.join(", ")}`:""}</span></div>)}
+                                </div>);
+                              })()}
+                            </div>
                           );
                         })}
                       </div>
                     </div>
+                  );
+                })()}
 
-                    {/* Amount + Proof */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Deposit Amount</p>
-                        <div
-                          className={`flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all ${sdForm.depositType === "waived" ? "opacity-40 pointer-events-none" : ""}`}
-                          style={{
-                            background: "rgba(255,255,255,0.65)",
-                            border: "1px solid rgba(203,213,225,0.60)",
-                            backdropFilter: "blur(8px)",
-                            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-                          }}
-                        >
-                          <IndianRupee className="h-4 w-4 text-indigo-400 shrink-0" />
-                          <input
-                            type="number"
-                            min={0}
-                            placeholder="0"
-                            value={sdForm.deposit || ""}
-                            onChange={(e) => setSdForm(prev => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                            className="flex-1 text-sm font-bold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full"
-                            data-testid="input-sd-amount"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
-                          Proof <span className="font-normal normal-case text-slate-300">(optional)</span>
-                        </p>
-                        {sdForm.depositProofPath ? (
-                          <div
-                            className="flex items-center justify-between rounded-xl px-3 py-2.5 h-[42px]"
-                            style={{
-                              background: "rgba(209,250,229,0.55)",
-                              border: "1px solid rgba(52,211,153,0.35)",
-                              backdropFilter: "blur(8px)",
-                            }}
-                          >
-                            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Proof uploaded
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setSdForm(prev => ({ ...prev, depositProofPath: "" }))}
-                              className="text-[11px] text-slate-400 hover:text-red-500 transition-colors"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="cursor-pointer block">
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdProof(f); }}
-                              data-testid="input-sd-proof"
-                            />
-                            <div
-                              className="flex items-center justify-center gap-2 rounded-xl h-[42px] transition-all group hover:scale-[1.01]"
-                              style={{
-                                background: "rgba(255,255,255,0.40)",
-                                border: "1.5px dashed rgba(148,163,184,0.55)",
-                                backdropFilter: "blur(8px)",
-                              }}
-                            >
-                              {sdProofUploading ? (
-                                <Loader2 className="h-4 w-4 text-indigo-400 animate-spin" />
-                              ) : (
-                                <>
-                                  <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                  <span className="text-xs text-slate-500 group-hover:text-indigo-600 font-medium transition-colors">Upload file</span>
-                                </>
-                              )}
-                            </div>
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* CTA */}
-                    <button
-                      onClick={saveSdDetails}
-                      disabled={markingSd || (sdForm.depositType !== "waived" && sdForm.deposit <= 0)}
-                      className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
-                      style={{
-                        background: "linear-gradient(135deg, rgba(99,102,241,0.95) 0%, rgba(79,70,229,0.98) 100%)",
-                        boxShadow: "0 4px 20px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.20)",
-                        border: "1px solid rgba(99,102,241,0.50)",
-                        backdropFilter: "blur(8px)",
-                      }}
-                      data-testid="btn-save-sd"
-                    >
-                      {markingSd ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-                      ) : (
-                        <><Shield className="h-4 w-4" /> Mark Security Deposit as Received</>
-                      )}
+                {/* ─── PACKAGES & SERVICES ─── */}
+                {(isAdmin || isReceptionist) && (
+                  <div id="sec-packages" className="bkd-card">
+                    <button className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 border-b border-slate-100 transition-colors"
+                      onClick={() => { if (!showPackages) { fetchBookingPackages(selectedBooking.id); fetchAllPackages(); fetchUpgradeHistory(selectedBooking.id); } setShowPackages(!showPackages); }}
+                      data-testid="toggle-booking-packages">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-slate-700"><Package className="h-4 w-4 text-indigo-500" /> Packages & Services</span>
+                      {showPackages ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Footer row — date + booked by */}
-              <div className="flex items-center justify-between text-xs text-slate-400 py-1">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {selectedBooking.createdAt ? format(new Date(selectedBooking.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}
-                </span>
-                <div className="flex items-center gap-4">
-                  {!isSalesExec && selectedBooking.salesExecName && (
-                    <span className="flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" />
-                      {selectedBooking.salesExecName}
-                    </span>
-                  )}
-                  {isAdmin && selectedBooking.createdByName && (
-                    <span className="flex items-center gap-1.5 text-indigo-500 font-medium" data-testid="text-detail-booked-by">
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                      Booked by {selectedBooking.createdByName}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {selectedBooking.referrer && (
-                <div className="booking-glass-card p-3 rounded-xl flex items-center gap-2" data-testid="referral-info" style={{borderColor:"rgba(99,102,241,0.25)"}}>
-                  <Share2 className="h-4 w-4 text-indigo-500 shrink-0" />
-                  <span className="text-sm font-medium text-indigo-700">Referral:</span>
-                  <span className="text-sm text-slate-700">{selectedBooking.referrer}</span>
-                </div>
-              )}
-
-              {selectedBooking.residentDetails && (selectedBooking.residentDetails.name || selectedBooking.residentDetails.phone || selectedBooking.residentDetails.email) && (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(236,72,153,0.28)"}}>
-                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(236,72,153,0.20)",background:"rgba(252,231,243,0.38)"}}>
-                    <User className="h-3.5 w-3.5 text-pink-500" />
-                    <h4 className="text-xs font-bold text-pink-600 uppercase tracking-widest">Resident Details</h4>
-                  </div>
-                  <div className="px-4 py-4">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <AdminDetailRow label="Name" value={selectedBooking.residentDetails.name} />
-                    <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.phone} />
-                    <AdminDetailRow label="Email" value={selectedBooking.residentDetails.email} />
-                    <AdminDetailRow label="Gender" value={selectedBooking.residentDetails.gender} capitalize />
-                    <AdminDetailRow label="Date of Birth" value={selectedBooking.residentDetails.dob} />
-                    <AdminDetailRow label="Room No." value={selectedBooking.residentDetails.roomNo} />
-                    <AdminDetailRow label="Bed No." value={selectedBooking.residentDetails.bedNo} />
-                    {(isAdmin || isReceptionist) && (
-                      <div className="col-span-2">
-                        <BedShiftSelector
-                          booking={selectedBooking}
-                          onShifted={(updated) => {
-                            setSelectedBooking({ ...selectedBooking, ...updated });
-                            queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
-                          }}
-                        />
-                      </div>
-                    )}
-                    <EditableMoveInDate
-                      bookingId={selectedBooking.id}
-                      currentValue={selectedBooking.residentDetails.moveInDate}
-                      onUpdated={() => {
-                        queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
-                      }}
-                    />
-                    <AdminDetailRow label="Check-out" value={selectedBooking.residentDetails.checkOutDate} />
-                    <AdminDetailRow label="Accommodation" value={selectedBooking.residentDetails.accommodationType} capitalize />
-                    <AdminDetailRow label="Diet" value={selectedBooking.residentDetails.dietaryPreference} capitalize />
-                    <AdminDetailRow label="Institute" value={selectedBooking.residentDetails.institute} />
-                    <AdminDetailRow label="Course" value={selectedBooking.residentDetails.course} />
-                  </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedBooking.residentDetails && (selectedBooking.residentDetails.parentName || selectedBooking.residentDetails.parentPhone) && (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(59,130,246,0.28)"}}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b mb-0" style={{borderColor:"rgba(59,130,246,0.20)",background:"rgba(219,234,254,0.38)"}}>
-                    <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest">Emergency / Parent Contact</h4>
-                    {(isAdmin || isReceptionist) && selectedBooking.residentDetails.parentEmail && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-100"
-                        disabled={sendingParentEmail}
-                        data-testid="btn-send-parent-email"
-                        onClick={async () => {
-                          setSendingParentEmail(true);
-                          try {
-                            const token = getAuthToken();
-                            const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/send-parent-email`, {
-                              method: "POST",
-                              headers: { Authorization: `Bearer ${token}` },
-                            });
-                            const result = await resp.json();
-                            if (resp.ok) {
-                              toast({ title: "Email sent", description: result.message });
-                            } else {
-                              toast({ title: "Failed", description: result.error, variant: "destructive" });
-                            }
-                          } catch {
-                            toast({ title: "Error", description: "Failed to send email", variant: "destructive" });
-                          } finally {
-                            setSendingParentEmail(false);
-                          }
-                        }}
-                      >
-                        {sendingParentEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Send Parent Email
-                      </Button>
-                    )}
-                  </div>
-                  <div className="px-4 py-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <AdminDetailRow label="Name" value={selectedBooking.residentDetails.parentName} />
-                    <AdminDetailRow label="Relation" value={selectedBooking.residentDetails.parentRelation} capitalize />
-                    <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.parentPhone} />
-                    <AdminDetailRow label="Email" value={selectedBooking.residentDetails.parentEmail} />
-                  </div>
-                </div>
-              )}
-
-              {(selectedBooking.installments || []).length > 0 && (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(245,158,11,0.30)"}}>
-                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(245,158,11,0.20)",background:"rgba(254,243,199,0.40)"}}>
-                    <Banknote className="h-3.5 w-3.5 text-amber-600" />
-                    <h4 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Installments</h4>
-                  </div>
-                  <div className="px-4 py-3">
-                  <div className="space-y-3">
-                    {selectedBooking.installments.map((inst: any, idx: number) => {
-                      const instPayments = (selectedBooking.payments || []).filter((p: any) => p.installmentId === inst.id && p.status === "success");
-                      const totalPaid = instPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-                      const remaining = Math.max(0, (inst.amount || 0) - totalPaid);
-                      const isFullyPaid = inst.paid || totalPaid >= (inst.amount || 0);
-                      const isPartiallyPaid = totalPaid > 0 && !isFullyPaid;
-                      const canPay = !isFullyPaid && (isAdmin || isReceptionist || isSalesExec);
-
-                      return (
-                      <div
-                        key={inst.id || idx}
-                        className={`text-sm p-2.5 rounded-lg ${canPay ? "cursor-pointer hover:bg-amber-100/60 transition-colors" : ""} ${isFullyPaid ? "bg-emerald-50/50" : isPartiallyPaid ? "bg-blue-50/50" : ""}`}
-                        onClick={() => { if (canPay) openPaymentDialog(selectedBooking, { ...inst, _remaining: remaining }); }}
-                        data-testid={`installment-row-${idx}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-slate-700">{inst.name}</p>
-                            <p className="text-xs text-slate-500">{inst.dueDate || "N/A"}</p>
-                          </div>
-                          <div className="text-right flex items-center gap-2">
-                            <div>
-                              <p className="font-semibold text-slate-800">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
-                              <Badge variant="outline" className={`text-[10px] ${isFullyPaid ? "text-emerald-600 border-emerald-200" : isPartiallyPaid ? "text-blue-600 border-blue-200" : "text-amber-600 border-amber-200"}`}>
-                                {isFullyPaid ? "PAID" : isPartiallyPaid ? "PARTIAL" : "PENDING"}
-                              </Badge>
-                            </div>
-                            {canPay && (
-                              <Banknote className="w-4 h-4 text-amber-500" />
-                            )}
-                          </div>
-                        </div>
-
-                        {(isPartiallyPaid || isFullyPaid) && totalPaid > 0 && (
-                          <div className="mt-2">
-                            <div className="flex items-center justify-between text-[11px] mb-1">
-                              <span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>
-                              {!isFullyPaid && <span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}
-                            </div>
-                            <div className="w-full bg-slate-200 rounded-full h-1.5">
-                              <div
-                                className={`h-1.5 rounded-full transition-all ${isFullyPaid ? "bg-emerald-500" : "bg-blue-500"}`}
-                                style={{ width: `${Math.min(100, (totalPaid / (inst.amount || 1)) * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {instPayments.length > 0 && (
-                          <div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">
-                            {instPayments.map((p: any, pIdx: number) => {
-                              let screenshots: string[] = [];
-                              if (p.screenshotPath) {
-                                try { const parsed = JSON.parse(p.screenshotPath); screenshots = Array.isArray(parsed) ? parsed : [p.screenshotPath]; } catch { screenshots = [p.screenshotPath]; }
-                              }
-                              return (
-                                <div key={p.id || pIdx} className="text-[11px]">
-                                  <div className="flex items-center gap-2 flex-wrap text-slate-500">
-                                    <span className="font-medium text-emerald-700">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
-                                    <span>{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : ""}</span>
-                                    {p.paymentMethod && (
-                                      <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>
-                                    )}
-                                    {p.razorpayPaymentId && (
-                                      <span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>
-                                    )}
-                                  </div>
-                                  {screenshots.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-1">
-                                      {screenshots.map((url: string, sIdx: number) => (
-                                        <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
-                                          <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
-                                            <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
-                                            <span className="text-[10px] text-emerald-600 font-medium">View</span>
-                                          </div>
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {isFullyPaid && instPayments.length === 0 && inst.paidAt && (
-                          <p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt), "dd MMM yyyy, hh:mm a")}</p>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-                  </div>
-                </div>
-              )}
-
-              {(() => {
-                const payableAddons = (bookingPackages?.bookingPackages || []).filter((bp: any) => {
-                  if (bp.package?.category !== "addon_service") return false;
-                  if (bp.includeInTotal === false) return false;
-                  const { effective } = getBookingPackagePrice(bp);
-                  return effective > 0;
-                });
-                if (payableAddons.length === 0) return null;
-                return (
-                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="addon-payments-section" style={{borderColor:"rgba(249,115,22,0.28)"}}>
-                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(249,115,22,0.20)",background:"rgba(255,237,213,0.40)"}}>
-                      <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />
-                      <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest">Add-On Payments</h4>
-                    </div>
-                    <div className="px-4 py-3 space-y-3">
-                      {payableAddons.map((bp: any) => {
-                        const { effective } = getBookingPackagePrice(bp);
-                        const isPaid = bp.paidStatus === "paid";
-                        const canEdit = isAdmin || isReceptionist;
-                        const addonPayments = (selectedBooking.payments || []).filter((p: any) => p.bookingPackageId === bp.id && p.status === "success");
-                        return (
-                          <div
-                            key={bp.id}
-                            className={`text-sm p-2.5 rounded-lg ${isPaid ? "bg-emerald-50/60" : "bg-white"}`}
-                            data-testid={`addon-payment-row-${bp.id}`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="font-medium text-slate-700 truncate">{bp.package?.name || "Add-On"}</p>
-                                <p className="text-[11px] text-slate-500">
-                                  {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""}
-                                  {bp.endDate ? ` — ${format(new Date(bp.endDate), "dd MMM yy")}` : " — Ongoing"}
-                                </p>
-                              </div>
-                              <div className="text-right flex items-center gap-2 shrink-0">
-                                <div>
-                                  <p className="font-semibold text-slate-800">₹{effective.toLocaleString("en-IN")}</p>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] ${isPaid ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}
-                                    data-testid={`addon-payment-status-${bp.id}`}
-                                  >
-                                    {isPaid ? "PAID" : "PENDING"}
-                                  </Badge>
-                                </div>
-                                {canEdit && !isPaid && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-[11px] border-orange-300 text-orange-700 hover:bg-orange-100"
-                                    onClick={() => openPaymentDialog(selectedBooking, undefined, bp)}
-                                    data-testid={`button-mark-paid-${bp.id}`}
-                                  >
-                                    <Banknote className="w-3 h-3 mr-1" />
-                                    Mark Paid
-                                  </Button>
-                                )}
-                                {canEdit && isPaid && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-[11px] text-slate-500 hover:text-red-600"
-                                    onClick={() => {
-                                      if (!confirm("Mark this add-on payment as Pending again?")) return;
-                                      updateBookingPackage(bp.id, { paidStatus: "pending" });
-                                    }}
-                                    data-testid={`button-unmark-paid-${bp.id}`}
-                                  >
-                                    Reset
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-
-                            {addonPayments.length > 0 && (
-                              <div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">
-                                {addonPayments.map((p: any, pIdx: number) => {
-                                  let screenshots: string[] = [];
-                                  if (p.screenshotPath) {
-                                    try { const parsed = JSON.parse(p.screenshotPath); screenshots = Array.isArray(parsed) ? parsed : [p.screenshotPath]; } catch { screenshots = [p.screenshotPath]; }
-                                  }
+                    {showPackages && (
+                      <div className="px-4 py-3 space-y-3">
+                        {loadingPackages ? (
+                          <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>
+                        ) : (
+                          <>
+                            {bookingPackages?.bookingPackages?.length > 0 ? (
+                              <div className="space-y-2">
+                                {bookingPackages.bookingPackages.map((bp: any) => {
+                                  const pkg = bp.package;
+                                  const usageByType: Record<string, number> = {};
+                                  (bp.usage || []).forEach((u: any) => { usageByType[u.itemType] = (usageByType[u.itemType] || 0) + u.qtyUsed; });
+                                  const isAddon = pkg?.category === "addon_service";
+                                  const borderColor = bp.status === "ACTIVE" ? (isAddon ? "border-orange-200 bg-orange-50/50" : "border-emerald-200 bg-emerald-50/50") : "border-slate-200 bg-slate-50 opacity-70";
+                                  const badgeColor = bp.status === "ACTIVE" ? (isAddon ? "bg-orange-100 text-orange-700 border-0 text-[10px]" : "bg-emerald-100 text-emerald-700 border-0 text-[10px]") : "bg-slate-100 text-slate-500 border-0 text-[10px]";
+                                  const priceInfo = getBookingPackagePrice(bp);
+                                  const effectivePrice = priceInfo.effective;
+                                  const originalPrice = priceInfo.original;
+                                  const hasPrice = effectivePrice > 0 || originalPrice > 0;
+                                  const isEditingPrice = editingPriceBpId === bp.id;
+                                  const includeInTotal = bp.includeInTotal !== false;
+                                  const isOverridden = priceInfo.isOverridden;
                                   return (
-                                    <div key={p.id || pIdx} className="text-[11px]">
-                                      <div className="flex items-center gap-2 flex-wrap text-slate-500">
-                                        <span className="font-medium text-emerald-700">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
-                                        <span>{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : ""}</span>
-                                        {p.paymentMethod && (
-                                          <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>
-                                        )}
-                                        {p.razorpayPaymentId && (
-                                          <span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>
-                                        )}
-                                      </div>
-                                      {screenshots.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mt-1">
-                                          {screenshots.map((url: string, sIdx: number) => (
-                                            <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
-                                              <div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
-                                                <img src={url} alt={`Screenshot ${sIdx + 1}`} className="w-8 h-8 object-cover rounded" />
-                                                <span className="text-[10px] text-emerald-600 font-medium">View</span>
-                                              </div>
-                                            </a>
-                                          ))}
+                                    <div key={bp.id} className={`border rounded-lg p-3 ${borderColor}`} data-testid={`booking-package-${bp.id}`}>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            {isAddon && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
+                                            <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
+                                            {hasPrice && !isEditingPrice && (<span className={`text-xs font-bold ${isAddon?"text-orange-600":"text-emerald-600"}`} data-testid={`text-bp-price-${bp.id}`}>₹{Number(effectivePrice).toLocaleString("en-IN")}</span>)}
+                                            {hasPrice && !isEditingPrice && isOverridden && (<span className="text-[9px] text-slate-400 line-through">₹{Number(originalPrice).toLocaleString("en-IN")}</span>)}
+                                            {isAddon && hasPrice && !isEditingPrice && bp.status === "ACTIVE" && (
+                                              <Button size="icon" variant="ghost" className="h-5 w-5 text-slate-400 hover:text-indigo-600" title="Edit displayed price" onClick={() => { setEditingPriceBpId(bp.id); setEditingPriceValue(String(effectivePrice??"")); }} data-testid={`button-edit-price-${bp.id}`}><Pencil className="h-2.5 w-2.5" /></Button>
+                                            )}
+                                            {isAddon && hasPrice && isEditingPrice && (
+                                              <span className="inline-flex items-center gap-1">
+                                                <span className="text-xs text-slate-500">₹</span>
+                                                <input type="number" min={0} step="1" inputMode="numeric" value={editingPriceValue} onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                  onKeyDown={(e) => { if(e.key==="Enter"){e.preventDefault();const v=editingPriceValue.trim();const num=v===""?null:Number(v);if(num!==null&&(!Number.isFinite(num)||num<0)){toast({title:"Enter a valid amount",variant:"destructive"});return;}updateBookingPackage(bp.id,{displayPriceOverride:num});setEditingPriceBpId(null);}else if(e.key==="Escape"){setEditingPriceBpId(null);}}}
+                                                  autoFocus className="h-6 w-24 rounded border border-indigo-200 bg-white px-1.5 text-xs focus:border-indigo-500 focus:outline-none" data-testid={`input-edit-price-${bp.id}`} />
+                                                <Button size="icon" variant="ghost" className="h-5 w-5 text-emerald-600" title="Save" onClick={() => { const v=editingPriceValue.trim();const num=v===""?null:Number(v);if(num!==null&&(!Number.isFinite(num)||num<0)){toast({title:"Enter a valid amount",variant:"destructive"});return;}updateBookingPackage(bp.id,{displayPriceOverride:num});setEditingPriceBpId(null); }} data-testid={`button-save-price-${bp.id}`}><Check className="h-3 w-3" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-5 w-5 text-slate-400" title="Cancel" onClick={() => setEditingPriceBpId(null)} data-testid={`button-cancel-price-${bp.id}`}><X className="h-3 w-3" /></Button>
+                                                {isOverridden && (<Button size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-slate-500 hover:text-slate-700" title="Reset to original price" onClick={() => { updateBookingPackage(bp.id,{displayPriceOverride:null});setEditingPriceBpId(null); }} data-testid={`button-reset-price-${bp.id}`}>Reset</Button>)}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                            {isAddon && <Badge className="bg-orange-100 text-orange-600 border-0 text-[9px] px-1.5 py-0">Add-On</Badge>}
+                                            <p className="text-[10px] text-slate-500">{bp.startDate ? format(new Date(bp.startDate),"dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate),"dd MMM yy") : "Ongoing"}</p>
+                                            {isAddon && hasPrice && bp.status === "ACTIVE" && (
+                                              <label className="inline-flex items-center gap-1 cursor-pointer select-none ml-1" title="Include this amount in the booking total">
+                                                <input type="checkbox" checked={includeInTotal} onChange={(e) => updateBookingPackage(bp.id,{includeInTotal:e.target.checked})} className="h-3 w-3 rounded border-slate-300 text-indigo-600 focus:ring-1 focus:ring-indigo-500" data-testid={`checkbox-include-total-${bp.id}`} />
+                                                <span className={`text-[10px] ${includeInTotal?"text-indigo-600 font-medium":"text-slate-400"}`}>{includeInTotal?"In total":"Excluded"}</span>
+                                              </label>
+                                            )}
+                                          </div>
                                         </div>
-                                      )}
+                                        <div className="flex items-center gap-1">
+                                          <Badge className={badgeColor}>{bp.status}</Badge>
+                                          {bp.status === "ACTIVE" && (<>
+                                            {!isAddon && (<Button size="icon" variant="ghost" className="h-6 w-6 text-indigo-500" title="Upgrade Plan" onClick={() => { fetchUpgradeOptions(selectedBooking.id);setUpgradeDialog(true);setSelectedUpgradeId(null);setUpgradeReason(""); }} data-testid={`upgrade-${bp.id}`}><ArrowUpRight className="h-3 w-3" /></Button>)}
+                                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp);setUsageForm({itemType:pkg?.items?.[0]?.type||"",qtyUsed:1,note:""}); }} data-testid={`usage-${bp.id}`}><Plus className="h-3 w-3" /></Button>
+                                            {isAddon && (<Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}><X className="h-3 w-3" /></Button>)}
+                                          </>)}
+                                        </div>
+                                      </div>
+                                      {isAddon && (() => {
+                                        const mealItem = pkg?.items?.find((i: any) => i.type==="meals" && i.rules);
+                                        if (!mealItem) return null;
+                                        const r = mealItem.rules;
+                                        const ML2: Record<string,string> = {breakfast:"Breakfast",lunch:"Lunch",evening_snacks:"Evening Snacks",dinner:"Dinner"};
+                                        const gm2 = (d: any) => { if(!d)return{count:0,names:[] as string[]};if(typeof d==="number")return{count:d,names:[]};const m=Array.isArray(d.meals)?d.meals:[];return{count:d.count??m.length,names:m.map((x:string)=>ML2[x]||x)}; };
+                                        const wd2=gm2(r.weekday);const sat2=gm2(r.saturday);const sun2=gm2(r.sunday);
+                                        return (<div className="mb-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
+                                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-orange-700 mb-1.5"><UtensilsCrossed className="w-3 h-3" /> Meal Schedule</div>
+                                          <div className="space-y-1">
+                                            <div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span><span className="text-slate-700">{wd2.count} meals{wd2.names.length>0?` — ${wd2.names.join(", ")}`:""}</span></div>
+                                            {(sat2.count!==wd2.count||sat2.names.join(",")!==wd2.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sat</span><span className="text-slate-700">{sat2.count} meals{sat2.names.length>0?` — ${sat2.names.join(", ")}`:""}</span></div>)}
+                                            {(sun2.count!==wd2.count||sun2.names.join(",")!==wd2.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sun</span><span className="text-slate-700">{sun2.count} meals{sun2.names.length>0?` — ${sun2.names.join(", ")}`:""}</span></div>)}
+                                          </div>
+                                        </div>);
+                                      })()}
+                                      {pkg?.items?.map((item: any, ix: number) => {
+                                        const used=usageByType[item.type]||0;const included=item.includedQty||0;const pct=included>0?Math.min(100,(used/included)*100):0;
+                                        return (<div key={ix} className="mb-1.5">
+                                          <div className="flex items-center justify-between text-[11px]"><span className="text-slate-600">{item.label}</span><span className="text-slate-500">{used}/{included} {item.unit}</span></div>
+                                          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-0.5"><div className={`h-1.5 rounded-full transition-all ${pct>=100?"bg-red-500":pct>=75?"bg-amber-500":"bg-emerald-500"}`} style={{width:`${pct}%`}} /></div>
+                                        </div>);
+                                      })}
                                     </div>
                                   );
                                 })}
                               </div>
-                            )}
-
-                            {isPaid && addonPayments.length === 0 && bp.paidAt && (
-                              <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-slate-600 pl-1 border-l-2 border-emerald-200 ml-1">
-                                <span className="font-medium text-emerald-700">₹{Number(bp.paidAmount || 0).toLocaleString("en-IN")} paid</span>
-                                <span className="text-slate-500">{format(new Date(bp.paidAt), "dd MMM yyyy, hh:mm a")}</span>
-                                {bp.paymentMethod && (
-                                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{bp.paymentMethod}</span>
-                                )}
-                                {bp.paymentReference && (
-                                  <span className="font-mono text-[10px] text-slate-500">Ref: {bp.paymentReference}</span>
-                                )}
+                            ) : (<p className="text-xs text-slate-400 text-center py-2">No packages attached</p>)}
+                            {(() => {
+                              const aa2=(bookingPackages?.bookingPackages||[]).filter((bp:any)=>bp.status==="ACTIVE"&&bp.package?.category==="addon_service");
+                              const pr2=aa2.map((bp:any)=>{const{effective}=getBookingPackagePrice(bp);return{bp,price:effective,included:bp.includeInTotal!==false};}).filter((x:any)=>x.price>0);
+                              const bf2=Number(selectedBooking?.totalFee??((selectedBooking?.baseFee??0)-(selectedBooking?.discount??0)));
+                              if(pr2.length===0)return null;
+                              const it2=pr2.filter((x:any)=>x.included).reduce((s:number,x:any)=>s+x.price,0);
+                              const et2=pr2.filter((x:any)=>!x.included).reduce((s:number,x:any)=>s+x.price,0);
+                              const g2=bf2+it2;
+                              return (<div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 space-y-1.5" data-testid="packages-grand-total">
+                                <div className="flex items-center justify-between text-[11px] text-slate-600"><span>Booking fee</span><span className="font-medium">₹{bf2.toLocaleString("en-IN")}</span></div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-600"><span>Add-ons (included)</span><span className="font-medium text-indigo-700">+ ₹{it2.toLocaleString("en-IN")}</span></div>
+                                {et2>0&&(<div className="flex items-center justify-between text-[10px] text-slate-400"><span>Add-ons (excluded)</span><span className="line-through">₹{et2.toLocaleString("en-IN")}</span></div>)}
+                                <div className="border-t border-indigo-200 pt-1.5 flex items-center justify-between"><span className="text-xs font-semibold text-slate-700">Grand Total</span><span className="text-base font-bold text-indigo-700" data-testid="text-grand-total">₹{g2.toLocaleString("en-IN")}</span></div>
+                              </div>);
+                            })()}
+                            {bookingPackages?.wallet && (
+                              <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+                                <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-amber-600" /><span className="text-xs font-medium text-amber-800">Wallet Balance</span></div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-amber-700">₹{(bookingPackages.wallet.balance||0).toLocaleString("en-IN")}</span>
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true);setWalletForm({type:"topup",amount:0,note:""}); }} data-testid="button-wallet">Manage</Button>
+                                  {bookingPackages.wallet.balance===0&&bookingPackages?.bookingPackages?.some((bp:any)=>bp.status==="ACTIVE")&&(
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-blue-200 text-blue-600" onClick={syncWalletCredits} disabled={syncingCredits} data-testid="button-sync-credits">
+                                      {syncingCredits?<Loader2 className="h-3 w-3 animate-spin"/>:<RefreshCw className="h-3 w-3"/>}<span className="ml-1">Sync</span>
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="flex-1 gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true);setAttachForm({packageId:"",startDate:selectedBooking?.checkInDate?new Date(selectedBooking.checkInDate).toISOString().slice(0,10):new Date().toISOString().slice(0,10),endDate:selectedBooking?.checkOutDate?new Date(selectedBooking.checkOutDate).toISOString().slice(0,10):""}); }} data-testid="button-attach-package">
+                                <Plus className="h-3 w-3" /> Attach Package
+                              </Button>
+                              {bookingPackages?.bookingPackages?.some((bp:any)=>bp.status==="ACTIVE")&&(
+                                <Button size="sm" variant="outline" className="flex-1 gap-1 text-emerald-600 border-emerald-200 text-xs" onClick={() => { fetchUpgradeOptions(selectedBooking.id);setUpgradeDialog(true);setSelectedUpgradeId(null);setUpgradeReason(""); }} data-testid="button-upgrade-package">
+                                  <ArrowUpRight className="h-3 w-3" /> Upgrade Plan
+                                </Button>
+                              )}
+                            </div>
+                            {upgradeHistory.length>0&&(
+                              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                <button className="w-full flex items-center justify-between p-2 bg-slate-50 hover:bg-slate-100 transition-colors text-xs" onClick={() => setShowUpgradeHistory(!showUpgradeHistory)} data-testid="toggle-upgrade-history">
+                                  <span className="flex items-center gap-1.5 font-medium text-slate-600"><History className="h-3 w-3" /> Upgrade History ({upgradeHistory.length})</span>
+                                  {showUpgradeHistory?<ChevronUp className="h-3 w-3 text-slate-400"/>:<ChevronDown className="h-3 w-3 text-slate-400"/>}
+                                </button>
+                                {showUpgradeHistory&&(<div className="p-2 space-y-1.5">{upgradeHistory.map((uh:any)=>(<div key={uh.id} className="flex items-center gap-2 text-[10px] p-1.5 bg-slate-50 rounded" data-testid={`upgrade-history-${uh.id}`}><ArrowUpRight className="h-3 w-3 text-emerald-500 shrink-0"/><div className="flex-1 min-w-0"><span className="font-medium text-slate-700">{uh.fromPackageName}</span><span className="text-slate-400 mx-1">→</span><span className="font-medium text-emerald-700">{uh.toPackageName}</span><span className="text-slate-400 ml-1">+₹{Number(uh.priceDifference||0).toLocaleString("en-IN")}</span></div><span className="text-slate-400 shrink-0">{uh.createdAt?format(new Date(uh.createdAt),"dd MMM"):""}</span></div>))}</div>)}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                );
-              })()}
+                )}
 
-              {(selectedBooking.payments || []).length > 0 && (() => {
-                const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && !p.bookingPackageId && p.status === "success");
-                const hasInstallments = (selectedBooking.installments || []).length > 0;
-                return (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(16,185,129,0.28)"}}>
-                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(16,185,129,0.20)",background:"rgba(209,250,229,0.35)"}}>
-                    <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
-                    <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Payment History</h4>
-                  </div>
-                  <div className="px-4 py-3">
-                  {orphanedPayments.length > 0 && hasInstallments && isAdmin && (
-                    <div className="mb-3 p-2.5 bg-amber-100 border border-amber-300 rounded-lg">
-                      <p className="text-xs text-amber-800 font-medium mb-1.5">{orphanedPayments.length} payment(s) not linked to any installment</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-200"
-                        onClick={async () => {
-                          try {
-                            const authData = localStorage.getItem("hsquare_auth");
-                            const token = authData ? JSON.parse(authData)?.token : null;
-                            const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/fix-orphaned-payments`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                            });
-                            const data = await res.json();
-                            if (res.ok) {
-                              toast({ title: "Fixed", description: data.message });
-                              queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
-                              setSelectedBooking(null);
-                            } else {
-                              toast({ title: "Error", description: data.error, variant: "destructive" });
-                            }
-                          } catch (err: any) {
-                            toast({ title: "Error", description: err.message, variant: "destructive" });
-                          }
-                        }}
-                        data-testid="btn-fix-orphaned-payments"
-                      >
-                        Link to Installments
+                {/* ─── QUICK ACTIONS ─── */}
+                <div className="bkd-card">
+                  <div className="bkd-sec-hdr"><span className="bkd-sec-label text-slate-500">Quick Actions</span></div>
+                  <div className="px-4 py-3 space-y-2">
+                    <Button variant="outline" size="sm" className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 justify-start"
+                      onClick={() => downloadAdminReceipt(selectedBooking)} data-testid="button-admin-download-pdf">
+                      <Download className="h-4 w-4" /> Download Receipt (PDF)
+                    </Button>
+                    {isAdmin && (
+                      <Button variant="outline" size="sm" className="w-full gap-2 text-teal-600 border-teal-200 hover:bg-teal-50 justify-start"
+                        disabled={sendingWelcomeEmail} data-testid="btn-resend-welcome-email"
+                        onClick={async () => { setSendingWelcomeEmail(true); try { const token=getAuthToken(); const resp=await fetch(`/api/admin/bookings/${selectedBooking.id}/resend-welcome-email`,{method:"POST",headers:{Authorization:`Bearer ${token}`}}); const result=await resp.json(); if(resp.ok){toast({title:"Welcome email sent",description:result.message});}else{toast({title:"Failed",description:result.error,variant:"destructive"});} } catch { toast({title:"Error",description:"Failed to send welcome email",variant:"destructive"}); } finally { setSendingWelcomeEmail(false); } }}>
+                        {sendingWelcomeEmail?<Loader2 className="h-4 w-4 animate-spin"/>:<Mail className="h-4 w-4"/>} Resend Welcome Email
                       </Button>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    {selectedBooking.payments.map((p: any, idx: number) => {
-                      const linkedBp = p.bookingPackageId
-                        ? (bookingPackages?.bookingPackages || []).find((bp: any) => bp.id === p.bookingPackageId)
-                        : null;
-                      const linkedInst = p.installmentId && !p.bookingPackageId
-                        ? (selectedBooking.installments || []).find((i: any) => i.id === p.installmentId)
-                        : null;
-                      return (
-                      <div key={p.id || idx} className="text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-700">₹{(p.amount || 0).toLocaleString("en-IN")}</p>
-                            <p className="text-xs text-slate-500">{p.createdAt ? format(new Date(p.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}</p>
-                            {(p.paymentMethod || p.razorpayPaymentId || linkedBp || linkedInst) && (
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {linkedBp && (
-                                  <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium" data-testid={`payment-addon-label-${p.id || idx}`}>
-                                    for {linkedBp.package?.name || "Add-On"}
-                                  </span>
-                                )}
-                                {linkedInst && (
-                                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                                    for {linkedInst.name}
-                                  </span>
-                                )}
-                                {p.paymentMethod && (
-                                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>
-                                )}
-                                {p.razorpayPaymentId && (
-                                  <span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status === "success" ? "text-emerald-600 border-emerald-200" : p.status === "failed" ? "text-red-600 border-red-200" : "text-amber-600 border-amber-200"}`}>
-                            {(p.status || "pending").toUpperCase()}
-                          </Badge>
+                    )}
+                    {(isAdmin || isReceptionist) && (
+                      <Button variant="outline" size="sm" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 justify-start"
+                        disabled={syncingHMS} data-testid="btn-resync-hms"
+                        onClick={async () => { setSyncingHMS(true); try { const token=getAuthToken(); const resp=await fetch(`/api/admin/bookings/${selectedBooking.id}/resync-hms`,{method:"POST",headers:{Authorization:`Bearer ${token}`}}); const result=await resp.json(); if(resp.ok){toast({title:"HMS Sync Complete",description:result.message});}else{toast({title:"Sync Failed",description:result.error,variant:"destructive"});} } catch { toast({title:"Error",description:"Failed to sync to HMS",variant:"destructive"}); } finally { setSyncingHMS(false); } }}>
+                        {syncingHMS?<Loader2 className="h-4 w-4 animate-spin"/>:<RefreshCw className="h-4 w-4"/>} Re-sync to HMS
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>{/* end left column */}
+
+              {/* ═══════════ RIGHT COLUMN ═══════════ */}
+              <div className="space-y-4">
+
+                {/* ─── FINANCIAL SUMMARY ─── */}
+                {(() => {
+                  const baseTotal = Number(selectedBooking.totalFee || 0);
+                  const activeAddons = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status==="ACTIVE" && bp.package?.category==="addon_service");
+                  const includedAddonTotal = activeAddons.reduce((s: number, bp: any) => { if(bp.includeInTotal===false)return s; const{effective}=getBookingPackagePrice(bp); return s+(effective>0?effective:0); }, 0);
+                  const excludedAddonTotal = activeAddons.reduce((s: number, bp: any) => { if(bp.includeInTotal!==false)return s; const{effective}=getBookingPackagePrice(bp); return s+(effective>0?effective:0); }, 0);
+                  const grand = baseTotal + includedAddonTotal;
+                  const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
+                  const housingPlan = bookingPackages?.bookingPackages?.find((bp: any) => bp.package?.category==="housing_plan" && bp.status==="ACTIVE");
+                  const hpkg = housingPlan?.package;
+                  const tier = hpkg?.tierLevel ?? 0;
+                  const planColors = tier>=2 ? {accent:"text-amber-700",badge:"bg-gradient-to-r from-amber-500 to-yellow-500 text-white",icon:"text-amber-500"} : tier>=1 ? {accent:"text-slate-700",badge:"bg-gradient-to-r from-slate-500 to-gray-500 text-white",icon:"text-slate-500"} : {accent:"text-violet-700",badge:"bg-gradient-to-r from-violet-500 to-purple-500 text-white",icon:"text-violet-500"};
+                  const tierLabel = tier>=2?"PREMIUM":tier>=1?"CLASSIC":"ESSENTIAL";
+                  return (
+                    <div id="sec-financial" className="bkd-card" data-testid="payment-summary-widget">
+                      <div className="bkd-sec-hdr"><CreditCard className="h-3.5 w-3.5 text-indigo-500" /><span className="bkd-sec-label text-indigo-600">Financial Summary</span></div>
+                      <div className="px-4 py-4 space-y-4">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="bkd-stat"><span className="bkd-field-label">Base Fee</span><p className="text-sm font-bold text-slate-800">₹{(selectedBooking.baseFee||0).toLocaleString("en-IN")}</p></div>
+                          <div className="bkd-stat"><span className="bkd-field-label">Discount</span><p className="text-sm font-bold text-emerald-600">{selectedBooking.discount?`₹${selectedBooking.discount.toLocaleString("en-IN")}`:"—"}</p></div>
+                          <div className="bkd-stat"><span className="bkd-field-label">Fee Total</span><p className="text-sm font-bold text-slate-800">₹{baseTotal.toLocaleString("en-IN")}</p></div>
                         </div>
-                        {p.screenshotPath && (() => {
-                          let screenshots: string[] = [];
-                          try {
-                            const parsed = JSON.parse(p.screenshotPath);
-                            if (Array.isArray(parsed)) screenshots = parsed;
-                            else screenshots = [p.screenshotPath];
-                          } catch {
-                            screenshots = [p.screenshotPath];
-                          }
+                        <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3">
+                          <span className="bkd-field-label text-indigo-400">Total Payable</span>
+                          <p className="text-2xl font-bold text-indigo-600 mt-1" data-testid="text-payment-grand-total">₹{grand.toLocaleString("en-IN")}</p>
+                          {hasAddonInfo && (<div className="mt-2 space-y-1">
+                            {includedAddonTotal>0&&(<div className="flex items-center justify-between text-[11px] text-slate-500"><span>+ Add-ons (included)</span><span className="font-medium text-indigo-600" data-testid="text-payment-addons-included">₹{includedAddonTotal.toLocaleString("en-IN")}</span></div>)}
+                            {excludedAddonTotal>0&&(<div className="flex items-center justify-between text-[10px] text-slate-400"><span>Excluded add-ons</span><span className="line-through" data-testid="text-payment-addons-excluded">₹{excludedAddonTotal.toLocaleString("en-IN")}</span></div>)}
+                          </div>)}
+                        </div>
+                        {housingPlan && hpkg && (
+                          <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3" data-testid="booking-plan-card">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className={`text-xs font-semibold ${planColors.accent} uppercase flex items-center gap-1.5`}><Sparkles className="h-3.5 w-3.5" /> Housing Plan</h4>
+                              <Badge className={`${planColors.badge} text-[10px] px-2 py-0.5 border-0 font-bold`}>{tierLabel}</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-lg ${planColors.badge} flex items-center justify-center`}><Star className="h-4 w-4 text-white" /></div>
+                              <div className="flex-1 min-w-0"><p className={`font-bold text-sm ${planColors.accent}`}>{hpkg.name||"Housing Plan"}</p>{hpkg.tagline&&<p className="text-[10px] text-slate-500">{hpkg.tagline}</p>}</div>
+                              {(housingPlan.priceSnapshot?.totalPrice>0||hpkg.basePrice>0)&&(<p className={`font-bold text-sm ${planColors.accent}`}>₹{Number(housingPlan.priceSnapshot?.totalPrice||hpkg.basePrice||0).toLocaleString("en-IN")}</p>)}
+                            </div>
+                          </div>
+                        )}
+                        {(selectedBooking.deposit ?? 0) > 0 && (() => {
+                          const dtMap: Record<string,{label:string;color:string;bg:string}> = {cash:{label:"Cash",color:"text-emerald-700",bg:"bg-emerald-50 border-emerald-200"},upi:{label:"UPI",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},online:{label:"Online Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},bank_transfer:{label:"Bank Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},cheque:{label:"Cheque",color:"text-amber-700",bg:"bg-amber-50 border-amber-200"},card:{label:"Card",color:"text-purple-700",bg:"bg-purple-50 border-purple-200"},paid_last_year:{label:"Paid Last Year",color:"text-violet-700",bg:"bg-violet-50 border-violet-200"},waived:{label:"Waived",color:"text-slate-500",bg:"bg-slate-50 border-slate-200"},other:{label:"Other",color:"text-slate-600",bg:"bg-slate-50 border-slate-200"}};
+                          const sdPending = !selectedBooking.depositType;
+                          const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
                           return (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {screenshots.map((url: string, sIdx: number) => (
-                                <a key={sIdx} href={url} target="_blank" rel="noopener noreferrer">
-                                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-emerald-200 hover:border-emerald-400 transition-colors cursor-pointer">
-                                    <img
-                                      src={url}
-                                      alt={`Payment screenshot ${sIdx + 1}`}
-                                      className="w-12 h-12 object-cover rounded border border-slate-200"
-                                      data-testid={`img-payment-screenshot-${idx}-${sIdx}`}
-                                    />
-                                    <div className="min-w-0">
-                                      <p className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
-                                        <ImageIcon className="h-3 w-3" /> {screenshots.length > 1 ? `Screenshot ${sIdx + 1}` : "Payment Screenshot"}
-                                      </p>
-                                      <p className="text-[10px] text-slate-400">Tap to view</p>
-                                    </div>
-                                  </div>
-                                </a>
-                              ))}
+                            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100" data-testid="booking-sd-row">
+                              <div>
+                                <p className="text-xs text-slate-500 mb-0.5">Security Deposit</p>
+                                {sdPending?(<span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-orange-50 border-orange-200 text-orange-600"><Shield className="h-3 w-3"/>Pending</span>)
+                                :selectedBooking.depositRefunded?(<span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border bg-teal-50 border-teal-200 text-teal-700" data-testid="badge-sd-refunded"><RotateCcw className="h-3 w-3"/>Refunded</span>)
+                                :(<span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${dt!.bg} ${dt!.color}`}><Shield className="h-3 w-3"/>{dt!.label}</span>)}
+                              </div>
+                              <div className="text-right flex flex-col items-end gap-1">
+                                <p className="text-sm font-bold text-slate-800" data-testid="text-sd-amount">₹{Number(selectedBooking.deposit).toLocaleString("en-IN")}</p>
+                                {selectedBooking.depositTransactionId&&(<span className="text-[10px] text-slate-500 font-mono" data-testid="text-sd-transaction-id">UTR: {selectedBooking.depositTransactionId}</span>)}
+                                {selectedBooking.depositRefunded&&selectedBooking.depositRefundAmount!=null&&(<p className="text-[11px] text-teal-600 font-medium" data-testid="text-sd-refund-amount">Refunded ₹{Number(selectedBooking.depositRefundAmount).toLocaleString("en-IN")}{selectedBooking.depositRefundedAt?` on ${format(new Date(selectedBooking.depositRefundedAt),"dd MMM yyyy")}`:""}</p>)}
+                                {selectedBooking.depositProofPath&&(()=>{let pu:string[]=[];try{const p2=JSON.parse(selectedBooking.depositProofPath);pu=Array.isArray(p2)?p2:[selectedBooking.depositProofPath];}catch{pu=[selectedBooking.depositProofPath];}return pu.map((url,i)=>(<a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 underline hover:text-indigo-700" data-testid={`link-sd-proof-${i}`}>{pu.length>1?`View proof ${i+1}`:"View proof"}</a>));})()}
+                                {sdPending&&(isAdmin||isReceptionist)&&(<Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => openPaymentDialog(selectedBooking,undefined,undefined,true)} data-testid="button-mark-sd-paid"><CreditCard className="h-3 w-3"/>Mark as Paid</Button>)}
+                                {!sdPending&&!selectedBooking.depositRefunded&&isAdmin&&(<Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50" onClick={() => { setSdRefundForm({refundDate:new Date().toISOString().slice(0,10),refundAmount:selectedBooking.deposit??0,refundMethod:"cash",refundNotes:""});setSdRefundDialog(true); }} data-testid="button-record-sd-refund"><RotateCcw className="h-3 w-3"/>Record Refund</Button>)}
+                              </div>
                             </div>
                           );
                         })()}
                       </div>
-                      );
-                    })}
-                  </div>
-                  </div>
-                </div>
-                );
-              })()}
-
-              {(() => {
-                const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];
-                if (includedServices.length === 0) return null;
-                const SERVICE_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
-                const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
-                const allActivePkgs = bookingPackages?.bookingPackages?.filter((bp: any) => bp.status === "ACTIVE") || [];
-                const activePkg = allActivePkgs.find((bp: any) => bp.package?.category === "housing_plan");
-                return (
-                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="included-services-section" style={{borderColor:"rgba(20,184,166,0.28)"}}>
-                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(20,184,166,0.20)",background:"rgba(204,251,241,0.35)"}}>
-                      <Package className="h-3.5 w-3.5 text-teal-600" />
-                      <h4 className="text-xs font-bold text-teal-700 uppercase tracking-widest">Included Services</h4>
                     </div>
-                    <div className="px-4 py-3 space-y-2.5">
-                      {includedServices.map((svc: any, idx: number) => {
-                        const Icon = SERVICE_ICONS[svc.type] || Tag;
-                        const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
-                        let pkgSvcFeature = pkgSvcItem?.featureValue;
-                        let pkgMealCount = svc.type === "meals" && pkgSvcItem ? (pkgSvcItem.includedQty || 0) : 0;
-                        
-                        const addonPkgs = allActivePkgs.filter((bp: any) => bp.package?.category === "addon_service");
-                        for (const addonBp of addonPkgs) {
-                          const addonItem = addonBp.package?.items?.find((i: any) => i.type === svc.type);
-                          if (addonItem) {
-                            if (svc.type === "meals") {
-                              const addonCount = addonItem.includedQty || 0;
-                              if (addonCount > pkgMealCount) {
-                                pkgMealCount = addonCount;
-                                pkgSvcFeature = addonItem.featureValue || pkgSvcFeature;
-                              }
-                            } else {
-                              pkgSvcFeature = addonItem.featureValue || pkgSvcFeature;
-                            }
-                          }
-                        }
-                        return (
-                          <div key={idx} className="booking-glass-cell rounded-xl p-2.5" data-testid={`included-svc-${idx}`}>
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:"rgba(20,184,166,0.15)"}}>
-                                <Icon className="h-3.5 w-3.5 text-teal-600" />
-                              </div>
-                              <span className="font-semibold text-xs text-slate-800">{svc.label}</span>
-                              {pkgSvcFeature && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">{pkgSvcFeature}</span>
-                              )}
+                  );
+                })()}
+
+                {/* ─── MARK SD (when deposit=0) ─── */}
+                {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
+                  <div className="bkd-card" data-testid="mark-sd-panel">
+                    <div className="bkd-sec-hdr">
+                      <Shield className="h-3.5 w-3.5 text-indigo-500" /><span className="bkd-sec-label text-indigo-600">Security Deposit</span>
+                      <span className="ml-auto text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">Pending</span>
+                    </div>
+                    <div className="px-4 py-4 space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Payment Mode</p>
+                        <div className="flex flex-wrap gap-2">
+                          {([{value:"cash",label:"Cash",Icon:Banknote},{value:"online",label:"Online",Icon:CreditCard},{value:"cheque",label:"Cheque",Icon:FileText},{value:"paid_last_year",label:"Carried Fwd",Icon:RotateCcw},{value:"waived",label:"Waived",Icon:CheckCircle2}] as const).map(({value,label,Icon}) => {
+                            const active = sdForm.depositType === value;
+                            return (<button key={value} type="button" onClick={() => setSdForm(prev=>({...prev,depositType:value}))}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${active?"bg-indigo-600 text-white border-indigo-500":"bg-white text-slate-600 border-slate-200 hover:text-indigo-600 hover:border-indigo-200"}`}
+                              data-testid={`btn-sd-type-${value}`}><Icon className="h-3.5 w-3.5"/>{label}</button>);
+                          })}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Deposit Amount</p>
+                          <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border border-slate-200 bg-white ${sdForm.depositType==="waived"?"opacity-40 pointer-events-none":""}`}>
+                            <IndianRupee className="h-4 w-4 text-indigo-400 shrink-0"/>
+                            <input type="number" min={0} placeholder="0" value={sdForm.deposit||""} onChange={(e)=>setSdForm(prev=>({...prev,deposit:parseInt(e.target.value)||0}))} className="flex-1 text-sm font-bold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full" data-testid="input-sd-amount"/>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Proof <span className="font-normal normal-case text-slate-300">(optional)</span></p>
+                          {sdForm.depositProofPath ? (
+                            <div className="flex items-center justify-between rounded-xl px-3 py-2.5 h-[42px] bg-emerald-50 border border-emerald-200">
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5"/> Proof uploaded</span>
+                              <button type="button" onClick={() => setSdForm(prev=>({...prev,depositProofPath:""}))} className="text-[11px] text-slate-400 hover:text-red-500 transition-colors">Remove</button>
                             </div>
-                            {svc.type !== "meals" && pkgSvcFeature && (
-                              <p className="text-[11px] text-slate-700 ml-8 font-medium">{pkgSvcFeature}</p>
-                            )}
-                            {svc.type !== "meals" && !pkgSvcFeature && svc.description && <p className="text-[10px] text-slate-500 ml-8 mb-1">{svc.description}</p>}
-                            {svc.type === "meals" && svc.schedule && (() => {
-                              const ALL_MEALS = ["breakfast", "lunch", "evening_snacks", "dinner"];
-                              const getMealInfo = (dayRules: any, targetCount: number) => {
-                                if (!dayRules) return { count: targetCount || 0, names: [] as string[] };
-                                if (typeof dayRules === "number") return { count: Math.max(dayRules, targetCount), names: [] as string[] };
-                                let meals = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
-                                const baseCount = dayRules.count ?? meals.length;
-                                if (targetCount > 0 && targetCount > baseCount) {
-                                  const missing = ALL_MEALS.filter(m => !meals.includes(m));
-                                  const toAdd = missing.slice(0, targetCount - baseCount);
-                                  meals = [...meals, ...toAdd];
-                                  meals.sort((a, b) => ALL_MEALS.indexOf(a) - ALL_MEALS.indexOf(b));
-                                }
-                                const finalCount = Math.max(baseCount, targetCount > 0 ? targetCount : baseCount);
-                                return { count: finalCount, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
-                              };
-                              const wd = getMealInfo(svc.schedule.weekday, pkgMealCount);
-                              const sat = getMealInfo(svc.schedule.saturday, pkgMealCount);
-                              const sun = getMealInfo(svc.schedule.sunday, pkgMealCount);
-                              return (
-                                <div className="ml-8 space-y-0.5">
-                                  <div className="flex items-start gap-1.5 text-[10px]">
-                                    <span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span>
-                                    <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
-                                  </div>
-                                  {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
-                                    <div className="flex items-start gap-1.5 text-[10px]">
-                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sat</span>
-                                      <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
-                                    </div>
-                                  )}
-                                  {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
-                                    <div className="flex items-start gap-1.5 text-[10px]">
-                                      <span className="text-slate-500 font-medium w-12 shrink-0">Sun</span>
-                                      <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
-                                    </div>
-                                  )}
+                          ) : (
+                            <label className="cursor-pointer block">
+                              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadSdProof(f);}} data-testid="input-sd-proof"/>
+                              <div className="flex items-center justify-center gap-2 rounded-xl h-[42px] border-2 border-dashed border-slate-200 hover:border-indigo-300 transition-colors group">
+                                {sdProofUploading?<Loader2 className="h-4 w-4 text-indigo-400 animate-spin"/>:(<><Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500"/><span className="text-xs text-slate-500 group-hover:text-indigo-600 font-medium">Upload file</span></>)}
+                              </div>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={saveSdDetails} disabled={markingSd||(sdForm.depositType!=="waived"&&sdForm.deposit<=0)}
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" data-testid="btn-save-sd">
+                        {markingSd?<><Loader2 className="h-4 w-4 animate-spin"/> Saving…</>:<><Shield className="h-4 w-4"/> Mark Security Deposit as Received</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── EMERGENCY CONTACT ─── */}
+                {selectedBooking.residentDetails && (selectedBooking.residentDetails.parentName || selectedBooking.residentDetails.parentPhone) && (
+                  <div id="sec-contact" className="bkd-card">
+                    <div className="bkd-sec-hdr" style={{justifyContent:"space-between"}}>
+                      <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-blue-500"/><span className="bkd-sec-label text-blue-600">Emergency / Parent Contact</span></div>
+                      {(isAdmin||isReceptionist)&&selectedBooking.residentDetails.parentEmail&&(
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-50" disabled={sendingParentEmail} data-testid="btn-send-parent-email"
+                          onClick={async () => {
+                            setSendingParentEmail(true);
+                            try {
+                              const token = getAuthToken();
+                              const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/send-parent-email`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+                              const result = await resp.json();
+                              if (resp.ok) { toast({ title: "Email sent", description: result.message }); }
+                              else { toast({ title: "Failed", description: result.error, variant: "destructive" }); }
+                            } catch { toast({ title: "Error", description: "Failed to send email", variant: "destructive" }); }
+                            finally { setSendingParentEmail(false); }
+                          }}>
+                          {sendingParentEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Send Parent Email
+                        </Button>
+                      )}
+                    </div>
+                    <div className="px-4 py-4 grid grid-cols-2 gap-x-6 gap-y-3">
+                      {selectedBooking.residentDetails.parentName&&(<div><span className="bkd-field-label">Name</span><p className="bkd-field-value">{selectedBooking.residentDetails.parentName}</p></div>)}
+                      {selectedBooking.residentDetails.parentRelation&&(<div><span className="bkd-field-label">Relation</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.parentRelation}</p></div>)}
+                      {selectedBooking.residentDetails.parentPhone&&(<div><span className="bkd-field-label">Phone</span><p className="bkd-field-value">{selectedBooking.residentDetails.parentPhone}</p></div>)}
+                      {selectedBooking.residentDetails.parentEmail&&(<div><span className="bkd-field-label">Email</span><p className="bkd-field-value text-xs truncate">{selectedBooking.residentDetails.parentEmail}</p></div>)}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── INSTALLMENTS ─── */}
+                {(selectedBooking.installments||[]).length>0&&(
+                  <div id="sec-installments" className="bkd-card">
+                    <div className="bkd-sec-hdr"><Banknote className="h-3.5 w-3.5 text-amber-500"/><span className="bkd-sec-label text-amber-600">Installments</span></div>
+                    <div className="px-4 py-3 space-y-3">
+                      {selectedBooking.installments.map((inst:any,idx:number)=>{
+                        const instPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id&&p.status==="success");
+                        const totalPaid=instPayments.reduce((sum:number,p:any)=>sum+(p.amount||0),0);
+                        const remaining=Math.max(0,(inst.amount||0)-totalPaid);
+                        const isFullyPaid=inst.paid||totalPaid>=(inst.amount||0);
+                        const isPartiallyPaid=totalPaid>0&&!isFullyPaid;
+                        const canPay=!isFullyPaid&&(isAdmin||isReceptionist||isSalesExec);
+                        return (
+                          <div key={inst.id||idx} className={`text-sm p-2.5 rounded-lg border ${isFullyPaid?"bg-emerald-50 border-emerald-100":isPartiallyPaid?"bg-blue-50 border-blue-100":"bg-slate-50 border-slate-100"} ${canPay?"cursor-pointer hover:border-amber-300 transition-colors":""}`}
+                            onClick={()=>{if(canPay)openPaymentDialog(selectedBooking,{...inst,_remaining:remaining});}} data-testid={`installment-row-${idx}`}>
+                            <div className="flex items-center justify-between">
+                              <div><p className="font-medium text-slate-700">{inst.name}</p><p className="text-xs text-slate-500">{inst.dueDate||"N/A"}</p></div>
+                              <div className="text-right flex items-center gap-2">
+                                <div><p className="font-semibold text-slate-800">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
+                                  <Badge variant="outline" className={`text-[10px] ${isFullyPaid?"text-emerald-600 border-emerald-200":isPartiallyPaid?"text-blue-600 border-blue-200":"text-amber-600 border-amber-200"}`}>{isFullyPaid?"PAID":isPartiallyPaid?"PARTIAL":"PENDING"}</Badge>
                                 </div>
-                              );
-                            })()}
+                                {canPay&&<Banknote className="w-4 h-4 text-amber-500"/>}
+                              </div>
+                            </div>
+                            {(isPartiallyPaid||isFullyPaid)&&totalPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(totalPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
+                            {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
+                            {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
-              {(isAdmin || isReceptionist) && (
-                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(99,102,241,0.28)"}}>
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 transition-colors"
-                    style={{background:"rgba(224,231,255,0.38)"}}
-                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="rgba(224,231,255,0.55)"}
-                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="rgba(224,231,255,0.38)"}
-                    onClick={() => {
-                      if (!showPackages) {
-                        fetchBookingPackages(selectedBooking.id);
-                        fetchAllPackages();
-                        fetchUpgradeHistory(selectedBooking.id);
-                      }
-                      setShowPackages(!showPackages);
-                    }}
-                    data-testid="toggle-booking-packages"
-                  >
-                    <span className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
-                      <Package className="h-4 w-4" /> Packages & Services
-                    </span>
-                    {showPackages ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-indigo-500" />}
-                  </button>
-
-                  {showPackages && (
+                {/* ─── ADD-ON PAYMENTS ─── */}
+                {(()=>{
+                  const payableAddons=(bookingPackages?.bookingPackages||[]).filter((bp:any)=>{if(bp.package?.category!=="addon_service")return false;if(bp.includeInTotal===false)return false;const{effective}=getBookingPackagePrice(bp);return effective>0;});
+                  if(payableAddons.length===0)return null;
+                  return (<div className="bkd-card" data-testid="addon-payments-section">
+                    <div className="bkd-sec-hdr"><UtensilsCrossed className="h-3.5 w-3.5 text-orange-500"/><span className="bkd-sec-label text-orange-600">Add-On Payments</span></div>
                     <div className="px-4 py-3 space-y-3">
-                      {loadingPackages ? (
-                        <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>
-                      ) : (
-                        <>
-                          {bookingPackages?.bookingPackages?.length > 0 ? (
-                            <div className="space-y-2">
-                              {bookingPackages.bookingPackages.map((bp: any) => {
-                                const pkg = bp.package;
-                                const usageByType: Record<string, number> = {};
-                                (bp.usage || []).forEach((u: any) => { usageByType[u.itemType] = (usageByType[u.itemType] || 0) + u.qtyUsed; });
-                                const isAddon = pkg?.category === "addon_service";
-                                const borderColor = bp.status === "ACTIVE"
-                                  ? (isAddon ? "border-orange-200 bg-orange-50/50" : "border-emerald-200 bg-emerald-50/50")
-                                  : "border-slate-200 bg-slate-50 opacity-70";
-                                const badgeColor = bp.status === "ACTIVE"
-                                  ? (isAddon ? "bg-orange-100 text-orange-700 border-0 text-[10px]" : "bg-emerald-100 text-emerald-700 border-0 text-[10px]")
-                                  : "bg-slate-100 text-slate-500 border-0 text-[10px]";
-                                const priceInfo = getBookingPackagePrice(bp);
-                                const effectivePrice = priceInfo.effective;
-                                const originalPrice = priceInfo.original;
-                                const hasPrice = effectivePrice > 0 || originalPrice > 0;
-                                const isEditingPrice = editingPriceBpId === bp.id;
-                                const includeInTotal = bp.includeInTotal !== false;
-                                const isOverridden = priceInfo.isOverridden;
-                                return (
-                                  <div key={bp.id} className={`border rounded-lg p-3 ${borderColor}`} data-testid={`booking-package-${bp.id}`}>
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          {isAddon && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
-                                          <p className="font-semibold text-sm text-slate-800">{pkg?.name || "Package"}</p>
-                                          {hasPrice && !isEditingPrice && (
-                                            <span className={`text-xs font-bold ${isAddon ? "text-orange-600" : "text-emerald-600"}`} data-testid={`text-bp-price-${bp.id}`}>
-                                              ₹{Number(effectivePrice).toLocaleString("en-IN")}
-                                            </span>
-                                          )}
-                                          {hasPrice && !isEditingPrice && isOverridden && (
-                                            <span className="text-[9px] text-slate-400 line-through" title="Original price">
-                                              ₹{Number(originalPrice).toLocaleString("en-IN")}
-                                            </span>
-                                          )}
-                                          {isAddon && hasPrice && !isEditingPrice && bp.status === "ACTIVE" && (
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="h-5 w-5 text-slate-400 hover:text-indigo-600"
-                                              title="Edit displayed price"
-                                              onClick={() => {
-                                                setEditingPriceBpId(bp.id);
-                                                setEditingPriceValue(String(effectivePrice ?? ""));
-                                              }}
-                                              data-testid={`button-edit-price-${bp.id}`}
-                                            >
-                                              <Pencil className="h-2.5 w-2.5" />
-                                            </Button>
-                                          )}
-                                          {isAddon && hasPrice && isEditingPrice && (
-                                            <span className="inline-flex items-center gap-1">
-                                              <span className="text-xs text-slate-500">₹</span>
-                                              <input
-                                                type="number"
-                                                min={0}
-                                                step="1"
-                                                inputMode="numeric"
-                                                value={editingPriceValue}
-                                                onChange={(e) => setEditingPriceValue(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    const v = editingPriceValue.trim();
-                                                    const num = v === "" ? null : Number(v);
-                                                    if (num !== null && (!Number.isFinite(num) || num < 0)) {
-                                                      toast({ title: "Enter a valid amount", variant: "destructive" });
-                                                      return;
-                                                    }
-                                                    updateBookingPackage(bp.id, { displayPriceOverride: num });
-                                                    setEditingPriceBpId(null);
-                                                  } else if (e.key === "Escape") {
-                                                    setEditingPriceBpId(null);
-                                                  }
-                                                }}
-                                                autoFocus
-                                                className="h-6 w-24 rounded border border-indigo-200 bg-white px-1.5 text-xs focus:border-indigo-500 focus:outline-none"
-                                                data-testid={`input-edit-price-${bp.id}`}
-                                              />
-                                              <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-5 w-5 text-emerald-600"
-                                                title="Save"
-                                                onClick={() => {
-                                                  const v = editingPriceValue.trim();
-                                                  const num = v === "" ? null : Number(v);
-                                                  if (num !== null && (!Number.isFinite(num) || num < 0)) {
-                                                    toast({ title: "Enter a valid amount", variant: "destructive" });
-                                                    return;
-                                                  }
-                                                  updateBookingPackage(bp.id, { displayPriceOverride: num });
-                                                  setEditingPriceBpId(null);
-                                                }}
-                                                data-testid={`button-save-price-${bp.id}`}
-                                              >
-                                                <Check className="h-3 w-3" />
-                                              </Button>
-                                              <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-5 w-5 text-slate-400"
-                                                title="Cancel"
-                                                onClick={() => setEditingPriceBpId(null)}
-                                                data-testid={`button-cancel-price-${bp.id}`}
-                                              >
-                                                <X className="h-3 w-3" />
-                                              </Button>
-                                              {isOverridden && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-5 px-1.5 text-[10px] text-slate-500 hover:text-slate-700"
-                                                  title="Reset to original price"
-                                                  onClick={() => {
-                                                    updateBookingPackage(bp.id, { displayPriceOverride: null });
-                                                    setEditingPriceBpId(null);
-                                                  }}
-                                                  data-testid={`button-reset-price-${bp.id}`}
-                                                >
-                                                  Reset
-                                                </Button>
-                                              )}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                          {isAddon && <Badge className="bg-orange-100 text-orange-600 border-0 text-[9px] px-1.5 py-0">Add-On</Badge>}
-                                          <p className="text-[10px] text-slate-500">
-                                            {bp.startDate ? format(new Date(bp.startDate), "dd MMM yy") : ""} — {bp.endDate ? format(new Date(bp.endDate), "dd MMM yy") : "Ongoing"}
-                                          </p>
-                                          {isAddon && hasPrice && bp.status === "ACTIVE" && (
-                                            <label className="inline-flex items-center gap-1 cursor-pointer select-none ml-1" title="Include this amount in the booking total">
-                                              <input
-                                                type="checkbox"
-                                                checked={includeInTotal}
-                                                onChange={(e) => updateBookingPackage(bp.id, { includeInTotal: e.target.checked })}
-                                                className="h-3 w-3 rounded border-slate-300 text-indigo-600 focus:ring-1 focus:ring-indigo-500"
-                                                data-testid={`checkbox-include-total-${bp.id}`}
-                                              />
-                                              <span className={`text-[10px] ${includeInTotal ? "text-indigo-600 font-medium" : "text-slate-400"}`}>
-                                                {includeInTotal ? "In total" : "Excluded"}
-                                              </span>
-                                            </label>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Badge className={badgeColor}>
-                                          {bp.status}
-                                        </Badge>
-                                        {bp.status === "ACTIVE" && (
-                                          <>
-                                            {!isAddon && (
-                                              <Button size="icon" variant="ghost" className="h-6 w-6 text-indigo-500" title="Upgrade Plan" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid={`upgrade-${bp.id}`}>
-                                                <ArrowUpRight className="h-3 w-3" />
-                                              </Button>
-                                            )}
-                                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp); setUsageForm({ itemType: pkg?.items?.[0]?.type || "", qtyUsed: 1, note: "" }); }} data-testid={`usage-${bp.id}`}>
-                                              <Plus className="h-3 w-3" />
-                                            </Button>
-                                            {isAddon && (
-                                              <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}>
-                                                <X className="h-3 w-3" />
-                                              </Button>
-                                            )}
-                                          </>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {isAddon && (() => {
-                                      const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
-                                      if (!mealItem) return null;
-                                      const r = mealItem.rules;
-                                      const MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
-                                      const getMealInfo = (dayRules: any) => {
-                                        if (!dayRules) return { count: 0, names: [] as string[] };
-                                        if (typeof dayRules === "number") return { count: dayRules, names: [] };
-                                        const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
-                                        return { count: dayRules.count ?? meals.length, names: meals.map((m: string) => MEAL_LABELS[m] || m) };
-                                      };
-                                      const wd = getMealInfo(r.weekday);
-                                      const sat = getMealInfo(r.saturday);
-                                      const sun = getMealInfo(r.sunday);
-                                      return (
-                                        <div className="mb-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
-                                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-orange-700 mb-1.5">
-                                            <UtensilsCrossed className="w-3 h-3" /> Meal Schedule
-                                          </div>
-                                          <div className="space-y-1">
-                                            <div className="flex items-start gap-1.5 text-[10px]">
-                                              <span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span>
-                                              <span className="text-slate-700">{wd.count} meals{wd.names.length > 0 ? ` — ${wd.names.join(", ")}` : ""}</span>
-                                            </div>
-                                            {(sat.count !== wd.count || sat.names.join(",") !== wd.names.join(",")) && (
-                                              <div className="flex items-start gap-1.5 text-[10px]">
-                                                <span className="text-slate-500 font-medium w-12 shrink-0">Sat</span>
-                                                <span className="text-slate-700">{sat.count} meals{sat.names.length > 0 ? ` — ${sat.names.join(", ")}` : ""}</span>
-                                              </div>
-                                            )}
-                                            {(sun.count !== wd.count || sun.names.join(",") !== wd.names.join(",")) && (
-                                              <div className="flex items-start gap-1.5 text-[10px]">
-                                                <span className="text-slate-500 font-medium w-12 shrink-0">Sun</span>
-                                                <span className="text-slate-700">{sun.count} meals{sun.names.length > 0 ? ` — ${sun.names.join(", ")}` : ""}</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-                                    {pkg?.items?.map((item: any, idx: number) => {
-                                      const used = usageByType[item.type] || 0;
-                                      const included = item.includedQty || 0;
-                                      const pct = included > 0 ? Math.min(100, (used / included) * 100) : 0;
-                                      return (
-                                        <div key={idx} className="mb-1.5">
-                                          <div className="flex items-center justify-between text-[11px]">
-                                            <span className="text-slate-600">{item.label}</span>
-                                            <span className="text-slate-500">{used}/{included} {item.unit}</span>
-                                          </div>
-                                          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-0.5">
-                                            <div className={`h-1.5 rounded-full transition-all ${pct >= 100 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                );
-                              })}
+                      {payableAddons.map((bp:any)=>{
+                        const{effective}=getBookingPackagePrice(bp);
+                        const isPaid=bp.paidStatus==="paid";
+                        const canEdit=isAdmin||isReceptionist;
+                        const addonPayments=(selectedBooking.payments||[]).filter((p:any)=>p.bookingPackageId===bp.id&&p.status==="success");
+                        return (<div key={bp.id} className={`text-sm p-2.5 rounded-lg border ${isPaid?"bg-emerald-50 border-emerald-100":"bg-white border-slate-100"}`} data-testid={`addon-payment-row-${bp.id}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0"><p className="font-medium text-slate-700 truncate">{bp.package?.name||"Add-On"}</p><p className="text-[11px] text-slate-500">{bp.startDate?format(new Date(bp.startDate),"dd MMM yy"):""}{bp.endDate?` — ${format(new Date(bp.endDate),"dd MMM yy")}`:" — Ongoing"}</p></div>
+                            <div className="text-right flex items-center gap-2 shrink-0">
+                              <div><p className="font-semibold text-slate-800">₹{effective.toLocaleString("en-IN")}</p><Badge variant="outline" className={`text-[10px] ${isPaid?"text-emerald-600 border-emerald-200":"text-amber-600 border-amber-200"}`} data-testid={`addon-payment-status-${bp.id}`}>{isPaid?"PAID":"PENDING"}</Badge></div>
+                              {canEdit&&!isPaid&&(<Button size="sm" variant="outline" className="h-7 text-[11px] border-orange-300 text-orange-700 hover:bg-orange-100" onClick={()=>openPaymentDialog(selectedBooking,undefined,bp)} data-testid={`button-mark-paid-${bp.id}`}><Banknote className="w-3 h-3 mr-1"/>Mark Paid</Button>)}
+                              {canEdit&&isPaid&&(<Button size="sm" variant="ghost" className="h-7 text-[11px] text-slate-500 hover:text-red-600" onClick={()=>{if(!confirm("Mark this add-on payment as Pending again?"))return;updateBookingPackage(bp.id,{paidStatus:"pending"});}} data-testid={`button-unmark-paid-${bp.id}`}>Reset</Button>)}
                             </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 text-center py-2">No packages attached</p>
-                          )}
-
-                          {(() => {
-                            const activeAddons = (bookingPackages?.bookingPackages || []).filter(
-                              (bp: any) => bp.status === "ACTIVE" && bp.package?.category === "addon_service",
-                            );
-                            const priced = activeAddons.map((bp: any) => {
-                              const { effective } = getBookingPackagePrice(bp);
-                              return { bp, price: effective, included: bp.includeInTotal !== false };
-                            }).filter((x: any) => x.price > 0);
-                            const baseFee = Number(selectedBooking?.totalFee ?? ((selectedBooking?.baseFee ?? 0) - (selectedBooking?.discount ?? 0)));
-                            if (priced.length === 0) return null;
-                            const includedTotal = priced.filter((x: any) => x.included).reduce((s: number, x: any) => s + x.price, 0);
-                            const excludedTotal = priced.filter((x: any) => !x.included).reduce((s: number, x: any) => s + x.price, 0);
-                            const grand = baseFee + includedTotal;
-                            return (
-                              <div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 space-y-1.5" data-testid="packages-grand-total">
-                                <div className="flex items-center justify-between text-[11px] text-slate-600">
-                                  <span>Booking fee</span>
-                                  <span className="font-medium">₹{baseFee.toLocaleString("en-IN")}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-[11px] text-slate-600">
-                                  <span>Add-ons (included)</span>
-                                  <span className="font-medium text-indigo-700">+ ₹{includedTotal.toLocaleString("en-IN")}</span>
-                                </div>
-                                {excludedTotal > 0 && (
-                                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                    <span>Add-ons (excluded)</span>
-                                    <span className="line-through">₹{excludedTotal.toLocaleString("en-IN")}</span>
-                                  </div>
-                                )}
-                                <div className="border-t border-indigo-200 pt-1.5 flex items-center justify-between">
-                                  <span className="text-xs font-semibold text-slate-700">Grand Total</span>
-                                  <span className="text-base font-bold text-indigo-700" data-testid="text-grand-total">₹{grand.toLocaleString("en-IN")}</span>
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                          {bookingPackages?.wallet && (
-                            <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-lg border border-amber-100">
-                              <div className="flex items-center gap-2">
-                                <Wallet className="h-4 w-4 text-amber-600" />
-                                <span className="text-xs font-medium text-amber-800">Wallet Balance</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-amber-700">₹{(bookingPackages.wallet.balance || 0).toLocaleString("en-IN")}</span>
-                                <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true); setWalletForm({ type: "topup", amount: 0, note: "" }); }} data-testid="button-wallet">
-                                  Manage
-                                </Button>
-                                {bookingPackages.wallet.balance === 0 && bookingPackages?.bookingPackages?.some((bp: any) => bp.status === "ACTIVE") && (
-                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-blue-200 text-blue-600" onClick={syncWalletCredits} disabled={syncingCredits} data-testid="button-sync-credits">
-                                    {syncingCredits ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                                    <span className="ml-1">Sync</span>
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" className="flex-1 gap-1 text-indigo-600 border-indigo-200 text-xs" onClick={() => { setAttachDialog(true); setAttachForm({ packageId: "", startDate: selectedBooking?.checkInDate ? new Date(selectedBooking.checkInDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10), endDate: selectedBooking?.checkOutDate ? new Date(selectedBooking.checkOutDate).toISOString().slice(0, 10) : "" }); }} data-testid="button-attach-package">
-                              <Plus className="h-3 w-3" /> Attach Package
-                            </Button>
-                            {bookingPackages?.bookingPackages?.some((bp: any) => bp.status === "ACTIVE") && (
-                              <Button size="sm" variant="outline" className="flex-1 gap-1 text-emerald-600 border-emerald-200 text-xs" onClick={() => { fetchUpgradeOptions(selectedBooking.id); setUpgradeDialog(true); setSelectedUpgradeId(null); setUpgradeReason(""); }} data-testid="button-upgrade-package">
-                                <ArrowUpRight className="h-3 w-3" /> Upgrade Plan
-                              </Button>
-                            )}
                           </div>
-
-                          {upgradeHistory.length > 0 && (
-                            <div className="border border-slate-200 rounded-lg overflow-hidden">
-                              <button
-                                className="w-full flex items-center justify-between p-2 bg-slate-50 hover:bg-slate-100 transition-colors text-xs"
-                                onClick={() => setShowUpgradeHistory(!showUpgradeHistory)}
-                                data-testid="toggle-upgrade-history"
-                              >
-                                <span className="flex items-center gap-1.5 font-medium text-slate-600">
-                                  <History className="h-3 w-3" /> Upgrade History ({upgradeHistory.length})
-                                </span>
-                                {showUpgradeHistory ? <ChevronUp className="h-3 w-3 text-slate-400" /> : <ChevronDown className="h-3 w-3 text-slate-400" />}
-                              </button>
-                              {showUpgradeHistory && (
-                                <div className="p-2 space-y-1.5">
-                                  {upgradeHistory.map((uh: any) => (
-                                    <div key={uh.id} className="flex items-center gap-2 text-[10px] p-1.5 bg-slate-50 rounded" data-testid={`upgrade-history-${uh.id}`}>
-                                      <ArrowUpRight className="h-3 w-3 text-emerald-500 shrink-0" />
-                                      <div className="flex-1 min-w-0">
-                                        <span className="font-medium text-slate-700">{uh.fromPackageName}</span>
-                                        <span className="text-slate-400 mx-1">→</span>
-                                        <span className="font-medium text-emerald-700">{uh.toPackageName}</span>
-                                        <span className="text-slate-400 ml-1">+₹{Number(uh.priceDifference || 0).toLocaleString("en-IN")}</span>
-                                      </div>
-                                      <span className="text-slate-400 shrink-0">{uh.createdAt ? format(new Date(uh.createdAt), "dd MMM") : ""}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
+                          {addonPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{addonPayments.map((p:any,pIdx:number)=>{let ss2:string[]=[];if(p.screenshotPath){try{const pp2=JSON.parse(p.screenshotPath);ss2=Array.isArray(pp2)?pp2:[p.screenshotPath];}catch{ss2=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss2.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss2.map((url:string,si2:number)=>(<a key={si2} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
+                          {isPaid&&addonPayments.length===0&&bp.paidAt&&(<div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-slate-600 pl-1 border-l-2 border-emerald-200 ml-1"><span className="font-medium text-emerald-700">₹{Number(bp.paidAmount||0).toLocaleString("en-IN")} paid</span><span className="text-slate-500">{format(new Date(bp.paidAt),"dd MMM yyyy, hh:mm a")}</span>{bp.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{bp.paymentMethod}</span>}{bp.paymentReference&&<span className="font-mono text-[10px] text-slate-500">Ref: {bp.paymentReference}</span>}</div>)}
+                        </div>);
+                      })}
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>);
+                })()}
 
-              <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 text-indigo-600 hover:bg-indigo-50/60"
-                  style={{borderColor:"rgba(99,102,241,0.35)", backdropFilter:"blur(8px)"}}
-                  onClick={() => downloadAdminReceipt(selectedBooking)}
-                  data-testid="button-admin-download-pdf"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Receipt (PDF)
-                </Button>
+                {/* ─── PAYMENT HISTORY ─── */}
+                {(selectedBooking.payments||[]).length>0&&(()=>{
+                  const orphanedPayments=(selectedBooking.payments||[]).filter((p:any)=>!p.installmentId&&!p.bookingPackageId&&p.status==="success");
+                  const hasInstallments=(selectedBooking.installments||[]).length>0;
+                  return (<div className="bkd-card">
+                    <div className="bkd-sec-hdr"><CreditCard className="h-3.5 w-3.5 text-emerald-500"/><span className="bkd-sec-label text-emerald-600">Payment History</span></div>
+                    <div className="px-4 py-3">
+                      {orphanedPayments.length>0&&hasInstallments&&isAdmin&&(
+                        <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-xs text-amber-800 font-medium mb-1.5">{orphanedPayments.length} payment(s) not linked to any installment</p>
+                          <Button size="sm" variant="outline" className="text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-200"
+                            onClick={async()=>{try{const authData=localStorage.getItem("hsquare_auth");const token=authData?JSON.parse(authData)?.token:null;const res=await fetch(`/api/admin/bookings/${selectedBooking.id}/fix-orphaned-payments`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`}});const data=await res.json();if(res.ok){toast({title:"Fixed",description:data.message});queryClient.invalidateQueries({queryKey:["/api/bookings/completed"]});setSelectedBooking(null);}else{toast({title:"Error",description:data.error,variant:"destructive"});}}catch(err:any){toast({title:"Error",description:err.message,variant:"destructive"});}}}
+                            data-testid="btn-fix-orphaned-payments">Link to Installments</Button>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {selectedBooking.payments.map((p:any,idx:number)=>{
+                          const linkedBp=p.bookingPackageId?(bookingPackages?.bookingPackages||[]).find((bp:any)=>bp.id===p.bookingPackageId):null;
+                          const linkedInst=p.installmentId&&!p.bookingPackageId?(selectedBooking.installments||[]).find((i:any)=>i.id===p.installmentId):null;
+                          return (<div key={p.id||idx} className="text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-slate-700">₹{(p.amount||0).toLocaleString("en-IN")}</p>
+                                <p className="text-xs text-slate-500">{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):"N/A"}</p>
+                                {(p.paymentMethod||p.razorpayPaymentId||linkedBp||linkedInst)&&(<div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  {linkedBp&&<span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium" data-testid={`payment-addon-label-${p.id||idx}`}>for {linkedBp.package?.name||"Add-On"}</span>}
+                                  {linkedInst&&<span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">for {linkedInst.name}</span>}
+                                  {p.paymentMethod&&<span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase">{p.paymentMethod}</span>}
+                                  {p.razorpayPaymentId&&<span className="text-[10px] text-slate-500 font-mono">UTR: {p.razorpayPaymentId}</span>}
+                                </div>)}
+                              </div>
+                              <Badge variant="outline" className={`text-[10px] shrink-0 ${p.status==="success"?"text-emerald-600 border-emerald-200":p.status==="failed"?"text-red-600 border-red-200":"text-amber-600 border-amber-200"}`}>{(p.status||"pending").toUpperCase()}</Badge>
+                            </div>
+                            {p.screenshotPath&&(()=>{let ss3:string[]=[];try{const pp3=JSON.parse(p.screenshotPath);if(Array.isArray(pp3))ss3=pp3;else ss3=[p.screenshotPath];}catch{ss3=[p.screenshotPath];}return(<div className="mt-2 flex flex-wrap gap-2">{ss3.map((url:string,si3:number)=>(<a key={si3} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-12 h-12 object-cover rounded border border-slate-200" data-testid={`img-payment-screenshot-${idx}-${si3}`}/><div className="min-w-0"><p className="text-[11px] font-medium text-emerald-700 flex items-center gap-1"><ImageIcon className="h-3 w-3"/>{ss3.length>1?`Screenshot ${si3+1}`:"Payment Screenshot"}</p><p className="text-[10px] text-slate-400">Tap to view</p></div></div></a>))}</div>);})()}
+                          </div>);
+                        })}
+                      </div>
+                    </div>
+                  </div>);
+                })()}
 
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 text-teal-600 border-teal-200 hover:bg-teal-50"
-                  disabled={sendingWelcomeEmail}
-                  data-testid="btn-resend-welcome-email"
-                  onClick={async () => {
-                    setSendingWelcomeEmail(true);
-                    try {
-                      const token = getAuthToken();
-                      const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/resend-welcome-email`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
-                      });
-                      const result = await resp.json();
-                      if (resp.ok) {
-                        toast({ title: "Welcome email sent", description: result.message });
-                      } else {
-                        toast({ title: "Failed", description: result.error, variant: "destructive" });
-                      }
-                    } catch {
-                      toast({ title: "Error", description: "Failed to send welcome email", variant: "destructive" });
-                    } finally {
-                      setSendingWelcomeEmail(false);
-                    }
-                  }}
-                >
-                  {sendingWelcomeEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  Resend Welcome Email
-                </Button>
-              )}
-
-              {(isAdmin || isReceptionist) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
-                  disabled={syncingHMS}
-                  data-testid="btn-resync-hms"
-                  onClick={async () => {
-                    setSyncingHMS(true);
-                    try {
-                      const token = getAuthToken();
-                      const resp = await fetch(`/api/admin/bookings/${selectedBooking.id}/resync-hms`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
-                      });
-                      const result = await resp.json();
-                      if (resp.ok) {
-                        toast({ title: "HMS Sync Complete", description: result.message });
-                      } else {
-                        toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
-                      }
-                    } catch {
-                      toast({ title: "Error", description: "Failed to sync to HMS", variant: "destructive" });
-                    } finally {
-                      setSyncingHMS(false);
-                    }
-                  }}
-                >
-                  {syncingHMS ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Re-sync to HMS
-                </Button>
-              )}
-
-              {(isAdmin || isReceptionist || isSalesExec) && (
-                <div className="pt-3 border-t space-y-2" style={{borderColor:"rgba(99,102,241,0.18)"}}>
-                  {(() => {
-                    const bookingPayments = selectedBooking.payments || [];
-                    const hasUnpaidInstalments = (selectedBooking.installments || []).some((inst: any) => {
-                      if (inst.paid) return false;
-                      const instPayments = bookingPayments.filter((p: any) => p.installmentId === inst.id && p.status === "success");
-                      const totalPaid = instPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
-                      return totalPaid < (inst.amount || 0);
-                    });
-                    const showPayBtn = selectedBooking.status === "pending_payment" || selectedBooking.status === "draft" || selectedBooking.status === "confirmed" || selectedBooking.status === "active" || hasUnpaidInstalments;
-                    return showPayBtn && selectedBooking.status !== "cancelled" && selectedBooking.status !== "completed" ? (
-                    <Button
-                      size="sm"
-                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => openPaymentDialog(selectedBooking)}
-                      data-testid="button-mark-payment"
-                    >
-                      <Banknote className="h-4 w-4" />
-                      Mark Payment Done
-                    </Button>
-                    ) : null;
-                  })()}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => {
-                      setDeleteBooking(selectedBooking);
-                    }}
-                    data-testid="button-delete-booking"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete Booking
-                  </Button>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -3813,7 +2849,8 @@ export default function CompletedBookings() {
               </div>
             </div>
           )}
-          </div>{/* end flex-1 overflow-y-auto */}
+            </div>{/* end bkd-content-bg */}
+          </div>{/* end body flex row */}
         </DialogContent>
       </Dialog>
 
