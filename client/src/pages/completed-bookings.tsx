@@ -1900,7 +1900,7 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
-        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden booking-liquid-bg relative">
+        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden booking-liquid-bg !fixed">
           {/* Animated background blobs */}
           <div className="booking-blob w-[420px] h-[420px] bg-indigo-300 top-[-80px] left-[-80px]" style={{animationDelay:"0s"}} />
           <div className="booking-blob w-[380px] h-[380px] bg-purple-200 bottom-[-60px] right-[-60px]" style={{animationDelay:"-7s"}} />
