@@ -1900,9 +1900,13 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
-        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden">
+        <DialogContent className="!inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !p-0 w-screen h-screen flex flex-col overflow-hidden booking-liquid-bg relative">
+          {/* Animated background blobs */}
+          <div className="booking-blob w-[420px] h-[420px] bg-indigo-300 top-[-80px] left-[-80px]" style={{animationDelay:"0s"}} />
+          <div className="booking-blob w-[380px] h-[380px] bg-purple-200 bottom-[-60px] right-[-60px]" style={{animationDelay:"-7s"}} />
+          <div className="booking-blob w-[300px] h-[300px] bg-cyan-200 top-1/2 right-1/4" style={{animationDelay:"-13s"}} />
           {/* Sticky header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b bg-white flex-shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 booking-glass-header relative z-10">
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
               <ClipboardCheck className="h-5 w-5 text-indigo-500" />
               {isEditing ? "Edit Booking" : "Booking Details"}
@@ -1924,7 +1928,7 @@ export default function CompletedBookings() {
             )}
           </div>
           {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto relative z-10">
           {selectedBooking && !isEditing && (
             <div className="px-8 py-7 max-w-3xl mx-auto space-y-5">
               {/* Profile row */}
@@ -1989,41 +1993,41 @@ export default function CompletedBookings() {
                 {getStatusBadge(selectedBooking.status)}
               </div>
 
-              {/* Info grid — 2×2 clean bordered cells */}
-              <div className="grid grid-cols-2 gap-0 rounded-xl border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-r border-slate-200 bg-white">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Property</p>
+              {/* Info grid — 2×2 glass cells */}
+              <div className="grid grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-white/60 shadow-sm">
+                <div className="p-4 border-b border-r border-white/50 booking-glass-cell">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Property</p>
                   <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     <Building2 className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                     {selectedBooking.propertyName}
                   </p>
                 </div>
-                <div className="p-4 border-b border-slate-200 bg-white">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Room Type</p>
+                <div className="p-4 border-b border-white/50 booking-glass-cell">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Room Type</p>
                   <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     <BedDouble className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
                     {selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}
                   </p>
                 </div>
-                <div className="p-4 border-r border-slate-200 bg-white">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Phone</p>
+                <div className="p-4 border-r border-white/50 booking-glass-cell">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Phone</p>
                   <p className="text-sm text-slate-700 flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                    <Phone className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
                     {selectedBooking.customerPhone || "—"}
                   </p>
                 </div>
-                <div className="p-4 bg-white">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Email</p>
+                <div className="p-4 booking-glass-cell">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">Email</p>
                   <p className="text-sm text-slate-700 flex items-center gap-1.5 truncate">
-                    <Mail className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                    <Mail className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
                     {selectedBooking.customerEmail || "—"}
                   </p>
                 </div>
               </div>
 
               {(selectedBooking.stayPlanType || selectedBooking.durationMonths || selectedBooking.checkInDate || selectedBooking.checkOutDate || selectedBooking.deposit) && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-200">
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(52,211,153,0.35)"}}>
+                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(52,211,153,0.25)",background:"rgba(209,250,229,0.35)"}}>
                     <Calendar className="h-3.5 w-3.5 text-emerald-600" />
                     <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Stay Plan Details</h4>
                   </div>
@@ -2137,8 +2141,8 @@ export default function CompletedBookings() {
                 const grand = baseTotal + includedAddonTotal;
                 const hasAddonInfo = includedAddonTotal > 0 || excludedAddonTotal > 0;
                 return (
-                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 overflow-hidden" data-testid="payment-summary-widget">
-                    <div className="flex items-center gap-2 px-4 py-3 border-b border-indigo-200">
+                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="payment-summary-widget" style={{borderColor:"rgba(99,102,241,0.30)"}}>
+                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(99,102,241,0.20)",background:"rgba(224,231,255,0.38)"}}>
                       <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
                       <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest">Payment Summary</h4>
                     </div>
@@ -2505,7 +2509,7 @@ export default function CompletedBookings() {
               </div>
 
               {selectedBooking.referrer && (
-                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex items-center gap-2" data-testid="referral-info">
+                <div className="booking-glass-card p-3 rounded-xl flex items-center gap-2" data-testid="referral-info" style={{borderColor:"rgba(99,102,241,0.25)"}}>
                   <Share2 className="h-4 w-4 text-indigo-500 shrink-0" />
                   <span className="text-sm font-medium text-indigo-700">Referral:</span>
                   <span className="text-sm text-slate-700">{selectedBooking.referrer}</span>
@@ -2513,8 +2517,8 @@ export default function CompletedBookings() {
               )}
 
               {selectedBooking.residentDetails && (selectedBooking.residentDetails.name || selectedBooking.residentDetails.phone || selectedBooking.residentDetails.email) && (
-                <div className="rounded-xl border border-pink-200 bg-pink-50 overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-pink-200">
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(236,72,153,0.28)"}}>
+                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(236,72,153,0.20)",background:"rgba(252,231,243,0.38)"}}>
                     <User className="h-3.5 w-3.5 text-pink-500" />
                     <h4 className="text-xs font-bold text-pink-600 uppercase tracking-widest">Resident Details</h4>
                   </div>
@@ -2556,9 +2560,9 @@ export default function CompletedBookings() {
               )}
 
               {selectedBooking.residentDetails && (selectedBooking.residentDetails.parentName || selectedBooking.residentDetails.parentPhone) && (
-                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-semibold text-blue-600 uppercase">Emergency / Parent Contact</h4>
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(59,130,246,0.28)"}}>
+                  <div className="flex items-center justify-between px-4 py-3 border-b mb-0" style={{borderColor:"rgba(59,130,246,0.20)",background:"rgba(219,234,254,0.38)"}}>
+                    <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest">Emergency / Parent Contact</h4>
                     {(isAdmin || isReceptionist) && selectedBooking.residentDetails.parentEmail && (
                       <Button
                         size="sm"
@@ -2592,7 +2596,7 @@ export default function CompletedBookings() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div className="px-4 py-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <AdminDetailRow label="Name" value={selectedBooking.residentDetails.parentName} />
                     <AdminDetailRow label="Relation" value={selectedBooking.residentDetails.parentRelation} capitalize />
                     <AdminDetailRow label="Phone" value={selectedBooking.residentDetails.parentPhone} />
@@ -2602,8 +2606,12 @@ export default function CompletedBookings() {
               )}
 
               {(selectedBooking.installments || []).length > 0 && (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                  <h4 className="text-xs font-semibold text-amber-600 uppercase mb-3">Installments</h4>
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(245,158,11,0.30)"}}>
+                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(245,158,11,0.20)",background:"rgba(254,243,199,0.40)"}}>
+                    <Banknote className="h-3.5 w-3.5 text-amber-600" />
+                    <h4 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Installments</h4>
+                  </div>
+                  <div className="px-4 py-3">
                   <div className="space-y-3">
                     {selectedBooking.installments.map((inst: any, idx: number) => {
                       const instPayments = (selectedBooking.payments || []).filter((p: any) => p.installmentId === inst.id && p.status === "success");
@@ -2697,6 +2705,7 @@ export default function CompletedBookings() {
                       );
                     })}
                   </div>
+                  </div>
                 </div>
               )}
 
@@ -2709,11 +2718,12 @@ export default function CompletedBookings() {
                 });
                 if (payableAddons.length === 0) return null;
                 return (
-                  <div className="p-4 bg-orange-50 rounded-xl border border-orange-100" data-testid="addon-payments-section">
-                    <h4 className="text-xs font-semibold text-orange-600 uppercase mb-3 flex items-center gap-1.5">
-                      <UtensilsCrossed className="h-3.5 w-3.5" /> Add-On Payments
-                    </h4>
-                    <div className="space-y-3">
+                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="addon-payments-section" style={{borderColor:"rgba(249,115,22,0.28)"}}>
+                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(249,115,22,0.20)",background:"rgba(255,237,213,0.40)"}}>
+                      <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />
+                      <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest">Add-On Payments</h4>
+                    </div>
+                    <div className="px-4 py-3 space-y-3">
                       {payableAddons.map((bp: any) => {
                         const { effective } = getBookingPackagePrice(bp);
                         const isPaid = bp.paidStatus === "paid";
@@ -2834,8 +2844,12 @@ export default function CompletedBookings() {
                 const orphanedPayments = (selectedBooking.payments || []).filter((p: any) => !p.installmentId && !p.bookingPackageId && p.status === "success");
                 const hasInstallments = (selectedBooking.installments || []).length > 0;
                 return (
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <h4 className="text-xs font-semibold text-emerald-600 uppercase mb-3">Payment History</h4>
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(16,185,129,0.28)"}}>
+                  <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(16,185,129,0.20)",background:"rgba(209,250,229,0.35)"}}>
+                    <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
+                    <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Payment History</h4>
+                  </div>
+                  <div className="px-4 py-3">
                   {orphanedPayments.length > 0 && hasInstallments && isAdmin && (
                     <div className="mb-3 p-2.5 bg-amber-100 border border-amber-300 rounded-lg">
                       <p className="text-xs text-amber-800 font-medium mb-1.5">{orphanedPayments.length} payment(s) not linked to any installment</p>
@@ -2944,6 +2958,7 @@ export default function CompletedBookings() {
                       );
                     })}
                   </div>
+                  </div>
                 </div>
                 );
               })()}
@@ -2956,11 +2971,12 @@ export default function CompletedBookings() {
                 const allActivePkgs = bookingPackages?.bookingPackages?.filter((bp: any) => bp.status === "ACTIVE") || [];
                 const activePkg = allActivePkgs.find((bp: any) => bp.package?.category === "housing_plan");
                 return (
-                  <div className="p-4 bg-teal-50 rounded-xl border border-teal-100" data-testid="included-services-section">
-                    <h4 className="text-xs font-semibold text-teal-600 uppercase mb-3 flex items-center gap-1.5">
-                      <Package className="h-3.5 w-3.5" /> Included Services
-                    </h4>
-                    <div className="space-y-2.5">
+                  <div className="booking-glass-card rounded-2xl overflow-hidden" data-testid="included-services-section" style={{borderColor:"rgba(20,184,166,0.28)"}}>
+                    <div className="flex items-center gap-2 px-4 py-3 border-b" style={{borderColor:"rgba(20,184,166,0.20)",background:"rgba(204,251,241,0.35)"}}>
+                      <Package className="h-3.5 w-3.5 text-teal-600" />
+                      <h4 className="text-xs font-bold text-teal-700 uppercase tracking-widest">Included Services</h4>
+                    </div>
+                    <div className="px-4 py-3 space-y-2.5">
                       {includedServices.map((svc: any, idx: number) => {
                         const Icon = SERVICE_ICONS[svc.type] || Tag;
                         const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
@@ -2983,9 +2999,9 @@ export default function CompletedBookings() {
                           }
                         }
                         return (
-                          <div key={idx} className="bg-white rounded-lg border border-teal-100 p-2.5" data-testid={`included-svc-${idx}`}>
+                          <div key={idx} className="booking-glass-cell rounded-xl p-2.5" data-testid={`included-svc-${idx}`}>
                             <div className="flex items-center gap-2 mb-1">
-                              <div className="w-6 h-6 rounded bg-teal-100 flex items-center justify-center">
+                              <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:"rgba(20,184,166,0.15)"}}>
                                 <Icon className="h-3.5 w-3.5 text-teal-600" />
                               </div>
                               <span className="font-semibold text-xs text-slate-800">{svc.label}</span>
@@ -3046,9 +3062,12 @@ export default function CompletedBookings() {
               })()}
 
               {(isAdmin || isReceptionist) && (
-                <div className="border border-indigo-100 rounded-xl overflow-hidden">
+                <div className="booking-glass-card rounded-2xl overflow-hidden" style={{borderColor:"rgba(99,102,241,0.28)"}}>
                   <button
-                    className="w-full flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 transition-colors"
+                    style={{background:"rgba(224,231,255,0.38)"}}
+                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="rgba(224,231,255,0.55)"}
+                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="rgba(224,231,255,0.38)"}
                     onClick={() => {
                       if (!showPackages) {
                         fetchBookingPackages(selectedBooking.id);
@@ -3066,7 +3085,7 @@ export default function CompletedBookings() {
                   </button>
 
                   {showPackages && (
-                    <div className="p-3 space-y-3 bg-white">
+                    <div className="px-4 py-3 space-y-3">
                       {loadingPackages ? (
                         <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>
                       ) : (
@@ -3416,7 +3435,8 @@ export default function CompletedBookings() {
               <Button
                   variant="outline"
                   size="sm"
-                  className="w-full gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  className="w-full gap-2 text-indigo-600 hover:bg-indigo-50/60"
+                  style={{borderColor:"rgba(99,102,241,0.35)", backdropFilter:"blur(8px)"}}
                   onClick={() => downloadAdminReceipt(selectedBooking)}
                   data-testid="button-admin-download-pdf"
                 >
@@ -3491,7 +3511,7 @@ export default function CompletedBookings() {
               )}
 
               {(isAdmin || isReceptionist || isSalesExec) && (
-                <div className="pt-3 border-t border-slate-200 space-y-2">
+                <div className="pt-3 border-t space-y-2" style={{borderColor:"rgba(99,102,241,0.18)"}}>
                   {(() => {
                     const bookingPayments = selectedBooking.payments || [];
                     const hasUnpaidInstalments = (selectedBooking.installments || []).some((inst: any) => {
