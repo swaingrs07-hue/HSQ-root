@@ -697,6 +697,7 @@ function MultiPlanRoomBadge({ plans, maxTier = 2 }: { plans: Array<{ name: strin
 }
 
 function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand, selectedPlan }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null; selectedPlan?: any }) {
+  const { user } = useAuth();
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const prevAutoExpandRef = useRef<string | null>(null);
