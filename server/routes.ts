@@ -4655,6 +4655,18 @@ ${allPages.map(p => `  <url>
 
   app.post("/api/bookings/generate", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      // Check bookings_enabled flag — blocks regular users when superadmin has paused bookings.
+      // Staff / admin roles are never blocked.
+      const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+      const isStaff = req.user?.role && staffRoles.has(req.user.role);
+      if (!isStaff) {
+        const bookingFlag = await storage.getFeatureFlag("bookings_enabled");
+        const bookingsEnabled = bookingFlag ? !!bookingFlag.enabled : true;
+        if (!bookingsEnabled) {
+          return res.status(503).json({ error: "Bookings are temporarily paused by management. Please check back soon." });
+        }
+      }
+
       const {
         customerType,
         studentId,
@@ -15280,6 +15292,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       for (const f of flags) map[f.key] = !!f.enabled;
       // Defaults: hotels are OFF for public until superadmin enables them
       if (!("hotels_public" in map)) map.hotels_public = false;
+      // Defaults: bookings are ON unless superadmin disables them
+      if (!("bookings_enabled" in map)) map.bookings_enabled = true;
       res.json(map);
     } catch (error: any) {
       console.error("Error listing feature flags:", error);

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,21 @@ export default function AdminSettings() {
   const { flags, isLoading: flagsLoading } = useFeatureFlags();
   const setFlagMutation = useSetFeatureFlag();
   const hotelsPublic = !!flags.hotels_public;
+  const bookingsEnabled = flags.bookings_enabled !== false;
+
+  const handleBookingsToggle = async (enabled: boolean) => {
+    try {
+      await setFlagMutation.mutateAsync({ key: "bookings_enabled", enabled });
+      toast({
+        title: enabled ? "Bookings are now OPEN" : "Bookings are now PAUSED",
+        description: enabled
+          ? "Regular users can now browse and book rooms online."
+          : "Public visitors cannot submit new bookings. Staff and admins are unaffected.",
+      });
+    } catch (e: any) {
+      toast({ title: "Failed to update", description: e?.message || "Could not save the setting.", variant: "destructive" });
+    }
+  };
 
   // Editable copy for the cinematic scroll section under the Hotels hero
   const { getContent, isLoading: contentLoading } = useSiteContent();
@@ -162,6 +177,61 @@ export default function AdminSettings() {
                 <p className="text-xs text-slate-500">
                   Tip: Use this to soft-launch the Hotels portal — keep it OFF while
                   you finalize rooms and pricing, then flip ON when ready to announce.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isSuperadmin && (
+            <Card data-testid="card-bookings-toggle">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {bookingsEnabled ? <CalendarCheck className="w-5 h-5 text-emerald-600" /> : <CalendarOff className="w-5 h-5 text-red-500" />}
+                  Online Bookings
+                </CardTitle>
+                <CardDescription>
+                  Control whether regular users and guests can submit new bookings online.
+                  Staff, receptionists, and admins are never affected by this setting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div
+                  className="flex items-center justify-between p-4 rounded-lg border"
+                  style={{
+                    background: bookingsEnabled ? "rgb(240 253 244)" : "rgb(254 242 242)",
+                    borderColor: bookingsEnabled ? "rgb(34 197 94 / 0.3)" : "rgb(239 68 68 / 0.3)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: bookingsEnabled ? "rgb(187 247 208)" : "rgb(254 202 202)" }}
+                    >
+                      {bookingsEnabled
+                        ? <CalendarCheck className="w-5 h-5" style={{ color: "rgb(22 163 74)" }} />
+                        : <CalendarOff className="w-5 h-5" style={{ color: "rgb(220 38 38)" }} />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">
+                        {bookingsEnabled ? "Bookings are OPEN for the public" : "Bookings are PAUSED for regular users"}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {bookingsEnabled
+                          ? "Visitors can browse rooms and submit booking requests online."
+                          : "All Book Now buttons are disabled and the booking form is blocked. Admins can still create bookings manually."}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={bookingsEnabled}
+                    disabled={flagsLoading || setFlagMutation.isPending}
+                    onCheckedChange={handleBookingsToggle}
+                    data-testid="switch-bookings-enabled"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Tip: Pause bookings during maintenance, off-season, or when rooms are under review.
+                  Flip back ON when you&apos;re ready to accept new residents.
                 </p>
               </CardContent>
             </Card>

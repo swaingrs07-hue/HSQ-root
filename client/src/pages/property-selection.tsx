@@ -15,6 +15,7 @@ import { getProperties } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuthGuard } from "@/contexts/auth-guard-context";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import propertyExterior from "@/assets/property-exterior.png";
 import heroStudentLiving from "@/assets/hero-student-living.png";
 import { SmartSearch } from "@/components/smart-search";
@@ -170,6 +171,10 @@ export default function PropertySelection() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { requireAuth } = useAuthGuard();
+  const { isBookingsEnabled } = useFeatureFlags();
+  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+  const isStaff = !!(user?.role && staffRoles.has(user.role));
+  const bookingsPaused = !isBookingsEnabled && !isStaff;
   const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -930,11 +935,12 @@ export default function PropertySelection() {
                                           room.deposit || 0,
                                         );
                                       }}
-                                      disabled={room.availableBeds === 0}
-                                      className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm"
+                                      disabled={room.availableBeds === 0 || bookingsPaused}
+                                      className={bookingsPaused ? "bg-slate-600/60 text-white/50 rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm"}
                                       data-testid={`button-book-room-${room.id}`}
+                                      title={bookingsPaused ? "Online bookings are temporarily paused" : undefined}
                                     >
-                                      {room.availableBeds === 0 ? "Sold Out" : "Book Now"}
+                                      {room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
                                     </Button>
                                   </div>
                                 </div>

@@ -29,6 +29,8 @@ export function useFeatureFlags() {
     isLoading,
     error,
     isHotelsPublic: !!flags.hotels_public,
+    // bookings_enabled defaults true — false means only admins/staff can book
+    isBookingsEnabled: flags.bookings_enabled !== false,
   };
 }
 

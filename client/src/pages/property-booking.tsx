@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { cn } from "@/lib/utils";
 import { getWashroomPills, isSectionShared } from "@/lib/room-washrooms";
 import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
@@ -1504,6 +1505,10 @@ function PropertyBooking() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, token } = useAuth();
+  const { isBookingsEnabled } = useFeatureFlags();
+  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+  const isStaff = !!(user?.role && staffRoles.has(user.role));
+  const bookingsPaused = !isBookingsEnabled && !isStaff;
   const propertyId = params?.id;
   const [selectedBed, setSelectedBed] = useState<any>(null);
   const [selectedFloor, setSelectedFloor] = useState<any>(null);
@@ -1755,6 +1760,10 @@ function PropertyBooking() {
 
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
     if (!property) return;
+    if (bookingsPaused) {
+      toast({ title: "Bookings are paused", description: "Online bookings are temporarily unavailable. Please contact us directly.", variant: "destructive" });
+      return;
+    }
     const roomData = {
       propertyId: property.id,
       roomTypeId,
@@ -2015,6 +2024,18 @@ function PropertyBooking() {
               <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
             </div>
 
+            {bookingsPaused && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm mb-2">
+                <div className="mt-0.5 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-amber-400 text-xs font-bold">!</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-400">Online bookings are temporarily paused</p>
+                  <p className="text-xs text-white/50 mt-0.5">Management has paused new bookings. Please contact us directly to enquire about availability.</p>
+                </div>
+              </div>
+            )}
+
             <div>
               <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
                 <Bed className="w-5 h-5 text-amber-500" />
@@ -2077,11 +2098,12 @@ function PropertyBooking() {
                               : (room.basePrice || 0);
                             handleBookRoom(room.id, room.customName || room.name, price, room.deposit || 0);
                           }}
-                          disabled={room.availableBeds === 0}
-                          className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"
+                          disabled={room.availableBeds === 0 || bookingsPaused}
+                          className={bookingsPaused ? "bg-slate-600/60 text-white/50 rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"}
                           data-testid={`button-book-room-${room.id}`}
+                          title={bookingsPaused ? "Online bookings are temporarily paused" : undefined}
                         >
-                          {room.availableBeds === 0 ? "Sold Out" : "Book Now"}
+                          {room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
                         </Button>
                       </div>
                     </div>
