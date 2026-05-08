@@ -2058,11 +2058,23 @@ function PropertyBooking() {
                           <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-500" /> {room.occupancy || 1}-sharing</span>
                           {!!user && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
                         </div>
-                        {!!user && room.availableBeds > 0 && room.availableBeds < 5 && (
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-medium rounded-md">
-                            <Clock className="w-3 h-3" /> Only {room.availableBeds} left
-                          </div>
-                        )}
+                        {(() => {
+                          const LOW_STOCK_THRESHOLD = 5;
+                          const isLow = room.availableBeds > 0 && room.availableBeds < LOW_STOCK_THRESHOLD;
+                          if (!isLow) return null;
+                          if (user) {
+                            return (
+                              <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-medium rounded-md">
+                                <Clock className="w-3 h-3" /> Only {room.availableBeds} left
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium rounded-md">
+                              <Clock className="w-3 h-3" /> Filling fast — limited spots
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">

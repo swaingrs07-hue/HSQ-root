@@ -874,12 +874,25 @@ export default function PropertySelection() {
                                       )}
                                     </div>
 
-                                    {!!user && room.availableBeds > 0 && room.availableBeds < 3 && (
-                                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400 font-medium">
-                                        <Clock className="w-3 h-3" />
-                                        Only {room.availableBeds} left — Book now!
-                                      </div>
-                                    )}
+                                    {(() => {
+                                      const LOW_STOCK_THRESHOLD = 5;
+                                      const isLow = room.availableBeds > 0 && room.availableBeds < LOW_STOCK_THRESHOLD;
+                                      if (!isLow) return null;
+                                      if (user) {
+                                        return (
+                                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400 font-medium">
+                                            <Clock className="w-3 h-3" />
+                                            Only {room.availableBeds} left — Book now!
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-xs text-amber-400 font-medium">
+                                          <Clock className="w-3 h-3" />
+                                          High demand — limited spots remaining
+                                        </div>
+                                      );
+                                    })()}
 
                                     {room.amenities && room.amenities.length > 0 && (
                                       <div className="flex flex-wrap gap-1.5 mt-3">
