@@ -773,13 +773,15 @@ export default function PropertySelection() {
                             <div className="text-lg font-bold text-white">{selectedProperty.roomTypes?.length || 0}</div>
                             <div className="text-xs text-white/40 uppercase tracking-wider">Room Types</div>
                           </div>
-                          <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
-                            <Users className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-                            <div className="text-lg font-bold text-white">
-                              {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0}
+                          {!!user && (
+                            <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
+                              <Users className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                              <div className="text-lg font-bold text-white">
+                                {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0}
+                              </div>
+                              <div className="text-xs text-white/40 uppercase tracking-wider">Beds Available</div>
                             </div>
-                            <div className="text-xs text-white/40 uppercase tracking-wider">Beds Available</div>
-                          </div>
+                          )}
                           <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
                             <Shield className="w-5 h-5 text-amber-400 mx-auto mb-2" />
                             <div className="text-lg font-bold text-white">24/7</div>
@@ -828,9 +830,11 @@ export default function PropertySelection() {
                       >
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-heading font-bold text-white">Available Rooms</h3>
-                          <span className="text-sm text-white/40">
-                            {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0} beds available
-                          </span>
+                          {!!user && (
+                            <span className="text-sm text-white/40">
+                              {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0} beds available
+                            </span>
+                          )}
                         </div>
 
                         <div className="space-y-4">
@@ -857,13 +861,15 @@ export default function PropertySelection() {
                                         <Bed className="w-4 h-4 text-amber-400" />
                                         {room.occupancy || 1}-sharing
                                       </span>
-                                      <span className="flex items-center gap-1">
-                                        <Users className="w-4 h-4 text-amber-400" />
-                                        {room.availableBeds} of {room.totalBeds} available
-                                      </span>
+                                      {!!user && (
+                                        <span className="flex items-center gap-1">
+                                          <Users className="w-4 h-4 text-amber-400" />
+                                          {room.availableBeds} of {room.totalBeds} available
+                                        </span>
+                                      )}
                                     </div>
 
-                                    {room.availableBeds > 0 && room.availableBeds < 3 && (
+                                    {!!user && room.availableBeds > 0 && room.availableBeds < 3 && (
                                       <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400 font-medium">
                                         <Clock className="w-3 h-3" />
                                         Only {room.availableBeds} left — Book now!

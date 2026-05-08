@@ -1070,10 +1070,12 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availAll} available</Badge>
-          <span className="text-white/30 text-xs">of {totalAll} total beds</span>
-        </div>
+        {!!user && (
+          <div className="flex items-center gap-2">
+            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availAll} available</Badge>
+            <span className="text-white/30 text-xs">of {totalAll} total beds</span>
+          </div>
+        )}
       </div>
 
       <div className="relative">
@@ -1106,14 +1108,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                     <div className="text-left">
                       <h4 className="font-bold text-white">{floor.name}</h4>
                       <p className="text-xs text-white/40 mt-0.5">
-                        {hasRooms && <><span className="text-indigo-400 font-medium">{rooms.length} rooms</span> · </>}
-                        <span className="text-emerald-400 font-semibold">{availBeds}</span> of {totalBeds} beds available
-                        <span className="text-white/20 ml-2">({occupancyPct}% open)</span>
+                        {hasRooms && <><span className="text-indigo-400 font-medium">{rooms.length} rooms</span>{!!user && " · "}</>}
+                        {!!user && <><span className="text-emerald-400 font-semibold">{availBeds}</span> of {totalBeds} beds available<span className="text-white/20 ml-2">({occupancyPct}% open)</span></>}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
+                    {!!user && availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
                     {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-xs font-bold">Full</Badge>}
                     <div className={cn("transition-transform duration-200", isExpanded && "rotate-180")}>
                       <ChevronDown className="w-5 h-5 text-white/40" />
@@ -1901,10 +1902,12 @@ function PropertyBooking() {
                 <p className="text-xl font-bold text-amber-400">{lowestPrice > 0 && lowestPrice < Infinity ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Starting {property.bookingMode === "academic_year" ? "per year" : "per month"}</p>
               </div>
-              <div className="text-center px-5 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                <p className="text-xl font-bold text-emerald-400">{availableBeds}</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Beds Available</p>
-              </div>
+              {!!user && (
+                <div className="text-center px-5 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <p className="text-xl font-bold text-emerald-400">{availableBeds}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Beds Available</p>
+                </div>
+              )}
               <div className="text-center px-5 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl">
                 <p className="text-xl font-bold text-white/80">{property.roomTypes?.length || 0}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Room Types</p>
@@ -2031,9 +2034,9 @@ function PropertyBooking() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-white/50">
                           <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-500" /> {room.occupancy || 1}-sharing</span>
-                          <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>
+                          {!!user && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
                         </div>
-                        {room.availableBeds > 0 && room.availableBeds < 5 && (
+                        {!!user && room.availableBeds > 0 && room.availableBeds < 5 && (
                           <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-medium rounded-md">
                             <Clock className="w-3 h-3" /> Only {room.availableBeds} left
                           </div>
