@@ -1073,7 +1073,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
             </span>
           ))}
         </div>
-        {!!user && (
+        {isStaff && (
           <div className="flex items-center gap-2">
             <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availAll} available</Badge>
             <span className="text-white/30 text-xs">of {totalAll} total beds</span>
