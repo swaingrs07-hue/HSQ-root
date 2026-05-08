@@ -3138,7 +3138,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="relative py-36 md:py-48 overflow-hidden">
+      <section className="relative py-36 md:py-48 overflow-hidden" data-testid="section-cta">
         <div className="absolute inset-0">
           <motion.img
             src={heroTerrace}

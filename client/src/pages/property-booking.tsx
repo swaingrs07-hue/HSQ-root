@@ -1211,7 +1211,7 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                                     ) : null}
                                     <div className="flex-1" />
                                     {room.monthlyPrice && <span className="text-[10px] text-white/30 font-medium">₹{room.monthlyPrice.toLocaleString()}/mo</span>}
-                                    {!!user && <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>{roomAvail} open</Badge>}
+                                    {isStaff && <Badge className={cn("text-[10px]", roomAvail > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>{roomAvail} open</Badge>}
                                   </div>
 
                                   {isCombo && sections ? (
