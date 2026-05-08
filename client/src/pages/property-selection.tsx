@@ -778,7 +778,7 @@ export default function PropertySelection() {
                             <div className="text-lg font-bold text-white">{selectedProperty.roomTypes?.length || 0}</div>
                             <div className="text-xs text-white/40 uppercase tracking-wider">Room Types</div>
                           </div>
-                          {!!user && (
+                          {isStaff && (
                             <div className="p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl text-center">
                               <Users className="w-5 h-5 text-amber-400 mx-auto mb-2" />
                               <div className="text-lg font-bold text-white">
@@ -835,7 +835,7 @@ export default function PropertySelection() {
                       >
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-heading font-bold text-white">Available Rooms</h3>
-                          {!!user && (
+                          {isStaff && (
                             <span className="text-sm text-white/40">
                               {selectedProperty.roomTypes?.reduce((sum: number, r: any) => sum + (r.availableBeds || 0), 0) || 0} beds available
                             </span>
@@ -866,7 +866,7 @@ export default function PropertySelection() {
                                         <Bed className="w-4 h-4 text-amber-400" />
                                         {room.occupancy || 1}-sharing
                                       </span>
-                                      {!!user && (
+                                      {isStaff && (
                                         <span className="flex items-center gap-1">
                                           <Users className="w-4 h-4 text-amber-400" />
                                           {room.availableBeds} of {room.totalBeds} available

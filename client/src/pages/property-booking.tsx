@@ -699,6 +699,7 @@ function MultiPlanRoomBadge({ plans, maxTier = 2 }: { plans: Array<{ name: strin
 
 function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand, selectedPlan }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null; selectedPlan?: any }) {
   const { user } = useAuth();
+  const isStaff = ["admin","superadmin","manager","staff","sales_executive","receptionist","hotel_admin","hotel_staff"].includes(user?.role || "");
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const prevAutoExpandRef = useRef<string | null>(null);
@@ -1110,13 +1111,13 @@ function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand,
                     <div className="text-left">
                       <h4 className="font-bold text-white">{floor.name}</h4>
                       <p className="text-xs text-white/40 mt-0.5">
-                        {hasRooms && <><span className="text-indigo-400 font-medium">{rooms.length} rooms</span>{!!user && " · "}</>}
-                        {!!user && <><span className="text-emerald-400 font-semibold">{availBeds}</span> of {totalBeds} beds available<span className="text-white/20 ml-2">({occupancyPct}% open)</span></>}
+                        {hasRooms && <><span className="text-indigo-400 font-medium">{rooms.length} rooms</span>{isStaff && " · "}</>}
+                        {isStaff && <><span className="text-emerald-400 font-semibold">{availBeds}</span> of {totalBeds} beds available<span className="text-white/20 ml-2">({occupancyPct}% open)</span></>}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {!!user && availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
+                    {isStaff && availBeds > 0 && <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-xs font-bold">{availBeds} open</Badge>}
                     {availBeds === 0 && totalBeds > 0 && <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-xs font-bold">Full</Badge>}
                     <div className={cn("transition-transform duration-200", isExpanded && "rotate-180")}>
                       <ChevronDown className="w-5 h-5 text-white/40" />
@@ -1912,7 +1913,7 @@ function PropertyBooking() {
                 <p className="text-xl font-bold text-amber-400">{lowestPrice > 0 && lowestPrice < Infinity ? `₹${lowestPrice.toLocaleString("en-IN")}` : "—"}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Starting {property.bookingMode === "academic_year" ? "per year" : "per month"}</p>
               </div>
-              {!!user && (
+              {isStaff && (
                 <div className="text-center px-5 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                   <p className="text-xl font-bold text-emerald-400">{availableBeds}</p>
                   <p className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Beds Available</p>
@@ -2056,7 +2057,7 @@ function PropertyBooking() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-white/50">
                           <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-500" /> {room.occupancy || 1}-sharing</span>
-                          {!!user && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
+                          {isStaff && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
                         </div>
                         {(() => {
                           const LOW_STOCK_THRESHOLD = 5;
