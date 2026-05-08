@@ -1,12 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight, MessageSquare, Smartphone, Star } from "lucide-react";
+import { Home, User, Building2, ShieldCheck, Menu, X, LogOut, LayoutDashboard, Users, Target, Search, Mail, Phone, MapPin, ArrowUpRight, MessageSquare, Smartphone, Star, Sun, Moon } from "lucide-react";
 import { useState, useEffect, useRef, lazy, Suspense, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuthGuard } from "@/contexts/auth-guard-context";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { AppThemeProvider, useAppTheme } from "@/hooks/use-app-theme";
 import hsquareLogo from "@/assets/hsquare-logo-full.png";
 import { ProfileDropdown } from "./profile-dropdown";
 import { SmartSearch } from "./smart-search";
@@ -51,7 +52,8 @@ const DEFAULT_FOOTER: FooterData = {
   supportLinks: [{ label: "FAQs", href: "/faq" }, { label: "Terms & Conditions", href: "/terms" }, { label: "Privacy Policy", href: "/privacy" }],
 };
 
-export function Layout({ children }: { children: React.ReactNode }) {
+function LayoutInner({ children }: { children: React.ReactNode }) {
+  const { theme, toggle: toggleTheme } = useAppTheme();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -335,7 +337,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <TubesContext.Provider value={tubesContextValue}>
     <div
-      className="min-h-screen bg-[#050505] flex flex-col font-sans relative"
+      className={cn("min-h-screen bg-[#050505] flex flex-col font-sans relative", theme === "light" && "app-light")}
       data-testid="layout-root"
     >
       {globalTubesActive && (
@@ -516,12 +518,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               <Search className="w-4 h-4" />
             </button>
+            <button
+              onClick={toggleTheme}
+              className={cn(
+                "p-2 rounded-full transition-all duration-300",
+                headerTransparent
+                  ? "text-white/80 hover:text-white hover:bg-white/10"
+                  : hasTransparentHeader
+                    ? "text-white/70 hover:text-white hover:bg-white/10"
+                    : "text-muted-foreground hover:text-primary hover:bg-muted"
+              )}
+              aria-label="Toggle light/dark mode"
+              data-testid="button-theme-toggle"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <div className={cn("pl-4 border-l", headerTransparent ? "border-white/20" : hasTransparentHeader ? "border-white/10" : "border-border")}>
               <ProfileDropdown />
             </div>
           </nav>
 
           <div className="md:hidden flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              className={cn(
+                "p-2 rounded-full transition-all duration-300",
+                headerTransparent || hasTransparentHeader ? "text-white hover:bg-white/10" : "text-muted-foreground hover:bg-muted"
+              )}
+              aria-label="Toggle light/dark mode"
+              data-testid="button-theme-toggle-mobile"
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
             {showHotelsSwitcher && (
             <button
               type="button"
@@ -889,5 +918,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       `}</style>
     </div>
     </TubesContext.Provider>
+  );
+}
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <AppThemeProvider>
+      <LayoutInner>{children}</LayoutInner>
+    </AppThemeProvider>
   );
 }
