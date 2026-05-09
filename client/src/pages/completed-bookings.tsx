@@ -1110,42 +1110,49 @@ export default function CompletedBookings() {
       });
     }
 
+    // ── Shared PDF meal resolver (Included Services + Add-On blocks) ──
+    // Handles numeric day-rules, augments raw meals to pkgMealCount, sorts canonically.
+    const PDF_MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+    const PDF_MEAL_ORDER = ["breakfast", "lunch", "evening_snacks", "dinner"];
+    const resolvePdfMeals = (dayRules: any, mealCount: number) => {
+      if (!dayRules) return { count: mealCount || 0, sortKey: "", label: "" };
+      if (typeof dayRules === "number") {
+        const count = Math.max(dayRules, mealCount);
+        return { count, sortKey: `__numeric_${count}`, label: `${count} meals` };
+      }
+      const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+      const rawCount = dayRules.count ?? raw.length;
+      if (mealCount > 0 && mealCount > rawCount) {
+        const missing = PDF_MEAL_ORDER.filter(x => !raw.includes(x));
+        raw.push(...missing.slice(0, mealCount - rawCount));
+      }
+      raw.sort((a, b) => PDF_MEAL_ORDER.indexOf(a) - PDF_MEAL_ORDER.indexOf(b));
+      const count = Math.max(rawCount, mealCount > 0 ? mealCount : rawCount);
+      const names = raw.map((m: string) => PDF_MEAL_LABELS[m] || m).join(", ");
+      return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
+    };
+    const pdfMealDayCollapse = (wd: ReturnType<typeof resolvePdfMeals>, sat: ReturnType<typeof resolvePdfMeals>, sun: ReturnType<typeof resolvePdfMeals>) =>
+      wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
+    // Derive meal count from active packages — mirrors the UI's pkgMealCount logic
+    const pdfAllActive = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status === "ACTIVE");
+    const pdfHousingPkg = pdfAllActive.find((bp: any) => bp.package?.category === "housing_plan");
+    const pdfHousingMealItem = pdfHousingPkg?.package?.items?.find((i: any) => i.type === "meals");
+    let pdfMealCount = pdfHousingMealItem ? (pdfHousingMealItem.includedQty || 0) : 0;
+    for (const ab of pdfAllActive.filter((bp: any) => bp.package?.category === "addon_service")) {
+      const ai = ab.package?.items?.find((i: any) => i.type === "meals");
+      if (ai) { const ac = ai.includedQty || 0; if (ac > pdfMealCount) pdfMealCount = ac; }
+    }
+
     const pdfIncludedServices: any[] = Array.isArray(booking.propertyIncludedServices) ? booking.propertyIncludedServices : [];
     if (pdfIncludedServices.length > 0) {
       y += 6;
       drawHeader("INCLUDED SERVICES");
-      const PDF_MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
-      const PDF_MEAL_ORDER = ["breakfast", "lunch", "evening_snacks", "dinner"];
-      // Derive meal count from active packages — mirrors the UI's pkgMealCount logic
-      const pdfAllActive = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status === "ACTIVE");
-      const pdfHousingPkg = pdfAllActive.find((bp: any) => bp.package?.category === "housing_plan");
-      const pdfHousingMealItem = pdfHousingPkg?.package?.items?.find((i: any) => i.type === "meals");
-      let pdfMealCount = pdfHousingMealItem ? (pdfHousingMealItem.includedQty || 0) : 0;
-      for (const ab of pdfAllActive.filter((bp: any) => bp.package?.category === "addon_service")) {
-        const ai = ab.package?.items?.find((i: any) => i.type === "meals");
-        if (ai) { const ac = ai.includedQty || 0; if (ac > pdfMealCount) pdfMealCount = ac; }
-      }
-      // Shared helper: augment + sort meals, return structured object for comparison
-      const resolvePdfMeals = (dayRules: any, mealCount: number) => {
-        if (!dayRules) return { count: mealCount || 0, sortKey: "", label: "" };
-        const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
-        const rawCount = dayRules.count ?? raw.length;
-        if (mealCount > 0 && mealCount > rawCount) {
-          const missing = PDF_MEAL_ORDER.filter(x => !raw.includes(x));
-          raw.push(...missing.slice(0, mealCount - rawCount));
-        }
-        raw.sort((a, b) => PDF_MEAL_ORDER.indexOf(a) - PDF_MEAL_ORDER.indexOf(b));
-        const count = Math.max(rawCount, mealCount > 0 ? mealCount : rawCount);
-        const names = raw.map((m: string) => PDF_MEAL_LABELS[m] || m).join(", ");
-        return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
-      };
       pdfIncludedServices.forEach((svc: any) => {
         if (svc.type === "meals" && svc.schedule) {
           const wd  = resolvePdfMeals(svc.schedule.weekday,  pdfMealCount);
           const sat = resolvePdfMeals(svc.schedule.saturday, pdfMealCount);
           const sun = resolvePdfMeals(svc.schedule.sunday,   pdfMealCount);
-          const allSame = wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
-          if (allSame) {
+          if (pdfMealDayCollapse(wd, sat, sun)) {
             drawRow(svc.label, `Daily: ${wd.label}`);
           } else {
             drawRow(svc.label, `Mon-Fri: ${wd.label}`);
@@ -1163,16 +1170,6 @@ export default function CompletedBookings() {
     if (pdfAddonPkgs.length > 0) {
       y += 6;
       drawHeader("ADD-ON SERVICES");
-      const PDF_MEAL_LABELS2: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
-      const PDF_MEAL_ORDER2 = ["breakfast", "lunch", "evening_snacks", "dinner"];
-      const resolveAddonMeals = (dayRules: any) => {
-        if (!dayRules) return { count: 0, sortKey: "", label: "" };
-        const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
-        const count = dayRules.count ?? raw.length;
-        raw.sort((a, b) => PDF_MEAL_ORDER2.indexOf(a) - PDF_MEAL_ORDER2.indexOf(b));
-        const names = raw.map((m: string) => PDF_MEAL_LABELS2[m] || m).join(", ");
-        return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
-      };
       pdfAddonPkgs.forEach((bp: any) => {
         const pkg = bp.package;
         const statusStr = bp.status === "ACTIVE" ? "Active" : "Ended";
@@ -1182,11 +1179,11 @@ export default function CompletedBookings() {
         const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
         if (mealItem) {
           const r = mealItem.rules;
-          const wd  = resolveAddonMeals(r.weekday);
-          const sat = resolveAddonMeals(r.saturday);
-          const sun = resolveAddonMeals(r.sunday);
-          const allSame = wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
-          if (allSame) {
+          // Add-on rules are self-contained (no pkgMealCount augmentation needed)
+          const wd  = resolvePdfMeals(r.weekday,  0);
+          const sat = resolvePdfMeals(r.saturday, 0);
+          const sun = resolvePdfMeals(r.sunday,   0);
+          if (pdfMealDayCollapse(wd, sat, sun)) {
             drawRow("  Schedule", `Daily: ${wd.label}`);
           } else {
             drawRow("  Schedule", `Mon-Fri: ${wd.label}`);
