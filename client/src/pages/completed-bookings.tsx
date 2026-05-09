@@ -1115,21 +1115,43 @@ export default function CompletedBookings() {
       y += 6;
       drawHeader("INCLUDED SERVICES");
       const PDF_MEAL_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+      const PDF_MEAL_ORDER = ["breakfast", "lunch", "evening_snacks", "dinner"];
+      // Derive meal count from active packages — mirrors the UI's pkgMealCount logic
+      const pdfAllActive = (bookingPackages?.bookingPackages || []).filter((bp: any) => bp.status === "ACTIVE");
+      const pdfHousingPkg = pdfAllActive.find((bp: any) => bp.package?.category === "housing_plan");
+      const pdfHousingMealItem = pdfHousingPkg?.package?.items?.find((i: any) => i.type === "meals");
+      let pdfMealCount = pdfHousingMealItem ? (pdfHousingMealItem.includedQty || 0) : 0;
+      for (const ab of pdfAllActive.filter((bp: any) => bp.package?.category === "addon_service")) {
+        const ai = ab.package?.items?.find((i: any) => i.type === "meals");
+        if (ai) { const ac = ai.includedQty || 0; if (ac > pdfMealCount) pdfMealCount = ac; }
+      }
+      // Shared helper: augment + sort meals, return structured object for comparison
+      const resolvePdfMeals = (dayRules: any, mealCount: number) => {
+        if (!dayRules) return { count: mealCount || 0, sortKey: "", label: "" };
+        const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+        const rawCount = dayRules.count ?? raw.length;
+        if (mealCount > 0 && mealCount > rawCount) {
+          const missing = PDF_MEAL_ORDER.filter(x => !raw.includes(x));
+          raw.push(...missing.slice(0, mealCount - rawCount));
+        }
+        raw.sort((a, b) => PDF_MEAL_ORDER.indexOf(a) - PDF_MEAL_ORDER.indexOf(b));
+        const count = Math.max(rawCount, mealCount > 0 ? mealCount : rawCount);
+        const names = raw.map((m: string) => PDF_MEAL_LABELS[m] || m).join(", ");
+        return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
+      };
       pdfIncludedServices.forEach((svc: any) => {
         if (svc.type === "meals" && svc.schedule) {
-          const getMealNames = (dayRules: any) => {
-            if (!dayRules) return "";
-            const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
-            const count = dayRules.count ?? meals.length;
-            const names = meals.map((m: string) => PDF_MEAL_LABELS[m] || m).join(", ");
-            return `${count} meals${names ? ` (${names})` : ""}`;
-          };
-          const wd = getMealNames(svc.schedule.weekday);
-          const sat = getMealNames(svc.schedule.saturday);
-          const sun = getMealNames(svc.schedule.sunday);
-          drawRow(svc.label, `Mon-Fri: ${wd}`);
-          if (sat !== wd) drawRow("", `Saturday: ${sat}`);
-          if (sun !== wd) drawRow("", `Sunday: ${sun}`);
+          const wd  = resolvePdfMeals(svc.schedule.weekday,  pdfMealCount);
+          const sat = resolvePdfMeals(svc.schedule.saturday, pdfMealCount);
+          const sun = resolvePdfMeals(svc.schedule.sunday,   pdfMealCount);
+          const allSame = wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
+          if (allSame) {
+            drawRow(svc.label, `Daily: ${wd.label}`);
+          } else {
+            drawRow(svc.label, `Mon-Fri: ${wd.label}`);
+            if (sat.sortKey !== wd.sortKey || sat.count !== wd.count) drawRow("", `Saturday: ${sat.label}`);
+            if (sun.sortKey !== wd.sortKey || sun.count !== wd.count) drawRow("", `Sunday: ${sun.label}`);
+          }
         } else {
           drawRow(svc.label, svc.description || "Included");
         }
@@ -1142,6 +1164,15 @@ export default function CompletedBookings() {
       y += 6;
       drawHeader("ADD-ON SERVICES");
       const PDF_MEAL_LABELS2: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
+      const PDF_MEAL_ORDER2 = ["breakfast", "lunch", "evening_snacks", "dinner"];
+      const resolveAddonMeals = (dayRules: any) => {
+        if (!dayRules) return { count: 0, sortKey: "", label: "" };
+        const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+        const count = dayRules.count ?? raw.length;
+        raw.sort((a, b) => PDF_MEAL_ORDER2.indexOf(a) - PDF_MEAL_ORDER2.indexOf(b));
+        const names = raw.map((m: string) => PDF_MEAL_LABELS2[m] || m).join(", ");
+        return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
+      };
       pdfAddonPkgs.forEach((bp: any) => {
         const pkg = bp.package;
         const statusStr = bp.status === "ACTIVE" ? "Active" : "Ended";
@@ -1150,20 +1181,18 @@ export default function CompletedBookings() {
         drawRow(pkg?.name || "Add-On", `${priceStr} — ${statusStr}`);
         const mealItem = pkg?.items?.find((i: any) => i.type === "meals" && i.rules);
         if (mealItem) {
-          const getMealNames2 = (dayRules: any) => {
-            if (!dayRules) return "";
-            const meals = Array.isArray(dayRules.meals) ? dayRules.meals : [];
-            const count = dayRules.count ?? meals.length;
-            const names = meals.map((m: string) => PDF_MEAL_LABELS2[m] || m).join(", ");
-            return `${count} meals${names ? ` (${names})` : ""}`;
-          };
           const r = mealItem.rules;
-          const wd = getMealNames2(r.weekday);
-          const sat = getMealNames2(r.saturday);
-          const sun = getMealNames2(r.sunday);
-          drawRow("  Schedule", `Mon-Fri: ${wd}`);
-          if (sat !== wd) drawRow("", `Saturday: ${sat}`);
-          if (sun !== wd) drawRow("", `Sunday: ${sun}`);
+          const wd  = resolveAddonMeals(r.weekday);
+          const sat = resolveAddonMeals(r.saturday);
+          const sun = resolveAddonMeals(r.sunday);
+          const allSame = wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
+          if (allSame) {
+            drawRow("  Schedule", `Daily: ${wd.label}`);
+          } else {
+            drawRow("  Schedule", `Mon-Fri: ${wd.label}`);
+            if (sat.sortKey !== wd.sortKey || sat.count !== wd.count) drawRow("", `Saturday: ${sat.label}`);
+            if (sun.sortKey !== wd.sortKey || sun.count !== wd.count) drawRow("", `Sunday: ${sun.label}`);
+          }
         }
       });
     }
@@ -2175,12 +2204,32 @@ export default function CompletedBookings() {
                               {svc.type !== "meals" && !pkgSvcFeature && svc.description && <p className="text-[10px] text-slate-500 ml-8">{svc.description}</p>}
                               {svc.type === "meals" && svc.schedule && (() => {
                                 const ALL_M = ["breakfast","lunch","evening_snacks","dinner"];
-                                const gm = (dr: any, tc: number) => { if (!dr) return { count: tc||0, names: [] as string[] }; if (typeof dr==="number") return { count: Math.max(dr,tc), names: [] as string[] }; let m = Array.isArray(dr.meals)?[...dr.meals]:[]; const bc=dr.count??m.length; if(tc>0&&tc>bc){const miss=ALL_M.filter(x=>!m.includes(x));const add=miss.slice(0,tc-bc);m=[...m,...add];m.sort((a,b)=>ALL_M.indexOf(a)-ALL_M.indexOf(b));} return{count:Math.max(bc,tc>0?tc:bc),names:m.map((x:string)=>MEAL_LBL[x]||x)}; };
-                                const wd=gm(svc.schedule.weekday,pkgMealCount); const sat=gm(svc.schedule.saturday,pkgMealCount); const sun=gm(svc.schedule.sunday,pkgMealCount);
+                                const gm = (dr: any, tc: number) => {
+                                  if (!dr) return { count: tc||0, names: [] as string[] };
+                                  if (typeof dr==="number") return { count: Math.max(dr,tc), names: [] as string[] };
+                                  const m: string[] = Array.isArray(dr.meals)?[...dr.meals]:[];
+                                  const bc=dr.count??m.length;
+                                  if(tc>0&&tc>bc){const miss=ALL_M.filter(x=>!m.includes(x));m.push(...miss.slice(0,tc-bc));}
+                                  m.sort((a,b)=>ALL_M.indexOf(a)-ALL_M.indexOf(b));
+                                  return{count:Math.max(bc,tc>0?tc:bc),names:m.map((x:string)=>MEAL_LBL[x]||x)};
+                                };
+                                const wd=gm(svc.schedule.weekday,pkgMealCount);
+                                const sat=gm(svc.schedule.saturday,pkgMealCount);
+                                const sun=gm(svc.schedule.sunday,pkgMealCount);
+                                const wdKey=wd.names.join(","); const satKey=sat.names.join(","); const sunKey=sun.names.join(",");
+                                const allSame=wd.count===sat.count&&wd.count===sun.count&&wdKey===satKey&&wdKey===sunKey;
+                                const mealRow=(label:string,d:{count:number,names:string[]})=>(
+                                  <div className="flex items-start gap-1.5 text-[10px]">
+                                    <span className="text-slate-500 font-medium w-12 shrink-0">{label}</span>
+                                    <span className="text-slate-700">{d.count} meals{d.names.length>0?` — ${d.names.join(", ")}`:""}</span>
+                                  </div>
+                                );
                                 return (<div className="ml-8 space-y-0.5">
-                                  <div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Mon–Fri</span><span className="text-slate-700">{wd.count} meals{wd.names.length>0?` — ${wd.names.join(", ")}`:""}</span></div>
-                                  {(sat.count!==wd.count||sat.names.join(",")!==wd.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sat</span><span className="text-slate-700">{sat.count} meals{sat.names.length>0?` — ${sat.names.join(", ")}`:""}</span></div>)}
-                                  {(sun.count!==wd.count||sun.names.join(",")!==wd.names.join(","))&&(<div className="flex items-start gap-1.5 text-[10px]"><span className="text-slate-500 font-medium w-12 shrink-0">Sun</span><span className="text-slate-700">{sun.count} meals{sun.names.length>0?` — ${sun.names.join(", ")}`:""}</span></div>)}
+                                  {allSame ? mealRow("Daily", wd) : (<>
+                                    {mealRow("Mon–Fri", wd)}
+                                    {(sat.count!==wd.count||satKey!==wdKey)&&mealRow("Sat", sat)}
+                                    {(sun.count!==wd.count||sunKey!==wdKey)&&mealRow("Sun", sun)}
+                                  </>)}
                                 </div>);
                               })()}
                             </div>
