@@ -3382,17 +3382,27 @@ function BookingGenerationInner() {
                               const pinnedIdx: number | null = (formData as any).pinnedInstallmentIdx ?? null;
                               const pinnedAmt: number = (formData as any).pinnedInstallmentAmt ?? 0;
 
-                              // Build final amounts: pinned slot stays fixed, rest split equally
+                              // Build final amounts:
+                              //   • slots BEFORE pinnedIdx → unchanged equal share (total/n each)
+                              //   • pinnedIdx slot         → pinnedAmt (fixed)
+                              //   • slots AFTER pinnedIdx  → absorb the difference evenly
+                              const equalPerSlot = n > 0 ? Math.round(total / n) : 0;
                               const amounts: number[] = Array.from({ length: n }, (_, i) => {
-                                if (pinnedIdx !== null && i === pinnedIdx) return pinnedAmt;
-                                const remaining = total - (pinnedIdx !== null ? pinnedAmt : 0);
-                                const autoCount = pinnedIdx !== null ? n - 1 : n;
-                                const perSlot = Math.round(remaining / autoCount);
-                                const autoPos = pinnedIdx !== null
-                                  ? Array.from({ length: n }, (_, k) => k).filter(k => k !== pinnedIdx).indexOf(i)
-                                  : i;
-                                if (autoPos === autoCount - 1) return remaining - perSlot * (autoCount - 1);
-                                return perSlot;
+                                if (pinnedIdx === null) {
+                                  // no pin: pure equal split, last slot takes rounding remainder
+                                  return i === n - 1 ? total - equalPerSlot * (n - 1) : equalPerSlot;
+                                }
+                                if (i === pinnedIdx) return pinnedAmt;
+                                if (i < pinnedIdx) return equalPerSlot; // before pin — don't touch
+                                // after pin: distribute (total - beforeSum - pinnedAmt) evenly
+                                const beforeSum = pinnedIdx * equalPerSlot;
+                                const afterCount = n - pinnedIdx - 1;
+                                const afterRemaining = total - beforeSum - pinnedAmt;
+                                const perAfter = afterCount > 0 ? Math.round(afterRemaining / afterCount) : afterRemaining;
+                                const afterPos = i - pinnedIdx - 1;
+                                return afterPos === afterCount - 1
+                                  ? afterRemaining - perAfter * (afterCount - 1)
+                                  : perAfter;
                               });
 
                               return amounts.map((amount, i) => {
@@ -3416,21 +3426,27 @@ function BookingGenerationInner() {
                                             const val = parseInt(e.target.value) || 0;
                                             const maxAllowed = Math.max(0, total - (n - 1) * 100);
                                             const clamped = Math.max(0, Math.min(val, maxAllowed));
-                                            setFormData((prev: any) => ({
-                                              ...prev,
-                                              pinnedInstallmentIdx: i,
-                                              pinnedInstallmentAmt: clamped,
-                                              customBookingAmount: i === 0 ? clamped : prev.customBookingAmount,
-                                              // keep installmentAmounts in sync for submission
-                                              installmentAmounts: Array.from({ length: n }, (_, k) => {
-                                                if (k === i) return clamped;
-                                                const rem = total - clamped;
-                                                const autoC = n - 1;
-                                                const perS = Math.round(rem / autoC);
-                                                const ap = Array.from({ length: n }, (_, m) => m).filter(m => m !== i).indexOf(k);
-                                                return ap === autoC - 1 ? rem - perS * (autoC - 1) : perS;
-                                              }),
-                                            }));
+                                            setFormData((prev: any) => {
+                                              const eqPer = n > 0 ? Math.round(total / n) : 0;
+                                              const beforeSum = i * eqPer;
+                                              const afterCount = n - i - 1;
+                                              const afterRem = total - beforeSum - clamped;
+                                              const perAfter = afterCount > 0 ? Math.round(afterRem / afterCount) : afterRem;
+                                              return {
+                                                ...prev,
+                                                pinnedInstallmentIdx: i,
+                                                pinnedInstallmentAmt: clamped,
+                                                customBookingAmount: i === 0 ? clamped : prev.customBookingAmount,
+                                                // keep installmentAmounts in sync for submission:
+                                                // before pin → unchanged equal share, after pin → absorb difference
+                                                installmentAmounts: Array.from({ length: n }, (_, k) => {
+                                                  if (k === i) return clamped;
+                                                  if (k < i) return eqPer;
+                                                  const ap = k - i - 1;
+                                                  return ap === afterCount - 1 ? afterRem - perAfter * (afterCount - 1) : perAfter;
+                                                }),
+                                              };
+                                            });
                                           }}
                                           className={`w-28 text-right text-sm font-semibold border rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400 ${isPinned ? "text-purple-700 border-purple-300 bg-purple-50" : "text-slate-600 border-purple-200"}`}
                                           data-testid={`input-installment-amount-${i}`}
