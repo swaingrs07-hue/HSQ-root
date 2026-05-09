@@ -3246,8 +3246,8 @@ ${allPages.map(p => `  <url>
   });
 
   // ============ Property Brochure Downloads ============
-  // PDF is public (anyone can download). PPT is staff-only (admin/manager/
-  // staff/sales_executive/receptionist + superadmin auto-included).
+  // Both PDF and PPTX require a valid login (any role).
+  // PPTX is additionally restricted to staff roles only.
   app.get("/api/properties/:id/download/:format", brochureRateLimiter, async (req: AuthRequest, res) => {
     try {
       const { id, format } = req.params;
@@ -3255,19 +3255,21 @@ ${allPages.map(p => `  <url>
         return res.status(400).json({ error: "Invalid format. Use 'pdf' or 'pptx'." });
       }
 
+      // Both PDF and PPTX require a valid login — guests cannot download brochures.
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Authentication required. Please log in to download brochures." });
+      }
+      const payload = verifyToken(authHeader.substring(7));
+      if (!payload) return res.status(401).json({ error: "Invalid or expired token. Please log in again." });
+      req.user = payload;
+
+      // PPTX is additionally restricted to staff roles only.
       if (format === "pptx") {
-        // Manually enforce staff-only auth for PPT.
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-          return res.status(401).json({ error: "Authentication required" });
-        }
-        const payload = verifyToken(authHeader.substring(7));
-        if (!payload) return res.status(401).json({ error: "Invalid or expired token" });
         const STAFF_ROLES = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
         if (!STAFF_ROLES.has(payload.role)) {
           return res.status(403).json({ error: "Access denied. PPT downloads are restricted to staff." });
         }
-        req.user = payload;
       }
 
       const property = await storage.getPropertyByIdOrSlug(id);

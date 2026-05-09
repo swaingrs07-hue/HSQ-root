@@ -78,21 +78,15 @@ export function PropertyBrochureButtons({
   const [loading, setLoading] = useState<Format | null>(null);
   const [chooserFormat, setChooserFormat] = useState<Format | null>(null);
 
-  // PDF brochures are public — anyone can download.
-  // PPT decks are restricted to internal staff (sales/admin tooling).
+  // Both PDF and PPTX require login. PPT is additionally staff-only.
   const STAFF_ROLES = ["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"];
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
 
   const openChooser = (format: Format) => {
-    if (format === "pptx") {
-      // PPT requires login + staff role; gate via auth modal first.
-      requireAuth(() => {
-        setChooserFormat(format);
-      }, "download the brochure deck");
-      return;
-    }
-    // PDF is public — open the chooser straight away.
-    setChooserFormat(format);
+    // All formats require login — gate behind auth modal if not signed in.
+    requireAuth(() => {
+      setChooserFormat(format);
+    }, format === "pptx" ? "download the brochure deck" : "download the brochure");
   };
 
   const startDownload = async (price: PriceMode) => {
