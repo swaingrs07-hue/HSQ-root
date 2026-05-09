@@ -5481,7 +5481,7 @@ ${allPages.map(p => `  <url>
         "status", "stayPlanType", "academicYearPeriod",
         "checkInDate", "checkOutDate", "durationMonths",
         "paymentType", "tokenAmount", "numberOfInstallments",
-        "referrer", "deposit", "depositType", "depositProofPath", "depositTransactionId",
+        "referrer", "deposit", "depositType", "depositProofPath", "depositTransactionId", "depositReceived",
       ];
 
       const fieldMapping: Record<string, string> = {
@@ -5568,7 +5568,7 @@ ${allPages.map(p => `  <url>
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
-      if (!booking.depositType) return res.status(400).json({ error: "Security deposit has not been marked as paid yet" });
+      if (!(booking as any).depositReceived && !booking.depositType) return res.status(400).json({ error: "Security deposit has not been marked as paid yet" });
       if ((booking as any).depositRefunded) return res.status(400).json({ error: "Deposit has already been refunded" });
 
       const scope = await getReceptionistScope(req);

@@ -223,7 +223,7 @@ export const bookings = pgTable("bookings", {
   discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).default("0"),
   totalFee: integer("total_fee").notNull(), // baseFee - discount
   deposit: integer("deposit").default(0),
-  depositType: text("deposit_type").default("cash"), // cash, online, cheque, paid_last_year, waived
+  depositType: text("deposit_type"), // cash, online, cheque, paid_last_year, waived — set when admin confirms receipt
   depositProofPath: text("deposit_proof_path"),
   depositTransactionId: text("deposit_transaction_id"),
   depositReceived: boolean("deposit_received").default(false),

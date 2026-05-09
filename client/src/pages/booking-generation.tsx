@@ -1204,8 +1204,6 @@ function BookingGenerationInner() {
           durationMonths: formData.durationMonths,
           baseFee: formData.baseFee,
           deposit: formData.deposit,
-          depositType: (formData as any).depositType || "cash",
-          depositProofPath: (formData as any).depositProofPath || null,
           discount: formData.discount,
           discountReason: formData.discountReason,
           paymentType: formData.paymentType,
@@ -3032,16 +3030,6 @@ function BookingGenerationInner() {
 
                       {(() => {
                         const propDeposit = getSelectedProperty()?.deposit || getSelectedRoomType()?.deposit || 0;
-                        const sdTypes = [
-                          { value: "cash", label: "Cash", icon: "💵" },
-                          { value: "online", label: "Online", icon: "🏦" },
-                          { value: "cheque", label: "Cheque", icon: "📄" },
-                          { value: "paid_last_year", label: "Paid Last Year", icon: "🔁" },
-                          { value: "waived", label: "Waived", icon: "✅" },
-                        ];
-                        const currentDepositType = (formData as any).depositType || "cash";
-                        const isPaidLastYear = currentDepositType === "paid_last_year";
-                        const isWaived = currentDepositType === "waived";
                         return (
                           <>
                             {(propDeposit > 0 || !isRegularUser) && (
@@ -3050,160 +3038,37 @@ function BookingGenerationInner() {
                                   <Shield className="h-4 w-4 text-amber-600" />
                                   <Label className="text-sm font-semibold text-amber-800">Security Deposit (SD)</Label>
                                 </div>
-
-                                {/* SD Type selector — like package type */}
-                                {!isRegularUser && (
-                                  <div className="space-y-1.5">
-                                    <p className="text-xs text-amber-700 font-medium">Deposit Type</p>
-                                    <div className="grid grid-cols-5 gap-1.5">
-                                      {sdTypes.map(t => (
-                                        <button
-                                          key={t.value}
-                                          type="button"
-                                          onClick={() => setFormData((prev: any) => ({
-                                            ...prev,
-                                            depositType: t.value,
-                                            deposit: t.value === "waived" ? 0 : prev.deposit,
-                                          }))}
-                                          className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-lg border-2 text-center transition-all ${
-                                            currentDepositType === t.value
-                                              ? "border-amber-500 bg-amber-100 text-amber-800"
-                                              : "border-amber-200 bg-white text-slate-600 hover:border-amber-300"
-                                          }`}
-                                          data-testid={`btn-deposit-type-${t.value}`}
-                                        >
-                                          <span className="text-base leading-none">{t.icon}</span>
-                                          <span className="text-[10px] font-medium leading-tight">{t.label}</span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Amount — hidden when waived */}
-                                {!isWaived && (
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-amber-700 font-medium">Deposit Amount</p>
-                                    <div className="relative">
-                                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                      {isRegularUser ? (
-                                        <Input
-                                          type="number"
-                                          value={propDeposit}
-                                          readOnly
-                                          className="pl-10 bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed"
-                                          data-testid="input-deposit"
-                                        />
-                                      ) : (
-                                        <Input
-                                          type="number"
-                                          value={formData.deposit || ""}
-                                          onChange={(e) => setFormData((prev: any) => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
-                                          className="pl-10 bg-white border-amber-300 focus:border-amber-500"
-                                          placeholder="Enter deposit amount"
-                                          data-testid="input-deposit"
-                                        />
-                                      )}
-                                    </div>
-                                    {isRegularUser && propDeposit > 0 && (
-                                      <p className="text-xs text-slate-500">Set by property</p>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Paid last year note */}
-                                {isPaidLastYear && (
-                                  <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
-                                    <p className="text-xs text-blue-700">SD was collected in the previous academic year and is being carried forward. No fresh collection needed.</p>
-                                  </div>
-                                )}
-
-                                {/* Waived note */}
-                                {isWaived && (
-                                  <div className="flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
-                                    <CheckCircle className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-                                    <p className="text-xs text-green-700">Security deposit has been waived for this booking. No deposit will be collected.</p>
-                                  </div>
-                                )}
-
-                                {/* Deposit proof upload — hide for paid_last_year and waived */}
-                                {!isRegularUser && !isPaidLastYear && !isWaived && (
-                                  <div className="space-y-1.5">
-                                    <p className="text-xs text-amber-700 font-medium">Deposit Proof (Optional)</p>
-                                    {(formData as any).depositProofPreview ? (
-                                      <div className="relative group w-full">
-                                        <img
-                                          src={(formData as any).depositProofPreview}
-                                          alt="Deposit proof"
-                                          className="w-full h-28 object-cover rounded-lg border border-amber-200"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => setFormData((prev: any) => ({ ...prev, depositProofPath: "", depositProofPreview: "" }))}
-                                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          data-testid="btn-remove-deposit-proof"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      </div>
+                                <div className="space-y-1">
+                                  <p className="text-xs text-amber-700 font-medium">Deposit Amount</p>
+                                  <div className="relative">
+                                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    {isRegularUser ? (
+                                      <Input
+                                        type="number"
+                                        value={propDeposit}
+                                        readOnly
+                                        className="pl-10 bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed"
+                                        data-testid="input-deposit"
+                                      />
                                     ) : (
-                                      <label className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${(formData as any).depositProofUploading ? "border-slate-200 bg-slate-50" : "border-amber-300 bg-amber-50/50 hover:border-amber-400 hover:bg-amber-50"}`}>
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          data-testid="input-deposit-proof"
-                                          disabled={(formData as any).depositProofUploading}
-                                          onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (!file) return;
-                                            if (!file.type.startsWith("image/")) {
-                                              toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
-                                              return;
-                                            }
-                                            if (file.size > 10 * 1024 * 1024) {
-                                              toast({ title: "File too large", description: "Must be under 10MB.", variant: "destructive" });
-                                              return;
-                                            }
-                                            setFormData((prev: any) => ({ ...prev, depositProofUploading: true }));
-                                            try {
-                                              const res = await fetch("/api/uploads/request-url", {
-                                                method: "POST",
-                                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
-                                                body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-                                              });
-                                              if (!res.ok) throw new Error("Failed to get upload URL");
-                                              const { uploadURL, objectPath } = await res.json();
-                                              const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-                                              if (!uploadRes.ok) throw new Error("Upload failed");
-                                              setFormData((prev: any) => ({
-                                                ...prev,
-                                                depositProofPath: objectPath,
-                                                depositProofPreview: URL.createObjectURL(file),
-                                                depositProofUploading: false,
-                                              }));
-                                              toast({ title: "Deposit proof uploaded" });
-                                            } catch (err) {
-                                              setFormData((prev: any) => ({ ...prev, depositProofUploading: false }));
-                                              toast({ title: "Upload failed", variant: "destructive" });
-                                            }
-                                            e.target.value = "";
-                                          }}
-                                        />
-                                        {(formData as any).depositProofUploading ? (
-                                          <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
-                                        ) : (
-                                          <Upload className="h-4 w-4 text-amber-500" />
-                                        )}
-                                        <span className="text-xs text-amber-700 font-medium">
-                                          {(formData as any).depositProofUploading ? "Uploading..." : "Upload deposit proof"}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400">JPG, PNG under 10MB</span>
-                                      </label>
+                                      <Input
+                                        type="number"
+                                        value={formData.deposit || ""}
+                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, deposit: parseInt(e.target.value) || 0 }))}
+                                        className="pl-10 bg-white border-amber-300 focus:border-amber-500"
+                                        placeholder="Enter deposit amount"
+                                        data-testid="input-deposit"
+                                      />
                                     )}
                                   </div>
-                                )}
+                                  {isRegularUser && propDeposit > 0 && (
+                                    <p className="text-xs text-slate-500">Set by property</p>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-amber-600/80 flex items-center gap-1">
+                                  <Shield className="h-3 w-3 shrink-0" />
+                                  Payment method will be recorded when deposit is collected.
+                                </p>
                               </div>
                             )}
                           </>

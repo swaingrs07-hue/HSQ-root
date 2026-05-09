@@ -244,6 +244,9 @@ export default function CompletedBookings() {
   const [sdProofUploading, setSdProofUploading] = useState(false);
   const [sdProofAddUploading, setSdProofAddUploading] = useState(false);
   const [sdProofOpeningIdx, setSdProofOpeningIdx] = useState<number | null>(null);
+  const [sdConfirmForm, setSdConfirmForm] = useState<{depositType: string; depositTransactionId: string; depositProofPath: string}>({depositType: "cash", depositTransactionId: "", depositProofPath: ""});
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [sdConfirmProofUploading, setSdConfirmProofUploading] = useState(false);
   const [sdRefundDialog, setSdRefundDialog] = useState(false);
   const [sdRefundForm, setSdRefundForm] = useState({ refundDate: new Date().toISOString().slice(0, 10), refundAmount: 0, refundMethod: "cash", refundNotes: "" });
   const [recordingRefund, setRecordingRefund] = useState(false);
@@ -280,6 +283,7 @@ export default function CompletedBookings() {
           deposit: sdForm.deposit,
           depositType: sdForm.depositType,
           depositProofPath: sdForm.depositProofPath || null,
+          depositReceived: true,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
@@ -291,6 +295,54 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setMarkingSd(false);
+    }
+  };
+
+  const uploadSdConfirmProof = async (file: File) => {
+    setSdConfirmProofUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      setSdConfirmForm(prev => ({ ...prev, depositProofPath: objectPath }));
+      toast({ title: "Proof uploaded" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    } finally {
+      setSdConfirmProofUploading(false);
+    }
+  };
+
+  const confirmSdReceipt = async () => {
+    if (!selectedBooking) return;
+    setConfirmingReceipt(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          depositReceived: true,
+          depositType: sdConfirmForm.depositType,
+          depositTransactionId: sdConfirmForm.depositTransactionId || null,
+          depositProofPath: sdConfirmForm.depositProofPath || null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to confirm");
+      const updated = await res.json();
+      setSelectedBooking({ ...selectedBooking, ...updated });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Security deposit confirmed as received" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setConfirmingReceipt(false);
     }
   };
 
@@ -1965,14 +2017,14 @@ export default function CompletedBookings() {
         </div>
       )}
 
-      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); } }}>
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); setSdConfirmForm({ depositType: "cash", depositTransactionId: "", depositProofPath: "" }); } }}>
         <DialogContent className="!fixed !inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-screen !rounded-none !p-0 !gap-0 flex flex-col bkd-page [&>button.absolute]:hidden">
           {/* ── Top Header Bar ── */}
           <div className="bkd-topbar flex items-center justify-between px-5 py-3 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <button
                 className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
-                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
+                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); setSdConfirmForm({ depositType: "cash", depositTransactionId: "", depositProofPath: "" }); }}
                 data-testid="btn-back-dialog"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -2001,7 +2053,7 @@ export default function CompletedBookings() {
                 </Button>
               )}
               <Button size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs border-0 shadow-sm"
-                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); }}
+                onClick={() => { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); setSdConfirmForm({ depositType: "cash", depositTransactionId: "", depositProofPath: "" }); }}
                 data-testid="btn-close-dialog">
                 <X className="h-3.5 w-3.5" /> Close
               </Button>
@@ -2496,7 +2548,7 @@ export default function CompletedBookings() {
                         )}
                         {(selectedBooking.deposit ?? 0) > 0 && (() => {
                           const dtMap: Record<string,{label:string;color:string;bg:string}> = {cash:{label:"Cash",color:"text-emerald-700",bg:"bg-emerald-50 border-emerald-200"},upi:{label:"UPI",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},online:{label:"Online Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},bank_transfer:{label:"Bank Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},cheque:{label:"Cheque",color:"text-amber-700",bg:"bg-amber-50 border-amber-200"},card:{label:"Card",color:"text-purple-700",bg:"bg-purple-50 border-purple-200"},paid_last_year:{label:"Paid Last Year",color:"text-violet-700",bg:"bg-violet-50 border-violet-200"},waived:{label:"Waived",color:"text-slate-500",bg:"bg-slate-50 border-slate-200"},other:{label:"Other",color:"text-slate-600",bg:"bg-slate-50 border-slate-200"}};
-                          const sdPending = !selectedBooking.depositType;
+                          const sdPending = !selectedBooking.depositReceived && !selectedBooking.depositType;
                           const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
                           const proofPaths: string[] = (() => {
                             if (!selectedBooking.depositProofPath) return [];
@@ -2560,22 +2612,68 @@ export default function CompletedBookings() {
                                 </div>
                               )}
 
-                              {/* Row 4: action buttons */}
-                              <div className="flex flex-wrap gap-1.5">
-                                {sdPending && (isAdmin || isReceptionist) && (
-                                  <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5 gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
-                                    onClick={() => openPaymentDialog(selectedBooking, undefined, undefined, true)} data-testid="button-mark-sd-paid">
-                                    <CreditCard className="h-3 w-3"/> Mark Payment Method
-                                  </Button>
-                                )}
-                                {!sdPending && !selectedBooking.depositRefunded && isAdmin && (
+                              {/* Row 4: inline confirm receipt (when pending) */}
+                              {sdPending && (isAdmin || isReceptionist) && (
+                                <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-3 space-y-3" data-testid="sd-confirm-panel">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mark as Received</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {([{value:"cash",label:"Cash",Icon:Banknote},{value:"online",label:"Online",Icon:CreditCard},{value:"cheque",label:"Cheque",Icon:FileText},{value:"paid_last_year",label:"Carried Fwd",Icon:RotateCcw},{value:"waived",label:"Waived",Icon:CheckCircle2}] as const).map(({value,label,Icon}) => {
+                                      const active = sdConfirmForm.depositType === value;
+                                      return (
+                                        <button key={value} type="button" onClick={() => setSdConfirmForm(prev=>({...prev, depositType: value}))}
+                                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${active?"bg-indigo-600 text-white border-indigo-500":"bg-white text-slate-600 border-slate-200 hover:text-indigo-600 hover:border-indigo-200"}`}
+                                          data-testid={`btn-confirm-sd-type-${value}`}>
+                                          <Icon className="h-3 w-3"/>{label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {sdConfirmForm.depositType === "online" && (
+                                    <div className="flex items-center gap-2 rounded-lg px-3 py-2 border border-slate-200 bg-white">
+                                      <span className="text-[10px] font-semibold text-slate-400 shrink-0">UTR/Ref</span>
+                                      <input type="text" placeholder="Transaction ID (optional)"
+                                        value={sdConfirmForm.depositTransactionId}
+                                        onChange={(e) => setSdConfirmForm(prev=>({...prev, depositTransactionId: e.target.value}))}
+                                        className="flex-1 text-xs outline-none text-slate-700 bg-transparent placeholder-slate-300"
+                                        data-testid="input-confirm-sd-txnid"/>
+                                    </div>
+                                  )}
+                                  {sdConfirmForm.depositType !== "waived" && sdConfirmForm.depositType !== "paid_last_year" && (
+                                    sdConfirmForm.depositProofPath ? (
+                                      <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-200">
+                                        <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><CheckCircle2 className="h-3 w-3"/> Proof uploaded</span>
+                                        <button type="button" onClick={() => setSdConfirmForm(prev=>({...prev, depositProofPath: ""}))} className="text-[11px] text-slate-400 hover:text-red-500 transition-colors">Remove</button>
+                                      </div>
+                                    ) : (
+                                      <label className="cursor-pointer block">
+                                        <input type="file" accept="image/*,application/pdf" className="hidden"
+                                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSdConfirmProof(f); e.currentTarget.value = ""; }}
+                                          data-testid="input-confirm-sd-proof"/>
+                                        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-dashed border-slate-200 hover:border-indigo-300 transition-colors">
+                                          {sdConfirmProofUploading ? <Loader2 className="h-3 w-3 animate-spin text-indigo-500"/> : <Upload className="h-3 w-3 text-slate-400"/>}
+                                          {sdConfirmProofUploading ? "Uploading…" : "Upload Proof (optional)"}
+                                        </div>
+                                      </label>
+                                    )
+                                  )}
+                                  <button onClick={confirmSdReceipt} disabled={confirmingReceipt}
+                                    className="w-full flex items-center justify-center gap-2 h-9 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    data-testid="btn-confirm-sd-receipt">
+                                    {confirmingReceipt ? <><Loader2 className="h-3.5 w-3.5 animate-spin"/> Confirming…</> : <><Shield className="h-3.5 w-3.5"/> Confirm Receipt</>}
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Row 5: record refund (once received) */}
+                              {!sdPending && !selectedBooking.depositRefunded && isAdmin && (
+                                <div className="flex">
                                   <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5 gap-1 border-teal-300 text-teal-700 hover:bg-teal-50"
                                     onClick={() => { setSdRefundForm({ refundDate: new Date().toISOString().slice(0,10), refundAmount: selectedBooking.deposit ?? 0, refundMethod: "cash", refundNotes: "" }); setSdRefundDialog(true); }}
                                     data-testid="button-record-sd-refund">
                                     <RotateCcw className="h-3 w-3"/> Record Refund
                                   </Button>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
