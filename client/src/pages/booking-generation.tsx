@@ -3336,18 +3336,19 @@ function BookingGenerationInner() {
                                     defaultDates.push(d.toISOString().split("T")[0]);
                                   }
                                   setFormData((prev: any) => {
-                                    // If the Booking Amount (slot 0) was manually pinned, preserve it when switching parts
-                                    const prevPinnedIdx = prev.pinnedInstallmentIdx ?? null;
-                                    const prevPinnedAmt = prev.pinnedInstallmentAmt ?? 0;
-                                    const keepBookingAmountPin = prevPinnedIdx === 0 && prevPinnedAmt > 0;
+                                    // Keep pins for slots that still exist in the new part count
+                                    const prevPins: Record<number, number> = prev.pinnedAmounts ?? {};
+                                    const keptPins: Record<number, number> = {};
+                                    for (let k = 0; k < num; k++) {
+                                      if (prevPins[k] !== undefined) keptPins[k] = prevPins[k];
+                                    }
                                     return {
                                       ...prev,
                                       numberOfInstallments: num,
                                       installmentAmounts: [],
                                       installmentDueDates: defaultDates,
-                                      customBookingAmount: keepBookingAmountPin ? prevPinnedAmt : 0,
-                                      pinnedInstallmentIdx: keepBookingAmountPin ? 0 : null,
-                                      pinnedInstallmentAmt: keepBookingAmountPin ? prevPinnedAmt : 0,
+                                      customBookingAmount: keptPins[0] ?? 0,
+                                      pinnedAmounts: keptPins,
                                     };
                                   });
                                 }}
@@ -3365,10 +3366,10 @@ function BookingGenerationInner() {
                           </div>
                           <div className="space-y-2 mt-2">
                             {/* Reset to equal button */}
-                            {((formData as any).installmentAmounts || []).some((a: number) => a > 0) && (
+                            {Object.keys((formData as any).pinnedAmounts ?? {}).length > 0 && (
                               <button
                                 type="button"
-                                onClick={() => setFormData((prev: any) => ({ ...prev, installmentAmounts: [], customBookingAmount: 0, pinnedInstallmentIdx: null, pinnedInstallmentAmt: 0 }))}
+                                onClick={() => setFormData((prev: any) => ({ ...prev, installmentAmounts: [], customBookingAmount: 0, pinnedAmounts: {} }))}
                                 className="text-[11px] text-purple-600 underline underline-offset-2 hover:text-purple-800 transition-colors"
                                 data-testid="btn-reset-installments"
                               >
@@ -3378,36 +3379,31 @@ function BookingGenerationInner() {
                             {(() => {
                               const total = calculateTotal();
                               const n = formData.numberOfInstallments;
-                              // pinnedIdx: only the single explicitly-edited installment index
-                              const pinnedIdx: number | null = (formData as any).pinnedInstallmentIdx ?? null;
-                              const pinnedAmt: number = (formData as any).pinnedInstallmentAmt ?? 0;
+                              // pinnedAmounts: map of slot index → manually-set amount (persists across edits)
+                              const pinnedAmounts: Record<number, number> = (formData as any).pinnedAmounts ?? {};
+                              const hasPins = Object.keys(pinnedAmounts).length > 0;
 
-                              // Build final amounts:
-                              //   • slots BEFORE pinnedIdx → unchanged equal share (total/n each)
-                              //   • pinnedIdx slot         → pinnedAmt (fixed)
-                              //   • slots AFTER pinnedIdx  → absorb the difference evenly
-                              const equalPerSlot = n > 0 ? Math.round(total / n) : 0;
+                              // Build amounts: pinned slots fixed, un-pinned slots share the remainder equally
+                              const pinnedSum = Object.values(pinnedAmounts).reduce((s, v) => s + v, 0);
+                              const unpinnedIndices = Array.from({ length: n }, (_, i) => i).filter(i => pinnedAmounts[i] === undefined);
+                              const unpinnedCount = unpinnedIndices.length;
+                              const perUnpinned = unpinnedCount > 0 ? Math.round((total - pinnedSum) / unpinnedCount) : 0;
                               const amounts: number[] = Array.from({ length: n }, (_, i) => {
-                                if (pinnedIdx === null) {
-                                  // no pin: pure equal split, last slot takes rounding remainder
-                                  return i === n - 1 ? total - equalPerSlot * (n - 1) : equalPerSlot;
+                                if (!hasPins) {
+                                  const eq = Math.round(total / n);
+                                  return i === n - 1 ? total - eq * (n - 1) : eq;
                                 }
-                                if (i === pinnedIdx) return pinnedAmt;
-                                if (i < pinnedIdx) return equalPerSlot; // before pin — don't touch
-                                // after pin: distribute (total - beforeSum - pinnedAmt) evenly
-                                const beforeSum = pinnedIdx * equalPerSlot;
-                                const afterCount = n - pinnedIdx - 1;
-                                const afterRemaining = total - beforeSum - pinnedAmt;
-                                const perAfter = afterCount > 0 ? Math.round(afterRemaining / afterCount) : afterRemaining;
-                                const afterPos = i - pinnedIdx - 1;
-                                return afterPos === afterCount - 1
-                                  ? afterRemaining - perAfter * (afterCount - 1)
-                                  : perAfter;
+                                if (pinnedAmounts[i] !== undefined) return pinnedAmounts[i];
+                                // un-pinned: last un-pinned slot absorbs rounding remainder
+                                const unpinnedPos = unpinnedIndices.indexOf(i);
+                                return unpinnedPos === unpinnedCount - 1
+                                  ? (total - pinnedSum) - perUnpinned * (unpinnedCount - 1)
+                                  : perUnpinned;
                               });
 
                               return amounts.map((amount, i) => {
                                 const dueDate = formData.installmentDueDates[i] || "";
-                                const isPinned = pinnedIdx === i;
+                                const isPinned = pinnedAmounts[i] !== undefined;
                                 return (
                                   <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
                                     <div className="flex justify-between items-center">
@@ -3427,23 +3423,22 @@ function BookingGenerationInner() {
                                             const maxAllowed = Math.max(0, total - (n - 1) * 100);
                                             const clamped = Math.max(0, Math.min(val, maxAllowed));
                                             setFormData((prev: any) => {
-                                              const eqPer = n > 0 ? Math.round(total / n) : 0;
-                                              const beforeSum = i * eqPer;
-                                              const afterCount = n - i - 1;
-                                              const afterRem = total - beforeSum - clamped;
-                                              const perAfter = afterCount > 0 ? Math.round(afterRem / afterCount) : afterRem;
+                                              // Add/update this slot in the pins map; keep all other existing pins
+                                              const newPins: Record<number, number> = { ...(prev.pinnedAmounts ?? {}), [i]: clamped };
+                                              const newPinnedSum = Object.values(newPins).reduce((s: number, v: number) => s + v, 0);
+                                              const newUnpinnedIdxs = Array.from({ length: n }, (_, k) => k).filter(k => newPins[k] === undefined);
+                                              const newUnpinnedCount = newUnpinnedIdxs.length;
+                                              const newPerUnpinned = newUnpinnedCount > 0 ? Math.round((total - newPinnedSum) / newUnpinnedCount) : 0;
                                               return {
                                                 ...prev,
-                                                pinnedInstallmentIdx: i,
-                                                pinnedInstallmentAmt: clamped,
+                                                pinnedAmounts: newPins,
                                                 customBookingAmount: i === 0 ? clamped : prev.customBookingAmount,
-                                                // keep installmentAmounts in sync for submission:
-                                                // before pin → unchanged equal share, after pin → absorb difference
                                                 installmentAmounts: Array.from({ length: n }, (_, k) => {
-                                                  if (k === i) return clamped;
-                                                  if (k < i) return eqPer;
-                                                  const ap = k - i - 1;
-                                                  return ap === afterCount - 1 ? afterRem - perAfter * (afterCount - 1) : perAfter;
+                                                  if (newPins[k] !== undefined) return newPins[k];
+                                                  const up = newUnpinnedIdxs.indexOf(k);
+                                                  return up === newUnpinnedCount - 1
+                                                    ? (total - newPinnedSum) - newPerUnpinned * (newUnpinnedCount - 1)
+                                                    : newPerUnpinned;
                                                 }),
                                               };
                                             });
