@@ -1,7 +1,44 @@
 import { jsPDF } from "jspdf";
+import { eq, inArray } from "drizzle-orm";
+import { db } from "./db";
 import { storage } from "./storage";
+import { bookingPackages, packages, packageItems } from "@shared/schema";
 import { HSQUARE_LOGO_BASE64 } from "./logo-base64";
 import type { Booking } from "@shared/schema";
+
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  evening_snacks: "Evening Snacks",
+  dinner: "Dinner",
+};
+const MEAL_ORDER = ["breakfast", "lunch", "evening_snacks", "dinner"];
+
+function resolveMeals(dayRules: any, mealCount: number): { count: number; sortKey: string; label: string } {
+  if (!dayRules) return { count: mealCount || 0, sortKey: "", label: "" };
+  if (typeof dayRules === "number") {
+    const count = Math.max(dayRules, mealCount);
+    return { count, sortKey: `__numeric_${count}`, label: `${count} meals` };
+  }
+  const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+  const rawCount = dayRules.count ?? raw.length;
+  if (mealCount > 0 && mealCount > rawCount) {
+    const missing = MEAL_ORDER.filter(x => !raw.includes(x));
+    raw.push(...missing.slice(0, mealCount - rawCount));
+  }
+  raw.sort((a, b) => MEAL_ORDER.indexOf(a) - MEAL_ORDER.indexOf(b));
+  const count = Math.max(rawCount, mealCount > 0 ? mealCount : rawCount);
+  const names = raw.map(m => MEAL_LABELS[m] || m).join(", ");
+  return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
+}
+
+function mealDaysAllMatch(
+  wd: ReturnType<typeof resolveMeals>,
+  sat: ReturnType<typeof resolveMeals>,
+  sun: ReturnType<typeof resolveMeals>,
+) {
+  return wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
+}
 
 function fmtLabel(s: string) {
   return (s || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
@@ -226,6 +263,99 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
     for (const inst of installmentsList) {
       const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
       drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+    }
+  }
+
+  // ── Included Services & Add-Ons (with correct pkgMealCount augmentation) ──
+  const rawBps = await db
+    .select()
+    .from(bookingPackages)
+    .where(eq(bookingPackages.bookingId, booking.id));
+
+  const pkgIds = [...new Set(rawBps.map(bp => bp.packageId))];
+  const pkgRows = pkgIds.length > 0
+    ? await db.select().from(packages).where(inArray(packages.id, pkgIds))
+    : [];
+  const itemRows = pkgIds.length > 0
+    ? await db.select().from(packageItems).where(inArray(packageItems.packageId, pkgIds))
+    : [];
+
+  const pkgMap = new Map(pkgRows.map(p => [p.id, p]));
+  const itemsByPkg = new Map<string, typeof itemRows>();
+  for (const item of itemRows) {
+    if (!itemsByPkg.has(item.packageId)) itemsByPkg.set(item.packageId, []);
+    itemsByPkg.get(item.packageId)!.push(item);
+  }
+
+  const enrichedBps = rawBps.map(bp => ({
+    ...bp,
+    package: pkgMap.has(bp.packageId)
+      ? { ...pkgMap.get(bp.packageId)!, items: itemsByPkg.get(bp.packageId) || [] }
+      : null,
+  }));
+
+  const activeBps = enrichedBps.filter(bp => bp.status === "ACTIVE");
+
+  // Compute pkgMealCount — housing plan meals, overridden upward by any add-on
+  const housingBp = activeBps.find(bp => bp.package?.category === "housing_plan");
+  const housingMealItem = housingBp?.package?.items?.find((i: any) => i.type === "meals");
+  let pkgMealCount = housingMealItem ? (housingMealItem.includedQty || 0) : 0;
+  for (const bp of activeBps.filter(bp => bp.package?.category === "addon_service")) {
+    const ai = bp.package?.items?.find((i: any) => i.type === "meals");
+    if (ai) {
+      const ac = ai.includedQty || 0;
+      if (ac > pkgMealCount) pkgMealCount = ac;
+    }
+  }
+
+  const propertyIncludedServices: any[] = Array.isArray(property?.includedServices)
+    ? (property!.includedServices as any[])
+    : [];
+
+  if (propertyIncludedServices.length > 0) {
+    y += 6;
+    drawHeader("INCLUDED SERVICES");
+    for (const svc of propertyIncludedServices) {
+      if (svc.type === "meals" && svc.schedule) {
+        const wd  = resolveMeals(svc.schedule.weekday,  pkgMealCount);
+        const sat = resolveMeals(svc.schedule.saturday, pkgMealCount);
+        const sun = resolveMeals(svc.schedule.sunday,   pkgMealCount);
+        if (mealDaysAllMatch(wd, sat, sun)) {
+          drawRow(svc.label || "Meals", `Daily: ${wd.label}`);
+        } else {
+          drawRow(svc.label || "Meals", `Mon-Fri: ${wd.label}`);
+          if (sat.sortKey !== wd.sortKey || sat.count !== wd.count) drawRow("", `Saturday: ${sat.label}`);
+          if (sun.sortKey !== wd.sortKey || sun.count !== wd.count) drawRow("", `Sunday: ${sun.label}`);
+        }
+      } else {
+        drawRow(svc.label || "Service", svc.description || "Included");
+      }
+    }
+  }
+
+  const addonBps = activeBps.filter(bp => bp.package?.category === "addon_service");
+  if (addonBps.length > 0) {
+    y += 6;
+    drawHeader("ADD-ON SERVICES");
+    for (const bp of addonBps) {
+      const pkg = bp.package!;
+      const addonPrice = (bp.priceSnapshot as any)?.totalPrice || pkg.basePrice;
+      const priceStr = addonPrice ? `Rs. ${Number(addonPrice).toLocaleString("en-IN")}` : "";
+      drawRow(pkg.name || "Add-On", priceStr ? `${priceStr} — Active` : "Active");
+      const mealItem = pkg.items?.find((i: any) => i.type === "meals" && i.rules);
+      if (mealItem) {
+        const r = mealItem.rules as any;
+        const wd  = resolveMeals(r.weekday,  0);
+        const sat = resolveMeals(r.saturday, 0);
+        const sun = resolveMeals(r.sunday,   0);
+        if (mealDaysAllMatch(wd, sat, sun)) {
+          drawRow("  Schedule", `Daily: ${wd.label}`);
+        } else {
+          drawRow("  Schedule", `Mon-Fri: ${wd.label}`);
+          if (sat.sortKey !== wd.sortKey || sat.count !== wd.count) drawRow("", `Saturday: ${sat.label}`);
+          if (sun.sortKey !== wd.sortKey || sun.count !== wd.count) drawRow("", `Sunday: ${sun.label}`);
+        }
+      }
     }
   }
 

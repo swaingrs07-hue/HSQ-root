@@ -1,9 +1,140 @@
 import { Resend } from "resend";
 import crypto from "crypto";
+import { eq, inArray } from "drizzle-orm";
+import { db } from "./db";
+import { bookingPackages, packages, packageItems } from "@shared/schema";
 import { storage } from "./storage";
 import { logActivity } from "./activityLogger";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import type { Booking } from "@shared/schema";
+
+// ── Meal plan helpers ──────────────────────────────────────────────────────
+const EMAIL_MEAL_LABELS: Record<string, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  evening_snacks: "Evening Snacks",
+  dinner: "Dinner",
+};
+const EMAIL_MEAL_ORDER = ["breakfast", "lunch", "evening_snacks", "dinner"];
+
+function resolveEmailMeals(dayRules: any, mealCount: number): { count: number; sortKey: string; label: string } {
+  if (!dayRules) return { count: mealCount || 0, sortKey: "", label: "" };
+  if (typeof dayRules === "number") {
+    const count = Math.max(dayRules, mealCount);
+    return { count, sortKey: `__numeric_${count}`, label: `${count} meals` };
+  }
+  const raw: string[] = Array.isArray(dayRules.meals) ? [...dayRules.meals] : [];
+  const rawCount = dayRules.count ?? raw.length;
+  if (mealCount > 0 && mealCount > rawCount) {
+    const missing = EMAIL_MEAL_ORDER.filter(x => !raw.includes(x));
+    raw.push(...missing.slice(0, mealCount - rawCount));
+  }
+  raw.sort((a, b) => EMAIL_MEAL_ORDER.indexOf(a) - EMAIL_MEAL_ORDER.indexOf(b));
+  const count = Math.max(rawCount, mealCount > 0 ? mealCount : rawCount);
+  const names = raw.map(m => EMAIL_MEAL_LABELS[m] || m).join(", ");
+  return { count, sortKey: raw.join(","), label: `${count} meals${names ? ` (${names})` : ""}` };
+}
+
+function emailMealDaysAllMatch(
+  wd: ReturnType<typeof resolveEmailMeals>,
+  sat: ReturnType<typeof resolveEmailMeals>,
+  sun: ReturnType<typeof resolveEmailMeals>,
+) {
+  return wd.sortKey === sat.sortKey && wd.sortKey === sun.sortKey && wd.count === sat.count && wd.count === sun.count;
+}
+
+async function buildIncludedServicesHtml(bookingId: string, propertyIncludedServices: any[]): Promise<string> {
+  if (!propertyIncludedServices || propertyIncludedServices.length === 0) return "";
+
+  // Fetch booking packages to compute pkgMealCount
+  const rawBps = await db.select().from(bookingPackages).where(eq(bookingPackages.bookingId, bookingId));
+  const pkgIds = [...new Set(rawBps.map(bp => bp.packageId))];
+  const pkgRows = pkgIds.length > 0 ? await db.select().from(packages).where(inArray(packages.id, pkgIds)) : [];
+  const itemRows = pkgIds.length > 0 ? await db.select().from(packageItems).where(inArray(packageItems.packageId, pkgIds)) : [];
+
+  const pkgMap = new Map(pkgRows.map(p => [p.id, p]));
+  const itemsByPkg = new Map<string, typeof itemRows>();
+  for (const item of itemRows) {
+    if (!itemsByPkg.has(item.packageId)) itemsByPkg.set(item.packageId, []);
+    itemsByPkg.get(item.packageId)!.push(item);
+  }
+  const enrichedBps = rawBps.map(bp => ({
+    ...bp,
+    package: pkgMap.has(bp.packageId)
+      ? { ...pkgMap.get(bp.packageId)!, items: itemsByPkg.get(bp.packageId) || [] }
+      : null,
+  }));
+  const activeBps = enrichedBps.filter(bp => bp.status === "ACTIVE");
+
+  // pkgMealCount: housing plan base, overridden upward by add-on
+  const housingBp = activeBps.find(bp => bp.package?.category === "housing_plan");
+  const housingMealItem = housingBp?.package?.items?.find((i: any) => i.type === "meals");
+  let pkgMealCount = housingMealItem ? (housingMealItem.includedQty || 0) : 0;
+  for (const bp of activeBps.filter(bp => bp.package?.category === "addon_service")) {
+    const ai = bp.package?.items?.find((i: any) => i.type === "meals");
+    if (ai) {
+      const ac = ai.includedQty || 0;
+      if (ac > pkgMealCount) pkgMealCount = ac;
+    }
+  }
+
+  const rows: string[] = [];
+  for (const svc of propertyIncludedServices) {
+    if (svc.type === "meals" && svc.schedule) {
+      const wd  = resolveEmailMeals(svc.schedule.weekday,  pkgMealCount);
+      const sat = resolveEmailMeals(svc.schedule.saturday, pkgMealCount);
+      const sun = resolveEmailMeals(svc.schedule.sunday,   pkgMealCount);
+      const label = svc.label || "Meals";
+      if (emailMealDaysAllMatch(wd, sat, sun)) {
+        rows.push(serviceRow(label, `Daily: ${wd.label}`));
+      } else {
+        rows.push(serviceRow(label, `Mon–Fri: ${wd.label}`));
+        if (sat.sortKey !== wd.sortKey || sat.count !== wd.count) rows.push(serviceRow("", `Saturday: ${sat.label}`));
+        if (sun.sortKey !== wd.sortKey || sun.count !== wd.count) rows.push(serviceRow("", `Sunday: ${sun.label}`));
+      }
+    } else {
+      rows.push(serviceRow(svc.label || "Service", svc.description || "Included"));
+    }
+  }
+
+  if (rows.length === 0) return "";
+  return `
+<tr>
+  <td style="background-color:#111111;padding:0 40px 32px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+      <tr>
+        <td style="padding:20px 24px 12px;">
+          <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">What's Included</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 24px 16px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${rows.join("")}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function serviceRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="color:rgba(255,255,255,0.5);font-size:13px;width:40%;">${escHtml(label)}</td>
+          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;">${escHtml(value)}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+}
 
 function generateReceiptToken(bookingId: string): string {
   const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
@@ -31,6 +162,7 @@ interface BookingEmailData {
   bookingId: string;
   bookingCode: string;
   totalFee: string;
+  includedServicesHtml: string;
 }
 
 function buildConfirmationEmailHtml(data: BookingEmailData): string {
@@ -122,6 +254,8 @@ function buildConfirmationEmailHtml(data: BookingEmailData): string {
               </table>
             </td>
           </tr>
+
+          ${data.includedServicesHtml}
 
           <!-- What's Next -->
           <tr>
@@ -239,6 +373,11 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       ? `₹${Number(booking.totalFee).toLocaleString("en-IN")}`
       : "As per agreement";
 
+    const propertyIncludedServices: any[] = Array.isArray(property?.includedServices)
+      ? (property!.includedServices as any[])
+      : [];
+    const includedServicesHtml = await buildIncludedServicesHtml(booking.id, propertyIncludedServices);
+
     const emailData: BookingEmailData = {
       residentName,
       residentEmail,
@@ -249,6 +388,7 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       bookingId: booking.id,
       bookingCode: booking.bookingCode || booking.id,
       totalFee,
+      includedServicesHtml,
     };
 
     const html = buildConfirmationEmailHtml(emailData);
@@ -351,6 +491,7 @@ interface ParentEmailData {
   amountPaid: string;
   receiptUrl: string;
   installments: InstallmentInfo[];
+  includedServicesHtml: string;
 }
 
 function buildParentConfirmationEmailHtml(data: ParentEmailData): string {
@@ -451,6 +592,8 @@ function buildParentConfirmationEmailHtml(data: ParentEmailData): string {
               </table>
             </td>
           </tr>
+
+          ${data.includedServicesHtml}
 
           ${data.installments.length > 0 ? `<tr>
             <td style="background-color:#111111;padding:0 40px 32px;">
@@ -591,6 +734,11 @@ export async function sendParentBookingConfirmationEmail(
       paid: inst.paid,
     }));
 
+    const parentPropertyIncludedServices: any[] = Array.isArray(property?.includedServices)
+      ? (property!.includedServices as any[])
+      : [];
+    const parentIncludedServicesHtml = await buildIncludedServicesHtml(booking.id, parentPropertyIncludedServices);
+
     const emailData: ParentEmailData = {
       parentName: parentName || "Parent / Guardian",
       parentEmail,
@@ -604,6 +752,7 @@ export async function sendParentBookingConfirmationEmail(
       amountPaid,
       receiptUrl,
       installments,
+      includedServicesHtml: parentIncludedServicesHtml,
     };
 
     const html = buildParentConfirmationEmailHtml(emailData);
