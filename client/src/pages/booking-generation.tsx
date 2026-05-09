@@ -3420,11 +3420,22 @@ function BookingGenerationInner() {
                                           value={amount}
                                           onChange={(e) => {
                                             const val = parseInt(e.target.value) || 0;
-                                            const maxAllowed = Math.max(0, total - (n - 1) * 100);
-                                            const clamped = Math.max(0, Math.min(val, maxAllowed));
                                             setFormData((prev: any) => {
-                                              // Add/update this slot in the pins map; keep all other existing pins
-                                              const newPins: Record<number, number> = { ...(prev.pinnedAmounts ?? {}), [i]: clamped };
+                                              const prevPins: Record<number, number> = prev.pinnedAmounts ?? {};
+                                              // Sum of all other already-pinned slots (not the one being edited)
+                                              const otherPinnedSum = Object.entries(prevPins)
+                                                .filter(([k]) => Number(k) !== i)
+                                                .reduce((s, [, v]) => s + (v as number), 0);
+                                              const remainingForThis = Math.max(0, total - otherPinnedSum);
+                                              // How many slots will still be un-pinned after this edit?
+                                              const otherUnpinnedCount = Array.from({ length: n }, (_, k) => k)
+                                                .filter(k => k !== i && prevPins[k] === undefined).length;
+                                              // If this is the LAST free slot, force it to the exact remainder
+                                              // so the total always sums correctly.
+                                              const finalVal = otherUnpinnedCount === 0
+                                                ? remainingForThis
+                                                : Math.max(0, Math.min(val, remainingForThis));
+                                              const newPins: Record<number, number> = { ...prevPins, [i]: finalVal };
                                               const newPinnedSum = Object.values(newPins).reduce((s: number, v: number) => s + v, 0);
                                               const newUnpinnedIdxs = Array.from({ length: n }, (_, k) => k).filter(k => newPins[k] === undefined);
                                               const newUnpinnedCount = newUnpinnedIdxs.length;
@@ -3432,7 +3443,7 @@ function BookingGenerationInner() {
                                               return {
                                                 ...prev,
                                                 pinnedAmounts: newPins,
-                                                customBookingAmount: i === 0 ? clamped : prev.customBookingAmount,
+                                                customBookingAmount: i === 0 ? finalVal : prev.customBookingAmount,
                                                 installmentAmounts: Array.from({ length: n }, (_, k) => {
                                                   if (newPins[k] !== undefined) return newPins[k];
                                                   const up = newUnpinnedIdxs.indexOf(k);
