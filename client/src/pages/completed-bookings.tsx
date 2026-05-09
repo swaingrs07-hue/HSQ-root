@@ -2548,6 +2548,10 @@ export default function CompletedBookings() {
                         )}
                         {(selectedBooking.deposit ?? 0) > 0 && (() => {
                           const dtMap: Record<string,{label:string;color:string;bg:string}> = {cash:{label:"Cash",color:"text-emerald-700",bg:"bg-emerald-50 border-emerald-200"},upi:{label:"UPI",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},online:{label:"Online Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},bank_transfer:{label:"Bank Transfer",color:"text-blue-700",bg:"bg-blue-50 border-blue-200"},cheque:{label:"Cheque",color:"text-amber-700",bg:"bg-amber-50 border-amber-200"},card:{label:"Card",color:"text-purple-700",bg:"bg-purple-50 border-purple-200"},paid_last_year:{label:"Paid Last Year",color:"text-violet-700",bg:"bg-violet-50 border-violet-200"},waived:{label:"Waived",color:"text-slate-500",bg:"bg-slate-50 border-slate-200"},other:{label:"Other",color:"text-slate-600",bg:"bg-slate-50 border-slate-200"}};
+                          // Legacy compat: bookings created before the depositReceived column existed
+                          // already have depositType set — treat them as received so they don't
+                          // wrongly revert to Pending. New bookings have depositType=null until
+                          // the admin explicitly confirms receipt via the inline panel below.
                           const sdPending = !selectedBooking.depositReceived && !selectedBooking.depositType;
                           const dt = sdPending ? null : (dtMap[selectedBooking.depositType] ?? dtMap.cash);
                           const proofPaths: string[] = (() => {
