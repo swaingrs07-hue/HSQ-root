@@ -1967,28 +1967,6 @@ function PropertyBooking() {
         />
       </div>
 
-      {isAdmin && (
-        <div className="relative max-w-7xl mx-auto px-4 md:px-6 pt-4">
-          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${property.isSoldOut ? "border-red-500/40 bg-red-700/10" : "border-white/[0.08] bg-white/[0.02]"}`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${property.isSoldOut ? "bg-red-400" : "bg-emerald-400"}`} />
-              <div>
-                <p className="text-sm font-semibold text-white/80">Availability Status</p>
-                <p className="text-xs text-white/40">{property.isSoldOut ? (property.soldOutNote || "Marked as sold out — visitors see a sold out notice") : "Open for bookings"}</p>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setSoldOutNote(property.soldOutNote || ""); setSoldOutDialogOpen(true); }}
-              className={property.isSoldOut ? "border-red-500/40 text-red-400 hover:bg-red-700/20 text-xs" : "border-white/[0.1] text-white/60 hover:bg-white/[0.05] text-xs"}
-              data-testid="button-manage-sold-out"
-            >
-              {property.isSoldOut ? "Mark Available" : "Mark Sold Out"}
-            </Button>
-          </div>
-        </div>
-      )}
 
       <div className="relative max-w-7xl mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
