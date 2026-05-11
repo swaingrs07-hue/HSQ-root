@@ -434,6 +434,7 @@ export interface IStorage {
   getAllContactMessages(): Promise<ContactMessage[]>;
   getContactMessage(id: string): Promise<ContactMessage | undefined>;
   updateContactMessageStatus(id: string, status: string, repliedBy?: string): Promise<ContactMessage | undefined>;
+  markContactMessageConverted(id: string, leadId: string, execName: string): Promise<ContactMessage | undefined>;
   getUnreadContactMessageCount(): Promise<number>;
 }
 
@@ -2690,6 +2691,14 @@ export class DatabaseStorage implements IStorage {
       updateData.repliedAt = new Date();
     }
     const [updated] = await db.update(contactMessages).set(updateData).where(eq(contactMessages.id, id)).returning();
+    return updated;
+  }
+
+  async markContactMessageConverted(id: string, leadId: string, execName: string): Promise<ContactMessage | undefined> {
+    const [updated] = await db.update(contactMessages)
+      .set({ convertedToLeadId: leadId, convertedExecName: execName, convertedAt: new Date() })
+      .where(eq(contactMessages.id, id))
+      .returning();
     return updated;
   }
 

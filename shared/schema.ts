@@ -1672,6 +1672,9 @@ export const contactMessages = pgTable("contact_messages", {
   status: contactMessageStatusEnum("status").default("new").notNull(),
   repliedBy: varchar("replied_by"),
   repliedAt: timestamp("replied_at"),
+  convertedToLeadId: varchar("converted_to_lead_id"),
+  convertedExecName: varchar("converted_exec_name", { length: 255 }),
+  convertedAt: timestamp("converted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

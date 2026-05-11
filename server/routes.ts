@@ -585,6 +585,23 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/contact-messages/:id/convert", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUser(req.user!.userId);
+      if (!user || !["admin", "superadmin", "manager"].includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+      const msg = await storage.getContactMessage(req.params.id);
+      if (!msg) return res.status(404).json({ error: "Message not found" });
+      if (msg.convertedToLeadId) return res.status(409).json({ error: "Already converted to a lead" });
+      const { leadId, execName } = req.body;
+      if (!leadId) return res.status(400).json({ error: "leadId is required" });
+      const updated = await storage.markContactMessageConverted(req.params.id, leadId, execName || "");
+      res.json(updated);
+    } catch (error) {
+      console.error("[Contact Messages] Error marking converted:", error);
+      res.status(500).json({ error: "Failed to mark as converted" });
+    }
+  });
+
   // ============ SEO: 301 redirect UUID property URLs to slug URLs ============
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

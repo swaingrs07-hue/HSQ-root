@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import {
   Mail, Phone, Clock, User, MessageSquare, CheckCircle2,
-  Archive, Eye, Search, Inbox, UserPlus, Loader2,
+  Archive, Eye, Search, Inbox, UserPlus, Loader2, UserCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -97,8 +97,9 @@ export default function AdminContactMessages() {
   });
 
   const convertToLeadMutation = useMutation({
-    mutationFn: async (form: ConvertForm) => {
-      const res = await fetch("/api/leads", {
+    mutationFn: async ({ form, msgId }: { form: ConvertForm; msgId: string }) => {
+      // 1. Create the lead
+      const leadRes = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -112,14 +113,32 @@ export default function AdminContactMessages() {
           isManualEntry: true,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
+      if (!leadRes.ok) {
+        const err = await leadRes.json();
         throw new Error(err.error || "Failed to create lead");
       }
-      return res.json();
+      const lead = await leadRes.json();
+
+      // 2. Mark the contact message as converted
+      const execName = form.assignedToId
+        ? (allUsers.find(u => u.id === form.assignedToId)?.name || "")
+        : "";
+      await fetch(`/api/admin/contact-messages/${msgId}/convert`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leadId: lead.id || lead.lead?.id || msgId, execName }),
+      });
+
+      return { lead, execName };
     },
-    onSuccess: () => {
-      toast({ title: "Lead created", description: `${convertForm.name} has been added as a lead${convertForm.assignedToId ? " and assigned to the sales executive" : ""}.` });
+    onSuccess: ({ execName }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contact-messages"] });
+      toast({
+        title: "Lead created",
+        description: execName
+          ? `Assigned to ${execName}.`
+          : "Lead added without assignment.",
+      });
       setConvertMsg(null);
     },
     onError: (e: Error) => {
@@ -209,6 +228,7 @@ export default function AdminContactMessages() {
           {filtered.map(msg => {
             const cfg = statusConfig[msg.status] || statusConfig.new;
             const StatusIcon = cfg.icon;
+            const isConverted = !!msg.convertedToLeadId;
             return (
               <Card key={msg.id} className={`bg-white border-slate-200 hover:shadow-sm transition-shadow ${msg.status === "new" ? "border-l-4 border-l-blue-500" : ""}`} data-testid={`message-card-${msg.id}`}>
                 <CardContent className="p-5">
@@ -260,12 +280,24 @@ export default function AdminContactMessages() {
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Replied
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost"
-                          className="text-xs text-violet-600 hover:text-violet-700 h-7 px-2"
-                          onClick={() => openConvert(msg)}
-                          data-testid={`convert-lead-${msg.id}`}>
-                          <UserPlus className="w-3 h-3 mr-1" /> Assign as Lead
-                        </Button>
+
+                        {isConverted ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 h-7 font-medium"
+                            data-testid={`lead-assigned-${msg.id}`}
+                          >
+                            <UserCheck className="w-3 h-3" />
+                            {msg.convertedExecName ? `Assigned to ${msg.convertedExecName}` : "Assigned as Lead"}
+                          </span>
+                        ) : (
+                          <Button size="sm" variant="ghost"
+                            className="text-xs text-violet-600 hover:text-violet-700 h-7 px-2"
+                            onClick={() => openConvert(msg)}
+                            data-testid={`convert-lead-${msg.id}`}>
+                            <UserPlus className="w-3 h-3 mr-1" /> Assign as Lead
+                          </Button>
+                        )}
+
                         {msg.status !== "archived" && (
                           <Button size="sm" variant="ghost" className="text-xs text-slate-500 hover:text-slate-700 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "archived" })}
@@ -382,7 +414,7 @@ export default function AdminContactMessages() {
               size="sm"
               className="bg-violet-600 hover:bg-violet-700 text-white"
               disabled={!convertForm.name || !convertForm.phone || convertToLeadMutation.isPending}
-              onClick={() => convertToLeadMutation.mutate(convertForm)}
+              onClick={() => convertMsg && convertToLeadMutation.mutate({ form: convertForm, msgId: convertMsg.id })}
               data-testid="confirm-convert-lead"
             >
               {convertToLeadMutation.isPending ? (
