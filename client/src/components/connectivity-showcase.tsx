@@ -315,19 +315,25 @@ function PropertyMap({ properties, mapConfig }: { properties: Property[]; mapCon
       center = [avgLng, avgLat];
     }
 
-    const map = new maplibregl.Map({
-      container: mapRef.current,
-      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center,
-      zoom: 11.5,
-      pitch: 45,
-      bearing: -15,
-      antialias: true,
-      attributionControl: false,
-      dragRotate: true,
-      minZoom: 4,
-      maxZoom: 17,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: mapRef.current,
+        style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        center,
+        zoom: 11.5,
+        pitch: 45,
+        bearing: -15,
+        antialias: true,
+        attributionControl: false,
+        dragRotate: true,
+        minZoom: 4,
+        maxZoom: 17,
+      });
+    } catch (e) {
+      console.warn("[PropertyMap] WebGL init failed, map unavailable:", e);
+      return;
+    }
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
 

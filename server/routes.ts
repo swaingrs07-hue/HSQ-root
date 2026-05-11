@@ -3443,7 +3443,7 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "alternatePhone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "tourOverviewImages", "includedServices", "moveInCharges", "mapLatitude", "mapLongitude", "brochureCoverImage", "brochureTagline", "brochureIntro", "brochureAgentName", "brochureAgentPhone", "featuredAmenityIds", "featuredRoomTypeIds"];
+      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "alternatePhone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "tourOverviewImages", "includedServices", "moveInCharges", "mapLatitude", "mapLongitude", "brochureCoverImage", "brochureTagline", "brochureIntro", "brochureAgentName", "brochureAgentPhone", "featuredAmenityIds", "featuredRoomTypeIds", "isSoldOut", "soldOutNote"];
       const updates: any = {};
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
@@ -3490,6 +3490,30 @@ ${allPages.map(p => `  <url>
     } catch (error) {
       console.error("Error toggling property status:", error);
       res.status(500).json({ error: "Failed to toggle property status" });
+    }
+  });
+
+  app.patch("/api/admin/properties/:id/sold-out", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ error: "Property not found" });
+      const { isSoldOut, soldOutNote } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (typeof isSoldOut === "boolean") updates.isSoldOut = isSoldOut;
+      if (soldOutNote !== undefined) updates.soldOutNote = soldOutNote ?? null;
+      const updatedProperty = await storage.updateProperty(id, updates);
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: updates.isSoldOut ? "MARK_PROPERTY_SOLD_OUT" : "MARK_PROPERTY_AVAILABLE",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, isSoldOut: updates.isSoldOut, soldOutNote: updates.soldOutNote }),
+      });
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error updating property sold-out status:", error);
+      res.status(500).json({ error: "Failed to update sold-out status" });
     }
   });
 

@@ -603,14 +603,31 @@ export default function PropertySelection() {
                       </div>
 
                       <div className="absolute top-4 right-4">
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
-                          availability.available
-                            ? availability.text.includes("Only") ? "bg-orange-500/90 text-white" : "bg-emerald-600/90 text-white"
-                            : "bg-red-600/90 text-white"
-                        }`}>
-                          {availability.text}
-                        </span>
+                        {(prop as any).isSoldOut ? (
+                          <span className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm bg-red-700/95 text-white border border-red-500/40">
+                            Sold Out
+                          </span>
+                        ) : (
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
+                            availability.available
+                              ? availability.text.includes("Only") ? "bg-orange-500/90 text-white" : "bg-emerald-600/90 text-white"
+                              : "bg-red-600/90 text-white"
+                          }`}>
+                            {availability.text}
+                          </span>
+                        )}
                       </div>
+
+                      {(prop as any).isSoldOut && (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-end justify-start pb-4 pl-4">
+                          <div className="bg-red-700/90 border border-red-500/50 rounded-lg px-3 py-2 max-w-[85%]">
+                            <p className="text-white text-xs font-semibold uppercase tracking-wider mb-0.5">Sold Out</p>
+                            {(prop as any).soldOutNote && (
+                              <p className="text-red-100 text-xs leading-snug">{(prop as any).soldOutNote}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-6">
@@ -749,6 +766,20 @@ export default function PropertySelection() {
                         transition={{ duration: 0.3 }}
                         className="space-y-8"
                       >
+                        {selectedProperty.isSoldOut && (
+                          <div className="flex items-start gap-3 px-4 py-4 rounded-xl border border-red-500/40 bg-red-700/10 backdrop-blur-sm">
+                            <div className="mt-0.5 w-6 h-6 rounded-full bg-red-600/30 flex items-center justify-center flex-shrink-0">
+                              <X className="w-3.5 h-3.5 text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-red-400 uppercase tracking-wider">This property is currently sold out</p>
+                              {selectedProperty.soldOutNote && (
+                                <p className="text-sm text-white/60 mt-1 leading-relaxed">{selectedProperty.soldOutNote}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         <div>
                           <h3 className="text-lg font-heading font-bold text-white mb-3">About This Property</h3>
                           <p className="text-white/50 leading-relaxed font-light">
@@ -948,12 +979,12 @@ export default function PropertySelection() {
                                           room.deposit || 0,
                                         );
                                       }}
-                                      disabled={room.availableBeds === 0 || bookingsPaused}
-                                      className={bookingsPaused ? "bg-slate-600/60 text-white/50 rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm"}
+                                      disabled={room.availableBeds === 0 || bookingsPaused || selectedProperty.isSoldOut}
+                                      className={(bookingsPaused || selectedProperty.isSoldOut) ? "bg-slate-600/60 text-white/50 rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-8 h-11 font-semibold tracking-wider uppercase text-sm"}
                                       data-testid={`button-book-room-${room.id}`}
-                                      title={bookingsPaused ? "Online bookings are temporarily paused" : undefined}
+                                      title={selectedProperty.isSoldOut ? "This property is sold out" : bookingsPaused ? "Online bookings are temporarily paused" : undefined}
                                     >
-                                      {room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
+                                      {selectedProperty.isSoldOut ? "Sold Out" : room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
                                     </Button>
                                   </div>
                                 </div>

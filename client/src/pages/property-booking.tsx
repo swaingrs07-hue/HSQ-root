@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
@@ -1509,7 +1511,11 @@ function PropertyBooking() {
   const { isBookingsEnabled } = useFeatureFlags();
   const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
   const isStaff = !!(user?.role && staffRoles.has(user.role));
+  const isAdmin = !!(user?.role && ["admin", "superadmin", "manager"].includes(user.role));
   const bookingsPaused = !isBookingsEnabled && !isStaff;
+  const [soldOutDialogOpen, setSoldOutDialogOpen] = useState(false);
+  const [soldOutNote, setSoldOutNote] = useState("");
+  const [soldOutSaving, setSoldOutSaving] = useState(false);
   const propertyId = params?.id;
   const [selectedBed, setSelectedBed] = useState<any>(null);
   const [selectedFloor, setSelectedFloor] = useState<any>(null);
@@ -1759,8 +1765,32 @@ function PropertyBooking() {
 
   const effectivePlan = selectedPlan || autoDetectedPlan;
 
+  const handleToggleSoldOut = async (newState: boolean) => {
+    if (!property) return;
+    setSoldOutSaving(true);
+    try {
+      const res = await fetch(`/api/admin/properties/${property.id}/sold-out`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isSoldOut: newState, soldOutNote: soldOutNote || null }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: newState ? "Property marked as Sold Out" : "Property marked as Available", description: newState ? "Visitors will see the sold-out notice." : "Booking is now open again." });
+      setSoldOutDialogOpen(false);
+      window.location.reload();
+    } catch {
+      toast({ title: "Error", description: "Could not update sold-out status.", variant: "destructive" });
+    } finally {
+      setSoldOutSaving(false);
+    }
+  };
+
   const handleBookRoom = (roomTypeId: string, roomName: string, price: number, deposit: number) => {
     if (!property) return;
+    if (property.isSoldOut) {
+      toast({ title: "Property is sold out", description: property.soldOutNote || "This property is not accepting new bookings at the moment.", variant: "destructive" });
+      return;
+    }
     if (bookingsPaused) {
       toast({ title: "Bookings are paused", description: "Online bookings are temporarily unavailable. Please contact us directly.", variant: "destructive" });
       return;
@@ -1937,6 +1967,29 @@ function PropertyBooking() {
         />
       </div>
 
+      {isAdmin && (
+        <div className="relative max-w-7xl mx-auto px-4 md:px-6 pt-4">
+          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${property.isSoldOut ? "border-red-500/40 bg-red-700/10" : "border-white/[0.08] bg-white/[0.02]"}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${property.isSoldOut ? "bg-red-400" : "bg-emerald-400"}`} />
+              <div>
+                <p className="text-sm font-semibold text-white/80">Availability Status</p>
+                <p className="text-xs text-white/40">{property.isSoldOut ? (property.soldOutNote || "Marked as sold out — visitors see a sold out notice") : "Open for bookings"}</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setSoldOutNote(property.soldOutNote || ""); setSoldOutDialogOpen(true); }}
+              className={property.isSoldOut ? "border-red-500/40 text-red-400 hover:bg-red-700/20 text-xs" : "border-white/[0.1] text-white/60 hover:bg-white/[0.05] text-xs"}
+              data-testid="button-manage-sold-out"
+            >
+              {property.isSoldOut ? "Mark Available" : "Mark Sold Out"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="relative max-w-7xl mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-10">
@@ -2025,6 +2078,20 @@ function PropertyBooking() {
               <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
             </div>
 
+            {property.isSoldOut && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-red-500/40 bg-red-700/10 backdrop-blur-sm mb-2">
+                <div className="mt-0.5 w-5 h-5 rounded-full bg-red-600/20 flex items-center justify-center flex-shrink-0">
+                  <X className="w-3 h-3 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-400 uppercase tracking-wider">This property is currently sold out</p>
+                  {property.soldOutNote && (
+                    <p className="text-xs text-white/60 mt-0.5 leading-relaxed">{property.soldOutNote}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {bookingsPaused && (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm mb-2">
                 <div className="mt-0.5 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
@@ -2111,12 +2178,12 @@ function PropertyBooking() {
                               : (room.basePrice || 0);
                             handleBookRoom(room.id, room.customName || room.name, price, room.deposit || 0);
                           }}
-                          disabled={room.availableBeds === 0 || bookingsPaused}
-                          className={bookingsPaused ? "bg-slate-600/60 text-white/50 rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"}
+                          disabled={room.availableBeds === 0 || bookingsPaused || property.isSoldOut}
+                          className={(bookingsPaused || property.isSoldOut) ? "bg-slate-600/60 text-white/50 rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm cursor-not-allowed" : "bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-6 h-11 font-semibold tracking-wider uppercase text-sm"}
                           data-testid={`button-book-room-${room.id}`}
-                          title={bookingsPaused ? "Online bookings are temporarily paused" : undefined}
+                          title={property.isSoldOut ? "This property is sold out" : bookingsPaused ? "Online bookings are temporarily paused" : undefined}
                         >
-                          {room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
+                          {property.isSoldOut ? "Sold Out" : room.availableBeds === 0 ? "Sold Out" : bookingsPaused ? "Booking Paused" : "Book Now"}
                         </Button>
                       </div>
                     </div>
@@ -2505,6 +2572,49 @@ function PropertyBooking() {
           </div>
         </div>
       </div>
+
+      <Dialog open={soldOutDialogOpen} onOpenChange={setSoldOutDialogOpen}>
+        <DialogContent className="bg-[#0f0f0f] border border-white/[0.08] text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white font-bold">
+              {property.isSoldOut ? "Mark Property as Available" : "Mark Property as Sold Out"}
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              {property.isSoldOut
+                ? "This will re-open the property for bookings. The sold-out notice will be removed for visitors."
+                : "This will display a sold-out notice on the property publicly. Bookings will be blocked."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {!property.isSoldOut && (
+              <div className="space-y-2">
+                <Label className="text-white/70 text-sm">Custom note for visitors (optional)</Label>
+                <Textarea
+                  value={soldOutNote}
+                  onChange={(e) => setSoldOutNote(e.target.value)}
+                  placeholder="e.g. All rooms are occupied for this academic year. Registrations open from June 2025."
+                  className="bg-white/[0.04] border-white/[0.1] text-white placeholder:text-white/30 resize-none min-h-[80px]"
+                  data-testid="input-sold-out-note"
+                />
+                <p className="text-xs text-white/30">This message will be shown publicly on the property card and booking page.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSoldOutDialogOpen(false)} className="border-white/[0.1] text-white/60 hover:bg-white/[0.05]">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleToggleSoldOut(!property.isSoldOut)}
+              disabled={soldOutSaving}
+              className={property.isSoldOut ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-700 hover:bg-red-800 text-white"}
+              data-testid="button-confirm-sold-out"
+            >
+              {soldOutSaving ? "Saving…" : property.isSoldOut ? "Yes, Mark as Available" : "Yes, Mark as Sold Out"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Link href="/contact" data-testid="button-enquiry-now" className="fixed bottom-6 right-6 z-[60] group cursor-pointer enquiry-card-float outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-[22px]">
         <div className="absolute -inset-1 rounded-[22px] bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 opacity-60 blur-lg group-hover:opacity-90 transition-opacity duration-500 enquiry-card-glow" />
