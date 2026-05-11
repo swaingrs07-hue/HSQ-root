@@ -556,7 +556,7 @@ export default function PropertySelection() {
                         <img
                           src={cardImage || propertyExterior}
                           alt={prop.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                          className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out${(prop as any).isSoldOut ? " grayscale" : ""}`}
                           loading="lazy"
                         />
                       </div>
@@ -604,8 +604,8 @@ export default function PropertySelection() {
 
                       <div className="absolute top-4 right-4">
                         {(prop as any).isSoldOut ? (
-                          <span className="px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-[0.12em] backdrop-blur-md bg-black/80 text-white/90 border border-white/20 shadow-lg shadow-black/40">
-                            Fully Booked
+                          <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm bg-red-600 text-white shadow-lg shadow-red-900/50">
+                            Sold Out
                           </span>
                         ) : (
                           <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
@@ -617,19 +617,6 @@ export default function PropertySelection() {
                           </span>
                         )}
                       </div>
-
-                      {(prop as any).isSoldOut && (
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">
-                          <div className="flex flex-col items-center gap-1.5 px-5 py-4 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-2xl shadow-black/50 max-w-[80%] text-center">
-                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent mb-1" />
-                            <p className="text-white text-sm font-semibold tracking-[0.15em] uppercase">Fully Booked</p>
-                            {(prop as any).soldOutNote && (
-                              <p className="text-white/50 text-xs leading-snug mt-0.5">{(prop as any).soldOutNote}</p>
-                            )}
-                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent mt-1" />
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     <div className="p-6">
