@@ -2296,7 +2296,7 @@ ${allPages.map(p => `  <url>
         ? req.user.userId
         : (isAdminCreating && bodyAssignedToId) ? bodyAssignedToId : null;
       const resolvedAssignmentType = resolvedAssignedToId
-        ? (req.user?.role === "sales_executive" ? "property_auto" : "manual")
+        ? (req.user?.role === "sales_executive" ? "property_auto" : "admin_manual")
         : "unassigned";
 
       const lead = await storage.createLead({
