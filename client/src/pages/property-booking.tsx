@@ -2103,12 +2103,12 @@ function PropertyBooking() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-white/50">
                           <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-amber-500" /> {room.occupancy || 1}-sharing</span>
-                          {isStaff && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
+                          {isStaff && !property.isSoldOut && <span className="flex items-center gap-1"><Users className="w-4 h-4 text-amber-500" /> {room.availableBeds}/{room.totalBeds} available</span>}
                         </div>
                         {(() => {
                           const LOW_STOCK_THRESHOLD = 5;
                           const isLow = room.availableBeds > 0 && room.availableBeds < LOW_STOCK_THRESHOLD;
-                          if (!isLow) return null;
+                          if (property.isSoldOut || !isLow) return null;
                           if (user) {
                             return (
                               <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-medium rounded-md">
