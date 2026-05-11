@@ -4,8 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Mail, Phone, Clock, User, MessageSquare, CheckCircle2,
-  Archive, Eye, Search, Inbox
+  Archive, Eye, Search, Inbox, UserPlus, Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -18,12 +24,29 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   archived: { label: "Archived", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Archive },
 };
 
+interface SalesExec { id: string; name: string; email: string; }
+interface Property { id: string; name: string; slug: string; }
+
+interface ConvertForm {
+  name: string;
+  phone: string;
+  email: string;
+  notes: string;
+  assignedToId: string;
+  propertyId: string;
+}
+
 export default function AdminContactMessages() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const [convertMsg, setConvertMsg] = useState<ContactMessage | null>(null);
+  const [convertForm, setConvertForm] = useState<ConvertForm>({
+    name: "", phone: "", email: "", notes: "", assignedToId: "", propertyId: "",
+  });
 
   const { data, isLoading } = useQuery<{ messages: ContactMessage[]; unreadCount: number }>({
     queryKey: ["/api/admin/contact-messages"],
@@ -32,6 +55,27 @@ export default function AdminContactMessages() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const { data: allUsers = [] } = useQuery<SalesExec[]>({
+    queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      const users = await res.json();
+      return users.filter((u: any) => u.role === "sales_executive");
+    },
+  });
+
+  const { data: properties = [] } = useQuery<Property[]>({
+    queryKey: ["/api/properties"],
+    queryFn: async () => {
+      const res = await fetch("/api/properties");
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -51,6 +95,49 @@ export default function AdminContactMessages() {
       toast({ title: "Status updated" });
     },
   });
+
+  const convertToLeadMutation = useMutation({
+    mutationFn: async (form: ConvertForm) => {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: form.name,
+          phone: form.phone || undefined,
+          email: form.email || undefined,
+          notes: form.notes || undefined,
+          assignedToId: form.assignedToId || undefined,
+          propertyId: form.propertyId || undefined,
+          source: "website",
+          isManualEntry: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create lead");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Lead created", description: `${convertForm.name} has been added as a lead${convertForm.assignedToId ? " and assigned to the sales executive" : ""}.` });
+      setConvertMsg(null);
+    },
+    onError: (e: Error) => {
+      toast({ title: "Failed to create lead", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const openConvert = (msg: ContactMessage) => {
+    setConvertForm({
+      name: msg.name,
+      phone: msg.phone || "",
+      email: msg.email,
+      notes: msg.message,
+      assignedToId: "",
+      propertyId: "",
+    });
+    setConvertMsg(msg);
+  };
 
   const messages = data?.messages || [];
   const filtered = messages.filter(m => {
@@ -92,7 +179,7 @@ export default function AdminContactMessages() {
             data-testid="search-messages"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {["all", "new", "read", "replied", "archived"].map(s => (
             <Button
               key={s}
@@ -158,7 +245,7 @@ export default function AdminContactMessages() {
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {cfg.label}
                       </Badge>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap justify-end">
                         {msg.status === "new" && (
                           <Button size="sm" variant="ghost" className="text-xs text-slate-600 hover:text-slate-900 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "read" })}
@@ -173,6 +260,12 @@ export default function AdminContactMessages() {
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Replied
                           </Button>
                         )}
+                        <Button size="sm" variant="ghost"
+                          className="text-xs text-violet-600 hover:text-violet-700 h-7 px-2"
+                          onClick={() => openConvert(msg)}
+                          data-testid={`convert-lead-${msg.id}`}>
+                          <UserPlus className="w-3 h-3 mr-1" /> Assign as Lead
+                        </Button>
                         {msg.status !== "archived" && (
                           <Button size="sm" variant="ghost" className="text-xs text-slate-500 hover:text-slate-700 h-7 px-2"
                             onClick={() => updateStatusMutation.mutate({ id: msg.id, status: "archived" })}
@@ -189,6 +282,118 @@ export default function AdminContactMessages() {
           })}
         </div>
       )}
+
+      {/* Convert to Lead Dialog */}
+      <Dialog open={!!convertMsg} onOpenChange={open => !open && setConvertMsg(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="convert-lead-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
+              <UserPlus className="w-5 h-5 text-violet-600" />
+              Assign as Lead
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-600">Name</Label>
+                <Input
+                  value={convertForm.name}
+                  onChange={e => setConvertForm(f => ({ ...f, name: e.target.value }))}
+                  className="h-8 text-sm"
+                  data-testid="lead-name-input"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-600">Phone</Label>
+                <Input
+                  value={convertForm.phone}
+                  onChange={e => setConvertForm(f => ({ ...f, phone: e.target.value }))}
+                  className="h-8 text-sm"
+                  placeholder="Phone number"
+                  data-testid="lead-phone-input"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Email</Label>
+              <Input
+                value={convertForm.email}
+                onChange={e => setConvertForm(f => ({ ...f, email: e.target.value }))}
+                className="h-8 text-sm"
+                data-testid="lead-email-input"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Assign to Sales Executive</Label>
+              <Select
+                value={convertForm.assignedToId}
+                onValueChange={v => setConvertForm(f => ({ ...f, assignedToId: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger className="h-8 text-sm" data-testid="lead-exec-select">
+                  <SelectValue placeholder="Select sales executive…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Unassigned —</SelectItem>
+                  {allUsers.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Property (optional)</Label>
+              <Select
+                value={convertForm.propertyId}
+                onValueChange={v => setConvertForm(f => ({ ...f, propertyId: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger className="h-8 text-sm" data-testid="lead-property-select">
+                  <SelectValue placeholder="Select property…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— None —</SelectItem>
+                  {properties.map((p: Property) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Notes</Label>
+              <Textarea
+                value={convertForm.notes}
+                onChange={e => setConvertForm(f => ({ ...f, notes: e.target.value }))}
+                rows={3}
+                className="text-sm resize-none"
+                data-testid="lead-notes-input"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConvertMsg(null)} data-testid="cancel-convert">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              disabled={!convertForm.name || !convertForm.phone || convertToLeadMutation.isPending}
+              onClick={() => convertToLeadMutation.mutate(convertForm)}
+              data-testid="confirm-convert-lead"
+            >
+              {convertToLeadMutation.isPending ? (
+                <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Creating…</>
+              ) : (
+                <><UserPlus className="w-3 h-3 mr-1" /> Create Lead</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

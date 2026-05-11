@@ -2276,7 +2276,7 @@ ${allPages.map(p => `  <url>
   // Create a new lead (internal - from admin/sales exec panels)
   app.post("/api/leads", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const { name, phone, email, propertyId, budgetMin, budgetMax, notes, source, isManualEntry } = req.body;
+      const { name, phone, email, propertyId, budgetMin, budgetMax, notes, source, isManualEntry, assignedToId: bodyAssignedToId } = req.body;
 
       if (!name || !phone) {
         return res.status(400).json({ error: "Name and phone are required" });
@@ -2289,6 +2289,15 @@ ${allPages.map(p => `  <url>
           propertyName = property.name;
         }
       }
+
+      // Determine assignment
+      const isAdminCreating = req.user?.role === "admin" || req.user?.role === "superadmin" || req.user?.role === "manager";
+      const resolvedAssignedToId = req.user?.role === "sales_executive"
+        ? req.user.userId
+        : (isAdminCreating && bodyAssignedToId) ? bodyAssignedToId : null;
+      const resolvedAssignmentType = resolvedAssignedToId
+        ? (req.user?.role === "sales_executive" ? "property_auto" : "manual")
+        : "unassigned";
 
       const lead = await storage.createLead({
         name,
@@ -2303,8 +2312,8 @@ ${allPages.map(p => `  <url>
         isManualEntry: isManualEntry || true,
         budgetMin: budgetMin || null,
         budgetMax: budgetMax || null,
-        assignedToId: req.user?.role === "sales_executive" ? req.user.userId : null,
-        assignmentType: req.user?.role === "sales_executive" ? "property_auto" : "unassigned",
+        assignedToId: resolvedAssignedToId,
+        assignmentType: resolvedAssignmentType,
         createdBy: req.user?.userId || null,
       });
 
