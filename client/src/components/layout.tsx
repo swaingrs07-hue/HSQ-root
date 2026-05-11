@@ -152,8 +152,16 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   // to be quiet (reduced-motion / save-data). The fallback is what
   // saves the user on a Dell G15-class machine from staring at a flat
   // #050505 page after the FPS gate disables the real tubes.
+  // Mobile devices get no animated background at all — not the WebGL
+  // tubes (gated above) and not the CSS fallback either. The fallback
+  // uses `mix-blend-mode: screen` on 5 large fixed blobs, which forces
+  // the browser to composite every layer separately. On Android's
+  // Mali/Adreno GPUs this is as expensive as the WebGL shader and
+  // causes the same browser-tab hang on Samsung and other mid-range
+  // phones. A plain #050505 background looks fine on mobile and is
+  // perfectly smooth on every device.
   const tubesFallbackActive =
-    !globalTubesActive && !prefersReducedMotion && !saveDataMode;
+    !globalTubesActive && !prefersReducedMotion && !saveDataMode && !isMobileViewport;
 
   // Allow individual pages (currently the home hero video) to ask the
   // global iridescent tube background to pause its WebGL render loop
