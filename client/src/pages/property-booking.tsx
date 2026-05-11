@@ -418,9 +418,11 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
             </div>
             <div className="flex items-center gap-3">
               <span className="text-white/40 text-xs font-mono">{String(globalIndex + 1).padStart(2, "0")} / {String(allImages.length).padStart(2, "0")}</span>
-              <Button onClick={() => { setIsFullscreen(false); onStartBooking(); }} className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-6 h-10 text-xs tracking-wider uppercase shadow-lg shadow-amber-500/30" data-testid="button-fs-book">
-                Book Now <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
+              {!property.isSoldOut && (
+                <Button onClick={() => { setIsFullscreen(false); onStartBooking(); }} className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-6 h-10 text-xs tracking-wider uppercase shadow-lg shadow-amber-500/30" data-testid="button-fs-book">
+                  Book Now <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              )}
             </div>
           </div>
           <div className="px-6 pb-6">
@@ -574,9 +576,11 @@ function ImmersiveTour({ property, onStartBooking }: { property: any; onStartBoo
               Full Experience
             </button>
           )}
-          <Button onClick={onStartBooking} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-4 h-8 text-[11px] tracking-wider uppercase" data-testid="button-tour-book-now">
-            Book Now <ArrowRight className="w-3 h-3 ml-1" />
-          </Button>
+          {!property.isSoldOut && (
+            <Button onClick={onStartBooking} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-full px-4 h-8 text-[11px] tracking-wider uppercase" data-testid="button-tour-book-now">
+              Book Now <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
