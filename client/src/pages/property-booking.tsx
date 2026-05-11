@@ -2048,25 +2048,26 @@ function PropertyBooking() {
               </div>
             )}
 
-            <div ref={floorSectionRef} style={{ scrollMarginTop: "80px" }}>
-              <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-amber-500" />
-                Select Your Floor & Bed
-              </h2>
-              <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
-            </div>
-
-            {property.isSoldOut && (
-              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-red-500/40 bg-red-700/10 backdrop-blur-sm mb-2">
-                <div className="mt-0.5 w-5 h-5 rounded-full bg-red-600/20 flex items-center justify-center flex-shrink-0">
-                  <X className="w-3 h-3 text-red-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-red-400 uppercase tracking-wider">This property is currently sold out</p>
+            {property.isSoldOut ? (
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-xl shadow-black/40 px-6 py-8 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                  <p className="text-base font-semibold tracking-[0.15em] uppercase text-white/90">Fully Booked</p>
                   {property.soldOutNote && (
-                    <p className="text-xs text-white/60 mt-0.5 leading-relaxed">{property.soldOutNote}</p>
+                    <p className="text-sm text-white/45 leading-relaxed max-w-sm">{property.soldOutNote}</p>
                   )}
+                  <div className="w-12 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                  <p className="text-xs text-white/30 mt-1">New registrations open soon. Contact us for the waitlist.</p>
                 </div>
+              </div>
+            ) : (
+              <div ref={floorSectionRef} style={{ scrollMarginTop: "80px" }}>
+                <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-amber-500" />
+                  Select Your Floor & Bed
+                </h2>
+                <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
               </div>
             )}
 
@@ -2187,6 +2188,17 @@ function PropertyBooking() {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
+              {property.isSoldOut ? (
+                <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-xl shadow-black/40 px-6 py-8 text-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase text-white/90">Fully Booked</p>
+                    <p className="text-xs text-white/35 leading-relaxed">Contact the property team to join the waitlist for the next available slot.</p>
+                    <div className="w-10 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                  </div>
+                </div>
+              ) : (
               <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden rounded-xl">
                 <div className="bg-gradient-to-r from-white/[0.06] to-white/[0.03] p-4 flex items-center justify-between border-b border-white/[0.06]">
                   <h3 className="text-white font-bold tracking-wider uppercase text-sm">Booking Summary</h3>
@@ -2426,6 +2438,7 @@ function PropertyBooking() {
                   )}
                 </div>
               </div>
+              )}
 
               <Dialog open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
                 <DialogContent className="max-w-md bg-[#0a0a0a] border-white/[0.08]">

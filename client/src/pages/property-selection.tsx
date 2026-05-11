@@ -604,8 +604,8 @@ export default function PropertySelection() {
 
                       <div className="absolute top-4 right-4">
                         {(prop as any).isSoldOut ? (
-                          <span className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm bg-red-700/95 text-white border border-red-500/40">
-                            Sold Out
+                          <span className="px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-[0.12em] backdrop-blur-md bg-black/80 text-white/90 border border-white/20 shadow-lg shadow-black/40">
+                            Fully Booked
                           </span>
                         ) : (
                           <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm ${
@@ -619,12 +619,14 @@ export default function PropertySelection() {
                       </div>
 
                       {(prop as any).isSoldOut && (
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-end justify-start pb-4 pl-4">
-                          <div className="bg-red-700/90 border border-red-500/50 rounded-lg px-3 py-2 max-w-[85%]">
-                            <p className="text-white text-xs font-semibold uppercase tracking-wider mb-0.5">Sold Out</p>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">
+                          <div className="flex flex-col items-center gap-1.5 px-5 py-4 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-2xl shadow-black/50 max-w-[80%] text-center">
+                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent mb-1" />
+                            <p className="text-white text-sm font-semibold tracking-[0.15em] uppercase">Fully Booked</p>
                             {(prop as any).soldOutNote && (
-                              <p className="text-red-100 text-xs leading-snug">{(prop as any).soldOutNote}</p>
+                              <p className="text-white/50 text-xs leading-snug mt-0.5">{(prop as any).soldOutNote}</p>
                             )}
+                            <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent mt-1" />
                           </div>
                         </div>
                       )}
@@ -767,15 +769,15 @@ export default function PropertySelection() {
                         className="space-y-8"
                       >
                         {selectedProperty.isSoldOut && (
-                          <div className="flex items-start gap-3 px-4 py-4 rounded-xl border border-red-500/40 bg-red-700/10 backdrop-blur-sm">
-                            <div className="mt-0.5 w-6 h-6 rounded-full bg-red-600/30 flex items-center justify-center flex-shrink-0">
-                              <X className="w-3.5 h-3.5 text-red-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-red-400 uppercase tracking-wider">This property is currently sold out</p>
+                          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-xl shadow-black/40 px-5 py-5">
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] to-transparent pointer-events-none" />
+                            <div className="flex flex-col items-center text-center gap-2">
+                              <div className="w-10 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                              <p className="text-sm font-semibold tracking-[0.15em] uppercase text-white/90">Fully Booked</p>
                               {selectedProperty.soldOutNote && (
-                                <p className="text-sm text-white/60 mt-1 leading-relaxed">{selectedProperty.soldOutNote}</p>
+                                <p className="text-sm text-white/45 leading-relaxed max-w-xs">{selectedProperty.soldOutNote}</p>
                               )}
+                              <div className="w-10 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                             </div>
                           </div>
                         )}
