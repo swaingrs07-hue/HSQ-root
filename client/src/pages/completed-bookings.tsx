@@ -112,6 +112,7 @@ interface ResidentDetails {
 interface CompletedBooking {
   id: string;
   bookingCode?: string;
+  bookingNature?: string;
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;
