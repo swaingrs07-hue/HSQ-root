@@ -4670,6 +4670,7 @@ ${allPages.map(p => `  <url>
       }
 
       const {
+        bookingNature,
         customerType,
         studentId,
         leadId,
@@ -4887,6 +4888,7 @@ ${allPages.map(p => `  <url>
 
       // Create booking with code
       const booking = await storage.createBookingWithCode({
+        bookingNature: bookingNature || "new",
         customerType: customerType || "walk_in",
         studentId: validStudentId,
         leadId: customerType === "lead" ? leadId : null,
@@ -5482,6 +5484,7 @@ ${allPages.map(p => `  <url>
         "checkInDate", "checkOutDate", "durationMonths",
         "paymentType", "tokenAmount", "numberOfInstallments",
         "referrer", "deposit", "depositType", "depositProofPath", "depositTransactionId", "depositReceived",
+        "bookingNature",
       ];
 
       const fieldMapping: Record<string, string> = {
@@ -11019,8 +11022,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const csv = [header.join(","), ...rows.map(r => {
         const rd = r.residentDetails as any;
         const roomLabel = rd?.roomNo ? (rd.bedNo ? `${rd.roomNo}-${rd.bedNo}` : rd.roomNo) : roomMap.get(r.roomTypeId || "") || r.roomTypeId || "";
+        const natureLabel = (r as any).bookingNature === "retention" ? "Retention" : "New Booking";
         return csvRow([
-          r.bookingCode, r.customerType, r.walkInName, r.walkInPhone, r.walkInEmail,
+          r.bookingCode, natureLabel, r.walkInName, r.walkInPhone, r.walkInEmail,
           propMap.get(r.propertyId || "") || r.propertyId || "",
           roomLabel,
           r.stayPlanType, r.checkInDate, r.checkOutDate,

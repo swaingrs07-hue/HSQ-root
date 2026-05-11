@@ -198,6 +198,7 @@ export const bookings = pgTable("bookings", {
   bookingCode: varchar("booking_code").unique(), // Human-readable booking ID like HSQ-2026-0001
   
   // Customer (either student or walk-in)
+  bookingNature: text("booking_nature"), // "new" | "retention"
   customerType: text("customer_type"),
   studentId: varchar("student_id").references(() => students.id),
   leadId: varchar("lead_id").references(() => leads.id),

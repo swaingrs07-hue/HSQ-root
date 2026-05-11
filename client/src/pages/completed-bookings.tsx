@@ -146,6 +146,13 @@ function getBookingPhotoUrl(rd?: ResidentDetails): string | null {
   return null;
 }
 
+function getNatureBadge(nature?: string) {
+  if (nature === "retention") {
+    return <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Retention</span>;
+  }
+  return <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">New</span>;
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "confirmed":
@@ -1863,6 +1870,7 @@ export default function CompletedBookings() {
                             {booking.customerName}
                           </h3>
                           {getStatusBadge(booking.status)}
+                          {getNatureBadge(booking.bookingNature)}
                           {booking.bookingCode && (
                             <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded" data-testid={`text-booking-code-${booking.id}`}>
                               {booking.bookingCode}
@@ -2165,7 +2173,10 @@ export default function CompletedBookings() {
                       );
                     })()}
                     <div>
-                      <h3 className="font-bold text-slate-900 text-base leading-tight" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-slate-900 text-base leading-tight" data-testid="text-detail-customer">{selectedBooking.customerName}</h3>
+                        {getNatureBadge(selectedBooking.bookingNature)}
+                      </div>
                       {selectedBooking.bookingCode && <p className="text-xs font-mono text-slate-400 mt-0.5">{selectedBooking.bookingCode}</p>}
                     </div>
                   </div>
@@ -2942,6 +2953,31 @@ export default function CompletedBookings() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, customerEmail: e.target.value }))}
                       data-testid="input-edit-email"
                     />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-slate-500 mb-2 block">Booking Nature</Label>
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                    {[
+                      { value: "new", label: "New Booking" },
+                      { value: "retention", label: "Retention" },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditForm(prev => ({ ...prev, bookingNature: opt.value }))}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                          (editForm.bookingNature || selectedBooking?.bookingNature || "new") === opt.value
+                            ? opt.value === "retention"
+                              ? "bg-amber-500 text-white shadow"
+                              : "bg-emerald-500 text-white shadow"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                        data-testid={`toggle-edit-booking-nature-${opt.value}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div>
