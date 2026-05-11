@@ -4268,6 +4268,13 @@ ${allPages.map(p => `  <url>
         filtered = filtered.filter((b) => b.propertyId !== null && scope.has(b.propertyId));
       }
 
+      const natureParam = req.query.nature as string | undefined;
+      if (natureParam === "retention") {
+        filtered = filtered.filter((b: any) => b.bookingNature === "retention");
+      } else if (natureParam === "new") {
+        filtered = filtered.filter((b: any) => b.bookingNature !== "retention");
+      }
+
       if (filtered.length === 0) {
         return res.json([]);
       }

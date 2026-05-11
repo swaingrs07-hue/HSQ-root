@@ -190,6 +190,7 @@ export default function CompletedBookings() {
     return params.get("search") || "";
   });
   const [statusFilter, setStatusFilter] = useState("all");
+  const [natureFilter, setNatureFilter] = useState("all");
   const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed" | "with_addons">("all");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -1348,6 +1349,8 @@ export default function CompletedBookings() {
   const baseFiltered = bookings.filter((b: any) => {
     if (selectedPropertyId && b.propertyId !== selectedPropertyId) return false;
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
+    if (natureFilter === "retention" && b.bookingNature !== "retention") return false;
+    if (natureFilter === "new" && b.bookingNature === "retention") return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -1671,6 +1674,17 @@ export default function CompletedBookings() {
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={natureFilter} onValueChange={(v) => { setNatureFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[150px]" data-testid="select-nature-filter">
+            <Tag className="h-4 w-4 mr-2 text-slate-400" />
+            <SelectValue placeholder="Nature" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Bookings</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="retention">Retention</SelectItem>
           </SelectContent>
         </Select>
         <Button
