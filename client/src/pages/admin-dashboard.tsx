@@ -506,6 +506,32 @@ export default function AdminDashboard() {
   const [deletePropertyName, setDeletePropertyName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [soldOutDialogProperty, setSoldOutDialogProperty] = useState<any | null>(null);
+  const [soldOutNoteInput, setSoldOutNoteInput] = useState("");
+  const [isSoldOutSaving, setIsSoldOutSaving] = useState(false);
+
+  const handleToggleSoldOut = async () => {
+    if (!soldOutDialogProperty) return;
+    setIsSoldOutSaving(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const newState = !soldOutDialogProperty.isSoldOut;
+      const res = await fetch(`/api/admin/properties/${soldOutDialogProperty.id}/sold-out`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ isSoldOut: newState, soldOutNote: soldOutNoteInput || null }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: newState ? "Property marked as Sold Out" : "Property marked as Available", description: newState ? "Visitors will see the sold-out notice." : "Booking is now open again." });
+      setSoldOutDialogProperty(null);
+      loadProperties();
+    } catch {
+      toast({ title: "Error", description: "Could not update sold-out status.", variant: "destructive" });
+    } finally {
+      setIsSoldOutSaving(false);
+    }
+  };
+
   const handleDeleteProperty = async () => {
     if (!deletePropertyId) return;
     setIsDeleting(true);
@@ -1871,6 +1897,11 @@ export default function AdminDashboard() {
                                   }`}>
                                     {property.bookingMode === "academic_year" ? "Academic Year" : "Monthly"}
                                   </span>
+                                  {property.isSoldOut && (
+                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                                      Sold Out
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground mb-3">
                                   <MapPin className="h-4 w-4" />
@@ -1927,6 +1958,16 @@ export default function AdminDashboard() {
                                 >
                                   <Power className="h-4 w-4" />
                                   {property.active ? "Disable" : "Enable"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => { setSoldOutNoteInput(property.soldOutNote || ""); setSoldOutDialogProperty(property); }}
+                                  className={`gap-2 ${property.isSoldOut ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100" : "text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"}`}
+                                  data-testid={`button-sold-out-property-${property.id}`}
+                                >
+                                  <Tag className="h-4 w-4" />
+                                  {property.isSoldOut ? "Sold Out ✓" : "Mark Sold Out"}
                                 </Button>
                                 <Button 
                                   variant="outline"
@@ -2945,6 +2986,50 @@ export default function AdminDashboard() {
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!soldOutDialogProperty} onOpenChange={(open) => { if (!open) setSoldOutDialogProperty(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-orange-500" />
+              {soldOutDialogProperty?.isSoldOut ? "Mark as Available" : "Mark as Sold Out"}
+            </DialogTitle>
+            <DialogDescription>
+              {soldOutDialogProperty?.isSoldOut
+                ? `Re-open "${soldOutDialogProperty?.name}" for bookings. The sold-out notice will be removed for all visitors.`
+                : `Mark "${soldOutDialogProperty?.name}" as sold out. Visitors will see a public sold-out notice and booking will be blocked.`}
+            </DialogDescription>
+          </DialogHeader>
+          {!soldOutDialogProperty?.isSoldOut && (
+            <div className="space-y-2 py-2">
+              <Label htmlFor="sold-out-note" className="text-sm font-medium">Custom note for visitors (optional)</Label>
+              <Textarea
+                id="sold-out-note"
+                value={soldOutNoteInput}
+                onChange={(e) => setSoldOutNoteInput(e.target.value)}
+                placeholder="e.g. All rooms are occupied for this academic year. New registrations open from June 2025."
+                className="resize-none min-h-[80px]"
+                data-testid="input-admin-sold-out-note"
+              />
+              <p className="text-xs text-muted-foreground">This message will be displayed publicly on the property card and booking page.</p>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSoldOutDialogProperty(null)} disabled={isSoldOutSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleToggleSoldOut}
+              disabled={isSoldOutSaving}
+              className={soldOutDialogProperty?.isSoldOut ? "bg-green-600 hover:bg-green-700 text-white gap-2" : "bg-red-600 hover:bg-red-700 text-white gap-2"}
+              data-testid="button-confirm-sold-out-admin"
+            >
+              {isSoldOutSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}
+              {isSoldOutSaving ? "Saving…" : soldOutDialogProperty?.isSoldOut ? "Mark as Available" : "Mark as Sold Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
