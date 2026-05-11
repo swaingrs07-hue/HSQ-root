@@ -2364,7 +2364,7 @@ export default function Home() {
           </div>
         </div>
       </ImmersiveScene>
-      {featuredPlans.length > 0 && (
+      {featuredPlans.length > 0 && !isMobile && (
         <>
           {(() => {
           const _tierDesigns_unused = [
@@ -2453,9 +2453,8 @@ export default function Home() {
                       viewport={{ once: true }}
                       transition={{ delay: 0.5 }}
                     >
-                      {isMobile
-                        ? "Explore our curated collection of living plans — tap a card to see full details."
-                        : "Walk through our curated archive. Each frame is a complete living experience — tap one to step inside."}
+                      Walk through our curated archive. Each frame is a complete
+                      living experience — tap one to step inside.
                     </motion.p>
                     <motion.div
                       initial={{ scaleX: 0 }}
@@ -2473,90 +2472,11 @@ export default function Home() {
                   {void _tierDesigns_unused}
                 </div>
               </ImmersiveScene>
-              {isMobile ? (
-                /* Mobile: flat horizontal-scroll card strip — no 3D perspective,
-                   no backdrop video, no scroll-driven motion. The 3D hallway
-                   walk uses CSS preserve-3d + a looping <video> + Framer Motion
-                   scroll transforms, all of which hang mid-range Android phones.
-                   A static card row gives mobile users the same plan content
-                   with zero GPU overhead. */
-                <div
-                  className="w-full bg-black py-8 px-4"
-                  data-testid="plans-mobile-strip"
-                >
-                  <div
-                    className="flex gap-4 overflow-x-auto pb-4"
-                    style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
-                  >
-                    {featuredPlans.slice(0, 8).map((plan: any, idx: number) => {
-                      const TIER_COLORS = ["#D4AF37", "#C97B5C", "#A8B5C0", "#9A7B4F"];
-                      const accent = TIER_COLORS[idx % TIER_COLORS.length];
-                      const price = Number(plan.basePrice || 0);
-                      const monthly = price > 0 ? Math.round(price / 12) : 0;
-                      const propSlug = plan.propertySlug || properties.find((p: any) => p.id === plan.propertyId)?.slug;
-                      return (
-                        <div
-                          key={plan.id}
-                          data-testid={`plan-mobile-card-${plan.id}`}
-                          onClick={() => propSlug && setLocation(`/properties/${propSlug}`)}
-                          className="flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer active:scale-95 transition-transform"
-                          style={{
-                            width: "min(260px, calc(85vw))",
-                            scrollSnapAlign: "start",
-                            background: "linear-gradient(160deg, #111 0%, #000 100%)",
-                            border: `1px solid ${accent}33`,
-                            boxShadow: `0 4px 24px ${accent}20`,
-                          }}
-                        >
-                          <div className="p-5">
-                            <div
-                              className="text-[10px] uppercase tracking-widest font-semibold mb-3"
-                              style={{ color: accent }}
-                            >
-                              {plan.propertyName || "Hsquareliving"}
-                            </div>
-                            <div className="text-white font-bold text-lg leading-snug mb-1">
-                              {plan.name}
-                            </div>
-                            {plan.tagline && (
-                              <div className="text-white/40 text-xs mb-4">{plan.tagline}</div>
-                            )}
-                            {monthly > 0 && (
-                              <div className="mb-4">
-                                <span className="text-2xl font-black" style={{ color: accent }}>
-                                  ₹{monthly.toLocaleString("en-IN")}
-                                </span>
-                                <span className="text-white/30 text-xs ml-1">/mo</span>
-                              </div>
-                            )}
-                            {(plan.items || []).slice(0, 3).map((item: any) => (
-                              <div key={item.id} className="flex items-center gap-2 mb-1.5">
-                                <div
-                                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                  style={{ background: accent }}
-                                />
-                                <span className="text-white/60 text-xs truncate">{item.label}</span>
-                              </div>
-                            ))}
-                            <div
-                              className="mt-4 w-full py-2 rounded-xl text-xs font-semibold text-center uppercase tracking-wider"
-                              style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
-                            >
-                              View Plan →
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <PlansHallway
-                  plans={featuredPlans as any[]}
-                  properties={properties}
-                  onExplore={(target) => setLocation(target)}
-                />
-              )}
+              <PlansHallway
+                plans={featuredPlans as any[]}
+                properties={properties}
+                onExplore={(target) => setLocation(target)}
+              />
             </>
           );
         })()}
