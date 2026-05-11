@@ -1485,32 +1485,6 @@ function BookingGenerationInner() {
                   ) : (
                   <>
                   <div>
-                    <Label className="text-sm font-medium text-slate-600 mb-3 block">Booking Nature</Label>
-                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-                      {[
-                        { value: "new", label: "New Booking" },
-                        { value: "retention", label: "Retention" },
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, bookingNature: opt.value }))}
-                          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${
-                            formData.bookingNature === opt.value
-                              ? opt.value === "retention"
-                                ? "bg-amber-500 text-white shadow"
-                                : "bg-emerald-500 text-white shadow"
-                              : "text-slate-500 hover:text-slate-700"
-                          }`}
-                          data-testid={`toggle-booking-nature-${opt.value}`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
                     <Label className="text-sm font-medium text-slate-600 mb-3 block">Customer Type</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
