@@ -602,6 +602,15 @@ export default function PropertySelection() {
                         })()}
                       </div>
 
+                      {(prop as any).isSoldOut && (prop as any).soldOutNote && (
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <div className="bg-black/70 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-0.5">Sold Out</p>
+                            <p className="text-xs text-white/70 leading-snug">{(prop as any).soldOutNote}</p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="absolute top-4 right-4">
                         {(prop as any).isSoldOut ? (
                           <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm bg-red-600 text-white shadow-lg shadow-red-900/50">
