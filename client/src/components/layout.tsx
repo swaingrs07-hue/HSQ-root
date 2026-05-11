@@ -108,12 +108,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   });
   const handleGlobalTubesFailure = useCallback(() => setTubesSupported(false), []);
 
-  // Reactive prefers-reduced-motion + small-viewport detection. Both
-  // signals can change after mount (a user toggling OS-level
-  // reduced-motion, or rotating / resizing a window) and we want the
-  // layout to re-evaluate the global tube layer in real time so we
-  // never strand a slow device with a heavy WebGL canvas running
-  // underneath the hero video.
+  // Reactive prefers-reduced-motion detection. Can change after mount
+  // (user toggling OS-level reduced-motion) so we listen reactively.
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
     if (typeof window === "undefined") return false;
     return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -127,15 +123,28 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener?.("change", handler);
   }, []);
 
-  // Effective tube state. Tubes are skipped only when the device or
-  // user signals it can't afford them (reduced-motion, save-data, or
-  // no WebGL / FPS gate fired). The mobile-homepage exclusion that
-  // used to live here existed because the iridescent tubes composited
-  // under the hero video and caused stuttering on small phones. That
-  // root cause is now solved by the hero pausing the tubes while the
-  // video is on screen (Task #127), so mobile users get the full
-  // iridescent background everywhere — including the homepage.
-  const globalTubesActive = tubesSupported && !prefersReducedMotion && !saveDataMode;
+  // Mobile viewport guard — WebGL tubes hang Samsung (and other Android)
+  // mid-range devices: the GPU reports 60fps idle but freezes the browser
+  // tab under the continuous iridescent shader. Phones and small tablets
+  // (<768px wide) get the lightweight CSS iridescent fallback instead,
+  // which is fully smooth and still preserves the premium aesthetic.
+  // We also check navigator.maxTouchPoints as a secondary signal so that
+  // narrow-window desktop browsers aren't wrongly excluded.
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768 && navigator.maxTouchPoints > 0;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () =>
+      setIsMobileViewport(window.innerWidth < 768 && navigator.maxTouchPoints > 0);
+    window.addEventListener("resize", check, { passive: true });
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Effective tube state: WebGL tubes require a capable non-mobile device.
+  // Mobile gets the CSS fallback (tubesFallbackActive below) automatically.
+  const globalTubesActive = tubesSupported && !prefersReducedMotion && !saveDataMode && !isMobileViewport;
 
   // Should we render the lightweight CSS iridescent fallback in place
   // of the WebGL tubes? Only when the device couldn't afford the WebGL

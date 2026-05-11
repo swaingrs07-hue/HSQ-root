@@ -119,6 +119,17 @@ export default function TubesCursorBackground({
       if (onFailure) onFailure();
     };
 
+    // Mobile device guard — belt-and-suspenders check in addition to the
+    // layout-level isMobileViewport gate. Touch-primary devices under
+    // 768px wide are excluded here too so that if this component is ever
+    // mounted directly (outside Layout) it won't hang on Samsung devices.
+    const isTouchMobile =
+      navigator.maxTouchPoints > 0 && window.innerWidth < 768;
+    if (isTouchMobile) {
+      fail("mobile touch device — skipping WebGL tubes to prevent hang");
+      return;
+    }
+
     // Pre-flight: the lib needs a GPU context. Require WebGL2 or WebGPU.
     let hasWebGL2 = false;
     try {
