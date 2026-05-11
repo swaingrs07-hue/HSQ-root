@@ -194,7 +194,8 @@ export function PropertyBrochureButtons({
     <>
       <div
         className={cn(
-          "relative overflow-hidden rounded-3xl border border-[#D4AF37]/20 bg-gradient-to-br from-[#1A1A1A] via-[#1A1A1A] to-[#0F0F0F] p-6 md:p-8",
+          "relative overflow-hidden rounded-3xl border border-[#D4AF37]/20 p-6 md:p-8",
+          "bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-[#1A1A1A] dark:via-[#1A1A1A] dark:to-[#0F0F0F]",
           className,
         )}
         data-testid={`brochure-panel-${propertyId}`}
@@ -205,12 +206,12 @@ export function PropertyBrochureButtons({
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-[2px] bg-[#D4AF37]" />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-[#8B7D6B] font-medium">Property Resources</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-amber-700 dark:text-[#8B7D6B] font-medium">Property Resources</span>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-[#FDFCF9] tracking-tight">
+              <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-[#FDFCF9] tracking-tight">
                 Take this residence with you
               </h3>
-              <p className="text-sm text-[#8B7D6B] mt-2 leading-relaxed">
+              <p className="text-sm text-gray-500 dark:text-[#8B7D6B] mt-2 leading-relaxed">
                 {propertyName ? `Download the curated brochure for ${propertyName}` : "Download the curated brochure"} — full amenities, room types, pricing, and location details, ready to share.
               </p>
             </div>
@@ -232,7 +233,7 @@ export function PropertyBrochureButtons({
               <button
                 onClick={() => openChooser("pptx")}
                 disabled={loading !== null}
-                className="flex-1 group flex items-center justify-center gap-2.5 px-5 h-12 rounded-xl border border-[#D4AF37]/40 bg-transparent text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 font-bold uppercase tracking-wider text-sm transition-all disabled:opacity-60 disabled:cursor-wait"
+                className="flex-1 group flex items-center justify-center gap-2.5 px-5 h-12 rounded-xl border border-[#D4AF37]/40 bg-transparent text-gray-800 dark:text-[#FDFCF9] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/70 font-bold uppercase tracking-wider text-sm transition-all disabled:opacity-60 disabled:cursor-wait"
                 data-testid={`button-download-pptx-panel-${propertyId}`}
               >
                 {loading === "pptx" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Presentation className="w-4 h-4" />}
@@ -240,7 +241,7 @@ export function PropertyBrochureButtons({
               </button>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#8B7D6B]/80 mt-3.5 tracking-wide" data-testid={`brochure-meta-${propertyId}`}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-[#8B7D6B]/80 mt-3.5 tracking-wide" data-testid={`brochure-meta-${propertyId}`}>
             <span>Free PDF · Generated fresh from live property data</span>
             {formatLastUpdated(lastUpdated) && (
               <span data-testid={`brochure-last-updated-${propertyId}`}>
