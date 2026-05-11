@@ -354,7 +354,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <TubesContext.Provider value={tubesContextValue}>
     <div
-      className={cn("min-h-screen bg-[#050505] flex flex-col font-sans relative", theme === "light" && "app-light")}
+      className={cn("min-h-screen bg-[#050505] flex flex-col font-sans relative", theme === "light" ? "app-light" : "dark")}
       data-testid="layout-root"
     >
       {globalTubesActive && (
