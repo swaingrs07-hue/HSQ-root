@@ -69,7 +69,7 @@ function addPage() {
 }
 
 function drawPageFooter() {
-  const p = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+  const p = doc.getCurrentPageInfo().pageNumber;
   // thin gold rule
   fill(GOLD);  draw(GOLD);
   doc.rect(ML, FOOTER_Y - 2, CW, 0.4, "F");
@@ -103,7 +103,7 @@ function sectionDivider(
   svgLines: (xBase: number, yBase: number) => void
 ) {
   addPage();
-  const p = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+  const p = doc.getCurrentPageInfo().pageNumber;
   toc.push({ label: `${partNum} — ${title}`, level: 0, page: p });
 
   // dark bg
@@ -171,7 +171,7 @@ function sectionDivider(
 function heading1(text: string, tocEntry = true) {
   checkPageBreak(16);
   if (tocEntry) {
-    const p = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+    const p = doc.getCurrentPageInfo().pageNumber;
     toc.push({ label: text, level: 1, page: p });
   }
   y += 4;
@@ -188,7 +188,7 @@ function heading1(text: string, tocEntry = true) {
 function heading2(text: string, tocEntry = true) {
   checkPageBreak(14);
   if (tocEntry) {
-    const p = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+    const p = doc.getCurrentPageInfo().pageNumber;
     toc.push({ label: `  ${text}`, level: 2, page: p });
   }
   y += 3;
@@ -346,7 +346,7 @@ function twoCol(leftLabel: string, leftVal: string, rightLabel: string, rightVal
 
 // ─── SVG-style illustrations ───────────────────────────────────────────────────
 function iconHouse(x: number, yp: number) {
-  draw([197, 160, 89]); fill([197, 160, 89, 30] as any);
+  draw([197, 160, 89]); fill([230, 210, 160]);
   doc.setLineWidth(0.8);
   // roof
   doc.lines([[15, -10], [15, 10]], x, yp + 10, [1, 1], "S");
@@ -1059,7 +1059,7 @@ function buildPart6() {
 // ─── Quick Reference Cards ─────────────────────────────────────────────────────
 function buildQuickRef() {
   addPage();
-  const p = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+  const p = doc.getCurrentPageInfo().pageNumber;
   toc.push({ label: "Quick Reference — Key URLs & Shortcuts", level: 0, page: p });
 
   heading1("Quick Reference", false);
@@ -1150,7 +1150,7 @@ async function main() {
 
   // ── Page 2: TOC placeholder ──
   doc.addPage("a4");
-  tocPageStart = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+  tocPageStart = doc.getCurrentPageInfo().pageNumber;
   drawPageFooter();
 
   // ── Content ──
@@ -1170,7 +1170,7 @@ async function main() {
   const buf = doc.output("arraybuffer");
   writeFileSync(outPath, Buffer.from(buf));
 
-  const pages = (doc as any).internal.getNumberOfPages();
+  const pages = doc.getNumberOfPages();
   const sizeKb = Math.round(Buffer.from(buf).length / 1024);
   console.log(`  ✓  PDF written → ${outPath}`);
   console.log(`  ✓  Pages: ${pages}   Size: ${sizeKb} KB`);

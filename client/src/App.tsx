@@ -65,7 +65,6 @@ import HotelsDashboard from "@/pages/hotels-dashboard";
 import HotelsContact from "@/pages/hotels-contact";
 import HotelsExperience from "@/pages/hotels-experience";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
-import ManualPage from "@/pages/manual";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import FAQ from "@/pages/faq";
@@ -279,7 +278,6 @@ function AppContent() {
               <Route path="/admin/registrations" component={AdminRegistrations} />
               <Route path="/admin/contact-messages" component={AdminContactMessages} />
               <Route path="/admin/data-export" component={AdminDataExport} />
-              <Route path="/admin/manual" component={ManualPage} />
               <Route path="/admin/profile" component={Profile} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
