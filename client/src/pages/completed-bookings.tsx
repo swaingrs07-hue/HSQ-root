@@ -201,6 +201,13 @@ export default function CompletedBookings() {
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const editContentRef = useRef<HTMLDivElement>(null);
+  const sdSubmitBtnRef = useRef<HTMLButtonElement>(null);
+  const sdConfirmBtnRef = useRef<HTMLButtonElement>(null);
+  const paySubmitBtnRef = useRef<HTMLButtonElement>(null);
+  /** On iPad/tablet the soft keyboard covers bottom buttons. Call this onFocus
+   *  for any input near an action button so the button scrolls into view. */
+  const scrollBtnIntoView = (ref: React.RefObject<HTMLButtonElement>) =>
+    setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 350);
   useEffect(() => {
     if (isEditing && editContentRef.current) {
       editContentRef.current.scrollTop = 0;
@@ -2673,6 +2680,7 @@ export default function CompletedBookings() {
                                       <input type="text" placeholder="Transaction ID (optional)"
                                         value={sdConfirmForm.depositTransactionId}
                                         onChange={(e) => setSdConfirmForm(prev=>({...prev, depositTransactionId: e.target.value}))}
+                                        onFocus={() => scrollBtnIntoView(sdConfirmBtnRef)}
                                         className="flex-1 text-xs outline-none text-slate-700 bg-transparent placeholder-slate-300"
                                         data-testid="input-confirm-sd-txnid"/>
                                     </div>
@@ -2695,7 +2703,7 @@ export default function CompletedBookings() {
                                       </label>
                                     )
                                   )}
-                                  <button onClick={confirmSdReceipt} disabled={confirmingReceipt}
+                                  <button ref={sdConfirmBtnRef} onClick={confirmSdReceipt} disabled={confirmingReceipt}
                                     className="w-full flex items-center justify-center gap-2 h-9 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     data-testid="btn-confirm-sd-receipt">
                                     {confirmingReceipt ? <><Loader2 className="h-3.5 w-3.5 animate-spin"/> Confirming…</> : <><Shield className="h-3.5 w-3.5"/> Confirm Receipt</>}
@@ -2745,7 +2753,7 @@ export default function CompletedBookings() {
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Deposit Amount</p>
                           <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border border-slate-200 bg-white ${sdForm.depositType==="waived"?"opacity-40 pointer-events-none":""}`}>
                             <IndianRupee className="h-4 w-4 text-indigo-400 shrink-0"/>
-                            <input type="number" min={0} placeholder="0" value={sdForm.deposit||""} onChange={(e)=>setSdForm(prev=>({...prev,deposit:parseInt(e.target.value)||0}))} className="flex-1 text-sm font-bold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full" data-testid="input-sd-amount"/>
+                            <input type="number" min={0} placeholder="0" value={sdForm.deposit||""} onChange={(e)=>setSdForm(prev=>({...prev,deposit:parseInt(e.target.value)||0}))} onFocus={()=>scrollBtnIntoView(sdSubmitBtnRef)} className="flex-1 text-sm font-bold outline-none text-slate-800 placeholder-slate-300 bg-transparent w-full" data-testid="input-sd-amount"/>
                           </div>
                         </div>
                         <div>
@@ -2765,7 +2773,7 @@ export default function CompletedBookings() {
                           )}
                         </div>
                       </div>
-                      <button onClick={saveSdDetails} disabled={markingSd||(sdForm.depositType!=="waived"&&sdForm.deposit<=0)}
+                      <button ref={sdSubmitBtnRef} onClick={saveSdDetails} disabled={markingSd||(sdForm.depositType!=="waived"&&sdForm.deposit<=0)}
                         className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" data-testid="btn-save-sd">
                         {markingSd?<><Loader2 className="h-4 w-4 animate-spin"/> Saving…</>:<><Shield className="h-4 w-4"/> Mark Security Deposit as Received</>}
                       </button>
@@ -3225,6 +3233,7 @@ export default function CompletedBookings() {
                 type="number"
                 value={paymentForm.amount}
                 onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: parseInt(e.target.value) || 0 }))}
+                onFocus={() => scrollBtnIntoView(paySubmitBtnRef)}
                 data-testid="input-payment-amount"
               />
             </div>
@@ -3266,6 +3275,7 @@ export default function CompletedBookings() {
                   placeholder="e.g., UPI ref, cheque number, receipt ID"
                   value={paymentForm.transactionId}
                   onChange={(e) => setPaymentForm(prev => ({ ...prev, transactionId: e.target.value }))}
+                  onFocus={() => scrollBtnIntoView(paySubmitBtnRef)}
                   className={!paymentForm.transactionId.trim() ? "border-red-200 focus:border-red-400 focus:ring-red-200" : ""}
                   data-testid="input-transaction-id"
                 />
@@ -3329,6 +3339,7 @@ export default function CompletedBookings() {
                 placeholder="Any additional notes about this payment..."
                 value={paymentForm.notes}
                 onChange={(e) => setPaymentForm(prev => ({ ...prev, notes: e.target.value }))}
+                onFocus={() => scrollBtnIntoView(paySubmitBtnRef)}
                 rows={2}
                 data-testid="input-payment-notes"
               />
@@ -3344,6 +3355,7 @@ export default function CompletedBookings() {
                 Cancel
               </Button>
               <Button
+                ref={paySubmitBtnRef}
                 size="sm"
                 className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={markPaymentDone}
