@@ -475,7 +475,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => switchPortal("to-hotels", "/hotels")}
               className={cn(
-                "hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
+                "hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
                 "border backdrop-blur-xl"
               )}
               style={{
@@ -485,8 +485,12 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               }}
               data-testid="link-hotels-switcher"
             >
-              <Star className="w-3.5 h-3.5" style={{ color: "#c5a059" }} fill="#c5a059" />
-              <span className="text-[11px] font-semibold tracking-[0.16em] uppercase whitespace-nowrap" style={{ color: "#e9d5a3" }}>
+              <Star className="w-3 h-3" style={{ color: "#c5a059" }} fill="#c5a059" />
+              {/* md: compact "Hotels"; lg+: full "Switch to Hotels" */}
+              <span className="text-[10px] font-semibold tracking-[0.12em] uppercase whitespace-nowrap lg:hidden" style={{ color: "#e9d5a3" }}>
+                Hotels
+              </span>
+              <span className="text-[11px] font-semibold tracking-[0.16em] uppercase whitespace-nowrap hidden lg:inline" style={{ color: "#e9d5a3" }}>
                 Switch to Hotels
               </span>
               <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
@@ -496,7 +500,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-3 lg:gap-6">
             {navItems.map((item) => (
               <Link 
                 key={item.href} 
