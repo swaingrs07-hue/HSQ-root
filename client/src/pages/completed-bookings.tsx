@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -200,6 +200,14 @@ export default function CompletedBookings() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const editContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isEditing && editContentRef.current) {
+      editContentRef.current.scrollTop = 0;
+      const first = editContentRef.current.querySelector<HTMLInputElement>("input, select, textarea");
+      if (first) { setTimeout(() => first.focus(), 50); }
+    }
+  }, [isEditing]);
   const [sendingParentEmail, setSendingParentEmail] = useState(false);
   const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -653,6 +661,7 @@ export default function CompletedBookings() {
       customerEmail: booking.customerEmail || "",
       status: booking.status || "draft",
       referrer: booking.referrer || "",
+      bookingNature: booking.bookingNature || "new",
       dob: rd.dob || "",
       gender: rd.gender || "",
       institute: rd.institute || "",
@@ -2144,7 +2153,7 @@ export default function CompletedBookings() {
             </div>
 
             {/* ── Main Scrollable Content ── */}
-            <div className="flex-1 overflow-y-auto bkd-content-bg">
+            <div ref={editContentRef} className="flex-1 overflow-y-auto bkd-content-bg">
           {selectedBooking && !isEditing && (
             <div className="p-5 grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
 
