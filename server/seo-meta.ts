@@ -11,6 +11,8 @@ interface PageMeta {
   canonical: string;
   ogTitle?: string;
   ogDescription?: string;
+  ogImage?: string;
+  ogImageAlt?: string;
   breadcrumbs?: { name: string; url: string }[];
   jsonLd?: object[];
 }
@@ -75,6 +77,27 @@ const COLLEGE_FAQ_MAP: Record<string, { q: string; a: string }[]> = {
     { q: "Are meals included?", a: "Yes, 3 freshly prepared meals daily plus evening snacks are included in all plans." },
     { q: "Is WiFi fast enough for video editing?", a: "Yes, we provide high-speed WiFi throughout the premises, suitable for media work and streaming." },
     { q: "What are the payment options?", a: "UPI, cards, net banking, and bank transfers via Razorpay. Flexible instalment plans available." },
+  ],
+  "/hostel-in-juhu": [
+    { q: "Is there a hostel in Juhu Mumbai?", a: "Yes! Hsquare Hostel is located in Juhu / Vile Parle area, just minutes from Juhu Beach and top colleges like NMIMS, Mithibai, and NM College." },
+    { q: "How far is Juhu Beach from Hsquare Hostel?", a: "Juhu Beach is approximately 10 minutes walking distance from our hostel — perfect for evening walks after classes." },
+    { q: "What is the rent for a hostel in Juhu?", a: "Our plans start from ₹5,25,000 per academic year for triple sharing rooms, fully inclusive of meals, WiFi, and housekeeping." },
+    { q: "Is it safe to stay in Juhu as a student?", a: "Absolutely. Our hostel has 24/7 CCTV, biometric entry, security guards, and a strict visitor policy." },
+    { q: "Are there good transport links from Juhu?", a: "Yes, Vile Parle railway station is 8 minutes away and auto-rickshaws/buses are readily available throughout the day." },
+  ],
+  "/hostel-in-andheri": [
+    { q: "Is there a hostel near Andheri station?", a: "Yes, Hsquare has properties conveniently accessible from Andheri West with multiple transport options to Andheri station." },
+    { q: "How far is the hostel from Andheri station?", a: "Our properties are well-connected to Andheri railway station and metro via auto-rickshaw or bus routes." },
+    { q: "What is the monthly rent for a hostel in Andheri?", a: "Our all-inclusive academic year plans cover accommodation, meals, WiFi, housekeeping, and security. Contact us for the latest pricing." },
+    { q: "Are there colleges near Hsquare in Andheri?", a: "Yes, the Andheri area provides access to several colleges and is well-connected to Vile Parle's college hub via public transport." },
+    { q: "Do you have AC rooms in Andheri?", a: "Yes, we offer both AC and non-AC room options. AC rooms come with split air conditioning units included in the plan." },
+  ],
+  "/hostel-in-mumbai": [
+    { q: "Which is the best hostel in Mumbai for students?", a: "Hsquare Living is rated among Mumbai's best student hostels with properties in Goregaon, Juhu, Vile Parle, and Andheri. Premium amenities, meals, WiFi, and 24/7 security." },
+    { q: "What is the average cost of a student hostel in Mumbai?", a: "At Hsquare, our plans start from ₹5,25,000 per academic year for triple sharing rooms, fully inclusive of all amenities including meals, WiFi, and housekeeping." },
+    { q: "Which areas in Mumbai are best for student hostels?", a: "Vile Parle and Juhu are ideal for students at NMIMS, Mithibai, and NM College. Goregaon is great for Whistling Woods and IT professionals. Andheri provides central connectivity." },
+    { q: "Do Mumbai hostels provide meals?", a: "Yes, Hsquare hostels provide 3 freshly prepared meals daily — breakfast, lunch, and dinner — along with evening snacks." },
+    { q: "Is it safe for female students to stay in Mumbai hostels?", a: "Yes, we have dedicated floors for female students with 24/7 CCTV, biometric access, security personnel, and strict visitor policies." },
   ],
 };
 
@@ -238,6 +261,88 @@ const COLLEGE_HOSTEL_LD: Record<string, object> = {
     "openingHours": "Mo-Su 00:00-23:59",
     "image": `${SITE_URL}/opengraph.jpg`,
   },
+  "/hostel-in-juhu": {
+    "@context": "https://schema.org",
+    "@type": "Hostel",
+    "name": "Hsquare Hostel - Juhu",
+    "description": "Best student hostel in Juhu Mumbai near NMIMS, Mithibai, NM College & Juhu Beach. Premium PG with meals, WiFi, gym & 24/7 security.",
+    "url": `${SITE_URL}/hostel-in-juhu`,
+    "telephone": "+91-6372294625",
+    "email": "support@hsquareliving.com",
+    "address": { "@type": "PostalAddress", "streetAddress": "Juhu / Vile Parle", "addressLocality": "Mumbai", "addressRegion": "Maharashtra", "addressCountry": "IN", "postalCode": "400049" },
+    "geo": { "@type": "GeoCoordinates", "latitude": "19.1075", "longitude": "72.8263" },
+    "priceRange": "₹₹",
+    "openingHours": "Mo-Su 00:00-23:59",
+    "image": `${SITE_URL}/opengraph.jpg`,
+    "areaServed": [
+      { "@type": "Place", "name": "Juhu, Mumbai" },
+      { "@type": "Place", "name": "Vile Parle, Mumbai" },
+      { "@type": "CollegeOrUniversity", "name": "NMIMS University" },
+      { "@type": "CollegeOrUniversity", "name": "Mithibai College" },
+      { "@type": "CollegeOrUniversity", "name": "NM College of Commerce" },
+    ],
+    "amenityFeature": [
+      { "@type": "LocationFeatureSpecification", "name": "Free WiFi", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Meals Included", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "24/7 Security & CCTV", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Gym & Fitness Center", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Housekeeping", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Laundry Service", "value": true },
+    ],
+  },
+  "/hostel-in-andheri": {
+    "@context": "https://schema.org",
+    "@type": "Hostel",
+    "name": "Hsquare Hostel - Andheri",
+    "description": "Top student hostel in Andheri West, Mumbai. Furnished PG near Andheri station & metro with meals, WiFi, AC & 24/7 security.",
+    "url": `${SITE_URL}/hostel-in-andheri`,
+    "telephone": "+91-6372294625",
+    "email": "support@hsquareliving.com",
+    "address": { "@type": "PostalAddress", "streetAddress": "Andheri West", "addressLocality": "Mumbai", "addressRegion": "Maharashtra", "addressCountry": "IN", "postalCode": "400058" },
+    "geo": { "@type": "GeoCoordinates", "latitude": "19.1197", "longitude": "72.8464" },
+    "priceRange": "₹₹",
+    "openingHours": "Mo-Su 00:00-23:59",
+    "image": `${SITE_URL}/opengraph.jpg`,
+    "areaServed": [
+      { "@type": "Place", "name": "Andheri West, Mumbai" },
+      { "@type": "Place", "name": "Lokhandwala, Mumbai" },
+    ],
+    "amenityFeature": [
+      { "@type": "LocationFeatureSpecification", "name": "Free WiFi", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Meals Included", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "24/7 Security & CCTV", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Air Conditioning", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Fully Furnished Rooms", "value": true },
+    ],
+  },
+  "/hostel-in-mumbai": {
+    "@context": "https://schema.org",
+    "@type": "Hostel",
+    "name": "Hsquare Hostel - Mumbai",
+    "description": "Best student hostel in Mumbai. Premium PG across Goregaon, Juhu, Vile Parle & Andheri with meals, WiFi, AC, gym & 24/7 security. Book online!",
+    "url": `${SITE_URL}/hostel-in-mumbai`,
+    "telephone": "+91-6372294625",
+    "email": "support@hsquareliving.com",
+    "address": { "@type": "PostalAddress", "addressLocality": "Mumbai", "addressRegion": "Maharashtra", "addressCountry": "IN" },
+    "priceRange": "₹₹",
+    "openingHours": "Mo-Su 00:00-23:59",
+    "image": `${SITE_URL}/opengraph.jpg`,
+    "areaServed": [
+      { "@type": "City", "name": "Mumbai" },
+      { "@type": "Place", "name": "Goregaon" },
+      { "@type": "Place", "name": "Juhu" },
+      { "@type": "Place", "name": "Vile Parle" },
+      { "@type": "Place", "name": "Andheri" },
+    ],
+    "amenityFeature": [
+      { "@type": "LocationFeatureSpecification", "name": "Free WiFi", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Meals Included", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "24/7 Security & CCTV", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Gym & Fitness Center", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Housekeeping", "value": true },
+      { "@type": "LocationFeatureSpecification", "name": "Laundry Service", "value": true },
+    ],
+  },
 };
 
 const PAGE_META: Record<string, PageMeta> = {
@@ -392,13 +497,43 @@ const PAGE_META: Record<string, PageMeta> = {
     ],
   },
   "/hostel-in-goregaon": {
-    title: "Best Hostel in Goregaon Mumbai | Student PG Near NMIMS | Hsquare Living",
-    description: "Top hostel in Goregaon East Mumbai near NMIMS, Mukesh Patel & DJ Sanghvi. Hsquare Living offers premium PG accommodation with meals, WiFi, gym, laundry & security.",
+    title: "Best Hostel in Goregaon Mumbai | Student PG Near Whistling Woods | Hsquare Living",
+    description: "Top hostel in Goregaon East Mumbai near Whistling Woods, Film City & Nesco. Hsquare Living offers premium PG accommodation with meals, WiFi, gym, laundry & 24/7 security.",
     canonical: `${SITE_URL}/hostel-in-goregaon`,
     breadcrumbs: [
       { name: "Home", url: `${SITE_URL}/` },
       { name: "Properties", url: `${SITE_URL}/properties` },
       { name: "Hostel in Goregaon", url: `${SITE_URL}/hostel-in-goregaon` },
+    ],
+  },
+  "/hostel-in-juhu": {
+    title: "Best Hostel in Juhu Mumbai | Student PG near NMIMS & Mithibai | Hsquare Living",
+    description: "Premium student hostel in Juhu, Mumbai. Fully furnished rooms with meals, WiFi, AC, gym & 24/7 security. Walking distance from NMIMS, Mithibai, NM College. Book now!",
+    canonical: `${SITE_URL}/hostel-in-juhu`,
+    breadcrumbs: [
+      { name: "Home", url: `${SITE_URL}/` },
+      { name: "Properties", url: `${SITE_URL}/properties` },
+      { name: "Hostel in Juhu", url: `${SITE_URL}/hostel-in-juhu` },
+    ],
+  },
+  "/hostel-in-andheri": {
+    title: "Best Hostel in Andheri Mumbai | Student PG & Co-Living | Hsquare Living",
+    description: "Top student hostel in Andheri West, Mumbai. Fully furnished PG near Andheri station, metro & top colleges. Meals, WiFi, housekeeping, 24/7 security included. Book today!",
+    canonical: `${SITE_URL}/hostel-in-andheri`,
+    breadcrumbs: [
+      { name: "Home", url: `${SITE_URL}/` },
+      { name: "Properties", url: `${SITE_URL}/properties` },
+      { name: "Hostel in Andheri", url: `${SITE_URL}/hostel-in-andheri` },
+    ],
+  },
+  "/hostel-in-mumbai": {
+    title: "Best Hostel in Mumbai | Premium Student PG & Co-Living | Hsquare Living",
+    description: "Looking for a hostel in Mumbai? Hsquare Living offers premium student accommodation across Goregaon, Juhu, Vile Parle & Andheri. Meals, WiFi, AC, 24/7 security. Book now!",
+    canonical: `${SITE_URL}/hostel-in-mumbai`,
+    breadcrumbs: [
+      { name: "Home", url: `${SITE_URL}/` },
+      { name: "Properties", url: `${SITE_URL}/properties` },
+      { name: "Hostel in Mumbai", url: `${SITE_URL}/hostel-in-mumbai` },
     ],
   },
 };
@@ -598,10 +733,20 @@ async function buildPropertyMeta(propSlug: string, pathname: string): Promise<Pa
       }));
     }
 
+    jsonLdObj.checkinTime = "11:00";
+    jsonLdObj.checkoutTime = "10:00";
+    jsonLdObj.starRating = { "@type": "Rating", "ratingValue": "4", "bestRating": "5" };
+    if (prop.mapsUrl) jsonLdObj.hasMap = prop.mapsUrl;
+
+    const ogImage = (prop.imageUrl && prop.imageUrl.startsWith("http")) ? prop.imageUrl : `${SITE_URL}/opengraph.jpg`;
+    const ogImageAlt = `${propName} — ${catLabel} in ${area}`;
+
     return {
       title: title.length > 70 ? title.slice(0, 67) + "..." : title,
       description: desc.length > 160 ? desc.slice(0, 157) + "..." : desc,
       canonical: `${SITE_URL}/properties/${prop.slug || prop.id}`,
+      ogImage,
+      ogImageAlt,
       breadcrumbs: [
         { name: "Home", url: `${SITE_URL}/` },
         { name: "Properties", url: `${SITE_URL}/properties` },
@@ -620,6 +765,8 @@ function applyMeta(html: string, meta: PageMeta): string {
   const ogTitle = escapeAttr(meta.ogTitle || meta.title);
   const ogDesc = escapeAttr(meta.ogDescription || meta.description);
   const canonical = escapeAttr(meta.canonical);
+  const ogImage = escapeAttr(meta.ogImage || `${SITE_URL}/opengraph.jpg`);
+  const ogImageAlt = escapeAttr(meta.ogImageAlt || meta.title);
 
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
   html = html.replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${desc}" />`);
@@ -627,8 +774,12 @@ function applyMeta(html: string, meta: PageMeta): string {
   html = html.replace(/<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${ogTitle}" />`);
   html = html.replace(/<meta property="og:description" content="[^"]*"\s*\/?>/, `<meta property="og:description" content="${ogDesc}" />`);
   html = html.replace(/<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${canonical}" />`);
+  html = html.replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${ogImage}" />`);
+  html = html.replace(/<meta property="og:image:alt" content="[^"]*"\s*\/?>/, `<meta property="og:image:alt" content="${ogImageAlt}" />`);
   html = html.replace(/<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${ogTitle}" />`);
   html = html.replace(/<meta name="twitter:description" content="[^"]*"\s*\/?>/, `<meta name="twitter:description" content="${ogDesc}" />`);
+  html = html.replace(/<meta name="twitter:image" content="[^"]*"\s*\/?>/, `<meta name="twitter:image" content="${ogImage}" />`);
+  html = html.replace(/<meta name="twitter:image:alt" content="[^"]*"\s*\/?>/, `<meta name="twitter:image:alt" content="${ogImageAlt}" />`);
 
   const jsonLdScripts: string[] = [];
 

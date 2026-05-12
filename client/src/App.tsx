@@ -104,6 +104,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/hostel-near-whistling-woods": "Hostel Near Whistling Woods Mumbai | Hsquare Living - Student PG",
   "/hostel-in-vile-parle": "Best Hostel in Vile Parle Mumbai | Hsquare Living - Student Accommodation",
   "/hostel-in-goregaon": "Best Hostel in Goregaon Mumbai | Hsquare Living - Student PG",
+  "/hostel-in-juhu": "Best Hostel in Juhu Mumbai | PG near NMIMS & Beach | Hsquare Living",
+  "/hostel-in-andheri": "Best Hostel in Andheri Mumbai | Student PG & Co-Living | Hsquare Living",
+  "/hostel-in-mumbai": "Best Hostel in Mumbai | Premium Student PG & Co-Living | Hsquare Living",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -309,6 +312,9 @@ function AppContent() {
               <Route path="/hostel-near-whistling-woods" component={CollegeLandingPage} />
               <Route path="/hostel-in-vile-parle" component={CollegeLandingPage} />
               <Route path="/hostel-in-goregaon" component={CollegeLandingPage} />
+              <Route path="/hostel-in-juhu" component={CollegeLandingPage} />
+              <Route path="/hostel-in-andheri" component={CollegeLandingPage} />
+              <Route path="/hostel-in-mumbai" component={CollegeLandingPage} />
               <Route path="/dashboard" component={UserDashboard} />
               <Route path="/student/register" component={StudentRegistration} />
               <Route path="/properties" component={PropertySelection} />

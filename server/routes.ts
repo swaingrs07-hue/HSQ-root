@@ -641,6 +641,9 @@ Disallow: /dashboard
 Disallow: /my-bookings
 Disallow: /profile
 Disallow: /settings
+Disallow: /hotels/dashboard
+Disallow: /receptionist
+Disallow: /receptionist/*
 
 Sitemap: ${siteUrl}/sitemap.xml`
     );
@@ -668,6 +671,9 @@ Sitemap: ${siteUrl}/sitemap.xml`
       { loc: "/hostel-near-whistling-woods", lastmod: now, priority: "0.8", changefreq: "weekly" },
       { loc: "/hostel-in-vile-parle", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/hostel-in-goregaon", lastmod: now, priority: "0.8", changefreq: "weekly" },
+      { loc: "/hostel-in-juhu", lastmod: now, priority: "0.9", changefreq: "weekly" },
+      { loc: "/hostel-in-andheri", lastmod: now, priority: "0.8", changefreq: "weekly" },
+      { loc: "/hostel-in-mumbai", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/about", lastmod: now, priority: "0.7", changefreq: "monthly" },
       { loc: "/contact", lastmod: now, priority: "0.7", changefreq: "monthly" },
       { loc: "/apply", lastmod: now, priority: "0.8", changefreq: "monthly" },
