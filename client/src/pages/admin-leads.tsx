@@ -946,36 +946,19 @@ export default function AdminLeads() {
                                     ) : "Assign..."}
                                   </SelectValue>
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {salesExecs.filter((e) => e.isActive).length > 0 && (
-                                    <>
-                                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
-                                      {salesExecs.filter((e) => e.isActive).map((exec) => (
-                                        <SelectItem key={exec.id} value={exec.id}>
-                                          <div className="flex items-center justify-between gap-2">
-                                            <span>{exec.name}</span>
-                                            <Badge variant="secondary" className="text-[10px]">
-                                              {exec.activeLeadCount}
-                                            </Badge>
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                    </>
-                                  )}
-                                  {assignableUsers.length > 0 && (
-                                    <>
-                                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
-                                      {assignableUsers.map((user) => (
-                                        <SelectItem key={user.id} value={user.id}>
-                                          <div className="flex items-center justify-between gap-2">
-                                            <span>{user.name}</span>
-                                            <Badge variant="outline" className="text-[10px] capitalize">
-                                              {user.role}
-                                            </Badge>
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                    </>
+                                <SelectContent className="max-h-56 overflow-y-auto">
+                                  {salesExecs.filter((e) => e.isActive).map((exec) => (
+                                    <SelectItem key={exec.id} value={exec.id}>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span>{exec.name}</span>
+                                        <Badge variant="secondary" className="text-[10px]">
+                                          {exec.activeLeadCount}
+                                        </Badge>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                  {salesExecs.filter((e) => e.isActive).length === 0 && (
+                                    <div className="px-2 py-3 text-xs text-slate-400 text-center">No active sales executives</div>
                                   )}
                                 </SelectContent>
                               </Select>
@@ -1089,35 +1072,18 @@ export default function AdminLeads() {
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
               <SelectContent className="max-h-60 overflow-y-auto">
-                {salesExecs.filter((e) => e.isActive).length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Sales Executives</div>
-                    {salesExecs.filter((e) => e.isActive).map((exec) => (
-                      <SelectItem key={exec.id} value={exec.id}>
-                        <div className="flex items-center justify-between gap-4 w-full">
-                          <span>{exec.name}</span>
-                          <span className="text-xs text-slate-500">
-                            {exec.activeLeadCount} active leads
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-                {assignableUsers.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-1 border-t">Admins / Managers</div>
-                    {assignableUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        <div className="flex items-center justify-between gap-4 w-full">
-                          <span>{user.name}</span>
-                          <Badge variant="outline" className="text-[10px] capitalize">
-                            {user.role}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </>
+                {salesExecs.filter((e) => e.isActive).map((exec) => (
+                  <SelectItem key={exec.id} value={exec.id}>
+                    <div className="flex items-center justify-between gap-4 w-full">
+                      <span>{exec.name}</span>
+                      <span className="text-xs text-slate-500">
+                        {exec.activeLeadCount} active leads
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+                {salesExecs.filter((e) => e.isActive).length === 0 && (
+                  <div className="px-2 py-3 text-xs text-slate-400 text-center">No active sales executives</div>
                 )}
               </SelectContent>
             </Select>
