@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -275,6 +276,10 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
+    // Serve the project-root public/ folder (PDFs, images, etc.) before
+    // Vite middleware, so its catch-all SPA handler doesn't intercept them.
+    const publicDir = path.join(process.cwd(), "public");
+    app.use(express.static(publicDir));
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }

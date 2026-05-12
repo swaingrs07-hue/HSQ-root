@@ -117,6 +117,7 @@ const adminNavItems: NavItem[] = [
   { name: "Contact Messages", href: "/admin/contact-messages", icon: MessageSquare },
   { name: "Data Export", href: "/admin/data-export", icon: FileText },
   { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Staff Manual", href: "/admin/manual", icon: BookOpen },
 ];
 
 const frontdeskNavItems: NavItem[] = [
@@ -128,6 +129,7 @@ const frontdeskNavItems: NavItem[] = [
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Floors & Beds", href: "/admin/floors-beds", icon: Building2 },
   { name: "Booking Tree", href: "/admin/booking-tree", icon: Layers },
+  { name: "Staff Manual", href: "/admin/manual", icon: BookOpen },
 ];
 
 const salesNavItems: NavItem[] = [
@@ -139,6 +141,7 @@ const salesNavItems: NavItem[] = [
   { name: "Bookings", href: "/booking/generate", icon: CalendarCheck },
   { name: "My Bookings", href: "/sales/bookings/completed", icon: CheckCircle2 },
   { name: "Calendar", href: "/sales/calendar", icon: Calendar },
+  { name: "Staff Manual", href: "/admin/manual", icon: BookOpen },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
