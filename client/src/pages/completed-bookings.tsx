@@ -1398,7 +1398,7 @@ export default function CompletedBookings() {
   const activeCount = baseFiltered.filter(isActiveBooking).length;
   const completedCount = baseFiltered.filter(isCompletedBooking).length;
   const totalCount = baseFiltered.length;
-  const totalBookingAmount = filtered.reduce((sum: number, b: any) => {
+  const totalBookingAmount = baseFiltered.reduce((sum: number, b: any) => {
     const inst = (b.installments || []).find((i: any) =>
       typeof i?.name === "string" && i.name.toLowerCase().includes("booking amount")
     );

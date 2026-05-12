@@ -96,7 +96,7 @@ const adminNavItems: NavItem[] = [
   { name: "Sales Management", href: "/admin/sales-management", icon: UserCog },
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
-  { name: "Completed Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
+  { name: "All Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },
