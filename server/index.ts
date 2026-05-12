@@ -143,42 +143,18 @@ app.use((req, res, next) => {
     console.error("Failed to generate property slugs:", e);
   }
 
-  // One-time data migration: rename role "receptionist" → "frontdesk" in the
-  // user_role PostgreSQL enum and migrate any remaining user rows. This is
-  // idempotent — if "receptionist" is not in the enum the block is skipped.
-  // Order of operations matters to avoid invalid-enum-value errors:
-  //   1. ADD 'frontdesk' to the existing enum (so the column can hold it)
-  //   2. UPDATE user rows from 'receptionist' → 'frontdesk'
-  //   3. Recreate the enum without 'receptionist' (drop/rename pattern)
-  // The migration fails loudly (re-throws) so a broken deployment is visible.
+  // Data-only migration: any user rows still carrying the old 'receptionist' role
+  // are silently moved to 'frontdesk'. Both values exist in the enum so this is
+  // always safe. No DDL — schema changes are handled by Replit's publish-time diff.
   try {
-    const receptionistExists = await pool.query(
-      "SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'user_role' AND e.enumlabel = 'receptionist'"
+    const result = await pool.query(
+      "UPDATE users SET role = 'frontdesk' WHERE role = 'receptionist'"
     );
-    if (receptionistExists.rows.length > 0) {
-      console.log("[Startup] Migrating user_role enum: receptionist → frontdesk");
-      // 1. Add frontdesk to enum if not already present
-      const frontdeskExists = await pool.query(
-        "SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = 'user_role' AND e.enumlabel = 'frontdesk'"
-      );
-      if (frontdeskExists.rows.length === 0) {
-        await pool.query("ALTER TYPE user_role ADD VALUE 'frontdesk'");
-      }
-      // 2. Migrate existing user rows — enum now contains both values so this is safe
-      await pool.query("UPDATE users SET role = 'frontdesk' WHERE role = 'receptionist'");
-      // 3. Rebuild enum without 'receptionist' (PostgreSQL requires full type recreation)
-      await pool.query("ALTER TABLE users ALTER COLUMN role DROP DEFAULT");
-      await pool.query("CREATE TYPE user_role_new AS ENUM ('user','admin','superadmin','manager','staff','sales_executive','frontdesk','hotel_admin','hotel_staff')");
-      await pool.query("ALTER TABLE users ALTER COLUMN role TYPE user_role_new USING role::text::user_role_new");
-      await pool.query("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user'::user_role_new");
-      await pool.query("DROP TYPE user_role");
-      await pool.query("ALTER TYPE user_role_new RENAME TO user_role");
-      console.log("[Startup] user_role enum migration complete — 'receptionist' removed");
+    if (result.rowCount && result.rowCount > 0) {
+      console.log(`[Startup] Migrated ${result.rowCount} user(s) from receptionist → frontdesk`);
     }
   } catch (e) {
-    // Log and re-throw so a failed migration is visible; do not silently continue.
-    console.error("[Startup] FATAL: Failed to migrate receptionist → frontdesk enum:", e);
-    throw e;
+    console.error("[Startup] Warning: Could not migrate receptionist users:", e);
   }
 
   // One-time data correction: back-fill assignedSalesExecId on lead-linked
