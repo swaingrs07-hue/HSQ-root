@@ -207,7 +207,13 @@ export default function CompletedBookings() {
   /** On iPad/tablet the soft keyboard covers bottom buttons. Call this onFocus
    *  for any input near an action button so the button scrolls into view. */
   const scrollBtnIntoView = (ref: React.RefObject<HTMLButtonElement>) =>
-    setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 350);
+    setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 500);
+
+  const formatCompactINR = (amount: number): string => {
+    if (amount >= 1_00_00_000) return `₹${(amount / 1_00_00_000).toFixed(2)}Cr`;
+    if (amount >= 1_00_000) return `₹${(amount / 1_00_000).toFixed(2)}L`;
+    return `₹${amount.toLocaleString("en-IN")}`;
+  };
   useEffect(() => {
     if (isEditing && editContentRef.current) {
       editContentRef.current.scrollTop = 0;
@@ -1536,7 +1542,7 @@ export default function CompletedBookings() {
                   data-testid="text-total-revenue"
                   title={`₹${totalRevenue.toLocaleString("en-IN")}`}
                 >
-                  ₹{totalRevenue.toLocaleString("en-IN")}
+                  {formatCompactINR(totalRevenue)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
                   {filtered.length} booking{filtered.length === 1 ? "" : "s"}
@@ -1559,7 +1565,7 @@ export default function CompletedBookings() {
                   data-testid="text-total-collected"
                   title={`₹${totalCollected.toLocaleString("en-IN")}`}
                 >
-                  ₹{totalCollected.toLocaleString("en-IN")}
+                  {formatCompactINR(totalCollected)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of total</p>
               </div>
@@ -1580,7 +1586,7 @@ export default function CompletedBookings() {
                   data-testid="text-total-pending"
                   title={`₹${totalPending.toLocaleString("en-IN")}`}
                 >
-                  ₹{totalPending.toLocaleString("en-IN")}
+                  {formatCompactINR(totalPending)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining</p>
               </div>
@@ -1601,7 +1607,7 @@ export default function CompletedBookings() {
                   data-testid="text-average-booking"
                   title={`₹${averageBooking.toLocaleString("en-IN")}`}
                 >
-                  ₹{averageBooking.toLocaleString("en-IN")}
+                  {formatCompactINR(averageBooking)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
                   Across {filtered.length} booking{filtered.length === 1 ? "" : "s"}
@@ -3221,7 +3227,7 @@ export default function CompletedBookings() {
               {paymentForm.addonName ? `Pay: ${paymentForm.addonName}` : paymentForm.installmentName ? `Pay: ${paymentForm.installmentName}` : "Mark Payment Done"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 pb-52">
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
               <p className="text-xs text-slate-500">Booking</p>
               <p className="font-semibold text-slate-800">{selectedBooking?.customerName}</p>
