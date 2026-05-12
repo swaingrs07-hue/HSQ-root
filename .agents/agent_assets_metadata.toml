@@ -18,3 +18,9 @@ id = "Jl-TUU83w8UKK080JUeH9"
 uri = "file://.local/test-hero.jpeg"
 type = "image"
 title = "Playwright test screenshot"
+
+[[outputs]]
+id = "OT_KsbgVCa79PZ0cK69dv"
+uri = "file://public/hsquareliving-user-manual.pdf"
+type = "pdf"
+title = "Hsquareliving Staff User Manual (28 pages)"
