@@ -476,10 +476,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               onClick={() => switchPortal("to-hotels", "/hotels")}
               title="Switch to Hotels"
               className={cn(
-                "hidden md:flex items-center gap-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
+                "hidden lg:flex items-center gap-1.5 rounded-full transition-all duration-300 hover:scale-105 group flex-shrink-0",
                 "border backdrop-blur-xl",
-                /* md: icon-only pill  lg: short label  xl: full label */
-                "px-2 py-2 lg:px-3 lg:py-1.5"
+                /* lg: short label  xl: full label */
+                "px-3 py-1.5"
               )}
               style={{
                 background: "rgba(197, 160, 89, 0.12)",
@@ -489,21 +489,21 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               data-testid="link-hotels-switcher"
             >
               <Star className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#c5a059" }} fill="#c5a059" />
-              {/* lg: "Hotels →"   xl: "Switch to Hotels →" */}
-              <span className="text-[11px] font-semibold tracking-[0.14em] uppercase whitespace-nowrap hidden lg:inline xl:hidden" style={{ color: "#e9d5a3" }}>
+              {/* lg–xl: "Hotels"   xl+: "Switch to Hotels" */}
+              <span className="text-[11px] font-semibold tracking-[0.14em] uppercase whitespace-nowrap xl:hidden" style={{ color: "#e9d5a3" }}>
                 Hotels
               </span>
               <span className="text-[11px] font-semibold tracking-[0.14em] uppercase whitespace-nowrap hidden xl:inline" style={{ color: "#e9d5a3" }}>
                 Switch to Hotels
               </span>
-              <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform hidden lg:inline" style={{ color: "#c5a059" }}>
+              <span className="text-[10px] opacity-70 group-hover:translate-x-0.5 transition-transform" style={{ color: "#c5a059" }}>
                 →
               </span>
             </button>
             )}
           </div>
 
-          <nav className="hidden md:flex items-center gap-3 lg:gap-6">
+          <nav className="hidden md:flex items-center gap-6">
             {navItems.map((item) => (
               <Link 
                 key={item.href} 
