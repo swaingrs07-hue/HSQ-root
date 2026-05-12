@@ -31,6 +31,7 @@ export const users = pgTable("users", {
   deletedAt: timestamp("deleted_at"),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
+  canApproveBookings: boolean("can_approve_bookings").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -5157,7 +5157,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Approve booking (admin only)
+  // Approve booking (admin/manager or receptionist with canApproveBookings)
   app.post("/api/bookings/:id/approve", async (req, res) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
@@ -5165,13 +5165,20 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || !["admin", "superadmin", "manager"].includes(payload.role)) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      if (!payload.userId) {
+      if (!payload || !payload.userId) {
         return res.status(401).json({ error: "Invalid token payload" });
       }
-      
+
+      const isAdminRole = ["admin", "superadmin", "manager"].includes(payload.role);
+      let isAllowedReceptionist = false;
+      if (!isAdminRole && payload.role === "receptionist") {
+        const recUser = await storage.getUser(payload.userId);
+        isAllowedReceptionist = !!(recUser as any)?.canApproveBookings;
+      }
+      if (!isAdminRole && !isAllowedReceptionist) {
+        return res.status(403).json({ error: "Approval access not granted" });
+      }
+
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
@@ -5195,7 +5202,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Reject booking (admin only)
+  // Reject booking (admin/manager or receptionist with canApproveBookings)
   app.post("/api/bookings/:id/reject", async (req, res) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
@@ -5203,11 +5210,18 @@ ${allPages.map(p => `  <url>
         return res.status(401).json({ error: "Not authenticated" });
       }
       const payload = verifyToken(token);
-      if (!payload || !["admin", "superadmin", "manager"].includes(payload.role)) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      if (!payload.userId) {
+      if (!payload || !payload.userId) {
         return res.status(401).json({ error: "Invalid token payload" });
+      }
+
+      const isAdminRole = ["admin", "superadmin", "manager"].includes(payload.role);
+      let isAllowedReceptionist = false;
+      if (!isAdminRole && payload.role === "receptionist") {
+        const recUser = await storage.getUser(payload.userId);
+        isAllowedReceptionist = !!(recUser as any)?.canApproveBookings;
+      }
+      if (!isAdminRole && !isAllowedReceptionist) {
+        return res.status(403).json({ error: "Approval access not granted" });
       }
       
       const { rejectionReason } = req.body;
@@ -9160,6 +9174,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (error) {
       console.error("Error fetching receptionists:", error);
       res.status(500).json({ error: "Failed to fetch receptionists" });
+    }
+  });
+
+  // Toggle approval access for a receptionist (admin only)
+  app.patch("/api/admin/receptionists/:id/approval-access", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { canApproveBookings } = req.body;
+      if (typeof canApproveBookings !== "boolean") {
+        return res.status(400).json({ error: "`canApproveBookings` must be a boolean" });
+      }
+      const [updated] = await db
+        .update(schema.users)
+        .set({ canApproveBookings })
+        .where(and(eq(schema.users.id, req.params.id), eq(schema.users.role, "receptionist")))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Receptionist not found" });
+      res.json({ id: updated.id, canApproveBookings: updated.canApproveBookings });
+    } catch (error) {
+      console.error("Error toggling approval access:", error);
+      res.status(500).json({ error: "Failed to update approval access" });
     }
   });
 

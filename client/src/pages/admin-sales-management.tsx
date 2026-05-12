@@ -12,9 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -71,6 +72,7 @@ interface SalesExecutive {
   warmLeads: number;
   coldLeads: number;
   closedDeals: number;
+  canApproveBookings?: boolean;
 }
 
 interface Property {
@@ -168,6 +170,26 @@ function AdminSalesManagementContent() {
       setReceptionists(data || []);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const toggleApprovalAccess = async (recId: string, enabled: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/receptionists/${recId}/approval-access`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
+        body: JSON.stringify({ canApproveBookings: enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setReceptionists(prev => prev.map(r => r.id === recId ? { ...r, canApproveBookings: enabled } : r));
+      toast({
+        title: enabled ? "Approval access granted" : "Approval access revoked",
+        description: enabled
+          ? "This receptionist can now approve & reject bookings."
+          : "This receptionist can no longer approve or reject bookings.",
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not update approval access", variant: "destructive" });
     }
   };
 
@@ -985,6 +1007,12 @@ function AdminSalesManagementContent() {
                       <TableHead>Phone</TableHead>
                       <TableHead>Assigned Properties</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>
+                        <div className="flex items-center gap-1">
+                          <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
+                          Approval Access
+                        </div>
+                      </TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1020,6 +1048,18 @@ function AdminSalesManagementContent() {
                           <Badge variant={rec.isActive ? "default" : "secondary"}>
                             {rec.isActive ? "Active" : "Inactive"}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={!!rec.canApproveBookings}
+                              onCheckedChange={(val) => toggleApprovalAccess(rec.id, val)}
+                              data-testid={`switch-approval-access-${rec.id}`}
+                            />
+                            <span className={`text-xs font-medium ${rec.canApproveBookings ? "text-emerald-600" : "text-slate-400"}`}>
+                              {rec.canApproveBookings ? "On" : "Off"}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button
