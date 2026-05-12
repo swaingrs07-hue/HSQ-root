@@ -115,7 +115,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { selectedPropertyId } = useProperty();
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const [location, setLocation] = useLocation();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
 
@@ -1036,7 +1036,7 @@ export default function AdminDashboard() {
             {greeting}, {firstName}
           </h1>
           <p className="text-sm text-slate-500">
-            {isReceptionist
+            {isFrontdesk
               ? "Here's what's happening at your property today."
               : "Here's what's happening across your portfolio today."}
           </p>
@@ -1066,7 +1066,7 @@ export default function AdminDashboard() {
           >
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Overview
           </Button>
-          {!isReceptionist && (
+          {!isFrontdesk && (
             <Button 
               variant={activeTab === "properties" ? "default" : "ghost"}
               size="sm"
@@ -1077,7 +1077,7 @@ export default function AdminDashboard() {
               <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Properties
             </Button>
           )}
-          {!isReceptionist && (
+          {!isFrontdesk && (
             <Button 
               variant={activeTab === "leads" ? "default" : "ghost"}
               size="sm"
@@ -1102,7 +1102,7 @@ export default function AdminDashboard() {
               </Badge>
             )}
           </Button>
-          {!isReceptionist && (
+          {!isFrontdesk && (
             <Button 
               variant={activeTab === "targets" ? "default" : "ghost"}
               size="sm"
@@ -1114,7 +1114,7 @@ export default function AdminDashboard() {
             </Button>
           )}
         </div>
-        {activeTab === "overview" && !isReceptionist && (
+        {activeTab === "overview" && !isFrontdesk && (
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2 border-slate-200 hover:bg-slate-50" data-testid="button-download-report">
               <FileText className="h-4 w-4" /> Export
@@ -1219,7 +1219,7 @@ export default function AdminDashboard() {
                     trendValue={bookingsTrend.value}
                     loading={loading}
                   />
-                  {!isReceptionist && (
+                  {!isFrontdesk && (
                     <KPICard
                       title="Revenue"
                       value={revenueDisplay.value}
@@ -1232,7 +1232,7 @@ export default function AdminDashboard() {
                       loading={loading}
                     />
                   )}
-                  {!isReceptionist && (
+                  {!isFrontdesk && (
                     <KPICard
                       title="Pending Payments"
                       value={pendingDisplay.value}

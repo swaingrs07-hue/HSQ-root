@@ -37,11 +37,11 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   const { user, token } = useAuth();
   
   const isSalesExec = user?.role === "sales_executive";
-  const isReceptionist = user?.role === "receptionist";
-  const needsAuthFetch = isSalesExec || isReceptionist;
+  const isFrontdesk = user?.role === "frontdesk";
+  const needsAuthFetch = isSalesExec || isFrontdesk;
   const propertiesEndpoint = isSalesExec
     ? "/api/sales/properties"
-    : isReceptionist
+    : isFrontdesk
       ? "/api/staff/properties"
       : "/api/properties";
   

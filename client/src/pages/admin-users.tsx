@@ -59,7 +59,7 @@ interface User {
   name: string;
   email: string;
   phone: string | null;
-  role: "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist" | "student" | "user";
+  role: "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "frontdesk" | "student" | "user";
   isActive: boolean;
   createdAt: string;
   assignedProperties?: any[];
@@ -68,7 +68,7 @@ interface User {
 
 type PanelKey = "staff" | "users";
 
-const STAFF_ROLES = ["admin", "superadmin", "manager", "sales_executive", "receptionist", "staff"] as const;
+const STAFF_ROLES = ["admin", "superadmin", "manager", "sales_executive", "frontdesk", "staff"] as const;
 const USER_ROLES = ["user", "student"] as const;
 
 function isStaffRole(role: string): boolean {
@@ -395,8 +395,8 @@ function AdminUsersContent() {
         return <Badge className="bg-amber-500 text-white"><Shield className="h-3 w-3 mr-1" /> Manager</Badge>;
       case "sales_executive":
         return <Badge className="bg-blue-500 text-white"><Users className="h-3 w-3 mr-1" /> Sales</Badge>;
-      case "receptionist":
-        return <Badge className="bg-teal-500 text-white">Receptionist</Badge>;
+      case "frontdesk":
+        return <Badge className="bg-teal-500 text-white">Frontdesk</Badge>;
       case "staff":
         return <Badge className="bg-slate-500 text-white">Staff</Badge>;
       case "student":
@@ -586,7 +586,7 @@ function AdminUsersContent() {
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="sales_executive">Sales</SelectItem>
-                      <SelectItem value="receptionist">Receptionist</SelectItem>
+                      <SelectItem value="frontdesk">Frontdesk</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
                     </SelectContent>
                   </Select>
@@ -806,7 +806,7 @@ function AdminUsersContent() {
                   {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
-                  <SelectItem value="receptionist">Receptionist</SelectItem>
+                  <SelectItem value="frontdesk">Frontdesk</SelectItem>
                   <SelectItem value="user">Regular User</SelectItem>
                 </SelectContent>
               </Select>
@@ -869,7 +869,7 @@ function AdminUsersContent() {
                   {currentUser?.role === "superadmin" && <SelectItem value="superadmin">Superadmin</SelectItem>}
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="sales_executive">Sales Executive</SelectItem>
-                  <SelectItem value="receptionist">Receptionist</SelectItem>
+                  <SelectItem value="frontdesk">Frontdesk</SelectItem>
                   <SelectItem value="user">Regular User</SelectItem>
                 </SelectContent>
               </Select>

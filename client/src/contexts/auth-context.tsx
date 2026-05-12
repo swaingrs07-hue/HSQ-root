@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 
-export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist" | "hotel_admin" | "hotel_staff";
+export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "frontdesk" | "hotel_admin" | "hotel_staff";
 
 interface User {
   id: string;
@@ -88,17 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (user && user.role === "receptionist" && isAuthRoute) {
+    if (user && user.role === "frontdesk" && isAuthRoute) {
       setLocation("/admin");
       return;
     }
 
-    if (user && user.role === "receptionist" && (location.includes("/add-property") || location.includes("/settings") || location.includes("/users") || location.includes("/hero-slides") || location.includes("/footer-settings") || location.includes("/logo-control") || location.includes("/amenities") || location.includes("/data-export") || location.includes("/hms-sync") || location.includes("/packages") || location.includes("/addon-services") || location.includes("/seasons") || location.includes("/leads") || location.includes("/lead-analytics") || location.includes("/sales-management") || location.includes("/activity-logs") || location.includes("/ai-chatbot") || location.includes("/virtual-tour"))) {
+    if (user && user.role === "frontdesk" && (location.includes("/add-property") || location.includes("/settings") || location.includes("/users") || location.includes("/hero-slides") || location.includes("/footer-settings") || location.includes("/logo-control") || location.includes("/amenities") || location.includes("/data-export") || location.includes("/hms-sync") || location.includes("/packages") || location.includes("/addon-services") || location.includes("/seasons") || location.includes("/leads") || location.includes("/lead-analytics") || location.includes("/sales-management") || location.includes("/activity-logs") || location.includes("/ai-chatbot") || location.includes("/virtual-tour"))) {
       setLocation("/admin");
       return;
     }
 
-    if (user && isAdminRoute && user.role !== "admin" && user.role !== "superadmin" && user.role !== "receptionist") {
+    if (user && isAdminRoute && user.role !== "admin" && user.role !== "superadmin" && user.role !== "frontdesk") {
       setLocation(getRedirectPath());
       return;
     }
@@ -224,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switch (user.role) {
       case "superadmin":
       case "admin":
-      case "receptionist":
+      case "frontdesk":
         return "/admin";
       case "manager":
       case "staff":

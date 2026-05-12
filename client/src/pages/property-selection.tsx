@@ -172,7 +172,7 @@ export default function PropertySelection() {
   const { user } = useAuth();
   const { requireAuth } = useAuthGuard();
   const { isBookingsEnabled } = useFeatureFlags();
-  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff"]);
   const isStaff = !!(user?.role && staffRoles.has(user.role));
   const bookingsPaused = !isBookingsEnabled && !isStaff;
   const detailRef = useRef<HTMLDivElement>(null);

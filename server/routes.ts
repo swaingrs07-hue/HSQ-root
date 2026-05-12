@@ -424,38 +424,38 @@ export async function registerRoutes(
   // Register object storage routes for image uploads
   registerObjectStorageRoutes(app);
 
-  // ============ RECEPTIONIST PROPERTY SCOPING ============
+  // ============ FRONTDESK PROPERTY SCOPING ============
   // Backed by the role-agnostic sales_exec_properties junction table. A
-  // receptionist with at least one assignment is "scoped" — they only see
+  // frontdesk with at least one assignment is "scoped" — they only see
   // bookings/registrations/requests/booking-tree/floors-beds/property-dropdown
   // for their assigned properties. Returns null when the user is not a
-  // receptionist or has zero assignments (unscoped fallback).
-  async function getReceptionistScope(req: AuthRequest): Promise<Set<string> | null> {
-    if (!req.user || req.user.role !== "receptionist") return null;
+  // frontdesk or has zero assignments (unscoped fallback).
+  async function getFrontdeskScope(req: AuthRequest): Promise<Set<string> | null> {
+    if (!req.user || req.user.role !== "frontdesk") return null;
     const assigned = await storage.getAssignedPropertiesForUser(req.user.userId);
     if (assigned.length === 0) return null;
     return new Set(assigned.map((p) => p.id));
   }
 
   // Resolve the owning propertyId for a floor — used by /api/bookings/generate
-  // to validate that a receptionist's chosen floor belongs to their scoped property.
+  // to validate that a frontdesk's chosen floor belongs to their scoped property.
   async function getPropertyIdForFloor(floorId: string): Promise<string | null> {
     const rows = await db.select({ propertyId: schema.floors.propertyId })
       .from(schema.floors).where(eq(schema.floors.id, floorId)).limit(1);
     return rows[0]?.propertyId ?? null;
   }
 
-  // Returns receptionist scope inferred from a Bearer token (for routes that
+  // Returns frontdesk scope inferred from a Bearer token (for routes that
   // do not declare authMiddleware but still need to enforce scoping for
-  // authenticated receptionists). Returns null when there is no token, the
-  // role is not receptionist, or the receptionist has zero assignments.
+  // authenticated frontdesks). Returns null when there is no token, the
+  // role is not frontdesk, or the frontdesk has zero assignments.
   // Routes that use this also strip operational fields when no token is
   // present so dropping the token does not leak occupant data.
-  async function getReceptionistScopeFromHeader(req: { headers: { authorization?: string | undefined } }): Promise<Set<string> | null> {
+  async function getFrontdeskScopeFromHeader(req: { headers: { authorization?: string | undefined } }): Promise<Set<string> | null> {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) return null;
     const payload = verifyToken(authHeader.substring(7));
-    if (!payload || payload.role !== "receptionist") return null;
+    if (!payload || payload.role !== "frontdesk") return null;
     const assigned = await storage.getAssignedPropertiesForUser(payload.userId);
     if (assigned.length === 0) return null;
     return new Set(assigned.map((p) => p.id));
@@ -472,7 +472,7 @@ export async function registerRoutes(
   // Scoped property list for any logged-in staff user.
   app.get("/api/staff/properties", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       const all = await storage.getAllProperties();
       const filtered = scope ? all.filter((p) => scope.has(p.id)) : all;
       res.json(filtered);
@@ -642,8 +642,8 @@ Disallow: /my-bookings
 Disallow: /profile
 Disallow: /settings
 Disallow: /hotels/dashboard
-Disallow: /receptionist
-Disallow: /receptionist/*
+Disallow: /frontdesk
+Disallow: /frontdesk/*
 
 Sitemap: ${siteUrl}/sitemap.xml`
     );
@@ -2172,7 +2172,7 @@ ${allPages.map(p => `  <url>
         const myLeads = await storage.getLeadsForSalesExec(user.id, propertyId || undefined);
 
         // Exclude leads belonging to staff members (mirrors the general branch filter)
-        const staffUsersForSE = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+        const staffUsersForSE = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk"]);
         const staffEmailsSE = new Set(staffUsersForSE.map(u => u.email?.toLowerCase()).filter(Boolean));
         const staffPhonesSE = new Set(staffUsersForSE.map(u => u.phone).filter(Boolean));
         const filteredMyLeads = myLeads.filter(lead => {
@@ -2206,7 +2206,7 @@ ${allPages.map(p => `  <url>
       
       let allLeads = await storage.getAllLeads(propertyId);
 
-      if (user?.role === "receptionist") {
+      if (user?.role === "frontdesk") {
         const assigned = await storage.getAssignedPropertiesForUser(user.id);
         if (assigned.length > 0) {
           const allowed = new Set(assigned.map((p) => p.id));
@@ -2214,7 +2214,7 @@ ${allPages.map(p => `  <url>
         }
       }
 
-      const staffUsers = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+      const staffUsers = await storage.getUsersByRole(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk"]);
       const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
       const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
       
@@ -2249,7 +2249,7 @@ ${allPages.map(p => `  <url>
         return true;
       });
       
-      const isPrivilegedUser = user && ["admin", "superadmin", "manager", "receptionist"].includes(user.role);
+      const isPrivilegedUser = user && ["admin", "superadmin", "manager", "frontdesk"].includes(user.role);
       if (isPrivilegedUser) {
         const userIds = new Set<string>();
         uniqueLeads.forEach(l => {
@@ -2366,7 +2366,7 @@ ${allPages.map(p => `  <url>
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith("Bearer ")) {
         const payload = verifyToken(authHeader.substring(7));
-        if (payload?.role === "receptionist") {
+        if (payload?.role === "frontdesk") {
           const assigned = await storage.getAssignedPropertiesForUser(payload.userId);
           if (assigned.length > 0) {
             const allowed = new Set(assigned.map((p) => p.id));
@@ -2476,8 +2476,8 @@ ${allPages.map(p => `  <url>
         return res.status(403).json({ error: "You can only update leads assigned to you" });
       }
 
-      // Receptionists with property assignments can only update leads for their properties
-      if (user?.role === "receptionist") {
+      // Frontdesks with property assignments can only update leads for their properties
+      if (user?.role === "frontdesk") {
         const assigned = await storage.getAssignedPropertiesForUser(user.userId);
         if (assigned.length > 0) {
           const allowed = new Set(assigned.map((p) => p.id));
@@ -2747,7 +2747,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/calendar/events", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const payload = req.user;
-      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive" && payload.role !== "receptionist")) {
+      if (!payload || (payload.role !== "admin" && payload.role !== "superadmin" && payload.role !== "sales_executive" && payload.role !== "frontdesk")) {
         return res.status(403).json({ error: "Access denied" });
       }
 
@@ -2766,7 +2766,7 @@ ${allPages.map(p => `  <url>
         conditions.length > 0 ? and(...conditions) : undefined
       );
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         allLeads = allLeads.filter((l) => l.propertyId !== null && scope.has(l.propertyId));
       }
@@ -3255,9 +3255,9 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const recScope = await getReceptionistScopeFromHeader(req);
+      const recScope = await getFrontdeskScopeFromHeader(req);
       if (recScope && !recScope.has(property.id)) {
-        return res.status(403).json({ error: "Property not assigned to this receptionist" });
+        return res.status(403).json({ error: "Property not assigned to this frontdesk" });
       }
       const [roomTypes, enriched, nearbyLocs, propFloors] = await Promise.all([
         storage.getRoomTypesByProperty(property.id),
@@ -3298,7 +3298,7 @@ ${allPages.map(p => `  <url>
 
       // PPTX is additionally restricted to staff roles only.
       if (format === "pptx") {
-        const STAFF_ROLES = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"]);
+        const STAFF_ROLES = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk"]);
         if (!STAFF_ROLES.has(payload.role)) {
           return res.status(403).json({ error: "Access denied. PPT downloads are restricted to staff." });
         }
@@ -3591,13 +3591,13 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // List ALL room types for a property (admin/receptionist) — includes
+  // List ALL room types for a property (admin/frontdesk) — includes
   // inactive ones so the Shift Bed dialog can offer every legitimate target,
   // not just the currently-active set returned by the public /api/properties/:id.
-  app.get("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/properties/:propertyId/room-types", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.propertyId;
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -4142,7 +4142,7 @@ ${allPages.map(p => `  <url>
     try {
       const { studentId, propertyId, roomTypeId, baseFee, paymentPlanId, discount, discountReason, selectedPlanId: legacySelectedPlanId, couponCode } = req.body;
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!propertyId || !scope.has(propertyId))) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -4319,7 +4319,7 @@ ${allPages.map(p => `  <url>
         filtered = filtered.filter((b: any) => b.assignedSalesExecId === user.userId || b.createdBy === user.userId);
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         filtered = filtered.filter((b) => b.propertyId !== null && scope.has(b.propertyId));
       }
@@ -4494,7 +4494,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Get pending approval bookings — must be before /:id route
-  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin", "manager", "receptionist"), async (req, res) => {
+  app.get("/api/bookings/pending-approval", authMiddleware, roleMiddleware("admin", "manager", "frontdesk"), async (req, res) => {
     try {
       const bookings = await storage.getPendingApprovalBookings();
       
@@ -4536,7 +4536,7 @@ ${allPages.map(p => `  <url>
         return res.status(404).json({ error: "Booking not found" });
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -4593,7 +4593,7 @@ ${allPages.map(p => `  <url>
   app.get("/api/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
       let bookings = await storage.getAllBookings();
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         bookings = bookings.filter((b) => b.propertyId !== null && scope.has(b.propertyId));
       }
@@ -4611,7 +4611,7 @@ ${allPages.map(p => `  <url>
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
       }
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -4625,7 +4625,7 @@ ${allPages.map(p => `  <url>
   // Get bookings by property
   app.get("/api/properties/:propertyId/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && !scope.has(req.params.propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -4641,7 +4641,7 @@ ${allPages.map(p => `  <url>
     try {
       const userId = req.user!.userId;
       // Sales-exec-aware lookup: includes bookings where the user is the
-      // creator OR the attributed sales exec (e.g. an admin/receptionist
+      // creator OR the attributed sales exec (e.g. an admin/frontdesk
       // generated the booking from a lead this user owns/converted).
       const bookings = await storage.getBookingsForSalesExec(userId);
       const enriched = await Promise.all(bookings.map(async (b) => {
@@ -4674,11 +4674,11 @@ ${allPages.map(p => `  <url>
   // Get room type availability
   app.get("/api/room-types/:roomTypeId/availability", async (req, res) => {
     try {
-      const recScope = await getReceptionistScopeFromHeader(req);
+      const recScope = await getFrontdeskScopeFromHeader(req);
       if (recScope) {
         const rt = await storage.getRoomType(req.params.roomTypeId);
         if (!rt || !recScope.has(rt.propertyId)) {
-          return res.status(403).json({ error: "Room type not in receptionist's assigned properties" });
+          return res.status(403).json({ error: "Room type not in frontdesk's assigned properties" });
         }
       }
       const availability = await storage.getRoomTypeAvailability(req.params.roomTypeId);
@@ -4722,7 +4722,7 @@ ${allPages.map(p => `  <url>
     try {
       // Check bookings_enabled flag — blocks regular users when superadmin has paused bookings.
       // Staff / admin roles are never blocked.
-      const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+      const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff"]);
       const isStaff = req.user?.role && staffRoles.has(req.user.role);
       if (!isStaff) {
         const bookingFlag = await storage.getFeatureFlag("bookings_enabled");
@@ -4767,11 +4767,11 @@ ${allPages.map(p => `  <url>
         registrationRequestId,
       } = req.body;
 
-      // Receptionist scope: scoped receptionists may only generate bookings
+      // Frontdesk scope: scoped frontdesks may only generate bookings
       // on their assigned properties, and the supplied roomType / bed / floor
       // (when present) must belong to that same property to prevent cross-
       // scope mutation via crafted IDs.
-      const generateScope = await getReceptionistScope(req);
+      const generateScope = await getFrontdeskScope(req);
       if (generateScope) {
         if (!propertyId || !generateScope.has(propertyId)) {
           return res.status(403).json({ error: "Property not in your assignment scope" });
@@ -4818,7 +4818,7 @@ ${allPages.map(p => `  <url>
 
       // If the client did not explicitly supply assignedSalesExecId AND this
       // booking is being generated from a lead, credit the sales exec who
-      // owns / converted that lead. This makes admin- and receptionist-
+      // owns / converted that lead. This makes admin- and frontdesk-
       // initiated bookings show up in the right exec's My Bookings without
       // anyone having to re-key the assignment. Sales execs creating their
       // own booking already pass assignedSalesExecId from the client (see
@@ -5157,7 +5157,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Approve booking (admin/manager or receptionist with canApproveBookings)
+  // Approve booking (admin/manager or frontdesk with canApproveBookings)
   app.post("/api/bookings/:id/approve", async (req, res) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
@@ -5170,12 +5170,12 @@ ${allPages.map(p => `  <url>
       }
 
       const isAdminRole = ["admin", "superadmin", "manager"].includes(payload.role);
-      let isAllowedReceptionist = false;
-      if (!isAdminRole && payload.role === "receptionist") {
+      let isAllowedFrontdesk = false;
+      if (!isAdminRole && payload.role === "frontdesk") {
         const recUser = await storage.getUser(payload.userId);
-        isAllowedReceptionist = !!(recUser as any)?.canApproveBookings;
+        isAllowedFrontdesk = !!(recUser as any)?.canApproveBookings;
       }
-      if (!isAdminRole && !isAllowedReceptionist) {
+      if (!isAdminRole && !isAllowedFrontdesk) {
         return res.status(403).json({ error: "Approval access not granted" });
       }
 
@@ -5202,7 +5202,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Reject booking (admin/manager or receptionist with canApproveBookings)
+  // Reject booking (admin/manager or frontdesk with canApproveBookings)
   app.post("/api/bookings/:id/reject", async (req, res) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
@@ -5215,12 +5215,12 @@ ${allPages.map(p => `  <url>
       }
 
       const isAdminRole = ["admin", "superadmin", "manager"].includes(payload.role);
-      let isAllowedReceptionist = false;
-      if (!isAdminRole && payload.role === "receptionist") {
+      let isAllowedFrontdesk = false;
+      if (!isAdminRole && payload.role === "frontdesk") {
         const recUser = await storage.getUser(payload.userId);
-        isAllowedReceptionist = !!(recUser as any)?.canApproveBookings;
+        isAllowedFrontdesk = !!(recUser as any)?.canApproveBookings;
       }
-      if (!isAdminRole && !isAllowedReceptionist) {
+      if (!isAdminRole && !isAllowedFrontdesk) {
         return res.status(403).json({ error: "Approval access not granted" });
       }
       
@@ -5543,14 +5543,14 @@ ${allPages.map(p => `  <url>
   });
 
   // Admin edit booking
-  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -5644,14 +5644,14 @@ ${allPages.map(p => `  <url>
   });
 
   // Record security deposit refund
-  app.post("/api/admin/bookings/:id/sd-refund", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/sd-refund", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
       if (!(booking as any).depositReceived && !booking.depositType) return res.status(400).json({ error: "Security deposit has not been marked as paid yet" });
       if ((booking as any).depositRefunded) return res.status(400).json({ error: "Deposit has already been refunded" });
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -5685,7 +5685,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Admin bed shift / room transfer
-  app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const { newBedId } = req.body;
       if (!newBedId) return res.status(400).json({ error: "newBedId is required" });
@@ -5693,7 +5693,7 @@ ${allPages.map(p => `  <url>
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -5725,7 +5725,7 @@ ${allPages.map(p => `  <url>
         // Edge case: the booking's stored roomTypeId may be stale — either it
         // no longer exists in this property's room_types (renamed/removed) or
         // it exists but has zero beds attached at this property (legacy/
-        // migrated data). In both cases admin/receptionist would be locked out
+        // migrated data). In both cases admin/frontdesk would be locked out
         // forever, so allow the shift.
         let bookingTypeIsStale = !booking.roomTypeId;
         if (!bookingTypeIsStale && booking.propertyId) {
@@ -5883,14 +5883,14 @@ ${allPages.map(p => `  <url>
   });
 
   // Admin mark payment done
-  app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/mark-payment-done", authMiddleware, roleMiddleware("admin", "frontdesk", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
         return res.status(403).json({ error: "Booking not in your assignment scope" });
       }
@@ -6163,7 +6163,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/send-parent-email", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -6189,7 +6189,7 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  app.post("/api/admin/bookings/:id/resend-welcome-email", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/resend-welcome-email", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -6305,9 +6305,9 @@ ${allPages.map(p => `  <url>
     });
   }
 
-  app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/resync-hms", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         const booking = await storage.getBooking(req.params.id);
         if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -8638,7 +8638,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registered-students", authMiddleware, roleMiddleware("admin", "manager", "staff", "frontdesk", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       if (!process.env.HMS_API_KEY) {
         try { await getHostelFlowJWT(); } catch (loginErr: any) {
@@ -8751,7 +8751,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         });
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         residents = (residents as any[]).map((r: any) => {
           if (r.activeBookingPropertyId && !scope.has(r.activeBookingPropertyId)) {
@@ -9154,15 +9154,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ============ SALES EXECUTIVE MANAGEMENT ============
 
   // Get all sales executives (admin only)
-  // List receptionist users with their assigned-property scope so admins can
+  // List frontdesk users with their assigned-property scope so admins can
   // manage the scoping from the same UI that handles sales executives. Mirrors
   // the response shape of /api/admin/sales-executives but omits sales-only
-  // stat fields. A receptionist with zero assignedProperties is unscoped.
-  app.get("/api/admin/receptionists", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  // stat fields. A frontdesk with zero assignedProperties is unscoped.
+  app.get("/api/admin/frontdesk", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
-      const allUsers = await db.select().from(schema.users).where(eq(schema.users.role, "receptionist"));
-      const activeReceptionists = allUsers.filter((u: any) => !u.deletedAt);
-      const result = await Promise.all(activeReceptionists.map(async (u) => {
+      const allUsers = await db.select().from(schema.users).where(eq(schema.users.role, "frontdesk"));
+      const activeFrontdesks = allUsers.filter((u: any) => !u.deletedAt);
+      const result = await Promise.all(activeFrontdesks.map(async (u) => {
         const assignedProperties = await storage.getAssignedPropertiesForUser(u.id);
         const { password: _pw, ...safe } = u as any;
         return {
@@ -9172,13 +9172,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }));
       res.json(result);
     } catch (error) {
-      console.error("Error fetching receptionists:", error);
-      res.status(500).json({ error: "Failed to fetch receptionists" });
+      console.error("Error fetching frontdesks:", error);
+      res.status(500).json({ error: "Failed to fetch frontdesks" });
     }
   });
 
-  // Toggle approval access for a receptionist (admin only)
-  app.patch("/api/admin/receptionists/:id/approval-access", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+  // Toggle approval access for a frontdesk (admin only)
+  app.patch("/api/admin/frontdesk/:id/approval-access", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { canApproveBookings } = req.body;
       if (typeof canApproveBookings !== "boolean") {
@@ -9187,9 +9187,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const [updated] = await db
         .update(schema.users)
         .set({ canApproveBookings })
-        .where(and(eq(schema.users.id, req.params.id), eq(schema.users.role, "receptionist")))
+        .where(and(eq(schema.users.id, req.params.id), eq(schema.users.role, "frontdesk")))
         .returning();
-      if (!updated) return res.status(404).json({ error: "Receptionist not found" });
+      if (!updated) return res.status(404).json({ error: "Frontdesk not found" });
       res.json({ id: updated.id, canApproveBookings: updated.canApproveBookings });
     } catch (error) {
       console.error("Error toggling approval access:", error);
@@ -9879,7 +9879,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  // Assign property to sales executive or receptionist (admin only)
+  // Assign property to sales executive or frontdesk (admin only)
   app.post("/api/admin/property-assignments", authMiddleware, roleMiddleware("admin"), async (req, res) => {
     try {
       const { userId, propertyId } = req.body;
@@ -9893,8 +9893,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!targetUser) {
         return res.status(404).json({ error: "User not found" });
       }
-      if (targetUser.role !== "sales_executive" && targetUser.role !== "receptionist") {
-        return res.status(400).json({ error: "Property assignments are only allowed for sales executives or receptionists" });
+      if (targetUser.role !== "sales_executive" && targetUser.role !== "frontdesk") {
+        return res.status(400).json({ error: "Property assignments are only allowed for sales executives or frontdesk users" });
       }
 
       const targetProperty = await storage.getProperty(propertyId);
@@ -11356,14 +11356,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   // ============ FLOORS & BEDS ============
 
-  app.get("/api/properties/:id/available-beds", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/properties/:id/available-beds", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
       const roomTypeId = req.query.roomTypeId as string;
       const isSuperadmin = req.user!.role === "superadmin";
       if (!roomTypeId && !isSuperadmin) return res.status(400).json({ error: "roomTypeId query param is required" });
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -11528,8 +11528,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/properties/:id/floors", async (req, res) => {
     try {
       const propertyId = req.params.id;
-      // Scoped receptionists may only read floors for their assigned properties.
-      const scope = await getReceptionistScopeFromHeader(req);
+      // Scoped frontdesks may only read floors for their assigned properties.
+      const scope = await getFrontdeskScopeFromHeader(req);
       if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -11621,8 +11621,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/floors/:floorId/beds", async (req, res) => {
     try {
-      // Scoped receptionists may only read beds for their assigned properties.
-      const scope = await getReceptionistScopeFromHeader(req);
+      // Scoped frontdesks may only read beds for their assigned properties.
+      const scope = await getFrontdeskScopeFromHeader(req);
       if (scope && !scope.has(req.params.id)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -11642,7 +11642,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/properties/:id/rooms", async (req, res) => {
     try {
-      const scope = await getReceptionistScopeFromHeader(req);
+      const scope = await getFrontdeskScopeFromHeader(req);
       if (scope && !scope.has(req.params.id)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -11661,7 +11661,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   app.get("/api/floors/:floorId/rooms", async (req, res) => {
     try {
-      const scope = await getReceptionistScopeFromHeader(req);
+      const scope = await getFrontdeskScopeFromHeader(req);
       if (scope) {
         const propertyId = await getPropertyIdForFloor(req.params.floorId);
         if (!propertyId || !scope.has(propertyId)) {
@@ -12498,11 +12498,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ==========================================
 
   // Get full booking tree for a property (property → floors → rooms → beds with booking info)
-  app.get("/api/admin/properties/:id/booking-tree", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/properties/:id/booking-tree", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -12862,11 +12862,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   // Get unassigned bookings (bookings without a bed) for a property
-  app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/properties/:id/unassigned-bookings", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const propertyId = req.params.id;
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
@@ -12892,7 +12892,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   // ============ PACKAGE MANAGEMENT ============
 
-  app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/packages", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const category = req.query.category as string | undefined;
       const conditions = [];
@@ -13202,9 +13202,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const prop = await storage.getPropertyByIdOrSlug(req.params.propertyId);
       const resolvedId = prop?.id || req.params.propertyId;
-      const recScope = await getReceptionistScopeFromHeader(req);
+      const recScope = await getFrontdeskScopeFromHeader(req);
       if (recScope && !recScope.has(resolvedId)) {
-        return res.status(403).json({ error: "Property not assigned to this receptionist" });
+        return res.status(403).json({ error: "Property not assigned to this frontdesk" });
       }
       const plans = await db.select().from(schema.packages)
         .where(and(
@@ -13256,7 +13256,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/bookings/:bookingId/packages", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const bps = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.bookingId, req.params.bookingId)).orderBy(sql`${schema.bookingPackages.createdAt} DESC`);
       const result = [];
@@ -13588,7 +13588,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
   // ============ PACKAGE UPGRADE ============
 
-  app.get("/api/admin/bookings/:bookingId/packages/upgrade-options", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-options", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const result = await storage.getPackageUpgradeOptions(req.params.bookingId);
       res.json(result);
@@ -13641,7 +13641,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/bookings/:bookingId/packages/upgrade-history", authMiddleware, roleMiddleware("admin", "receptionist"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:bookingId/packages/upgrade-history", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const history = await storage.getUpgradeHistory(req.params.bookingId);
       res.json(history);
@@ -14600,7 +14600,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registration-requests", authMiddleware, roleMiddleware("admin", "manager", "staff", "frontdesk", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       const uncheckedRetain = await db.select().from(schema.registrationRequests)
         .where(sql`${schema.registrationRequests.isRetain} = false`);
@@ -14699,7 +14699,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         });
       }
 
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope) {
         result = result.filter(r => r.propertyId && scope.has(r.propertyId));
       }
@@ -14729,12 +14729,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  app.get("/api/admin/registration-requests/:id", authMiddleware, roleMiddleware("admin", "manager", "staff", "receptionist", "sales_executive"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/registration-requests/:id", authMiddleware, roleMiddleware("admin", "manager", "staff", "frontdesk", "sales_executive"), async (req: AuthRequest, res) => {
     try {
       const [request] = await db.select().from(schema.registrationRequests)
         .where(eq(schema.registrationRequests.id, req.params.id));
       if (!request) return res.status(404).json({ error: "Request not found" });
-      const scope = await getReceptionistScope(req);
+      const scope = await getFrontdeskScope(req);
       if (scope && (!request.propertyId || !scope.has(request.propertyId))) {
         return res.status(403).json({ error: "Request not in your assignment scope" });
       }

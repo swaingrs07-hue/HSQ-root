@@ -670,7 +670,7 @@ export class DatabaseStorage implements IStorage {
   async getBookingsForSalesExec(userId: string): Promise<Booking[]> {
     // Returns bookings the sales exec is responsible for: ones they created
     // OR ones attributed to them as the sales exec (e.g. an admin /
-    // receptionist generated the booking from a lead this user
+    // frontdesk generated the booking from a lead this user
     // owns/converted). Backs the "My Bookings" page so the page totals
     // (Total Bookings, Booking Amount, Active, Completed, Total Booking
     // Value, Till Collected, Pending, Avg Booking Value, Add-on Revenue)

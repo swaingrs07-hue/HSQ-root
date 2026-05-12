@@ -705,7 +705,7 @@ function MultiPlanRoomBadge({ plans, maxTier = 2 }: { plans: Array<{ name: strin
 
 function FloorBedSelector({ property, onSelectBed, filterRoomTypeId, autoExpand, selectedPlan }: { property: any; onSelectBed: (bed: any, floor: any, room?: any) => void; filterRoomTypeId?: string | null; autoExpand?: string | null; selectedPlan?: any }) {
   const { user } = useAuth();
-  const isStaff = ["admin","superadmin","manager","staff","sales_executive","receptionist","hotel_admin","hotel_staff"].includes(user?.role || "");
+  const isStaff = ["admin","superadmin","manager","staff","sales_executive","frontdesk","hotel_admin","hotel_staff"].includes(user?.role || "");
   const [expandedFloor, setExpandedFloor] = useState<string | null>(null);
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const prevAutoExpandRef = useRef<string | null>(null);
@@ -1513,7 +1513,7 @@ function PropertyBooking() {
   const { toast } = useToast();
   const { user, token } = useAuth();
   const { isBookingsEnabled } = useFeatureFlags();
-  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff"]);
+  const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff"]);
   const isStaff = !!(user?.role && staffRoles.has(user.role));
   const isAdmin = !!(user?.role && ["admin", "superadmin", "manager"].includes(user.role));
   const bookingsPaused = !isBookingsEnabled && !isStaff;

@@ -119,7 +119,7 @@ const adminNavItems: NavItem[] = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-const receptionistNavItems: NavItem[] = [
+const frontdeskNavItems: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Requests", href: "/admin/requests", icon: Kanban },
   { name: "Registrations", href: "/admin/registrations", icon: FileText },
@@ -151,11 +151,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   
   const mainScrollRef = useRef<HTMLElement>(null);
   const isSalesExec = user?.role === "sales_executive";
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const isSuperAdmin = user?.role === "superadmin";
   const isMainAdmin = user?.email === "gyan@hsquareliving.com" || isSuperAdmin;
-  const navItems = isReceptionist
-    ? receptionistNavItems
+  const navItems = isFrontdesk
+    ? frontdeskNavItems
     : isAdmin
       ? [
           ...adminNavItems,

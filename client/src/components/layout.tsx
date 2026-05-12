@@ -288,7 +288,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const activeFooterLogo = logoSettings?.footerLogo || logoSettings?.headerLogo || hsquareLogo;
 
   const isSalesExec = user?.role === "sales_executive";
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
 
   const navItems = isAdmin 
     ? [
@@ -298,7 +298,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         { name: "Sales Team", href: "/admin/sales-management", icon: Users },
         { name: "Contact", href: "/contact", icon: MessageSquare },
       ]
-    : isReceptionist
+    : isFrontdesk
     ? [
         { name: "Home", href: "/", icon: Home },
         { name: "Dashboard", href: "/admin", icon: LayoutDashboard },

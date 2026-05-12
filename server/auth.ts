@@ -13,7 +13,7 @@ export function getJWTSecret(): string {
 const JWT_SECRET = getJWTSecret();
 const JWT_EXPIRES_IN = "7d";
 
-export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "receptionist";
+export type UserRole = "user" | "admin" | "superadmin" | "manager" | "staff" | "sales_executive" | "frontdesk";
 
 export interface JWTPayload {
   userId: string;
@@ -88,7 +88,7 @@ export function getRoleRedirectPath(role: UserRole): string {
   switch (role) {
     case "superadmin":
     case "admin":
-    case "receptionist":
+    case "frontdesk":
       return "/admin";
     case "manager":
     case "staff":

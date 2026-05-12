@@ -79,7 +79,7 @@ export function PropertyBrochureButtons({
   const [chooserFormat, setChooserFormat] = useState<Format | null>(null);
 
   // Both PDF and PPTX require login. PPT is additionally staff-only.
-  const STAFF_ROLES = ["admin", "superadmin", "manager", "staff", "sales_executive", "receptionist"];
+  const STAFF_ROLES = ["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk"];
   const isStaff = !!user && STAFF_ROLES.includes(user.role);
 
   const openChooser = (format: Format) => {

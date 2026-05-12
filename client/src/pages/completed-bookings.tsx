@@ -184,7 +184,7 @@ export default function CompletedBookings() {
   const queryClient = useQueryClient();
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("search") || "";
@@ -1754,7 +1754,7 @@ export default function CompletedBookings() {
                 />
                 Select All ({filtered.length})
               </label>
-              {bulkSelectedIds.size > 0 && (isAdmin || isReceptionist) && (
+              {bulkSelectedIds.size > 0 && (isAdmin || isFrontdesk) && (
                 <>
                   <span className="text-sm text-indigo-600 font-medium">{bulkSelectedIds.size} selected</span>
                   <Button
@@ -2078,7 +2078,7 @@ export default function CompletedBookings() {
               {selectedBooking && !isEditing && (
                 <span>{getStatusBadge(selectedBooking.status)}</span>
               )}
-              {(isAdmin || isReceptionist) && selectedBooking && !isEditing && (
+              {(isAdmin || isFrontdesk) && selectedBooking && !isEditing && (
                 <Button variant="outline" size="sm" className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs shadow-sm"
                   onClick={() => startEditing(selectedBooking)} data-testid="button-edit-booking">
                   <Pencil className="h-3.5 w-3.5" /> Edit Details
@@ -2126,7 +2126,7 @@ export default function CompletedBookings() {
                 ))}
               </div>
               {/* Actions at bottom */}
-              {(isAdmin || isReceptionist || isSalesExec) && selectedBooking && !isEditing && (
+              {(isAdmin || isFrontdesk || isSalesExec) && selectedBooking && !isEditing && (
                 <div className="px-3 pb-5 pt-3 border-t border-indigo-50 space-y-1.5">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Actions</p>
                   {(() => {
@@ -2218,7 +2218,7 @@ export default function CompletedBookings() {
                     {selectedBooking.residentDetails?.dietaryPreference && (<div><span className="bkd-field-label">Diet</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.dietaryPreference}</p></div>)}
                     {selectedBooking.residentDetails?.checkOutDate && (<div><span className="bkd-field-label">Resident Check-out</span><p className="bkd-field-value">{selectedBooking.residentDetails.checkOutDate}</p></div>)}
                   </div>
-                  {(isAdmin || isReceptionist) && (
+                  {(isAdmin || isFrontdesk) && (
                     <div className="px-4 pb-3">
                       <BedShiftSelector booking={selectedBooking} onShifted={(updated) => { setSelectedBooking({ ...selectedBooking, ...updated }); queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] }); }} />
                     </div>
@@ -2325,7 +2325,7 @@ export default function CompletedBookings() {
                 })()}
 
                 {/* ─── PACKAGES & SERVICES ─── */}
-                {(isAdmin || isReceptionist) && (
+                {(isAdmin || isFrontdesk) && (
                   <div id="sec-packages" className="bkd-card">
                     <button className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 border-b border-slate-100 transition-colors"
                       onClick={() => { if (!showPackages) { fetchBookingPackages(selectedBooking.id); fetchAllPackages(); fetchUpgradeHistory(selectedBooking.id); } setShowPackages(!showPackages); }}
@@ -2497,7 +2497,7 @@ export default function CompletedBookings() {
                         {sendingWelcomeEmail?<Loader2 className="h-4 w-4 animate-spin"/>:<Mail className="h-4 w-4"/>} Resend Welcome Email
                       </Button>
                     )}
-                    {(isAdmin || isReceptionist) && (
+                    {(isAdmin || isFrontdesk) && (
                       <Button variant="outline" size="sm" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 justify-start"
                         disabled={syncingHMS} data-testid="btn-resync-hms"
                         onClick={async () => { setSyncingHMS(true); try { const token=getAuthToken(); const resp=await fetch(`/api/admin/bookings/${selectedBooking.id}/resync-hms`,{method:"POST",headers:{Authorization:`Bearer ${token}`}}); const result=await resp.json(); if(resp.ok){toast({title:"HMS Sync Complete",description:result.message});}else{toast({title:"Sync Failed",description:result.error,variant:"destructive"});} } catch { toast({title:"Error",description:"Failed to sync to HMS",variant:"destructive"}); } finally { setSyncingHMS(false); } }}>
@@ -2636,7 +2636,7 @@ export default function CompletedBookings() {
                               )}
 
                               {/* Row 3: upload proof (when paid but no proof yet) */}
-                              {!sdPending && proofPaths.length === 0 && (isAdmin || isReceptionist) && (
+                              {!sdPending && proofPaths.length === 0 && (isAdmin || isFrontdesk) && (
                                 <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2.5">
                                   <p className="text-[10px] text-slate-400 mb-1.5 font-medium uppercase tracking-wide">No proof uploaded</p>
                                   <label className="cursor-pointer">
@@ -2652,7 +2652,7 @@ export default function CompletedBookings() {
                               )}
 
                               {/* Row 4: inline confirm receipt (when pending) */}
-                              {sdPending && (isAdmin || isReceptionist) && (
+                              {sdPending && (isAdmin || isFrontdesk) && (
                                 <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-3 space-y-3" data-testid="sd-confirm-panel">
                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mark as Received</p>
                                   <div className="flex flex-wrap gap-1.5">
@@ -2722,7 +2722,7 @@ export default function CompletedBookings() {
                 })()}
 
                 {/* ─── MARK SD (when deposit=0) ─── */}
-                {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isReceptionist) && (
+                {(!selectedBooking.deposit || selectedBooking.deposit === 0) && (isAdmin || isFrontdesk) && (
                   <div className="bkd-card" data-testid="mark-sd-panel">
                     <div className="bkd-sec-hdr">
                       <Shield className="h-3.5 w-3.5 text-indigo-500" /><span className="bkd-sec-label text-indigo-600">Security Deposit</span>
@@ -2778,7 +2778,7 @@ export default function CompletedBookings() {
                   <div id="sec-contact" className="bkd-card">
                     <div className="bkd-sec-hdr" style={{justifyContent:"space-between"}}>
                       <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-blue-500"/><span className="bkd-sec-label text-blue-600">Emergency / Parent Contact</span></div>
-                      {(isAdmin||isReceptionist)&&selectedBooking.residentDetails.parentEmail&&(
+                      {(isAdmin||isFrontdesk)&&selectedBooking.residentDetails.parentEmail&&(
                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-50" disabled={sendingParentEmail} data-testid="btn-send-parent-email"
                           onClick={async () => {
                             setSendingParentEmail(true);
@@ -2815,7 +2815,7 @@ export default function CompletedBookings() {
                         const remaining=Math.max(0,(inst.amount||0)-totalPaid);
                         const isFullyPaid=inst.paid||totalPaid>=(inst.amount||0);
                         const isPartiallyPaid=totalPaid>0&&!isFullyPaid;
-                        const canPay=!isFullyPaid&&(isAdmin||isReceptionist||isSalesExec);
+                        const canPay=!isFullyPaid&&(isAdmin||isFrontdesk||isSalesExec);
                         return (
                           <div key={inst.id||idx} className={`text-sm p-2.5 rounded-lg border ${isFullyPaid?"bg-emerald-50 border-emerald-100":isPartiallyPaid?"bg-blue-50 border-blue-100":"bg-slate-50 border-slate-100"} ${canPay?"cursor-pointer hover:border-amber-300 transition-colors":""}`}
                             onClick={()=>{if(canPay)openPaymentDialog(selectedBooking,{...inst,_remaining:remaining});}} data-testid={`installment-row-${idx}`}>
@@ -2848,7 +2848,7 @@ export default function CompletedBookings() {
                       {payableAddons.map((bp:any)=>{
                         const{effective}=getBookingPackagePrice(bp);
                         const isPaid=bp.paidStatus==="paid";
-                        const canEdit=isAdmin||isReceptionist;
+                        const canEdit=isAdmin||isFrontdesk;
                         const addonPayments=(selectedBooking.payments||[]).filter((p:any)=>p.bookingPackageId===bp.id&&p.status==="success");
                         return (<div key={bp.id} className={`text-sm p-2.5 rounded-lg border ${isPaid?"bg-emerald-50 border-emerald-100":"bg-white border-slate-100"}`} data-testid={`addon-payment-row-${bp.id}`}>
                           <div className="flex items-center justify-between gap-2">
@@ -3936,7 +3936,7 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
     setSelectedBedId(null);
     setLoading(true);
     // Always fetch ALL room types for the property (including inactive ones and
-    // ones with bedCountAtProperty) so admin & receptionist can switch to a
+    // ones with bedCountAtProperty) so admin & frontdesk can switch to a
     // valid type when the booking's stored roomTypeId is stale or has zero beds
     // (e.g. migrated/legacy bookings whose room type was renamed or removed).
     let availableTypes: { id: string; name: string; bedCount: number }[] = [];

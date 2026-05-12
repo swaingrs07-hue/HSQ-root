@@ -209,12 +209,12 @@ function AppContent() {
   const isResetPasswordPage = location.startsWith("/admin/reset-password") || location.startsWith("/reset-password");
   const isAuthPage = location === "/auth" || location === "/login" || location === "/admin/login" || isResetPasswordPage;
   const isSalesExec = user?.role === "sales_executive";
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const isHotelsRoute = location.startsWith("/hotels");
   const isHotelOnlyRole = user?.role === "hotel_admin" || user?.role === "hotel_staff";
   const isHostelAdminPath = !isResetPasswordPage && (location.startsWith("/admin") || location.startsWith("/sales") || location.startsWith("/operations") || location === "/booking/generate");
-  const isAdminRoute = !isResetPasswordPage && !isHotelsRoute && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isReceptionist) && (location === "/profile" || location === "/settings" || location === "/help")));
-  const useAdminLayout = (isAdmin || isSalesExec || isReceptionist) && isAdminRoute;
+  const isAdminRoute = !isResetPasswordPage && !isHotelsRoute && (location.startsWith("/admin") || location.startsWith("/sales") || location === "/booking/generate" || ((isSalesExec || isAdmin || isFrontdesk) && (location === "/profile" || location === "/settings" || location === "/help")));
+  const useAdminLayout = (isAdmin || isSalesExec || isFrontdesk) && isAdminRoute;
 
   // Hotel-only roles must never see the hostel admin/sales/operations layouts —
   // bounce them straight back to their hotels dashboard.

@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 -   **Key Entities**: Users, students, properties, rooms, bookings, payments, audit logs, leads, sales activities, packages, registration requests.
 
 ### Authentication & Authorization
--   **Roles**: "user", "admin", "superadmin", "manager", "staff", "sales_executive", "receptionist", "hotel_admin", "hotel_staff".
+-   **Roles**: "user", "admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff".
 -   **Security**: Hashed passwords, role-based access control.
 
 ### Core Features
@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 -   **Gyan AI Chatbot**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data.
 -   **Public Registration Form**: Shareable `/apply` page for pre-registration with admin review.
 -   **SEO**: Human-readable URL slugs, dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, and server-side meta tag injection.
--   **Scoped Access**: Sales executives and receptionists have property-specific visibility based on assignments.
+-   **Scoped Access**: Sales executives and frontdesk users have property-specific visibility based on assignments.
 -   **Calendar & Email Integration**: iCal subscription for follow-ups and email reminders for sales executives.
 -   **Property Rules**: Per-floor gender restriction and per-room/section pricing overrides.
 -   **Property Brochures**: On-demand PDF and PowerPoint generation.

@@ -166,18 +166,18 @@ export default function AdminFloorsBeds() {
   const [allocateBookingId, setAllocateBookingId] = useState<string>("");
   const [allocateBedId, setAllocateBedId] = useState<string>("");
 
-  const isReceptionistRole = user?.role === "receptionist";
-  const propertiesEndpoint = isReceptionistRole ? "/api/staff/properties" : "/api/properties";
+  const isFrontdeskRole = user?.role === "frontdesk";
+  const propertiesEndpoint = isFrontdeskRole ? "/api/staff/properties" : "/api/properties";
   const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({
     queryKey: [propertiesEndpoint],
     queryFn: async () => {
       const headers: Record<string, string> = {};
-      if (isReceptionistRole && token) headers["Authorization"] = `Bearer ${token}`;
+      if (isFrontdeskRole && token) headers["Authorization"] = `Bearer ${token}`;
       const r = await fetch(propertiesEndpoint, { headers });
       if (!r.ok) throw new Error("Failed to load properties");
       return r.json();
     },
-    enabled: !isReceptionistRole || !!token,
+    enabled: !isFrontdeskRole || !!token,
   });
 
   const { data: unassignedBookings = [] } = useQuery<any[]>({

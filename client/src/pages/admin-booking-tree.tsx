@@ -278,7 +278,7 @@ export default function AdminBookingTree() {
   const queryClient = useQueryClient();
   const { selectedPropertyId } = useProperty();
   const { user, token } = useAuth();
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [selectedBedId, setSelectedBedId] = useState<string | null>(null);
   const [bedDetailOpen, setBedDetailOpen] = useState(false);
@@ -291,16 +291,16 @@ export default function AdminBookingTree() {
   const [deallocateNotes, setDeallocateNotes] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "3d">("3d");
 
-  const propertiesEndpoint = isReceptionist ? "/api/staff/properties" : "/api/properties";
+  const propertiesEndpoint = isFrontdesk ? "/api/staff/properties" : "/api/properties";
   const { data: properties = [] } = useQuery<Property[]>({
     queryKey: [propertiesEndpoint],
     queryFn: async () => {
       const headers: Record<string, string> = {};
-      if (isReceptionist && token) headers["Authorization"] = `Bearer ${token}`;
+      if (isFrontdesk && token) headers["Authorization"] = `Bearer ${token}`;
       const r = await fetch(propertiesEndpoint, { headers });
       return r.json();
     },
-    enabled: !isReceptionist || !!token,
+    enabled: !isFrontdesk || !!token,
   });
 
   const { data: treeData, isLoading: treeLoading } = useQuery({

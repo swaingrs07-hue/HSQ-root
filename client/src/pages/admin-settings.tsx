@@ -191,7 +191,7 @@ export default function AdminSettings() {
                 </CardTitle>
                 <CardDescription>
                   Control whether regular users and guests can submit new bookings online.
-                  Staff, receptionists, and admins are never affected by this setting.
+                  Staff, frontdesk users, and admins are never affected by this setting.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

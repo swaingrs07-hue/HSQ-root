@@ -104,7 +104,7 @@ function AdminSalesManagementContent() {
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState("executives");
   const [salesExecs, setSalesExecs] = useState<SalesExecutive[]>([]);
-  const [receptionists, setReceptionists] = useState<SalesExecutive[]>([]);
+  const [frontdesks, setFrontdesks] = useState<SalesExecutive[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,19 +155,19 @@ function AdminSalesManagementContent() {
     if (activeTab === "property-mapping") {
       loadPropertyMappings();
     }
-    if (activeTab === "receptionists") {
-      loadReceptionists();
+    if (activeTab === "frontdesks") {
+      loadFrontdesks();
     }
   }, [activeTab]);
 
-  const loadReceptionists = async () => {
+  const loadFrontdesks = async () => {
     try {
-      const response = await fetch("/api/admin/receptionists", {
+      const response = await fetch("/api/admin/frontdesk", {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
-      if (!response.ok) throw new Error("Failed to fetch receptionists");
+      if (!response.ok) throw new Error("Failed to fetch frontdesks");
       const data = await response.json();
-      setReceptionists(data || []);
+      setFrontdesks(data || []);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -175,18 +175,18 @@ function AdminSalesManagementContent() {
 
   const toggleApprovalAccess = async (recId: string, enabled: boolean) => {
     try {
-      const res = await fetch(`/api/admin/receptionists/${recId}/approval-access`, {
+      const res = await fetch(`/api/admin/frontdesk/${recId}/approval-access`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ canApproveBookings: enabled }),
       });
       if (!res.ok) throw new Error("Failed to update");
-      setReceptionists(prev => prev.map(r => r.id === recId ? { ...r, canApproveBookings: enabled } : r));
+      setFrontdesks(prev => prev.map(r => r.id === recId ? { ...r, canApproveBookings: enabled } : r));
       toast({
         title: enabled ? "Approval access granted" : "Approval access revoked",
         description: enabled
-          ? "This receptionist can now approve & reject bookings."
-          : "This receptionist can no longer approve or reject bookings.",
+          ? "This frontdesk can now approve & reject bookings."
+          : "This frontdesk can no longer approve or reject bookings.",
       });
     } catch {
       toast({ title: "Error", description: "Could not update approval access", variant: "destructive" });
@@ -397,7 +397,7 @@ function AdminSalesManagementContent() {
       setAssignPropertyDialogOpen(false);
       setSelectedPropertyIds([]);
       loadSalesExecs();
-      loadReceptionists();
+      loadFrontdesks();
     } catch (error) {
       toast({ title: "Error", description: "Failed to update properties", variant: "destructive" });
     }
@@ -714,12 +714,12 @@ function AdminSalesManagementContent() {
             Property Mapping
           </TabsTrigger>
           <TabsTrigger 
-            value="receptionists" 
-            data-testid="tab-receptionists"
+            value="frontdesks" 
+            data-testid="tab-frontdesks"
             className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
           >
             <Users className="h-4 w-4 mr-2" />
-            Receptionists
+            Frontdesks
           </TabsTrigger>
         </TabsList>
 
@@ -985,18 +985,18 @@ function AdminSalesManagementContent() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="receptionists" className="mt-4">
+        <TabsContent value="frontdesks" className="mt-4">
           <Card className="border-0 shadow-lg">
             <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
-              <CardTitle className="text-lg font-semibold">Receptionists</CardTitle>
+              <CardTitle className="text-lg font-semibold">Frontdesks</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Assign properties to scope receptionists. Receptionists with no assignments see all properties.
+                Assign properties to scope frontdesk users. Frontdesk users with no assignments see all properties.
               </p>
             </CardHeader>
             <CardContent className="p-0">
-              {receptionists.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground" data-testid="text-no-receptionists">
-                  No receptionists found.
+              {frontdesks.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground" data-testid="text-no-frontdesks">
+                  No frontdesk users found.
                 </p>
               ) : (
                 <Table>
@@ -1017,8 +1017,8 @@ function AdminSalesManagementContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {receptionists.map((rec) => (
-                      <TableRow key={rec.id} data-testid={`row-receptionist-${rec.id}`}>
+                    {frontdesks.map((rec) => (
+                      <TableRow key={rec.id} data-testid={`row-frontdesk-${rec.id}`}>
                         <TableCell className="font-medium">{rec.name}</TableCell>
                         <TableCell>{rec.email}</TableCell>
                         <TableCell>{rec.phone || "-"}</TableCell>
@@ -1030,10 +1030,10 @@ function AdminSalesManagementContent() {
                                 <button
                                   onClick={async () => {
                                     await removePropertyAssignment(rec.id, prop.id);
-                                    loadReceptionists();
+                                    loadFrontdesks();
                                   }}
                                   className="ml-1 hover:text-red-500"
-                                  data-testid={`button-remove-receptionist-property-${rec.id}-${prop.id}`}
+                                  data-testid={`button-remove-frontdesk-property-${rec.id}-${prop.id}`}
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -1070,7 +1070,7 @@ function AdminSalesManagementContent() {
                               setSelectedPropertyIds(rec.assignedProperties?.map((p: any) => p.id) || []);
                               setAssignPropertyDialogOpen(true);
                             }}
-                            data-testid={`button-assign-receptionist-properties-${rec.id}`}
+                            data-testid={`button-assign-frontdesk-properties-${rec.id}`}
                           >
                             <Building2 className="h-4 w-4 mr-2" />
                             Assign Properties
@@ -1143,7 +1143,7 @@ function AdminSalesManagementContent() {
           <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
             <DialogTitle>Assign Properties to {selectedExec?.name}</DialogTitle>
             <DialogDescription>
-              Select properties to assign to this {selectedExec?.role === "receptionist" ? "receptionist" : "sales executive"}
+              Select properties to assign to this {selectedExec?.role === "frontdesk" ? "frontdesk" : "sales executive"}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 min-h-0">

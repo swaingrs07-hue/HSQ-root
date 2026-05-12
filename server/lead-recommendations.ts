@@ -254,7 +254,7 @@ export async function getLeadRecommendations(forceRefresh = false, limit = 8): P
     .limit(50);
 
   const allVisibleLeads = await storage.getAllLeads();
-  const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "receptionist"]);
+  const staffUsers = await storage.getUsersByRole(["admin", "manager", "staff", "sales_executive", "frontdesk"]);
   const staffEmails = new Set(staffUsers.map(u => u.email?.toLowerCase()).filter(Boolean));
   const staffPhones = new Set(staffUsers.map(u => u.phone).filter(Boolean));
   const seenPhones = new Set<string>();

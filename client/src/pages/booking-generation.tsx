@@ -359,7 +359,7 @@ function BookingGenerationInner() {
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSalesExec = user?.role === "sales_executive";
-  const isReceptionist = user?.role === "receptionist";
+  const isFrontdesk = user?.role === "frontdesk";
   const isRegularUser = user?.role === "user" || user?.role === "student";
   const maxDiscountPercent = isSalesExec ? 10 : 100;
   const getAuthToken = () => token || "";
@@ -638,7 +638,7 @@ function BookingGenerationInner() {
     fetchProperties();
     if (isSalesExec && user?.id) {
       fetchAssignedLeads();
-    } else if (isAdmin || isReceptionist) {
+    } else if (isAdmin || isFrontdesk) {
       fetchAllLeads();
     }
   }, [user]);
@@ -823,8 +823,8 @@ function BookingGenerationInner() {
 
   const fetchProperties = async () => {
     try {
-      const isReceptionist = user?.role === "receptionist";
-      const endpoint = isReceptionist ? "/api/staff/properties" : "/api/properties";
+      const isFrontdesk = user?.role === "frontdesk";
+      const endpoint = isFrontdesk ? "/api/staff/properties" : "/api/properties";
       const response = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
@@ -1489,8 +1489,8 @@ function BookingGenerationInner() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
                         { value: "walk_in", label: "Walk-in Customer", desc: "New walk-in visitor", icon: User },
-                        ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
-                        ...((isAdmin || isSalesExec || isReceptionist) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
+                        ...((isAdmin || isSalesExec || isFrontdesk) ? [{ value: "lead", label: "Convert Lead", desc: "Existing lead from CRM", icon: Users }] : []),
+                        ...((isAdmin || isSalesExec || isFrontdesk) ? [{ value: "student", label: "Registered Student", desc: "Already registered", icon: Shield }] : []),
                       ].map(opt => {
                         const OptIcon = opt.icon;
                         const selected = formData.customerType === opt.value;
