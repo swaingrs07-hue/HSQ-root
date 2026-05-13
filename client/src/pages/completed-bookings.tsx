@@ -2063,7 +2063,7 @@ export default function CompletedBookings() {
       )}
 
       <Dialog open={!!selectedBooking} onOpenChange={(open) => { if (!open) { setSelectedBooking(null); setIsEditing(false); setShowPackages(false); setBookingPackages(null); setSdForm({ depositType: "cash", deposit: 0, depositProofPath: "" }); setSdConfirmForm({ depositType: "cash", depositTransactionId: "", depositProofPath: "" }); } }}>
-        <DialogContent className="!fixed !inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-screen !rounded-none !p-0 !gap-0 flex flex-col bkd-page [&>button.absolute]:hidden">
+        <DialogContent className="!fixed !inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !rounded-none !p-0 !gap-0 flex flex-col bkd-page [&>button.absolute]:hidden">
           {/* ── Top Header Bar ── */}
           <div className="bkd-topbar flex items-center justify-between px-5 py-3 flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
@@ -2140,7 +2140,7 @@ export default function CompletedBookings() {
               </div>
               {/* Actions at bottom */}
               {(isAdmin || isFrontdesk || isSalesExec) && selectedBooking && !isEditing && (
-                <div className="px-3 pb-5 pt-3 border-t border-indigo-50 space-y-1.5">
+                <div className="px-3 pt-3 border-t border-indigo-50 space-y-1.5" style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom, 20px))" }}>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Actions</p>
                   {(() => {
                     const _pmts = selectedBooking.payments || [];
@@ -3220,7 +3220,7 @@ export default function CompletedBookings() {
       </Dialog>
 
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Banknote className="h-5 w-5 text-emerald-600" />
