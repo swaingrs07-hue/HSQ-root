@@ -1157,7 +1157,7 @@
 }
 
 /* ── Dark Booking Dashboard (Replit-style) ──────────────────────────── */
-.bkd-page { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100vw !important; height: 100vh !important; max-width: none !important; border-radius: 0 !important; padding: 0 !important; display: flex !important; flex-direction: column !important; background: linear-gradient(145deg, #eaecf7 0%, #f0f2fa 45%, #e8ecf6 100%) !important; overflow: hidden; }
+.bkd-page { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100dvh !important; max-width: none !important; border-radius: 0 !important; padding: 0 !important; display: flex !important; flex-direction: column !important; background: linear-gradient(145deg, #eaecf7 0%, #f0f2fa 45%, #e8ecf6 100%) !important; overflow: hidden; }
 .bkd-topbar { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.10); flex-shrink: 0; }
 .bkd-sidebar { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-right: 1px solid rgba(99,102,241,0.10); }
 .bkd-content-bg { background: transparent; pointer-events: auto; position: relative; }
