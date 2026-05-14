@@ -416,6 +416,9 @@ async function ensureFloorsForProperty(propertyId: string): Promise<boolean> {
   return true;
 }
 
+// In-memory deduplication for /sync/wallet-update eventIds (resets on restart)
+const processedWalletUpdateEventIds = new Set<string>();
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -8385,6 +8388,124 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ── Unified wallet top-up / balance-set endpoint for CRM agent ──────────────
+  app.post("/sync/wallet-update", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const { eventId, items } = req.body;
+
+      if (!eventId || typeof eventId !== "string") {
+        return res.status(400).json({ error: "eventId (string) is required" });
+      }
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "items array is required and must not be empty" });
+      }
+
+      // Deduplicate by eventId
+      if (processedWalletUpdateEventIds.has(eventId)) {
+        console.log(`[Sync Wallet Update] Duplicate eventId skipped: ${eventId}`);
+        return res.json({ success: true, skipped: true, reason: "duplicate eventId", eventId });
+      }
+
+      console.log(`[Sync Wallet Update] Processing eventId=${eventId}, items=${items.length}`);
+
+      // Pre-load all active bookings once for email/phone matching
+      const allBookings = await db.select().from(schema.bookings).where(
+        sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment')`
+      );
+
+      const results: any[] = [];
+
+      for (const item of items) {
+        const { email, phone, amount, balance: targetBalance, type, description } = item;
+
+        if (!email && !phone) {
+          results.push({ status: "error", error: "email or phone is required per item", item });
+          continue;
+        }
+
+        // Resident lookup — match email or last-10-digit phone
+        let booking: any = null;
+        if (email) {
+          const emailLower = (email as string).toLowerCase().trim();
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            return (
+              (b.walkInEmail || "").toLowerCase() === emailLower ||
+              (rd?.email || "").toLowerCase() === emailLower
+            );
+          }) || null;
+        }
+        if (!booking && phone) {
+          const phone10 = (phone as string).replace(/\D/g, "").slice(-10);
+          if (phone10.length === 10) {
+            booking = allBookings.find((b: any) => {
+              const rd = b.residentDetails as any;
+              const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+              return bPhone === phone10;
+            }) || null;
+          }
+        }
+
+        if (!booking) {
+          results.push({ status: "error", error: `Booking not found for ${email || phone}`, email, phone });
+          continue;
+        }
+
+        // Current balance
+        const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
+        const currentBalance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+
+        let ledgerEntry: any;
+
+        if (typeof targetBalance === "number") {
+          // Mode 1: set wallet to exact total balance
+          const delta = targetBalance - currentBalance;
+          if (delta === 0) {
+            results.push({ status: "skipped", reason: "balance already correct", bookingCode: booking.bookingCode, currentBalance });
+            continue;
+          }
+          const note = description || `Balance correction (target: ₹${targetBalance})`;
+          [ledgerEntry] = await db.insert(schema.walletLedger).values({
+            bookingId: booking.id,
+            credit: delta > 0 ? delta : 0,
+            debit: delta < 0 ? Math.abs(delta) : 0,
+            refType: "balance_correction",
+            note,
+          }).returning();
+          const newBalance = currentBalance + delta;
+          console.log(`[Sync Wallet Update] ${booking.bookingCode}: balance set ${currentBalance} → ${newBalance} (delta ${delta > 0 ? "+" : ""}${delta})`);
+          results.push({ status: "adjusted", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
+
+        } else if (typeof amount === "number" && amount > 0 && type === "credit") {
+          // Mode 2: add credit amount
+          const note = description || `Wallet top-up via CRM`;
+          [ledgerEntry] = await db.insert(schema.walletLedger).values({
+            bookingId: booking.id,
+            credit: amount,
+            debit: 0,
+            refType: "wallet_topup",
+            note,
+          }).returning();
+          const newBalance = currentBalance + amount;
+          console.log(`[Sync Wallet Update] ${booking.bookingCode}: credited ₹${amount}, new balance ₹${newBalance}`);
+          results.push({ status: "credited", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
+
+        } else {
+          results.push({ status: "error", error: "Provide either balance (number) or amount + type:\"credit\"", item });
+          continue;
+        }
+      }
+
+      // Mark eventId as processed only after all items succeed/error (not on validation failure)
+      processedWalletUpdateEventIds.add(eventId);
+
+      res.json({ success: true, eventId, results });
+    } catch (error: any) {
+      console.error("[Sync Wallet Update] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(
@@ -14843,6 +14964,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         { method: "POST", path: "/sync/wallet-debit",                      label: "Wallet debit" },
         { method: "POST", path: "/sync/wallet-credit",                     label: "Wallet credit" },
         { method: "GET",  path: "/sync/wallet-balance",                    label: "Wallet balance" },
+        { method: "POST", path: "/sync/wallet-update",                     label: "Wallet update (CRM)" },
       ];
 
       // Persistent evidence: most-recent wallet ledger rows (HMS-driven only).
