@@ -308,6 +308,10 @@ app.use((req, res, next) => {
       }).catch((e) => log(`Failed to start bed status reconcile job: ${e}`, "bed-reconcile"));
       // Start daily cleanup of HMS inbound activity log (~30-day retention)
       startHmsActivityLogCleanupJob();
+      // Start HMS wallet balance pull sync (every 30 min)
+      import("./hms-wallet-sync").then(({ startHmsWalletSyncJob }) => {
+        startHmsWalletSyncJob();
+      }).catch((e) => log(`Failed to start HMS wallet sync job: ${e}`, "background"));
     },
   );
 })();

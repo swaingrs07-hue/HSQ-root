@@ -8506,6 +8506,29 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ── HMS wallet pull sync (manual trigger) ────────────────────────────────
+  app.post("/api/admin/hms/sync-wallets", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const { pullHmsWalletBalances, lastHmsWalletSyncAt } = await import("./hms-wallet-sync");
+      const { propertyIds } = req.body; // optional array of property IDs to scope
+      const result = await pullHmsWalletBalances(Array.isArray(propertyIds) ? propertyIds : undefined);
+      res.json({ success: true, lastSyncAt: lastHmsWalletSyncAt?.toISOString() || null, ...result });
+    } catch (error: any) {
+      console.error("[HMS Wallet Sync Manual] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── HMS wallet sync last-sync timestamp (for health panel polling) ────────
+  app.get("/api/admin/hms/sync-wallets/status", authMiddleware, roleMiddleware("superadmin"), async (_req: AuthRequest, res) => {
+    try {
+      const { lastHmsWalletSyncAt } = await import("./hms-wallet-sync");
+      res.json({ lastSyncAt: lastHmsWalletSyncAt?.toISOString() || null });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/admin/hms/sync-all-completed", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const completedBookings = await db.select().from(schema.bookings).where(

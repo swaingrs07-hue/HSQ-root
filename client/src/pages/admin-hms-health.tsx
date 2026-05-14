@@ -22,6 +22,7 @@ import {
   Activity,
   Copy,
   Clock,
+  Download,
 } from "lucide-react";
 
 interface InboundEndpoint {
@@ -139,6 +140,7 @@ export default function AdminHmsHealth() {
   const [residentResult, setResidentResult] = useState<any>(null);
   const [walletResult, setWalletResult] = useState<any>(null);
   const [pingAuthResult, setPingAuthResult] = useState<PingAuthResponse | null>(null);
+  const [walletSyncResult, setWalletSyncResult] = useState<any>(null);
 
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
@@ -207,6 +209,33 @@ export default function AdminHmsHealth() {
       setPingAuthResult({ ok: false, error: e.message });
       toast({ title: "HMS auth failed", description: e.message, variant: "destructive" });
     },
+  });
+
+  const walletSyncStatus = useQuery<{ lastSyncAt: string | null }>({
+    queryKey: ["/api/admin/hms/sync-wallets/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/hms/sync-wallets/status", { headers });
+      if (!res.ok) throw new Error("Status fetch failed");
+      return res.json();
+    },
+    enabled: user?.role === "superadmin",
+    refetchInterval: 60_000,
+  });
+
+  const walletSync = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/hms/sync-wallets", { method: "POST", headers, body: JSON.stringify({}) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Sync failed");
+      return data;
+    },
+    onSuccess: (data) => {
+      setWalletSyncResult(data);
+      walletSyncStatus.refetch();
+      const msg = `${data.synced} corrected, ${data.skipped} already correct, ${data.errors} errors`;
+      toast({ title: data.synced > 0 ? "Wallet sync complete" : "Wallet sync done", description: msg });
+    },
+    onError: (e: Error) => toast({ title: "Wallet sync failed", description: e.message, variant: "destructive" }),
   });
 
   const walletLookup = useMutation({
@@ -785,6 +814,96 @@ export default function AdminHmsHealth() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ===== HMS Wallet Sync ===== */}
+      <Card data-testid="card-wallet-sync">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Download className="w-5 h-5 text-indigo-600" />
+            HMS Wallet Balance Sync
+          </CardTitle>
+          <p className="text-xs text-slate-500">
+            Pulls wallet balances from HostelFlow for all HMS-linked properties and applies corrections to local
+            ledger entries where the balances differ. Runs automatically every 30 minutes.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              onClick={() => walletSync.mutate()}
+              disabled={walletSync.isPending}
+              data-testid="button-sync-wallets"
+            >
+              {walletSync.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Sync Wallets Now
+            </Button>
+            <p className="text-xs text-slate-500" data-testid="text-last-wallet-sync">
+              {walletSyncStatus.data?.lastSyncAt
+                ? <>Last auto-sync: <span className="font-medium text-slate-700">{timeAgo(walletSyncStatus.data.lastSyncAt)}</span> ({new Date(walletSyncStatus.data.lastSyncAt).toLocaleTimeString()})</>
+                : "No auto-sync run yet (first run in ~2 min after startup)"}
+            </p>
+          </div>
+
+          {walletSyncResult && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs space-y-3" data-testid="result-wallet-sync">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: "Corrected", value: walletSyncResult.synced, cls: "text-emerald-600" },
+                  { label: "Already OK", value: walletSyncResult.skipped, cls: "text-slate-700" },
+                  { label: "Errors", value: walletSyncResult.errors, cls: "text-rose-600" },
+                  { label: "No wallet field", value: walletSyncResult.noWalletField, cls: "text-amber-600" },
+                ].map(({ label, value, cls }) => (
+                  <div key={label} className="bg-white rounded border border-slate-200 p-2 text-center">
+                    <p className="text-[10px] text-slate-500">{label}</p>
+                    <p className={`font-semibold ${cls}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {walletSyncResult.noWalletField > 0 && (
+                <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                  ⚠ HostelFlow is not returning a wallet balance field for {walletSyncResult.noWalletField} resident(s).
+                  Check server logs for the field names HostelFlow sends — the sync probes multiple variants
+                  (walletBalance, wallet_balance, balance, wallet.balance, etc.).
+                </p>
+              )}
+
+              {walletSyncResult.details?.filter((d: any) => d.status === "synced" || d.status === "error").length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500">Changes Applied</p>
+                  {walletSyncResult.details
+                    .filter((d: any) => d.status === "synced" || d.status === "error")
+                    .slice(0, 20)
+                    .map((d: any, i: number) => (
+                      <div
+                        key={i}
+                        className="bg-white rounded p-2 border border-slate-200 flex items-center justify-between gap-2"
+                        data-testid={`row-sync-detail-${i}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-slate-800">{d.name}</span>
+                          {" "}
+                          <Badge variant="outline" className="font-mono text-[10px]">{d.bookingCode}</Badge>
+                        </div>
+                        {d.status === "synced" ? (
+                          <span className="text-emerald-600 font-semibold shrink-0">
+                            ₹{d.previousBalance} → ₹{d.newBalance}
+                          </span>
+                        ) : (
+                          <span className="text-rose-600 shrink-0 truncate max-w-[160px]">{d.error}</span>
+                        )}
+                      </div>
+                    ))}
+                </div>
               )}
             </div>
           )}
