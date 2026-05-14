@@ -1,33 +1,83 @@
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const HMS_WALLET_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
-// Module-level state: last successful sync timestamp + job handle
+// ── Module-level state ────────────────────────────────────────────────────────
+// Only set when the run completed without a fatal error and at least one property
+// fetch succeeded — not on purely errored / no-properties-found runs.
 export let lastHmsWalletSyncAt: Date | null = null;
-let walletSyncTimer: ReturnType<typeof setInterval> | null = null;
 
+// JWT cache — mirrors the pattern in registerRoutes() so this module is
+// self-contained without depending on closure variables from routes.ts.
+let cachedJwt: string | null = null;
+let jwtExpiresAt = 0;
+
+// ── Auth helpers (full API-key + JWT-login fallback, including 401 retry) ─────
 function getHmsBaseUrl(): string {
   return (process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app").replace(/\/+$/, "");
 }
 
-function getHmsAuthHeaders(): Record<string, string> {
+async function getHmsToken(): Promise<string> {
   const apiKey = process.env.HMS_API_KEY || process.env.HOSTEL_FLOW_API_KEY;
-  if (apiKey) {
-    return { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  if (apiKey) return apiKey;
+
+  // JWT login fallback
+  if (cachedJwt && Date.now() < jwtExpiresAt) return cachedJwt;
+
+  const email = process.env.HOSTEL_FLOW_EMAIL;
+  const password = process.env.HOSTEL_FLOW_PASSWORD;
+  if (!email || !password) {
+    throw new Error("No HMS auth configured — set HMS_API_KEY, HOSTEL_FLOW_API_KEY, or HOSTEL_FLOW_EMAIL + HOSTEL_FLOW_PASSWORD");
   }
-  return { "Content-Type": "application/json" };
+
+  const loginRes = await fetch(`${getHmsBaseUrl()}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!loginRes.ok) {
+    const errText = await loginRes.text().catch(() => "");
+    throw new Error(`HMS login failed (${loginRes.status}): ${errText.slice(0, 200)}`);
+  }
+  const data = await loginRes.json() as any;
+  cachedJwt = data.jwtToken || data.token || null;
+  if (!cachedJwt) throw new Error("No token returned from HMS login");
+  jwtExpiresAt = Date.now() + 23 * 60 * 60 * 1000;
+  return cachedJwt;
 }
 
-// Read wallet balance from an HMS resident object — tries all known field name variants.
+async function hmsAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getHmsToken();
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+}
+
+/** Fetch a URL with automatic 401 retry (re-login once, then fail). */
+async function hmsFetch(url: string): Promise<any> {
+  const headers = await hmsAuthHeaders();
+  let res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+
+  if (res.status === 401 && !(process.env.HMS_API_KEY || process.env.HOSTEL_FLOW_API_KEY)) {
+    // Stale JWT — force re-login and retry once
+    cachedJwt = null;
+    jwtExpiresAt = 0;
+    const fresh = await hmsAuthHeaders();
+    res = await fetch(url, { headers: fresh, signal: AbortSignal.timeout(15000) });
+  }
+
+  if (!res.ok) throw new Error(`HMS HTTP ${res.status} for ${url}`);
+  return res.json();
+}
+
+// ── Wallet balance extraction ─────────────────────────────────────────────────
 function extractWalletBalance(resident: any): number | null {
   for (const key of ["walletBalance", "wallet_balance", "walletCredit", "wallet_credit", "balance"]) {
     const v = resident[key];
     if (typeof v === "number" && !isNaN(v)) return v;
     if (typeof v === "string" && v !== "" && !isNaN(Number(v))) return Number(v);
   }
-  // Nested wallet object: { wallet: { balance: N } }
   if (resident.wallet && typeof resident.wallet === "object") {
     for (const key of ["balance", "walletBalance", "credit"]) {
       const v = resident.wallet[key];
@@ -38,18 +88,11 @@ function extractWalletBalance(resident: any): number | null {
   return null;
 }
 
-// Fetch wallet balance for a single resident via /api/residents/:id/wallet (fallback path)
 async function fetchResidentWalletFallback(residentId: string): Promise<number | null> {
   try {
-    const res = await fetch(`${getHmsBaseUrl()}/api/residents/${residentId}/wallet`, {
-      headers: getHmsAuthHeaders(),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
+    const data = await hmsFetch(`${getHmsBaseUrl()}/api/residents/${residentId}/wallet`);
     const v = extractWalletBalance(data);
     if (v !== null) return v;
-    // Some HMS implementations return { balance: N } at the top level
     if (typeof data === "number") return data;
     return null;
   } catch {
@@ -57,6 +100,7 @@ async function fetchResidentWalletFallback(residentId: string): Promise<number |
   }
 }
 
+// ── Phone normalisation ───────────────────────────────────────────────────────
 function normalizePhone(phone: string | null | undefined): string {
   if (!phone) return "";
   let c = phone.replace(/[\s\-\(\)\+]/g, "");
@@ -65,6 +109,7 @@ function normalizePhone(phone: string | null | undefined): string {
   return c.slice(-10);
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 export interface WalletSyncResult {
   synced: number;
   skipped: number;
@@ -81,14 +126,8 @@ export interface WalletSyncResult {
   }>;
 }
 
+// ── Core pull function ────────────────────────────────────────────────────────
 export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<WalletSyncResult> {
-  const baseUrl = getHmsBaseUrl();
-  const authHeaders = getHmsAuthHeaders();
-  const hasAuth = !!(process.env.HMS_API_KEY || process.env.HOSTEL_FLOW_API_KEY);
-  if (!hasAuth) {
-    return { synced: 0, skipped: 0, errors: 1, noWalletField: 0, details: [{ bookingCode: "-", name: "-", status: "error", error: "HMS API key not configured" }] };
-  }
-
   // Fetch HMS-linked properties
   const linkedProps = await db.select({
     id: schema.properties.id,
@@ -105,41 +144,28 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
     ? linkedProps.filter(p => propertyIds.includes(p.id))
     : linkedProps;
 
-  if (targetProps.length === 0) {
-    return { synced: 0, skipped: 0, errors: 0, noWalletField: 0, details: [] };
-  }
-
-  // Pre-load all active+completed bookings once
-  const allBookings = await db.select().from(schema.bookings).where(
-    sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment', 'completed')`
-  );
-
   const result: WalletSyncResult = { synced: 0, skipped: 0, errors: 0, noWalletField: 0, details: [] };
+
+  if (targetProps.length === 0) return result;
+
+  let atLeastOnePropertyFetched = false;
   let firstProbeLogged = false;
 
   for (const prop of targetProps) {
+    // ── Fetch residents for this property from HMS ──────────────────────────
     let hmsResidents: any[] = [];
     try {
-      const res = await fetch(`${baseUrl}/api/residents?propertyId=${prop.hmsPropertyId}`, {
-        headers: authHeaders,
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) {
-        console.warn(`[HMS Wallet Sync] Property ${prop.name}: HMS returned ${res.status}`);
-        result.errors++;
-        result.details.push({ bookingCode: "-", name: prop.name, status: "error", error: `HMS ${res.status}` });
-        continue;
-      }
-      const data = await res.json();
+      const data = await hmsFetch(`${getHmsBaseUrl()}/api/residents?propertyId=${prop.hmsPropertyId}`);
       hmsResidents = Array.isArray(data) ? data : (data.residents || data.data || []);
+      atLeastOnePropertyFetched = true;
     } catch (fetchErr: any) {
-      console.warn(`[HMS Wallet Sync] Property ${prop.name}: fetch failed — ${fetchErr.message}`);
+      console.warn(`[HMS Wallet Sync] Property "${prop.name}": fetch failed — ${fetchErr.message}`);
       result.errors++;
       result.details.push({ bookingCode: "-", name: prop.name, status: "error", error: fetchErr.message });
       continue;
     }
 
-    // Log available fields on first probe so admins can see the HMS shape
+    // Log field shape on first successful probe
     if (!firstProbeLogged && hmsResidents.length > 0) {
       firstProbeLogged = true;
       const sample = hmsResidents[0];
@@ -147,15 +173,26 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
         k.toLowerCase().includes("wallet") || k.toLowerCase().includes("balance") || k.toLowerCase().includes("credit")
       );
       console.log(`[HMS Wallet Sync] Sample resident keys: ${Object.keys(sample).join(", ")}`);
-      console.log(`[HMS Wallet Sync] Wallet-related keys found: ${walletKeys.join(", ") || "(none)"}`);
+      console.log(`[HMS Wallet Sync] Wallet-related keys found: ${walletKeys.join(", ") || "(none — wallet sync may be a no-op)"}`);
     }
 
+    // ── Load bookings scoped to THIS property only ──────────────────────────
+    // Intentionally constrained by propertyId to avoid matching the same
+    // phone/email across multiple properties and writing corrections to the
+    // wrong resident's ledger.
+    const propBookings = await db.select().from(schema.bookings).where(
+      and(
+        eq(schema.bookings.propertyId, prop.id),
+        sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment', 'completed')`
+      )
+    );
+
     for (const hmsResident of hmsResidents) {
-      // Match local booking by phone or email
       const hmsPhone = normalizePhone(hmsResident.phone);
       const hmsEmail = (hmsResident.email || "").toLowerCase().trim();
 
-      const booking = allBookings.find((b: any) => {
+      // Match within this property only
+      const booking = propBookings.find((b: any) => {
         const rd = b.residentDetails as any;
         if (hmsPhone) {
           const bPhone = normalizePhone(b.walkInPhone || rd?.phone || "");
@@ -173,7 +210,7 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
       const rd = booking.residentDetails as any;
       const guestName = booking.walkInName || rd?.name || rd?.fullName || booking.bookingCode || "Unknown";
 
-      // Get wallet balance from resident data (or fallback per-resident endpoint)
+      // Get HMS wallet balance (inline or per-resident fallback)
       let hmsBalance = extractWalletBalance(hmsResident);
       if (hmsBalance === null && hmsResident.id) {
         hmsBalance = await fetchResidentWalletFallback(hmsResident.id);
@@ -207,7 +244,7 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
         });
 
         const newBalance = localBalance + delta;
-        console.log(`[HMS Wallet Sync] ${booking.bookingCode}: corrected ₹${localBalance} → ₹${newBalance} (delta ${delta > 0 ? "+" : ""}${delta})`);
+        console.log(`[HMS Wallet Sync] ${booking.bookingCode}: corrected ₹${localBalance} → ₹${newBalance} (${delta > 0 ? "+" : ""}${delta})`);
         result.synced++;
         result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "synced", previousBalance: localBalance, newBalance, delta });
       } catch (insertErr: any) {
@@ -221,16 +258,22 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
     console.log(`[HMS Wallet Sync] Done — synced: ${result.synced}, skipped: ${result.skipped}, errors: ${result.errors}, noWalletField: ${result.noWalletField}`);
   }
 
-  lastHmsWalletSyncAt = new Date();
+  // Only mark last-sync timestamp when at least one property was successfully
+  // fetched from HMS (i.e., the run was not entirely a network/auth failure).
+  if (atLeastOnePropertyFetched) {
+    lastHmsWalletSyncAt = new Date();
+  }
+
   return result;
 }
 
+// ── Background job ────────────────────────────────────────────────────────────
 export function startHmsWalletSyncJob() {
   async function run() {
     try {
       const r = await pullHmsWalletBalances();
       if (r.synced > 0) {
-        console.log(`[background] HMS wallet sync: applied ${r.synced} correction(s)`, "background");
+        console.log(`[background] HMS wallet sync: applied ${r.synced} balance correction(s)`);
       }
     } catch (err: any) {
       console.error(`[background] HMS wallet sync failed: ${err.message}`);
@@ -240,7 +283,7 @@ export function startHmsWalletSyncJob() {
   // Delay first run by 2 min so the server is fully warmed up
   setTimeout(async () => {
     await run();
-    walletSyncTimer = setInterval(run, HMS_WALLET_SYNC_INTERVAL_MS);
+    setInterval(run, HMS_WALLET_SYNC_INTERVAL_MS);
   }, 2 * 60 * 1000);
 
   console.log(`[background] HMS wallet sync job started (runs every 30 min, first run in 2 min)`);
