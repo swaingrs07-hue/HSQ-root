@@ -1880,11 +1880,11 @@ export class DatabaseStorage implements IStorage {
 
   // Lead Assignment & Scoping
   async getLeadsForSalesExec(userId: string, propertyId?: string): Promise<Lead[]> {
-    // Show leads assigned to me, OR leads I created (even if assigned to
-    // someone else — the creator retains visibility of their own leads).
+    // Show leads assigned to me, OR leads I created that are still unassigned.
+    // Once a lead is reassigned to someone else, only that person sees it.
     const ownerCondition = or(
       eq(leads.assignedToId, userId),
-      eq(leads.createdBy, userId),
+      and(eq(leads.createdBy, userId), isNull(leads.assignedToId)),
     );
     const conditions = propertyId
       ? and(ownerCondition, eq(leads.propertyId, propertyId))
