@@ -8408,9 +8408,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       console.log(`[Sync Wallet Update] Processing eventId=${eventId}, items=${items.length}`);
 
-      // Pre-load all active bookings once for email/phone matching
+      // Pre-load bookings for email/phone matching — include completed so checked-out residents can still be topped up
       const allBookings = await db.select().from(schema.bookings).where(
-        sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment')`
+        sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment', 'completed')`
       );
 
       const results: any[] = [];
