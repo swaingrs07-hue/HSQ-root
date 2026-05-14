@@ -188,53 +188,64 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
     );
 
     for (const hmsResident of hmsResidents) {
-      const hmsPhone = normalizePhone(hmsResident.phone);
-      const hmsEmail = (hmsResident.email || "").toLowerCase().trim();
-
-      // Match within this property only
-      const booking = propBookings.find((b: any) => {
-        const rd = b.residentDetails as any;
-        if (hmsPhone) {
-          const bPhone = normalizePhone(b.walkInPhone || rd?.phone || "");
-          if (bPhone && bPhone === hmsPhone) return true;
-        }
-        if (hmsEmail) {
-          const bEmail = (b.walkInEmail || rd?.email || "").toLowerCase().trim();
-          if (bEmail && bEmail === hmsEmail) return true;
-        }
-        return false;
-      });
-
-      if (!booking) continue;
-
-      const rd = booking.residentDetails as any;
-      const guestName = booking.walkInName || rd?.name || rd?.fullName || booking.bookingCode || "Unknown";
-
-      // Get HMS wallet balance (inline or per-resident fallback)
-      let hmsBalance = extractWalletBalance(hmsResident);
-      if (hmsBalance === null && hmsResident.id) {
-        hmsBalance = await fetchResidentWalletFallback(hmsResident.id);
-      }
-
-      if (hmsBalance === null) {
-        result.noWalletField++;
-        result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "no_wallet_field" });
-        continue;
-      }
-
-      // Compute local balance
-      const entries = await db.select().from(schema.walletLedger)
-        .where(eq(schema.walletLedger.bookingId, booking.id));
-      const localBalance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
-
-      const delta = hmsBalance - localBalance;
-      if (delta === 0) {
-        result.skipped++;
-        result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta: 0 });
-        continue;
-      }
-
+      // Each resident is wrapped in its own try/catch so one bad record never
+      // aborts the rest of the property or the overall job.
       try {
+        const hmsPhone = normalizePhone(hmsResident.phone);
+        const hmsEmail = (hmsResident.email || "").toLowerCase().trim();
+
+        // Match within this property only
+        const booking = propBookings.find((b: any) => {
+          const rd = b.residentDetails as any;
+          if (hmsPhone) {
+            const bPhone = normalizePhone(b.walkInPhone || rd?.phone || "");
+            if (bPhone && bPhone === hmsPhone) return true;
+          }
+          if (hmsEmail) {
+            const bEmail = (b.walkInEmail || rd?.email || "").toLowerCase().trim();
+            if (bEmail && bEmail === hmsEmail) return true;
+          }
+          return false;
+        });
+
+        if (!booking) continue;
+
+        const rd = booking.residentDetails as any;
+        const guestName = booking.walkInName || rd?.name || rd?.fullName || booking.bookingCode || "Unknown";
+
+        // ── Wallet balance extraction hierarchy ──────────────────────────────
+        // We probe the following field names in order because HostelFlow's API
+        // shape is not fixed in a published contract:
+        //   1. Inline resident object: walletBalance → wallet_balance →
+        //      walletCredit → wallet_credit → balance
+        //   2. Nested wallet sub-object: resident.wallet.balance / .walletBalance / .credit
+        //   3. Per-resident endpoint: GET /api/residents/:id/wallet
+        // If none yield a number, we record status "no_wallet_field" and skip.
+        // Check server startup log "[HMS Wallet Sync] Wallet-related keys found:"
+        // to see what HostelFlow actually sends for your deployment.
+        let hmsBalance = extractWalletBalance(hmsResident);
+        if (hmsBalance === null && hmsResident.id) {
+          hmsBalance = await fetchResidentWalletFallback(hmsResident.id);
+        }
+
+        if (hmsBalance === null) {
+          result.noWalletField++;
+          result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "no_wallet_field" });
+          continue;
+        }
+
+        // Compute local balance from ledger
+        const entries = await db.select().from(schema.walletLedger)
+          .where(eq(schema.walletLedger.bookingId, booking.id));
+        const localBalance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
+
+        const delta = hmsBalance - localBalance;
+        if (delta === 0) {
+          result.skipped++;
+          result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta: 0 });
+          continue;
+        }
+
         await db.insert(schema.walletLedger).values({
           bookingId: booking.id,
           credit: delta > 0 ? delta : 0,
@@ -247,9 +258,11 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
         console.log(`[HMS Wallet Sync] ${booking.bookingCode}: corrected ₹${localBalance} → ₹${newBalance} (${delta > 0 ? "+" : ""}${delta})`);
         result.synced++;
         result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "synced", previousBalance: localBalance, newBalance, delta });
-      } catch (insertErr: any) {
+      } catch (residentErr: any) {
+        // One bad resident must not abort the rest
+        console.warn(`[HMS Wallet Sync] Skipping resident (error): ${residentErr.message}`);
         result.errors++;
-        result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "error", error: insertErr.message });
+        result.details.push({ bookingCode: "-", name: hmsResident.name || hmsResident.email || "?", status: "error", error: residentErr.message });
       }
     }
   }
