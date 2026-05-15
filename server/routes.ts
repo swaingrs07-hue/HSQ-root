@@ -8208,24 +8208,37 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   }
 
   // Helper: sum monthly credit from active ala_cart_credit package items for a booking.
-  // Returns { amount, nextCreditDate } where nextCreditDate is the 1st of next month.
+  // Returns { amount, nextCreditDate } computed from each package's start date.
+  // The renewal job releases credits when monthsSinceStart >= 1, so the first credit fires
+  // 1 month after the package start month (e.g. June 1 start → first credit July 1).
   async function getPackageMonthlyCredit(bookingId: string): Promise<{ amount: number; nextCreditDate: string | null }> {
     const now = new Date();
     const activeBps = await db.select().from(schema.bookingPackages)
       .where(and(eq(schema.bookingPackages.bookingId, bookingId), eq(schema.bookingPackages.status, "ACTIVE")));
     let totalMonthly = 0;
+    let nearestNext: Date | null = null;
     for (const bp of activeBps) {
       if (!bp.packageId) continue;
       if (bp.endDate && new Date(bp.endDate) < now) continue;
       const items = await db.select().from(schema.packageItems)
         .where(eq(schema.packageItems.packageId, bp.packageId));
       const alacartItem = items.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
-      if (alacartItem) totalMonthly += alacartItem.includedQty;
+      if (!alacartItem) continue;
+      totalMonthly += alacartItem.includedQty;
+      // Compute next credit date from package start date
+      const sd = bp.startDate ? new Date(bp.startDate) : (bp.createdAt ? new Date(bp.createdAt) : null);
+      if (sd) {
+        // First credit fires 1 month after start month (renewal job requires monthsSinceStart >= 1)
+        const firstCredit = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth() + 1, 1));
+        // If first credit is still in the future, that's the next date; otherwise use 1st of next month
+        const nextCredit = firstCredit > now
+          ? firstCredit
+          : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+        if (!nearestNext || nextCredit < nearestNext) nearestNext = nextCredit;
+      }
     }
     if (totalMonthly === 0) return { amount: 0, nextCreditDate: null };
-    // Next credit = 1st of next month (renewal job fires every 6h and catches up each month)
-    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    return { amount: totalMonthly, nextCreditDate: next.toISOString().slice(0, 10) };
+    return { amount: totalMonthly, nextCreditDate: nearestNext ? nearestNext.toISOString().slice(0, 10) : null };
   }
 
   // Helper: compute next "1st of month" on or after a YYYY-MM-DD string
