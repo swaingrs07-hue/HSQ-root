@@ -8265,7 +8265,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         console.warn(`[Sync Wallet Debit] Insufficient available balance for ${booking.bookingCode}: available=${balance}, requested=${amount}`);
         return res.status(400).json({
           error: "Insufficient wallet balance (locked credits cannot be debited)",
-          availableBalance: balance,
+          currentBalance: balance,      // legacy field — backward compat for existing integrations
+          availableBalance: balance,    // preferred field name
           requestedAmount: amount,
           bookingCode: booking.bookingCode,
         });
@@ -8516,6 +8517,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         }
         if (itemLockedUntil && isNaN(new Date(itemLockedUntil).getTime())) {
           results.push({ status: "error", error: "lockedUntil is not a valid date string", bookingCode: booking.bookingCode, email, phone });
+          continue;
+        }
+        if (monthlyStartDate && isNaN(new Date(monthlyStartDate).getTime())) {
+          results.push({ status: "error", error: "monthlyStartDate is not a valid date string", bookingCode: booking.bookingCode, email, phone });
           continue;
         }
 
