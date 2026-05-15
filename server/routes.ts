@@ -8207,6 +8207,27 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     return { available, locked, lockedUntil: nearestLockedUntil };
   }
 
+  // Helper: sum monthly credit from active ala_cart_credit package items for a booking.
+  // Returns { amount, nextCreditDate } where nextCreditDate is the 1st of next month.
+  async function getPackageMonthlyCredit(bookingId: string): Promise<{ amount: number; nextCreditDate: string | null }> {
+    const now = new Date();
+    const activeBps = await db.select().from(schema.bookingPackages)
+      .where(and(eq(schema.bookingPackages.bookingId, bookingId), eq(schema.bookingPackages.status, "ACTIVE")));
+    let totalMonthly = 0;
+    for (const bp of activeBps) {
+      if (!bp.packageId) continue;
+      if (bp.endDate && new Date(bp.endDate) < now) continue;
+      const items = await db.select().from(schema.packageItems)
+        .where(eq(schema.packageItems.packageId, bp.packageId));
+      const alacartItem = items.find(i => i.type === "ala_cart_credit" && i.includedQty > 0);
+      if (alacartItem) totalMonthly += alacartItem.includedQty;
+    }
+    if (totalMonthly === 0) return { amount: 0, nextCreditDate: null };
+    // Next credit = 1st of next month (renewal job fires every 6h and catches up each month)
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    return { amount: totalMonthly, nextCreditDate: next.toISOString().slice(0, 10) };
+  }
+
   // Helper: compute next "1st of month" on or after a YYYY-MM-DD string
   function nextFirstOfMonth(dateStr: string): string {
     const d = new Date(dateStr + "T00:00:00Z");
@@ -13553,8 +13574,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const walletEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
       const { available, locked, lockedUntil } = computeWalletSummary(walletEntries);
-      const [monthlyPlan] = await db.select().from(schema.walletMonthlyPlans)
-        .where(and(eq(schema.walletMonthlyPlans.bookingId, req.params.bookingId), eq(schema.walletMonthlyPlans.active, true)));
+      const [[monthlyPlan], pkgMonthly] = await Promise.all([
+        db.select().from(schema.walletMonthlyPlans)
+          .where(and(eq(schema.walletMonthlyPlans.bookingId, req.params.bookingId), eq(schema.walletMonthlyPlans.active, true))),
+        getPackageMonthlyCredit(req.params.bookingId),
+      ]);
+      const crmMonthly = monthlyPlan?.monthlyAmount || 0;
+      const totalMonthlyCredit = crmMonthly + pkgMonthly.amount;
+      const effectiveNextCreditDate = monthlyPlan?.nextCreditDate || pkgMonthly.nextCreditDate || null;
 
       res.json({
         bookingPackages: result,
@@ -13563,8 +13590,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           available,
           locked,
           lockedUntil,
-          monthlyCredit: monthlyPlan?.monthlyAmount || 0,
-          nextCreditDate: monthlyPlan?.nextCreditDate || null,
+          monthlyCredit: totalMonthlyCredit,
+          nextCreditDate: effectiveNextCreditDate,
           entries: walletEntries,
         },
       });
@@ -13577,17 +13604,21 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   app.get("/api/admin/bookings/:bookingId/wallet/summary", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const bookingId = req.params.bookingId;
-      const [walletEntries, [monthlyPlan]] = await Promise.all([
+      const [walletEntries, [monthlyPlan], pkgMonthly] = await Promise.all([
         db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, bookingId)).orderBy(sql`${schema.walletLedger.createdAt} DESC`),
         db.select().from(schema.walletMonthlyPlans).where(and(eq(schema.walletMonthlyPlans.bookingId, bookingId), eq(schema.walletMonthlyPlans.active, true))),
+        getPackageMonthlyCredit(bookingId),
       ]);
       const { available, locked, lockedUntil } = computeWalletSummary(walletEntries);
+      const crmMonthly = monthlyPlan?.monthlyAmount || 0;
+      const totalMonthlyCredit = crmMonthly + pkgMonthly.amount;
+      const effectiveNextCreditDate = monthlyPlan?.nextCreditDate || pkgMonthly.nextCreditDate || null;
       res.json({
         available,
         locked,
         lockedUntil,
-        monthlyCredit: monthlyPlan?.monthlyAmount || 0,
-        nextCreditDate: monthlyPlan?.nextCreditDate || null,
+        monthlyCredit: totalMonthlyCredit,
+        nextCreditDate: effectiveNextCreditDate,
         ledger: walletEntries.map(e => ({
           id: e.id,
           credit: e.credit,
