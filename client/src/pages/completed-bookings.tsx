@@ -465,8 +465,18 @@ export default function CompletedBookings() {
     setLoadingPackages(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`/api/admin/bookings/${bookingId}/packages`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setBookingPackages(await res.json());
+      const [pkgRes, summaryRes] = await Promise.all([
+        fetch(`/api/admin/bookings/${bookingId}/packages`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/admin/bookings/${bookingId}/wallet/summary`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (pkgRes.ok) {
+        const pkgData = await pkgRes.json();
+        if (summaryRes.ok) {
+          const walletSummary = await summaryRes.json();
+          pkgData.wallet = { ...pkgData.wallet, ...walletSummary };
+        }
+        setBookingPackages(pkgData);
+      }
     } catch { }
     setLoadingPackages(false);
   };

@@ -461,12 +461,12 @@ async function startWalletUnlockJob() {
 
   async function unlockCredits() {
     try {
-      const result = await db.execute(
-        sql`UPDATE wallet_ledger SET locked_until = NULL WHERE locked_until IS NOT NULL AND locked_until <= NOW() AND credit > 0`
-      );
-      const count = (result as any).rowCount ?? 0;
-      if (count > 0) {
-        log(`Wallet unlock: ${count} credit entry(ies) unlocked`, "background");
+      const unlocked = await db.update(schema.walletLedger)
+        .set({ lockedUntil: null })
+        .where(sql`${schema.walletLedger.lockedUntil} IS NOT NULL AND ${schema.walletLedger.lockedUntil} <= NOW() AND ${schema.walletLedger.credit} > 0`)
+        .returning({ id: schema.walletLedger.id });
+      if (unlocked.length > 0) {
+        log(`Wallet unlock: ${unlocked.length} credit entry(ies) unlocked`, "background");
       }
     } catch (error) {
       log(`Error in wallet unlock job: ${error}`, "background");

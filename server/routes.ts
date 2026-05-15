@@ -8509,6 +8509,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         let ledgerEntry: any;
         const itemResult: any = { bookingCode: booking.bookingCode };
 
+        // Validate three-type mode fields before entering
+        if (typeof newBatchCredit === "number" && newBatchCredit > 0 && !itemLockedUntil) {
+          results.push({ status: "error", error: "newBatchCredit requires a lockedUntil date (ISO string)", bookingCode: booking.bookingCode, email, phone });
+          continue;
+        }
+        if (itemLockedUntil && isNaN(new Date(itemLockedUntil).getTime())) {
+          results.push({ status: "error", error: "lockedUntil is not a valid date string", bookingCode: booking.bookingCode, email, phone });
+          continue;
+        }
+
         // ── Mode 3: Three-type CRM credit (new batch system) ──────────────────
         const isThreeTypeMode = (typeof oldBatchCredit === "number" && oldBatchCredit > 0)
           || (typeof newBatchCredit === "number" && newBatchCredit > 0)
