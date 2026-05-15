@@ -8207,6 +8207,57 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     return { available, locked, lockedUntil: nearestLockedUntil };
   }
 
+  // ── Outbound HMS wallet push ──────────────────────────────────────────────────
+  // After the CRM updates our local ledger, mirror the new available balance to HMS
+  // so both systems stay in step. Fire-and-forget: failures are logged but never
+  // block the response back to the CRM.
+  async function pushWalletBalanceToHms(
+    phone: string | null | undefined,
+    email: string | null | undefined,
+    bookingCode: string,
+    newAvailableBalance: number,
+    source: string = "wallet-update",
+  ): Promise<void> {
+    try {
+      const baseUrl = (process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app").replace(/\/+$/, "");
+      const apiKey = process.env.HMS_API_KEY || process.env.HOSTEL_FLOW_API_KEY;
+      if (!apiKey) {
+        console.warn(`[HMS Wallet Push] ${bookingCode}: no HMS API key configured — skipping push`);
+        return;
+      }
+      const identifier: Record<string, string> = {};
+      if (email) identifier.email = email;
+      else if (phone) identifier.phone = phone;
+      else {
+        console.warn(`[HMS Wallet Push] ${bookingCode}: no phone/email — skipping push`);
+        return;
+      }
+      const eventId = `crm-push-${bookingCode}-${Date.now()}`;
+      const body = {
+        eventId,
+        items: [{
+          ...identifier,
+          balance: newAvailableBalance,
+          description: `CRM wallet push (${source})`,
+        }],
+      };
+      const res = await fetch(`${baseUrl}/sync/wallet-update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        console.log(`[HMS Wallet Push] ${bookingCode}: available ₹${newAvailableBalance} pushed to HMS (${source})`);
+      } else {
+        const text = await res.text().catch(() => "");
+        console.warn(`[HMS Wallet Push] ${bookingCode}: HMS returned ${res.status} — ${text.slice(0, 200)}`);
+      }
+    } catch (err: any) {
+      console.warn(`[HMS Wallet Push] ${bookingCode}: push failed — ${err.message}`);
+    }
+  }
+
   // Helper: sum monthly credit from active ala_cart_credit package items for a booking.
   // Returns { amount, nextCreditDate } computed from each package's start date.
   // The renewal job releases credits when monthsSinceStart >= 1, so the first credit fires
@@ -8625,6 +8676,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             console.log(`[Sync Wallet Update] ${booking.bookingCode}: monthly plan ₹${monthlyCredit}/mo, next on ${nextDate}`);
           }
 
+          // Fire-and-forget push to HMS — only available (old_batch) credits go over now;
+          // locked (new_batch) credits stay locked in HMS too until unlocked locally.
+          const rd3 = booking.residentDetails as any;
+          const hmsEmail3 = email || booking.walkInEmail || rd3?.email || null;
+          const hmsPhone3 = phone || booking.walkInPhone || rd3?.phone || null;
+          const newAvailable3 = currentBalance + (itemResult.oldBatchApplied || 0);
+          setImmediate(() => pushWalletBalanceToHms(hmsPhone3, hmsEmail3, booking.bookingCode, newAvailable3, "three-type-credit"));
+
           results.push(itemResult);
           continue;
         }
@@ -8647,6 +8706,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           }).returning();
           const newBalance = currentBalance + delta;
           console.log(`[Sync Wallet Update] ${booking.bookingCode}: balance set ${currentBalance} → ${newBalance} (delta ${delta > 0 ? "+" : ""}${delta})`);
+          const rd1 = booking.residentDetails as any;
+          setImmediate(() => pushWalletBalanceToHms(phone || booking.walkInPhone || rd1?.phone, email || booking.walkInEmail || rd1?.email, booking.bookingCode, newBalance, "balance-correction"));
           results.push({ status: "adjusted", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
 
         // ── Mode 2: add credit amount ──────────────────────────────────────────
@@ -8662,6 +8723,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           }).returning();
           const newBalance = currentBalance + amount;
           console.log(`[Sync Wallet Update] ${booking.bookingCode}: credited ₹${amount}, new balance ₹${newBalance}`);
+          const rd2 = booking.residentDetails as any;
+          setImmediate(() => pushWalletBalanceToHms(phone || booking.walkInPhone || rd2?.phone, email || booking.walkInEmail || rd2?.email, booking.bookingCode, newBalance, "top-up"));
           results.push({ status: "credited", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
 
         } else {
