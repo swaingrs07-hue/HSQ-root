@@ -8259,13 +8259,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
-      const balance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+      const { available: balance } = computeWalletSummary(entries);
 
       if (amount > balance) {
-        console.warn(`[Sync Wallet Debit] Insufficient balance for ${booking.bookingCode}: balance=${balance}, requested=${amount}`);
+        console.warn(`[Sync Wallet Debit] Insufficient available balance for ${booking.bookingCode}: available=${balance}, requested=${amount}`);
         return res.status(400).json({
-          error: "Insufficient wallet balance",
-          currentBalance: balance,
+          error: "Insufficient wallet balance (locked credits cannot be debited)",
+          availableBalance: balance,
           requestedAmount: amount,
           bookingCode: booking.bookingCode,
         });

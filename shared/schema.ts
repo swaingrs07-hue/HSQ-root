@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, pgEnum, jsonb, uniqueIndex, index, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1407,8 +1407,8 @@ export const walletMonthlyPlans = pgTable("wallet_monthly_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
   monthlyAmount: integer("monthly_amount").notNull().default(0),
-  startDate: text("start_date").notNull(),          // "YYYY-MM-DD" — when the plan starts
-  nextCreditDate: text("next_credit_date").notNull(), // "YYYY-MM-DD" — next release date
+  startDate: date("start_date").notNull(),          // SQL date — when the plan starts
+  nextCreditDate: date("next_credit_date").notNull(), // SQL date — next release date
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
