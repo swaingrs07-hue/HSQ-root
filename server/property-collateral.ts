@@ -511,8 +511,8 @@ export async function generatePropertyBrochurePdf(propertyId: string, options: B
       body: "Every Hsquare property is hand-picked for safety, design, and proximity to leading colleges and transit.",
     },
     {
-      title: "Flexible Stays",
-      body: "Choose monthly, semester, or annual plans with transparent pricing and zero hidden fees.",
+      title: "Academic Plans",
+      body: "Choose semester or annual plans designed around your academic calendar — transparent pricing, zero hidden fees.",
     },
     {
       title: "On-Demand Care",
@@ -1042,7 +1042,7 @@ export async function generatePropertyBrochurePpt(propertyId: string, options: B
 
   const pillars = [
     { title: "Curated Residences", body: "Every Hsquare property is hand-picked for safety, design, and proximity to leading colleges and transit." },
-    { title: "Flexible Stays", body: "Choose monthly, semester, or annual plans with transparent pricing and zero hidden fees." },
+    { title: "Academic Plans", body: "Choose semester or annual plans designed around your academic calendar — transparent pricing, zero hidden fees." },
     { title: "On-Demand Care", body: "A dedicated 24/7 service team trained for everything from maintenance and laundry to meals." },
   ];
   const pillarY = 4.5;
