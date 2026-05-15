@@ -312,6 +312,10 @@ app.use((req, res, next) => {
       import("./hms-wallet-sync").then(({ startHmsWalletSyncJob }) => {
         startHmsWalletSyncJob();
       }).catch((e) => log(`Failed to start HMS wallet sync job: ${e}`, "background"));
+      // Unlock locked wallet credits when their lockedUntil date arrives
+      startWalletUnlockJob();
+      // Release monthly CRM wallet credits on schedule
+      startCrmWalletMonthlyJob();
     },
   );
 })();
@@ -449,6 +453,77 @@ async function startFollowUpNotificationJob() {
   // Then run every CHECK_INTERVAL_MS
   setInterval(checkOverdueFollowUps, CHECK_INTERVAL_MS);
   log(`Follow-up notification job started (runs every 15 minutes)`, "background");
+}
+
+// Background job: unlock wallet_ledger entries when lockedUntil arrives
+async function startWalletUnlockJob() {
+  const CHECK_INTERVAL_MS = 60 * 60 * 1000; // every hour
+
+  async function unlockCredits() {
+    try {
+      const result = await db.execute(
+        sql`UPDATE wallet_ledger SET locked_until = NULL WHERE locked_until IS NOT NULL AND locked_until <= NOW() AND credit > 0`
+      );
+      const count = (result as any).rowCount ?? 0;
+      if (count > 0) {
+        log(`Wallet unlock: ${count} credit entry(ies) unlocked`, "background");
+      }
+    } catch (error) {
+      log(`Error in wallet unlock job: ${error}`, "background");
+    }
+  }
+
+  await unlockCredits();
+  setInterval(unlockCredits, CHECK_INTERVAL_MS);
+  log("Wallet unlock job started (runs every hour)", "background");
+}
+
+// Background job: release monthly CRM wallet credits on schedule
+async function startCrmWalletMonthlyJob() {
+  const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
+
+  async function releaseMonthlyCrmCredits() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const duePlans = await db.select().from(schema.walletMonthlyPlans)
+        .where(and(
+          eq(schema.walletMonthlyPlans.active, true),
+          sql`${schema.walletMonthlyPlans.nextCreditDate} <= ${today}`,
+        ));
+
+      if (duePlans.length === 0) return;
+
+      let released = 0;
+      for (const plan of duePlans) {
+        await db.insert(schema.walletLedger).values({
+          bookingId: plan.bookingId,
+          credit: plan.monthlyAmount,
+          debit: 0,
+          refType: "monthly_release",
+          creditType: "monthly_release",
+          refId: plan.id,
+          note: `Monthly CRM credit ₹${plan.monthlyAmount}`,
+        });
+        // Advance nextCreditDate by one month
+        const d = new Date(plan.nextCreditDate + "T00:00:00Z");
+        const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+        await db.update(schema.walletMonthlyPlans)
+          .set({ nextCreditDate: next.toISOString().slice(0, 10) })
+          .where(eq(schema.walletMonthlyPlans.id, plan.id));
+        released++;
+      }
+
+      if (released > 0) {
+        log(`CRM monthly wallet credits: released ${released} plan(s)`, "background");
+      }
+    } catch (error) {
+      log(`Error in CRM monthly wallet job: ${error}`, "background");
+    }
+  }
+
+  await releaseMonthlyCrmCredits();
+  setInterval(releaseMonthlyCrmCredits, CHECK_INTERVAL_MS);
+  log("CRM wallet monthly credit job started (runs every 6 hours)", "background");
 }
 
 // Background job for monthly wallet credit auto-renewal

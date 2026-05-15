@@ -7245,7 +7245,7 @@ ${allPages.map(p => `  <url>
         const walletEntries = allWalletEntries.filter(w => w.bookingId === b.id);
 
         const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
-        const walletBalance = walletEntries.reduce((sum, w) => sum + (w.credit || 0) - (w.debit || 0), 0);
+        const { available: walletBalance } = computeWalletSummary(walletEntries);
 
         return {
           bookingCode: b.bookingCode,
@@ -7490,7 +7490,7 @@ ${allPages.map(p => `  <url>
 
       const rd = booking.residentDetails as any;
       const totalPaid = payments.filter(p => p.status === "success").reduce((sum, p) => sum + (p.amount || 0), 0);
-      const walletBalance = walletEntries.reduce((sum, w) => sum + (w.credit || 0) - (w.debit || 0), 0);
+      const { available: walletBalance } = computeWalletSummary(walletEntries);
 
       const { resolvePublicUrl: resolveUrl } = await import("./hms-sync.js");
 
@@ -8184,6 +8184,44 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // ── Wallet balance computation helpers ───────────────────────────────────────
+  // "Available" = entries where lockedUntil IS NULL or lockedUntil <= now.
+  // "Locked"    = entries where lockedUntil IS NOT NULL and lockedUntil > now.
+  // Debits always reduce the available bucket; locked credits can't be debited.
+  function computeWalletSummary(entries: any[]) {
+    const now = new Date();
+    let available = 0;
+    let locked = 0;
+    let nearestLockedUntil: Date | null = null;
+    for (const e of entries) {
+      const lockDate = e.lockedUntil ? new Date(e.lockedUntil) : null;
+      if (lockDate && lockDate > now) {
+        locked += (e.credit || 0);
+        if (!nearestLockedUntil || lockDate < nearestLockedUntil) {
+          nearestLockedUntil = lockDate;
+        }
+      } else {
+        available += (e.credit || 0) - (e.debit || 0);
+      }
+    }
+    return { available, locked, lockedUntil: nearestLockedUntil };
+  }
+
+  // Helper: compute next "1st of month" on or after a YYYY-MM-DD string
+  function nextFirstOfMonth(dateStr: string): string {
+    const d = new Date(dateStr + "T00:00:00Z");
+    if (d.getUTCDate() === 1) return dateStr;
+    const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+    return next.toISOString().slice(0, 10);
+  }
+
+  // Helper: advance a YYYY-MM-DD "first of month" date by one month
+  function advanceOneMonth(dateStr: string): string {
+    const d = new Date(dateStr + "T00:00:00Z");
+    const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+    return next.toISOString().slice(0, 10);
+  }
+
   app.post("/sync/wallet-debit", hmsApiKeyAuth, async (req: any, res) => {
     try {
       const { bookingCode, phone, amount, orderId, orderType, itemName, note, eventId } = req.body;
@@ -8364,11 +8402,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
-      const balance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+      const { available, locked, lockedUntil } = computeWalletSummary(entries);
+      const balance = available; // available = spendable balance
 
       res.json({
         bookingCode: booking.bookingCode,
         balance,
+        available,
+        locked,
+        lockedUntil,
         totalCredits: entries.reduce((acc: number, e: any) => acc + e.credit, 0),
         totalDebits: entries.reduce((acc: number, e: any) => acc + e.debit, 0),
         transactionCount: entries.length,
@@ -8379,6 +8421,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           refType: e.refType,
           refId: e.refId,
           note: e.note,
+          lockedUntil: e.lockedUntil,
+          creditType: e.creditType,
           createdAt: e.createdAt,
         })),
       });
@@ -8416,7 +8460,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const results: any[] = [];
 
       for (const item of items) {
-        const { email, phone, amount, balance: targetBalance, type, description } = item;
+        const {
+          email, phone,
+          // Legacy modes
+          amount, balance: targetBalance, type, description,
+          // Three-type credit mode
+          oldBatchCredit, newBatchCredit, lockedUntil: itemLockedUntil,
+          monthlyCredit, monthlyStartDate,
+        } = item;
 
         if (!email && !phone) {
           results.push({ status: "error", error: "email or phone is required per item", item });
@@ -8451,14 +8502,86 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           continue;
         }
 
-        // Current balance
+        // Current balance (for modes that need it)
         const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
-        const currentBalance = entries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+        const { available: currentBalance } = computeWalletSummary(entries);
 
         let ledgerEntry: any;
+        const itemResult: any = { bookingCode: booking.bookingCode };
 
+        // ── Mode 3: Three-type CRM credit (new batch system) ──────────────────
+        const isThreeTypeMode = (typeof oldBatchCredit === "number" && oldBatchCredit > 0)
+          || (typeof newBatchCredit === "number" && newBatchCredit > 0)
+          || (typeof monthlyCredit === "number" && monthlyCredit > 0);
+
+        if (isThreeTypeMode) {
+          itemResult.status = "credited";
+          itemResult.oldBatchApplied = 0;
+          itemResult.newBatchLocked = 0;
+          itemResult.monthlyPlanSet = false;
+
+          // 3a. Old batch credit — available immediately
+          if (typeof oldBatchCredit === "number" && oldBatchCredit > 0) {
+            await db.insert(schema.walletLedger).values({
+              bookingId: booking.id,
+              credit: oldBatchCredit,
+              debit: 0,
+              refType: "old_batch_credit",
+              creditType: "old_batch",
+              note: `Old batch credit (CRM)`,
+            });
+            itemResult.oldBatchApplied = oldBatchCredit;
+            console.log(`[Sync Wallet Update] ${booking.bookingCode}: old batch +₹${oldBatchCredit}`);
+          }
+
+          // 3b. New batch credit — locked until move-in date
+          if (typeof newBatchCredit === "number" && newBatchCredit > 0 && itemLockedUntil) {
+            const lockDate = new Date(itemLockedUntil);
+            await db.insert(schema.walletLedger).values({
+              bookingId: booking.id,
+              credit: newBatchCredit,
+              debit: 0,
+              refType: "new_batch_credit",
+              creditType: "new_batch",
+              lockedUntil: lockDate,
+              note: `New batch credit locked until ${lockDate.toDateString()} (CRM)`,
+            });
+            itemResult.newBatchLocked = newBatchCredit;
+            itemResult.lockedUntil = lockDate;
+            console.log(`[Sync Wallet Update] ${booking.bookingCode}: new batch +₹${newBatchCredit} locked until ${lockDate.toDateString()}`);
+          }
+
+          // 3c. Monthly credit plan — upsert walletMonthlyPlans
+          if (typeof monthlyCredit === "number" && monthlyCredit > 0) {
+            const startStr = monthlyStartDate || new Date().toISOString().slice(0, 10);
+            const nextDate = nextFirstOfMonth(startStr);
+            const [existingPlan] = await db.select().from(schema.walletMonthlyPlans)
+              .where(eq(schema.walletMonthlyPlans.bookingId, booking.id));
+            if (existingPlan) {
+              await db.update(schema.walletMonthlyPlans)
+                .set({ monthlyAmount: monthlyCredit, startDate: startStr, nextCreditDate: nextDate, active: true })
+                .where(eq(schema.walletMonthlyPlans.id, existingPlan.id));
+            } else {
+              await db.insert(schema.walletMonthlyPlans).values({
+                bookingId: booking.id,
+                monthlyAmount: monthlyCredit,
+                startDate: startStr,
+                nextCreditDate: nextDate,
+                active: true,
+              });
+            }
+            itemResult.monthlyPlanSet = true;
+            itemResult.monthlyCredit = monthlyCredit;
+            itemResult.nextCreditDate = nextDate;
+            console.log(`[Sync Wallet Update] ${booking.bookingCode}: monthly plan ₹${monthlyCredit}/mo, next on ${nextDate}`);
+          }
+
+          results.push(itemResult);
+          continue;
+        }
+
+        // ── Mode 1: set wallet to exact available balance ──────────────────────
         if (typeof targetBalance === "number") {
-          // Mode 1: set wallet to exact total balance
           const delta = targetBalance - currentBalance;
           if (delta === 0) {
             results.push({ status: "skipped", reason: "balance already correct", bookingCode: booking.bookingCode, currentBalance });
@@ -8470,20 +8593,22 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
             credit: delta > 0 ? delta : 0,
             debit: delta < 0 ? Math.abs(delta) : 0,
             refType: "balance_correction",
+            creditType: "balance_correction",
             note,
           }).returning();
           const newBalance = currentBalance + delta;
           console.log(`[Sync Wallet Update] ${booking.bookingCode}: balance set ${currentBalance} → ${newBalance} (delta ${delta > 0 ? "+" : ""}${delta})`);
           results.push({ status: "adjusted", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
 
+        // ── Mode 2: add credit amount ──────────────────────────────────────────
         } else if (typeof amount === "number" && amount > 0 && type === "credit") {
-          // Mode 2: add credit amount
           const note = description || `Wallet top-up via CRM`;
           [ledgerEntry] = await db.insert(schema.walletLedger).values({
             bookingId: booking.id,
             credit: amount,
             debit: 0,
             refType: "wallet_topup",
+            creditType: "manual",
             note,
           }).returning();
           const newBalance = currentBalance + amount;
@@ -8491,7 +8616,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           results.push({ status: "credited", bookingCode: booking.bookingCode, previousBalance: currentBalance, newBalance, ledgerEntryId: ledgerEntry.id });
 
         } else {
-          results.push({ status: "error", error: "Provide either balance (number) or amount + type:\"credit\"", item });
+          results.push({ status: "error", error: "Provide oldBatchCredit/newBatchCredit/monthlyCredit, or balance (number), or amount + type:\"credit\"", item });
           continue;
         }
       }
@@ -13412,11 +13537,55 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       const walletEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
-      const walletBalance = walletEntries.reduce((acc, e) => acc + e.credit - e.debit, 0);
+      const { available, locked, lockedUntil } = computeWalletSummary(walletEntries);
+      const [monthlyPlan] = await db.select().from(schema.walletMonthlyPlans)
+        .where(and(eq(schema.walletMonthlyPlans.bookingId, req.params.bookingId), eq(schema.walletMonthlyPlans.active, true)));
 
-      res.json({ bookingPackages: result, wallet: { balance: walletBalance, entries: walletEntries } });
+      res.json({
+        bookingPackages: result,
+        wallet: {
+          balance: available,    // backward-compat: balance = available (spendable)
+          available,
+          locked,
+          lockedUntil,
+          monthlyCredit: monthlyPlan?.monthlyAmount || 0,
+          nextCreditDate: monthlyPlan?.nextCreditDate || null,
+          entries: walletEntries,
+        },
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch booking packages" });
+    }
+  });
+
+  // ── Wallet summary endpoint (Available / Locked / Monthly plan) ─────────────
+  app.get("/api/admin/bookings/:bookingId/wallet/summary", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
+    try {
+      const bookingId = req.params.bookingId;
+      const [walletEntries, [monthlyPlan]] = await Promise.all([
+        db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, bookingId)).orderBy(sql`${schema.walletLedger.createdAt} DESC`),
+        db.select().from(schema.walletMonthlyPlans).where(and(eq(schema.walletMonthlyPlans.bookingId, bookingId), eq(schema.walletMonthlyPlans.active, true))),
+      ]);
+      const { available, locked, lockedUntil } = computeWalletSummary(walletEntries);
+      res.json({
+        available,
+        locked,
+        lockedUntil,
+        monthlyCredit: monthlyPlan?.monthlyAmount || 0,
+        nextCreditDate: monthlyPlan?.nextCreditDate || null,
+        ledger: walletEntries.map(e => ({
+          id: e.id,
+          credit: e.credit,
+          debit: e.debit,
+          refType: e.refType,
+          creditType: e.creditType,
+          lockedUntil: e.lockedUntil,
+          note: e.note,
+          createdAt: e.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch wallet summary" });
     }
   });
 
@@ -13674,13 +13843,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const { amount, note } = req.body;
       if (!amount || amount <= 0) return res.status(400).json({ error: "Valid amount required" });
       const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId));
-      const balance = entries.reduce((acc, e) => acc + e.credit - e.debit, 0);
-      if (amount > balance) return res.status(400).json({ error: "Insufficient wallet balance" });
+      const { available: balance } = computeWalletSummary(entries);
+      if (amount > balance) return res.status(400).json({ error: "Insufficient wallet balance (locked credits cannot be debited)" });
       const [entry] = await db.insert(schema.walletLedger).values({
         bookingId: req.params.bookingId,
         credit: 0,
         debit: amount,
         refType: "manual_debit",
+        creditType: "manual_debit",
         note: note || "Manual debit",
       }).returning();
       autoResyncBookingToHms(req.params.bookingId, "wallet-debit");

@@ -2456,17 +2456,34 @@ export default function CompletedBookings() {
                               </div>);
                             })()}
                             {bookingPackages?.wallet && (
-                              <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-lg border border-amber-100">
-                                <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-amber-600" /><span className="text-xs font-medium text-amber-800">Wallet Balance</span></div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-amber-700">₹{(bookingPackages.wallet.balance||0).toLocaleString("en-IN")}</span>
-                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true);setWalletForm({type:"topup",amount:0,note:""}); }} data-testid="button-wallet">Manage</Button>
-                                  {bookingPackages.wallet.balance===0&&bookingPackages?.bookingPackages?.some((bp:any)=>bp.status==="ACTIVE")&&(
-                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-blue-200 text-blue-600" onClick={syncWalletCredits} disabled={syncingCredits} data-testid="button-sync-credits">
-                                      {syncingCredits?<Loader2 className="h-3 w-3 animate-spin"/>:<RefreshCw className="h-3 w-3"/>}<span className="ml-1">Sync</span>
-                                    </Button>
-                                  )}
+                              <div className="rounded-lg border border-amber-100 bg-amber-50 p-2.5 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-amber-600" /><span className="text-xs font-semibold text-amber-800">Wallet</span></div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-amber-200 text-amber-700" onClick={() => { setWalletDialog(true);setWalletForm({type:"topup",amount:0,note:""}); }} data-testid="button-wallet">Manage</Button>
+                                    {bookingPackages.wallet.balance===0&&bookingPackages?.bookingPackages?.some((bp:any)=>bp.status==="ACTIVE")&&(
+                                      <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 border-blue-200 text-blue-600" onClick={syncWalletCredits} disabled={syncingCredits} data-testid="button-sync-credits">
+                                        {syncingCredits?<Loader2 className="h-3 w-3 animate-spin"/>:<RefreshCw className="h-3 w-3"/>}<span className="ml-1">Sync</span>
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-600">Available</span>
+                                  <span className="font-bold text-amber-700" data-testid="text-wallet-available">₹{((bookingPackages.wallet.available ?? bookingPackages.wallet.balance) || 0).toLocaleString("en-IN")}</span>
+                                </div>
+                                {(bookingPackages.wallet.locked > 0) && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-500">Locked{bookingPackages.wallet.lockedUntil ? ` (unlocks ${format(new Date(bookingPackages.wallet.lockedUntil), "dd MMM yyyy")})` : ""}</span>
+                                    <span className="font-medium text-slate-500" data-testid="text-wallet-locked">₹{(bookingPackages.wallet.locked).toLocaleString("en-IN")}</span>
+                                  </div>
+                                )}
+                                {(bookingPackages.wallet.monthlyCredit > 0) && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-500">Monthly{bookingPackages.wallet.nextCreditDate ? ` (next ${format(new Date(bookingPackages.wallet.nextCreditDate + "T00:00:00Z"), "dd MMM yyyy")})` : ""}</span>
+                                    <span className="font-medium text-emerald-600" data-testid="text-wallet-monthly">₹{(bookingPackages.wallet.monthlyCredit).toLocaleString("en-IN")}/mo</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                             <div className="flex gap-2">

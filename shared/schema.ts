@@ -1391,6 +1391,25 @@ export const walletLedger = pgTable("wallet_ledger", {
   refType: text("ref_type"),
   refId: varchar("ref_id"),
   note: text("note"),
+  // Three-type wallet credit system fields:
+  // null = immediately available; set = credit is locked until this timestamp
+  lockedUntil: timestamp("locked_until"),
+  // old_batch | new_batch | monthly_release | manual_topup | manual_debit |
+  // balance_correction | package_credit | package_credit_renewal | wallet_topup
+  creditType: text("credit_type"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Stores monthly credit plan configuration pushed by the CRM for each booking.
+// A background job reads this table and releases monthlyAmount on the 1st of
+// each month starting from nextCreditDate.
+export const walletMonthlyPlans = pgTable("wallet_monthly_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }).notNull(),
+  monthlyAmount: integer("monthly_amount").notNull().default(0),
+  startDate: text("start_date").notNull(),          // "YYYY-MM-DD" — when the plan starts
+  nextCreditDate: text("next_credit_date").notNull(), // "YYYY-MM-DD" — next release date
+  active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1446,6 +1465,10 @@ export type InsertPackageUsage = z.infer<typeof insertPackageUsageSchema>;
 export const insertWalletLedgerSchema = createInsertSchema(walletLedger).omit({ id: true, createdAt: true });
 export type WalletLedgerEntry = typeof walletLedger.$inferSelect;
 export type InsertWalletLedger = z.infer<typeof insertWalletLedgerSchema>;
+
+export const insertWalletMonthlyPlanSchema = createInsertSchema(walletMonthlyPlans).omit({ id: true, createdAt: true });
+export type WalletMonthlyPlan = typeof walletMonthlyPlans.$inferSelect;
+export type InsertWalletMonthlyPlan = z.infer<typeof insertWalletMonthlyPlanSchema>;
 
 export const insertPackageUpgradeSchema = createInsertSchema(packageUpgrades).omit({ id: true, createdAt: true });
 export type PackageUpgrade = typeof packageUpgrades.$inferSelect;
