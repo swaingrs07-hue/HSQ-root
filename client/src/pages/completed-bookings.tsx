@@ -1154,7 +1154,11 @@ export default function CompletedBookings() {
     y += 4;
     drawHeader("FEE BREAKDOWN");
     drawRow("Base Fee", `Rs. ${(booking.baseFee || 0).toLocaleString("en-IN")}`);
-    if ((booking.deposit || 0) > 0) drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
+    if ((booking.deposit || 0) > 0) {
+      const sdStatus = booking.depositType === "waived" ? "WAIVED" : (booking.depositReceived ? "RECEIVED" : "PENDING");
+      drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
+      drawRow("SD Status", sdStatus);
+    }
     if ((booking.discount || 0) > 0) drawRow("Discount", `- Rs. ${booking.discount.toLocaleString("en-IN")}`);
     drawRow("Total Fee", `Rs. ${(booking.totalFee || 0).toLocaleString("en-IN")}`, true);
 

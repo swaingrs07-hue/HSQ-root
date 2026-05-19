@@ -162,6 +162,8 @@ interface BookingEmailData {
   bookingId: string;
   bookingCode: string;
   totalFee: string;
+  depositAmount?: string;
+  depositStatus?: string;
   includedServicesHtml: string;
 }
 
@@ -242,6 +244,13 @@ function buildConfirmationEmailHtml(data: BookingEmailData): string {
                           <span style="color:#ffffff;font-size:15px;font-weight:600;">${checkInFormatted}</span>
                         </td>
                       </tr>
+                      ${data.depositAmount ? `<tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Security Deposit</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.depositAmount}</span>
+                          <span style="display:inline-block;margin-left:10px;background:${data.depositStatus === 'RECEIVED' ? 'rgba(16,185,129,0.15)' : data.depositStatus === 'WAIVED' ? 'rgba(148,163,184,0.15)' : 'rgba(245,158,11,0.15)'};color:${data.depositStatus === 'RECEIVED' ? '#10b981' : data.depositStatus === 'WAIVED' ? '#94a3b8' : '#f59e0b'};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;vertical-align:middle;">${data.depositStatus}</span>
+                        </td>
+                      </tr>` : ''}
                       <tr>
                         <td style="padding:10px 0;">
                           <span style="color:rgba(255,255,255,0.5);font-size:13px;">Total Fee</span><br>
@@ -378,6 +387,7 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       : [];
     const includedServicesHtml = await buildIncludedServicesHtml(booking.id, propertyIncludedServices);
 
+    const depositAmt = Number((booking as any).deposit || 0);
     const emailData: BookingEmailData = {
       residentName,
       residentEmail,
@@ -388,6 +398,10 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       bookingId: booking.id,
       bookingCode: booking.bookingCode || booking.id,
       totalFee,
+      depositAmount: depositAmt > 0 ? `₹${depositAmt.toLocaleString("en-IN")}` : undefined,
+      depositStatus: depositAmt > 0
+        ? ((booking as any).depositType === "waived" ? "WAIVED" : ((booking as any).depositReceived ? "RECEIVED" : "PENDING"))
+        : undefined,
       includedServicesHtml,
     };
 

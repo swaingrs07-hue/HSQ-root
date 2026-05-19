@@ -207,7 +207,11 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
   y += 4;
   drawHeader("FEE BREAKDOWN");
   drawRow("Base Fee", `Rs. ${(booking.baseFee || 0).toLocaleString("en-IN")}`);
-  if ((booking.deposit || 0) > 0) drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
+  if ((booking.deposit || 0) > 0) {
+    const sdStatus = (booking as any).depositType === "waived" ? "WAIVED" : ((booking as any).depositReceived ? "RECEIVED" : "PENDING");
+    drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
+    drawRow("SD Status", sdStatus);
+  }
   if ((booking.discount || 0) > 0) drawRow("Discount", `- Rs. ${Number(booking.discount).toLocaleString("en-IN")}`);
 
   const mic = property?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;

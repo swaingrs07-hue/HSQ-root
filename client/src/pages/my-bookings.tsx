@@ -190,7 +190,11 @@ export default function MyBookings() {
     y += 4;
     drawHeader("FEE BREAKDOWN");
     drawRow("Base Fee", `Rs. ${(b.baseFee || 0).toLocaleString("en-IN")}`);
-    if ((b.deposit || 0) > 0) drawRow("Security Deposit", `Rs. ${b.deposit.toLocaleString("en-IN")}`);
+    if ((b.deposit || 0) > 0) {
+      const sdStatus = b.depositType === "waived" ? "WAIVED" : (b.depositReceived ? "RECEIVED" : "PENDING");
+      drawRow("Security Deposit", `Rs. ${b.deposit.toLocaleString("en-IN")}`);
+      drawRow("SD Status", sdStatus);
+    }
     if ((b.discount || 0) > 0) drawRow("Discount", `- Rs. ${b.discount.toLocaleString("en-IN")}`);
     drawRow("Total Fee", `Rs. ${(b.totalFee || 0).toLocaleString("en-IN")}`, true);
 
