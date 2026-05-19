@@ -142,14 +142,18 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
     y += 14;
   };
 
-  const drawRow = (label: string, value: string, bold = false) => {
+  const drawRow = (label: string, value: string, bold = false, valueColor?: [number, number, number]) => {
     if (!value || value === "N/A" || value === "" || value === "undefined") return;
     checkPage(12);
     doc.setTextColor(120, 120, 120);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(label, m + 5, y);
-    doc.setTextColor(30, 30, 30);
+    if (valueColor) {
+      doc.setTextColor(valueColor[0], valueColor[1], valueColor[2]);
+    } else {
+      doc.setTextColor(30, 30, 30);
+    }
     doc.setFont("helvetica", bold ? "bold" : "normal");
     const maxW = cw - 80;
     const lines = doc.splitTextToSize(value, maxW);
@@ -208,9 +212,10 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
   drawHeader("FEE BREAKDOWN");
   drawRow("Base Fee", `Rs. ${(booking.baseFee || 0).toLocaleString("en-IN")}`);
   if ((booking.deposit || 0) > 0) {
-    const sdStatus = (booking as any).depositType === "waived" ? "WAIVED" : ((booking as any).depositReceived ? "RECEIVED" : "PENDING");
+    const sdStatus = booking.depositType === "waived" ? "WAIVED" : (booking.depositReceived ? "RECEIVED" : "PENDING");
+    const sdColor: [number, number, number] = booking.depositType === "waived" ? [100, 116, 139] : (booking.depositReceived ? [16, 185, 129] : [245, 158, 11]);
     drawRow("Security Deposit", `Rs. ${Number(booking.deposit).toLocaleString("en-IN")}`);
-    drawRow("SD Status", sdStatus);
+    drawRow("SD Status", sdStatus, false, sdColor);
   }
   if ((booking.discount || 0) > 0) drawRow("Discount", `- Rs. ${Number(booking.discount).toLocaleString("en-IN")}`);
 

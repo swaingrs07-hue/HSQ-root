@@ -387,7 +387,7 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       : [];
     const includedServicesHtml = await buildIncludedServicesHtml(booking.id, propertyIncludedServices);
 
-    const depositAmt = Number((booking as any).deposit || 0);
+    const depositAmt = Number(booking.deposit || 0);
     const emailData: BookingEmailData = {
       residentName,
       residentEmail,
@@ -400,7 +400,7 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       totalFee,
       depositAmount: depositAmt > 0 ? `₹${depositAmt.toLocaleString("en-IN")}` : undefined,
       depositStatus: depositAmt > 0
-        ? ((booking as any).depositType === "waived" ? "WAIVED" : ((booking as any).depositReceived ? "RECEIVED" : "PENDING"))
+        ? (booking.depositType === "waived" ? "WAIVED" : (booking.depositReceived ? "RECEIVED" : "PENDING"))
         : undefined,
       includedServicesHtml,
     };
@@ -502,6 +502,8 @@ interface ParentEmailData {
   checkInDate: string;
   bookingCode: string;
   totalFee: string;
+  depositAmount?: string;
+  depositStatus?: string;
   amountPaid: string;
   receiptUrl: string;
   installments: InstallmentInfo[];
@@ -588,6 +590,13 @@ function buildParentConfirmationEmailHtml(data: ParentEmailData): string {
                           <span style="color:#ffffff;font-size:15px;font-weight:600;">${checkInFormatted}</span>
                         </td>
                       </tr>
+                      ${data.depositAmount ? `<tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Security Deposit</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.depositAmount}</span>
+                          <span style="display:inline-block;margin-left:10px;background:${data.depositStatus === 'RECEIVED' ? 'rgba(16,185,129,0.15)' : data.depositStatus === 'WAIVED' ? 'rgba(148,163,184,0.15)' : 'rgba(245,158,11,0.15)'};color:${data.depositStatus === 'RECEIVED' ? '#10b981' : data.depositStatus === 'WAIVED' ? '#94a3b8' : '#f59e0b'};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;vertical-align:middle;">${data.depositStatus}</span>
+                        </td>
+                      </tr>` : ''}
                       <tr>
                         <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
                           <span style="color:rgba(255,255,255,0.5);font-size:13px;">Total Fee</span><br>
@@ -753,6 +762,7 @@ export async function sendParentBookingConfirmationEmail(
       : [];
     const parentIncludedServicesHtml = await buildIncludedServicesHtml(booking.id, parentPropertyIncludedServices);
 
+    const depositAmtParent = Number(booking.deposit || 0);
     const emailData: ParentEmailData = {
       parentName: parentName || "Parent / Guardian",
       parentEmail,
@@ -763,6 +773,10 @@ export async function sendParentBookingConfirmationEmail(
       checkInDate: booking.checkInDate ? String(booking.checkInDate) : "",
       bookingCode: booking.bookingCode || booking.id,
       totalFee,
+      depositAmount: depositAmtParent > 0 ? `₹${depositAmtParent.toLocaleString("en-IN")}` : undefined,
+      depositStatus: depositAmtParent > 0
+        ? (booking.depositType === "waived" ? "WAIVED" : (booking.depositReceived ? "RECEIVED" : "PENDING"))
+        : undefined,
       amountPaid,
       receiptUrl,
       installments,
@@ -857,6 +871,8 @@ interface PaymentReceivedEmailData {
   remainingBalance: string;
   receiptUrl: string;
   installments: InstallmentInfo[];
+  depositAmount?: string;
+  depositStatus?: string;
 }
 
 function buildPaymentReceivedEmailHtml(data: PaymentReceivedEmailData): string {
@@ -930,6 +946,13 @@ function buildPaymentReceivedEmailHtml(data: PaymentReceivedEmailData): string {
                           <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.totalFee}</span>
                         </td>
                       </tr>
+                      ${data.depositAmount ? `<tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Security Deposit</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${data.depositAmount}</span>
+                          <span style="display:inline-block;margin-left:10px;background:${data.depositStatus === 'RECEIVED' ? 'rgba(16,185,129,0.15)' : data.depositStatus === 'WAIVED' ? 'rgba(148,163,184,0.15)' : 'rgba(245,158,11,0.15)'};color:${data.depositStatus === 'RECEIVED' ? '#10b981' : data.depositStatus === 'WAIVED' ? '#94a3b8' : '#f59e0b'};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;vertical-align:middle;">${data.depositStatus}</span>
+                        </td>
+                      </tr>` : ''}
                       <tr>
                         <td style="padding:10px 0;">
                           <span style="color:rgba(255,255,255,0.5);font-size:13px;">Remaining Balance</span><br>
@@ -1050,6 +1073,7 @@ export async function sendPaymentReceivedEmail(
       paid: inst.paid,
     }));
 
+    const depositAmtReceived = Number(booking.deposit || 0);
     const emailData: PaymentReceivedEmailData = {
       parentName: parentName || "Parent / Guardian",
       parentEmail,
@@ -1062,6 +1086,10 @@ export async function sendPaymentReceivedEmail(
       remainingBalance,
       receiptUrl,
       installments,
+      depositAmount: depositAmtReceived > 0 ? `₹${depositAmtReceived.toLocaleString("en-IN")}` : undefined,
+      depositStatus: depositAmtReceived > 0
+        ? (booking.depositType === "waived" ? "WAIVED" : (booking.depositReceived ? "RECEIVED" : "PENDING"))
+        : undefined,
     };
 
     const html = buildPaymentReceivedEmailHtml(emailData);
