@@ -2253,6 +2253,7 @@ export default function CompletedBookings() {
                   {(isAdmin || isFrontdesk) && (
                     <div className="px-4 pb-3">
                       <BedShiftSelector booking={selectedBooking} onShifted={(updated) => { setSelectedBooking({ ...selectedBooking, ...updated }); queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] }); }} />
+                      <BedShiftHistory bookingId={selectedBooking.id} bookingCreatedAt={selectedBooking.createdAt} />
                     </div>
                   )}
                   <div className="px-4 pb-4 grid grid-cols-2 gap-x-8 gap-y-3.5">
@@ -3913,6 +3914,133 @@ interface AvailableBed {
   roomTypeId: string;
   roomTypeName?: string;
   linkedPackages: string[];
+}
+
+function BedShiftHistory({ bookingId, bookingCreatedAt }: { bookingId: string; bookingCreatedAt?: string }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ shifts: any[]; currentBed: { roomNo: string; bedNo: string } } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  const getAuthToken = () => {
+    const authData = localStorage.getItem("hsquare_auth");
+    return authData ? JSON.parse(authData)?.token : null;
+  };
+
+  const fetchHistory = async () => {
+    if (fetched) { setOpen(o => !o); return; }
+    setLoading(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${bookingId}/bed-shift-history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+        setFetched(true);
+        setOpen(true);
+      }
+    } catch {
+      // ignore
+    }
+    setLoading(false);
+  };
+
+  const shiftCount = data?.shifts?.length ?? 0;
+
+  return (
+    <div className="mt-2" data-testid="bed-shift-history">
+      <button
+        onClick={fetchHistory}
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 transition-colors w-full py-1"
+        data-testid="button-toggle-shift-history"
+      >
+        <History className="h-3.5 w-3.5" />
+        {loading ? "Loading history…" : (
+          fetched
+            ? (shiftCount > 0 ? `Bed Shift History (${shiftCount} shift${shiftCount !== 1 ? "s" : ""})` : "Bed Shift History — no shifts yet")
+            : "View bed shift history"
+        )}
+        {fetched && (open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />)}
+      </button>
+
+      {open && data && (
+        <div className="mt-2 border border-slate-100 rounded-lg overflow-hidden" data-testid="shift-history-timeline">
+          {/* Original allocation node */}
+          {(() => {
+            const first = data.shifts[0];
+            const origRoomNo = first?.fromRoomNo || data.currentBed.roomNo;
+            const origBedNo = first?.fromBedNo || data.currentBed.bedNo;
+            const origDate = bookingCreatedAt ? format(new Date(bookingCreatedAt), "dd MMM yyyy, hh:mm a") : "At booking";
+            return (
+              <div className="flex items-start gap-3 px-3 py-2.5 bg-slate-50" data-testid="shift-history-origin">
+                <div className="flex flex-col items-center shrink-0 mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                  {data.shifts.length > 0 && <div className="w-px flex-1 bg-slate-200 mt-1 min-h-[18px]" />}
+                </div>
+                <div className="min-w-0 pb-1">
+                  <p className="text-[11px] font-semibold text-slate-700">Original allocation</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Room <span className="font-medium text-slate-700">{origRoomNo || "—"}</span>
+                    {" · "}Bed <span className="font-medium text-slate-700">{origBedNo || "—"}</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{origDate}</p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Each shift */}
+          {data.shifts.map((shift, idx) => {
+            const isLast = idx === data.shifts.length - 1;
+            return (
+              <div key={shift.id} className="flex items-start gap-3 px-3 py-2.5 bg-white border-t border-slate-100" data-testid={`shift-entry-${idx}`}>
+                <div className="flex flex-col items-center shrink-0 mt-0.5">
+                  <div className={`w-2 h-2 rounded-full ${isLast ? "bg-emerald-500" : "bg-slate-300"}`} />
+                  {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1 min-h-[18px]" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-[11px] font-semibold text-slate-700">
+                      Shifted to Room <span className="text-indigo-600">{shift.toRoomNo || "—"}</span>
+                      {" · "}Bed <span className="text-indigo-600">{shift.toBedNo || "—"}</span>
+                    </p>
+                    {shift.crossRoomType && (
+                      <span className="inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full" data-testid="badge-room-type-change">
+                        Room type change{shift.newRoomTypeName ? ` → ${shift.newRoomTypeName}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  {(shift.fromRoomNo || shift.fromBedNo) && (
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      From Room {shift.fromRoomNo || "—"} · Bed {shift.fromBedNo || "—"}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[10px] text-slate-400">
+                      {format(new Date(shift.shiftedAt), "dd MMM yyyy, hh:mm a")}
+                    </p>
+                    <span className="text-slate-200">·</span>
+                    <p className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                      <User className="h-2.5 w-2.5" />{shift.shiftedBy}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* No shifts state */}
+          {data.shifts.length === 0 && (
+            <div className="px-3 py-2.5 bg-white border-t border-slate-100 text-center" data-testid="shift-history-empty">
+              <p className="text-[11px] text-slate-400">No bed shifts — resident has stayed in the original allocation.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (updated: any) => void }) {

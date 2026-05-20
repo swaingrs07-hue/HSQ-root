@@ -5833,10 +5833,11 @@ ${allPages.map(p => `  <url>
             bookingCode: booking.bookingCode,
             oldBedId: booking.bedId,
             newBedId,
-            oldRoomNo: existingRd.roomNo,
-            newRoomNo: newRoom?.roomNumber,
-            newBedNo: newBed.bedNumber,
-            newFloor: newFloor?.name,
+            oldRoomNo: existingRd.roomNo || "",
+            oldBedNo: existingRd.bedNo || "",
+            newRoomNo: newRoom?.roomNumber || "",
+            newBedNo: newBed.bedNumber || "",
+            newFloor: newFloor?.name || "",
             ...(isRoomTypeChange ? {
               crossRoomTypeShift: true,
               oldRoomTypeId: booking.roomTypeId,
@@ -5882,6 +5883,62 @@ ${allPages.map(p => `  <url>
     } catch (error: any) {
       console.error("Error shifting bed:", error);
       res.status(500).json({ error: error.message || "Failed to shift bed" });
+    }
+  });
+
+  // Bed shift history — read-only, available to admin/superadmin/frontdesk/manager
+  app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk", "manager"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const scope = await getFrontdeskScope(req);
+      if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
+
+      const logs = await db
+        .select({
+          id: schema.auditLogs.id,
+          details: schema.auditLogs.details,
+          createdAt: schema.auditLogs.createdAt,
+          adminName: schema.users.name,
+        })
+        .from(schema.auditLogs)
+        .leftJoin(schema.users, eq(schema.auditLogs.adminId, schema.users.id))
+        .where(and(
+          eq(schema.auditLogs.entityId, req.params.id),
+          eq(schema.auditLogs.action, "BED_SHIFT"),
+        ))
+        .orderBy(schema.auditLogs.createdAt);
+
+      const rd = (booking.residentDetails as Record<string, any>) || {};
+      const currentBed = {
+        roomNo: rd.roomNo || "",
+        bedNo: rd.bedNo || "",
+      };
+
+      const shifts = logs.map((log) => {
+        let details: Record<string, any> = {};
+        try { details = JSON.parse(log.details); } catch { /* ignore */ }
+        return {
+          id: log.id,
+          shiftedAt: log.createdAt,
+          shiftedBy: log.adminName || "Unknown",
+          fromRoomNo: details.oldRoomNo || "",
+          fromBedNo: details.oldBedNo || "",
+          toRoomNo: details.newRoomNo || "",
+          toBedNo: details.newBedNo || "",
+          floor: details.newFloor || "",
+          crossRoomType: !!details.crossRoomTypeShift,
+          newRoomTypeName: details.newRoomTypeName || "",
+        };
+      });
+
+      res.json({ shifts, currentBed });
+    } catch (error: any) {
+      console.error("Error fetching bed shift history:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch bed shift history" });
     }
   });
 
