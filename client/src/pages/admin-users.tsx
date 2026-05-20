@@ -451,8 +451,8 @@ function AdminUsersContent() {
       </TableCell>
       {panel === "staff" && isSuperAdmin && (
         <TableCell>
-          {["superadmin", "admin", "frontdesk"].includes(user.role) ? (
-            <span className="text-xs text-slate-400 italic">By role</span>
+          {user.role === "superadmin" ? (
+            <span className="text-xs text-slate-400 italic">Always on</span>
           ) : (
             <div className="flex items-center gap-2">
               <Switch
