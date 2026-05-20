@@ -451,7 +451,9 @@ function AdminUsersContent() {
       </TableCell>
       {panel === "staff" && isSuperAdmin && (
         <TableCell>
-          {user.role !== "superadmin" ? (
+          {["superadmin", "admin", "frontdesk"].includes(user.role) ? (
+            <span className="text-xs text-slate-400 italic">By role</span>
+          ) : (
             <div className="flex items-center gap-2">
               <Switch
                 checked={!!user.canShiftBed}
@@ -462,8 +464,6 @@ function AdminUsersContent() {
                 {user.canShiftBed ? "On" : "Off"}
               </span>
             </div>
-          ) : (
-            <span className="text-xs text-slate-400 italic">Always on</span>
           )}
         </TableCell>
       )}
