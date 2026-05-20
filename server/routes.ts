@@ -5692,7 +5692,7 @@ ${allPages.map(p => `  <url>
     try {
       const actingUser = await storage.getUser(req.user!.userId);
       if (!actingUser || !actingUser.isActive) return res.status(403).json({ error: "User account not found or inactive" });
-      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(actingUser.role) || actingUser.canShiftBed === true;
+      const hasShiftBedPerm = actingUser.role === "superadmin" || actingUser.canShiftBed === true;
       if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions to shift beds" });
 
       const { newBedId } = req.body;
@@ -5896,7 +5896,7 @@ ${allPages.map(p => `  <url>
     try {
       const actingUser = await storage.getUser(req.user!.userId);
       if (!actingUser || !actingUser.isActive) return res.status(403).json({ error: "User account not found or inactive" });
-      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(actingUser.role) || actingUser.canShiftBed === true;
+      const hasShiftBedPerm = actingUser.role === "superadmin" || actingUser.canShiftBed === true;
       if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions" });
 
       const booking = await storage.getBooking(req.params.id);
