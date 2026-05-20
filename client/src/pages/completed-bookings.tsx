@@ -185,7 +185,7 @@ export default function CompletedBookings() {
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isFrontdesk = user?.role === "frontdesk";
-  const canShiftBed = !!(user as any)?.canShiftBed;
+  const canShiftBed = !!(user?.canShiftBed);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("search") || "";

@@ -15,6 +15,8 @@ interface User {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+  canShiftBed?: boolean;
+  canApproveBookings?: boolean;
 }
 
 interface AuthContextType {
@@ -54,6 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && token) {
+        refetchUser();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [token]);
 
   useEffect(() => {
     if (isLoading) return;
