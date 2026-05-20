@@ -509,9 +509,9 @@ function AdminUsersContent() {
     </TableRow>
   );
 
-  const renderEmptyRow = (search: string, role: string, status: string, defaultMsg: string) => (
+  const renderEmptyRow = (search: string, role: string, status: string, defaultMsg: string, colSpan = 6) => (
     <TableRow>
-      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+      <TableCell colSpan={colSpan} className="text-center py-8 text-slate-500">
         {search || role !== "all" || status !== "all"
           ? "No matches for your filters"
           : defaultMsg}
@@ -660,7 +660,7 @@ function AdminUsersContent() {
                 </TableHeader>
                 <TableBody>
                   {filteredStaff.length === 0
-                    ? renderEmptyRow(staffSearch, staffRoleFilter, staffStatusFilter, "No staff members yet")
+                    ? renderEmptyRow(staffSearch, staffRoleFilter, staffStatusFilter, "No staff members yet", isSuperAdmin ? 7 : 6)
                     : filteredStaff.map((u) => renderUserRow(u, "staff"))}
                 </TableBody>
               </Table>

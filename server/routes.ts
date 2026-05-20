@@ -5691,7 +5691,8 @@ ${allPages.map(p => `  <url>
   app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const actingUser = await storage.getUser(req.user!.userId);
-      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(req.user!.role) || actingUser?.canShiftBed === true;
+      if (!actingUser || !actingUser.isActive) return res.status(403).json({ error: "User account not found or inactive" });
+      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(actingUser.role) || actingUser.canShiftBed === true;
       if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions to shift beds" });
 
       const { newBedId } = req.body;
@@ -5894,7 +5895,8 @@ ${allPages.map(p => `  <url>
   app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const actingUser = await storage.getUser(req.user!.userId);
-      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(req.user!.role) || actingUser?.canShiftBed === true;
+      if (!actingUser || !actingUser.isActive) return res.status(403).json({ error: "User account not found or inactive" });
+      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(actingUser.role) || actingUser.canShiftBed === true;
       if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions" });
 
       const booking = await storage.getBooking(req.params.id);
