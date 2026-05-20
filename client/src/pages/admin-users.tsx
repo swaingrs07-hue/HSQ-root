@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft, GraduationCap, UserCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -64,6 +65,7 @@ interface User {
   createdAt: string;
   assignedProperties?: any[];
   totalLeads?: number;
+  canShiftBed?: boolean;
 }
 
 type PanelKey = "staff" | "users";
@@ -414,6 +416,28 @@ function AdminUsersContent() {
     );
   }
 
+  const toggleShiftBedAccess = async (userId: string, enabled: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/shift-bed-access`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ canShiftBed: enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, canShiftBed: enabled } : u));
+      toast({
+        title: enabled ? "Shift Bed access granted" : "Shift Bed access revoked",
+        description: enabled
+          ? "This staff member can now shift resident beds."
+          : "This staff member can no longer shift beds.",
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not update Shift Bed access", variant: "destructive" });
+    }
+  };
+
+  const isSuperAdmin = currentUser?.role === "superadmin";
+
   const renderUserRow = (user: User, panel: PanelKey) => (
     <TableRow key={user.id} className="hover:bg-slate-50/50" data-testid={`row-${panel}-${user.id}`}>
       <TableCell className="font-medium">{user.name}</TableCell>
@@ -425,6 +449,24 @@ function AdminUsersContent() {
           {user.isActive ? "Active" : "Inactive"}
         </Badge>
       </TableCell>
+      {panel === "staff" && isSuperAdmin && (
+        <TableCell>
+          {user.role !== "superadmin" ? (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={!!user.canShiftBed}
+                onCheckedChange={(val) => toggleShiftBedAccess(user.id, val)}
+                data-testid={`switch-shift-bed-${user.id}`}
+              />
+              <span className={`text-xs font-medium ${user.canShiftBed ? "text-emerald-600" : "text-slate-400"}`}>
+                {user.canShiftBed ? "On" : "Off"}
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-slate-400 italic">Always on</span>
+          )}
+        </TableCell>
+      )}
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -612,6 +654,7 @@ function AdminUsersContent() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    {isSuperAdmin && <TableHead className="w-28">Shift Bed</TableHead>}
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

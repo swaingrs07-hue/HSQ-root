@@ -185,6 +185,7 @@ export default function CompletedBookings() {
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isFrontdesk = user?.role === "frontdesk";
+  const canShiftBed = !!(user as any)?.canShiftBed;
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("search") || "";
@@ -2250,7 +2251,7 @@ export default function CompletedBookings() {
                     {selectedBooking.residentDetails?.dietaryPreference && (<div><span className="bkd-field-label">Diet</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.dietaryPreference}</p></div>)}
                     {selectedBooking.residentDetails?.checkOutDate && (<div><span className="bkd-field-label">Resident Check-out</span><p className="bkd-field-value">{selectedBooking.residentDetails.checkOutDate}</p></div>)}
                   </div>
-                  {(isAdmin || isFrontdesk) && (
+                  {(isAdmin || isFrontdesk || canShiftBed) && (
                     <div className="px-4 pb-3">
                       <BedShiftSelector booking={selectedBooking} onShifted={(updated) => { setSelectedBooking({ ...selectedBooking, ...updated }); queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] }); }} />
                       <BedShiftHistory key={selectedBooking.id} bookingId={selectedBooking.id} bookingCreatedAt={selectedBooking.createdAt} />

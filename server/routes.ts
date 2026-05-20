@@ -5688,8 +5688,12 @@ ${allPages.map(p => `  <url>
   });
 
   // Admin bed shift / room transfer
-  app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
+  app.post("/api/admin/bookings/:id/shift-bed", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      const actingUser = await storage.getUser(req.user!.userId);
+      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(req.user!.role) || actingUser?.canShiftBed === true;
+      if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions to shift beds" });
+
       const { newBedId } = req.body;
       if (!newBedId) return res.status(400).json({ error: "newBedId is required" });
 
@@ -5886,9 +5890,13 @@ ${allPages.map(p => `  <url>
     }
   });
 
-  // Bed shift history — read-only, available to admin/superadmin/frontdesk/manager
-  app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk"), async (req: AuthRequest, res) => {
+  // Bed shift history — read-only, available to admin/superadmin/frontdesk or canShiftBed=true
+  app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      const actingUser = await storage.getUser(req.user!.userId);
+      const hasShiftBedPerm = ["admin", "frontdesk", "superadmin"].includes(req.user!.role) || actingUser?.canShiftBed === true;
+      if (!hasShiftBedPerm) return res.status(403).json({ error: "Insufficient permissions" });
+
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
@@ -9632,6 +9640,26 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (error) {
       console.error("Error toggling approval access:", error);
       res.status(500).json({ error: "Failed to update approval access" });
+    }
+  });
+
+  // Toggle shift-bed access for any staff member (superadmin only)
+  app.patch("/api/admin/users/:id/shift-bed-access", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const { canShiftBed } = req.body;
+      if (typeof canShiftBed !== "boolean") {
+        return res.status(400).json({ error: "`canShiftBed` must be a boolean" });
+      }
+      const [updated] = await db
+        .update(schema.users)
+        .set({ canShiftBed })
+        .where(and(eq(schema.users.id, req.params.id), sql`${schema.users.role} != 'superadmin'`))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "User not found or is a superadmin" });
+      res.json({ id: updated.id, canShiftBed: updated.canShiftBed });
+    } catch (error) {
+      console.error("Error toggling shift-bed access:", error);
+      res.status(500).json({ error: "Failed to update shift-bed access" });
     }
   });
 

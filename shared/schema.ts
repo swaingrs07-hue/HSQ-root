@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
   canApproveBookings: boolean("can_approve_bookings").default(false).notNull(),
+  canShiftBed: boolean("can_shift_bed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
