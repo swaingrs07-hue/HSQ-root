@@ -5887,7 +5887,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Bed shift history — read-only, available to admin/superadmin/frontdesk/manager
-  app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk", "manager"), async (req: AuthRequest, res) => {
+  app.get("/api/admin/bookings/:id/bed-shift-history", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });

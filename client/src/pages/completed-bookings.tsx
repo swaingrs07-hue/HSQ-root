@@ -2253,7 +2253,7 @@ export default function CompletedBookings() {
                   {(isAdmin || isFrontdesk) && (
                     <div className="px-4 pb-3">
                       <BedShiftSelector booking={selectedBooking} onShifted={(updated) => { setSelectedBooking({ ...selectedBooking, ...updated }); queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] }); }} />
-                      <BedShiftHistory bookingId={selectedBooking.id} bookingCreatedAt={selectedBooking.createdAt} />
+                      <BedShiftHistory key={selectedBooking.id} bookingId={selectedBooking.id} bookingCreatedAt={selectedBooking.createdAt} />
                     </div>
                   )}
                   <div className="px-4 pb-4 grid grid-cols-2 gap-x-8 gap-y-3.5">
@@ -4035,6 +4035,22 @@ function BedShiftHistory({ bookingId, bookingCreatedAt }: { bookingId: string; b
           {data.shifts.length === 0 && (
             <div className="px-3 py-2.5 bg-white border-t border-slate-100 text-center" data-testid="shift-history-empty">
               <p className="text-[11px] text-slate-400">No bed shifts — resident has stayed in the original allocation.</p>
+            </div>
+          )}
+
+          {/* Current position node — always shown when there are shifts */}
+          {data.shifts.length > 0 && (
+            <div className="flex items-start gap-3 px-3 py-2.5 bg-emerald-50 border-t border-slate-100" data-testid="shift-history-current">
+              <div className="flex flex-col items-center shrink-0 mt-0.5">
+                <div className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-emerald-700">Current position</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Room <span className="font-medium">{data.currentBed.roomNo || "—"}</span>
+                  {" · "}Bed <span className="font-medium">{data.currentBed.bedNo || "—"}</span>
+                </p>
+              </div>
             </div>
           )}
         </div>
