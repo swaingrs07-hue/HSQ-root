@@ -1177,6 +1177,24 @@ function BookingGenerationInner() {
   };
 
   const handleSubmit = async () => {
+    // Validate installment due dates are in strictly ascending order
+    if (formData.paymentType === "installments" && formData.installmentDueDates.length > 1) {
+      const isRealDate = (s: string) => s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+      for (let i = 1; i < formData.installmentDueDates.length; i++) {
+        const prev = formData.installmentDueDates[i - 1];
+        const curr = formData.installmentDueDates[i];
+        if (isRealDate(prev) && isRealDate(curr) && new Date(curr) <= new Date(prev)) {
+          const prevLabel = i === 1 ? "Booking Amount" : `Installment ${i - 1}`;
+          const currLabel = `Installment ${i}`;
+          toast({
+            title: "Installment dates out of order",
+            description: `${currLabel} date (${curr}) must be after ${prevLabel} date (${prev}). Please correct the dates before submitting.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
     setSubmitting(true);
     try {
       const response = await fetch("/api/bookings/generate", {
@@ -3271,6 +3289,10 @@ function BookingGenerationInner() {
                               return amounts.map((amount, i) => {
                                 const dueDate = formData.installmentDueDates[i] || "";
                                 const isPinned = pinnedAmounts[i] !== undefined;
+                                const isRealDate = (s: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+                                const prevDueDate = i > 0 ? (formData.installmentDueDates[i - 1] || "") : "";
+                                const dateOrderError = i > 0 && isRealDate(prevDueDate) && isRealDate(dueDate) && new Date(dueDate) <= new Date(prevDueDate);
+                                const prevLabel = i === 1 ? "Booking Amount" : `Installment ${i - 1}`;
                                 return (
                                   <div key={i} className="bg-white px-3 py-2.5 rounded-md border border-purple-100 space-y-1.5">
                                     <div className="flex justify-between items-center">
@@ -3327,7 +3349,7 @@ function BookingGenerationInner() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Calendar className="w-3 h-3 text-purple-400" />
+                                      <Calendar className={`w-3 h-3 ${dateOrderError ? "text-red-400" : "text-purple-400"}`} />
                                       <input
                                         type="date"
                                         value={dueDate}
@@ -3339,11 +3361,17 @@ function BookingGenerationInner() {
                                             return { ...prev, installmentDueDates: dates };
                                           });
                                         }}
-                                        className="text-xs text-purple-600 border border-purple-100 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                        className={`text-xs border rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 ${dateOrderError ? "text-red-600 border-red-300 bg-red-50 focus:ring-red-400" : "text-purple-600 border-purple-100 focus:ring-purple-400"}`}
                                         placeholder="Select due date"
                                         data-testid={`input-due-date-${i}`}
                                       />
                                     </div>
+                                    {dateOrderError && (
+                                      <p className="text-[10px] text-red-600 flex items-center gap-1">
+                                        <span>⚠</span>
+                                        <span>Must be after {prevLabel} date ({prevDueDate})</span>
+                                      </p>
+                                    )}
                                   </div>
                                 );
                               });
