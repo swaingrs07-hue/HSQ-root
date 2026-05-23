@@ -9280,14 +9280,32 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         discountApprovedAt: new Date(),
       });
 
-      // Recalculate and update installments
-      const installmentData = calculateInstallments(booking.baseFee, booking.paymentPlanId, discount);
+      // Proportionally rescale only UNPAID installments to reflect the new total.
+      // Paid installments are never touched — amounts already collected stay as-is.
       const existingInstallments = await storage.getInstallmentsByBooking(bookingId);
-      
-      for (let i = 0; i < existingInstallments.length && i < installmentData.length; i++) {
-        await storage.updateInstallment(existingInstallments[i].id, {
-          amount: installmentData[i].amount,
-        });
+      const paidInstallments = existingInstallments.filter((inst: any) => inst.paid);
+      const unpaidInstallments = existingInstallments.filter((inst: any) => !inst.paid);
+      const paidTotal = paidInstallments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
+      const remainingAfterPaid = Math.max(0, newTotalFee - paidTotal);
+      const oldUnpaidTotal = unpaidInstallments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
+
+      if (unpaidInstallments.length > 0) {
+        let allocated = 0;
+        for (let i = 0; i < unpaidInstallments.length; i++) {
+          const isLast = i === unpaidInstallments.length - 1;
+          const inst = unpaidInstallments[i];
+          let newAmount: number;
+          if (isLast) {
+            newAmount = Math.max(0, remainingAfterPaid - allocated);
+          } else if (oldUnpaidTotal > 0) {
+            newAmount = Math.round((inst.amount / oldUnpaidTotal) * remainingAfterPaid);
+            allocated += newAmount;
+          } else {
+            newAmount = Math.round(remainingAfterPaid / unpaidInstallments.length);
+            allocated += newAmount;
+          }
+          await storage.updateInstallment(inst.id, { amount: newAmount });
+        }
       }
 
       // Create audit log

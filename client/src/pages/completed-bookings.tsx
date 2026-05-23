@@ -2860,8 +2860,24 @@ export default function CompletedBookings() {
                 {(selectedBooking.installments||[]).length>0&&(
                   <div id="sec-installments" className="bkd-card">
                     <div className="bkd-sec-hdr"><Banknote className="h-3.5 w-3.5 text-amber-500"/><span className="bkd-sec-label text-amber-600">Installments</span></div>
+                    {(()=>{
+                      const instTotal=(selectedBooking.installments||[]).reduce((s:number,i:any)=>s+(i.amount||0),0);
+                      const bookingTotal=Number(selectedBooking.totalFee||0);
+                      if(bookingTotal>0&&Math.abs(instTotal-bookingTotal)>1){
+                        return(<div className="mx-4 mt-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 flex items-start gap-2 text-xs text-red-700"><span className="mt-0.5 shrink-0">⚠️</span><span>Installment total <strong>₹{instTotal.toLocaleString("en-IN")}</strong> does not match the booking total payable <strong>₹{bookingTotal.toLocaleString("en-IN")}</strong>. Please review and correct the installment amounts.</span></div>);
+                      }
+                      return null;
+                    })()}
                     <div className="px-4 py-3 space-y-3">
-                      {selectedBooking.installments.map((inst:any,idx:number)=>{
+                      {[...(selectedBooking.installments||[])].sort((a:any,b:any)=>{
+                        const isRealDate=(s:string)=>s&&/^\d{4}-\d{2}-\d{2}$/.test(s);
+                        const aDate=isRealDate(a.dueDate);
+                        const bDate=isRealDate(b.dueDate);
+                        if(!aDate&&!bDate)return 0;
+                        if(!aDate)return -1;
+                        if(!bDate)return 1;
+                        return new Date(a.dueDate).getTime()-new Date(b.dueDate).getTime();
+                      }).map((inst:any,idx:number)=>{
                         const instPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id&&p.status==="success");
                         const totalPaid=instPayments.reduce((sum:number,p:any)=>sum+(p.amount||0),0);
                         const remaining=Math.max(0,(inst.amount||0)-totalPaid);
