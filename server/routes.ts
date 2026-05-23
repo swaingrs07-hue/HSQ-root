@@ -5059,10 +5059,13 @@ ${allPages.map(p => `  <url>
         const customAmts: number[] = Array.isArray(installmentAmounts) && installmentAmounts.length > 0 ? installmentAmounts : [];
         const customFirst = customAmts.length === 0 && customBookingAmount && customBookingAmount > 0 ? customBookingAmount : 0;
         const dueDates: string[] = installmentDueDates || [];
+        let allocatedSoFar = 0;
         for (let i = 0; i < numInstallments; i++) {
+          const isLastSlot = i === numInstallments - 1;
           let amount: number;
           if (customAmts.length > 0 && customAmts[i] > 0) {
-            amount = customAmts[i];
+            // Last slot always gets the exact remainder so the sum never exceeds totalFee
+            amount = isLastSlot ? Math.max(0, totalFee - allocatedSoFar) : customAmts[i];
           } else if (customAmts.length > 0) {
             const usedByCustom = customAmts.filter((a: number) => a > 0).reduce((s: number, a: number) => s + a, 0);
             const autoCount = customAmts.filter((a: number, idx: number) => idx < numInstallments && (!a || a <= 0)).length;
@@ -5084,6 +5087,7 @@ ${allPages.map(p => `  <url>
             const isLast = i === numInstallments - 1;
             amount = isLast ? totalFee - (perInstallment * (numInstallments - 1)) : perInstallment;
           }
+          allocatedSoFar += amount;
           const dueDate = dueDates[i] || (i === 0 ? "Immediate" : `Installment ${i} Due`);
           installmentRecords.push({
             bookingId: booking.id,
