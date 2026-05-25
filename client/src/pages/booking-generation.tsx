@@ -795,7 +795,7 @@ function BookingGenerationInner() {
       fetchAvailability(formData.roomTypeId);
       calculateFee();
     }
-  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes, selectedPlanPrice]);
+  }, [formData.roomTypeId, formData.stayPlanType, formData.durationMonths, roomTypes, selectedPlanPrice, selectedRoomId, selectedBedId]);
 
   // Auto-compute check-out date whenever check-in date or duration months changes (monthly plan only)
   useEffect(() => {
@@ -902,19 +902,57 @@ function BookingGenerationInner() {
     const property = properties.find(p => p.id === formData.propertyId);
     if (!property) return;
 
+    // Find the specific room record (with per-room / per-section overrides) from loaded floors
+    const specificRoom: any = selectedRoomId
+      ? floors.flatMap((f: any) => f.rooms || []).find((r: any) => r.id === selectedRoomId)
+      : null;
+
+    // Determine the section letter from the selected bed number (e.g. "1203B-1" → "B")
+    let sectionLetter: string | null = null;
+    if (specificRoom && selectedBedInfo?.bedNumber && specificRoom.typology?.includes("+")) {
+      const roomNum: string = specificRoom.roomNumber || "";
+      const afterRoom = (selectedBedInfo.bedNumber as string).slice(roomNum.length);
+      const firstChar = afterRoom.charAt(0);
+      if (/^[A-Z]$/i.test(firstChar)) sectionLetter = firstChar.toUpperCase();
+    }
+
+    // Priority: per-section override → whole-room override → room-type default
+    const sectionOverride = sectionLetter
+      ? (specificRoom?.sectionPriceOverrides?.[sectionLetter] ?? null)
+      : null;
+
+    const effectiveBaseMonthly: number =
+      sectionOverride?.basePrice ??
+      specificRoom?.basePriceOverride ??
+      selectedRoom.basePrice ??
+      0;
+
+    const effectiveAnnual: number =
+      sectionOverride?.academicYearPrice ??
+      specificRoom?.academicYearPriceOverride ??
+      selectedRoom.academicYearPrice ??
+      (effectiveBaseMonthly * 11);
+
+    const effectiveDeposit: number =
+      sectionOverride?.deposit ??
+      specificRoom?.depositOverride ??
+      (property as any).deposit ??
+      (selectedRoom as any).deposit ??
+      0;
+
     let baseFee = 0;
     if (selectedPlanPrice > 0) {
       baseFee = selectedPlanPrice;
     } else if (property.bookingMode === "monthly" && formData.stayPlanType === "monthly") {
-      baseFee = selectedRoom.basePrice * formData.durationMonths;
+      baseFee = effectiveBaseMonthly * formData.durationMonths;
     } else {
-      baseFee = selectedRoom.academicYearPrice || (selectedRoom.basePrice * 11);
+      baseFee = effectiveAnnual;
     }
-    const propDeposit = (property as any).deposit || (selectedRoom as any).deposit || 0;
+
     setFormData(prev => ({
       ...prev,
       baseFee,
-      ...(isRegularUser ? { deposit: propDeposit, discount: 0 } : {}),
+      ...(isRegularUser ? { deposit: effectiveDeposit, discount: 0 } : {}),
     }));
   };
 
