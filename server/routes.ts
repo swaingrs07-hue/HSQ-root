@@ -2159,6 +2159,15 @@ ${allPages.map(p => `  <url>
   app.get("/api/leads", async (req, res) => {
     try {
       const propertyId = req.query.propertyId as string | undefined;
+      const search = ((req.query.search as string | undefined) || "").trim().toLowerCase();
+      const assignedToIdFilter = (req.query.assignedToId as string | undefined) || "";
+      const statusFilter = (req.query.status as string | undefined) || "";
+      const fromDate = (req.query.fromDate as string | undefined) || "";
+      const toDate = (req.query.toDate as string | undefined) || "";
+      const isPaginated = !!(req.query.page || req.query.limit);
+      const page = Math.max(1, parseInt(req.query.page as string || "1", 10) || 1);
+      const limit = Math.max(1, Math.min(200, parseInt(req.query.limit as string || "25", 10) || 25));
+
       let authenticatedUser: { id: string; role: string } | null = null;
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith("Bearer ")) {
@@ -2254,8 +2263,43 @@ ${allPages.map(p => `  <url>
       
       const isPrivilegedUser = user && ["admin", "superadmin", "manager", "frontdesk"].includes(user.role);
       if (isPrivilegedUser) {
+        // Apply optional filters (used by the All Leads tab)
+        let filtered = uniqueLeads as any[];
+        if (search) {
+          filtered = filtered.filter(l => {
+            const name = ((l.studentName || l.name || "") as string).toLowerCase();
+            const email = ((l.email || "") as string).toLowerCase();
+            const phone = (l.phone || "") as string;
+            return name.includes(search) || email.includes(search) || phone.includes(search);
+          });
+        }
+        if (assignedToIdFilter) {
+          filtered = filtered.filter(l => l.assignedToId === assignedToIdFilter);
+        }
+        if (statusFilter) {
+          filtered = filtered.filter(l => l.status === statusFilter);
+        }
+        if (fromDate) {
+          const from = new Date(fromDate);
+          filtered = filtered.filter(l => l.createdAt && new Date(l.createdAt) >= from);
+        }
+        if (toDate) {
+          const to = new Date(toDate + "T23:59:59.999Z");
+          filtered = filtered.filter(l => l.createdAt && new Date(l.createdAt) <= to);
+        }
+
+        // Stats on the full filtered set (before pagination)
+        const stats = {
+          hot: filtered.filter(l => l.priority === "hot").length,
+          converted: filtered.filter(l => l.status === "booked" || l.status === "closed").length,
+          unassigned: filtered.filter(l => !l.assignedToId).length,
+        };
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const pageSlice = isPaginated ? filtered.slice((page - 1) * limit, page * limit) : filtered;
+
         const userIds = new Set<string>();
-        uniqueLeads.forEach(l => {
+        pageSlice.forEach((l: any) => {
           if (l.createdBy) userIds.add(l.createdBy);
           if (l.assignedToId) userIds.add(l.assignedToId);
           if (l.convertedByUserId) userIds.add(l.convertedByUserId);
@@ -2265,7 +2309,7 @@ ${allPages.map(p => `  <url>
           const u = await storage.getUser(uid);
           if (u) userMap.set(uid, u.name);
         }
-        const bookingIds = uniqueLeads.map(l => l.linkedBookingId).filter(Boolean) as string[];
+        const bookingIds = pageSlice.map((l: any) => l.linkedBookingId).filter(Boolean) as string[];
         const bookingMap = new Map<string, { status: string; confirmedBy: string | null; confirmedByName: string | null; confirmedAt: Date | null }>();
         for (const bid of bookingIds) {
           const b = await storage.getBooking(bid);
@@ -2282,16 +2326,20 @@ ${allPages.map(p => `  <url>
             bookingMap.set(bid, { status: b.status, confirmedBy: b.confirmedBy, confirmedByName, confirmedAt: b.confirmedAt });
           }
         }
-        const enrichedLeads = uniqueLeads.map(l => ({
+        const enrichedLeads = pageSlice.map((l: any) => ({
           ...l,
           createdByName: l.createdBy ? userMap.get(l.createdBy) || null : null,
           assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
           convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
           linkedBooking: l.linkedBookingId ? bookingMap.get(l.linkedBookingId) || null : null,
         }));
+
+        if (isPaginated) {
+          return res.json({ leads: enrichedLeads, total, page, totalPages, stats });
+        }
         return res.json(enrichedLeads);
       }
-      
+
       res.json(uniqueLeads);
     } catch (error) {
       console.error("Error fetching leads:", error);

@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle, ShieldCheck, List, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
@@ -141,6 +141,20 @@ function AdminSalesManagementContent() {
   const [execToEdit, setExecToEdit] = useState<SalesExecutive | null>(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
 
+  // All Leads tab state
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
+  const [allLeadsTotal, setAllLeadsTotal] = useState(0);
+  const [allLeadsTotalPages, setAllLeadsTotalPages] = useState(1);
+  const [allLeadsStats, setAllLeadsStats] = useState({ hot: 0, converted: 0, unassigned: 0 });
+  const [allLeadsLoading, setAllLeadsLoading] = useState(false);
+  const [allLeadsPage, setAllLeadsPage] = useState(1);
+  const [allLeadsSearch, setAllLeadsSearch] = useState("");
+  const [allLeadsExecId, setAllLeadsExecId] = useState("");
+  const [allLeadsStatus, setAllLeadsStatus] = useState("");
+  const [allLeadsPropertyId, setAllLeadsPropertyId] = useState("");
+  const [allLeadsFromDate, setAllLeadsFromDate] = useState("");
+  const [allLeadsToDate, setAllLeadsToDate] = useState("");
+
   const getAuthToken = () => token || "";
 
   useEffect(() => {
@@ -159,6 +173,57 @@ function AdminSalesManagementContent() {
       loadFrontdesks();
     }
   }, [activeTab]);
+
+  const fetchAllLeads = async (opts?: { page?: number }) => {
+    setAllLeadsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(opts?.page ?? allLeadsPage));
+      params.set("limit", "25");
+      if (allLeadsSearch) params.set("search", allLeadsSearch);
+      if (allLeadsExecId) params.set("assignedToId", allLeadsExecId);
+      if (allLeadsStatus) params.set("status", allLeadsStatus);
+      if (allLeadsPropertyId) params.set("propertyId", allLeadsPropertyId);
+      if (allLeadsFromDate) params.set("fromDate", allLeadsFromDate);
+      if (allLeadsToDate) params.set("toDate", allLeadsToDate);
+
+      const response = await fetch(`/api/leads?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch leads");
+      const data = await response.json();
+      if (data && typeof data === "object" && "leads" in data) {
+        setAllLeads(data.leads || []);
+        setAllLeadsTotal(data.total || 0);
+        setAllLeadsTotalPages(data.totalPages || 1);
+        setAllLeadsStats(data.stats || { hot: 0, converted: 0, unassigned: 0 });
+      } else {
+        setAllLeads(Array.isArray(data) ? data : []);
+        setAllLeadsTotal(Array.isArray(data) ? data.length : 0);
+        setAllLeadsTotalPages(1);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to load all leads", variant: "destructive" });
+    } finally {
+      setAllLeadsLoading(false);
+    }
+  };
+
+  // Fetch all leads when the tab is active or any filter (except search) changes
+  useEffect(() => {
+    if (activeTab !== "all-leads") return;
+    fetchAllLeads({ page: allLeadsPage });
+  }, [activeTab, allLeadsPage, allLeadsExecId, allLeadsStatus, allLeadsPropertyId, allLeadsFromDate, allLeadsToDate]);
+
+  // Debounce search for all-leads
+  useEffect(() => {
+    if (activeTab !== "all-leads") return;
+    const timer = setTimeout(() => {
+      setAllLeadsPage(1);
+      fetchAllLeads({ page: 1 });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [allLeadsSearch]);
 
   const loadFrontdesks = async () => {
     try {
@@ -433,6 +498,7 @@ function AdminSalesManagementContent() {
       setSelectedExecId("");
       loadUnassignedLeads();
       loadSalesExecs();
+      if (activeTab === "all-leads") fetchAllLeads({ page: allLeadsPage });
     } catch (error) {
       toast({ title: "Error", description: "Failed to assign lead", variant: "destructive" });
     }
@@ -705,6 +771,14 @@ function AdminSalesManagementContent() {
             <Target className="h-4 w-4 mr-2" />
             Lead Assignment
           </TabsTrigger>
+          <TabsTrigger
+            value="all-leads"
+            data-testid="tab-all-leads"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-4"
+          >
+            <List className="h-4 w-4 mr-2" />
+            All Leads
+          </TabsTrigger>
           <TabsTrigger 
             value="property-mapping" 
             data-testid="tab-property-mapping"
@@ -898,6 +972,227 @@ function AdminSalesManagementContent() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="all-leads" className="mt-4">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <CardTitle className="text-lg font-semibold">All Leads</CardTitle>
+              {/* Summary pills */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium" data-testid="pill-total">
+                  Total: <span className="font-bold">{allLeadsTotal}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium" data-testid="pill-hot">
+                  Hot: <span className="font-bold">{allLeadsStats.hot}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium" data-testid="pill-converted">
+                  Converted: <span className="font-bold">{allLeadsStats.converted}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium" data-testid="pill-unassigned">
+                  Unassigned: <span className="font-bold">{allLeadsStats.unassigned}</span>
+                </span>
+              </div>
+              {/* Filter bar */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    placeholder="Search name, email, phone…"
+                    value={allLeadsSearch}
+                    onChange={e => setAllLeadsSearch(e.target.value)}
+                    className="pl-8 h-8 w-52 text-xs bg-white"
+                    data-testid="input-all-leads-search"
+                  />
+                </div>
+                <Select value={allLeadsExecId || "__all__"} onValueChange={v => { setAllLeadsExecId(v === "__all__" ? "" : v); setAllLeadsPage(1); }}>
+                  <SelectTrigger className="h-8 w-44 text-xs bg-white" data-testid="select-all-leads-exec">
+                    <SelectValue placeholder="All Executives" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Executives</SelectItem>
+                    {salesExecs.map(e => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={allLeadsStatus || "__all__"} onValueChange={v => { setAllLeadsStatus(v === "__all__" ? "" : v); setAllLeadsPage(1); }}>
+                  <SelectTrigger className="h-8 w-40 text-xs bg-white" data-testid="select-all-leads-status">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Statuses</SelectItem>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="follow_up">Follow Up</SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="not_interested">Not Interested</SelectItem>
+                    <SelectItem value="booked">Booked</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={allLeadsPropertyId || "__all__"} onValueChange={v => { setAllLeadsPropertyId(v === "__all__" ? "" : v); setAllLeadsPage(1); }}>
+                  <SelectTrigger className="h-8 w-44 text-xs bg-white" data-testid="select-all-leads-property">
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Properties</SelectItem>
+                    {properties.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={allLeadsFromDate}
+                  onChange={e => { setAllLeadsFromDate(e.target.value); setAllLeadsPage(1); }}
+                  className="h-8 w-36 text-xs bg-white"
+                  title="From date"
+                  data-testid="input-all-leads-from"
+                />
+                <Input
+                  type="date"
+                  value={allLeadsToDate}
+                  onChange={e => { setAllLeadsToDate(e.target.value); setAllLeadsPage(1); }}
+                  className="h-8 w-36 text-xs bg-white"
+                  title="To date"
+                  data-testid="input-all-leads-to"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-3 text-xs text-slate-500 hover:text-slate-700"
+                  onClick={() => {
+                    setAllLeadsSearch("");
+                    setAllLeadsExecId("");
+                    setAllLeadsStatus("");
+                    setAllLeadsPropertyId("");
+                    setAllLeadsFromDate("");
+                    setAllLeadsToDate("");
+                    setAllLeadsPage(1);
+                  }}
+                  data-testid="button-reset-all-leads-filters"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {allLeadsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : allLeads.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground" data-testid="text-no-all-leads">No leads found.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lead Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allLeads.map(lead => {
+                      const statusColors: Record<string, string> = {
+                        new: "bg-blue-100 text-blue-700",
+                        follow_up: "bg-orange-100 text-orange-700",
+                        interested: "bg-green-100 text-green-700",
+                        not_interested: "bg-slate-100 text-slate-600",
+                        booked: "bg-violet-100 text-violet-700",
+                        closed: "bg-emerald-100 text-emerald-700",
+                      };
+                      return (
+                        <TableRow key={lead.id} data-testid={`row-all-lead-${lead.id}`}>
+                          <TableCell className="font-medium">{lead.studentName}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{lead.email || "—"}</div>
+                            <div className="text-xs text-slate-400">{lead.phone}</div>
+                          </TableCell>
+                          <TableCell className="text-sm">{lead.propertyName || "—"}</TableCell>
+                          <TableCell>
+                            {lead.assignedToName ? (
+                              <Badge variant="outline" className="text-xs">{lead.assignedToName}</Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 text-xs border-0">Unassigned</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[lead.status] || "bg-slate-100 text-slate-600"}`}>
+                              {lead.status?.replace("_", " ")}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getPriorityBadge(lead.priority)}</TableCell>
+                          <TableCell className="text-sm">{lead.leadScore}</TableCell>
+                          <TableCell className="text-xs text-slate-500">
+                            {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" data-testid={`button-all-lead-actions-${lead.id}`}>
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedLead(lead);
+                                    setAssignLeadDialogOpen(true);
+                                  }}
+                                  data-testid={`button-assign-all-lead-${lead.id}`}
+                                >
+                                  <UserPlus className="h-4 w-4 mr-2" />
+                                  Assign to Exec
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+              {/* Pagination */}
+              {allLeadsTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-slate-600" data-testid="all-leads-pagination">
+                  <span>
+                    Showing {Math.min((allLeadsPage - 1) * 25 + 1, allLeadsTotal)}–{Math.min(allLeadsPage * 25, allLeadsTotal)} of {allLeadsTotal} leads
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={allLeadsPage <= 1}
+                      onClick={() => setAllLeadsPage(p => Math.max(1, p - 1))}
+                      data-testid="button-all-leads-prev"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={allLeadsPage >= allLeadsTotalPages}
+                      onClick={() => setAllLeadsPage(p => Math.min(allLeadsTotalPages, p + 1))}
+                      data-testid="button-all-leads-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
