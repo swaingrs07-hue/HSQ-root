@@ -1,0 +1,87 @@
+I have an existing React CRM system for hostel lead management. 
+I need to enhance the Lead Management page with proper filtering. 
+Here is my current code for the sales management page: [paste your file here]
+
+---
+
+## WHAT I WANT TO ADD
+
+### 1. New Page / Tab: "All Leads View"
+Add a new tab called "All Leads" (with a List icon) to the existing Tabs component.
+This tab should show ALL leads (not just unassigned ones).
+
+### 2. Filters Row (above the leads table in the new tab)
+Add these filters in a horizontal filter bar:
+
+a) 🔍 Search — text input, searches studentName, email, phone
+b) 👤 Sales Executive — dropdown of all salesExecs (id + name), plus "All Executives" option
+c) 📅 Date From — date input (filters by createdAt >= date)
+d) 📅 Date To — date input (filters by createdAt <= date)  
+e) 🔴 Status — dropdown: All, new, follow_up, interested, not_interested, booked, closed
+f) 🏠 Property — dropdown from existing `properties` state, plus "All Properties"
+g) 🔄 Reset Filters button — clears all filters back to default
+
+### 3. API Call
+Fetch from GET /api/leads with these query params:
+- search (string)
+- assignedToId (string, the exec's id)
+- status (string)
+- propertyId (string)
+- fromDate (ISO string, e.g. 2026-01-01)
+- toDate (ISO string, e.g. 2026-05-31)
+- page (number, default 1)
+- limit (number, default 25)
+
+Use useEffect that re-fetches whenever any filter changes (debounce search by 400ms).
+
+### 4. Table Columns for All Leads tab
+Show these columns:
+- Lead Name (studentName)
+- Contact (email + phone stacked)
+- Property (propertyName)
+- Assigned To (assignedToName, or "Unassigned" badge in yellow if null)
+- Status (colored Badge — use existing status color logic)
+- Priority (hot/warm/cold badge — reuse existing getPriorityBadge)
+- Score (leadScore)
+- Created At (format as "DD MMM YYYY" using toLocaleDateString)
+- Actions — ⋯ dropdown with: Assign to Exec, View Details (placeholder)
+
+### 5. Summary Bar
+Above the filter row, show 4 small stat pills (not cards):
+Total: X | Hot: X | Converted: X | Unassigned: X
+These should update based on the current filtered result set (from API response metadata).
+
+### 6. Pagination
+Below table: show "Showing X–Y of Z leads" + Prev / Next buttons.
+25 leads per page.
+
+### 7. Inline Reassign
+In the Actions menu of each row, "Assign to Exec" should open the 
+existing `assignLeadDialogOpen` dialog (reuse the existing dialog, 
+just set selectedLead to that row's lead).
+
+---
+
+## BACKEND (if /api/leads doesn't support these params yet)
+
+Update GET /api/leads route to accept and apply these query params as 
+SQL WHERE filters. Use parameterized queries. All filters are optional.
+Return response shape:
+{
+  leads: [...],
+  total: number,
+  page: number,
+  totalPages: number,
+  stats: { hot: number, converted: number, unassigned: number }
+}
+
+---
+
+## STYLE RULES
+- Match existing UI style (slate/white cards, gradient headers, shadow-lg)
+- Filter bar: flex row, gap-2, flex-wrap for mobile
+- Status badge colors: new=blue, follow_up=orange, interested=green, 
+  not_interested=gray, booked=violet, closed=emerald
+- Keep all existing tabs (executives, leads, property-mapping, frontdesks) 
+  exactly as they are — only ADD the new "all-leads" tab
+- Do not break any existing functionality
