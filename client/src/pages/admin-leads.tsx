@@ -691,7 +691,7 @@ export default function AdminLeads() {
                   <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs flex-shrink-0" data-testid="select-source-filter">
                     <SelectValue placeholder="Source" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="all">All Sources</SelectItem>
                     <SelectItem value="hsquare_dynamics">Hsquare Dynamics</SelectItem>
                     <SelectItem value="website">Website</SelectItem>

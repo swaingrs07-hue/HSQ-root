@@ -1,5 +1,4 @@
 import { useState, useEffect, Component, ErrorInfo, ReactNode } from "react";
-import AdminLeadsPage from "@/pages/admin-leads";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle, ShieldCheck, List } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, Edit, Target, UserCheck, AlertCircle, Loader2, MapPin, Link2, MoreVertical, UserMinus, Power, AlertTriangle, ShieldCheck, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
@@ -142,6 +141,16 @@ function AdminSalesManagementContent() {
   const [execToEdit, setExecToEdit] = useState<SalesExecutive | null>(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
 
+  // All Leads tab state
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
+  const [allLeadsTotal, setAllLeadsTotal] = useState(0);
+  const [allLeadsTotalPages, setAllLeadsTotalPages] = useState(1);
+  const [allLeadsStats, setAllLeadsStats] = useState({ hot: 0, converted: 0, unassigned: 0 });
+  const [allLeadsLoading, setAllLeadsLoading] = useState(false);
+  const [allLeadsPage, setAllLeadsPage] = useState(1);
+  const [allLeadsExecId, setAllLeadsExecId] = useState("");
+  const [allLeadsFromDate, setAllLeadsFromDate] = useState("");
+  const [allLeadsToDate, setAllLeadsToDate] = useState("");
 
   const getAuthToken = () => token || "";
 
@@ -161,6 +170,42 @@ function AdminSalesManagementContent() {
       loadFrontdesks();
     }
   }, [activeTab]);
+
+  const fetchAllLeads = async (opts?: { page?: number }) => {
+    setAllLeadsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(opts?.page ?? allLeadsPage));
+      params.set("limit", "25");
+      if (allLeadsExecId) params.set("assignedToId", allLeadsExecId);
+      if (allLeadsFromDate) params.set("fromDate", allLeadsFromDate);
+      if (allLeadsToDate) params.set("toDate", allLeadsToDate);
+      const response = await fetch(`/api/leads?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch leads");
+      const data = await response.json();
+      if (data && typeof data === "object" && "leads" in data) {
+        setAllLeads(data.leads || []);
+        setAllLeadsTotal(data.total || 0);
+        setAllLeadsTotalPages(data.totalPages || 1);
+        setAllLeadsStats(data.stats || { hot: 0, converted: 0, unassigned: 0 });
+      } else {
+        setAllLeads(Array.isArray(data) ? data : []);
+        setAllLeadsTotal(Array.isArray(data) ? data.length : 0);
+        setAllLeadsTotalPages(1);
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to load all leads", variant: "destructive" });
+    } finally {
+      setAllLeadsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== "all-leads") return;
+    fetchAllLeads({ page: allLeadsPage });
+  }, [activeTab, allLeadsPage, allLeadsExecId, allLeadsFromDate, allLeadsToDate]);
 
   const loadFrontdesks = async () => {
     try {
@@ -914,7 +959,163 @@ function AdminSalesManagementContent() {
         </TabsContent>
 
         <TabsContent value="all-leads" className="mt-4">
-          <AdminLeadsPage />
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-4">
+              <CardTitle className="text-lg font-semibold">All Leads</CardTitle>
+              {/* Summary pills */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-medium" data-testid="pill-total">
+                  Total: <span className="font-bold">{allLeadsTotal}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium" data-testid="pill-hot">
+                  Hot: <span className="font-bold">{allLeadsStats.hot}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium" data-testid="pill-converted">
+                  Converted: <span className="font-bold">{allLeadsStats.converted}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium" data-testid="pill-unassigned">
+                  Unassigned: <span className="font-bold">{allLeadsStats.unassigned}</span>
+                </span>
+              </div>
+              {/* Filter bar — exec + date only */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <Select value={allLeadsExecId || "__all__"} onValueChange={v => { setAllLeadsExecId(v === "__all__" ? "" : v); setAllLeadsPage(1); }}>
+                  <SelectTrigger className="h-8 w-48 text-xs bg-white" data-testid="select-all-leads-exec">
+                    <SelectValue placeholder="All Executives" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All Executives</SelectItem>
+                    {salesExecs.map(e => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={allLeadsFromDate}
+                  onChange={e => { setAllLeadsFromDate(e.target.value); setAllLeadsPage(1); }}
+                  className="h-8 w-36 text-xs bg-white"
+                  title="From date"
+                  data-testid="input-all-leads-from"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <Input
+                  type="date"
+                  value={allLeadsToDate}
+                  onChange={e => { setAllLeadsToDate(e.target.value); setAllLeadsPage(1); }}
+                  className="h-8 w-36 text-xs bg-white"
+                  title="To date"
+                  data-testid="input-all-leads-to"
+                />
+                {(allLeadsExecId || allLeadsFromDate || allLeadsToDate) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-xs text-slate-500 hover:text-slate-700"
+                    onClick={() => { setAllLeadsExecId(""); setAllLeadsFromDate(""); setAllLeadsToDate(""); setAllLeadsPage(1); }}
+                    data-testid="button-reset-all-leads-filters"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {allLeadsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : allLeads.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground" data-testid="text-no-all-leads">No leads found.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lead Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allLeads.map(lead => {
+                      const statusColors: Record<string, string> = {
+                        new: "bg-blue-100 text-blue-700",
+                        contacted: "bg-cyan-100 text-cyan-700",
+                        follow_up: "bg-orange-100 text-orange-700",
+                        interested: "bg-green-100 text-green-700",
+                        not_interested: "bg-slate-100 text-slate-600",
+                        booked: "bg-violet-100 text-violet-700",
+                        closed: "bg-emerald-100 text-emerald-700",
+                        converted: "bg-emerald-100 text-emerald-700",
+                        lost: "bg-red-100 text-red-700",
+                      };
+                      return (
+                        <TableRow key={lead.id} data-testid={`row-all-lead-${lead.id}`}>
+                          <TableCell className="font-medium">{lead.studentName || lead.name}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{lead.email || "—"}</div>
+                            <div className="text-xs text-slate-400">{lead.phone}</div>
+                          </TableCell>
+                          <TableCell className="text-sm">{lead.propertyName || "—"}</TableCell>
+                          <TableCell>
+                            {(lead as any).assignedToName ? (
+                              <Badge variant="outline" className="text-xs">{(lead as any).assignedToName}</Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 text-xs border-0">Unassigned</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[lead.status] || "bg-slate-100 text-slate-600"}`}>
+                              {lead.status?.replace("_", " ")}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getPriorityBadge(lead.priority)}</TableCell>
+                          <TableCell className="text-sm">{lead.leadScore}</TableCell>
+                          <TableCell className="text-xs text-slate-500">
+                            {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setSelectedLead(lead); setAssignLeadDialogOpen(true); }}
+                              title="Assign to exec"
+                              data-testid={`button-assign-all-lead-${lead.id}`}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+              {/* Pagination */}
+              {allLeadsTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-slate-600" data-testid="all-leads-pagination">
+                  <span className="text-xs">
+                    Showing {Math.min((allLeadsPage - 1) * 25 + 1, allLeadsTotal)}–{Math.min(allLeadsPage * 25, allLeadsTotal)} of {allLeadsTotal}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" disabled={allLeadsPage <= 1} onClick={() => setAllLeadsPage(p => Math.max(1, p - 1))} data-testid="button-all-leads-prev">
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="inline-flex items-center px-2 text-xs text-slate-500">{allLeadsPage} / {allLeadsTotalPages}</span>
+                    <Button variant="outline" size="sm" disabled={allLeadsPage >= allLeadsTotalPages} onClick={() => setAllLeadsPage(p => Math.min(allLeadsTotalPages, p + 1))} data-testid="button-all-leads-next">
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="property-mapping" className="mt-4">
