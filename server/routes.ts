@@ -5439,6 +5439,13 @@ ${allPages.map(p => `  <url>
         }
       }
 
+      // HMS sync — fire-and-forget so it never blocks the response
+      if (cancelled) {
+        autoSyncBookingToHMS(cancelled).catch((e) =>
+          console.error("[HMS Auto-Sync] student cancel sync error:", e?.message)
+        );
+      }
+
       res.json(cancelled);
     } catch (error) {
       console.error("Error cancelling booking:", error);
@@ -7106,6 +7113,88 @@ ${allPages.map(p => `  <url>
       if (!property || !property.hmsLinked) return;
       if (!property.propertyCode && !property.hmsPropertyId) return;
 
+      const { getPropertyCode: getCode, cancelResidentOnHMS } = await import("./hms-sync.js");
+      const resolvedPropertyCode = property.propertyCode || getCode(property.name);
+      if (!resolvedPropertyCode) {
+        console.warn(`[HMS Auto-Sync] Skipping booking ${booking.bookingCode} — cannot determine property code for "${property.name}"`);
+        return;
+      }
+
+      // --- CANCELLED BOOKING: send cancel-resident instead of create-resident ---
+      if (booking.status === "cancelled") {
+        const rd = booking.residentDetails as any;
+        let studentData: any = null;
+        if (booking.studentId) {
+          const [s] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
+          studentData = s || null;
+        }
+        const phone = studentData?.phone || booking.walkInPhone || booking.customerPhone || rd?.phone || "";
+
+        // Resolve refund amount — 4-step precedence chain
+        let refundAmount = 0;
+        let totalPaid = 0;
+        const cancelReq = await storage.getCancellationRequestByBooking(booking.id);
+        if (cancelReq) {
+          const bd = cancelReq.refundBreakdown as any;
+          if (cancelReq.overrideRefundAmount != null) {
+            refundAmount = Number(cancelReq.overrideRefundAmount);
+          } else if (bd?.refundable != null) {
+            refundAmount = Number(bd.refundable);
+          }
+          totalPaid = Number(bd?.totalPaid ?? 0);
+        }
+        if (refundAmount === 0 && booking.depositRefundAmount != null) {
+          refundAmount = Number(booking.depositRefundAmount);
+        }
+        if (refundAmount === 0 && totalPaid === 0) {
+          const calc = await storage.calculateCancellationRefund(booking.id);
+          if (calc) {
+            refundAmount = calc.refundable;
+            totalPaid = calc.totalPaid;
+          }
+        }
+
+        const refundStatus: "processed" | "pending" = booking.depositRefunded ? "processed" : "pending";
+        const cancelledAt = booking.updatedAt
+          ? new Date(booking.updatedAt).toISOString()
+          : new Date().toISOString();
+
+        const result = await cancelResidentOnHMS({
+          phone,
+          propertyCode: resolvedPropertyCode,
+          reason: booking.cancellationReason || cancelReq?.reason || undefined,
+          cancelledAt,
+          refundAmount,
+          refundStatus,
+          totalPaid,
+        });
+
+        await logActivity({
+          actor: { id: "system", name: "System", role: "admin" },
+          actionType: "UPDATE" as ActionType,
+          entityType: "BOOKING" as EntityType,
+          entityId: booking.id,
+          entityLabel: `HMS Cancel-Sync: ${booking.bookingCode}`,
+          metadata: {
+            action: "cancelled",
+            refundAmount,
+            refundStatus,
+            totalPaid,
+            notAvailable: result.notAvailable ?? false,
+            syncSuccess: result.success,
+          },
+        });
+
+        if (result.notAvailable) {
+          console.warn(`[HMS Auto-Sync] cancel-resident endpoint not live yet — logged for ${booking.bookingCode}`);
+        } else if (result.success) {
+          console.log(`[HMS Auto-Sync] Sent cancellation to HMS for ${booking.bookingCode}`);
+        } else {
+          console.error(`[HMS Auto-Sync] Cancel-resident failed for ${booking.bookingCode}: ${result.error}`);
+        }
+        return;
+      }
+
       const rd = booking.residentDetails as any;
       let studentData: any = null;
       if (booking.studentId) {
@@ -7135,15 +7224,7 @@ ${allPages.map(p => `  <url>
       }
       const season = activeSeasons.length > 0 ? activeSeasons[0] : null;
 
-      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
-
-      const resolvedPropertyCode = property.propertyCode || getPropertyCode(property.name);
-      if (!resolvedPropertyCode) {
-        console.warn(`[HMS Auto-Sync] Skipping booking ${booking.bookingCode} — cannot determine property code for "${property.name}"`);
-        return;
-      }
-
-      const { resolvePublicUrl } = await import("./hms-sync.js");
+      const { syncBookingToHMS, resolvePublicUrl } = await import("./hms-sync.js");
 
       const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
       const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
@@ -16642,9 +16723,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         } as any);
       }
 
-      // HMS sync
+      // HMS sync — pass full cancelled booking so cancel branch gets status/propertyId
       try {
-        await autoSyncBookingToHMS({ id: bookingId } as any);
+        await autoSyncBookingToHMS(cancelled);
       } catch {}
 
       // Email student
@@ -16782,9 +16863,10 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         } as any);
       }
 
-      // HMS sync
+      // HMS sync — pass full cancelled booking so cancel branch gets status/propertyId
       try {
-        await autoSyncBookingToHMS({ id: cancelReq.bookingId } as any);
+        const freshCancelled = await storage.getBooking(cancelReq.bookingId);
+        if (freshCancelled) await autoSyncBookingToHMS(freshCancelled);
       } catch {}
 
       // Email student

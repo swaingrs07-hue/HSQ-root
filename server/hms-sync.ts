@@ -70,6 +70,60 @@ interface HMSSyncData {
   documentUrls?: string[];
 }
 
+export interface HMSCancelData {
+  phone: string;
+  propertyCode: string;
+  reason?: string;
+  cancelledAt: string;
+  refundAmount: number;
+  refundStatus: "pending" | "processed";
+  totalPaid: number;
+}
+
+export async function cancelResidentOnHMS(data: HMSCancelData): Promise<{
+  success: boolean;
+  notAvailable?: boolean;
+  error?: string;
+}> {
+  const hmsUrl = process.env.HMS_API_URL;
+  const hmsApiKey = process.env.HMS_API_KEY;
+
+  if (!hmsUrl || !hmsApiKey) {
+    console.error("[hms-sync] HMS_API_URL or HMS_API_KEY not configured");
+    return { success: false, error: "HMS not configured" };
+  }
+
+  try {
+    const response = await fetch(`${hmsUrl.replace(/\/+$/, "")}/sync/cancel-resident`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${hmsApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (response.status === 404 || response.status === 405) {
+      console.warn(`[hms-sync] HMS cancel endpoint not yet available (${response.status}) — skipping cancel-resident sync`);
+      return { success: false, notAvailable: true };
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.error(`[hms-sync] HMS cancel-resident returned ${response.status}: ${text.substring(0, 300)}`);
+      return { success: false, error: `HMS returned ${response.status}` };
+    }
+
+    const result = await response.json().catch(() => ({}));
+    console.log(`[hms-sync] Sent cancel-resident to HMS for phone ${data.phone}: refund ₹${data.refundAmount} (${data.refundStatus})`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[hms-sync] Failed to send cancel-resident:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function syncBookingToHMS(bookingData: HMSSyncData): Promise<{
   success: boolean;
   action?: "created" | "updated";
