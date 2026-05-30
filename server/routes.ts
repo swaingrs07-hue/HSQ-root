@@ -4658,7 +4658,7 @@ ${allPages.map(p => `  <url>
   // Get booking by code
   app.get("/api/bookings/code/:code", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const booking = await storage.getBookingByCode(req.params.code);
+      const booking = await storage.getBookingByCode(req.params.code as string);
       if (!booking) {
         return res.status(404).json({ error: "Booking not found" });
       }
@@ -4677,10 +4677,11 @@ ${allPages.map(p => `  <url>
   app.get("/api/properties/:propertyId/bookings", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const scope = await getFrontdeskScope(req);
-      if (scope && !scope.has(req.params.propertyId)) {
+      const propertyId = req.params.propertyId as string;
+      if (scope && !scope.has(propertyId)) {
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
-      const bookings = await storage.getBookingsByProperty(req.params.propertyId);
+      const bookings = await storage.getBookingsByProperty(propertyId);
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching property bookings:", error);
@@ -4703,7 +4704,7 @@ ${allPages.map(p => `  <url>
           storage.getPaymentsByBooking(b.id),
           storage.getCancellationRequestByBooking(b.id),
         ]);
-        return { ...b, property, roomType, installments, payments, pendingCancellationRequest: cancelReq && cancelReq.status === "pending" ? { id: cancelReq.id, status: cancelReq.status, requestedAt: cancelReq.requestedAt } : null };
+        return { ...b, property, roomType, installments, payments, pendingCancellationRequest: cancelReq && cancelReq.status === "pending" ? { id: cancelReq.id, status: cancelReq.status, requestedAt: cancelReq.createdAt } : null };
       }));
       res.json(enriched);
     } catch (error) {
@@ -16492,10 +16493,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
-      // Authorization: only the booking creator or admin roles may submit a cancellation request
-      const privilegedRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
-      const isPrivileged = privilegedRoles.includes(req.user!.role);
-      if (!isPrivileged && booking.createdBy !== req.user!.userId) {
+      // Authorization: only the student who owns the booking (role=user) or admin roles may submit a
+      // cancellation request. Sales executives are explicitly excluded per scope (they create bookings
+      // on behalf of students but cannot initiate cancellation workflows themselves).
+      const adminRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
+      const isAdmin = adminRoles.includes(req.user!.role);
+      const isBookingOwnerStudent = req.user!.role === "user" && booking.createdBy === req.user!.userId;
+      if (!isAdmin && !isBookingOwnerStudent) {
         return res.status(403).json({ error: "Not authorized to cancel this booking" });
       }
       if (!["confirmed", "active", "pending_payment", "pending_approval"].includes(booking.status)) {
