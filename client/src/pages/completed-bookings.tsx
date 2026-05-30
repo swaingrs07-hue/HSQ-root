@@ -206,6 +206,27 @@ export default function CompletedBookings() {
   const [adminCancelEstimate, setAdminCancelEstimate] = useState<any>(null);
   const [adminCancelLoading, setAdminCancelLoading] = useState(false);
   const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
+  const [adminCancelProofUploading, setAdminCancelProofUploading] = useState(false);
+
+  const uploadAdminCancelProof = async (file: File) => {
+    setAdminCancelProofUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!uploadRes.ok) throw new Error("Failed to upload proof");
+      setAdminCancelProofUrl(objectPath);
+      toast({ title: "Proof uploaded", description: "Proof document attached." });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    }
+    setAdminCancelProofUploading(false);
+  };
 
   const openAdminCancelDialog = async (booking: any) => {
     setAdminCancelReason("");
@@ -4526,6 +4547,30 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                 rows={3}
                 data-testid="textarea-admin-cancel-reason"
               />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Supporting Document / Proof — optional</Label>
+              {adminCancelProofUrl ? (
+                <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  {adminCancelProofUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                    <img src={`/api/uploads/signed-url?path=${encodeURIComponent(adminCancelProofUrl)}`} alt="Proof" className="h-10 w-10 object-cover rounded" />
+                  ) : (
+                    <FileText className="h-5 w-5 text-slate-400" />
+                  )}
+                  <span className="text-xs text-slate-600 flex-1 truncate">{adminCancelProofUrl.split("/").pop()}</span>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => setAdminCancelProofUrl("")} data-testid="button-remove-proof">
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-slate-50 transition-colors text-sm text-slate-500" data-testid="label-upload-proof">
+                  {adminCancelProofUploading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-400" /> : <Upload className="h-4 w-4" />}
+                  <span>{adminCancelProofUploading ? "Uploading…" : "Click to upload proof document or image"}</span>
+                  <input type="file" accept="image/*,.pdf" className="hidden" disabled={adminCancelProofUploading}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadAdminCancelProof(f); e.target.value = ""; }} />
+                </label>
+              )}
             </div>
 
             <div className="space-y-1">

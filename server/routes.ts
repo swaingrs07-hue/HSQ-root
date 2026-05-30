@@ -4696,13 +4696,14 @@ ${allPages.map(p => `  <url>
       // generated the booking from a lead this user owns/converted).
       const bookings = await storage.getBookingsForSalesExec(userId);
       const enriched = await Promise.all(bookings.map(async (b) => {
-        const [property, roomType, installments, payments] = await Promise.all([
+        const [property, roomType, installments, payments, cancelReq] = await Promise.all([
           storage.getProperty(b.propertyId),
           storage.getRoomType(b.roomTypeId),
           storage.getInstallmentsByBooking(b.id),
           storage.getPaymentsByBooking(b.id),
+          storage.getCancellationRequestByBooking(b.id),
         ]);
-        return { ...b, property, roomType, installments, payments };
+        return { ...b, property, roomType, installments, payments, pendingCancellationRequest: cancelReq && cancelReq.status === "pending" ? { id: cancelReq.id, status: cancelReq.status, requestedAt: cancelReq.requestedAt } : null };
       }));
       res.json(enriched);
     } catch (error) {
@@ -16465,6 +16466,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
+      // Authorization: admin roles may view any booking; students/sales may only view their own
+      const privilegedRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
+      const isPrivileged = privilegedRoles.includes(req.user!.role);
+      if (!isPrivileged && booking.createdBy !== req.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to access this booking" });
+      }
       const estimate = await storage.calculateCancellationRefund(req.params.id);
       if (!estimate) return res.status(400).json({ error: "Could not calculate refund" });
       res.json(estimate);
@@ -16482,6 +16489,12 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       const booking = await storage.getBooking(req.params.id);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
+      // Authorization: only the booking creator or admin roles may submit a cancellation request
+      const privilegedRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
+      const isPrivileged = privilegedRoles.includes(req.user!.role);
+      if (!isPrivileged && booking.createdBy !== req.user!.userId) {
+        return res.status(403).json({ error: "Not authorized to cancel this booking" });
+      }
       if (!["confirmed", "active", "pending_payment", "pending_approval"].includes(booking.status)) {
         return res.status(400).json({ error: "Only active bookings can be cancelled" });
       }

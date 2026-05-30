@@ -533,14 +533,24 @@ export default function MyBookings() {
               </Button>
 
               {["confirmed", "active", "pending_payment", "pending_approval"].includes(b.status) && (
-                <Button
-                  variant="outline"
-                  onClick={() => openCancelDialog(b)}
-                  className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-300"
-                  data-testid="button-request-cancellation"
-                >
-                  <XCircle className="h-4 w-4 mr-2" /> Request Cancellation
-                </Button>
+                b.pendingCancellationRequest ? (
+                  <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-300 text-sm" data-testid="text-cancellation-pending">
+                    <Clock className="h-4 w-4 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold">Cancellation Pending Review</p>
+                      <p className="text-xs text-amber-400/60 mt-0.5">Our team will respond within 2–3 business days.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => openCancelDialog(b)}
+                    className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-300"
+                    data-testid="button-request-cancellation"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" /> Request Cancellation
+                  </Button>
+                )
               )}
             </div>
           </motion.div>
