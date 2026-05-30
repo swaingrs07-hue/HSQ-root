@@ -3934,6 +3934,107 @@ export default function CompletedBookings() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Admin Cancel with Reason Dialog ── */}
+      <Dialog open={adminCancelDialogOpen} onOpenChange={setAdminCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <XCircle className="h-5 w-5" /> Cancel Booking with Reason
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {adminCancelLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+              </div>
+            ) : adminCancelEstimate ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Refund Estimate</p>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Paid</span>
+                  <span className="font-medium">₹{(adminCancelEstimate.totalPaid || 0).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Forfeited</span>
+                  <span className="font-medium text-rose-600">₹{(adminCancelEstimate.forfeited || 0).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-1">
+                  <span className="font-semibold text-slate-600">Refundable</span>
+                  <span className="font-bold text-emerald-600">₹{(adminCancelEstimate.refundable || 0).toLocaleString("en-IN")}</span>
+                </div>
+                {adminCancelEstimate.policyLabel && (
+                  <p className="text-[10px] text-slate-400 mt-1">{adminCancelEstimate.policyLabel}</p>
+                )}
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              <Label htmlFor="admin-cancel-reason">Cancellation Reason *</Label>
+              <Textarea
+                id="admin-cancel-reason"
+                value={adminCancelReason}
+                onChange={e => setAdminCancelReason(e.target.value)}
+                placeholder="Document the reason for this admin-initiated cancellation…"
+                rows={3}
+                data-testid="textarea-admin-cancel-reason"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Supporting Document / Proof — optional</Label>
+              {adminCancelProofUrl ? (
+                <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  {adminCancelProofUrl.startsWith("/objects/") ? (
+                    <img src={adminCancelProofUrl} alt="Proof" className="h-10 w-10 object-cover rounded" />
+                  ) : (
+                    <FileText className="h-5 w-5 text-slate-400" />
+                  )}
+                  <span className="text-xs text-slate-600 flex-1 truncate">{adminCancelProofUrl.split("/").pop()}</span>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => setAdminCancelProofUrl("")} data-testid="button-remove-proof">
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-slate-50 transition-colors text-sm text-slate-500" data-testid="label-upload-proof">
+                  {adminCancelProofUploading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-400" /> : <Upload className="h-4 w-4" />}
+                  <span>{adminCancelProofUploading ? "Uploading…" : "Click to upload proof document or image"}</span>
+                  <input type="file" accept="image/*,.pdf" className="hidden" disabled={adminCancelProofUploading}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadAdminCancelProof(f); e.target.value = ""; }} />
+                </label>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="admin-cancel-refund">Override Refund Amount (₹) — optional</Label>
+              <Input
+                id="admin-cancel-refund"
+                type="number"
+                min={0}
+                placeholder={`Calculated: ₹${(adminCancelEstimate?.refundable || 0).toLocaleString("en-IN")}`}
+                value={adminCancelOverrideRefund}
+                onChange={e => setAdminCancelOverrideRefund(e.target.value)}
+                data-testid="input-admin-cancel-refund"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setAdminCancelDialogOpen(false)} data-testid="button-admin-cancel-close">
+              Close
+            </Button>
+            <Button
+              onClick={handleAdminCancelSubmit}
+              disabled={adminCancelSubmitting || !adminCancelReason.trim()}
+              className="bg-orange-600 hover:bg-orange-500 text-white gap-2"
+              data-testid="button-admin-cancel-confirm"
+            >
+              {adminCancelSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+              Confirm Cancellation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -4499,107 +4600,6 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                 Confirm Shift
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Admin Cancel with Reason Dialog ── */}
-      <Dialog open={adminCancelDialogOpen} onOpenChange={setAdminCancelDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-700">
-              <XCircle className="h-5 w-5" /> Cancel Booking with Reason
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {adminCancelLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
-              </div>
-            ) : adminCancelEstimate ? (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Refund Estimate</p>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Total Paid</span>
-                  <span className="font-medium">₹{(adminCancelEstimate.totalPaid || 0).toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Forfeited</span>
-                  <span className="font-medium text-rose-600">₹{(adminCancelEstimate.forfeited || 0).toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex justify-between border-t border-slate-200 pt-1">
-                  <span className="font-semibold text-slate-600">Refundable</span>
-                  <span className="font-bold text-emerald-600">₹{(adminCancelEstimate.refundable || 0).toLocaleString("en-IN")}</span>
-                </div>
-                {adminCancelEstimate.policyLabel && (
-                  <p className="text-[10px] text-slate-400 mt-1">{adminCancelEstimate.policyLabel}</p>
-                )}
-              </div>
-            ) : null}
-
-            <div className="space-y-1">
-              <Label htmlFor="admin-cancel-reason">Cancellation Reason *</Label>
-              <Textarea
-                id="admin-cancel-reason"
-                value={adminCancelReason}
-                onChange={e => setAdminCancelReason(e.target.value)}
-                placeholder="Document the reason for this admin-initiated cancellation…"
-                rows={3}
-                data-testid="textarea-admin-cancel-reason"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Supporting Document / Proof — optional</Label>
-              {adminCancelProofUrl ? (
-                <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                  {adminCancelProofUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
-                    <img src={`/api/uploads/signed-url?path=${encodeURIComponent(adminCancelProofUrl)}`} alt="Proof" className="h-10 w-10 object-cover rounded" />
-                  ) : (
-                    <FileText className="h-5 w-5 text-slate-400" />
-                  )}
-                  <span className="text-xs text-slate-600 flex-1 truncate">{adminCancelProofUrl.split("/").pop()}</span>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => setAdminCancelProofUrl("")} data-testid="button-remove-proof">
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 hover:bg-slate-50 transition-colors text-sm text-slate-500" data-testid="label-upload-proof">
-                  {adminCancelProofUploading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-400" /> : <Upload className="h-4 w-4" />}
-                  <span>{adminCancelProofUploading ? "Uploading…" : "Click to upload proof document or image"}</span>
-                  <input type="file" accept="image/*,.pdf" className="hidden" disabled={adminCancelProofUploading}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadAdminCancelProof(f); e.target.value = ""; }} />
-                </label>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="admin-cancel-refund">Override Refund Amount (₹) — optional</Label>
-              <Input
-                id="admin-cancel-refund"
-                type="number"
-                min={0}
-                placeholder={`Calculated: ₹${(adminCancelEstimate?.refundable || 0).toLocaleString("en-IN")}`}
-                value={adminCancelOverrideRefund}
-                onChange={e => setAdminCancelOverrideRefund(e.target.value)}
-                data-testid="input-admin-cancel-refund"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2 justify-end pt-2">
-            <Button variant="outline" onClick={() => setAdminCancelDialogOpen(false)} data-testid="button-admin-cancel-close">
-              Close
-            </Button>
-            <Button
-              onClick={handleAdminCancelSubmit}
-              disabled={adminCancelSubmitting || !adminCancelReason.trim()}
-              className="bg-orange-600 hover:bg-orange-500 text-white gap-2"
-              data-testid="button-admin-cancel-confirm"
-            >
-              {adminCancelSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-              Confirm Cancellation
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -16,23 +16,40 @@ function CancellationPoliciesSection() {
   const { toast } = useToast();
   const { token } = useAuth();
   const [policies, setPolicies] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [seedLoading, setSeedLoading] = useState(false);
-  const [form, setForm] = useState({ label: "", daysBeforeMoveIn: "", refundPercentage: "" });
+  const [scopePropertyId, setScopePropertyId] = useState<string>("__global__");
+  const [form, setForm] = useState({ label: "", daysBeforeMoveIn: "", refundPercentage: "", propertyId: "__global__" });
 
   const authHeader = { Authorization: `Bearer ${token}` };
 
-  const load = async () => {
+  const load = async (propertyId?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/cancellation-policies", { headers: authHeader });
+      const pid = propertyId ?? scopePropertyId;
+      const qs = pid && pid !== "__global__" ? `?propertyId=${encodeURIComponent(pid)}` : "";
+      const res = await fetch(`/api/admin/cancellation-policies${qs}`, { headers: authHeader });
       if (res.ok) setPolicies(await res.json());
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [token]);
+  const loadProperties = async () => {
+    try {
+      const res = await fetch("/api/admin/properties", { headers: authHeader });
+      if (res.ok) setProperties(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => { load(); loadProperties(); }, [token]);
+
+  const handleScopeChange = (pid: string) => {
+    setScopePropertyId(pid);
+    setForm(f => ({ ...f, propertyId: pid }));
+    load(pid);
+  };
 
   const handleAdd = async () => {
     if (!form.label.trim() || form.daysBeforeMoveIn === "" || form.refundPercentage === "") return;
@@ -45,11 +62,12 @@ function CancellationPoliciesSection() {
           label: form.label.trim(),
           daysBeforeMoveIn: Number(form.daysBeforeMoveIn),
           refundPercentage: Number(form.refundPercentage),
+          propertyId: form.propertyId !== "__global__" ? form.propertyId : null,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
       toast({ title: "Policy added" });
-      setForm({ label: "", daysBeforeMoveIn: "", refundPercentage: "" });
+      setForm(f => ({ ...f, label: "", daysBeforeMoveIn: "", refundPercentage: "" }));
       load();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -81,6 +99,10 @@ function CancellationPoliciesSection() {
     setSeedLoading(false);
   };
 
+  const selectedPropertyName = scopePropertyId === "__global__"
+    ? null
+    : properties.find(p => p.id === scopePropertyId)?.name;
+
   return (
     <Card data-testid="card-cancellation-policies">
       <CardHeader>
@@ -90,10 +112,31 @@ function CancellationPoliciesSection() {
         </CardTitle>
         <CardDescription>
           Define refund tiers based on how many days before move-in a cancellation is made.
-          The highest matching tier is applied automatically.
+          Global tiers apply to all properties; property-specific tiers override globals for that property.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Scope selector */}
+        <div className="flex items-center gap-3">
+          <Label className="text-xs text-slate-500 whitespace-nowrap">View policies for:</Label>
+          <select
+            className="text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            value={scopePropertyId}
+            onChange={e => handleScopeChange(e.target.value)}
+            data-testid="select-policy-scope"
+          >
+            <option value="__global__">🌐 Global (applies to all properties)</option>
+            {properties.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {selectedPropertyName && (
+            <span className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+              Property-specific
+            </span>
+          )}
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />)}
@@ -101,12 +144,20 @@ function CancellationPoliciesSection() {
         ) : policies.length === 0 ? (
           <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
             <XCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">No cancellation policies yet</p>
-            <p className="text-slate-400 text-sm mt-1 mb-4">Add tiers below, or use default policies as a starting point.</p>
-            <Button size="sm" variant="outline" onClick={handleSeedDefaults} disabled={seedLoading} data-testid="button-seed-policies">
-              {seedLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Load Default Policies
-            </Button>
+            <p className="text-slate-500 font-medium">
+              No {scopePropertyId === "__global__" ? "global" : "property-specific"} policies yet
+            </p>
+            <p className="text-slate-400 text-sm mt-1 mb-4">
+              {scopePropertyId === "__global__"
+                ? "Add tiers below, or use default policies as a starting point."
+                : "Add property-specific tiers below, or switch to Global to manage global defaults."}
+            </p>
+            {scopePropertyId === "__global__" && (
+              <Button size="sm" variant="outline" onClick={handleSeedDefaults} disabled={seedLoading} data-testid="button-seed-policies">
+                {seedLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Load Default Policies
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -114,7 +165,10 @@ function CancellationPoliciesSection() {
               <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200" data-testid={`policy-row-${p.id}`}>
                 <div>
                   <p className="font-medium text-slate-700 text-sm">{p.label}</p>
-                  <p className="text-xs text-slate-500">≥ {p.daysBeforeMoveIn} days before move-in → <span className="text-emerald-600 font-semibold">{p.refundPercentage}% refund</span></p>
+                  <p className="text-xs text-slate-500">
+                    ≥ {p.daysBeforeMoveIn} days before move-in → <span className="text-emerald-600 font-semibold">{p.refundPercentage}% refund</span>
+                    {p.propertyId && <span className="ml-2 text-indigo-500">(property-specific)</span>}
+                  </p>
                 </div>
                 <Button
                   size="icon"
@@ -131,7 +185,9 @@ function CancellationPoliciesSection() {
         )}
 
         <div className="border-t border-slate-200 pt-4">
-          <p className="text-sm font-semibold text-slate-700 mb-3">Add New Tier</p>
+          <p className="text-sm font-semibold text-slate-700 mb-3">
+            Add New Tier {form.propertyId !== "__global__" && selectedPropertyName ? `(${selectedPropertyName})` : "(Global)"}
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
               <Label className="text-xs text-slate-500 mb-1 block">Label</Label>

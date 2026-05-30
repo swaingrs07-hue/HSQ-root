@@ -16543,46 +16543,60 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
-  // POST admin-initiated cancellation (direct, skips pending queue)
+  // POST admin-initiated cancellation (direct, skips pending queue) — runs in a DB transaction
   app.post("/api/admin/bookings/:id/cancel", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
+      const bookingId = req.params.id as string;
       const { reason, proofImageUrl, overrideRefundAmount } = req.body;
       if (!reason?.trim()) return res.status(400).json({ error: "Reason is required" });
 
-      const booking = await storage.getBooking(req.params.id);
+      const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
       if (booking.status === "cancelled") return res.status(400).json({ error: "Booking is already cancelled" });
 
-      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      const estimate = await storage.calculateCancellationRefund(bookingId);
       const refundAmount = overrideRefundAmount != null ? Number(overrideRefundAmount) : (estimate?.refundable ?? 0);
 
-      // Create the request in approved state immediately
-      const cancelReq = await storage.createCancellationRequest({
-        bookingId: req.params.id,
-        requestedBy: req.user!.userId,
-        initiatedBy: "admin",
-        reason: reason.trim(),
-        proofImageUrl: proofImageUrl || null,
-        status: "approved",
-        policySnapshot: estimate?.policySnapshot || null,
-        refundBreakdown: estimate ? { totalPaid: estimate.totalPaid, forfeited: estimate.forfeited, refundable: refundAmount, policyLabel: estimate.policyLabel } : null,
-        overrideRefundAmount: overrideRefundAmount != null ? Number(overrideRefundAmount) : null,
-        rejectionReason: null,
-        processedBy: req.user!.userId,
+      // Atomic: create request, cancel booking, update refund fields, wire FK — all in one transaction
+      const { cancelReq, cancelled } = await db.transaction(async (tx) => {
+        const [cancelReqRow] = await tx.insert(schema.cancellationRequests).values({
+          bookingId,
+          requestedBy: req.user!.userId,
+          initiatedBy: "admin",
+          reason: reason.trim(),
+          proofImageUrl: proofImageUrl || null,
+          status: "approved",
+          policySnapshot: (estimate?.policySnapshot || null) as any,
+          refundBreakdown: (estimate ? { totalPaid: estimate.totalPaid, forfeited: estimate.forfeited, refundable: refundAmount, policyLabel: estimate.policyLabel } : null) as any,
+          overrideRefundAmount: overrideRefundAmount != null ? String(Number(overrideRefundAmount)) : null,
+          processedBy: req.user!.userId,
+          processedAt: new Date(),
+        } as any).returning();
+
+        const updateSet: any = {
+          status: "cancelled",
+          cancellationRequestId: cancelReqRow.id,
+          updatedAt: new Date(),
+        };
+        if (refundAmount > 0) {
+          updateSet.depositRefunded = true;
+          updateSet.depositRefundedAt = new Date().toISOString().slice(0, 10);
+          updateSet.depositRefundAmount = refundAmount;
+          updateSet.depositRefundNotes = `Admin cancellation. Request #${cancelReqRow.id}`;
+        }
+
+        const [cancelledRow] = await tx.update(schema.bookings)
+          .set(updateSet)
+          .where(eq(schema.bookings.id, bookingId))
+          .returning();
+
+        return { cancelReq: cancelReqRow, cancelled: cancelledRow };
       });
-      await storage.updateCancellationRequest(cancelReq.id, { processedAt: new Date() });
 
-      // Cancel the booking
-      const cancelled = await storage.cancelBooking(req.params.id, reason.trim());
-
-      // Update deposit refund fields
-      if (cancelled && refundAmount > 0) {
-        await storage.updateBooking(req.params.id, {
-          depositRefunded: true,
-          depositRefundedAt: new Date().toISOString().slice(0, 10),
-          depositRefundAmount: refundAmount,
-          depositRefundNotes: `Auto: admin cancellation. Request #${cancelReq.id}`,
-        } as any);
+      // Razorpay refund (best-effort, outside transaction)
+      let razorpayRefundId: string | null = null;
+      if (refundAmount > 0) {
+        razorpayRefundId = await attemptRazorpayRefund(bookingId, refundAmount);
       }
 
       // Revert linked lead
@@ -16597,7 +16611,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       // HMS sync
       try {
-        await autoSyncBookingToHMS({ id: req.params.id } as any);
+        await autoSyncBookingToHMS({ id: bookingId } as any);
       } catch {}
 
       // Email student
@@ -16611,14 +16625,28 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         adminId: req.user!.userId,
         action: "ADMIN_CANCELLED_BOOKING",
         entityType: "booking",
-        entityId: req.params.id,
-        details: JSON.stringify({ bookingCode: booking.bookingCode, reason, proofImageUrl: proofImageUrl || null, refundAmount }),
+        entityId: bookingId,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, reason, proofImageUrl: proofImageUrl || null, refundAmount, razorpayRefundId }),
       });
 
       res.json({ success: true, booking: cancelled, cancellationRequest: cancelReq });
     } catch (e: any) {
       console.error("[admin/bookings/:id/cancel]", e);
       res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  });
+
+  // POST dedicated proof upload for cancellation requests (returns objectPath)
+  app.post("/api/admin/cancellation-requests/upload-proof", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+      const objectService = new ObjectStorageService();
+      const uploadURL = await objectService.getObjectEntityUploadURL();
+      const objectPath = objectService.normalizeObjectEntityPath(uploadURL);
+      res.json({ uploadURL, objectPath });
+    } catch (e: any) {
+      console.error("[cancellation-requests/upload-proof]", e);
+      res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
 
@@ -16634,11 +16662,45 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // Helper: attempt Razorpay refund for a booking (best-effort, no-op if credentials not configured)
+  async function attemptRazorpayRefund(bookingId: string, refundAmount: number): Promise<string | null> {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) {
+      console.warn(`[razorpay-refund] RAZORPAY_KEY_ID/SECRET not configured — skipping refund for booking ${bookingId}`);
+      return null;
+    }
+    try {
+      // Get the most recent successful Razorpay payment for this booking
+      const pmts = await storage.getPaymentsByBooking(bookingId);
+      const razorpayPmt = pmts.find((p: any) => p.razorpayPaymentId && p.status === "success");
+      if (!razorpayPmt) {
+        console.info(`[razorpay-refund] No eligible Razorpay payment found for booking ${bookingId}`);
+        return null;
+      }
+      const amountPaise = Math.round(refundAmount * 100);
+      const credentials = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+      const resp = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPmt.razorpayPaymentId}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Basic ${credentials}` },
+        body: JSON.stringify({ amount: amountPaise }),
+      });
+      const data = await resp.json() as any;
+      if (!resp.ok) throw new Error(data.error?.description || "Razorpay refund failed");
+      console.info(`[razorpay-refund] Refund ${data.id} created for booking ${bookingId} — ₹${refundAmount}`);
+      return data.id as string;
+    } catch (err) {
+      console.error(`[razorpay-refund] Error for booking ${bookingId}:`, err);
+      return null;
+    }
+  }
+
   // POST approve cancellation request
   app.post("/api/admin/cancellation-requests/:id/approve", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
+      const cancelReqId = req.params.id as string;
       const { overrideRefundAmount, note } = req.body;
-      const cancelReq = await storage.getCancellationRequest(req.params.id);
+      const cancelReq = await storage.getCancellationRequest(cancelReqId);
       if (!cancelReq) return res.status(404).json({ error: "Cancellation request not found" });
       if (cancelReq.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
 
@@ -16649,7 +16711,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const refundAmount = overrideRefundAmount != null ? Number(overrideRefundAmount) : (bd?.refundable ?? 0);
 
       // Update request
-      const updatedReq = await storage.updateCancellationRequest(req.params.id, {
+      const updatedReq = await storage.updateCancellationRequest(cancelReqId, {
         status: "approved",
         overrideRefundAmount: overrideRefundAmount != null ? Number(overrideRefundAmount) : cancelReq.overrideRefundAmount,
         processedBy: req.user!.userId,
@@ -16657,17 +16719,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         refundBreakdown: { ...bd, refundable: refundAmount, note: note || undefined } as any,
       });
 
-      // Cancel booking
+      // Cancel booking and link the cancellation request FK
       const cancelled = await storage.cancelBooking(cancelReq.bookingId, cancelReq.reason);
 
-      // Update deposit refund fields
-      if (refundAmount > 0) {
-        await storage.updateBooking(cancelReq.bookingId, {
+      // Update deposit refund fields and wire cancellationRequestId FK
+      await storage.updateBooking(cancelReq.bookingId, {
+        cancellationRequestId: cancelReqId,
+        ...(refundAmount > 0 ? {
           depositRefunded: true,
           depositRefundedAt: new Date().toISOString().slice(0, 10),
           depositRefundAmount: refundAmount,
           depositRefundNotes: note || `Cancellation request approved by admin`,
-        } as any);
+        } : {}),
+      } as any);
+
+      // Razorpay refund (best-effort)
+      let razorpayRefundId: string | null = null;
+      if (refundAmount > 0) {
+        razorpayRefundId = await attemptRazorpayRefund(cancelReq.bookingId, refundAmount);
       }
 
       // Revert lead
@@ -16697,7 +16766,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         action: "CANCELLATION_APPROVED",
         entityType: "booking",
         entityId: cancelReq.bookingId,
-        details: JSON.stringify({ bookingCode: booking.bookingCode, refundAmount, note }),
+        details: JSON.stringify({ bookingCode: booking.bookingCode, refundAmount, note, proofImageUrl: cancelReq.proofImageUrl || null, razorpayRefundId }),
       });
 
       res.json({ success: true, cancellationRequest: updatedReq, booking: cancelled });
@@ -16710,17 +16779,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // POST reject cancellation request
   app.post("/api/admin/cancellation-requests/:id/reject", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
+      const cancelReqId = req.params.id as string;
       const { rejectionReason } = req.body;
       if (!rejectionReason?.trim()) return res.status(400).json({ error: "Rejection reason is required" });
 
-      const cancelReq = await storage.getCancellationRequest(req.params.id);
+      const cancelReq = await storage.getCancellationRequest(cancelReqId);
       if (!cancelReq) return res.status(404).json({ error: "Cancellation request not found" });
       if (cancelReq.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
 
       const booking = await storage.getBooking(cancelReq.bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-      const updatedReq = await storage.updateCancellationRequest(req.params.id, {
+      const updatedReq = await storage.updateCancellationRequest(cancelReqId, {
         status: "rejected",
         rejectionReason: rejectionReason.trim(),
         processedBy: req.user!.userId,
@@ -16739,7 +16809,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         action: "CANCELLATION_REJECTED",
         entityType: "booking",
         entityId: cancelReq.bookingId,
-        details: JSON.stringify({ bookingCode: booking.bookingCode, rejectionReason }),
+        details: JSON.stringify({ bookingCode: booking.bookingCode, rejectionReason, proofImageUrl: cancelReq.proofImageUrl || null }),
       });
 
       res.json({ success: true, cancellationRequest: updatedReq });
@@ -16796,7 +16866,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // DELETE cancellation policy
   app.delete("/api/admin/cancellation-policies/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteCancellationPolicy(req.params.id);
+      await storage.deleteCancellationPolicy(req.params.id as string);
       res.json({ ok: true });
     } catch (e: any) {
       console.error("[admin/cancellation-policies DELETE]", e);

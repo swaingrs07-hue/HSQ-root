@@ -293,7 +293,10 @@ export const bookings = pgTable("bookings", {
 
   confirmedBy: varchar("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at"),
-  
+
+  // Cancellation linkage (populated when a cancellation request is submitted)
+  cancellationRequestId: varchar("cancellation_request_id"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
