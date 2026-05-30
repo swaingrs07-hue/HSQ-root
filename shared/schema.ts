@@ -1885,9 +1885,12 @@ export const cancellationRequests = pgTable("cancellation_requests", {
   // Approval/rejection tracking
   processedBy: varchar("processed_by").references(() => users.id),
   processedAt: timestamp("processed_at"),
+  // Refund transfer tracking (set when admin physically sends the refund to the student)
+  refundTransferredAt: timestamp("refund_transferred_at"),
+  refundTransferNote: text("refund_transfer_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-export const insertCancellationRequestSchema = createInsertSchema(cancellationRequests).omit({ id: true, createdAt: true, processedAt: true });
+export const insertCancellationRequestSchema = createInsertSchema(cancellationRequests).omit({ id: true, createdAt: true, processedAt: true, refundTransferredAt: true });
 export type CancellationRequest = typeof cancellationRequests.$inferSelect;
 export type InsertCancellationRequest = z.infer<typeof insertCancellationRequestSchema>;
 

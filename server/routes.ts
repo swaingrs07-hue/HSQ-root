@@ -17,7 +17,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking, sendCancellationRequestReceivedEmail, sendAdminCancellationAlertEmail, sendAdminInitiatedCancellationEmail, sendCancellationApprovedEmail, sendCancellationRejectedEmail } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking, sendCancellationRequestReceivedEmail, sendAdminCancellationAlertEmail, sendAdminInitiatedCancellationEmail, sendCancellationApprovedEmail, sendCancellationRejectedEmail, sendRefundSentEmail } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -16849,6 +16849,49 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (e: any) {
       console.error("[admin/cancellation-requests/:id/reject]", e);
       res.status(500).json({ error: "Failed to reject cancellation" });
+    }
+  });
+
+  // POST mark refund as sent for an approved cancellation request
+  app.post("/api/admin/cancellation-requests/:id/mark-refund-sent", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const cancelReqId = req.params.id as string;
+      const { note } = req.body;
+
+      const cancelReq = await storage.getCancellationRequest(cancelReqId);
+      if (!cancelReq) return res.status(404).json({ error: "Cancellation request not found" });
+      if (cancelReq.status !== "approved") return res.status(400).json({ error: "Only approved requests can be marked as refund sent" });
+      if (cancelReq.refundTransferredAt) return res.status(400).json({ error: "Refund has already been marked as sent" });
+
+      const booking = await storage.getBooking(cancelReq.bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const updatedReq = await storage.updateCancellationRequest(cancelReqId, {
+        refundTransferredAt: new Date(),
+        refundTransferNote: note?.trim() || null,
+      });
+
+      const bd = cancelReq.refundBreakdown as any;
+      const refundAmount = cancelReq.overrideRefundAmount != null ? Number(cancelReq.overrideRefundAmount) : (bd?.refundable ?? 0);
+
+      try {
+        await sendRefundSentEmail(booking, cancelReq, refundAmount, note?.trim() || undefined);
+      } catch (emailErr) {
+        console.error("[mark-refund-sent] email error:", emailErr);
+      }
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "REFUND_MARKED_SENT",
+        entityType: "booking",
+        entityId: cancelReq.bookingId,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, refundAmount, note: note?.trim() || null }),
+      });
+
+      res.json({ success: true, cancellationRequest: updatedReq });
+    } catch (e: any) {
+      console.error("[admin/cancellation-requests/:id/mark-refund-sent]", e);
+      res.status(500).json({ error: "Failed to mark refund as sent" });
     }
   });
 

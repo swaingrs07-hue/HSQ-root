@@ -2101,6 +2101,36 @@ export async function sendCancellationApprovedEmail(booking: any, cancelReq: any
   }
 }
 
+/** Student receives email when admin marks the refund as physically sent */
+export async function sendRefundSentEmail(booking: any, cancelReq: any, refundAmount: number, note?: string) {
+  try {
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentEmail = student?.email || booking.walkInEmail;
+    if (!studentEmail) return;
+    const studentName = student?.fullName || booking.walkInName || "Resident";
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">Refund Transferred</h2>
+      <p style="color:#475569;">Hi ${studentName},</p>
+      <p style="color:#475569;">Great news! Your refund for booking <strong>${booking.bookingCode}</strong> has been transferred to you.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Refund Amount</td><td style="font-weight:600;color:#16a34a;">${formatCurrency(refundAmount)}</td></tr>
+        ${note ? `<tr><td style="color:#64748b;">Note</td><td style="font-weight:600;">${note}</td></tr>` : ""}
+      </table>
+      <p style="color:#475569;">Please allow 1-3 business days for the amount to reflect in your account. If you have not received it within this time, please contact our support team.</p>`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: studentEmail,
+      subject: `Refund Transferred — ${booking.bookingCode}`,
+      html: cancellationEmailWrapper("Refund Transferred", body),
+    });
+  } catch (err) {
+    console.error("[sendRefundSentEmail]", err);
+  }
+}
+
 /** Student receives email when admin rejects their cancellation request */
 export async function sendCancellationRejectedEmail(booking: any, cancelReq: any, rejectionReason: string) {
   try {

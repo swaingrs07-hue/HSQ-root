@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, Search, Eye, Loader2, User, Building2, Calendar, Hash, ChevronRight } from "lucide-react";
+import { CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, Search, Eye, Loader2, User, Building2, Calendar, Hash, ChevronRight, Send, Banknote } from "lucide-react";
 import { Link } from "wouter";
 
 function statusColor(status: string) {
@@ -50,9 +50,12 @@ export default function AdminCancellations() {
 
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [refundSentDialogOpen, setRefundSentDialogOpen] = useState(false);
+
   const [overrideRefund, setOverrideRefund] = useState("");
   const [approveNote, setApproveNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [refundSentNote, setRefundSentNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const authHeader = { Authorization: `Bearer ${token}` };
@@ -113,6 +116,27 @@ export default function AdminCancellations() {
       if (!res.ok) throw new Error(data.error || "Failed to reject");
       toast({ title: "Request Rejected", description: "The student has been notified." });
       setRejectDialogOpen(false);
+      setSelected(null);
+      loadRequests(statusFilter);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setActionLoading(false);
+  };
+
+  const handleMarkRefundSent = async () => {
+    if (!selected) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/cancellation-requests/${selected.id}/mark-refund-sent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ note: refundSentNote.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark refund as sent");
+      toast({ title: "Refund Marked as Sent", description: "The student has been notified that their refund is on the way." });
+      setRefundSentDialogOpen(false);
       setSelected(null);
       loadRequests(statusFilter);
     } catch (e: any) {
@@ -209,6 +233,16 @@ export default function AdminCancellations() {
                         <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-slate-500">
                           {req.initiatedBy === "admin" ? "Admin-initiated" : "Student request"}
                         </Badge>
+                        {req.status === "approved" && req.refundTransferredAt && (
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-2 py-0.5 flex items-center gap-1" data-testid={`badge-refund-sent-${req.id}`}>
+                            <Banknote className="h-3 w-3" /> Refund Sent
+                          </Badge>
+                        )}
+                        {req.status === "approved" && !req.refundTransferredAt && (bd?.refundable ?? 0) > 0 && (
+                          <Badge className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-2 py-0.5 flex items-center gap-1" data-testid={`badge-refund-pending-${req.id}`}>
+                            <Clock className="h-3 w-3" /> Refund Pending
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-sm text-slate-600 mb-1 flex-wrap">
                         <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 text-slate-400" /> {req.studentName || "—"}</span>
@@ -317,6 +351,37 @@ export default function AdminCancellations() {
                 </div>
               )}
 
+              {/* Refund Transfer Status */}
+              {selected.status === "approved" && (
+                selected.refundTransferredAt ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3" data-testid="refund-transfer-status">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Banknote className="h-4 w-4 text-blue-600" />
+                      <p className="text-blue-700 text-xs font-semibold">Refund Transferred</p>
+                    </div>
+                    <p className="text-blue-600 text-sm">Sent on {formatDate(selected.refundTransferredAt)}</p>
+                    {selected.refundTransferNote && (
+                      <p className="text-blue-500 text-xs mt-1">Note: {selected.refundTransferNote}</p>
+                    )}
+                  </div>
+                ) : (
+                  (() => {
+                    const bd = selected.refundBreakdown as any;
+                    const refundable = selected.overrideRefundAmount ?? bd?.refundable ?? 0;
+                    if (refundable <= 0) return null;
+                    return (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3" data-testid="refund-not-sent-notice">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-amber-600" />
+                          <p className="text-amber-700 text-xs font-semibold">Refund not yet transferred</p>
+                        </div>
+                        <p className="text-amber-600 text-xs mt-1">Use the button below once you have sent the refund to the student.</p>
+                      </div>
+                    );
+                  })()
+                )
+              )}
+
               {selected.processedAt && (
                 <p className="text-xs text-slate-400">Processed: {formatDate(selected.processedAt)}</p>
               )}
@@ -347,7 +412,28 @@ export default function AdminCancellations() {
                 </Button>
               </DialogFooter>
             )}
-            {selected.status !== "pending" && (
+            {selected.status === "approved" && !selected.refundTransferredAt && (() => {
+              const bd = selected.refundBreakdown as any;
+              const refundable = selected.overrideRefundAmount ?? bd?.refundable ?? 0;
+              if (refundable <= 0) return (
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
+                </DialogFooter>
+              );
+              return (
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
+                  <Button
+                    onClick={() => { setRefundSentNote(""); setRefundSentDialogOpen(true); }}
+                    className="bg-blue-600 hover:bg-blue-500 text-white"
+                    data-testid="button-open-mark-refund-sent"
+                  >
+                    <Send className="h-4 w-4 mr-1" /> Mark Refund Sent
+                  </Button>
+                </DialogFooter>
+              );
+            })()}
+            {(selected.status === "rejected" || (selected.status === "approved" && selected.refundTransferredAt)) && (
               <DialogFooter>
                 <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
               </DialogFooter>
@@ -448,6 +534,56 @@ export default function AdminCancellations() {
             >
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
               Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Refund Sent Dialog */}
+      <Dialog open={refundSentDialogOpen} onOpenChange={setRefundSentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-700">
+              <Send className="h-5 w-5" /> Mark Refund as Sent
+            </DialogTitle>
+            <DialogDescription>
+              Confirm that you have transferred the refund to the student. They will receive an email notification.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(() => {
+              const bd = selected?.refundBreakdown as any;
+              const refundable = selected?.overrideRefundAmount ?? bd?.refundable ?? 0;
+              return (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Refund Amount</span>
+                    <span className="font-bold text-blue-700">{fmtCurr(refundable)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="space-y-1">
+              <Label>Transfer Note (optional)</Label>
+              <Textarea
+                value={refundSentNote}
+                onChange={e => setRefundSentNote(e.target.value)}
+                placeholder="e.g. Transferred via NEFT, UTR: XXXXXX…"
+                rows={2}
+                data-testid="textarea-refund-sent-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefundSentDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleMarkRefundSent}
+              disabled={actionLoading}
+              className="bg-blue-600 hover:bg-blue-500 text-white"
+              data-testid="button-confirm-refund-sent"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              Confirm Refund Sent
             </Button>
           </DialogFooter>
         </DialogContent>
