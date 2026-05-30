@@ -446,6 +446,7 @@ export interface IStorage {
   // Cancellation Policies
   getCancellationPolicies(propertyId?: string | null): Promise<CancellationPolicy[]>;
   upsertCancellationPolicy(data: InsertCancellationPolicy): Promise<CancellationPolicy>;
+  updateCancellationPolicy(id: string, data: Partial<InsertCancellationPolicy>): Promise<CancellationPolicy>;
   deleteCancellationPolicy(id: string): Promise<void>;
   calculateCancellationRefund(bookingId: string): Promise<{ totalPaid: number; forfeited: number; refundable: number; policyLabel: string; policySnapshot: any } | null>;
 
@@ -2858,6 +2859,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
+  async updateCancellationPolicy(id: string, data: Partial<InsertCancellationPolicy>): Promise<CancellationPolicy> {
+    const [row] = await db.update(cancellationPolicies).set(data).where(eq(cancellationPolicies.id, id)).returning();
+    return row;
+  }
+
   async deleteCancellationPolicy(id: string): Promise<void> {
     await db.delete(cancellationPolicies).where(eq(cancellationPolicies.id, id));
   }
@@ -2879,11 +2885,16 @@ export class DatabaseStorage implements IStorage {
       daysUntilMoveIn = Math.max(0, Math.ceil((moveIn.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
     }
 
-    // Find the best matching policy (property-specific first, then global)
-    const propertyPolicies = await this.getCancellationPolicies(booking.propertyId);
-    // Sort descending by daysBeforeMoveIn, pick highest tier that daysUntilMoveIn >= threshold
-    const matchedPolicy = propertyPolicies
-      .sort((a, b) => b.daysBeforeMoveIn - a.daysBeforeMoveIn)
+    // Find the best matching policy — property-specific always wins over global for same threshold
+    const allPolicies = await this.getCancellationPolicies(booking.propertyId);
+    const matchedPolicy = allPolicies
+      .sort((a, b) => {
+        if (b.daysBeforeMoveIn !== a.daysBeforeMoveIn) return b.daysBeforeMoveIn - a.daysBeforeMoveIn;
+        // tie-break: property-specific (propertyId not null) beats global (propertyId null)
+        if (a.propertyId && !b.propertyId) return -1;
+        if (!a.propertyId && b.propertyId) return 1;
+        return 0;
+      })
       .find(p => daysUntilMoveIn >= p.daysBeforeMoveIn);
 
     const refundPercent = matchedPolicy?.refundPercentage ?? 0;

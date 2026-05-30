@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2 } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,9 @@ function CancellationPoliciesSection() {
   const [seedLoading, setSeedLoading] = useState(false);
   const [scopePropertyId, setScopePropertyId] = useState<string>("__global__");
   const [form, setForm] = useState({ label: "", daysBeforeMoveIn: "", refundPercentage: "", propertyId: "__global__" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ label: "", daysBeforeMoveIn: "", refundPercentage: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   const authHeader = { Authorization: `Bearer ${token}` };
 
@@ -84,6 +87,34 @@ function CancellationPoliciesSection() {
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
+  };
+
+  const handleEditStart = (p: any) => {
+    setEditingId(p.id);
+    setEditForm({ label: p.label, daysBeforeMoveIn: String(p.daysBeforeMoveIn), refundPercentage: String(p.refundPercentage) });
+  };
+
+  const handleEditSave = async (id: string) => {
+    if (!editForm.label.trim() || editForm.daysBeforeMoveIn === "" || editForm.refundPercentage === "") return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/cancellation-policies/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({
+          label: editForm.label.trim(),
+          daysBeforeMoveIn: Number(editForm.daysBeforeMoveIn),
+          refundPercentage: Number(editForm.refundPercentage),
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      toast({ title: "Policy updated" });
+      setEditingId(null);
+      load();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setEditSaving(false);
   };
 
   const handleSeedDefaults = async () => {
@@ -162,23 +193,78 @@ function CancellationPoliciesSection() {
         ) : (
           <div className="space-y-2">
             {policies.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200" data-testid={`policy-row-${p.id}`}>
-                <div>
-                  <p className="font-medium text-slate-700 text-sm">{p.label}</p>
-                  <p className="text-xs text-slate-500">
-                    ≥ {p.daysBeforeMoveIn} days before move-in → <span className="text-emerald-600 font-semibold">{p.refundPercentage}% refund</span>
-                    {p.propertyId && <span className="ml-2 text-indigo-500">(property-specific)</span>}
-                  </p>
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-slate-400 hover:text-red-500 hover:bg-red-50"
-                  onClick={() => handleDelete(p.id)}
-                  data-testid={`button-delete-policy-${p.id}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div key={p.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200" data-testid={`policy-row-${p.id}`}>
+                {editingId === p.id ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        value={editForm.label}
+                        onChange={e => setEditForm(f => ({ ...f, label: e.target.value }))}
+                        placeholder="Label"
+                        className="text-sm"
+                        data-testid={`input-edit-label-${p.id}`}
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editForm.daysBeforeMoveIn}
+                        onChange={e => setEditForm(f => ({ ...f, daysBeforeMoveIn: e.target.value }))}
+                        placeholder="Days"
+                        className="text-sm"
+                        data-testid={`input-edit-days-${p.id}`}
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={editForm.refundPercentage}
+                        onChange={e => setEditForm(f => ({ ...f, refundPercentage: e.target.value }))}
+                        placeholder="Refund %"
+                        className="text-sm"
+                        data-testid={`input-edit-percent-${p.id}`}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleEditSave(p.id)} disabled={editSaving} data-testid={`button-save-policy-${p.id}`}>
+                        {editSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} data-testid={`button-cancel-edit-${p.id}`}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-slate-700 text-sm">{p.label}</p>
+                      <p className="text-xs text-slate-500">
+                        ≥ {p.daysBeforeMoveIn} days before move-in → <span className="text-emerald-600 font-semibold">{p.refundPercentage}% refund</span>
+                        {p.propertyId && <span className="ml-2 text-indigo-500">(property-specific)</span>}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-slate-400 hover:text-indigo-500 hover:bg-indigo-50"
+                        onClick={() => handleEditStart(p)}
+                        data-testid={`button-edit-policy-${p.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                        onClick={() => handleDelete(p.id)}
+                        data-testid={`button-delete-policy-${p.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -16006,7 +16006,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     roleMiddleware("superadmin"),
     async (req: AuthRequest, res) => {
       try {
-        const key = req.params.key;
+        const key = req.params.key as string;
         const { enabled, description } = req.body || {};
         if (typeof enabled !== "boolean") {
           return res.status(400).json({ error: "`enabled` must be a boolean" });
@@ -16050,7 +16050,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     roleMiddleware("superadmin"),
     async (req: AuthRequest, res) => {
       try {
-        const key = req.params.key;
+        const key = req.params.key as string;
         const { value, description } = req.body || {};
         if (typeof value === "undefined") {
           return res.status(400).json({ error: "`value` is required" });
@@ -16414,6 +16414,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ADMIN: update coupon
   app.patch("/api/admin/coupons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
+      const couponId = req.params.id as string;
       const patch: any = { ...req.body, updatedAt: new Date() };
       if (patch.code) patch.code = String(patch.code).trim().toUpperCase();
       if (patch.validFrom && typeof patch.validFrom === "string") patch.validFrom = new Date(patch.validFrom);
@@ -16421,7 +16422,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       delete patch.id;
       delete patch.usageCount;
       delete patch.createdAt;
-      const [updated] = await db.update(schema.coupons).set(patch).where(eq(schema.coupons.id, req.params.id)).returning();
+      const [updated] = await db.update(schema.coupons).set(patch).where(eq(schema.coupons.id, couponId)).returning();
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (e: any) {
@@ -16433,7 +16434,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ADMIN: delete coupon
   app.delete("/api/admin/coupons/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
-      await db.delete(schema.coupons).where(eq(schema.coupons.id, req.params.id));
+      await db.delete(schema.coupons).where(eq(schema.coupons.id, req.params.id as string));
       res.json({ ok: true });
     } catch (e: any) {
       console.error("[admin/coupons DELETE]", e);
@@ -16447,7 +16448,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const rows = await db
         .select()
         .from(schema.couponRedemptions)
-        .where(eq(schema.couponRedemptions.couponId, req.params.id))
+        .where(eq(schema.couponRedemptions.couponId, req.params.id as string))
         .orderBy(sql`${schema.couponRedemptions.redeemedAt} DESC`)
         .limit(200);
       res.json(rows);
@@ -16464,7 +16465,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // GET refund estimate for a booking (student or admin)
   app.get("/api/bookings/:id/cancellation-estimate", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const booking = await storage.getBooking(req.params.id);
+      const bookingId = req.params.id as string;
+      const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
       // Authorization: admin roles may view any booking; students/sales may only view their own
       const privilegedRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
@@ -16472,7 +16474,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!isPrivileged && booking.createdBy !== req.user!.userId) {
         return res.status(403).json({ error: "Not authorized to access this booking" });
       }
-      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      const estimate = await storage.calculateCancellationRefund(bookingId);
       if (!estimate) return res.status(400).json({ error: "Could not calculate refund" });
       res.json(estimate);
     } catch (e: any) {
@@ -16484,10 +16486,11 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // POST student submits cancellation request
   app.post("/api/bookings/:id/cancellation-request", authMiddleware, async (req: AuthRequest, res) => {
     try {
+      const bookingId = req.params.id as string;
       const { reason } = req.body;
       if (!reason?.trim()) return res.status(400).json({ error: "Reason is required" });
 
-      const booking = await storage.getBooking(req.params.id);
+      const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
       // Authorization: only the booking creator or admin roles may submit a cancellation request
       const privilegedRoles = ["admin", "superadmin", "frontdesk", "manager", "hotel_admin"];
@@ -16500,14 +16503,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       }
 
       // Check for existing pending request
-      const existing = await storage.getCancellationRequestByBooking(req.params.id);
+      const existing = await storage.getCancellationRequestByBooking(bookingId);
       if (existing && existing.status === "pending") {
         return res.status(400).json({ error: "A cancellation request is already pending for this booking" });
       }
 
-      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      const estimate = await storage.calculateCancellationRefund(bookingId);
       const cancelReq = await storage.createCancellationRequest({
-        bookingId: req.params.id,
+        bookingId,
         requestedBy: req.user!.userId,
         initiatedBy: "student",
         reason: reason.trim(),
@@ -16532,7 +16535,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         adminId: req.user!.userId,
         action: "CANCELLATION_REQUESTED",
         entityType: "booking",
-        entityId: req.params.id,
+        entityId: bookingId,
         details: JSON.stringify({ bookingCode: booking.bookingCode, reason, requestId: cancelReq.id }),
       });
 
@@ -16573,8 +16576,25 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           processedAt: new Date(),
         } as any).returning();
 
+        // Release bed and room-type inventory atomically
+        if (booking.bedId) {
+          await tx.update(schema.beds)
+            .set({ status: "available" })
+            .where(eq(schema.beds.id, booking.bedId));
+          await tx.update(schema.roomTypes)
+            .set({ availableBeds: sql`${schema.roomTypes.availableBeds} + 1` })
+            .where(eq(schema.roomTypes.id, booking.roomTypeId));
+        } else if (booking.bedAllocated && booking.roomTypeId) {
+          await tx.update(schema.roomTypes)
+            .set({ availableBeds: sql`${schema.roomTypes.availableBeds} + 1` })
+            .where(eq(schema.roomTypes.id, booking.roomTypeId));
+        }
+
         const updateSet: any = {
           status: "cancelled",
+          bedId: null,
+          floorId: null,
+          roomId: null,
           cancellationRequestId: cancelReqRow.id,
           updatedAt: new Date(),
         };
@@ -16592,6 +16612,15 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
         return { cancelReq: cancelReqRow, cancelled: cancelledRow };
       });
+
+      // Best-effort floor available-bed recount (mirrors storage.cancelBooking)
+      if (booking.floorId) {
+        try {
+          const floorBeds = await storage.getBedsByFloor(booking.floorId);
+          const availCount = floorBeds.filter((b: any) => b.status === "available").length;
+          await db.update(schema.floors).set({ availableBeds: availCount }).where(eq(schema.floors.id, booking.floorId));
+        } catch {}
+      }
 
       // Razorpay refund (best-effort, outside transaction)
       let razorpayRefundId: string | null = null;
@@ -16860,6 +16889,24 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (e: any) {
       console.error("[admin/cancellation-policies POST]", e);
       res.status(500).json({ error: "Failed to create policy" });
+    }
+  });
+
+  // PATCH update cancellation policy tier
+  app.patch("/api/admin/cancellation-policies/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const { label, daysBeforeMoveIn, refundPercentage } = req.body;
+      const patch: any = {};
+      if (label !== undefined) patch.label = String(label).trim();
+      if (daysBeforeMoveIn !== undefined) patch.daysBeforeMoveIn = Number(daysBeforeMoveIn);
+      if (refundPercentage !== undefined) patch.refundPercentage = Number(refundPercentage);
+      if (!Object.keys(patch).length) return res.status(400).json({ error: "Nothing to update" });
+      const updated = await storage.updateCancellationPolicy(id, patch);
+      res.json(updated);
+    } catch (e: any) {
+      console.error("[admin/cancellation-policies PATCH]", e);
+      res.status(500).json({ error: "Failed to update policy" });
     }
   });
 
