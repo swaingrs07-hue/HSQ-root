@@ -4,11 +4,14 @@ import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock, User, Phone, Mail, MapPin, Hash, Home, Layers } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Building2, Calendar, CreditCard, BedDouble, FileText, ChevronRight, Download, ArrowLeft, Receipt, PlayCircle, Trash2, Clock, User, Phone, Mail, MapPin, Hash, Home, Layers, XCircle, AlertTriangle } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { HSQUARE_LOGO_BASE64 } from "@/lib/logo-base64";
 import { motion } from "framer-motion";
 import { ParticleBackground } from "@/components/particle-background";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-white/[0.06] text-white/60 border border-white/[0.1]",
@@ -28,11 +31,56 @@ function formatLabel(s: string) {
 
 export default function MyBookings() {
   const { user, token } = useAuth();
+  const { toast } = useToast();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [draft, setDraft] = useState<any>(null);
   const [, navigate] = useLocation();
+
+  // Cancellation state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelEstimate, setCancelEstimate] = useState<any>(null);
+  const [cancelEstimateLoading, setCancelEstimateLoading] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelRequest, setCancelRequest] = useState<any>(null);
+
+  const openCancelDialog = async (booking: any) => {
+    setCancelReason("");
+    setCancelEstimate(null);
+    setCancelRequest(null);
+    setCancelDialogOpen(true);
+    setCancelEstimateLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/cancellation-estimate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setCancelEstimate(await res.json());
+    } catch {}
+    setCancelEstimateLoading(false);
+  };
+
+  const submitCancellationRequest = async () => {
+    if (!cancelReason.trim() || !selectedBooking) return;
+    setCancelSubmitting(true);
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/cancellation-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit");
+      toast({ title: "Cancellation Request Submitted", description: "Our team will review your request within 2–3 business days." });
+      setCancelDialogOpen(false);
+      fetchBookings();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (token) fetchBookings();
@@ -311,6 +359,7 @@ export default function MyBookings() {
     const rd = b.residentDetails || {};
 
     return (
+      <>
       <div className="min-h-screen bg-transparent relative">
         <ParticleBackground preset="sparse" className="absolute inset-0 z-0" />
         <div className="container mx-auto px-4 pt-24 pb-8 max-w-3xl relative z-10">
@@ -482,10 +531,91 @@ export default function MyBookings() {
               <Button onClick={() => downloadReceipt(b)} className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white border-0" data-testid="button-download-receipt">
                 <Download className="h-4 w-4 mr-2" /> Download Receipt (PDF)
               </Button>
+
+              {["confirmed", "active", "pending_payment", "pending_approval"].includes(b.status) && (
+                <Button
+                  variant="outline"
+                  onClick={() => openCancelDialog(b)}
+                  className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-300"
+                  data-testid="button-request-cancellation"
+                >
+                  <XCircle className="h-4 w-4 mr-2" /> Request Cancellation
+                </Button>
+              )}
             </div>
           </motion.div>
         </div>
       </div>
+
+      {/* Cancellation Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="bg-[#0f172a] border border-white/[0.1] text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-400" /> Request Cancellation
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Submit a cancellation request for booking <span className="text-cyan-400 font-mono">{b.bookingCode}</span>. Our team will review it within 2–3 business days.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cancelEstimateLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+            </div>
+          ) : cancelEstimate && (
+            <div className="bg-white/[0.04] rounded-xl border border-white/[0.08] p-4 space-y-2 text-sm">
+              <p className="text-white/60 text-xs uppercase tracking-wide mb-3">Refund Estimate</p>
+              <div className="flex justify-between">
+                <span className="text-white/50">Total Paid</span>
+                <span className="text-white font-medium">₹{(cancelEstimate.totalPaid || 0).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/50">Forfeited</span>
+                <span className="text-red-400 font-medium">₹{(cancelEstimate.forfeited || 0).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between border-t border-white/[0.08] pt-2">
+                <span className="text-white/70 font-semibold">Estimated Refund</span>
+                <span className="text-emerald-400 font-bold">₹{(cancelEstimate.refundable || 0).toLocaleString("en-IN")}</span>
+              </div>
+              <p className="text-white/30 text-xs pt-1">{cancelEstimate.policyLabel}</p>
+            </div>
+          )}
+
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-300/80">The final refund amount may be adjusted during admin review. This estimate is based on our current cancellation policy.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-white/60">Reason for Cancellation *</label>
+            <Textarea
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              placeholder="Please describe why you'd like to cancel your booking..."
+              className="bg-white/[0.04] border-white/[0.1] text-white placeholder:text-white/25 resize-none"
+              rows={3}
+              data-testid="textarea-cancel-reason"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCancelDialogOpen(false)} className="text-white/50 hover:text-white hover:bg-white/[0.05]" data-testid="button-cancel-dialog-close">
+              Keep Booking
+            </Button>
+            <Button
+              onClick={submitCancellationRequest}
+              disabled={!cancelReason.trim() || cancelSubmitting}
+              className="bg-red-600 hover:bg-red-500 text-white border-0"
+              data-testid="button-cancel-submit"
+            >
+              {cancelSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </>
     );
   }
 

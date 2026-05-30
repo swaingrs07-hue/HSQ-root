@@ -1845,5 +1845,48 @@ export const insertCouponRedemptionSchema = createInsertSchema(couponRedemptions
 export type CouponRedemption = typeof couponRedemptions.$inferSelect;
 export type InsertCouponRedemption = z.infer<typeof insertCouponRedemptionSchema>;
 
+// Cancellation system enums
+export const cancellationRequestStatusEnum = pgEnum("cancellation_request_status", ["pending", "approved", "rejected"]);
+export const cancellationInitiatedByEnum = pgEnum("cancellation_initiated_by", ["student", "admin"]);
+
+// Cancellation policies table (per-property or global default)
+export const cancellationPolicies = pgTable("cancellation_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  propertyId: varchar("property_id").references(() => properties.id), // null = global default
+  label: text("label").notNull(), // e.g. ">30 days before move-in"
+  daysBeforeMoveIn: integer("days_before_move_in").notNull(), // min days; matched ≥ this
+  refundPercentage: integer("refund_percentage").notNull().default(0), // 0-100
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertCancellationPolicySchema = createInsertSchema(cancellationPolicies).omit({ id: true, createdAt: true });
+export type CancellationPolicy = typeof cancellationPolicies.$inferSelect;
+export type InsertCancellationPolicy = z.infer<typeof insertCancellationPolicySchema>;
+
+// Cancellation requests table
+export const cancellationRequests = pgTable("cancellation_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").references(() => bookings.id).notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  initiatedBy: cancellationInitiatedByEnum("initiated_by").notNull().default("student"),
+  reason: text("reason").notNull(),
+  proofImageUrl: text("proof_image_url"), // admin-uploaded proof (object storage path)
+  status: cancellationRequestStatusEnum("status").notNull().default("pending"),
+  // Policy snapshot at time of request
+  policySnapshot: jsonb("policy_snapshot"), // { label, daysBeforeMoveIn, refundPercentage }
+  // Refund breakdown at time of request
+  refundBreakdown: jsonb("refund_breakdown"), // { totalPaid, forfeited, refundable, policyLabel }
+  overrideRefundAmount: integer("override_refund_amount"), // admin can override the calculated refund
+  // Rejection
+  rejectionReason: text("rejection_reason"),
+  // Approval/rejection tracking
+  processedBy: varchar("processed_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertCancellationRequestSchema = createInsertSchema(cancellationRequests).omit({ id: true, createdAt: true, processedAt: true });
+export type CancellationRequest = typeof cancellationRequests.$inferSelect;
+export type InsertCancellationRequest = z.infer<typeof insertCancellationRequestSchema>;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

@@ -23,6 +23,60 @@ import TargetAchievementTab from "@/components/target-achievement-tab";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
 
+function CancellationStatCard() {
+  const [stats, setStats] = useState<{ thisMonth: number; approved: number; rejected: number; totalForfeited: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const token = (() => { try { return JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token; } catch { return null; } })();
+
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/admin/cancellation-stats", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setStats(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="relative overflow-hidden border-0 shadow-lg">
+        <CardContent className="p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-3 w-20" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Link href="/admin/cancellations">
+      <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group cursor-pointer">
+        <div className="absolute inset-0 opacity-[0.08] bg-gradient-to-br from-rose-500 to-red-600" />
+        <CardContent className="p-6 relative">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-500">Cancellations (Month)</p>
+              <p className="text-3xl font-bold text-slate-800 tracking-tight">{stats?.thisMonth ?? 0}</p>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="text-emerald-600 font-medium">{stats?.approved ?? 0} approved</span>
+                <span>·</span>
+                <span className="text-rose-600 font-medium">{stats?.rejected ?? 0} rejected</span>
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <XCircle className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          {(stats?.totalForfeited ?? 0) > 0 && (
+            <p className="text-xs text-rose-600 mt-2 font-medium">₹{(stats!.totalForfeited).toLocaleString("en-IN")} forfeited</p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number | string; prefix?: string; suffix?: string }) {
   const numValue = typeof value === "string" ? parseFloat(value) : value;
   const isDecimal = typeof value === "string" && value.includes(".");
@@ -1201,6 +1255,7 @@ export default function AdminDashboard() {
               <>
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <CancellationStatCard />
                   <KPICard
                     title="Total Students"
                     value={stats.totalStudents}

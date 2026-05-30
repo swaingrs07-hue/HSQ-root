@@ -1934,3 +1934,198 @@ export async function sendBedReconciliationSummary(
 
   return { success: true, recipients: superadmins.length };
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CANCELLATION EMAILS
+// ══════════════════════════════════════════════════════════════════════════════
+
+function formatCurrency(amount: number) {
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function cancellationEmailWrapper(title: string, body: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:#0f172a;padding:24px 32px;">
+            <span style="color:#c5a059;font-size:22px;font-weight:700;letter-spacing:1px;">HSQUARE LIVING</span>
+          </td>
+        </tr>
+        <tr><td style="padding:32px;">${body}</td></tr>
+        <tr>
+          <td style="background:#f8fafc;padding:20px 32px;text-align:center;">
+            <p style="margin:0;color:#94a3b8;font-size:12px;">Hsquare Living Pvt Ltd · noreply@hsquarehostels.com</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Student receives email when their cancellation request is received */
+export async function sendCancellationRequestReceivedEmail(booking: any, cancelReq: any, estimate: any) {
+  try {
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentEmail = student?.email || booking.walkInEmail;
+    if (!studentEmail) return;
+    const studentName = student?.fullName || booking.walkInName || "Resident";
+    const refundable = estimate?.refundable ?? 0;
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">Cancellation Request Received</h2>
+      <p style="color:#475569;">Hi ${studentName},</p>
+      <p style="color:#475569;">We have received your request to cancel booking <strong>${booking.bookingCode}</strong>. Our team will review it within 2-3 business days.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Your Reason</td><td style="font-weight:600;">${cancelReq.reason}</td></tr>
+        <tr><td style="color:#64748b;">Estimated Refund</td><td style="font-weight:600;color:#16a34a;">${formatCurrency(refundable)}</td></tr>
+        <tr><td style="color:#64748b;">Policy Applied</td><td style="font-weight:600;">${estimate?.policyLabel || "Standard Policy"}</td></tr>
+      </table>
+      <p style="color:#64748b;font-size:14px;">The final refund amount may be adjusted during review. You will be notified once a decision is made.</p>`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: studentEmail,
+      subject: `Cancellation Request Received — ${booking.bookingCode}`,
+      html: cancellationEmailWrapper("Cancellation Request Received", body),
+    });
+  } catch (err) {
+    console.error("[sendCancellationRequestReceivedEmail]", err);
+  }
+}
+
+/** Admin receives alert when a student submits a cancellation request */
+export async function sendAdminCancellationAlertEmail(booking: any, cancelReq: any, estimate: any) {
+  try {
+    const admins = await storage.getUsersByRole(["admin", "superadmin"]);
+    const adminEmails = admins.map(a => a.email).filter(Boolean) as string[];
+    if (!adminEmails.length) return;
+
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentName = student?.fullName || booking.walkInName || "Walk-in";
+    const property = booking.propertyId ? await storage.getProperty(booking.propertyId) : null;
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">New Cancellation Request</h2>
+      <p style="color:#475569;">A student has submitted a cancellation request. Please review it in the admin panel.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Student</td><td style="font-weight:600;">${studentName}</td></tr>
+        <tr><td style="color:#64748b;">Property</td><td style="font-weight:600;">${property?.name || "—"}</td></tr>
+        <tr><td style="color:#64748b;">Reason</td><td style="font-weight:600;">${cancelReq.reason}</td></tr>
+        <tr><td style="color:#64748b;">Estimated Refund</td><td style="font-weight:600;color:#16a34a;">${formatCurrency(estimate?.refundable ?? 0)}</td></tr>
+      </table>
+      <p style="text-align:center;margin-top:28px;"><a href="${(process.env.APP_PUBLIC_URL || "https://hsquare.in").replace(/\/$/, "")}/admin/completed-bookings?tab=cancellations" style="background:#0f172a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Review Request</a></p>`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: adminEmails[0],
+      ...(adminEmails.length > 1 ? { cc: adminEmails.slice(1) } : {}),
+      subject: `Cancellation Request — ${booking.bookingCode} (${studentName})`,
+      html: cancellationEmailWrapper("New Cancellation Request", body),
+    });
+  } catch (err) {
+    console.error("[sendAdminCancellationAlertEmail]", err);
+  }
+}
+
+/** Student receives email when admin cancels their booking directly */
+export async function sendAdminInitiatedCancellationEmail(booking: any, cancelReq: any, estimate: any, refundAmount: number) {
+  try {
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentEmail = student?.email || booking.walkInEmail;
+    if (!studentEmail) return;
+    const studentName = student?.fullName || booking.walkInName || "Resident";
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">Your Booking Has Been Cancelled</h2>
+      <p style="color:#475569;">Hi ${studentName},</p>
+      <p style="color:#475569;">Your booking <strong>${booking.bookingCode}</strong> has been cancelled by our team. We regret the inconvenience.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Reason</td><td style="font-weight:600;">${cancelReq.reason}</td></tr>
+        <tr><td style="color:#64748b;">Refund Amount</td><td style="font-weight:600;color:#16a34a;">${formatCurrency(refundAmount)}</td></tr>
+      </table>
+      ${refundAmount > 0 ? '<p style="color:#475569;">Your refund will be processed within 5-7 business days.</p>' : '<p style="color:#475569;">Unfortunately, no refund is applicable per our cancellation policy.</p>'}
+      <p style="color:#475569;">If you have questions, please contact our support team.</p>`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: studentEmail,
+      subject: `Booking Cancelled — ${booking.bookingCode}`,
+      html: cancellationEmailWrapper("Booking Cancelled", body),
+    });
+  } catch (err) {
+    console.error("[sendAdminInitiatedCancellationEmail]", err);
+  }
+}
+
+/** Student receives email when admin approves their cancellation request */
+export async function sendCancellationApprovedEmail(booking: any, cancelReq: any, refundAmount: number) {
+  try {
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentEmail = student?.email || booking.walkInEmail;
+    if (!studentEmail) return;
+    const studentName = student?.fullName || booking.walkInName || "Resident";
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">Cancellation Approved</h2>
+      <p style="color:#475569;">Hi ${studentName},</p>
+      <p style="color:#475569;">Your cancellation request for booking <strong>${booking.bookingCode}</strong> has been <strong style="color:#16a34a;">approved</strong>.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Refund Amount</td><td style="font-weight:600;color:#16a34a;">${formatCurrency(refundAmount)}</td></tr>
+      </table>
+      ${refundAmount > 0 ? '<p style="color:#475569;">Your refund will be credited within 5-7 business days. Please ensure your bank details are updated in our records.</p>' : '<p style="color:#475569;">No refund is applicable per our cancellation policy for this booking.</p>'}`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: studentEmail,
+      subject: `Cancellation Approved — ${booking.bookingCode}`,
+      html: cancellationEmailWrapper("Cancellation Approved", body),
+    });
+  } catch (err) {
+    console.error("[sendCancellationApprovedEmail]", err);
+  }
+}
+
+/** Student receives email when admin rejects their cancellation request */
+export async function sendCancellationRejectedEmail(booking: any, cancelReq: any, rejectionReason: string) {
+  try {
+    const student = booking.studentId ? await storage.getStudent(booking.studentId) : null;
+    const studentEmail = student?.email || booking.walkInEmail;
+    if (!studentEmail) return;
+    const studentName = student?.fullName || booking.walkInName || "Resident";
+
+    const body = `
+      <h2 style="margin-top:0;color:#0f172a;">Cancellation Request Rejected</h2>
+      <p style="color:#475569;">Hi ${studentName},</p>
+      <p style="color:#475569;">We have reviewed your cancellation request for booking <strong>${booking.bookingCode}</strong> and unfortunately it has been <strong style="color:#dc2626;">rejected</strong>.</p>
+      <table cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:8px;width:100%;margin:20px 0;">
+        <tr><td style="color:#64748b;width:50%;">Booking Code</td><td style="font-weight:600;">${booking.bookingCode}</td></tr>
+        <tr><td style="color:#64748b;">Reason for Rejection</td><td style="font-weight:600;">${rejectionReason}</td></tr>
+      </table>
+      <p style="color:#475569;">Your booking remains active. If you believe this decision is incorrect, please contact our support team.</p>`;
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: studentEmail,
+      subject: `Cancellation Request Rejected — ${booking.bookingCode}`,
+      html: cancellationEmailWrapper("Cancellation Request Rejected", body),
+    });
+  } catch (err) {
+    console.error("[sendCancellationRejectedEmail]", err);
+  }
+}

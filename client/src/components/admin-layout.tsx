@@ -96,6 +96,7 @@ const adminNavItems: NavItem[] = [
   { name: "Leads", href: "/admin/leads", icon: Target },
   { name: "Bookings", href: "/admin/booking/generate", icon: CalendarCheck },
   { name: "All Bookings", href: "/admin/bookings/completed", icon: CheckCircle2 },
+  { name: "Cancellations", href: "/admin/cancellations", icon: XCircle },
   { name: "Calendar", href: "/admin/calendar", icon: Calendar },
   { name: "Reports", href: "/admin/lead-analytics", icon: TrendingUp },
   { name: "Activity Log", href: "/admin/activity-logs", icon: Activity },

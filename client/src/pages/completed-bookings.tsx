@@ -70,6 +70,7 @@ import {
   Shield,
   FileText,
   RotateCcw,
+  XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -198,6 +199,56 @@ export default function CompletedBookings() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [deleteBooking, setDeleteBooking] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [adminCancelDialogOpen, setAdminCancelDialogOpen] = useState(false);
+  const [adminCancelReason, setAdminCancelReason] = useState("");
+  const [adminCancelProofUrl, setAdminCancelProofUrl] = useState("");
+  const [adminCancelOverrideRefund, setAdminCancelOverrideRefund] = useState("");
+  const [adminCancelEstimate, setAdminCancelEstimate] = useState<any>(null);
+  const [adminCancelLoading, setAdminCancelLoading] = useState(false);
+  const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
+
+  const openAdminCancelDialog = async (booking: any) => {
+    setAdminCancelReason("");
+    setAdminCancelProofUrl("");
+    setAdminCancelOverrideRefund("");
+    setAdminCancelEstimate(null);
+    setAdminCancelDialogOpen(true);
+    setAdminCancelLoading(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const res = await fetch(`/api/bookings/${booking.id}/cancellation-estimate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setAdminCancelEstimate(await res.json());
+    } catch {}
+    setAdminCancelLoading(false);
+  };
+
+  const handleAdminCancelSubmit = async () => {
+    if (!adminCancelReason.trim() || !selectedBooking) return;
+    setAdminCancelSubmitting(true);
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const body: any = { reason: adminCancelReason.trim() };
+      if (adminCancelProofUrl.trim()) body.proofImageUrl = adminCancelProofUrl.trim();
+      if (adminCancelOverrideRefund.trim()) body.overrideRefundAmount = Number(adminCancelOverrideRefund);
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel booking");
+      toast({ title: "Booking Cancelled", description: "The booking has been cancelled and the student notified." });
+      setAdminCancelDialogOpen(false);
+      setSelectedBooking(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setAdminCancelSubmitting(false);
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -2177,6 +2228,12 @@ export default function CompletedBookings() {
                       </button>
                     ) : null;
                   })()}
+                  {isAdmin && !["cancelled","completed"].includes(selectedBooking.status) && (
+                    <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-100 transition-colors"
+                      onClick={() => openAdminCancelDialog(selectedBooking)} data-testid="button-admin-cancel-booking">
+                      <XCircle className="h-3.5 w-3.5 shrink-0" /> Cancel with Reason
+                    </button>
+                  )}
                   <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition-colors"
                     onClick={() => setDeleteBooking(selectedBooking)} data-testid="button-delete-booking">
                     <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete Booking
@@ -4421,6 +4478,83 @@ function BedShiftSelector({ booking, onShifted }: { booking: any; onShifted: (up
                 Confirm Shift
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Admin Cancel with Reason Dialog ── */}
+      <Dialog open={adminCancelDialogOpen} onOpenChange={setAdminCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <XCircle className="h-5 w-5" /> Cancel Booking with Reason
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {adminCancelLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+              </div>
+            ) : adminCancelEstimate ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Refund Estimate</p>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Paid</span>
+                  <span className="font-medium">₹{(adminCancelEstimate.totalPaid || 0).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Forfeited</span>
+                  <span className="font-medium text-rose-600">₹{(adminCancelEstimate.forfeited || 0).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-1">
+                  <span className="font-semibold text-slate-600">Refundable</span>
+                  <span className="font-bold text-emerald-600">₹{(adminCancelEstimate.refundable || 0).toLocaleString("en-IN")}</span>
+                </div>
+                {adminCancelEstimate.policyLabel && (
+                  <p className="text-[10px] text-slate-400 mt-1">{adminCancelEstimate.policyLabel}</p>
+                )}
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              <Label htmlFor="admin-cancel-reason">Cancellation Reason *</Label>
+              <Textarea
+                id="admin-cancel-reason"
+                value={adminCancelReason}
+                onChange={e => setAdminCancelReason(e.target.value)}
+                placeholder="Document the reason for this admin-initiated cancellation…"
+                rows={3}
+                data-testid="textarea-admin-cancel-reason"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="admin-cancel-refund">Override Refund Amount (₹) — optional</Label>
+              <Input
+                id="admin-cancel-refund"
+                type="number"
+                min={0}
+                placeholder={`Calculated: ₹${(adminCancelEstimate?.refundable || 0).toLocaleString("en-IN")}`}
+                value={adminCancelOverrideRefund}
+                onChange={e => setAdminCancelOverrideRefund(e.target.value)}
+                data-testid="input-admin-cancel-refund"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setAdminCancelDialogOpen(false)} data-testid="button-admin-cancel-close">
+              Close
+            </Button>
+            <Button
+              onClick={handleAdminCancelSubmit}
+              disabled={adminCancelSubmitting || !adminCancelReason.trim()}
+              className="bg-orange-600 hover:bg-orange-500 text-white gap-2"
+              data-testid="button-admin-cancel-confirm"
+            >
+              {adminCancelSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+              Confirm Cancellation
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

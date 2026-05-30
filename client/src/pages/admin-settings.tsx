@@ -4,13 +4,182 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2 } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useFeatureFlags, useSetFeatureFlag } from "@/hooks/use-feature-flags";
 import { useSiteContent, useSetSiteContent } from "@/hooks/use-site-content";
+
+function CancellationPoliciesSection() {
+  const { toast } = useToast();
+  const { token } = useAuth();
+  const [policies, setPolicies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [form, setForm] = useState({ label: "", daysBeforeMoveIn: "", refundPercentage: "" });
+
+  const authHeader = { Authorization: `Bearer ${token}` };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/cancellation-policies", { headers: authHeader });
+      if (res.ok) setPolicies(await res.json());
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [token]);
+
+  const handleAdd = async () => {
+    if (!form.label.trim() || form.daysBeforeMoveIn === "" || form.refundPercentage === "") return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/cancellation-policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({
+          label: form.label.trim(),
+          daysBeforeMoveIn: Number(form.daysBeforeMoveIn),
+          refundPercentage: Number(form.refundPercentage),
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      toast({ title: "Policy added" });
+      setForm({ label: "", daysBeforeMoveIn: "", refundPercentage: "" });
+      load();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/cancellation-policies/${id}`, { method: "DELETE", headers: authHeader });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast({ title: "Policy deleted" });
+      load();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleSeedDefaults = async () => {
+    setSeedLoading(true);
+    try {
+      const res = await fetch("/api/admin/cancellation-policies/seed-defaults", { method: "POST", headers: authHeader });
+      const data = await res.json();
+      toast({ title: data.message || "Done" });
+      load();
+    } catch {
+      toast({ title: "Error", description: "Could not seed default policies.", variant: "destructive" });
+    }
+    setSeedLoading(false);
+  };
+
+  return (
+    <Card data-testid="card-cancellation-policies">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <XCircle className="w-5 h-5 text-rose-500" />
+          Cancellation Refund Policy
+        </CardTitle>
+        <CardDescription>
+          Define refund tiers based on how many days before move-in a cancellation is made.
+          The highest matching tier is applied automatically.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />)}
+          </div>
+        ) : policies.length === 0 ? (
+          <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
+            <XCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-medium">No cancellation policies yet</p>
+            <p className="text-slate-400 text-sm mt-1 mb-4">Add tiers below, or use default policies as a starting point.</p>
+            <Button size="sm" variant="outline" onClick={handleSeedDefaults} disabled={seedLoading} data-testid="button-seed-policies">
+              {seedLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Load Default Policies
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {policies.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200" data-testid={`policy-row-${p.id}`}>
+                <div>
+                  <p className="font-medium text-slate-700 text-sm">{p.label}</p>
+                  <p className="text-xs text-slate-500">≥ {p.daysBeforeMoveIn} days before move-in → <span className="text-emerald-600 font-semibold">{p.refundPercentage}% refund</span></p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                  onClick={() => handleDelete(p.id)}
+                  data-testid={`button-delete-policy-${p.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="border-t border-slate-200 pt-4">
+          <p className="text-sm font-semibold text-slate-700 mb-3">Add New Tier</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-1">
+              <Label className="text-xs text-slate-500 mb-1 block">Label</Label>
+              <Input
+                placeholder="e.g. >30 days"
+                value={form.label}
+                onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+                data-testid="input-policy-label"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500 mb-1 block">Min. Days Before Move-in</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="e.g. 30"
+                value={form.daysBeforeMoveIn}
+                onChange={e => setForm(f => ({ ...f, daysBeforeMoveIn: e.target.value }))}
+                data-testid="input-policy-days"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500 mb-1 block">Refund % (0–100)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                placeholder="e.g. 90"
+                value={form.refundPercentage}
+                onChange={e => setForm(f => ({ ...f, refundPercentage: e.target.value }))}
+                data-testid="input-policy-percent"
+              />
+            </div>
+          </div>
+          <Button
+            className="mt-3 bg-slate-800 hover:bg-slate-700 text-white"
+            onClick={handleAdd}
+            disabled={saving || !form.label.trim() || form.daysBeforeMoveIn === "" || form.refundPercentage === ""}
+            data-testid="button-add-policy"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+            Add Policy Tier
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -115,8 +284,9 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[620px]">
           <TabsTrigger value="general" data-testid="tab-general">General</TabsTrigger>
+          <TabsTrigger value="cancellation" data-testid="tab-cancellation">Cancellation</TabsTrigger>
           <TabsTrigger value="notifications" data-testid="tab-notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security" data-testid="tab-security">Security</TabsTrigger>
           <TabsTrigger value="system" data-testid="tab-system">System</TabsTrigger>
@@ -475,6 +645,10 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="cancellation" className="space-y-6">
+          <CancellationPoliciesSection />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">

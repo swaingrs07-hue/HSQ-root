@@ -17,7 +17,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking, sendCancellationRequestReceivedEmail, sendAdminCancellationAlertEmail, sendAdminInitiatedCancellationEmail, sendCancellationApprovedEmail, sendCancellationRejectedEmail } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -16453,6 +16453,359 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     } catch (e: any) {
       console.error("[admin/coupons redemptions]", e);
       res.status(500).json({ error: "Failed" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // BOOKING CANCELLATION SYSTEM
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // GET refund estimate for a booking (student or admin)
+  app.get("/api/bookings/:id/cancellation-estimate", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      if (!estimate) return res.status(400).json({ error: "Could not calculate refund" });
+      res.json(estimate);
+    } catch (e: any) {
+      console.error("[cancellation-estimate]", e);
+      res.status(500).json({ error: "Failed to calculate estimate" });
+    }
+  });
+
+  // POST student submits cancellation request
+  app.post("/api/bookings/:id/cancellation-request", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { reason } = req.body;
+      if (!reason?.trim()) return res.status(400).json({ error: "Reason is required" });
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+      if (!["confirmed", "active", "pending_payment", "pending_approval"].includes(booking.status)) {
+        return res.status(400).json({ error: "Only active bookings can be cancelled" });
+      }
+
+      // Check for existing pending request
+      const existing = await storage.getCancellationRequestByBooking(req.params.id);
+      if (existing && existing.status === "pending") {
+        return res.status(400).json({ error: "A cancellation request is already pending for this booking" });
+      }
+
+      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      const cancelReq = await storage.createCancellationRequest({
+        bookingId: req.params.id,
+        requestedBy: req.user!.userId,
+        initiatedBy: "student",
+        reason: reason.trim(),
+        proofImageUrl: null,
+        status: "pending",
+        policySnapshot: estimate?.policySnapshot || null,
+        refundBreakdown: estimate ? { totalPaid: estimate.totalPaid, forfeited: estimate.forfeited, refundable: estimate.refundable, policyLabel: estimate.policyLabel } : null,
+        overrideRefundAmount: null,
+        rejectionReason: null,
+        processedBy: null,
+      });
+
+      // Email admin
+      try {
+        await sendCancellationRequestReceivedEmail(booking, cancelReq as any, estimate);
+        await sendAdminCancellationAlertEmail(booking, cancelReq as any, estimate);
+      } catch (emailErr) {
+        console.error("[cancellation] email error:", emailErr);
+      }
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "CANCELLATION_REQUESTED",
+        entityType: "booking",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, reason, requestId: cancelReq.id }),
+      });
+
+      res.json(cancelReq);
+    } catch (e: any) {
+      console.error("[cancellation-request POST]", e);
+      res.status(500).json({ error: "Failed to submit cancellation request" });
+    }
+  });
+
+  // POST admin-initiated cancellation (direct, skips pending queue)
+  app.post("/api/admin/bookings/:id/cancel", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { reason, proofImageUrl, overrideRefundAmount } = req.body;
+      if (!reason?.trim()) return res.status(400).json({ error: "Reason is required" });
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+      if (booking.status === "cancelled") return res.status(400).json({ error: "Booking is already cancelled" });
+
+      const estimate = await storage.calculateCancellationRefund(req.params.id);
+      const refundAmount = overrideRefundAmount != null ? Number(overrideRefundAmount) : (estimate?.refundable ?? 0);
+
+      // Create the request in approved state immediately
+      const cancelReq = await storage.createCancellationRequest({
+        bookingId: req.params.id,
+        requestedBy: req.user!.userId,
+        initiatedBy: "admin",
+        reason: reason.trim(),
+        proofImageUrl: proofImageUrl || null,
+        status: "approved",
+        policySnapshot: estimate?.policySnapshot || null,
+        refundBreakdown: estimate ? { totalPaid: estimate.totalPaid, forfeited: estimate.forfeited, refundable: refundAmount, policyLabel: estimate.policyLabel } : null,
+        overrideRefundAmount: overrideRefundAmount != null ? Number(overrideRefundAmount) : null,
+        rejectionReason: null,
+        processedBy: req.user!.userId,
+      });
+      await storage.updateCancellationRequest(cancelReq.id, { processedAt: new Date() });
+
+      // Cancel the booking
+      const cancelled = await storage.cancelBooking(req.params.id, reason.trim());
+
+      // Update deposit refund fields
+      if (cancelled && refundAmount > 0) {
+        await storage.updateBooking(req.params.id, {
+          depositRefunded: true,
+          depositRefundedAt: new Date().toISOString().slice(0, 10),
+          depositRefundAmount: refundAmount,
+          depositRefundNotes: `Auto: admin cancellation. Request #${cancelReq.id}`,
+        } as any);
+      }
+
+      // Revert linked lead
+      if (cancelled?.leadId) {
+        await storage.updateLead(cancelled.leadId, {
+          status: "lost",
+          bookingConfirmed: false as any,
+          linkedBookingId: null,
+          convertedByUserId: null,
+        } as any);
+      }
+
+      // HMS sync
+      try {
+        await autoSyncBookingToHMS({ id: req.params.id } as any);
+      } catch {}
+
+      // Email student
+      try {
+        await sendAdminInitiatedCancellationEmail(booking, cancelReq as any, estimate, refundAmount);
+      } catch (emailErr) {
+        console.error("[cancellation] email error:", emailErr);
+      }
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "ADMIN_CANCELLED_BOOKING",
+        entityType: "booking",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, reason, proofImageUrl: proofImageUrl || null, refundAmount }),
+      });
+
+      res.json({ success: true, booking: cancelled, cancellationRequest: cancelReq });
+    } catch (e: any) {
+      console.error("[admin/bookings/:id/cancel]", e);
+      res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  });
+
+  // GET all cancellation requests (admin)
+  app.get("/api/admin/cancellation-requests", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const requests = await storage.getAllCancellationRequests(status);
+      res.json(requests);
+    } catch (e: any) {
+      console.error("[admin/cancellation-requests GET]", e);
+      res.status(500).json({ error: "Failed to fetch cancellation requests" });
+    }
+  });
+
+  // POST approve cancellation request
+  app.post("/api/admin/cancellation-requests/:id/approve", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { overrideRefundAmount, note } = req.body;
+      const cancelReq = await storage.getCancellationRequest(req.params.id);
+      if (!cancelReq) return res.status(404).json({ error: "Cancellation request not found" });
+      if (cancelReq.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
+
+      const booking = await storage.getBooking(cancelReq.bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const bd = cancelReq.refundBreakdown as any;
+      const refundAmount = overrideRefundAmount != null ? Number(overrideRefundAmount) : (bd?.refundable ?? 0);
+
+      // Update request
+      const updatedReq = await storage.updateCancellationRequest(req.params.id, {
+        status: "approved",
+        overrideRefundAmount: overrideRefundAmount != null ? Number(overrideRefundAmount) : cancelReq.overrideRefundAmount,
+        processedBy: req.user!.userId,
+        processedAt: new Date(),
+        refundBreakdown: { ...bd, refundable: refundAmount, note: note || undefined } as any,
+      });
+
+      // Cancel booking
+      const cancelled = await storage.cancelBooking(cancelReq.bookingId, cancelReq.reason);
+
+      // Update deposit refund fields
+      if (refundAmount > 0) {
+        await storage.updateBooking(cancelReq.bookingId, {
+          depositRefunded: true,
+          depositRefundedAt: new Date().toISOString().slice(0, 10),
+          depositRefundAmount: refundAmount,
+          depositRefundNotes: note || `Cancellation request approved by admin`,
+        } as any);
+      }
+
+      // Revert lead
+      if (cancelled?.leadId) {
+        await storage.updateLead(cancelled.leadId, {
+          status: "lost",
+          bookingConfirmed: false as any,
+          linkedBookingId: null,
+          convertedByUserId: null,
+        } as any);
+      }
+
+      // HMS sync
+      try {
+        await autoSyncBookingToHMS({ id: cancelReq.bookingId } as any);
+      } catch {}
+
+      // Email student
+      try {
+        await sendCancellationApprovedEmail(booking, cancelReq as any, refundAmount);
+      } catch (emailErr) {
+        console.error("[cancellation approve] email error:", emailErr);
+      }
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "CANCELLATION_APPROVED",
+        entityType: "booking",
+        entityId: cancelReq.bookingId,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, refundAmount, note }),
+      });
+
+      res.json({ success: true, cancellationRequest: updatedReq, booking: cancelled });
+    } catch (e: any) {
+      console.error("[admin/cancellation-requests/:id/approve]", e);
+      res.status(500).json({ error: "Failed to approve cancellation" });
+    }
+  });
+
+  // POST reject cancellation request
+  app.post("/api/admin/cancellation-requests/:id/reject", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { rejectionReason } = req.body;
+      if (!rejectionReason?.trim()) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const cancelReq = await storage.getCancellationRequest(req.params.id);
+      if (!cancelReq) return res.status(404).json({ error: "Cancellation request not found" });
+      if (cancelReq.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
+
+      const booking = await storage.getBooking(cancelReq.bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const updatedReq = await storage.updateCancellationRequest(req.params.id, {
+        status: "rejected",
+        rejectionReason: rejectionReason.trim(),
+        processedBy: req.user!.userId,
+        processedAt: new Date(),
+      });
+
+      // Email student
+      try {
+        await sendCancellationRejectedEmail(booking, cancelReq as any, rejectionReason.trim());
+      } catch (emailErr) {
+        console.error("[cancellation reject] email error:", emailErr);
+      }
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "CANCELLATION_REJECTED",
+        entityType: "booking",
+        entityId: cancelReq.bookingId,
+        details: JSON.stringify({ bookingCode: booking.bookingCode, rejectionReason }),
+      });
+
+      res.json({ success: true, cancellationRequest: updatedReq });
+    } catch (e: any) {
+      console.error("[admin/cancellation-requests/:id/reject]", e);
+      res.status(500).json({ error: "Failed to reject cancellation" });
+    }
+  });
+
+  // GET cancellation stats (admin)
+  app.get("/api/admin/cancellation-stats", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const stats = await storage.getCancellationStats();
+      res.json(stats);
+    } catch (e: any) {
+      console.error("[admin/cancellation-stats]", e);
+      res.status(500).json({ error: "Failed to fetch cancellation stats" });
+    }
+  });
+
+  // GET cancellation policies (admin)
+  app.get("/api/admin/cancellation-policies", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.query.propertyId as string | undefined;
+      const policies = await storage.getCancellationPolicies(propertyId || null);
+      res.json(policies);
+    } catch (e: any) {
+      console.error("[admin/cancellation-policies GET]", e);
+      res.status(500).json({ error: "Failed to fetch policies" });
+    }
+  });
+
+  // POST create cancellation policy
+  app.post("/api/admin/cancellation-policies", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { label, daysBeforeMoveIn, refundPercentage, propertyId, sortOrder } = req.body;
+      if (!label?.trim()) return res.status(400).json({ error: "Label is required" });
+      if (daysBeforeMoveIn == null) return res.status(400).json({ error: "Days before move-in is required" });
+      if (refundPercentage == null) return res.status(400).json({ error: "Refund percentage is required" });
+      const policy = await storage.upsertCancellationPolicy({
+        label: label.trim(),
+        daysBeforeMoveIn: Number(daysBeforeMoveIn),
+        refundPercentage: Math.max(0, Math.min(100, Number(refundPercentage))),
+        propertyId: propertyId || null,
+        sortOrder: sortOrder || 0,
+      });
+      res.json(policy);
+    } catch (e: any) {
+      console.error("[admin/cancellation-policies POST]", e);
+      res.status(500).json({ error: "Failed to create policy" });
+    }
+  });
+
+  // DELETE cancellation policy
+  app.delete("/api/admin/cancellation-policies/:id", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteCancellationPolicy(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error("[admin/cancellation-policies DELETE]", e);
+      res.status(500).json({ error: "Failed to delete policy" });
+    }
+  });
+
+  // POST seed default cancellation policies
+  app.post("/api/admin/cancellation-policies/seed-defaults", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getCancellationPolicies(null);
+      if (existing.length > 0) return res.json({ message: "Default policies already exist", count: existing.length });
+      const defaults = [
+        { label: "> 30 days before move-in", daysBeforeMoveIn: 30, refundPercentage: 90, sortOrder: 0 },
+        { label: "15–30 days before move-in", daysBeforeMoveIn: 15, refundPercentage: 50, sortOrder: 1 },
+        { label: "< 15 days before move-in", daysBeforeMoveIn: 0, refundPercentage: 0, sortOrder: 2 },
+      ];
+      const created = await Promise.all(defaults.map(d => storage.upsertCancellationPolicy({ ...d, propertyId: null })));
+      res.json({ message: "Default policies created", policies: created });
+    } catch (e: any) {
+      console.error("[seed-defaults]", e);
+      res.status(500).json({ error: "Failed to seed defaults" });
     }
   });
 

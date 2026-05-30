@@ -111,6 +111,12 @@ import {
   type FeatureFlag,
   siteContent,
   type SiteContent,
+  cancellationRequests,
+  cancellationPolicies,
+  type CancellationRequest,
+  type InsertCancellationRequest,
+  type CancellationPolicy,
+  type InsertCancellationPolicy,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, inArray, isNull, lt, lte, gte, count, or, ilike, type SQL } from "drizzle-orm";
@@ -436,6 +442,20 @@ export interface IStorage {
   updateContactMessageStatus(id: string, status: string, repliedBy?: string): Promise<ContactMessage | undefined>;
   markContactMessageConverted(id: string, leadId: string, execName: string): Promise<ContactMessage | undefined>;
   getUnreadContactMessageCount(): Promise<number>;
+
+  // Cancellation Policies
+  getCancellationPolicies(propertyId?: string | null): Promise<CancellationPolicy[]>;
+  upsertCancellationPolicy(data: InsertCancellationPolicy): Promise<CancellationPolicy>;
+  deleteCancellationPolicy(id: string): Promise<void>;
+  calculateCancellationRefund(bookingId: string): Promise<{ totalPaid: number; forfeited: number; refundable: number; policyLabel: string; policySnapshot: any } | null>;
+
+  // Cancellation Requests
+  createCancellationRequest(data: InsertCancellationRequest): Promise<CancellationRequest>;
+  getCancellationRequest(id: string): Promise<CancellationRequest | undefined>;
+  getCancellationRequestByBooking(bookingId: string): Promise<CancellationRequest | undefined>;
+  getAllCancellationRequests(status?: string): Promise<(CancellationRequest & { bookingCode?: string; studentName?: string; propertyName?: string; checkInDate?: string | null })[]>;
+  updateCancellationRequest(id: string, data: Partial<CancellationRequest>): Promise<CancellationRequest | undefined>;
+  getCancellationStats(): Promise<{ thisMonth: number; approved: number; rejected: number; totalForfeited: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2818,6 +2838,137 @@ export class DatabaseStorage implements IStorage {
       .values({ key, value: value as any, description, updatedBy: updatedBy || null })
       .returning();
     return created;
+  }
+
+  // ── Cancellation Policies ────────────────────────────────────────────────────
+
+  async getCancellationPolicies(propertyId?: string | null): Promise<CancellationPolicy[]> {
+    if (propertyId) {
+      return db.select().from(cancellationPolicies)
+        .where(or(eq(cancellationPolicies.propertyId, propertyId), isNull(cancellationPolicies.propertyId)))
+        .orderBy(desc(cancellationPolicies.daysBeforeMoveIn));
+    }
+    return db.select().from(cancellationPolicies)
+      .where(isNull(cancellationPolicies.propertyId))
+      .orderBy(desc(cancellationPolicies.daysBeforeMoveIn));
+  }
+
+  async upsertCancellationPolicy(data: InsertCancellationPolicy): Promise<CancellationPolicy> {
+    const [row] = await db.insert(cancellationPolicies).values(data).returning();
+    return row;
+  }
+
+  async deleteCancellationPolicy(id: string): Promise<void> {
+    await db.delete(cancellationPolicies).where(eq(cancellationPolicies.id, id));
+  }
+
+  async calculateCancellationRefund(bookingId: string): Promise<{ totalPaid: number; forfeited: number; refundable: number; policyLabel: string; policySnapshot: any } | null> {
+    const booking = await this.getBooking(bookingId);
+    if (!booking) return null;
+
+    const successPayments = await db.select().from(payments)
+      .where(and(eq(payments.bookingId, bookingId), eq(payments.status, "success")));
+    const totalPaid = successPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+    // Calculate days until move-in
+    let daysUntilMoveIn = 0;
+    const moveInStr = booking.checkInDate;
+    if (moveInStr) {
+      const moveIn = new Date(moveInStr);
+      const now = new Date();
+      daysUntilMoveIn = Math.max(0, Math.ceil((moveIn.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    // Find the best matching policy (property-specific first, then global)
+    const propertyPolicies = await this.getCancellationPolicies(booking.propertyId);
+    // Sort descending by daysBeforeMoveIn, pick highest tier that daysUntilMoveIn >= threshold
+    const matchedPolicy = propertyPolicies
+      .sort((a, b) => b.daysBeforeMoveIn - a.daysBeforeMoveIn)
+      .find(p => daysUntilMoveIn >= p.daysBeforeMoveIn);
+
+    const refundPercent = matchedPolicy?.refundPercentage ?? 0;
+    const policyLabel = matchedPolicy?.label ?? "No refund (past cancellation window)";
+    const refundable = Math.round(totalPaid * refundPercent / 100);
+    const forfeited = totalPaid - refundable;
+
+    const policySnapshot = matchedPolicy ? {
+      id: matchedPolicy.id,
+      label: matchedPolicy.label,
+      daysBeforeMoveIn: matchedPolicy.daysBeforeMoveIn,
+      refundPercentage: matchedPolicy.refundPercentage,
+      daysUntilMoveIn,
+    } : { label: policyLabel, daysUntilMoveIn, refundPercentage: 0 };
+
+    return { totalPaid, forfeited, refundable, policyLabel, policySnapshot };
+  }
+
+  // ── Cancellation Requests ────────────────────────────────────────────────────
+
+  async createCancellationRequest(data: InsertCancellationRequest): Promise<CancellationRequest> {
+    const [row] = await db.insert(cancellationRequests).values(data).returning();
+    return row;
+  }
+
+  async getCancellationRequest(id: string): Promise<CancellationRequest | undefined> {
+    const [row] = await db.select().from(cancellationRequests).where(eq(cancellationRequests.id, id));
+    return row || undefined;
+  }
+
+  async getCancellationRequestByBooking(bookingId: string): Promise<CancellationRequest | undefined> {
+    const [row] = await db.select().from(cancellationRequests)
+      .where(eq(cancellationRequests.bookingId, bookingId))
+      .orderBy(desc(cancellationRequests.createdAt))
+      .limit(1);
+    return row || undefined;
+  }
+
+  async getAllCancellationRequests(status?: string): Promise<(CancellationRequest & { bookingCode?: string; studentName?: string; propertyName?: string; checkInDate?: string | null })[]> {
+    const rows = await db.select().from(cancellationRequests)
+      .orderBy(desc(cancellationRequests.createdAt));
+    const filtered = status ? rows.filter(r => r.status === status) : rows;
+
+    return Promise.all(filtered.map(async (req) => {
+      const booking = await this.getBooking(req.bookingId);
+      let studentName = "Unknown";
+      if (booking?.studentId) {
+        const student = await this.getStudent(booking.studentId);
+        if (student) studentName = student.fullName;
+      } else if (booking?.walkInName) {
+        studentName = booking.walkInName;
+      }
+      const property = booking?.propertyId ? await this.getProperty(booking.propertyId) : null;
+      return {
+        ...req,
+        bookingCode: booking?.bookingCode || undefined,
+        studentName,
+        propertyName: property?.name || undefined,
+        checkInDate: booking?.checkInDate || null,
+      };
+    }));
+  }
+
+  async updateCancellationRequest(id: string, data: Partial<CancellationRequest>): Promise<CancellationRequest | undefined> {
+    const [updated] = await db.update(cancellationRequests).set(data as any).where(eq(cancellationRequests.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getCancellationStats(): Promise<{ thisMonth: number; approved: number; rejected: number; totalForfeited: number }> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const all = await db.select().from(cancellationRequests)
+      .where(gte(cancellationRequests.createdAt, startOfMonth));
+
+    const thisMonth = all.length;
+    const approved = all.filter(r => r.status === "approved").length;
+    const rejected = all.filter(r => r.status === "rejected").length;
+    let totalForfeited = 0;
+    for (const r of all.filter(r => r.status === "approved")) {
+      const bd = r.refundBreakdown as any;
+      if (bd?.forfeited) totalForfeited += Number(bd.forfeited);
+    }
+    return { thisMonth, approved, rejected, totalForfeited };
   }
 }
 
