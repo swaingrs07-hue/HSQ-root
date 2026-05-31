@@ -2384,7 +2384,7 @@ export default function CompletedBookings() {
 
                 {/* ─── INCLUDED SERVICES ─── */}
                 {(() => {
-                  const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];
+                  const includedServices: any[] = (Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : []).filter((s: any) => s.excluded !== true);
                   if (includedServices.length === 0 && !canEditServices) return null;
                   const SVC_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
                   const MEAL_LBL: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
@@ -3995,21 +3995,34 @@ export default function CompletedBookings() {
             {editingServices.map((svc: any, idx: number) => {
               const SVC_ICONS_ED: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
               const Icon = SVC_ICONS_ED[svc.type] || Tag;
+              const isExcluded = svc.excluded === true;
+              const updateSvc = (patch: Record<string, any>) => {
+                const updated = [...editingServices];
+                updated[idx] = { ...updated[idx], ...patch };
+                setEditingServices(updated);
+              };
               return (
-                <div key={idx} className="flex gap-2 items-start p-3 rounded-lg border border-slate-100 bg-slate-50" data-testid={`edit-svc-row-${idx}`}>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-teal-100 shrink-0 mt-0.5">
+                <div key={idx} className={`flex gap-2 items-start p-3 rounded-lg border ${isExcluded ? "border-red-100 bg-red-50/40 opacity-60" : "border-slate-100 bg-slate-50"}`} data-testid={`edit-svc-row-${idx}`}>
+                  {/* Include/Exclude toggle */}
+                  <button
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 transition-colors ${isExcluded ? "border-red-300 bg-red-100 text-red-400" : "border-teal-400 bg-teal-50 text-teal-600"}`}
+                    onClick={() => updateSvc({ excluded: !isExcluded })}
+                    title={isExcluded ? "Click to include this service" : "Click to exclude this service"}
+                    data-testid={`btn-toggle-svc-${idx}`}
+                  >
+                    {isExcluded ? <X className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+                  </button>
+
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-teal-100 shrink-0 mt-0.5">
                     <Icon className="h-3.5 w-3.5 text-teal-600" />
                   </div>
+
                   <div className="flex-1 space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <select
                         className="text-xs border border-slate-200 rounded px-1.5 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-400"
                         value={svc.type || "custom"}
-                        onChange={(e) => {
-                          const updated = [...editingServices];
-                          updated[idx] = { ...updated[idx], type: e.target.value };
-                          setEditingServices(updated);
-                        }}
+                        onChange={(e) => updateSvc({ type: e.target.value })}
                         data-testid={`select-svc-type-${idx}`}
                       >
                         <option value="meals">Meals</option>
@@ -4020,29 +4033,52 @@ export default function CompletedBookings() {
                         <option value="locker">Locker</option>
                         <option value="custom">Custom</option>
                       </select>
+                      {isExcluded && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-500 font-medium">excluded</span>}
                     </div>
                     <input
                       className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
                       placeholder="Label (e.g. Breakfast & Dinner)"
                       value={svc.label || ""}
-                      onChange={(e) => {
-                        const updated = [...editingServices];
-                        updated[idx] = { ...updated[idx], label: e.target.value };
-                        setEditingServices(updated);
-                      }}
+                      onChange={(e) => updateSvc({ label: e.target.value })}
                       data-testid={`input-svc-label-${idx}`}
                     />
                     <input
                       className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400 text-slate-500"
                       placeholder="Description (optional)"
                       value={svc.description || ""}
-                      onChange={(e) => {
-                        const updated = [...editingServices];
-                        updated[idx] = { ...updated[idx], description: e.target.value };
-                        setEditingServices(updated);
-                      }}
+                      onChange={(e) => updateSvc({ description: e.target.value })}
                       data-testid={`input-svc-desc-${idx}`}
                     />
+                    {/* Type-specific fields */}
+                    {svc.type === "meals" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 shrink-0">Meals/day</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={6}
+                          className="w-16 text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
+                          placeholder="0"
+                          value={svc.mealCount ?? ""}
+                          onChange={(e) => updateSvc({ mealCount: e.target.value === "" ? undefined : Number(e.target.value) })}
+                          data-testid={`input-svc-mealcount-${idx}`}
+                        />
+                      </div>
+                    )}
+                    {svc.type === "laundry" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 shrink-0">Qty (pairs/week)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-20 text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
+                          placeholder="e.g. 40"
+                          value={svc.quantity ?? ""}
+                          onChange={(e) => updateSvc({ quantity: e.target.value === "" ? undefined : Number(e.target.value) })}
+                          data-testid={`input-svc-qty-${idx}`}
+                        />
+                      </div>
+                    )}
                   </div>
                   <button
                     className="text-slate-400 hover:text-red-500 transition-colors mt-0.5 shrink-0"

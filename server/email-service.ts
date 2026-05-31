@@ -382,9 +382,11 @@ export async function sendBookingConfirmationEmail(booking: Booking): Promise<{ 
       ? `₹${Number(booking.totalFee).toLocaleString("en-IN")}`
       : "As per agreement";
 
-    const propertyIncludedServices: any[] = Array.isArray(property?.includedServices)
-      ? (property!.includedServices as any[])
-      : [];
+    const propertyIncludedServices: any[] = Array.isArray((booking as any).bookingServices)
+      ? ((booking as any).bookingServices as any[])
+      : Array.isArray(property?.includedServices)
+        ? (property!.includedServices as any[])
+        : [];
     const includedServicesHtml = await buildIncludedServicesHtml(booking.id, propertyIncludedServices);
 
     const depositAmt = Number(booking.deposit || 0);
@@ -757,9 +759,11 @@ export async function sendParentBookingConfirmationEmail(
       paid: inst.paid,
     }));
 
-    const parentPropertyIncludedServices: any[] = Array.isArray(property?.includedServices)
-      ? (property!.includedServices as any[])
-      : [];
+    const parentPropertyIncludedServices: any[] = Array.isArray((booking as any).bookingServices)
+      ? ((booking as any).bookingServices as any[])
+      : Array.isArray(property?.includedServices)
+        ? (property!.includedServices as any[])
+        : [];
     const parentIncludedServicesHtml = await buildIncludedServicesHtml(booking.id, parentPropertyIncludedServices);
 
     const depositAmtParent = Number(booking.deposit || 0);
