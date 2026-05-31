@@ -5727,6 +5727,28 @@ ${allPages.map(p => `  <url>
       const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
+      // Frontdesk property scope check (same pattern as PATCH /api/admin/bookings/:id)
+      const scope = await getFrontdeskScope(req);
+      if (scope && (!booking.propertyId || !scope.has(booking.propertyId))) {
+        return res.status(403).json({ error: "Booking not in your assignment scope" });
+      }
+
+      // Validate payload structure when non-null
+      if (includedServices !== null && includedServices !== undefined) {
+        if (!Array.isArray(includedServices)) {
+          return res.status(400).json({ error: "includedServices must be an array or null" });
+        }
+        const VALID_TYPES = ["meals", "shuttle", "ev_bike", "laundry", "housekeeping", "locker", "custom"];
+        for (const item of includedServices) {
+          if (typeof item !== "object" || item === null) {
+            return res.status(400).json({ error: "Each service must be an object" });
+          }
+          if (item.type && !VALID_TYPES.includes(item.type)) {
+            return res.status(400).json({ error: `Invalid service type: ${item.type}` });
+          }
+        }
+      }
+
       const updated = await storage.updateBooking(bookingId, { bookingServices: includedServices ?? null } as any);
 
       await storage.createAuditLog({

@@ -2400,7 +2400,14 @@ export default function CompletedBookings() {
                         {canEditServices && (
                           <button
                             className="ml-auto p-1 rounded hover:bg-teal-50 text-teal-500 transition-colors"
-                            onClick={() => { setEditingServices(JSON.parse(JSON.stringify(includedServices))); setEditServicesOpen(true); }}
+                            onClick={() => {
+                              // Initialize from the FULL array (including excluded rows) so they can be toggled back on
+                              const allSvcs: any[] = Array.isArray(selectedBooking.propertyIncludedServices)
+                                ? selectedBooking.propertyIncludedServices
+                                : [];
+                              setEditingServices(JSON.parse(JSON.stringify(allSvcs)));
+                              setEditServicesOpen(true);
+                            }}
                             data-testid="btn-edit-services"
                             title="Edit included services for this booking"
                           >
