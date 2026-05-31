@@ -7968,6 +7968,57 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // GET /api/hms/bookings/:identifier/services
+  // Returns the effective included services for a booking so HMS can pull
+  // them on demand. Identifier = booking code or phone number.
+  app.get("/api/hms/bookings/:identifier/services", hmsApiKeyAuth, async (req: any, res) => {
+    try {
+      const identifier = req.params.identifier as string;
+      let booking: any = null;
+
+      const [byCode] = await db.select().from(schema.bookings).where(eq(schema.bookings.bookingCode, identifier));
+      if (byCode) {
+        booking = byCode;
+      } else {
+        const phone10 = identifier.replace(/\D/g, "").slice(-10);
+        if (phone10.length === 10) {
+          const allBookings = await db.select().from(schema.bookings).where(
+            sql`${schema.bookings.status} NOT IN ('cancelled')`
+          );
+          booking = allBookings.find((b: any) => {
+            const rd = b.residentDetails as any;
+            const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+            return bPhone === phone10;
+          });
+        }
+      }
+
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const [prop] = booking.propertyId
+        ? await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId))
+        : [null];
+
+      const { buildHmsMealFields, getPropertyCode } = await import("./hms-sync.js");
+      const effectiveServices: any[] = (booking as any).bookingServices ?? prop?.includedServices ?? [];
+      const mealFields = buildHmsMealFields(effectiveServices);
+
+      const rd = booking.residentDetails as any;
+
+      res.json({
+        bookingCode: booking.bookingCode,
+        phone: booking.walkInPhone || booking.customerPhone || rd?.phone || null,
+        propertyCode: prop?.propertyCode || (prop?.name ? getPropertyCode(prop.name) : null),
+        services: effectiveServices,
+        mealPlan: mealFields.mealPlan ?? null,
+        allowedMeals: mealFields.allowedMeals ?? null,
+      });
+    } catch (error: any) {
+      console.error("[HMS Services API] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.put("/api/hms/residents/update", hmsApiKeyAuth, async (req: any, res) => {
     try {
       const { phone, email, name, roomNo, bedNo, gender, dateOfBirth, dob,
