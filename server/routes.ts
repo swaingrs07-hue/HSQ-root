@@ -5724,6 +5724,11 @@ ${allPages.map(p => `  <url>
         if (!allowed) return res.status(403).json({ error: "Your role does not have permission to edit booking services." });
       }
 
+      // Require includedServices to be explicitly provided (undefined = caller error)
+      if (!("includedServices" in req.body)) {
+        return res.status(400).json({ error: "includedServices is required (pass null to reset to property default)" });
+      }
+
       const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
