@@ -2410,8 +2410,11 @@ export default function CompletedBookings() {
                               // Deep-clone and derive mealCount from schedule so the Meals/day field is pre-filled
                               const allSvcs = JSON.parse(JSON.stringify(srcSvcs)).map((svc: any) => {
                                 if (svc.type === "meals") {
-                                  const wd = svc.schedule?.weekday;
-                                  svc.mealCount = wd?.count ?? (Array.isArray(wd?.meals) ? wd.meals.length : 0) ?? svc.mealCount ?? 0;
+                                  const weekdayCount = svc.schedule?.weekday?.count;
+                                  const mealsLen = Array.isArray(svc.schedule?.weekday?.meals)
+                                    ? svc.schedule.weekday.meals.length
+                                    : undefined;
+                                  svc.mealCount = weekdayCount ?? mealsLen ?? svc.mealCount ?? 0;
                                 }
                                 return svc;
                               });
