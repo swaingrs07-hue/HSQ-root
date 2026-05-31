@@ -2401,11 +2401,21 @@ export default function CompletedBookings() {
                           <button
                             className="ml-auto p-1 rounded hover:bg-teal-50 text-teal-500 transition-colors"
                             onClick={() => {
-                              // Initialize from the FULL array (including excluded rows) so they can be toggled back on
-                              const allSvcs: any[] = Array.isArray(selectedBooking.propertyIncludedServices)
-                                ? selectedBooking.propertyIncludedServices
-                                : [];
-                              setEditingServices(JSON.parse(JSON.stringify(allSvcs)));
+                              // Use booking override if one exists, else fall back to property defaults
+                              const srcSvcs: any[] = Array.isArray(selectedBooking.bookingServices)
+                                ? selectedBooking.bookingServices
+                                : Array.isArray(selectedBooking.propertyIncludedServices)
+                                  ? selectedBooking.propertyIncludedServices
+                                  : [];
+                              // Deep-clone and derive mealCount from schedule so the Meals/day field is pre-filled
+                              const allSvcs = JSON.parse(JSON.stringify(srcSvcs)).map((svc: any) => {
+                                if (svc.type === "meals") {
+                                  const wd = svc.schedule?.weekday;
+                                  svc.mealCount = wd?.count ?? (Array.isArray(wd?.meals) ? wd.meals.length : 0) ?? svc.mealCount ?? 0;
+                                }
+                                return svc;
+                              });
+                              setEditingServices(allSvcs);
                               setEditServicesOpen(true);
                             }}
                             data-testid="btn-edit-services"
