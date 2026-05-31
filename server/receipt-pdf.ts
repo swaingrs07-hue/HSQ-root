@@ -317,9 +317,11 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
     }
   }
 
-  const propertyIncludedServices: any[] = Array.isArray(property?.includedServices)
-    ? (property!.includedServices as any[])
-    : [];
+  const propertyIncludedServices: any[] = Array.isArray((booking as any).bookingServices)
+    ? ((booking as any).bookingServices as any[])
+    : Array.isArray(property?.includedServices)
+      ? (property!.includedServices as any[])
+      : [];
 
   if (propertyIncludedServices.length > 0) {
     y += 6;

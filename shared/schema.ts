@@ -294,6 +294,9 @@ export const bookings = pgTable("bookings", {
   confirmedBy: varchar("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at"),
 
+  // Per-booking service overrides (null = inherit from property's includedServices)
+  bookingServices: jsonb("booking_services"),
+
   // Cancellation linkage (populated when a cancellation request is submitted)
   cancellationRequestId: varchar("cancellation_request_id"),
 

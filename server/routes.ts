@@ -4517,7 +4517,7 @@ ${allPages.map(p => `  <url>
           ...booking,
           propertyName: property?.name || "Unknown",
           propertyLocation: property?.location || "",
-          propertyIncludedServices: property?.includedServices || null,
+          propertyIncludedServices: (booking as any).bookingServices || property?.includedServices || null,
           propertyMoveInCharges: property?.moveInCharges || null,
           roomTypeName: roomType?.customName || roomType?.name || "Unknown",
           roomTypeSize: roomType?.size || "",
@@ -5704,6 +5704,47 @@ ${allPages.map(p => `  <url>
     } catch (error: any) {
       console.error("Error editing booking:", error);
       res.status(500).json({ error: error.message || "Failed to edit booking" });
+    }
+  });
+
+  // Per-booking service overrides (admin/superadmin/frontdesk — flag-gated)
+  app.patch("/api/admin/bookings/:id/services", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk"), async (req: AuthRequest, res) => {
+    try {
+      const bookingId = req.params.id as string;
+      const { includedServices } = req.body; // ServiceItem[] | null
+      const callerRole = req.user!.role;
+
+      // Superadmin always has access; others are gated by feature flag
+      if (callerRole !== "superadmin") {
+        const flagKey = callerRole === "frontdesk" ? "booking_services_edit_frontdesk" : "booking_services_edit_admin";
+        const flag = await storage.getFeatureFlag(flagKey);
+        const allowed = flagKey === "booking_services_edit_admin"
+          ? (flag ? !!flag.enabled : true)  // default ON for admin
+          : (flag ? !!flag.enabled : false); // default OFF for frontdesk
+        if (!allowed) return res.status(403).json({ error: "Your role does not have permission to edit booking services." });
+      }
+
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const updated = await storage.updateBooking(bookingId, { bookingServices: includedServices ?? null } as any);
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "BOOKING_SERVICES_UPDATED",
+        entityType: "booking",
+        entityId: bookingId,
+        details: JSON.stringify({
+          bookingCode: booking.bookingCode,
+          serviceCount: Array.isArray(includedServices) ? includedServices.length : 0,
+          reset: includedServices === null,
+        }),
+      });
+
+      res.json({ success: true, booking: updated });
+    } catch (e: any) {
+      console.error("[admin/bookings/:id/services]", e);
+      res.status(500).json({ error: "Failed to update booking services" });
     }
   });
 
@@ -16074,6 +16115,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!("hotels_public" in map)) map.hotels_public = false;
       // Defaults: bookings are ON unless superadmin disables them
       if (!("bookings_enabled" in map)) map.bookings_enabled = true;
+      // Defaults: admin can edit booking services; frontdesk cannot (until superadmin enables)
+      if (!("booking_services_edit_admin" in map)) map.booking_services_edit_admin = true;
+      if (!("booking_services_edit_frontdesk" in map)) map.booking_services_edit_frontdesk = false;
       res.json(map);
     } catch (error: any) {
       console.error("Error listing feature flags:", error);

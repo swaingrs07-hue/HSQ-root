@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -545,6 +545,62 @@ export default function AdminSettings() {
                   Tip: Pause bookings during maintenance, off-season, or when rooms are under review.
                   Flip back ON when you&apos;re ready to accept new residents.
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isSuperadmin && (
+            <Card data-testid="card-booking-services-roles">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-teal-500" />
+                  Edit Booking Services — Role Access
+                </CardTitle>
+                <CardDescription>
+                  Control which staff roles can add or edit services on individual booking details.
+                  Superadmin always has access. Changes take effect immediately — no reload required.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { key: "booking_services_edit_admin", label: "Admin", description: "Can add/edit services on any booking", icon: Shield },
+                  { key: "booking_services_edit_frontdesk", label: "Frontdesk", description: "Can add/edit services on bookings they can view", icon: Users },
+                ].map(({ key, label, description, icon: Icon }) => {
+                  const enabled = flags[key] !== false && (key === "booking_services_edit_admin" ? true : !!flags[key]);
+                  const realEnabled = key === "booking_services_edit_admin" ? flags[key] !== false : !!flags[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between p-3 rounded-lg border"
+                      style={{ background: realEnabled ? "rgb(240 253 250)" : "rgb(248 250 252)", borderColor: realEnabled ? "rgb(20 184 166 / 0.3)" : "rgb(226 232 240)" }}
+                      data-testid={`card-flag-${key}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: realEnabled ? "rgb(204 251 241)" : "rgb(226 232 240)" }}>
+                          <Icon className="w-4 h-4" style={{ color: realEnabled ? "rgb(13 148 136)" : "rgb(71 85 105)" }} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-800 text-sm">{label}</p>
+                          <p className="text-xs text-slate-500">{description}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={realEnabled}
+                        disabled={flagsLoading || setFlagMutation.isPending}
+                        onCheckedChange={async (val) => {
+                          try {
+                            await setFlagMutation.mutateAsync({ key, enabled: val });
+                            toast({ title: `${label} access ${val ? "enabled" : "disabled"}`, description: `${label} users can ${val ? "now" : "no longer"} edit booking services.` });
+                          } catch (e: any) {
+                            toast({ title: "Failed to update", description: e?.message, variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`switch-flag-${key}`}
+                      />
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-slate-500 pt-1">Superadmin always has full access regardless of these toggles.</p>
               </CardContent>
             </Card>
           )}

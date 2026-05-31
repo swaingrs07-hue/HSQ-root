@@ -85,6 +85,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
 interface ResidentDetails {
   photoPath?: string;
@@ -207,6 +208,16 @@ export default function CompletedBookings() {
   const [adminCancelLoading, setAdminCancelLoading] = useState(false);
   const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
   const [adminCancelProofUploading, setAdminCancelProofUploading] = useState(false);
+
+  // Edit Services dialog state
+  const [editServicesOpen, setEditServicesOpen] = useState(false);
+  const [editingServices, setEditingServices] = useState<any[]>([]);
+  const [editServicesSaving, setEditServicesSaving] = useState(false);
+  const { flags } = useFeatureFlags();
+  const canEditServices =
+    user?.role === "superadmin" ||
+    (user?.role === "admin" && flags.booking_services_edit_admin !== false) ||
+    (isFrontdesk && !!flags.booking_services_edit_frontdesk);
 
   const uploadAdminCancelProof = async (file: File) => {
     setAdminCancelProofUploading(true);
@@ -2374,15 +2385,43 @@ export default function CompletedBookings() {
                 {/* ─── INCLUDED SERVICES ─── */}
                 {(() => {
                   const includedServices: any[] = Array.isArray(selectedBooking.propertyIncludedServices) ? selectedBooking.propertyIncludedServices : [];
-                  if (includedServices.length === 0) return null;
+                  if (includedServices.length === 0 && !canEditServices) return null;
                   const SVC_ICONS: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
                   const MEAL_LBL: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", evening_snacks: "Evening Snacks", dinner: "Dinner" };
                   const allActivePkgs = bookingPackages?.bookingPackages?.filter((bp: any) => bp.status === "ACTIVE") || [];
                   const activePkg = allActivePkgs.find((bp: any) => bp.package?.category === "housing_plan");
+                  const isOverridden = Array.isArray(selectedBooking.bookingServices);
                   return (
                     <div id="sec-services" className="bkd-card" data-testid="included-services-section">
-                      <div className="bkd-sec-hdr"><Package className="h-3.5 w-3.5 text-teal-500" /><span className="bkd-sec-label text-teal-600">Included Services</span></div>
+                      <div className="bkd-sec-hdr">
+                        <Package className="h-3.5 w-3.5 text-teal-500" />
+                        <span className="bkd-sec-label text-teal-600">Included Services</span>
+                        {isOverridden && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 font-medium">overridden</span>}
+                        {canEditServices && (
+                          <button
+                            className="ml-auto p-1 rounded hover:bg-teal-50 text-teal-500 transition-colors"
+                            onClick={() => { setEditingServices(JSON.parse(JSON.stringify(includedServices))); setEditServicesOpen(true); }}
+                            data-testid="btn-edit-services"
+                            title="Edit included services for this booking"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                       <div className="px-4 py-3 space-y-2.5">
+                        {includedServices.length === 0 && canEditServices && (
+                          <div className="flex flex-col items-center gap-1.5 py-4 text-center" data-testid="services-empty-state">
+                            <Package className="h-6 w-6 text-slate-300" />
+                            <p className="text-xs text-slate-400">No services configured for this booking.</p>
+                            <button
+                              className="text-xs text-teal-500 hover:text-teal-600 font-medium underline-offset-2 hover:underline"
+                              onClick={() => { setEditingServices([]); setEditServicesOpen(true); }}
+                              data-testid="btn-add-services-empty"
+                            >
+                              + Add services
+                            </button>
+                          </div>
+                        )}
                         {includedServices.map((svc: any, idx: number) => {
                           const Icon = SVC_ICONS[svc.type] || Tag;
                           const pkgSvcItem = activePkg?.package?.items?.find((i: any) => i.type === svc.type);
@@ -3931,6 +3970,175 @@ export default function CompletedBookings() {
                 {recordingRefund ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Saving…</> : <><RotateCcw className="h-4 w-4 mr-1" /> Confirm Refund</>}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Booking Services Dialog ── */}
+      <Dialog open={editServicesOpen} onOpenChange={(v) => { if (!editServicesSaving) setEditServicesOpen(v); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-services">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Package className="h-4 w-4 text-teal-500" />
+              Edit Included Services
+              <span className="text-xs font-normal text-slate-400 ml-1">— {selectedBooking?.bookingCode}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Service list */}
+          <div className="space-y-2 mt-2">
+            {editingServices.length === 0 && (
+              <div className="text-center py-6 text-slate-400 text-sm" data-testid="edit-services-empty">
+                No services yet. Add one below.
+              </div>
+            )}
+            {editingServices.map((svc: any, idx: number) => {
+              const SVC_ICONS_ED: Record<string, any> = { meals: UtensilsCrossed, shuttle: Bus, ev_bike: Bike, laundry: Shirt, housekeeping: SprayCan, locker: Lock, custom: Tag };
+              const Icon = SVC_ICONS_ED[svc.type] || Tag;
+              return (
+                <div key={idx} className="flex gap-2 items-start p-3 rounded-lg border border-slate-100 bg-slate-50" data-testid={`edit-svc-row-${idx}`}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-teal-100 shrink-0 mt-0.5">
+                    <Icon className="h-3.5 w-3.5 text-teal-600" />
+                  </div>
+                  <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        className="text-xs border border-slate-200 rounded px-1.5 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                        value={svc.type || "custom"}
+                        onChange={(e) => {
+                          const updated = [...editingServices];
+                          updated[idx] = { ...updated[idx], type: e.target.value };
+                          setEditingServices(updated);
+                        }}
+                        data-testid={`select-svc-type-${idx}`}
+                      >
+                        <option value="meals">Meals</option>
+                        <option value="shuttle">Shuttle</option>
+                        <option value="ev_bike">EV Bike</option>
+                        <option value="laundry">Laundry</option>
+                        <option value="housekeeping">Housekeeping</option>
+                        <option value="locker">Locker</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <input
+                      className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
+                      placeholder="Label (e.g. Breakfast & Dinner)"
+                      value={svc.label || ""}
+                      onChange={(e) => {
+                        const updated = [...editingServices];
+                        updated[idx] = { ...updated[idx], label: e.target.value };
+                        setEditingServices(updated);
+                      }}
+                      data-testid={`input-svc-label-${idx}`}
+                    />
+                    <input
+                      className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400 text-slate-500"
+                      placeholder="Description (optional)"
+                      value={svc.description || ""}
+                      onChange={(e) => {
+                        const updated = [...editingServices];
+                        updated[idx] = { ...updated[idx], description: e.target.value };
+                        setEditingServices(updated);
+                      }}
+                      data-testid={`input-svc-desc-${idx}`}
+                    />
+                  </div>
+                  <button
+                    className="text-slate-400 hover:text-red-500 transition-colors mt-0.5 shrink-0"
+                    onClick={() => setEditingServices(editingServices.filter((_, i) => i !== idx))}
+                    data-testid={`btn-remove-svc-${idx}`}
+                    title="Remove service"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add service button */}
+          <button
+            className="w-full mt-2 py-2 border border-dashed border-teal-300 rounded-lg text-teal-500 text-xs font-medium hover:bg-teal-50 transition-colors flex items-center justify-center gap-1.5"
+            onClick={() => setEditingServices([...editingServices, { type: "custom", label: "", description: "" }])}
+            data-testid="btn-add-service-row"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Service
+          </button>
+
+          {/* Info note */}
+          <p className="text-[10px] text-slate-400 mt-1">
+            These services override the property default for this booking only. Leave empty and save to reset to the property default.
+          </p>
+
+          {/* Actions */}
+          <div className="flex gap-2 mt-2 pt-3 border-t border-slate-100">
+            {Array.isArray(selectedBooking?.bookingServices) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                disabled={editServicesSaving}
+                onClick={async () => {
+                  setEditServicesSaving(true);
+                  try {
+                    const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+                    const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/services`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ includedServices: null }),
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error || "Failed");
+                    toast({ title: "Reset to default", description: "Booking services reset to property default." });
+                    queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                    setEditServicesOpen(false);
+                  } catch (e: any) {
+                    toast({ title: "Failed to reset", description: e.message, variant: "destructive" });
+                  }
+                  setEditServicesSaving(false);
+                }}
+                data-testid="btn-reset-services-default"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" /> Reset to Default
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs ml-auto"
+              onClick={() => setEditServicesOpen(false)}
+              disabled={editServicesSaving}
+              data-testid="btn-cancel-edit-services"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="text-xs bg-teal-600 hover:bg-teal-700 text-white"
+              disabled={editServicesSaving}
+              onClick={async () => {
+                setEditServicesSaving(true);
+                try {
+                  const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+                  const payload = editingServices.length > 0 ? editingServices : null;
+                  const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/services`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ includedServices: payload }),
+                  });
+                  if (!res.ok) throw new Error((await res.json()).error || "Failed to save services");
+                  toast({ title: "Services saved", description: "Included services updated for this booking." });
+                  queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                  setEditServicesOpen(false);
+                } catch (e: any) {
+                  toast({ title: "Failed to save", description: e.message, variant: "destructive" });
+                }
+                setEditServicesSaving(false);
+              }}
+              data-testid="btn-save-edit-services"
+            >
+              {editServicesSaving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Saving…</> : <><Save className="h-3.5 w-3.5 mr-1" /> Save Services</>}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
