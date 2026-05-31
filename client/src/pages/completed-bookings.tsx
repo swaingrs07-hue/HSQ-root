@@ -4133,7 +4133,8 @@ export default function CompletedBookings() {
                     });
                     if (!res.ok) throw new Error((await res.json()).error || "Failed");
                     toast({ title: "Reset to default", description: "Booking services reset to property default." });
-                    queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+                    setSelectedBooking((prev: any) => prev ? { ...prev, bookingServices: null } : prev);
                     setEditServicesOpen(false);
                   } catch (e: any) {
                     toast({ title: "Failed to reset", description: e.message, variant: "destructive" });
@@ -4171,7 +4172,8 @@ export default function CompletedBookings() {
                   });
                   if (!res.ok) throw new Error((await res.json()).error || "Failed to save services");
                   toast({ title: "Services saved", description: "Included services updated for this booking." });
-                  queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+                  setSelectedBooking((prev: any) => prev ? { ...prev, bookingServices: payload, propertyIncludedServices: payload ?? prev.propertyIncludedServices } : prev);
                   setEditServicesOpen(false);
                 } catch (e: any) {
                   toast({ title: "Failed to save", description: e.message, variant: "destructive" });
