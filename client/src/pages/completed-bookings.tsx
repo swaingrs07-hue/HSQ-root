@@ -4089,87 +4089,23 @@ export default function CompletedBookings() {
                       data-testid={`input-svc-desc-${idx}`}
                     />
                     {/* Type-specific fields */}
-                    {svc.type === "meals" && (() => {
-                      const EDIT_MEAL_OPTS = [
-                        { value: "breakfast", label: "Breakfast" },
-                        { value: "lunch", label: "Lunch" },
-                        { value: "evening_snacks", label: "Eve. Snacks" },
-                        { value: "dinner", label: "Dinner" },
-                      ];
-                      const schedule = svc.schedule || {
-                        weekday: { meals: [], count: 0 },
-                        saturday: { meals: [], count: 0 },
-                        sunday: { meals: [], count: 0 },
-                      };
-                      const toggleMealDay = (dayKey: string, mealValue: string) => {
-                        const dayData = (schedule as any)[dayKey] || { meals: [], count: 0 };
-                        const meals: string[] = Array.isArray(dayData.meals) ? [...dayData.meals] : [];
-                        const pos = meals.indexOf(mealValue);
-                        if (pos >= 0) meals.splice(pos, 1); else meals.push(mealValue);
-                        const newSchedule = {
-                          ...schedule,
-                          [dayKey]: { meals, count: meals.length },
-                        };
-                        const wdCount = (newSchedule as any).weekday?.count ?? meals.length;
-                        updateSvc({ schedule: newSchedule, mealCount: wdCount });
-                      };
-                      return (
-                        <div className="space-y-1.5" data-testid={`meal-schedule-editor-${idx}`}>
-                          <span className="text-[10px] text-slate-500 font-medium">Meal Schedule</span>
-                          {[
-                            { key: "weekday", label: "Mon – Fri" },
-                            { key: "saturday", label: "Saturday" },
-                            { key: "sunday", label: "Sunday" },
-                          ].map(day => {
-                            const dayData = (schedule as any)[day.key] || { meals: [], count: 0 };
-                            const selectedMeals: string[] = Array.isArray(dayData.meals) ? dayData.meals : [];
-                            return (
-                              <div key={day.key} className="rounded-lg border border-slate-200 bg-white p-2">
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-[11px] font-semibold text-slate-700">{day.label}</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] text-slate-400">count:</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={6}
-                                      className="w-10 text-[10px] border border-slate-200 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400 text-center"
-                                      value={(schedule as any)[day.key]?.count ?? selectedMeals.length}
-                                      onChange={(e) => {
-                                        const newCount = e.target.value === "" ? 0 : Math.max(0, Math.min(6, Number(e.target.value)));
-                                        const newSchedule = {
-                                          ...schedule,
-                                          [day.key]: { ...((schedule as any)[day.key] || {}), count: newCount },
-                                        };
-                                        const wdCount = (newSchedule as any).weekday?.count ?? newCount;
-                                        updateSvc({ schedule: newSchedule, mealCount: wdCount });
-                                      }}
-                                      data-testid={`meal-count-${day.key}-${idx}`}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {EDIT_MEAL_OPTS.map(meal => {
-                                    const isSelected = selectedMeals.includes(meal.value);
-                                    return (
-                                      <button
-                                        key={meal.value}
-                                        type="button"
-                                        onClick={() => toggleMealDay(day.key, meal.value)}
-                                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all ${isSelected ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-500 border-slate-200 hover:border-teal-300"}`}
-                                        data-testid={`meal-toggle-${day.key}-${meal.value}-${idx}`}
-                                      >
-                                        {meal.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
+                    {svc.type === "meals" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 shrink-0">Meals/day</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={6}
+                          className="w-20 text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
+                          value={svc.mealCount ?? 0}
+                          onChange={(e) => {
+                            const newCount = e.target.value === "" ? 0 : Math.max(0, Math.min(6, Number(e.target.value)));
+                            updateSvc({ mealCount: newCount });
+                          }}
+                          data-testid={`input-meal-count-${idx}`}
+                        />
+                      </div>
+                    )}
                     {svc.type === "laundry" && (
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-slate-500 shrink-0">Qty (pairs/week)</span>
