@@ -17121,6 +17121,57 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // POST /api/admin/milestone/resend — force-resend milestone email for a property
+  app.post("/api/admin/milestone/resend", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { propertyId } = req.body as { propertyId?: string };
+      if (!propertyId) return res.status(400).json({ error: "propertyId is required" });
+
+      const property = await storage.getProperty(propertyId);
+      if (!property) return res.status(404).json({ error: "Property not found" });
+
+      // Reset emailSent so checkAndSendMilestone will re-fire
+      await db.update(schema.propertyMilestones)
+        .set({ emailSent: false })
+        .where(eq(schema.propertyMilestones.propertyId, propertyId));
+
+      // Also fetch current milestone records so we can report back
+      const milestones = await db.select().from(schema.propertyMilestones)
+        .where(eq(schema.propertyMilestones.propertyId, propertyId));
+
+      // Run the check (will send any unsent milestones)
+      await checkAndSendMilestone(propertyId);
+
+      // Re-fetch to see what was sent
+      const after = await db.select().from(schema.propertyMilestones)
+        .where(eq(schema.propertyMilestones.propertyId, propertyId));
+
+      const sent = after.filter(m => m.emailSent).length;
+      const total = after.length;
+
+      console.log(`[Milestone] Manual resend for ${property.name}: ${sent}/${total} milestones sent`);
+      res.json({ success: true, sent, total, propertyName: property.name });
+    } catch (e: any) {
+      console.error("[milestone/resend]", e);
+      res.status(500).json({ error: "Failed to resend milestone email" });
+    }
+  });
+
+  // GET /api/admin/milestone/status — list milestone status for a property
+  app.get("/api/admin/milestone/status", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const propertyId = req.query.propertyId as string;
+      if (!propertyId) return res.status(400).json({ error: "propertyId is required" });
+
+      const milestones = await db.select().from(schema.propertyMilestones)
+        .where(eq(schema.propertyMilestones.propertyId, propertyId));
+
+      res.json(milestones);
+    } catch (e: any) {
+      res.status(500).json({ error: "Failed to fetch milestone status" });
+    }
+  });
+
   // POST seed default cancellation policies
   app.post("/api/admin/cancellation-policies/seed-defaults", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
     try {

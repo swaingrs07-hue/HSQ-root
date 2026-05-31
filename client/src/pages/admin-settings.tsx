@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users, Trophy, Send } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -318,6 +318,139 @@ function CancellationPoliciesSection() {
             Add Policy Tier
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MilestoneResendCard() {
+  const { toast } = useToast();
+  const { token } = useAuth();
+  const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
+  useEffect(() => {
+    fetch("/api/admin/properties", { headers: authHeader })
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setProperties(list);
+        if (list.length > 0) setSelectedPropertyId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    setStatusLoading(true);
+    fetch(`/api/admin/milestone/status?propertyId=${selectedPropertyId}`, { headers: authHeader })
+      .then(r => r.json())
+      .then(data => setMilestones(Array.isArray(data) ? data : []))
+      .catch(() => setMilestones([]))
+      .finally(() => setStatusLoading(false));
+  }, [selectedPropertyId]);
+
+  const handleResend = async () => {
+    if (!selectedPropertyId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/milestone/resend", {
+        method: "POST",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: selectedPropertyId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      if (data.sent > 0) {
+        toast({
+          title: `🏆 Milestone email${data.sent > 1 ? "s" : ""} sent!`,
+          description: `${data.sent} of ${data.total} milestone email${data.sent > 1 ? "s" : ""} sent for ${data.propertyName}.`,
+        });
+      } else {
+        toast({
+          title: "No milestones reached yet",
+          description: `${data.propertyName} hasn't hit a booking milestone (100, 200, 300…) yet, so no email was sent.`,
+          variant: "destructive",
+        });
+      }
+      // Refresh status
+      const st = await fetch(`/api/admin/milestone/status?propertyId=${selectedPropertyId}`, { headers: authHeader });
+      const stData = await st.json();
+      setMilestones(Array.isArray(stData) ? stData : []);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card data-testid="card-milestone-resend">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-500" />
+          Booking Milestone Emails
+        </CardTitle>
+        <CardDescription>
+          Manually resend the congratulations email when a property hits 100, 200, 300… bookings.
+          Useful if the email was missed or you want to re-celebrate a milestone.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Select Property</Label>
+          <select
+            className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            value={selectedPropertyId}
+            onChange={e => setSelectedPropertyId(e.target.value)}
+            data-testid="select-milestone-property"
+          >
+            {properties.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {statusLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading milestone status…
+          </div>
+        ) : milestones.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Milestone History</p>
+            {milestones.map((m: any) => (
+              <div key={m.id} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg border text-sm">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span className="font-medium">
+                    {m.milestoneType === "booking_count" ? `${m.milestoneValue} Bookings` : `${m.milestoneValue}% Occupancy`}
+                  </span>
+                  <span className="text-slate-400">— {m.totalBookings} total at time of milestone</span>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${m.emailSent ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"}`}>
+                  {m.emailSent ? `Sent ${m.sentAt ? new Date(m.sentAt).toLocaleDateString() : ""}` : "Not sent"}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">No milestone records for this property yet.</p>
+        )}
+
+        <Button
+          onClick={handleResend}
+          disabled={loading || !selectedPropertyId}
+          data-testid="button-resend-milestone"
+          className="bg-amber-500 hover:bg-amber-600 text-white"
+        >
+          {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+          Resend Milestone Email
+        </Button>
       </CardContent>
     </Card>
   );
@@ -843,6 +976,8 @@ export default function AdminSettings() {
               </div>
             </CardContent>
           </Card>
+
+          <MilestoneResendCard />
         </TabsContent>
 
         <TabsContent value="cancellation" className="space-y-6">
