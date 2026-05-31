@@ -308,6 +308,8 @@ app.use((req, res, next) => {
       }).catch((e) => log(`Failed to start bed status reconcile job: ${e}`, "bed-reconcile"));
       // Start daily cleanup of HMS inbound activity log (~30-day retention)
       startHmsActivityLogCleanupJob();
+      // Send EMI reminder emails to parents 1 day before due
+      startEmiReminderJob();
       // Start HMS wallet balance pull sync (every 30 min)
       import("./hms-wallet-sync").then(({ startHmsWalletSyncJob }) => {
         startHmsWalletSyncJob();
@@ -319,6 +321,81 @@ app.use((req, res, next) => {
     },
   );
 })();
+
+// Background job: send EMI reminder emails to parent/guardian 1 day before
+// an installment is due. Runs daily at startup and every 24 h after that.
+// Only fires for unpaid installments whose dueDate matches tomorrow's
+// ISO date (YYYY-MM-DD). Bookings must be active/confirmed and have a
+// parent email stored in residentDetails.
+async function startEmiReminderJob() {
+  const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // every 24 h
+
+  async function sendEmiReminders() {
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      const unpaidInstallments = await pool.query<{
+        id: string;
+        booking_id: string;
+        name: string;
+        amount: number;
+        due_date: string;
+      }>(
+        `SELECT i.id, i.booking_id, i.name, i.amount, i.due_date
+         FROM installments i
+         JOIN bookings b ON b.id = i.booking_id
+         WHERE i.paid = false
+           AND i.due_date = $1
+           AND b.status IN ('confirmed', 'active')`,
+        [tomorrowStr]
+      );
+
+      if (unpaidInstallments.rows.length === 0) return;
+
+      log(`EMI reminder job: ${unpaidInstallments.rows.length} instalment(s) due on ${tomorrowStr}`, "background");
+
+      const { sendEmiReminderToParent } = await import("./email-service");
+
+      for (const row of unpaidInstallments.rows) {
+        try {
+          const booking = await storage.getBooking(row.booking_id);
+          if (!booking) continue;
+
+          const rd = booking.residentDetails as Record<string, any> | null;
+          const parentEmail = rd?.parentEmail || rd?.guardianEmail;
+          const parentName = rd?.parentName || rd?.guardianName || "Parent/Guardian";
+          if (!parentEmail) continue;
+
+          const property = await storage.getProperty(booking.propertyId);
+          const residentName = rd?.name || booking.walkInName || "Resident";
+
+          await sendEmiReminderToParent({
+            parentName,
+            parentEmail,
+            residentName,
+            propertyName: property?.name || "Hsquare Living",
+            bookingCode: booking.bookingCode || booking.id,
+            installmentName: row.name,
+            amount: Number(row.amount),
+            dueDate: tomorrowStr,
+          });
+
+          log(`EMI reminder sent to ${parentEmail} for booking ${booking.bookingCode} (${row.name})`, "background");
+        } catch (innerErr) {
+          log(`EMI reminder error for installment ${row.id}: ${innerErr}`, "background");
+        }
+      }
+    } catch (err) {
+      log(`EMI reminder job failed: ${err}`, "background");
+    }
+  }
+
+  await sendEmiReminders();
+  setInterval(sendEmiReminders, RUN_INTERVAL_MS);
+  log("EMI reminder job started (runs daily)", "background");
+}
 
 // Background job: trim hms_activity_log rows older than ~30 days so the
 // table stays small. The HMS diagnostics page only ever reads the latest

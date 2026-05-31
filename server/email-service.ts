@@ -1940,6 +1940,183 @@ export async function sendBedReconciliationSummary(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// EMI REMINDER EMAIL (to parent/guardian — 1 day before installment due)
+// ══════════════════════════════════════════════════════════════════════════════
+
+export interface EmiReminderParams {
+  parentName: string;
+  parentEmail: string;
+  residentName: string;
+  propertyName: string;
+  bookingCode: string;
+  installmentName: string;
+  amount: number;
+  dueDate: string;
+  remainingInstallments?: number;
+}
+
+function buildEmiReminderHtml(p: EmiReminderParams): string {
+  const amountFormatted = `₹${p.amount.toLocaleString("en-IN")}`;
+  const baseUrl = (process.env.APP_PUBLIC_URL?.replace(/\/$/, "")) || "https://hsquare.in";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EMI Due Tomorrow – Hsquare Living</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0a;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 50%,#b45309 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;">HSQUARE LIVING</h1>
+              <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.85);letter-spacing:2px;text-transform:uppercase;">Harmony in Living</p>
+            </td>
+          </tr>
+
+          <!-- Alert Badge -->
+          <tr>
+            <td style="background-color:#111111;padding:32px 40px 24px;text-align:center;">
+              <div style="display:inline-block;background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(217,119,6,0.1));border:1px solid rgba(245,158,11,0.35);border-radius:50px;padding:10px 28px;margin-bottom:16px;">
+                <span style="color:#f59e0b;font-size:14px;font-weight:600;letter-spacing:0.5px;">&#9888; PAYMENT DUE TOMORROW</span>
+              </div>
+              <h2 style="margin:16px 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Dear ${p.parentName},</h2>
+              <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.6);line-height:1.6;">This is a friendly reminder that the next instalment for <strong style="color:#ffffff;">${p.residentName}</strong>'s accommodation at <strong style="color:#ffffff;">${p.propertyName}</strong> is due <strong style="color:#f59e0b;">tomorrow</strong>.</p>
+            </td>
+          </tr>
+
+          <!-- Instalment Details -->
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px 12px;">
+                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Instalment Due</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Booking ID</span><br>
+                          <span style="color:#f59e0b;font-size:15px;font-weight:700;">${p.bookingCode}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Resident</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${p.residentName}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Property</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${p.propertyName}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Instalment</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${p.installmentName}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Due Date</span><br>
+                          <span style="color:#ffffff;font-size:15px;font-weight:600;">${p.dueDate}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 0 4px;">
+                          <span style="color:rgba(255,255,255,0.5);font-size:13px;">Amount Due</span><br>
+                          <span style="color:#10b981;font-size:26px;font-weight:800;">${amountFormatted}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Action Note -->
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;">How to Pay</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">1.</span>Log in to the Hsquare Living portal</td></tr>
+                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">2.</span>Navigate to <strong style="color:#fff;">My Booking → Payments</strong></td></tr>
+                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">3.</span>Pay securely via UPI, Net Banking, or Card</td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="background-color:#111111;padding:0 40px 32px;text-align:center;">
+              <a href="${baseUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:0.5px;">Pay Now on Portal</a>
+              <p style="margin:14px 0 0;font-size:13px;color:rgba(255,255,255,0.35);">Timely payment avoids late fees and keeps ${p.residentName}'s booking in good standing.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-radius:0 0 16px 16px;padding:28px 40px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:13px;color:rgba(255,255,255,0.4);">Questions? Contact us at</p>
+              <a href="mailto:support@hsquareliving.com" style="color:#f59e0b;font-size:14px;font-weight:600;text-decoration:none;">support@hsquareliving.com</a>
+              <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);">
+                <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.25);line-height:1.5;">
+                  Hsquareliving Pvt Ltd · Mumbai, India<br>
+                  This is an automated reminder. Please do not reply directly to this message.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendEmiReminderToParent(
+  params: EmiReminderParams
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const html = buildEmiReminderHtml(params);
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.parentEmail,
+      subject: `EMI Due Tomorrow – ${params.installmentName} (${params.bookingCode}) | Hsquare Living`,
+      html,
+    });
+    if (error) {
+      console.error(`[Email] EMI reminder failed for ${params.bookingCode}:`, error);
+      return { success: false, error: error.message || "Email send failed" };
+    }
+    console.log(`[Email] EMI reminder sent to ${params.parentEmail} for ${params.bookingCode} (${data?.id})`);
+    return { success: true };
+  } catch (err: any) {
+    console.error(`[Email] EMI reminder error:`, err);
+    return { success: false, error: err.message || "Unexpected error" };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CANCELLATION EMAILS
 // ══════════════════════════════════════════════════════════════════════════════
 

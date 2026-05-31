@@ -17,7 +17,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { initChatContext, streamChatResponse, extractLeadInfo, createLeadFromChat, type ChatMessage } from "./chatbot";
 import { searchProperties, getSuggestedFilters } from "./nlp-search";
-import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking, sendCancellationRequestReceivedEmail, sendAdminCancellationAlertEmail, sendAdminInitiatedCancellationEmail, sendCancellationApprovedEmail, sendCancellationRejectedEmail, sendRefundSentEmail } from "./email-service";
+import { sendParentBookingConfirmationEmail, sendPaymentReceivedEmail, sendWelcomeEmail, sendWelcomeEmailForBooking, sendCancellationRequestReceivedEmail, sendAdminCancellationAlertEmail, sendAdminInitiatedCancellationEmail, sendCancellationApprovedEmail, sendCancellationRejectedEmail, sendRefundSentEmail, sendEmiReminderToParent } from "./email-service";
 import { generateBookingReceiptPdf } from "./receipt-pdf";
 import * as chatbotAdmin from "./chatbot-admin";
 import { getLeadRecommendations } from "./lead-recommendations";
@@ -6408,6 +6408,35 @@ ${allPages.map(p => `  <url>
     } catch (error: any) {
       console.error("Error resending welcome email:", error);
       res.status(500).json({ error: error.message || "Failed to send welcome email" });
+    }
+  });
+
+  // Demo endpoint: send a sample EMI reminder email to any address (superadmin only)
+  app.post("/api/admin/email/demo-emi-reminder", authMiddleware, roleMiddleware("admin", "superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const { to } = req.body;
+      if (!to) return res.status(400).json({ error: "to email is required" });
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dueDateStr = tomorrow.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+      const result = await sendEmiReminderToParent({
+        parentName: "Parent / Guardian",
+        parentEmail: to,
+        residentName: "Sample Resident",
+        propertyName: "Hsquare Goregaon East",
+        bookingCode: "DEMO-2026",
+        installmentName: "2nd Instalment",
+        amount: 125000,
+        dueDate: dueDateStr,
+      });
+      if (result.success) {
+        res.json({ success: true, message: `Demo EMI reminder sent to ${to}` });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to send demo email" });
+      }
+    } catch (error: any) {
+      console.error("Error sending demo EMI reminder:", error);
+      res.status(500).json({ error: error.message || "Failed to send demo email" });
     }
   });
 
