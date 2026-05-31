@@ -6480,7 +6480,12 @@ ${allPages.map(p => `  <url>
       if (docUrls.length > 0) syncData.documentUrls = docUrls;
     }
 
-    return { ok: true, booking, syncData };
+    // Meal plan fields — use booking override if set, else property default
+    const { buildHmsMealFields } = await import("./hms-sync.js");
+    const effectiveServices: any[] = (booking as any).bookingServices ?? property.includedServices ?? [];
+    Object.assign(syncData, buildHmsMealFields(effectiveServices));
+
+    return { ok: true, booking, syncData, effectiveServices };
   }
 
   function autoResyncBookingToHms(bookingId: string, reason: string = "activity") {
@@ -6491,10 +6496,18 @@ ${allPages.map(p => `  <url>
           console.warn(`[Auto HMS Sync] Skipped booking ${bookingId} (${reason}): ${built.error}`);
           return;
         }
-        const { syncBookingToHMS } = await import("./hms-sync.js");
+        const { syncBookingToHMS, syncBookingCompleteToHMS } = await import("./hms-sync.js");
         const result = await syncBookingToHMS(built.syncData);
         if (result.success) {
           console.log(`[Auto HMS Sync] ${reason} → ${built.booking.bookingCode}: ${result.action}`);
+          const rd = built.booking.residentDetails as any;
+          const phone = rd?.phone || built.booking.walkInPhone || "";
+          syncBookingCompleteToHMS({
+            phone,
+            propertyCode: built.syncData.propertyCode,
+            bookingCode: built.booking.bookingCode,
+            includedServices: (built as any).effectiveServices ?? [],
+          }).catch(() => {});
         } else {
           console.warn(`[Auto HMS Sync] ${reason} → ${built.booking.bookingCode} failed: ${result.error}`);
         }
@@ -6520,12 +6533,20 @@ ${allPages.map(p => `  <url>
         const status = built.error === "Booking not found" ? 404 : 400;
         return res.status(status).json({ error: built.error });
       }
-      const { syncBookingToHMS } = await import("./hms-sync.js");
+      const { syncBookingToHMS, syncBookingCompleteToHMS } = await import("./hms-sync.js");
       console.log(`[Admin Re-sync HMS] Syncing booking ${built.booking.bookingCode} to HMS...`);
       const result = await syncBookingToHMS(built.syncData);
 
       if (result.success) {
         console.log(`[Admin Re-sync HMS] Success for ${built.booking.bookingCode}: ${result.action}`);
+        const rd = built.booking.residentDetails as any;
+        const phone = rd?.phone || built.booking.walkInPhone || "";
+        syncBookingCompleteToHMS({
+          phone,
+          propertyCode: built.syncData.propertyCode,
+          bookingCode: built.booking.bookingCode,
+          includedServices: (built as any).effectiveServices ?? [],
+        }).catch(() => {});
         res.json({ success: true, message: `Booking ${built.booking.bookingCode} synced to HMS (${result.action})` });
       } else {
         console.error(`[Admin Re-sync HMS] Failed for ${built.booking.bookingCode}: ${result.error}`);
@@ -7292,7 +7313,7 @@ ${allPages.map(p => `  <url>
       }
       const season = activeSeasons.length > 0 ? activeSeasons[0] : null;
 
-      const { syncBookingToHMS, resolvePublicUrl } = await import("./hms-sync.js");
+      const { syncBookingToHMS, resolvePublicUrl, buildHmsMealFields, syncBookingCompleteToHMS } = await import("./hms-sync.js");
 
       const idProofUrl = resolvePublicUrl(studentData?.idProofUrl || rd?.idProofUrl || rd?.idProof);
       const photoUrl = resolvePublicUrl(rd?.photoUrl || rd?.photo || studentData?.photoUrl);
@@ -7304,6 +7325,9 @@ ${allPages.map(p => `  <url>
           if (resolved) documentUrls.push(resolved);
         }
       }
+
+      // Effective services: booking override takes precedence over property default
+      const effectiveSvcAuto: any[] = (booking as any).bookingServices ?? property?.includedServices ?? [];
 
       const syncData: any = {
         name,
@@ -7329,6 +7353,7 @@ ${allPages.map(p => `  <url>
         studentEmail: rd?.studentEmail || email || undefined,
         bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
         accessLevel: "FULL",
+        ...buildHmsMealFields(effectiveSvcAuto),
       };
 
       if (idProofUrl) syncData.idProofUrl = idProofUrl;
@@ -7339,6 +7364,12 @@ ${allPages.map(p => `  <url>
 
       if (result.success) {
         console.log(`[HMS Auto-Sync] Successfully synced booking ${booking.bookingCode} to HMS (action: ${result.action})`);
+        syncBookingCompleteToHMS({
+          phone,
+          propertyCode: resolvedPropertyCode,
+          bookingCode: booking.bookingCode,
+          includedServices: effectiveSvcAuto,
+        }).catch(() => {});
 
         await logActivity({
           actor: { id: "system", name: "System", role: "admin" },
@@ -8366,13 +8397,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const residentEmail = email || rd?.email || booking.walkInEmail || "";
       const residentPhone = phone || rd?.phone || booking.walkInPhone || "";
 
-      const { syncBookingToHMS, getPropertyCode, resolvePublicUrl } = await import("./hms-sync.js");
+      const { syncBookingToHMS, getPropertyCode, resolvePublicUrl, buildHmsMealFields, syncBookingCompleteToHMS } = await import("./hms-sync.js");
 
       let resolvedPropertyCode = propertyCode || "";
-      if (!resolvedPropertyCode && booking.propertyId) {
-        const property = await storage.getProperty(booking.propertyId);
-        if (property?.name) {
-          resolvedPropertyCode = getPropertyCode(property.name) || property.propertyCode || property.name;
+      let firstPaymentProperty: any = null;
+      if (booking.propertyId) {
+        firstPaymentProperty = await storage.getProperty(booking.propertyId);
+        if (!resolvedPropertyCode && firstPaymentProperty?.name) {
+          resolvedPropertyCode = getPropertyCode(firstPaymentProperty.name) || firstPaymentProperty.propertyCode || firstPaymentProperty.name;
         }
       }
 
@@ -8381,6 +8413,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         const [student] = await db.select().from(schema.students).where(eq(schema.students.id, booking.studentId));
         studentData = student || null;
       }
+
+      // Effective services for this booking
+      const effectiveSvcFP: any[] = (booking as any).bookingServices ?? firstPaymentProperty?.includedServices ?? [];
 
       const syncData: any = {
         name: residentName,
@@ -8391,6 +8426,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         moveInDate: moveInDate || (booking.checkInDate ? String(booking.checkInDate) : ""),
         checkOutDate: checkOutDate || (booking.checkOutDate ? String(booking.checkOutDate) : ""),
         bookingDate: paymentDate || new Date().toISOString().split("T")[0],
+        ...buildHmsMealFields(effectiveSvcFP),
       };
 
       if (rd?.parentName || rd?.guardianName) syncData.parentName = rd.parentName || rd.guardianName;
@@ -8421,6 +8457,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       console.log(`[Sync First Payment] Creating/syncing resident in HMS for ${resolvedBookingCode}...`);
       const syncResult = await syncBookingToHMS(syncData);
       console.log(`[Sync First Payment] HMS sync result for ${resolvedBookingCode}:`, JSON.stringify(syncResult));
+      if (syncResult.success) {
+        syncBookingCompleteToHMS({
+          phone: residentPhone,
+          propertyCode: resolvedPropertyCode,
+          bookingCode: resolvedBookingCode,
+          includedServices: effectiveSvcFP,
+        }).catch(() => {});
+      }
 
       let welcomeResult: { success: boolean; error?: string };
       if (booking && !booking.welcomeEmailSent) {
@@ -9052,7 +9096,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         : [];
       const propertyMap = new Map(properties.map(p => [p.id, p]));
 
-      const { syncBookingToHMS, getPropertyCode } = await import("./hms-sync.js");
+      const { syncBookingToHMS, getPropertyCode, buildHmsMealFields, syncBookingCompleteToHMS } = await import("./hms-sync.js");
 
       const results = {
         total: completedBookings.length,
@@ -9089,6 +9133,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           continue;
         }
 
+        const effectiveSvcBulk: any[] = (booking as any).bookingServices ?? property?.includedServices ?? [];
         const result = await syncBookingToHMS({
           name,
           email: email || undefined,
@@ -9110,7 +9155,16 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           studentEmail: rd?.studentEmail || email || undefined,
           bookingDate: booking.createdAt ? new Date(booking.createdAt).toISOString().split("T")[0] : undefined,
           accessLevel: "FULL",
+          ...buildHmsMealFields(effectiveSvcBulk),
         });
+        if (result.success) {
+          syncBookingCompleteToHMS({
+            phone,
+            propertyCode: resolvedCode,
+            bookingCode: booking.bookingCode,
+            includedServices: effectiveSvcBulk,
+          }).catch(() => {});
+        }
 
         if (result.success) {
           results.synced++;
