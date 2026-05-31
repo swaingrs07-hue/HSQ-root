@@ -2045,24 +2045,6 @@ function buildEmiReminderHtml(p: EmiReminderParams): string {
             </td>
           </tr>
 
-          <!-- Action Note -->
-          <tr>
-            <td style="background-color:#111111;padding:0 40px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;">
-                <tr>
-                  <td style="padding:20px 24px;">
-                    <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;">How to Pay</p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">1.</span>Log in to the Hsquare Living portal</td></tr>
-                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">2.</span>Navigate to <strong style="color:#fff;">My Booking → Payments</strong></td></tr>
-                      <tr><td style="padding:5px 0;color:rgba(255,255,255,0.7);font-size:14px;line-height:1.6;"><span style="color:#f59e0b;margin-right:8px;">3.</span>Pay securely via UPI, Net Banking, or Card</td></tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
           <!-- CTA -->
           <tr>
             <td style="background-color:#111111;padding:0 40px 32px;text-align:center;">
