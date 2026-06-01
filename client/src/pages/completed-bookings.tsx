@@ -1504,26 +1504,38 @@ export default function CompletedBookings() {
     return sortOrder === "desc" ? (b.totalFee || 0) - (a.totalFee || 0) : (a.totalFee || 0) - (b.totalFee || 0);
   });
 
-  const totalRevenue = filtered.reduce((sum: number, b: any) => sum + (b.totalFee || 0), 0);
-  const totalCollected = filtered.reduce((sum: number, b: any) => {
-    const paid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
-    return sum + paid;
-  }, 0);
+  // Split into live (non-cancelled) and cancelled for financial calculations
+  const liveFin = filtered.filter((b: any) => b.status !== "cancelled" && b.status !== "rejected");
+  const cancelledFin = filtered.filter((b: any) => b.status === "cancelled" || b.status === "rejected");
+
+  // Financial stats: live bookings only for revenue/pending; cancelled contribute only their forfeited amount
+  const totalRevenue = liveFin.reduce((sum: number, b: any) => sum + (b.totalFee || 0), 0);
+  const totalCollected =
+    liveFin.reduce((sum: number, b: any) => {
+      const paid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+      return sum + paid;
+    }, 0) +
+    cancelledFin.reduce((sum: number, b: any) => {
+      // Add the forfeited amount (what the hostel kept from the cancelled booking)
+      return sum + (b.cancellationRefundBreakdown?.forfeited || 0);
+    }, 0);
+  const totalRefunded = cancelledFin.reduce((sum: number, b: any) => sum + (b.cancellationRefundBreakdown?.refundable || 0), 0);
   const totalPending = Math.max(0, totalRevenue - totalCollected);
   const collectionPct = totalRevenue > 0 ? Math.round((totalCollected / totalRevenue) * 100) : 0;
   const pendingPct = totalRevenue > 0 ? Math.round((totalPending / totalRevenue) * 100) : 0;
-  const averageBooking = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
+  const averageBooking = liveFin.length > 0 ? Math.round(totalRevenue / liveFin.length) : 0;
 
-  const totalAddonRevenue = filtered.reduce((s: number, b: any) => s + (b.addonRevenue || 0), 0);
-  const totalAddonCollected = filtered.reduce((s: number, b: any) => s + (b.addonCollected || 0), 0);
+  const totalAddonRevenue = liveFin.reduce((s: number, b: any) => s + (b.addonRevenue || 0), 0);
+  const totalAddonCollected = liveFin.reduce((s: number, b: any) => s + (b.addonCollected || 0), 0);
   const totalAddonPending = Math.max(0, totalAddonRevenue - totalAddonCollected);
-  const bookingsWithAddons = filtered.filter((b: any) => (b.addonRevenue || 0) > 0).length;
+  const bookingsWithAddons = liveFin.filter((b: any) => (b.addonRevenue || 0) > 0).length;
   const addonCollectedPct = totalAddonRevenue > 0 ? Math.round((totalAddonCollected / totalAddonRevenue) * 100) : 0;
 
   const activeCount = baseFiltered.filter(isActiveBooking).length;
   const completedCount = baseFiltered.filter(isCompletedBooking).length;
+  const cancelledCount = baseFiltered.filter((b: any) => b.status === "cancelled" || b.status === "rejected").length;
   const totalCount = baseFiltered.length;
-  const totalBookingAmount = baseFiltered.reduce((sum: number, b: any) => {
+  const totalBookingAmount = baseFiltered.filter((b: any) => b.status !== "cancelled" && b.status !== "rejected").reduce((sum: number, b: any) => {
     const inst = (b.installments || []).find((i: any) =>
       typeof i?.name === "string" && i.name.toLowerCase().includes("booking amount")
     );
@@ -1553,7 +1565,7 @@ export default function CompletedBookings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
           role="button"
           onClick={() => { setViewFilter("all"); setCurrentPage(1); }}
@@ -1572,11 +1584,11 @@ export default function CompletedBookings() {
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">All filtered bookings</p>
                 <div className="mt-2 pt-2 border-t border-slate-200/70 flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-medium text-slate-500">Booking Amount</span>
+                  <span className="text-[11px] font-medium text-slate-500">Booking Amt</span>
                   <span
                     className="text-sm font-semibold text-emerald-700 truncate"
                     data-testid="text-total-bookings-amount"
-                    title={`₹${totalBookingAmount.toLocaleString("en-IN")}`}
+                    title={`₹${totalBookingAmount.toLocaleString("en-IN")} (excl. cancelled)`}
                   >
                     ₹{totalBookingAmount.toLocaleString("en-IN")}
                   </span>
@@ -1629,6 +1641,36 @@ export default function CompletedBookings() {
             </div>
           </CardContent>
         </Card>
+
+        <Card
+          role="button"
+          onClick={() => { setStatusFilter(statusFilter === "cancelled" ? "all" : "cancelled"); setCurrentPage(1); }}
+          className={`relative overflow-hidden shadow-sm bg-gradient-to-br from-rose-50 via-white to-white cursor-pointer transition hover:shadow-md ${statusFilter === "cancelled" ? "ring-2 ring-rose-400 border-rose-300" : "border-slate-200"}`}
+          data-testid="card-filter-cancelled"
+        >
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-rose-100 ring-1 ring-rose-200/60 flex items-center justify-center shrink-0">
+                <XCircle className="h-5 w-5 text-rose-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Cancelled</p>
+                <p className="text-2xl font-bold text-rose-700 mt-1" data-testid="text-cancelled-bookings">
+                  {cancelledCount}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Incl. rejected</p>
+                {totalRefunded > 0 && (
+                  <div className="mt-2 pt-2 border-t border-rose-100 flex items-baseline justify-between gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Refunded</span>
+                    <span className="text-sm font-semibold text-rose-600 truncate" title={`₹${totalRefunded.toLocaleString("en-IN")}`}>
+                      ₹{totalRefunded.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1648,7 +1690,7 @@ export default function CompletedBookings() {
                   {formatCompactINR(totalRevenue)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  {filtered.length} booking{filtered.length === 1 ? "" : "s"}
+                  {liveFin.length} booking{liveFin.length === 1 ? "" : "s"} · excl. cancelled
                 </p>
               </div>
             </div>
@@ -1670,7 +1712,7 @@ export default function CompletedBookings() {
                 >
                   {formatCompactINR(totalCollected)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of total</p>
+                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of live total</p>
               </div>
             </div>
           </CardContent>
@@ -1691,7 +1733,7 @@ export default function CompletedBookings() {
                 >
                   {formatCompactINR(totalPending)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining</p>
+                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining · excl. cancelled</p>
               </div>
             </div>
           </CardContent>
@@ -1713,7 +1755,7 @@ export default function CompletedBookings() {
                   {formatCompactINR(averageBooking)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Across {filtered.length} booking{filtered.length === 1 ? "" : "s"}
+                  Across {liveFin.length} live booking{liveFin.length === 1 ? "" : "s"}
                 </p>
               </div>
             </div>

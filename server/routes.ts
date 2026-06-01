@@ -4396,7 +4396,9 @@ ${allPages.map(p => `  <url>
         ...filtered.filter(b => b.createdBy).map(b => b.createdBy!),
       ])];
 
-      const [propertiesList, roomTypesList, studentsList, leadsList, usersList, allInstallments, allPayments, allHousingPlans, allAddonPackages] = await Promise.all([
+      const cancellationRequestIds = [...new Set(filtered.map(b => (b as any).cancellationRequestId).filter(Boolean))];
+
+      const [propertiesList, roomTypesList, studentsList, leadsList, usersList, allInstallments, allPayments, allHousingPlans, allAddonPackages, allCancellationRequests] = await Promise.all([
         propertyIds.length > 0 ? db.select().from(schema.properties).where(inArray(schema.properties.id, propertyIds)) : Promise.resolve([]),
         roomTypeIds.length > 0 ? db.select().from(schema.roomTypes).where(inArray(schema.roomTypes.id, roomTypeIds)) : Promise.resolve([]),
         studentIds.length > 0 ? db.select().from(schema.students).where(inArray(schema.students.id, studentIds)) : Promise.resolve([]),
@@ -4436,7 +4438,15 @@ ${allPages.map(p => `  <url>
             eq(schema.bookingPackages.status, "ACTIVE"),
             eq(schema.packages.category, "addon_service"),
           )),
+        cancellationRequestIds.length > 0
+          ? db.select({ id: schema.cancellationRequests.id, refundBreakdown: schema.cancellationRequests.refundBreakdown, overrideRefundAmount: schema.cancellationRequests.overrideRefundAmount }).from(schema.cancellationRequests).where(inArray(schema.cancellationRequests.id, cancellationRequestIds))
+          : Promise.resolve([]),
       ]);
+
+      const cancellationRequestMap = new Map<string, any>();
+      for (const cr of allCancellationRequests) {
+        cancellationRequestMap.set(cr.id, cr);
+      }
 
       const propertyMap = new Map(propertiesList.map(p => [p.id, p]));
       const roomTypeMap = new Map(roomTypesList.map(r => [r.id, r]));
@@ -4534,6 +4544,19 @@ ${allPages.map(p => `  <url>
           addonCollected: addonRevenueMap.get(booking.id)?.collected || 0,
           addonPending: addonRevenueMap.get(booking.id)?.pending || 0,
           addonCount: addonRevenueMap.get(booking.id)?.count || 0,
+          cancellationRefundBreakdown: (() => {
+            const crId = (booking as any).cancellationRequestId;
+            if (!crId) return null;
+            const cr = cancellationRequestMap.get(crId);
+            if (!cr) return null;
+            const bd = cr.refundBreakdown as any;
+            if (!bd) return null;
+            return {
+              totalPaid: Number(bd.totalPaid || 0),
+              forfeited: Number(bd.forfeited || 0),
+              refundable: Number(cr.overrideRefundAmount ?? bd.refundable ?? 0),
+            };
+          })(),
         };
       });
       
