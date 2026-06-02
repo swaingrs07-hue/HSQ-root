@@ -5858,6 +5858,32 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Superadmin: get audit history for a specific installment
+  app.get("/api/admin/installments/:id/audit", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const logs = await db
+        .select({
+          id: schema.auditLogs.id,
+          action: schema.auditLogs.action,
+          details: schema.auditLogs.details,
+          createdAt: schema.auditLogs.createdAt,
+          adminName: schema.users.username,
+        })
+        .from(schema.auditLogs)
+        .leftJoin(schema.users, eq(schema.auditLogs.adminId, schema.users.id))
+        .where(
+          and(
+            eq(schema.auditLogs.entityType, "installment"),
+            eq(schema.auditLogs.entityId, req.params.id)
+          )
+        )
+        .orderBy(desc(schema.auditLogs.createdAt));
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch installment audit history" });
+    }
+  });
+
   // Per-booking service overrides (admin/superadmin/frontdesk — flag-gated)
   app.patch("/api/admin/bookings/:id/services", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk"), async (req: AuthRequest, res) => {
     try {

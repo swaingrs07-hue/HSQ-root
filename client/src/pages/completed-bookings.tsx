@@ -290,6 +290,7 @@ export default function CompletedBookings() {
   const [addingInst, setAddingInst] = useState(false);
   const [newInstForm, setNewInstForm] = useState<{ name: string; amount: string; dueDate: string }>({ name: "", amount: "", dueDate: "" });
   const [instSaving, setInstSaving] = useState(false);
+  const [historyInstId, setHistoryInstId] = useState<string | null>(null);
   const editContentRef = useRef<HTMLDivElement>(null);
   const sdSubmitBtnRef = useRef<HTMLButtonElement>(null);
   const sdConfirmBtnRef = useRef<HTMLButtonElement>(null);
@@ -1546,6 +1547,20 @@ export default function CompletedBookings() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch("/api/bookings/completed", { headers });
       if (!res.ok) throw new Error("Failed to fetch bookings");
+      return res.json();
+    },
+  });
+
+  const { data: instAuditLogs = [], isFetching: instAuditFetching } = useQuery({
+    queryKey: ["/api/admin/installments", historyInstId, "audit"],
+    enabled: !!historyInstId && isSuperAdmin,
+    queryFn: async () => {
+      const authData = localStorage.getItem("hsquare_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/admin/installments/${historyInstId}/audit`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch installment history");
       return res.json();
     },
   });
@@ -3250,6 +3265,10 @@ export default function CompletedBookings() {
                                           onClick={()=>openPaymentDialog(selectedBooking,{...inst,_remaining:remaining})}>
                                           <Banknote className="h-3.5 w-3.5"/>
                                         </button>}
+                                        <button className={`p-1 rounded transition-colors ${historyInstId===inst.id?"bg-violet-100 text-violet-600":"hover:bg-violet-50 text-slate-400 hover:text-violet-500"}`} title="View change history" data-testid={`btn-inst-history-${idx}`}
+                                          onClick={()=>setHistoryInstId(prev=>prev===inst.id?null:inst.id)}>
+                                          <History className="h-3.5 w-3.5"/>
+                                        </button>
                                       </div>
                                     )}
                                   </div>
@@ -3257,6 +3276,46 @@ export default function CompletedBookings() {
                                 {(isPartiallyPaid||isFullyPaid)&&totalPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(totalPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
                                 {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
                                 {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
+                                {/* Inline audit history panel */}
+                                {isSuperAdmin&&historyInstId===inst.id&&(
+                                  <div className="mt-2 border-t border-violet-100 pt-2" data-testid={`inst-history-panel-${idx}`}>
+                                    <p className="text-[10px] font-semibold text-violet-600 mb-1.5 flex items-center gap-1"><History className="h-3 w-3"/>Change History</p>
+                                    {instAuditFetching?(
+                                      <p className="text-[10px] text-slate-400 italic">Loading…</p>
+                                    ):instAuditLogs.length===0?(
+                                      <p className="text-[10px] text-slate-400 italic">No changes recorded yet.</p>
+                                    ):(
+                                      <div className="space-y-1.5">
+                                        {instAuditLogs.map((log:any,li:number)=>{
+                                          let parsed:any={};
+                                          try{parsed=JSON.parse(log.details||"{}");}catch{}
+                                          const actionLabel:Record<string,string>={ADD_INSTALLMENT:"Added",EDIT_INSTALLMENT:"Edited",DELETE_INSTALLMENT:"Deleted"};
+                                          const label=actionLabel[log.action]||log.action;
+                                          const changeLines:string[]=[];
+                                          if(log.action==="EDIT_INSTALLMENT"&&parsed.changes){
+                                            const ch=parsed.changes;
+                                            if(ch.name!==undefined)changeLines.push(`Name → "${ch.name}"`);
+                                            if(ch.amount!==undefined)changeLines.push(`Amount → ₹${Number(ch.amount).toLocaleString("en-IN")}`);
+                                            if(ch.dueDate!==undefined)changeLines.push(`Due date → ${ch.dueDate}`);
+                                          }
+                                          if(log.action==="ADD_INSTALLMENT"){
+                                            if(parsed.name)changeLines.push(`"${parsed.name}" — ₹${Number(parsed.amount||0).toLocaleString("en-IN")}, due ${parsed.dueDate||"—"}`);
+                                          }
+                                          if(log.action==="DELETE_INSTALLMENT"){
+                                            if(parsed.name)changeLines.push(`"${parsed.name}"`);
+                                          }
+                                          return(
+                                            <div key={log.id||li} className="flex gap-2 text-[10px] text-slate-500">
+                                              <span className={`shrink-0 font-semibold ${log.action==="DELETE_INSTALLMENT"?"text-red-500":log.action==="ADD_INSTALLMENT"?"text-emerald-600":"text-indigo-600"}`}>{label}</span>
+                                              <span className="flex-1 text-slate-600">{changeLines.join(", ")||"—"}</span>
+                                              <span className="shrink-0 text-slate-400 whitespace-nowrap">{log.adminName||"Admin"}{log.createdAt?` · ${format(new Date(log.createdAt),"dd MMM yy, hh:mm a")}`:""}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
