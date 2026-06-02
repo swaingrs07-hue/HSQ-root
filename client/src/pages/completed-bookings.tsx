@@ -833,14 +833,19 @@ export default function CompletedBookings() {
     setInstSaving(true);
     try {
       const token = getAuthToken();
+      // Only send `amount` when there are no linked payments (any status); otherwise
+      // the backend rejects the whole request which would block name/dueDate edits too.
+      const allInstPayments = (selectedBooking.payments || []).filter((p: any) => p.installmentId === instId);
+      const hasPayments = allInstPayments.length > 0;
+      const payload: Record<string, any> = {
+        name: instEditForm.name,
+        dueDate: instEditForm.dueDate,
+      };
+      if (!hasPayments) payload.amount = Number(instEditForm.amount);
       const res = await fetch(`/api/admin/installments/${instId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          name: instEditForm.name,
-          amount: Number(instEditForm.amount),
-          dueDate: instEditForm.dueDate,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
