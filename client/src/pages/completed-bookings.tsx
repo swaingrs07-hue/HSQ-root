@@ -186,6 +186,7 @@ export default function CompletedBookings() {
   const queryClient = useQueryClient();
   const isSalesExec = user?.role === "sales_executive";
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const isSuperAdmin = user?.role === "superadmin";
   const isFrontdesk = user?.role === "frontdesk";
   const canShiftBed = !!(user?.canShiftBed);
   const [searchQuery, setSearchQuery] = useState(() => {
@@ -284,6 +285,11 @@ export default function CompletedBookings() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [editingInstId, setEditingInstId] = useState<string | null>(null);
+  const [instEditForm, setInstEditForm] = useState<{ name: string; amount: string; dueDate: string }>({ name: "", amount: "", dueDate: "" });
+  const [addingInst, setAddingInst] = useState(false);
+  const [newInstForm, setNewInstForm] = useState<{ name: string; amount: string; dueDate: string }>({ name: "", amount: "", dueDate: "" });
+  const [instSaving, setInstSaving] = useState(false);
   const editContentRef = useRef<HTMLDivElement>(null);
   const sdSubmitBtnRef = useRef<HTMLButtonElement>(null);
   const sdConfirmBtnRef = useRef<HTMLButtonElement>(null);
@@ -780,6 +786,7 @@ export default function CompletedBookings() {
       parentPhone: rd.parentPhone || "",
       parentEmail: rd.parentEmail || "",
       parentRelation: rd.parentRelation || "",
+      discount: booking.discount !== undefined && booking.discount !== null ? booking.discount : 0,
     });
     setIsEditing(true);
   };
@@ -818,6 +825,100 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveInstallmentEdit = async (instId: string) => {
+    if (!selectedBooking) return;
+    setInstSaving(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/installments/${instId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: instEditForm.name,
+          amount: Number(instEditForm.amount),
+          dueDate: instEditForm.dueDate,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save installment");
+      }
+      const updated = await res.json();
+      setSelectedBooking((prev: any) => ({
+        ...prev,
+        installments: (prev.installments || []).map((i: any) => i.id === instId ? { ...i, ...updated } : i),
+      }));
+      setEditingInstId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Installment updated" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setInstSaving(false);
+    }
+  };
+
+  const addInstallment = async () => {
+    if (!selectedBooking) return;
+    setInstSaving(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/installments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newInstForm.name,
+          amount: Number(newInstForm.amount),
+          dueDate: newInstForm.dueDate,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to add installment");
+      }
+      const created = await res.json();
+      setSelectedBooking((prev: any) => ({
+        ...prev,
+        installments: [...(prev.installments || []), created],
+      }));
+      setAddingInst(false);
+      setNewInstForm({ name: "", amount: "", dueDate: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Installment added" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setInstSaving(false);
+    }
+  };
+
+  const deleteInstallment = async (instId: string, instName: string) => {
+    if (!selectedBooking) return;
+    if (!window.confirm(`Delete installment "${instName}"? This cannot be undone.`)) return;
+    setInstSaving(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/installments/${instId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete installment");
+      }
+      setSelectedBooking((prev: any) => ({
+        ...prev,
+        installments: (prev.installments || []).filter((i: any) => i.id !== instId),
+      }));
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Installment deleted" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setInstSaving(false);
     }
   };
 
@@ -3055,9 +3156,17 @@ export default function CompletedBookings() {
                 )}
 
                 {/* ─── INSTALLMENTS ─── */}
-                {(selectedBooking.installments||[]).length>0&&(
+                {((selectedBooking.installments||[]).length>0||isSuperAdmin)&&(
                   <div id="sec-installments" className="bkd-card">
-                    <div className="bkd-sec-hdr"><Banknote className="h-3.5 w-3.5 text-amber-500"/><span className="bkd-sec-label text-amber-600">Installments</span></div>
+                    <div className="bkd-sec-hdr" style={{justifyContent:"space-between"}}>
+                      <div className="flex items-center gap-2"><Banknote className="h-3.5 w-3.5 text-amber-500"/><span className="bkd-sec-label text-amber-600">Installments</span></div>
+                      {isSuperAdmin&&(()=>{
+                        const instTotal=(selectedBooking.installments||[]).reduce((s:number,i:any)=>s+(i.amount||0),0);
+                        const bookingTotal=Number(selectedBooking.totalFee||0);
+                        const balanced=bookingTotal===0||Math.abs(instTotal-bookingTotal)<=1;
+                        return(<span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${balanced?"bg-emerald-50 text-emerald-700":"bg-red-50 text-red-600"}`}>Total: ₹{instTotal.toLocaleString("en-IN")} / ₹{bookingTotal.toLocaleString("en-IN")}</span>);
+                      })()}
+                    </div>
                     {(()=>{
                       const instTotal=(selectedBooking.installments||[]).reduce((s:number,i:any)=>s+(i.amount||0),0);
                       const bookingTotal=Number(selectedBooking.totalFee||0);
@@ -3082,24 +3191,102 @@ export default function CompletedBookings() {
                         const isFullyPaid=inst.paid||totalPaid>=(inst.amount||0);
                         const isPartiallyPaid=totalPaid>0&&!isFullyPaid;
                         const canPay=!isFullyPaid&&(isAdmin||isFrontdesk||isSalesExec);
+                        const isEditingThis=editingInstId===inst.id;
+                        const canDelete=isSuperAdmin&&!isFullyPaid&&instPayments.length===0;
                         return (
-                          <div key={inst.id||idx} className={`text-sm p-2.5 rounded-lg border ${isFullyPaid?"bg-emerald-50 border-emerald-100":isPartiallyPaid?"bg-blue-50 border-blue-100":"bg-slate-50 border-slate-100"} ${canPay?"cursor-pointer hover:border-amber-300 transition-colors":""}`}
-                            onClick={()=>{if(canPay)openPaymentDialog(selectedBooking,{...inst,_remaining:remaining});}} data-testid={`installment-row-${idx}`}>
-                            <div className="flex items-center justify-between">
-                              <div><p className="font-medium text-slate-700">{inst.name}</p><p className="text-xs text-slate-500">{inst.dueDate||"N/A"}</p></div>
-                              <div className="text-right flex items-center gap-2">
-                                <div><p className="font-semibold text-slate-800">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
-                                  <Badge variant="outline" className={`text-[10px] ${isFullyPaid?"text-emerald-600 border-emerald-200":isPartiallyPaid?"text-blue-600 border-blue-200":"text-amber-600 border-amber-200"}`}>{isFullyPaid?"PAID":isPartiallyPaid?"PARTIAL":"PENDING"}</Badge>
+                          <div key={inst.id||idx} data-testid={`installment-row-${idx}`}>
+                            {isEditingThis ? (
+                              <div className="p-3 rounded-lg border-2 border-indigo-200 bg-indigo-50 space-y-2">
+                                <p className="text-xs font-semibold text-indigo-700 mb-1">Edit Installment</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                  <div>
+                                    <Label className="text-[11px] text-slate-500">Name</Label>
+                                    <Input value={instEditForm.name} onChange={e=>setInstEditForm(p=>({...p,name:e.target.value}))} className="h-8 text-xs mt-0.5" data-testid={`input-inst-name-${idx}`}/>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <Label className="text-[11px] text-slate-500">Amount (₹){isFullyPaid&&<span className="text-red-500 ml-1">(paid — locked)</span>}</Label>
+                                      <Input type="number" min={0} value={instEditForm.amount} onChange={e=>setInstEditForm(p=>({...p,amount:e.target.value}))} disabled={isFullyPaid||instPayments.length>0} className="h-8 text-xs mt-0.5" data-testid={`input-inst-amount-${idx}`}/>
+                                    </div>
+                                    <div>
+                                      <Label className="text-[11px] text-slate-500">Due Date</Label>
+                                      <Input value={instEditForm.dueDate} onChange={e=>setInstEditForm(p=>({...p,dueDate:e.target.value}))} placeholder="e.g. 2025-10-01 or Immediate" className="h-8 text-xs mt-0.5" data-testid={`input-inst-duedate-${idx}`}/>
+                                    </div>
+                                  </div>
                                 </div>
-                                {canPay&&<Banknote className="w-4 h-4 text-amber-500"/>}
+                                <div className="flex gap-2 pt-1">
+                                  <Button size="sm" className="h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700" onClick={()=>saveInstallmentEdit(inst.id)} disabled={instSaving} data-testid={`btn-inst-save-${idx}`}>{instSaving?<Loader2 className="h-3 w-3 animate-spin"/>:<Save className="h-3 w-3"/>}Save</Button>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={()=>setEditingInstId(null)} data-testid={`btn-inst-cancel-${idx}`}>Cancel</Button>
+                                </div>
                               </div>
-                            </div>
-                            {(isPartiallyPaid||isFullyPaid)&&totalPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(totalPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
-                            {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
-                            {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
+                            ) : (
+                              <div className={`text-sm p-2.5 rounded-lg border ${isFullyPaid?"bg-emerald-50 border-emerald-100":isPartiallyPaid?"bg-blue-50 border-blue-100":"bg-slate-50 border-slate-100"} ${canPay&&!isSuperAdmin?"cursor-pointer hover:border-amber-300 transition-colors":""}`}
+                                onClick={()=>{if(canPay&&!isSuperAdmin)openPaymentDialog(selectedBooking,{...inst,_remaining:remaining});}}>
+                                <div className="flex items-center justify-between">
+                                  <div><p className="font-medium text-slate-700">{inst.name}</p><p className="text-xs text-slate-500">{inst.dueDate||"N/A"}</p></div>
+                                  <div className="text-right flex items-center gap-2">
+                                    <div><p className="font-semibold text-slate-800">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
+                                      <Badge variant="outline" className={`text-[10px] ${isFullyPaid?"text-emerald-600 border-emerald-200":isPartiallyPaid?"text-blue-600 border-blue-200":"text-amber-600 border-amber-200"}`}>{isFullyPaid?"PAID":isPartiallyPaid?"PARTIAL":"PENDING"}</Badge>
+                                    </div>
+                                    {canPay&&!isSuperAdmin&&<Banknote className="w-4 h-4 text-amber-500"/>}
+                                    {isSuperAdmin&&(
+                                      <div className="flex items-center gap-1 ml-1" onClick={e=>e.stopPropagation()}>
+                                        <button className="p-1 rounded hover:bg-indigo-100 text-indigo-500 transition-colors" title="Edit installment" data-testid={`btn-inst-edit-${idx}`}
+                                          onClick={()=>{setEditingInstId(inst.id);setInstEditForm({name:inst.name,amount:String(inst.amount||0),dueDate:inst.dueDate||""});}}>
+                                          <Pencil className="h-3.5 w-3.5"/>
+                                        </button>
+                                        {canDelete&&<button className="p-1 rounded hover:bg-red-100 text-red-400 transition-colors" title="Delete installment" data-testid={`btn-inst-delete-${idx}`}
+                                          onClick={()=>deleteInstallment(inst.id,inst.name)}>
+                                          <Trash2 className="h-3.5 w-3.5"/>
+                                        </button>}
+                                        {canPay&&<button className="p-1 rounded hover:bg-amber-100 text-amber-500 transition-colors" title="Record payment" data-testid={`btn-inst-pay-${idx}`}
+                                          onClick={()=>openPaymentDialog(selectedBooking,{...inst,_remaining:remaining})}>
+                                          <Banknote className="h-3.5 w-3.5"/>
+                                        </button>}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                {(isPartiallyPaid||isFullyPaid)&&totalPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(totalPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
+                                {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
+                                {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
+
+                      {/* Superadmin: Add new installment inline form */}
+                      {isSuperAdmin&&addingInst&&(
+                        <div className="p-3 rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50/60 space-y-2">
+                          <p className="text-xs font-semibold text-indigo-700">New Installment</p>
+                          <div>
+                            <Label className="text-[11px] text-slate-500">Name</Label>
+                            <Input value={newInstForm.name} onChange={e=>setNewInstForm(p=>({...p,name:e.target.value}))} placeholder="e.g. 2nd Installment" className="h-8 text-xs mt-0.5" data-testid="input-newinst-name"/>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Amount (₹)</Label>
+                              <Input type="number" min={0} value={newInstForm.amount} onChange={e=>setNewInstForm(p=>({...p,amount:e.target.value}))} className="h-8 text-xs mt-0.5" data-testid="input-newinst-amount"/>
+                            </div>
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Due Date</Label>
+                              <Input value={newInstForm.dueDate} onChange={e=>setNewInstForm(p=>({...p,dueDate:e.target.value}))} placeholder="e.g. 2025-11-01 or Move-in" className="h-8 text-xs mt-0.5" data-testid="input-newinst-duedate"/>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <Button size="sm" className="h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700" onClick={addInstallment} disabled={instSaving||!newInstForm.name||!newInstForm.amount||!newInstForm.dueDate} data-testid="btn-newinst-save">{instSaving?<Loader2 className="h-3 w-3 animate-spin"/>:<Plus className="h-3 w-3"/>}Add</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={()=>{setAddingInst(false);setNewInstForm({name:"",amount:"",dueDate:""});}} data-testid="btn-newinst-cancel">Cancel</Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Superadmin: Add installment button */}
+                      {isSuperAdmin&&!addingInst&&(
+                        <button className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-indigo-300 text-xs text-indigo-500 hover:bg-indigo-50 transition-colors" onClick={()=>setAddingInst(true)} data-testid="btn-add-installment">
+                          <Plus className="h-3.5 w-3.5"/>Add Installment
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3416,13 +3603,31 @@ export default function CompletedBookings() {
                     <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-basefee">₹{(selectedBooking.baseFee || 0).toLocaleString("en-IN")}</p>
                   </div>
                   <div>
-                    <Label className="text-xs font-medium text-slate-500">Discount (₹)</Label>
-                    <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-discount">{selectedBooking.discount != null ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}</p>
+                    <Label className="text-xs font-medium text-slate-500">
+                      Discount (₹){isSuperAdmin && <span className="ml-1 text-[10px] text-indigo-500 font-normal">(editable)</span>}
+                    </Label>
+                    {isSuperAdmin ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        max={selectedBooking.baseFee || undefined}
+                        value={editForm.discount ?? 0}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
+                        className="mt-1 h-9 text-sm"
+                        data-testid="input-edit-discount"
+                      />
+                    ) : (
+                      <p className="text-sm font-semibold text-slate-800 mt-1 px-3 py-2 bg-slate-50 rounded-md border border-slate-200" data-testid="display-edit-discount">{selectedBooking.discount != null ? `₹${selectedBooking.discount.toLocaleString("en-IN")}` : "—"}</p>
+                    )}
                   </div>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-lg">
-                  <p className="text-xs text-slate-500">Total Fee</p>
-                  <p className="text-lg font-bold text-indigo-700">₹{(selectedBooking.totalFee || ((selectedBooking.baseFee || 0) - (selectedBooking.discount || 0))).toLocaleString("en-IN")}</p>
+                  <p className="text-xs text-slate-500">Total Fee {isSuperAdmin && <span className="text-[10px] text-indigo-400">(auto-calculated from base fee − discount)</span>}</p>
+                  <p className="text-lg font-bold text-indigo-700">
+                    ₹{isSuperAdmin
+                      ? Math.max(0, (selectedBooking.baseFee || 0) - (Number(editForm.discount) || 0)).toLocaleString("en-IN")
+                      : (selectedBooking.totalFee || ((selectedBooking.baseFee || 0) - (selectedBooking.discount || 0))).toLocaleString("en-IN")}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-slate-500">Status</Label>

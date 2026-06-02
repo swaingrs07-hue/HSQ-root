@@ -5630,7 +5630,7 @@ ${allPages.map(p => `  <url>
   });
 
   // Admin edit booking
-  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin", "frontdesk"), async (req: AuthRequest, res) => {
+  app.patch("/api/admin/bookings/:id", authMiddleware, roleMiddleware("admin", "frontdesk", "superadmin"), async (req: AuthRequest, res) => {
     try {
       const booking = await storage.getBooking(req.params.id);
       if (!booking) {
@@ -5651,6 +5651,11 @@ ${allPages.map(p => `  <url>
         "bookingNature",
       ];
 
+      // Superadmin can also edit financial fields
+      if (req.user?.role === "superadmin") {
+        allowedFields.push("discount", "totalFee");
+      }
+
       const fieldMapping: Record<string, string> = {
         customerName: "walkInName",
         customerPhone: "walkInPhone",
@@ -5663,6 +5668,13 @@ ${allPages.map(p => `  <url>
           const dbField = fieldMapping[field] || field;
           updates[dbField] = req.body[field];
         }
+      }
+
+      // When superadmin sets discount, auto-recalculate totalFee from baseFee
+      if (req.user?.role === "superadmin" && updates.discount !== undefined) {
+        const baseFee = Number(booking.baseFee || 0);
+        const discount = Number(updates.discount || 0);
+        updates.totalFee = Math.max(0, baseFee - discount);
       }
 
       if (req.body.residentDetails && typeof req.body.residentDetails === "object") {
@@ -5727,6 +5739,110 @@ ${allPages.map(p => `  <url>
     } catch (error: any) {
       console.error("Error editing booking:", error);
       res.status(500).json({ error: error.message || "Failed to edit booking" });
+    }
+  });
+
+  // Superadmin: edit an individual instalment (name, amount if unpaid, dueDate)
+  app.patch("/api/admin/installments/:id", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const inst = await db.select().from(schema.installments).where(eq(schema.installments.id, req.params.id)).limit(1);
+      if (!inst.length) return res.status(404).json({ error: "Installment not found" });
+      const current = inst[0];
+
+      const updates: Record<string, any> = {};
+      if (req.body.name !== undefined) updates.name = String(req.body.name);
+      if (req.body.dueDate !== undefined) updates.dueDate = String(req.body.dueDate);
+      if (req.body.amount !== undefined) {
+        // Disallow amount change if this instalment has any successful payment
+        const linkedPayments = await db.select().from(schema.payments)
+          .where(and(eq(schema.payments.installmentId, req.params.id), eq(schema.payments.status, "success")));
+        if (linkedPayments.length > 0) {
+          return res.status(400).json({ error: "Cannot change amount: this instalment already has recorded payments." });
+        }
+        updates.amount = Number(req.body.amount);
+      }
+
+      if (!Object.keys(updates).length) return res.status(400).json({ error: "No updatable fields provided" });
+
+      const [updated] = await db.update(schema.installments).set(updates).where(eq(schema.installments.id, req.params.id)).returning();
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "EDIT_INSTALLMENT",
+        entityType: "installment",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingId: current.bookingId, changes: updates }),
+      });
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error editing installment:", error);
+      res.status(500).json({ error: error.message || "Failed to edit installment" });
+    }
+  });
+
+  // Superadmin: add a new instalment to a booking
+  app.post("/api/admin/bookings/:bookingId/installments", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const booking = await storage.getBooking(req.params.bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const { name, amount, dueDate } = req.body;
+      if (!name || amount === undefined || !dueDate) {
+        return res.status(400).json({ error: "name, amount and dueDate are required" });
+      }
+
+      const created = await storage.createInstallment({
+        bookingId: req.params.bookingId,
+        name: String(name),
+        amount: Number(amount),
+        dueDate: String(dueDate),
+      });
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "ADD_INSTALLMENT",
+        entityType: "installment",
+        entityId: created.id,
+        details: JSON.stringify({ bookingId: req.params.bookingId, name, amount, dueDate }),
+      });
+
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error("Error adding installment:", error);
+      res.status(500).json({ error: error.message || "Failed to add installment" });
+    }
+  });
+
+  // Superadmin: delete an unpaid instalment
+  app.delete("/api/admin/installments/:id", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const inst = await db.select().from(schema.installments).where(eq(schema.installments.id, req.params.id)).limit(1);
+      if (!inst.length) return res.status(404).json({ error: "Installment not found" });
+      const current = inst[0];
+
+      if (current.paid) return res.status(400).json({ error: "Cannot delete a paid instalment." });
+
+      const linkedPayments = await db.select().from(schema.payments)
+        .where(and(eq(schema.payments.installmentId, req.params.id), eq(schema.payments.status, "success")));
+      if (linkedPayments.length > 0) {
+        return res.status(400).json({ error: "Cannot delete: this instalment has recorded payments." });
+      }
+
+      await db.delete(schema.installments).where(eq(schema.installments.id, req.params.id));
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "DELETE_INSTALLMENT",
+        entityType: "installment",
+        entityId: req.params.id,
+        details: JSON.stringify({ bookingId: current.bookingId, name: current.name }),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting installment:", error);
+      res.status(500).json({ error: error.message || "Failed to delete installment" });
     }
   });
 
