@@ -5673,7 +5673,11 @@ ${allPages.map(p => `  <url>
       // When superadmin sets discount, auto-recalculate totalFee from baseFee
       if (req.user?.role === "superadmin" && updates.discount !== undefined) {
         const baseFee = Number(booking.baseFee || 0);
-        const discount = Number(updates.discount || 0);
+        const discount = Number(updates.discount);
+        if (!isFinite(discount) || discount < 0) {
+          return res.status(400).json({ error: "discount must be a non-negative number." });
+        }
+        updates.discount = discount;
         updates.totalFee = Math.max(0, baseFee - discount);
       }
 
@@ -5753,13 +5757,17 @@ ${allPages.map(p => `  <url>
       if (req.body.name !== undefined) updates.name = String(req.body.name);
       if (req.body.dueDate !== undefined) updates.dueDate = String(req.body.dueDate);
       if (req.body.amount !== undefined) {
-        // Disallow amount change if this instalment has any successful payment
+        const newAmount = Number(req.body.amount);
+        if (!isFinite(newAmount) || newAmount < 0) {
+          return res.status(400).json({ error: "amount must be a non-negative number." });
+        }
+        // Disallow amount change if this instalment has ANY linked payment (any status)
         const linkedPayments = await db.select().from(schema.payments)
-          .where(and(eq(schema.payments.installmentId, req.params.id), eq(schema.payments.status, "success")));
+          .where(eq(schema.payments.installmentId, req.params.id));
         if (linkedPayments.length > 0) {
           return res.status(400).json({ error: "Cannot change amount: this instalment already has recorded payments." });
         }
-        updates.amount = Number(req.body.amount);
+        updates.amount = newAmount;
       }
 
       if (!Object.keys(updates).length) return res.status(400).json({ error: "No updatable fields provided" });
@@ -5791,11 +5799,15 @@ ${allPages.map(p => `  <url>
       if (!name || amount === undefined || !dueDate) {
         return res.status(400).json({ error: "name, amount and dueDate are required" });
       }
+      const parsedAmount = Number(amount);
+      if (!isFinite(parsedAmount) || parsedAmount < 0) {
+        return res.status(400).json({ error: "amount must be a non-negative number." });
+      }
 
       const created = await storage.createInstallment({
         bookingId: req.params.bookingId,
         name: String(name),
-        amount: Number(amount),
+        amount: parsedAmount,
         dueDate: String(dueDate),
       });
 

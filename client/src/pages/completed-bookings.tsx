@@ -3186,13 +3186,15 @@ export default function CompletedBookings() {
                         return new Date(a.dueDate).getTime()-new Date(b.dueDate).getTime();
                       }).map((inst:any,idx:number)=>{
                         const instPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id&&p.status==="success");
+                        const allInstPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id);
                         const totalPaid=instPayments.reduce((sum:number,p:any)=>sum+(p.amount||0),0);
                         const remaining=Math.max(0,(inst.amount||0)-totalPaid);
                         const isFullyPaid=inst.paid||totalPaid>=(inst.amount||0);
                         const isPartiallyPaid=totalPaid>0&&!isFullyPaid;
                         const canPay=!isFullyPaid&&(isAdmin||isFrontdesk||isSalesExec);
                         const isEditingThis=editingInstId===inst.id;
-                        const canDelete=isSuperAdmin&&!isFullyPaid&&instPayments.length===0;
+                        const hasAnyPayment=allInstPayments.length>0;
+                        const canDelete=isSuperAdmin&&!isFullyPaid&&!hasAnyPayment;
                         return (
                           <div key={inst.id||idx} data-testid={`installment-row-${idx}`}>
                             {isEditingThis ? (
@@ -3205,8 +3207,8 @@ export default function CompletedBookings() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                      <Label className="text-[11px] text-slate-500">Amount (₹){isFullyPaid&&<span className="text-red-500 ml-1">(paid — locked)</span>}</Label>
-                                      <Input type="number" min={0} value={instEditForm.amount} onChange={e=>setInstEditForm(p=>({...p,amount:e.target.value}))} disabled={isFullyPaid||instPayments.length>0} className="h-8 text-xs mt-0.5" data-testid={`input-inst-amount-${idx}`}/>
+                                      <Label className="text-[11px] text-slate-500">Amount (₹){hasAnyPayment&&<span className="text-red-500 ml-1">(has payments — locked)</span>}</Label>
+                                      <Input type="number" min={0} value={instEditForm.amount} onChange={e=>setInstEditForm(p=>({...p,amount:e.target.value}))} disabled={hasAnyPayment} className="h-8 text-xs mt-0.5" data-testid={`input-inst-amount-${idx}`}/>
                                     </div>
                                     <div>
                                       <Label className="text-[11px] text-slate-500">Due Date</Label>
