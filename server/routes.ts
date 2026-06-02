@@ -5678,7 +5678,12 @@ ${allPages.map(p => `  <url>
           return res.status(400).json({ error: "discount must be a non-negative number." });
         }
         updates.discount = discount;
-        updates.totalFee = Math.max(0, baseFee - discount);
+        // Include property's legal / move-in charges in the recalculated total — same
+        // formula used when a booking is first created (baseFee − discount + micTotal).
+        const editProperty = booking.propertyId ? await storage.getProperty(booking.propertyId) : null;
+        const editMic = editProperty?.moveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+        const editMicTotal = editMic ? ((editMic.serviceLegalCharges || 0) || ((editMic.policeVerification || 0) + (editMic.agreement || 0))) : 0;
+        updates.totalFee = Math.max(0, baseFee - discount + editMicTotal);
       }
 
       if (req.body.residentDetails && typeof req.body.residentDetails === "object") {

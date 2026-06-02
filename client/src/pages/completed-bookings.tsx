@@ -3755,11 +3755,15 @@ export default function CompletedBookings() {
                   </div>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-lg">
-                  <p className="text-xs text-slate-500">Total Fee {isSuperAdmin && <span className="text-[10px] text-indigo-400">(auto-calculated from base fee − discount)</span>}</p>
+                  <p className="text-xs text-slate-500">Total Fee {isSuperAdmin && <span className="text-[10px] text-indigo-400">(base fee − discount + legal/move-in charges)</span>}</p>
                   <p className="text-lg font-bold text-indigo-700">
-                    ₹{isSuperAdmin
-                      ? Math.max(0, (selectedBooking.baseFee || 0) - (Number(editForm.discount) || 0)).toLocaleString("en-IN")
-                      : (selectedBooking.totalFee || ((selectedBooking.baseFee || 0) - (selectedBooking.discount || 0))).toLocaleString("en-IN")}
+                    {(() => {
+                      if (!isSuperAdmin) return `₹${(selectedBooking.totalFee || ((selectedBooking.baseFee || 0) - (selectedBooking.discount || 0))).toLocaleString("en-IN")}`;
+                      const mic = (selectedBooking as any).propertyMoveInCharges as { serviceLegalCharges?: number; policeVerification?: number; agreement?: number } | null;
+                      const micTotal = mic ? ((mic.serviceLegalCharges || 0) || ((mic.policeVerification || 0) + (mic.agreement || 0))) : 0;
+                      const preview = Math.max(0, (selectedBooking.baseFee || 0) - (Number(editForm.discount) || 0) + micTotal);
+                      return `₹${preview.toLocaleString("en-IN")}`;
+                    })()}
                   </p>
                 </div>
                 <div>
