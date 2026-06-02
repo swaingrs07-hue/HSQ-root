@@ -291,6 +291,9 @@ export default function CompletedBookings() {
   const [newInstForm, setNewInstForm] = useState<{ name: string; amount: string; dueDate: string }>({ name: "", amount: "", dueDate: "" });
   const [instSaving, setInstSaving] = useState(false);
   const [historyInstId, setHistoryInstId] = useState<string | null>(null);
+  const [redesignOpen, setRedesignOpen] = useState(false);
+  const [redesignRows, setRedesignRows] = useState<{ _id: string; name: string; amount: string; dueDate: string }[]>([]);
+  const [redesignSaving, setRedesignSaving] = useState(false);
   const editContentRef = useRef<HTMLDivElement>(null);
   const sdSubmitBtnRef = useRef<HTMLButtonElement>(null);
   const sdConfirmBtnRef = useRef<HTMLButtonElement>(null);
@@ -925,6 +928,58 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setInstSaving(false);
+    }
+  };
+
+  const openRedesignModal = () => {
+    if (!selectedBooking) return;
+    const payments = selectedBooking.payments || [];
+    const unpaidRows = (selectedBooking.installments || []).filter((i: any) => {
+      if (i.paid) return false;
+      const hasSuccessPayment = payments.some((p: any) => p.installmentId === i.id && p.status === "success");
+      return !hasSuccessPayment;
+    });
+    setRedesignRows(unpaidRows.map((i: any) => ({
+      _id: crypto.randomUUID(),
+      name: i.name || "",
+      amount: String(i.amount || 0),
+      dueDate: i.dueDate || "",
+    })));
+    setRedesignOpen(true);
+  };
+
+  const confirmRedesign = async () => {
+    if (!selectedBooking) return;
+    for (const row of redesignRows) {
+      if (!row.name.trim()) { toast({ title: "Each instalment needs a name", variant: "destructive" }); return; }
+      if (!row.dueDate.trim()) { toast({ title: "Each instalment needs a due date", variant: "destructive" }); return; }
+      if (!row.amount || Number(row.amount) < 0 || !isFinite(Number(row.amount))) {
+        toast({ title: "Each instalment needs a valid amount", variant: "destructive" }); return;
+      }
+    }
+    setRedesignSaving(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/installments`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          installments: redesignRows.map(r => ({ name: r.name.trim(), amount: Number(r.amount), dueDate: r.dueDate.trim() })),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to replace instalments");
+      }
+      const updated = await res.json();
+      setSelectedBooking((prev: any) => ({ ...prev, installments: updated }));
+      setRedesignOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Payment plan replaced", description: `${updated.length} instalment(s) now active` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setRedesignSaving(false);
     }
   };
 
@@ -3184,7 +3239,19 @@ export default function CompletedBookings() {
                         const instTotal=(selectedBooking.installments||[]).reduce((s:number,i:any)=>s+(i.amount||0),0);
                         const bookingTotal=Number(selectedBooking.totalFee||0);
                         const balanced=bookingTotal===0||Math.abs(instTotal-bookingTotal)<=1;
-                        return(<span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${balanced?"bg-emerald-50 text-emerald-700":"bg-red-50 text-red-600"}`}>Total: ₹{instTotal.toLocaleString("en-IN")} / ₹{bookingTotal.toLocaleString("en-IN")}</span>);
+                        return(
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${balanced?"bg-emerald-50 text-emerald-700":"bg-red-50 text-red-600"}`}>Total: ₹{instTotal.toLocaleString("en-IN")} / ₹{bookingTotal.toLocaleString("en-IN")}</span>
+                            <button
+                              className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors border border-violet-200"
+                              onClick={openRedesignModal}
+                              data-testid="btn-redesign-plan"
+                              title="Bulk-replace all unpaid instalments"
+                            >
+                              <RotateCcw className="h-3 w-3"/>Redesign Plan
+                            </button>
+                          </div>
+                        );
                       })()}
                     </div>
                     {(()=>{
@@ -4530,6 +4597,140 @@ export default function CompletedBookings() {
               data-testid="btn-save-edit-services"
             >
               {editServicesSaving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Saving…</> : <><Save className="h-3.5 w-3.5 mr-1" /> Save Services</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Redesign Payment Plan Modal (superadmin) ── */}
+      <Dialog open={redesignOpen} onOpenChange={(v) => { if (!redesignSaving) setRedesignOpen(v); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-redesign-plan">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <RotateCcw className="h-4 w-4 text-violet-500" />
+              Redesign Payment Plan
+              <span className="text-xs font-normal text-slate-400 ml-1">— {selectedBooking?.bookingCode}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Paid instalments — locked, shown for reference */}
+          {(()=>{
+            const payments = selectedBooking?.payments || [];
+            const paidInsts = (selectedBooking?.installments || []).filter((i: any) => {
+              if (i.paid) return true;
+              return payments.some((p: any) => p.installmentId === i.id && p.status === "success");
+            });
+            if (!paidInsts.length) return null;
+            return (
+              <div className="mb-3">
+                <p className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><Lock className="h-3 w-3"/>Locked (already paid — cannot be replaced)</p>
+                <div className="space-y-1.5">
+                  {paidInsts.map((i: any) => (
+                    <div key={i.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100 text-sm text-slate-600" data-testid={`redesign-locked-row-${i.id}`}>
+                      <Lock className="h-3 w-3 text-emerald-400 shrink-0"/>
+                      <span className="flex-1 font-medium text-slate-700">{i.name}</span>
+                      <span className="text-slate-500 text-xs">{i.dueDate}</span>
+                      <span className="font-semibold text-slate-800">₹{(i.amount||0).toLocaleString("en-IN")}</span>
+                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200">PAID</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Editable new plan rows */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 mb-1">New unpaid instalments</p>
+            {redesignRows.length === 0 && (
+              <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-200 rounded-lg" data-testid="redesign-empty-state">
+                No unpaid instalments. Add rows below.
+              </div>
+            )}
+            {redesignRows.map((row, idx) => (
+              <div key={row._id} className="flex items-start gap-2" data-testid={`redesign-row-${idx}`}>
+                <div className="flex-1 min-w-0">
+                  <Input
+                    value={row.name}
+                    onChange={e => setRedesignRows(prev => prev.map(r => r._id === row._id ? {...r, name: e.target.value} : r))}
+                    placeholder="e.g. 2nd Instalment"
+                    className="h-8 text-xs"
+                    data-testid={`redesign-name-${idx}`}
+                  />
+                </div>
+                <div className="w-28 shrink-0">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.amount}
+                    onChange={e => setRedesignRows(prev => prev.map(r => r._id === row._id ? {...r, amount: e.target.value} : r))}
+                    placeholder="Amount ₹"
+                    className="h-8 text-xs"
+                    data-testid={`redesign-amount-${idx}`}
+                  />
+                </div>
+                <div className="w-36 shrink-0">
+                  <Input
+                    value={row.dueDate}
+                    onChange={e => setRedesignRows(prev => prev.map(r => r._id === row._id ? {...r, dueDate: e.target.value} : r))}
+                    placeholder="Due date / label"
+                    className="h-8 text-xs"
+                    data-testid={`redesign-duedate-${idx}`}
+                  />
+                </div>
+                <button
+                  className="mt-1 p-1 rounded hover:bg-red-50 text-red-400 transition-colors shrink-0"
+                  onClick={() => setRedesignRows(prev => prev.filter(r => r._id !== row._id))}
+                  data-testid={`redesign-remove-${idx}`}
+                  title="Remove row"
+                >
+                  <Trash2 className="h-4 w-4"/>
+                </button>
+              </div>
+            ))}
+            <button
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-violet-300 text-xs text-violet-500 hover:bg-violet-50 transition-colors"
+              onClick={() => setRedesignRows(prev => [...prev, { _id: crypto.randomUUID(), name: "", amount: "", dueDate: "" }])}
+              data-testid="redesign-add-row"
+            >
+              <Plus className="h-3.5 w-3.5"/>Add Instalment
+            </button>
+          </div>
+
+          {/* Running total vs booking total */}
+          {(()=>{
+            const payments = selectedBooking?.payments || [];
+            const paidTotal = (selectedBooking?.installments || [])
+              .filter((i: any) => i.paid || payments.some((p: any) => p.installmentId === i.id && p.status === "success"))
+              .reduce((s: number, i: any) => s + (i.amount || 0), 0);
+            const newTotal = redesignRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+            const combined = paidTotal + newTotal;
+            const bookingTotal = Number(selectedBooking?.totalFee || 0);
+            const balanced = bookingTotal === 0 || Math.abs(combined - bookingTotal) <= 1;
+            return (
+              <div className={`mt-3 px-4 py-3 rounded-lg border text-sm flex items-center justify-between ${balanced ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`} data-testid="redesign-balance-bar">
+                <div className="flex items-center gap-3 text-xs text-slate-600">
+                  {paidTotal > 0 && <span>Paid: <strong>₹{paidTotal.toLocaleString("en-IN")}</strong></span>}
+                  <span>New: <strong>₹{newTotal.toLocaleString("en-IN")}</strong></span>
+                  <span>Total: <strong>₹{combined.toLocaleString("en-IN")}</strong></span>
+                </div>
+                <span className={`text-xs font-semibold ${balanced ? "text-emerald-700" : "text-red-600"}`}>
+                  {balanced ? "✓ Balanced" : `${combined > bookingTotal ? "Over" : "Under"} by ₹${Math.abs(combined - bookingTotal).toLocaleString("en-IN")} — Booking total: ₹${bookingTotal.toLocaleString("en-IN")}`}
+                </span>
+              </div>
+            );
+          })()}
+
+          <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
+            <Button variant="outline" className="h-8 text-xs" onClick={() => setRedesignOpen(false)} disabled={redesignSaving} data-testid="redesign-cancel">Cancel</Button>
+            <Button
+              className="h-8 text-xs gap-1 bg-violet-600 hover:bg-violet-700"
+              onClick={confirmRedesign}
+              disabled={redesignSaving}
+              data-testid="redesign-confirm"
+            >
+              {redesignSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <RotateCcw className="h-3.5 w-3.5"/>}
+              {redesignSaving ? "Replacing…" : "Confirm & Replace"}
             </Button>
           </div>
         </DialogContent>

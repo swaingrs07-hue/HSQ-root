@@ -5884,6 +5884,78 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Superadmin: bulk-replace all unpaid instalments for a booking in one atomic step
+  app.put("/api/admin/bookings/:id/installments", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const bookingId = req.params.id;
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      const incoming: { name: string; amount: number; dueDate: string }[] = req.body.installments;
+      if (!Array.isArray(incoming)) return res.status(400).json({ error: "installments must be an array" });
+
+      for (const row of incoming) {
+        if (!row.name || row.name.trim() === "") return res.status(400).json({ error: "Each installment must have a name" });
+        const amt = Number(row.amount);
+        if (!isFinite(amt) || amt < 0) return res.status(400).json({ error: "Each installment amount must be a non-negative number" });
+        if (!row.dueDate || row.dueDate.trim() === "") return res.status(400).json({ error: "Each installment must have a dueDate" });
+      }
+
+      // Fetch all current installments for this booking
+      const currentInsts = await db.select().from(schema.installments)
+        .where(eq(schema.installments.bookingId, bookingId));
+
+      // Identify which are "locked" (paid flag OR have a successful payment)
+      const successfulPaymentInstIds = new Set<string>();
+      if (currentInsts.length > 0) {
+        const instIds = currentInsts.map(i => i.id);
+        const successPayments = await db.select({ installmentId: schema.payments.installmentId })
+          .from(schema.payments)
+          .where(and(
+            inArray(schema.payments.installmentId, instIds),
+            eq(schema.payments.status, "success")
+          ));
+        successPayments.forEach(p => { if (p.installmentId) successfulPaymentInstIds.add(p.installmentId); });
+      }
+
+      const unpaidInstIds = currentInsts
+        .filter(i => !i.paid && !successfulPaymentInstIds.has(i.id))
+        .map(i => i.id);
+
+      // Execute atomically: delete unpaid, insert new
+      const newInserted = await db.transaction(async (tx) => {
+        if (unpaidInstIds.length > 0) {
+          await tx.delete(schema.installments).where(inArray(schema.installments.id, unpaidInstIds));
+        }
+        if (incoming.length === 0) return [];
+        const rows = incoming.map(row => ({
+          bookingId,
+          name: String(row.name).trim(),
+          amount: Number(row.amount),
+          dueDate: String(row.dueDate).trim(),
+        }));
+        return await tx.insert(schema.installments).values(rows).returning();
+      });
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "BULK_REPLACE_INSTALLMENTS",
+        entityType: "booking",
+        entityId: bookingId,
+        details: JSON.stringify({ deletedUnpaidCount: unpaidInstIds.length, insertedCount: newInserted.length }),
+      });
+
+      // Return full updated list (paid + newly inserted)
+      const finalInsts = await db.select().from(schema.installments)
+        .where(eq(schema.installments.bookingId, bookingId));
+
+      res.json(finalInsts);
+    } catch (error: any) {
+      console.error("Error bulk-replacing installments:", error);
+      res.status(500).json({ error: error.message || "Failed to replace installments" });
+    }
+  });
+
   // Per-booking service overrides (admin/superadmin/frontdesk — flag-gated)
   app.patch("/api/admin/bookings/:id/services", authMiddleware, roleMiddleware("admin", "superadmin", "frontdesk"), async (req: AuthRequest, res) => {
     try {
