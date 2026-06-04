@@ -201,6 +201,8 @@ export default function CompletedBookings() {
   const [dateTo, setDateTo] = useState<string>("");
   const [collectedDrawerOpen, setCollectedDrawerOpen] = useState(false);
   const [collectedSearch, setCollectedSearch] = useState("");
+  const [pendingDrawerOpen, setPendingDrawerOpen] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -1762,6 +1764,38 @@ export default function CompletedBookings() {
       )
     : collectedPayments;
 
+  // Flat list of unpaid installments for the "Pending" drill-down
+  const pendingRows = liveFin.flatMap((b: any) =>
+    (b.installments || [])
+      .filter((inst: any) => !inst.paid)
+      .map((inst: any) => ({
+        bookingId: b.id,
+        name: b.customerName,
+        bookingCode: b.bookingCode,
+        room: b.residentDetails?.roomNo
+          ? `${b.residentDetails.roomNo}${b.residentDetails?.bedNo ? " · " + b.residentDetails.bedNo : ""}`
+          : b.roomTypeName || "—",
+        installmentName: inst.name || "Installment",
+        amount: inst.amount || 0,
+        dueDate: inst.dueDate || "",
+        bookingStatus: b.status,
+      }))
+  ).sort((a: any, b: any) => {
+    // Sort by due date ascending; undated entries go last
+    const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const db2 = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    return da - db2;
+  });
+
+  const pq = pendingSearch.toLowerCase();
+  const filteredPendingRows = pendingSearch
+    ? pendingRows.filter((r: any) =>
+        r.name?.toLowerCase().includes(pq) ||
+        r.bookingCode?.toLowerCase().includes(pq) ||
+        r.room?.toLowerCase().includes(pq)
+      )
+    : pendingRows;
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
     setTimeout(() => setCurrentPage(totalPages), 0);
@@ -2045,7 +2079,12 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-amber-50 via-white to-white">
+        <Card
+          role="button"
+          onClick={() => { setPendingSearch(""); setPendingDrawerOpen(true); }}
+          data-testid="card-pending"
+          className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-amber-50 via-white to-white cursor-pointer transition hover:shadow-md hover:ring-2 hover:ring-amber-300"
+        >
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-amber-100 ring-1 ring-amber-200/60 flex items-center justify-center shrink-0">
@@ -2060,7 +2099,7 @@ export default function CompletedBookings() {
                 >
                   {formatCompactINR(totalPending)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining · excl. cancelled</p>
+                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining · <span className="text-amber-600 font-medium">tap to view</span></p>
               </div>
             </div>
           </CardContent>
@@ -2231,6 +2270,110 @@ export default function CompletedBookings() {
                     {/* Method badge */}
                     <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeClass}`}>
                       {methodLabel}
+                    </span>
+
+                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Pending Payments Drill-Down Sheet */}
+      <Sheet open={pendingDrawerOpen} onOpenChange={setPendingDrawerOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0 overflow-hidden">
+          <SheetHeader className="px-5 py-4 border-b border-slate-200 shrink-0">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <ClipboardCheck className="h-5 w-5 text-amber-600" />
+              Pending Payments
+            </SheetTitle>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {filteredPendingRows.length} installment{filteredPendingRows.length !== 1 ? "s" : ""} · <span className="font-semibold text-amber-700">{formatCompactINR(filteredPendingRows.reduce((s: number, r: any) => s + r.amount, 0))}</span>
+              {pendingSearch && <span className="text-slate-400 ml-1">(filtered)</span>}
+            </p>
+          </SheetHeader>
+
+          {/* Search */}
+          <div className="px-4 py-3 border-b border-slate-100 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search by name, booking code or room…"
+                value={pendingSearch}
+                onChange={e => setPendingSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+                data-testid="input-pending-search"
+              />
+              {pendingSearch && (
+                <button onClick={() => setPendingSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Pending rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            {filteredPendingRows.length === 0 ? (
+              <div className="py-20 text-center">
+                <ClipboardCheck className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                <p className="text-sm text-slate-400">No pending installments found</p>
+              </div>
+            ) : (
+              filteredPendingRows.map((row: any, i: number) => {
+                const statusColors: Record<string, string> = {
+                  draft: "bg-slate-100 text-slate-600",
+                  pending_payment: "bg-amber-100 text-amber-700",
+                  pending_approval: "bg-yellow-100 text-yellow-700",
+                  confirmed: "bg-blue-100 text-blue-700",
+                  active: "bg-green-100 text-green-700",
+                  completed: "bg-emerald-100 text-emerald-700",
+                  cancelled: "bg-red-100 text-red-700",
+                };
+                const statusBadge = statusColors[row.bookingStatus] || "bg-slate-100 text-slate-600";
+                const statusLabel = (row.bookingStatus || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+                // Try to parse dueDate as a real date; fallback to showing it as text
+                let dueDateDisplay = row.dueDate || "—";
+                if (row.dueDate) {
+                  const parsed = new Date(row.dueDate);
+                  if (!isNaN(parsed.getTime())) {
+                    dueDateDisplay = format(parsed, "dd MMM yyyy");
+                  }
+                }
+
+                return (
+                  <div
+                    key={i}
+                    role="button"
+                    data-testid={`pending-row-${i}`}
+                    onClick={() => {
+                      const b = bookings.find((x: any) => x.id === row.bookingId);
+                      if (b) { setPendingDrawerOpen(false); setSelectedBooking(b); }
+                    }}
+                    className={`px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors hover:bg-amber-50/60 ${i % 2 === 0 ? "" : "bg-slate-50/40"}`}
+                  >
+                    {/* Name + code + room */}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{row.name}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {row.bookingCode && <span className="font-mono mr-1">{row.bookingCode}</span>}
+                        <span>{row.room}</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 italic truncate">{row.installmentName}</p>
+                    </div>
+
+                    {/* Amount + due date */}
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-amber-700 text-sm">₹{row.amount.toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Due: {dueDateDisplay}</p>
+                    </div>
+
+                    {/* Status badge */}
+                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadge}`}>
+                      {statusLabel}
                     </span>
 
                     <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
