@@ -2547,8 +2547,8 @@ export default function CompletedBookings() {
                   <div className="px-4 py-4 grid grid-cols-2 gap-x-8 gap-y-3.5">
                     <div><span className="bkd-field-label">Property</span><p className="bkd-field-value flex items-center gap-1"><Building2 className="h-3 w-3 text-indigo-400 shrink-0" />{selectedBooking.propertyName}</p></div>
                     <div><span className="bkd-field-label">Room Type</span><p className="bkd-field-value">{selectedBooking.residentDetails?.accommodationType || selectedBooking.roomTypeName || "N/A"}</p></div>
-                    <div><span className="bkd-field-label">Phone</span><p className="bkd-field-value">{selectedBooking.customerPhone || "—"}</p></div>
-                    <div><span className="bkd-field-label">Email</span><p className="bkd-field-value text-[12px] truncate">{selectedBooking.customerEmail || "—"}</p></div>
+                    <div><span className="bkd-field-label">Phone</span><p className="bkd-field-value">{selectedBooking.customerPhone || (selectedBooking.residentDetails as any)?.phone || "—"}</p></div>
+                    <div><span className="bkd-field-label">Email</span><p className="bkd-field-value text-[12px] truncate">{selectedBooking.customerEmail || (selectedBooking.residentDetails as any)?.email || "—"}</p></div>
                     {selectedBooking.residentDetails?.gender && (<div><span className="bkd-field-label">Gender</span><p className="bkd-field-value capitalize">{selectedBooking.residentDetails.gender}</p></div>)}
                     {selectedBooking.residentDetails?.dob && (<div><span className="bkd-field-label">Date of Birth</span><p className="bkd-field-value">{selectedBooking.residentDetails.dob}</p></div>)}
                     {selectedBooking.residentDetails?.roomNo && (<div><span className="bkd-field-label">Room No.</span><p className="bkd-field-value">{selectedBooking.residentDetails.roomNo}</p></div>)}

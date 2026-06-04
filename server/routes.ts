@@ -4511,6 +4511,11 @@ ${allPages.map(p => `  <url>
             customerEmail = lead.email || "";
           }
         }
+        // Final fallback: residentDetails (covers Gyan/walk-in bookings with no linked student or lead)
+        const rd = (booking.residentDetails as any) || {};
+        if (!customerEmail) customerEmail = rd.email || "";
+        if (!customerPhone) customerPhone = rd.phone || "";
+        if (!customerName || customerName === "Unknown") customerName = rd.name || "Unknown";
 
         const salesExec = booking.assignedSalesExecId ? userMap.get(booking.assignedSalesExecId) : null;
         const creator = booking.createdBy ? userMap.get(booking.createdBy) : null;
@@ -5741,9 +5746,9 @@ ${allPages.map(p => `  <url>
 
       res.json({
         ...updated,
-        customerName: updated?.walkInName || "",
-        customerPhone: updated?.walkInPhone || "",
-        customerEmail: updated?.walkInEmail || "",
+        customerName: updated?.walkInName || (updated?.residentDetails as any)?.name || "",
+        customerPhone: updated?.walkInPhone || (updated?.residentDetails as any)?.phone || "",
+        customerEmail: updated?.walkInEmail || (updated?.residentDetails as any)?.email || "",
       });
     } catch (error: any) {
       console.error("Error editing booking:", error);
