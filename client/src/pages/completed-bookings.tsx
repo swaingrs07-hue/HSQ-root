@@ -196,6 +196,8 @@ export default function CompletedBookings() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [natureFilter, setNatureFilter] = useState("all");
   const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed" | "with_addons">("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -1652,6 +1654,16 @@ export default function CompletedBookings() {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
     if (natureFilter === "retention" && b.bookingNature !== "retention") return false;
     if (natureFilter === "new" && b.bookingNature === "retention") return false;
+    if (dateFrom) {
+      const bDate = b.createdAt ? new Date(b.createdAt) : null;
+      if (!bDate || bDate < new Date(dateFrom)) return false;
+    }
+    if (dateTo) {
+      const bDate = b.createdAt ? new Date(b.createdAt) : null;
+      const toEnd = new Date(dateTo);
+      toEnd.setHours(23, 59, 59, 999);
+      if (!bDate || bDate > toEnd) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -1738,6 +1750,108 @@ export default function CompletedBookings() {
               ? "View bookings from your leads"
               : "All bookings across all properties and statuses"}
           </p>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex flex-col gap-2 w-full sm:w-auto" data-testid="date-range-filter">
+          {/* Quick-select chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              {
+                label: "This Month",
+                onClick: () => {
+                  const now = new Date();
+                  const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0");
+                  setDateFrom(`${y}-${m}-01`); setDateTo(""); setCurrentPage(1);
+                },
+              },
+              {
+                label: "Last Month",
+                onClick: () => {
+                  const now = new Date();
+                  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0");
+                  const last = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+                  setDateFrom(`${y}-${m}-01`); setDateTo(`${y}-${m}-${String(last).padStart(2, "0")}`); setCurrentPage(1);
+                },
+              },
+              {
+                label: "This Quarter",
+                onClick: () => {
+                  const now = new Date();
+                  const q = Math.floor(now.getMonth() / 3);
+                  const startM = String(q * 3 + 1).padStart(2, "0");
+                  setDateFrom(`${now.getFullYear()}-${startM}-01`); setDateTo(""); setCurrentPage(1);
+                },
+              },
+              {
+                label: "This Year",
+                onClick: () => {
+                  setDateFrom(`${new Date().getFullYear()}-01-01`); setDateTo(""); setCurrentPage(1);
+                },
+              },
+            ].map(({ label, onClick }) => (
+              <button
+                key={label}
+                onClick={onClick}
+                data-testid={`quick-filter-${label.replace(/\s+/g, "-").toLowerCase()}`}
+                className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(""); setDateTo(""); setCurrentPage(1); }}
+                data-testid="clear-date-filter"
+                className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Clear
+              </button>
+            )}
+          </div>
+
+          {/* From / To date inputs */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm">
+              <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                data-testid="input-date-from"
+                className="text-[12px] text-slate-700 bg-transparent outline-none w-[120px]"
+                placeholder="From"
+              />
+            </div>
+            <span className="text-slate-400 text-xs shrink-0">—</span>
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm">
+              <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                data-testid="input-date-to"
+                className="text-[12px] text-slate-700 bg-transparent outline-none w-[120px]"
+                placeholder="To"
+              />
+            </div>
+          </div>
+
+          {/* Active filter badge */}
+          {(dateFrom || dateTo) && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                <Calendar className="h-3 w-3" />
+                {dateFrom && dateTo
+                  ? `${dateFrom} → ${dateTo}`
+                  : dateFrom
+                  ? `From ${dateFrom}`
+                  : `Until ${dateTo}`}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
