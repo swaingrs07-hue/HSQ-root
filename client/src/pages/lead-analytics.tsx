@@ -4,7 +4,7 @@ import { useProperty } from "@/contexts/property-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, TrendingUp, Target, UserCheck, ArrowUp, ArrowDown, Building2 } from "lucide-react";
+import { Users, TrendingUp, Target, UserCheck, ArrowUp, ArrowDown, Building2, Calendar, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   BarChart,
@@ -135,11 +135,17 @@ export default function LeadAnalyticsPage() {
   const effectivePropertyId = globalPropertyId || "all";
   const [compareMode, setCompareMode] = useState(false);
   const [compareProperties, setCompareProperties] = useState<string[]>([]);
-  
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
   const { data: analytics, isLoading, error } = useQuery<LeadAnalytics>({
-    queryKey: ["/api/leads/analytics/summary"],
+    queryKey: ["/api/leads/analytics/summary", dateFrom, dateTo],
     queryFn: async () => {
-      const res = await fetch("/api/leads/analytics/summary", {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const res = await fetch(`/api/leads/analytics/summary${qs}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -147,7 +153,7 @@ export default function LeadAnalyticsPage() {
       if (!res.ok) throw new Error("Failed to fetch analytics");
       return res.json();
     },
-    refetchInterval: 10000, // Refresh every 10 seconds for real-time updates
+    refetchInterval: 10000,
     refetchOnWindowFocus: true,
     enabled: !!token,
   });
@@ -280,10 +286,107 @@ export default function LeadAnalyticsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">Lead Analytics</h1>
             <p className="text-gray-500 mt-1">Track lead sources and conversion performance</p>
+          </div>
+
+          {/* Date Range Filter */}
+          <div className="flex flex-col gap-2 shrink-0" data-testid="date-range-filter">
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                {
+                  label: "This Month",
+                  onClick: () => {
+                    const now = new Date();
+                    const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0");
+                    setDateFrom(`${y}-${m}-01`); setDateTo("");
+                  },
+                },
+                {
+                  label: "Last Month",
+                  onClick: () => {
+                    const now = new Date();
+                    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0");
+                    const last = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+                    setDateFrom(`${y}-${m}-01`); setDateTo(`${y}-${m}-${String(last).padStart(2, "0")}`);
+                  },
+                },
+                {
+                  label: "This Quarter",
+                  onClick: () => {
+                    const now = new Date();
+                    const q = Math.floor(now.getMonth() / 3);
+                    const startM = String(q * 3 + 1).padStart(2, "0");
+                    setDateFrom(`${now.getFullYear()}-${startM}-01`); setDateTo("");
+                  },
+                },
+                {
+                  label: "This Year",
+                  onClick: () => {
+                    setDateFrom(`${new Date().getFullYear()}-01-01`); setDateTo("");
+                  },
+                },
+              ].map(({ label, onClick }) => (
+                <button
+                  key={label}
+                  onClick={onClick}
+                  data-testid={`quick-filter-${label.replace(/\s+/g, "-").toLowerCase()}`}
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                  data-testid="clear-date-filter"
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1"
+                >
+                  <X className="h-3 w-3" /> Clear
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm">
+                <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  data-testid="input-date-from"
+                  className="text-[12px] text-slate-700 bg-transparent outline-none w-[120px]"
+                  placeholder="From"
+                />
+              </div>
+              <span className="text-slate-400 text-xs shrink-0">—</span>
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm">
+                <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  data-testid="input-date-to"
+                  className="text-[12px] text-slate-700 bg-transparent outline-none w-[120px]"
+                  placeholder="To"
+                />
+              </div>
+            </div>
+            {(dateFrom || dateTo) && (
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                  <Calendar className="h-3 w-3" />
+                  {dateFrom && dateTo
+                    ? `${dateFrom} → ${dateTo}`
+                    : dateFrom
+                    ? `From ${dateFrom}`
+                    : `Until ${dateTo}`}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

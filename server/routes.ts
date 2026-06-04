@@ -2719,7 +2719,13 @@ ${allPages.map(p => `  <url>
         return res.status(403).json({ error: "Admin access required" });
       }
       
-      const analytics = await storage.getLeadAnalytics();
+      const dateFrom = typeof req.query.dateFrom === "string" && req.query.dateFrom.trim()
+        ? req.query.dateFrom.trim()
+        : undefined;
+      const dateTo = typeof req.query.dateTo === "string" && req.query.dateTo.trim()
+        ? req.query.dateTo.trim()
+        : undefined;
+      const analytics = await storage.getLeadAnalytics(dateFrom, dateTo);
       res.json(analytics);
     } catch (error) {
       console.error("Error fetching lead analytics:", error);
@@ -9926,7 +9932,13 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const propertyId = typeof req.query.propertyId === "string" && req.query.propertyId.trim()
         ? req.query.propertyId.trim()
         : undefined;
-      const stats = await storage.getStats(propertyId);
+      const dateFrom = typeof req.query.dateFrom === "string" && req.query.dateFrom.trim()
+        ? req.query.dateFrom.trim()
+        : undefined;
+      const dateTo = typeof req.query.dateTo === "string" && req.query.dateTo.trim()
+        ? req.query.dateTo.trim()
+        : undefined;
+      const stats = await storage.getStats(propertyId, dateFrom, dateTo);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);

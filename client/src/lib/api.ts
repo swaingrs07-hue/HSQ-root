@@ -143,7 +143,7 @@ export async function applyDiscount(data: {
   });
 }
 
-export async function getAdminStats(propertyId?: string | null): Promise<{
+export async function getAdminStats(propertyId?: string | null, dateFrom?: string, dateTo?: string): Promise<{
   totalStudents: number;
   totalBookings: number;
   totalRevenue: number;
@@ -159,6 +159,10 @@ export async function getAdminStats(propertyId?: string | null): Promise<{
   revenuePrevMonth: number;
   pendingDueThisWeek: number;
 }> {
-  const qs = propertyId ? `?propertyId=${encodeURIComponent(propertyId)}` : "";
+  const params = new URLSearchParams();
+  if (propertyId) params.set("propertyId", propertyId);
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return fetchAPI(`/admin/stats${qs}`);
 }

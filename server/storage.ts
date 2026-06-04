@@ -209,7 +209,7 @@ export interface IStorage {
   markOverdueFollowUps(): Promise<number>;
   
   // Analytics
-  getStats(): Promise<{
+  getStats(propertyId?: string, dateFrom?: string, dateTo?: string): Promise<{
     totalStudents: number;
     totalBookings: number;
     totalRevenue: number;
@@ -227,7 +227,7 @@ export interface IStorage {
   }>;
   
   // Lead Analytics
-  getLeadAnalytics(): Promise<{
+  getLeadAnalytics(dateFrom?: string, dateTo?: string): Promise<{
     totalLeads: number;
     leadsBySource: { source: string; count: number }[];
     leadsByStatus: { status: string; count: number }[];
@@ -1133,7 +1133,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Analytics
-  async getStats(propertyId?: string): Promise<{
+  async getStats(propertyId?: string, dateFrom?: string, dateTo?: string): Promise<{
     totalStudents: number;
     totalBookings: number;
     totalRevenue: number;
@@ -1152,6 +1152,10 @@ export class DatabaseStorage implements IStorage {
     const propFilter = propertyId
       ? sql` AND property_id = ${propertyId}`
       : sql``;
+    const dateFromFilter = dateFrom ? sql` AND p.created_at >= ${new Date(dateFrom)}` : sql``;
+    const dateToFilter = dateTo ? sql` AND p.created_at <= ${new Date(dateTo + "T23:59:59.999Z")}` : sql``;
+    const bookingDateFromFilter = dateFrom ? sql` AND b.created_at >= ${new Date(dateFrom)}` : sql``;
+    const bookingDateToFilter = dateTo ? sql` AND b.created_at <= ${new Date(dateTo + "T23:59:59.999Z")}` : sql``;
 
     let totalStudents: number;
     if (propertyId) {
@@ -1179,18 +1183,22 @@ export class DatabaseStorage implements IStorage {
     const revenueResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(p.amount), 0)::int AS total
       FROM payments p
-      ${propertyId ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
+      ${(propertyId || dateFrom || dateTo) ? sql`JOIN bookings b ON b.id = p.booking_id` : sql``}
       WHERE p.status = 'success'
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+      ${dateFromFilter}
+      ${dateToFilter}
     `);
     const revenueData = revenueResult?.rows?.[0] ?? revenueResult?.[0] ?? { total: 0 };
 
     const pendingResult: any = await db.execute(sql`
       SELECT COALESCE(SUM(i.amount), 0)::int AS total
       FROM installments i
-      ${propertyId ? sql`JOIN bookings b ON b.id = i.booking_id` : sql``}
+      JOIN bookings b ON b.id = i.booking_id
       WHERE i.paid = false
       ${propertyId ? sql`AND b.property_id = ${propertyId}` : sql``}
+      ${bookingDateFromFilter}
+      ${bookingDateToFilter}
     `);
     const pendingData = pendingResult?.rows?.[0] ?? pendingResult?.[0] ?? { total: 0 };
 
@@ -1274,7 +1282,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Lead Analytics
-  async getLeadAnalytics(): Promise<{
+  async getLeadAnalytics(dateFrom?: string, dateTo?: string): Promise<{
     totalLeads: number;
     leadsBySource: { source: string; count: number }[];
     leadsByStatus: { status: string; count: number }[];
@@ -1285,10 +1293,16 @@ export class DatabaseStorage implements IStorage {
     leadsByDevice: { device: string; count: number }[];
     recentLeads: Lead[];
   }> {
+    const dateConditions = [];
+    if (dateFrom) dateConditions.push(sql`created_at >= ${new Date(dateFrom)}`);
+    if (dateTo) dateConditions.push(sql`created_at <= ${new Date(dateTo + "T23:59:59.999Z")}`);
+    const dateWhere = dateConditions.length > 0 ? and(...dateConditions) : undefined;
+
     // Total leads
     const [totalResult] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(leads);
+      .from(leads)
+      .where(dateWhere);
     const totalLeads = totalResult?.count || 0;
 
     // Leads by source
@@ -1298,6 +1312,7 @@ export class DatabaseStorage implements IStorage {
         count: sql<number>`count(*)::int`,
       })
       .from(leads)
+      .where(dateWhere)
       .groupBy(leads.source);
 
     const leadsBySource = sourceData.map((row) => ({
@@ -1312,6 +1327,7 @@ export class DatabaseStorage implements IStorage {
         count: sql<number>`count(*)::int`,
       })
       .from(leads)
+      .where(dateWhere)
       .groupBy(leads.status);
 
     const leadsByStatus = statusData.map((row) => ({
@@ -1320,21 +1336,28 @@ export class DatabaseStorage implements IStorage {
     }));
 
     // Conversion rate
+    const convertedConditions = [eq(leads.convertedToStudent, true)];
+    if (dateFrom) convertedConditions.push(sql`created_at >= ${new Date(dateFrom)}`);
+    if (dateTo) convertedConditions.push(sql`created_at <= ${new Date(dateTo + "T23:59:59.999Z")}`);
     const [convertedResult] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(leads)
-      .where(eq(leads.convertedToStudent, true));
+      .where(and(...convertedConditions));
     const conversions = convertedResult?.count || 0;
     const conversionRate = totalLeads > 0 ? (conversions / totalLeads) * 100 : 0;
 
-    // Leads by month (last 6 months)
+    // Leads by month
+    const monthConditions: any[] = [];
+    if (dateFrom) monthConditions.push(sql`created_at >= ${new Date(dateFrom)}`);
+    else monthConditions.push(sql`created_at >= NOW() - INTERVAL '6 months'`);
+    if (dateTo) monthConditions.push(sql`created_at <= ${new Date(dateTo + "T23:59:59.999Z")}`);
     const monthData = await db
       .select({
         month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
         count: sql<number>`count(*)::int`,
       })
       .from(leads)
-      .where(sql`created_at >= NOW() - INTERVAL '6 months'`)
+      .where(and(...monthConditions))
       .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`);
 
@@ -1343,7 +1366,7 @@ export class DatabaseStorage implements IStorage {
       count: row.count,
     }));
 
-    // Conversions by month (last 6 months)
+    // Conversions by month
     const conversionMonthData = await db
       .select({
         month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
@@ -1351,7 +1374,7 @@ export class DatabaseStorage implements IStorage {
         conversions: sql<number>`SUM(CASE WHEN converted_to_student THEN 1 ELSE 0 END)::int`,
       })
       .from(leads)
-      .where(sql`created_at >= NOW() - INTERVAL '6 months'`)
+      .where(and(...monthConditions))
       .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`);
 
@@ -1369,6 +1392,7 @@ export class DatabaseStorage implements IStorage {
         count: sql<number>`count(*)::int`,
       })
       .from(leads)
+      .where(dateWhere)
       .groupBy(sql`COALESCE(device_type, 'unknown')`);
 
     const leadsByDevice = deviceData.map((row) => ({
@@ -1384,6 +1408,7 @@ export class DatabaseStorage implements IStorage {
         conversions: sql<number>`SUM(CASE WHEN converted_to_student THEN 1 ELSE 0 END)::int`,
       })
       .from(leads)
+      .where(dateWhere)
       .groupBy(leads.source);
 
     const conversionsBySource = conversionSourceData.map((row) => ({
@@ -1397,6 +1422,7 @@ export class DatabaseStorage implements IStorage {
     const recentLeads = await db
       .select()
       .from(leads)
+      .where(dateWhere)
       .orderBy(desc(leads.createdAt))
       .limit(10);
 
