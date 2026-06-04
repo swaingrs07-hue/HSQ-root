@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, differenceInMonths, differenceInCalendarMonths } from "date-fns";
 import { jsPDF } from "jspdf";
@@ -198,6 +199,8 @@ export default function CompletedBookings() {
   const [viewFilter, setViewFilter] = useState<"all" | "active" | "completed" | "with_addons">("all");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [collectedDrawerOpen, setCollectedDrawerOpen] = useState(false);
+  const [collectedSearch, setCollectedSearch] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -1730,6 +1733,35 @@ export default function CompletedBookings() {
     return sum + (inst?.amount || 0);
   }, 0);
 
+  // Flat list of all successful payments for the "Till Collected" drill-down
+  const collectedPayments = liveFin.flatMap((b: any) =>
+    (b.payments || [])
+      .filter((p: any) => p.status === "success")
+      .map((p: any) => ({
+        bookingId: b.id,
+        name: b.customerName,
+        bookingCode: b.bookingCode,
+        propertyName: b.propertyName,
+        room: b.residentDetails?.roomNo
+          ? `${b.residentDetails.roomNo}${b.residentDetails?.bedNo ? " · " + b.residentDetails.bedNo : ""}`
+          : b.roomTypeName || "—",
+        amount: p.amount || 0,
+        date: p.createdAt,
+        method: p.paymentMethod || "cash",
+        notes: p.notes || "",
+        transactionId: p.transactionId || "",
+      }))
+  ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const cq = collectedSearch.toLowerCase();
+  const filteredCollectedPayments = collectedSearch
+    ? collectedPayments.filter((r: any) =>
+        r.name?.toLowerCase().includes(cq) ||
+        r.bookingCode?.toLowerCase().includes(cq) ||
+        r.room?.toLowerCase().includes(cq)
+      )
+    : collectedPayments;
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
     setTimeout(() => setCurrentPage(totalPages), 0);
@@ -1987,7 +2019,12 @@ export default function CompletedBookings() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-green-50 via-white to-white">
+        <Card
+          role="button"
+          onClick={() => { setCollectedSearch(""); setCollectedDrawerOpen(true); }}
+          data-testid="card-till-collected"
+          className="relative overflow-hidden border-slate-200 shadow-sm bg-gradient-to-br from-green-50 via-white to-white cursor-pointer transition hover:shadow-md hover:ring-2 hover:ring-green-300"
+        >
           <CardContent className="p-5">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-green-100 ring-1 ring-green-200/60 flex items-center justify-center shrink-0">
@@ -2002,7 +2039,7 @@ export default function CompletedBookings() {
                 >
                   {formatCompactINR(totalCollected)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of live total</p>
+                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of live total · <span className="text-green-600 font-medium">tap to view</span></p>
               </div>
             </div>
           </CardContent>
@@ -2105,6 +2142,105 @@ export default function CompletedBookings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Collected Payments Drill-Down Sheet */}
+      <Sheet open={collectedDrawerOpen} onOpenChange={setCollectedDrawerOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0 overflow-hidden">
+          <SheetHeader className="px-5 py-4 border-b border-slate-200 shrink-0">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Collected Payments
+            </SheetTitle>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {filteredCollectedPayments.length} payment{filteredCollectedPayments.length !== 1 ? "s" : ""} · <span className="font-semibold text-green-700">{formatCompactINR(filteredCollectedPayments.reduce((s: number, r: any) => s + r.amount, 0))}</span>
+              {collectedSearch && <span className="text-slate-400 ml-1">(filtered)</span>}
+            </p>
+          </SheetHeader>
+
+          {/* Search */}
+          <div className="px-4 py-3 border-b border-slate-100 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search by name, booking code or room…"
+                value={collectedSearch}
+                onChange={e => setCollectedSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+                data-testid="input-collected-search"
+              />
+              {collectedSearch && (
+                <button onClick={() => setCollectedSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Payment rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            {filteredCollectedPayments.length === 0 ? (
+              <div className="py-20 text-center">
+                <CheckCircle2 className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                <p className="text-sm text-slate-400">No collected payments found</p>
+              </div>
+            ) : (
+              filteredCollectedPayments.map((row: any, i: number) => {
+                const methodColors: Record<string, string> = {
+                  cash: "bg-emerald-100 text-emerald-700",
+                  online: "bg-blue-100 text-blue-700",
+                  upi: "bg-blue-100 text-blue-700",
+                  cheque: "bg-amber-100 text-amber-700",
+                  neft: "bg-indigo-100 text-indigo-700",
+                  rtgs: "bg-indigo-100 text-indigo-700",
+                  carried_fwd: "bg-slate-100 text-slate-600",
+                  paid_last_year: "bg-slate-100 text-slate-600",
+                  waived: "bg-purple-100 text-purple-700",
+                };
+                const methodKey = (row.method || "cash").toLowerCase().replace(/[^a-z_]/g, "_");
+                const badgeClass = methodColors[methodKey] || methodColors[row.method] || "bg-slate-100 text-slate-600";
+                const methodLabel = (row.method || "Cash").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+                return (
+                  <div
+                    key={i}
+                    role="button"
+                    data-testid={`collected-row-${i}`}
+                    onClick={() => {
+                      const b = bookings.find((x: any) => x.id === row.bookingId);
+                      if (b) { setCollectedDrawerOpen(false); setSelectedBooking(b); }
+                    }}
+                    className={`px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors hover:bg-green-50/60 ${i % 2 === 0 ? "" : "bg-slate-50/40"}`}
+                  >
+                    {/* Name + code */}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{row.name}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {row.bookingCode && <span className="font-mono mr-1">{row.bookingCode}</span>}
+                        <span>{row.room}</span>
+                      </p>
+                    </div>
+
+                    {/* Amount + date */}
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-slate-900 text-sm">₹{row.amount.toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {row.date ? format(new Date(row.date), "dd MMM yyyy") : "—"}
+                      </p>
+                    </div>
+
+                    {/* Method badge */}
+                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeClass}`}>
+                      {methodLabel}
+                    </span>
+
+                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
