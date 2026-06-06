@@ -6424,93 +6424,105 @@ ${allPages.map(p => `  <url>
             .reduce((s, p) => s + (p.amount || 0), 0);
           const totalWouldBe = prevPaidForInst + paymentAmount;
           if (totalWouldBe > instForSplit.amount) {
-            primaryPaymentAmount = Math.max(0, instForSplit.amount - prevPaidForInst);
-            overflowAmount = paymentAmount - primaryPaymentAmount;
             const allBookingInsts = await db.select().from(schema.installments)
               .where(eq(schema.installments.bookingId, booking.id))
               .orderBy(schema.installments.createdAt);
             const curIdx = allBookingInsts.findIndex(i => i.id === installmentId);
-            overflowTargetInstallment = allBookingInsts.slice(curIdx + 1).find(i => !i.paid) || null;
+            const candidateTarget = allBookingInsts.slice(curIdx + 1).find(i => !i.paid) || null;
+            // Only split if there is a next unpaid installment to absorb the overflow.
+            // Without a target, record the full entered amount on the selected installment.
+            if (candidateTarget) {
+              primaryPaymentAmount = Math.max(0, instForSplit.amount - prevPaidForInst);
+              overflowAmount = paymentAmount - primaryPaymentAmount;
+              overflowTargetInstallment = candidateTarget;
+            }
           }
         }
       }
 
-      const payment = await storage.createPayment({
-        bookingId: booking.id,
-        amount: primaryPaymentAmount,
-        paymentMethod: paymentMethod || "cash",
-        razorpayPaymentId: txnId,
-        status: "success",
-        installmentId: installmentId || null,
-        bookingPackageId: isAddonPayment ? bookingPackageId : null,
-        screenshotPath: screenshotPath?.trim() || null,
-        notes: notes || null,
-      });
-
+      let payment: any;
       let updatedInstallment = null;
       let newBalanceInstallment = null;
       let overflowPayment = null;
 
-      if (installmentId) {
-        const [existingInst] = await db.select().from(schema.installments).where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
-        if (!existingInst) {
-          return res.status(400).json({ error: "Installment not found for this booking" });
-        }
-        const previousPaymentsForInst = allExistingPayments.filter(p => p.installmentId === installmentId);
-        const totalPaidSoFar = previousPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + primaryPaymentAmount;
-        const isFullyPaid = totalPaidSoFar >= existingInst.amount;
-
-        if (isFullyPaid) {
-          const [inst] = await db.update(schema.installments)
-            .set({ paid: true, paidAt: new Date() })
-            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
-            .returning();
-          updatedInstallment = inst;
-        } else {
-          const partialName = existingInst.name.includes("(Partial)") ? existingInst.name : `${existingInst.name} (Partial)`;
-          const [inst] = await db.update(schema.installments)
-            .set({ name: partialName, amount: primaryPaymentAmount + previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0), paid: true, paidAt: new Date() })
-            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
-            .returning();
-          updatedInstallment = inst;
-
-          const remainingAmount = existingInst.amount - totalPaidSoFar;
-          const baseName = existingInst.name.replace(/ \(Partial\)$/, "");
-          const nextInstName = `${baseName} - Balance`;
-
-          const [balanceInst] = await db.insert(schema.installments).values({
-            bookingId: booking.id,
-            name: nextInstName,
-            amount: remainingAmount,
-            dueDate: existingInst.dueDate,
-            paid: false,
-          }).returning();
-          newBalanceInstallment = balanceInst;
-        }
-      }
-
-      // Create overflow payment against next installment
-      if (overflowAmount > 0 && overflowTargetInstallment) {
-        overflowPayment = await storage.createPayment({
+      // All payment writes are atomic: primary payment + installment update + optional overflow
+      await db.transaction(async (tx) => {
+        const [pmt] = await tx.insert(schema.payments).values({
           bookingId: booking.id,
-          amount: overflowAmount,
+          amount: primaryPaymentAmount,
           paymentMethod: paymentMethod || "cash",
-          razorpayPaymentId: `${txnId}-OVF`,
+          razorpayPaymentId: txnId || null,
           status: "success",
-          installmentId: overflowTargetInstallment.id,
-          bookingPackageId: null,
+          installmentId: installmentId || null,
+          bookingPackageId: isAddonPayment ? bookingPackageId : null,
           screenshotPath: screenshotPath?.trim() || null,
-          notes: (notes ? `${notes} — ` : "") + `overflow from ${splitInstallmentName}`,
-        });
-        const nextPrevPaid = allExistingPayments
-          .filter(p => p.installmentId === overflowTargetInstallment.id)
-          .reduce((s, p) => s + (p.amount || 0), 0);
-        if (nextPrevPaid + overflowAmount >= overflowTargetInstallment.amount) {
-          await db.update(schema.installments)
-            .set({ paid: true, paidAt: new Date() })
-            .where(eq(schema.installments.id, overflowTargetInstallment.id));
+          notes: notes || null,
+        }).returning();
+        payment = pmt;
+
+        if (installmentId) {
+          const [existingInst] = await tx.select().from(schema.installments)
+            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
+          if (!existingInst) throw new Error("Installment not found for this booking");
+
+          const previousPaymentsForInst = allExistingPayments.filter(p => p.installmentId === installmentId);
+          const totalPaidSoFar = previousPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + primaryPaymentAmount;
+          const isFullyPaid = totalPaidSoFar >= existingInst.amount;
+
+          if (isFullyPaid) {
+            const [inst] = await tx.update(schema.installments)
+              .set({ paid: true, paidAt: new Date() })
+              .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+              .returning();
+            updatedInstallment = inst;
+          } else {
+            const partialName = existingInst.name.includes("(Partial)") ? existingInst.name : `${existingInst.name} (Partial)`;
+            const [inst] = await tx.update(schema.installments)
+              .set({ name: partialName, amount: previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0) + primaryPaymentAmount, paid: true, paidAt: new Date() })
+              .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+              .returning();
+            updatedInstallment = inst;
+
+            const remainingAmount = existingInst.amount - totalPaidSoFar;
+            const baseName = existingInst.name.replace(/ \(Partial\)$/, "");
+            const [balanceInst] = await tx.insert(schema.installments).values({
+              bookingId: booking.id,
+              name: `${baseName} - Balance`,
+              amount: remainingAmount,
+              dueDate: existingInst.dueDate,
+              paid: false,
+            }).returning();
+            newBalanceInstallment = balanceInst;
+          }
         }
-      }
+
+        // Overflow payment against next installment (only when a target exists)
+        if (overflowAmount > 0 && overflowTargetInstallment) {
+          const [ovfPmt] = await tx.insert(schema.payments).values({
+            bookingId: booking.id,
+            amount: overflowAmount,
+            paymentMethod: paymentMethod || "cash",
+            razorpayPaymentId: txnId ? `${txnId}-OVF` : null,
+            status: "success",
+            installmentId: overflowTargetInstallment.id,
+            bookingPackageId: null,
+            screenshotPath: screenshotPath?.trim() || null,
+            notes: (notes ? `${notes} — ` : "") + `overflow from ${splitInstallmentName}`,
+          }).returning();
+          overflowPayment = ovfPmt;
+
+          const nextPrevPaid = allExistingPayments
+            .filter(p => p.installmentId === overflowTargetInstallment.id)
+            .reduce((s, p) => s + (p.amount || 0), 0);
+          if (nextPrevPaid + overflowAmount >= overflowTargetInstallment.amount) {
+            const [updatedOvfInst] = await tx.update(schema.installments)
+              .set({ paid: true, paidAt: new Date() })
+              .where(eq(schema.installments.id, overflowTargetInstallment.id))
+              .returning();
+            overflowTargetInstallment = updatedOvfInst || overflowTargetInstallment;
+          }
+        }
+      });
 
       let updatedBookingPackage: any = null;
       if (isAddonPayment) {

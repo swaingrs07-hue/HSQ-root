@@ -4281,7 +4281,10 @@ export default function CompletedBookings() {
                   return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
                 });
                 const currentIdx = sortedInsts.findIndex((i: any) => i.id === paymentForm.installmentId);
-                const nextInst = currentIdx >= 0 ? sortedInsts[currentIdx + 1] : undefined;
+                const cfForPreview = computeCarryForwards(sortedInsts, selectedBooking.payments || []);
+                const nextInst = currentIdx >= 0
+                  ? sortedInsts.slice(currentIdx + 1).find((_: any, i: number) => !cfForPreview[currentIdx + 1 + i]?.isEffectivelyPaid)
+                  : undefined;
                 return (
                   <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg" data-testid="overflow-preview-banner">
                     <svg className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={10}/><line x1={12} y1={8} x2={12} y2={12}/><line x1={12} y1={16} x2={12.01} y2={16}/></svg>
