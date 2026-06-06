@@ -1225,9 +1225,10 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp, overflowPayment, overflowInstallment } = await res.json();
+      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp, overflowPayments } = await res.json();
+      const allNewPayments = [newPayment, ...(overflowPayments || [])].filter(Boolean);
       if (updatedBp) {
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
+        const updatedPayments = [...(selectedBooking.payments || []), ...allNewPayments];
         setSelectedBooking({ ...selectedBooking, ...updated, payments: updatedPayments });
         setBookingPackages((prev: any) => {
           if (!prev?.bookingPackages) return prev;
@@ -1245,15 +1246,10 @@ export default function CompletedBookings() {
         if (balanceInstallment) {
           updatedInstallments = [...updatedInstallments, balanceInstallment];
         }
-        if (overflowInstallment) {
-          updatedInstallments = updatedInstallments.map((inst: any) =>
-            inst.id === overflowInstallment.id ? { ...inst, ...overflowInstallment } : inst
-          );
-        }
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
+        const updatedPayments = [...(selectedBooking.payments || []), ...allNewPayments];
         setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments, payments: updatedPayments });
       } else {
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
+        const updatedPayments = [...(selectedBooking.payments || []), ...allNewPayments];
         setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status || "confirmed", payments: updatedPayments });
       }
       setShowPaymentDialog(false);

@@ -6412,7 +6412,7 @@ ${allPages.map(p => `  <url>
       let primaryPaymentAmount = paymentAmount;
       let overflowAmount = 0;
       let splitInstallmentName = "";
-      let overflowTargetInstallment: any = null;
+      let overflowTargetInstallments: any[] = [];
 
       if (installmentId && !isAddonPayment) {
         const [instForSplit] = await db.select().from(schema.installments)
@@ -6428,13 +6428,14 @@ ${allPages.map(p => `  <url>
               .where(eq(schema.installments.bookingId, booking.id))
               .orderBy(schema.installments.createdAt);
             const curIdx = allBookingInsts.findIndex(i => i.id === installmentId);
-            const candidateTarget = allBookingInsts.slice(curIdx + 1).find(i => !i.paid) || null;
-            // Only split if there is a next unpaid installment to absorb the overflow.
+            // Collect ALL future unpaid installments so we can chain overflow across multiple
+            const futureUnpaid = allBookingInsts.slice(curIdx + 1).filter(i => !i.paid);
+            // Only split if there is at least one next unpaid installment to absorb the overflow.
             // Without a target, record the full entered amount on the selected installment.
-            if (candidateTarget) {
+            if (futureUnpaid.length > 0) {
               primaryPaymentAmount = Math.max(0, instForSplit.amount - prevPaidForInst);
               overflowAmount = paymentAmount - primaryPaymentAmount;
-              overflowTargetInstallment = candidateTarget;
+              overflowTargetInstallments = futureUnpaid;
             }
           }
         }
@@ -6443,7 +6444,7 @@ ${allPages.map(p => `  <url>
       let payment: any;
       let updatedInstallment = null;
       let newBalanceInstallment = null;
-      let overflowPayment = null;
+      let overflowPayments: any[] = [];
 
       // All payment writes are atomic: primary payment + installment update + optional overflow
       await db.transaction(async (tx) => {
@@ -6496,30 +6497,57 @@ ${allPages.map(p => `  <url>
           }
         }
 
-        // Overflow payment against next installment (only when a target exists)
-        if (overflowAmount > 0 && overflowTargetInstallment) {
-          const [ovfPmt] = await tx.insert(schema.payments).values({
-            bookingId: booking.id,
-            amount: overflowAmount,
-            paymentMethod: paymentMethod || "cash",
-            razorpayPaymentId: txnId ? `${txnId}-OVF` : null,
-            status: "success",
-            installmentId: overflowTargetInstallment.id,
-            bookingPackageId: null,
-            screenshotPath: screenshotPath?.trim() || null,
-            notes: (notes ? `${notes} — ` : "") + `overflow from ${splitInstallmentName}`,
-          }).returning();
-          overflowPayment = ovfPmt;
+        // Chain overflow across as many future installments as needed
+        if (overflowAmount > 0 && overflowTargetInstallments.length > 0) {
+          let remainingOverflow = overflowAmount;
+          for (const targetInst of overflowTargetInstallments) {
+            if (remainingOverflow <= 0) break;
 
-          const nextPrevPaid = allExistingPayments
-            .filter(p => p.installmentId === overflowTargetInstallment.id)
-            .reduce((s, p) => s + (p.amount || 0), 0);
-          if (nextPrevPaid + overflowAmount >= overflowTargetInstallment.amount) {
-            const [updatedOvfInst] = await tx.update(schema.installments)
-              .set({ paid: true, paidAt: new Date() })
-              .where(eq(schema.installments.id, overflowTargetInstallment.id))
-              .returning();
-            overflowTargetInstallment = updatedOvfInst || overflowTargetInstallment;
+            const prevPaidForTarget = allExistingPayments
+              .filter(p => p.installmentId === targetInst.id)
+              .reduce((s, p) => s + (p.amount || 0), 0);
+            const stillNeeded = Math.max(0, targetInst.amount - prevPaidForTarget);
+            if (stillNeeded <= 0) continue; // already fully paid somehow, skip
+
+            const applyAmount = Math.min(remainingOverflow, stillNeeded);
+
+            const [ovfPmt] = await tx.insert(schema.payments).values({
+              bookingId: booking.id,
+              amount: applyAmount,
+              paymentMethod: paymentMethod || "cash",
+              razorpayPaymentId: txnId ? `${txnId}-OVF-${targetInst.id}` : null,
+              status: "success",
+              installmentId: targetInst.id,
+              bookingPackageId: null,
+              screenshotPath: screenshotPath?.trim() || null,
+              notes: (notes ? `${notes} — ` : "") + `overflow from ${splitInstallmentName}`,
+            }).returning();
+            overflowPayments.push(ovfPmt);
+
+            remainingOverflow -= applyAmount;
+
+            if (prevPaidForTarget + applyAmount >= targetInst.amount) {
+              await tx.update(schema.installments)
+                .set({ paid: true, paidAt: new Date() })
+                .where(eq(schema.installments.id, targetInst.id));
+            }
+          }
+
+          // If overflow exceeds total remaining dues across all future installments,
+          // record the residual as an unallocated credit so the ledger always balances.
+          if (remainingOverflow > 0) {
+            const [residualPmt] = await tx.insert(schema.payments).values({
+              bookingId: booking.id,
+              amount: remainingOverflow,
+              paymentMethod: paymentMethod || "cash",
+              razorpayPaymentId: txnId ? `${txnId}-CREDIT` : null,
+              status: "success",
+              installmentId: null,
+              bookingPackageId: null,
+              screenshotPath: screenshotPath?.trim() || null,
+              notes: (notes ? `${notes} — ` : "") + `unallocated credit from ${splitInstallmentName}`,
+            }).returning();
+            overflowPayments.push(residualPmt);
           }
         }
       });
@@ -6635,7 +6663,7 @@ ${allPages.map(p => `  <url>
 
       autoResyncBookingToHms(req.params.id, "payment-done");
 
-      res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment, overflowPayment, overflowInstallment: overflowTargetInstallment });
+      res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment, overflowPayments });
     } catch (error: any) {
       console.error("Error marking payment done:", error);
       res.status(500).json({ error: error.message || "Failed to mark payment done" });
