@@ -180,6 +180,21 @@ function getStatusBadge(status: string) {
   }
 }
 
+function computeCarryForwards(sortedInsts: any[], payments: any[]) {
+  let carryIn = 0;
+  return sortedInsts.map((inst) => {
+    const directPaid = payments
+      .filter((p: any) => p.installmentId === inst.id && p.status === "success")
+      .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const effectiveRemaining = Math.max(0, (inst.amount || 0) - carryIn - directPaid);
+    const isEffectivelyPaid = inst.paid || directPaid + carryIn >= (inst.amount || 0);
+    const excessOut = Math.max(0, directPaid + carryIn - (inst.amount || 0));
+    const result = { creditIn: carryIn, directPaid, effectiveRemaining, isEffectivelyPaid, excessOut };
+    carryIn = excessOut;
+    return result;
+  });
+}
+
 export default function CompletedBookings() {
   const { user } = useAuth();
   const { selectedPropertyId } = useProperty();
@@ -1073,12 +1088,17 @@ export default function CompletedBookings() {
     let selectedInst = installment;
     if (!selectedInst && booking.installments?.length) {
       const payments = booking.payments || [];
-      selectedInst = booking.installments.find((inst: any) => {
-        if (inst.paid) return false;
-        const instPayments = payments.filter((p: any) => p.installmentId === inst.id && p.status === "success");
-        const totalPaid = instPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-        return totalPaid < (inst.amount || 0);
+      const isRealDate = (s: string) => s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+      const sortedInsts = [...booking.installments].sort((a: any, b: any) => {
+        const aD = isRealDate(a.dueDate); const bD = isRealDate(b.dueDate);
+        if (!aD && !bD) return 0; if (!aD) return -1; if (!bD) return 1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       });
+      const cfResults = computeCarryForwards(sortedInsts, payments);
+      const firstUnpaidIdx = cfResults.findIndex(cf => !cf.isEffectivelyPaid);
+      if (firstUnpaidIdx >= 0) {
+        selectedInst = { ...sortedInsts[firstUnpaidIdx], _remaining: cfResults[firstUnpaidIdx].effectiveRemaining };
+      }
     }
 
     let prefillAmount = booking.totalFee || 0;
@@ -1205,9 +1225,9 @@ export default function CompletedBookings() {
         const data = await res.json();
         throw new Error(data.error || "Failed to mark payment");
       }
-      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp } = await res.json();
+      const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp, overflowPayment, overflowInstallment } = await res.json();
       if (updatedBp) {
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
         setSelectedBooking({ ...selectedBooking, ...updated, payments: updatedPayments });
         setBookingPackages((prev: any) => {
           if (!prev?.bookingPackages) return prev;
@@ -1225,10 +1245,15 @@ export default function CompletedBookings() {
         if (balanceInstallment) {
           updatedInstallments = [...updatedInstallments, balanceInstallment];
         }
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        if (overflowInstallment) {
+          updatedInstallments = updatedInstallments.map((inst: any) =>
+            inst.id === overflowInstallment.id ? { ...inst, ...overflowInstallment } : inst
+          );
+        }
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
         setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status, installments: updatedInstallments, payments: updatedPayments });
       } else {
-        const updatedPayments = [...(selectedBooking.payments || []), newPayment].filter(Boolean);
+        const updatedPayments = [...(selectedBooking.payments || []), newPayment, overflowPayment].filter(Boolean);
         setSelectedBooking({ ...selectedBooking, ...updated, status: updated.status || "confirmed", payments: updatedPayments });
       }
       setShowPaymentDialog(false);
@@ -1765,10 +1790,18 @@ export default function CompletedBookings() {
     : collectedPayments;
 
   // Flat list of unpaid installments for the "Pending" drill-down
-  const pendingRows = liveFin.flatMap((b: any) =>
-    (b.installments || [])
-      .filter((inst: any) => !inst.paid)
-      .map((inst: any) => ({
+  const pendingRows = liveFin.flatMap((b: any) => {
+    const isRealDate = (s: string) => s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const sortedInsts = [...(b.installments || [])].sort((a: any, bI: any) => {
+      const aD = isRealDate(a.dueDate); const bD = isRealDate(bI.dueDate);
+      if (!aD && !bD) return 0; if (!aD) return -1; if (!bD) return 1;
+      return new Date(a.dueDate).getTime() - new Date(bI.dueDate).getTime();
+    });
+    const cfResults = computeCarryForwards(sortedInsts, b.payments || []);
+    return sortedInsts
+      .map((inst: any, i: number) => ({ inst, cf: cfResults[i] }))
+      .filter(({ cf }) => !cf.isEffectivelyPaid)
+      .map(({ inst, cf }) => ({
         bookingId: b.id,
         name: b.customerName,
         bookingCode: b.bookingCode,
@@ -1776,11 +1809,13 @@ export default function CompletedBookings() {
           ? `${b.residentDetails.roomNo}${b.residentDetails?.bedNo ? " · " + b.residentDetails.bedNo : ""}`
           : b.roomTypeName || "—",
         installmentName: inst.name || "Installment",
-        amount: inst.amount || 0,
+        amount: cf.effectiveRemaining,
+        creditApplied: cf.creditIn,
         dueDate: inst.dueDate || "",
         bookingStatus: b.status,
-      }))
-  ).sort((a: any, b: any) => {
+      }));
+  })
+  .sort((a: any, b: any) => {
     // Sort by due date ascending; undated entries go last
     const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
     const db2 = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
@@ -3656,20 +3691,21 @@ export default function CompletedBookings() {
                       return null;
                     })()}
                     <div className="px-4 py-3 space-y-3">
-                      {[...(selectedBooking.installments||[])].sort((a:any,b:any)=>{
+                      {(()=>{
                         const isRealDate=(s:string)=>s&&/^\d{4}-\d{2}-\d{2}$/.test(s);
-                        const aDate=isRealDate(a.dueDate);
-                        const bDate=isRealDate(b.dueDate);
-                        if(!aDate&&!bDate)return 0;
-                        if(!aDate)return -1;
-                        if(!bDate)return 1;
-                        return new Date(a.dueDate).getTime()-new Date(b.dueDate).getTime();
-                      }).map((inst:any,idx:number)=>{
+                        const sortedInsts=[...(selectedBooking.installments||[])].sort((a:any,b:any)=>{
+                          const aD=isRealDate(a.dueDate);const bD=isRealDate(b.dueDate);
+                          if(!aD&&!bD)return 0;if(!aD)return -1;if(!bD)return 1;
+                          return new Date(a.dueDate).getTime()-new Date(b.dueDate).getTime();
+                        });
+                        const cfResults=computeCarryForwards(sortedInsts,selectedBooking.payments||[]);
+                        return sortedInsts.map((inst:any,idx:number)=>{
+                        const cf=cfResults[idx];
                         const instPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id&&p.status==="success");
                         const allInstPayments=(selectedBooking.payments||[]).filter((p:any)=>p.installmentId===inst.id);
-                        const totalPaid=instPayments.reduce((sum:number,p:any)=>sum+(p.amount||0),0);
-                        const remaining=Math.max(0,(inst.amount||0)-totalPaid);
-                        const isFullyPaid=inst.paid||totalPaid>=(inst.amount||0);
+                        const totalPaid=cf.directPaid;
+                        const remaining=cf.effectiveRemaining;
+                        const isFullyPaid=cf.isEffectivelyPaid;
                         const isPartiallyPaid=totalPaid>0&&!isFullyPaid;
                         const canPay=!isFullyPaid&&(isAdmin||isFrontdesk||isSalesExec);
                         const isEditingThis=editingInstId===inst.id;
@@ -3733,6 +3769,7 @@ export default function CompletedBookings() {
                                     )}
                                   </div>
                                 </div>
+                                {cf.creditIn>0&&<p className="mt-1.5 text-[11px] text-violet-600 font-medium bg-violet-50 border border-violet-200 rounded px-2 py-0.5 inline-block">↑ ₹{cf.creditIn.toLocaleString("en-IN")} credit applied from prior overpayment</p>}
                                 {(isPartiallyPaid||isFullyPaid)&&totalPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className="text-emerald-600 font-medium">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(totalPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
                                 {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
                                 {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
@@ -3780,7 +3817,7 @@ export default function CompletedBookings() {
                             )}
                           </div>
                         );
-                      })}
+                      });})()}
 
                       {/* Superadmin: Add new installment inline form */}
                       {isSuperAdmin&&addingInst&&(
@@ -4229,6 +4266,36 @@ export default function CompletedBookings() {
                 onFocus={() => scrollBtnIntoView(paySubmitBtnRef)}
                 data-testid="input-payment-amount"
               />
+              {(()=>{
+                if (!paymentForm.installmentId || !selectedBooking?.installments) return null;
+                const inst = selectedBooking.installments.find((i: any) => i.id === paymentForm.installmentId);
+                if (!inst) return null;
+                const faceValue = inst.amount || 0;
+                const entered = paymentForm.amount || 0;
+                if (entered <= faceValue) return null;
+                const overflow = entered - faceValue;
+                const sortedInsts = [...selectedBooking.installments].sort((a: any, b: any) => {
+                  const isRD = (s: string) => s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+                  const aD = isRD(a.dueDate); const bD = isRD(b.dueDate);
+                  if (!aD && !bD) return 0; if (!aD) return -1; if (!bD) return 1;
+                  return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                });
+                const currentIdx = sortedInsts.findIndex((i: any) => i.id === paymentForm.installmentId);
+                const nextInst = currentIdx >= 0 ? sortedInsts[currentIdx + 1] : undefined;
+                return (
+                  <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg" data-testid="overflow-preview-banner">
+                    <svg className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={10}/><line x1={12} y1={8} x2={12} y2={12}/><line x1={12} y1={16} x2={12.01} y2={16}/></svg>
+                    <div className="text-xs text-amber-800 space-y-0.5">
+                      <p><span className="font-semibold">₹{faceValue.toLocaleString("en-IN")}</span> will be recorded against <span className="font-semibold">{inst.name || "this installment"}</span> (marked PAID).</p>
+                      {nextInst ? (
+                        <p>The excess <span className="font-semibold text-amber-900">₹{overflow.toLocaleString("en-IN")}</span> will auto-apply to <span className="font-semibold">{nextInst.name || "next installment"}</span> (marked PARTIAL).</p>
+                      ) : (
+                        <p>The excess <span className="font-semibold text-amber-900">₹{overflow.toLocaleString("en-IN")}</span> will be recorded as a carry-forward (no next installment found).</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <Label className="text-xs font-medium text-slate-500">Payment Method</Label>
