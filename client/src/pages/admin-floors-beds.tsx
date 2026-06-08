@@ -335,6 +335,20 @@ export default function AdminFloorsBeds() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const createBedMutation = useMutation({
+    mutationFn: ({ floorId, bed }: { floorId: string; bed: { bedNumber: string; roomTypeId: string; roomId: string } }) =>
+      apiFetch(`/api/admin/properties/${selectedPropertyId}/floors/${floorId}/beds`, {
+        method: "POST",
+        body: JSON.stringify({ beds: [{ ...bed, status: "available" }] }),
+      }),
+    onSuccess: () => {
+      invalidateFloors();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/booking-tree"] });
+      toast({ title: "Bed Added", description: "New bed has been created and is now available." });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const fixComboBedsMutation = useMutation({
     mutationFn: () => apiFetch(`/api/admin/properties/${selectedPropertyId}/fix-combo-beds`, { method: "POST" }),
     onSuccess: (data: any) => {
@@ -665,6 +679,8 @@ export default function AdminFloorsBeds() {
                                 onUnblockBed={(bedId, note) => unblockBedMutation.mutate({ bedId, note })}
                                 linkedPlans={propertyPackages}
                                 onAssignPlan={openPlanAssign}
+                                onAddBed={(bed) => createBedMutation.mutate({ floorId: floor.id, bed: { ...bed, roomId: room.id } })}
+                                isAddingBed={createBedMutation.isPending && (createBedMutation.variables as any)?.bed?.roomId === room.id}
                               />
                             ))}
                             {orphanBeds.length > 0 && (
@@ -1561,7 +1577,7 @@ function RoomPricingDialog({ room, roomType, onSave, isPending }: {
   );
 }
 
-function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onToggleSectionWashroom, updatingSectionLabel, onUpdateAmenities, isUpdatingAmenities, onUpdatePricing, isUpdatingPricing, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan }: {
+function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingWashroom, onToggleSectionWashroom, updatingSectionLabel, onUpdateAmenities, isUpdatingAmenities, onUpdatePricing, isUpdatingPricing, onUpdateBed, onDeleteBed, onBlockBed, onUnblockBed, linkedPlans, onAssignPlan, onAddBed, isAddingBed }: {
   room: Room; roomTypes: RoomType[];
   onDeleteRoom: () => void;
   onToggleWashroom?: () => void;
@@ -1578,7 +1594,39 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
   onUnblockBed: (bedId: string, note?: string) => void;
   linkedPlans?: any[];
   onAssignPlan?: (roomTypeId: string, roomTypeName: string, roomId?: string, roomNumber?: string) => void;
+  onAddBed?: (data: { bedNumber: string; roomTypeId: string }) => void;
+  isAddingBed?: boolean;
 }) {
+  const [addBedOpen, setAddBedOpen] = useState(false);
+  const [addBedSection, setAddBedSection] = useState<string | null>(null);
+  const [newBedNum, setNewBedNum] = useState("");
+  const [newBedRoomTypeId, setNewBedRoomTypeId] = useState(room.roomTypeId);
+
+  function computeNextBedNumber(prefix: string, existingBeds: Bed[]): string {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const nums = existingBeds
+      .map(b => { const m = b.bedNumber.match(new RegExp(`^${escaped}-(\\d+)$`)); return m ? parseInt(m[1]) : 0; })
+      .filter(n => n > 0);
+    return `${prefix}-${nums.length > 0 ? Math.max(...nums) + 1 : 1}`;
+  }
+
+  function openAddBed(sectionLabel?: string) {
+    const prefix = sectionLabel ? `${room.roomNumber}${sectionLabel}` : room.roomNumber;
+    const bedsInScope = sectionLabel
+      ? room.beds.filter(b => b.bedNumber.startsWith(`${room.roomNumber}${sectionLabel}`))
+      : room.beds;
+    setAddBedSection(sectionLabel ?? null);
+    setNewBedNum(computeNextBedNumber(prefix, bedsInScope));
+    setNewBedRoomTypeId(room.roomTypeId);
+    setAddBedOpen(true);
+  }
+
+  function submitAddBed() {
+    if (!newBedNum.trim()) return;
+    onAddBed?.({ bedNumber: newBedNum.trim(), roomTypeId: newBedRoomTypeId || room.roomTypeId });
+    setAddBedOpen(false);
+  }
+
   const rt = roomTypes.find(r => r.id === room.roomTypeId);
   const isCombo = room.typology.includes("+");
   const allAvailable = room.beds.every(b => b.status === "available");
@@ -1751,7 +1799,7 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="flex gap-1.5 flex-wrap">
+                <div className="flex gap-1.5 flex-wrap items-center">
                   {section.beds.map((bed) => (
                     <BedCell key={bed.id} bed={bed} compact
                       onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
@@ -1760,14 +1808,25 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
                       onUnblock={(note) => onUnblockBed(bed.id, note)}
                     />
                   ))}
-                  {section.beds.length === 0 && <span className="text-[10px] text-slate-400">No beds</span>}
+                  {section.beds.length === 0 && <span className="text-[10px] text-slate-400 mr-1">No beds</span>}
+                  {onAddBed && (
+                    <button
+                      type="button"
+                      onClick={() => openAddBed(section.label)}
+                      disabled={isAddingBed}
+                      className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 hover:text-indigo-600 transition-colors border border-dashed border-slate-300 hover:border-indigo-400 rounded px-1.5 py-1 disabled:opacity-50"
+                      data-testid={`button-add-bed-${room.id}-${section.label}`}
+                    >
+                      <Plus className="w-2.5 h-2.5" />Add Bed
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap items-center">
           {room.beds.map((bed) => (
             <BedCell key={bed.id} bed={bed}
               onUpdateStatus={(status) => onUpdateBed(bed.id, status)}
@@ -1776,9 +1835,73 @@ function RoomCard({ room, roomTypes, onDeleteRoom, onToggleWashroom, isUpdatingW
               onUnblock={(note) => onUnblockBed(bed.id, note)}
             />
           ))}
-          {room.beds.length === 0 && <span className="text-xs text-slate-400 py-2">No beds in this room</span>}
+          {room.beds.length === 0 && <span className="text-xs text-slate-400 py-2 mr-1">No beds in this room</span>}
+          {onAddBed && (
+            <button
+              type="button"
+              onClick={() => openAddBed()}
+              disabled={isAddingBed}
+              className="inline-flex items-center gap-0.5 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors border border-dashed border-slate-300 hover:border-indigo-400 rounded px-2 py-1.5 disabled:opacity-50"
+              data-testid={`button-add-bed-${room.id}`}
+            >
+              <Plus className="w-3 h-3" />Add Bed
+            </button>
+          )}
         </div>
       )}
+
+      {/* Add Bed Dialog */}
+      <Dialog open={addBedOpen} onOpenChange={setAddBedOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Bed to Room {room.roomNumber}{addBedSection ? ` — Section ${addBedSection}` : ""}</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              A new available bed will be added to this room.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs font-medium text-slate-600">Bed Number</Label>
+              <Input
+                className="mt-1"
+                value={newBedNum}
+                onChange={e => setNewBedNum(e.target.value)}
+                placeholder="e.g. 701A-3"
+                data-testid="input-new-bed-number"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Auto-suggested based on existing beds. Edit if needed.</p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-slate-600">Room Type</Label>
+              <Select value={newBedRoomTypeId} onValueChange={setNewBedRoomTypeId}>
+                <SelectTrigger className="mt-1" data-testid="select-new-bed-roomtype">
+                  <SelectValue placeholder="Select room type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roomTypes.map(rt2 => (
+                    <SelectItem key={rt2.id} value={rt2.id}>
+                      {rt2.customName ? `${rt2.name} — ${rt2.customName}` : rt2.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-slate-400 mt-1">Defaults to this room's type. Change to assign a different type.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setAddBedOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={submitAddBed}
+              disabled={!newBedNum.trim() || isAddingBed}
+              data-testid="button-confirm-add-bed"
+            >
+              {isAddingBed ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+              Add Bed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
