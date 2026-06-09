@@ -827,7 +827,7 @@ export default function AdminLeads() {
                             <div className="flex items-center gap-2">
                               <DeviceIcon className="w-4 h-4 text-slate-400" />
                               <div>
-                                <p className="font-medium text-slate-800">{lead.studentName || lead.name}</p>
+                                <p className="font-medium text-slate-800">{lead.name}</p>
                                 {lead.source === "hsquare_dynamics" ? (
                                   <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
                                     Hsquare Dynamics
