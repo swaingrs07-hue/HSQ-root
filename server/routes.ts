@@ -24,6 +24,7 @@ import { getLeadRecommendations } from "./lead-recommendations";
 import { checkAndSendMilestone } from "./milestone-service";
 import { resolveCanonicalApex } from "./canonical-host";
 import { safeOptimizeHeroVideoIfMp4 } from "./lib/hero-video-optimizer";
+import { speechToText, textToSpeech, ensureCompatibleFormat } from "./replit_integrations/audio/client";
 
 const BED_HOLD_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -12233,6 +12234,41 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       } else {
         res.status(500).json({ error: "Failed to process message" });
       }
+    }
+  });
+
+  // Voice chatbot — STT → Gyan context → TTS
+  const voiceSizeLimit = (req: Request, res: Response, next: NextFunction) => {
+    const contentLength = parseInt(req.headers["content-length"] || "0", 10);
+    if (contentLength > 12 * 1024 * 1024) return res.status(413).json({ error: "Request too large" });
+    next();
+  };
+
+  app.post("/api/chatbot/voice", voiceSizeLimit, chatbotRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { audio, messages: chatHistory = [] } = req.body as { audio: string; messages: ChatMessage[] };
+      if (!audio) return res.status(400).json({ error: "Audio data (base64) is required" });
+
+      const rawBuffer = Buffer.from(audio, "base64");
+      const { buffer: audioBuffer, format: inputFormat } = await ensureCompatibleFormat(rawBuffer);
+      const transcript = await speechToText(audioBuffer, inputFormat);
+
+      const context = await getChatContext();
+      const userMessages: ChatMessage[] = [
+        ...chatHistory,
+        { role: "user" as const, content: transcript },
+      ];
+      const stream = await streamChatResponse(userMessages, context);
+      let responseText = "";
+      for await (const chunk of stream) responseText += chunk;
+
+      const audioResponseBuffer = await textToSpeech(responseText, "nova", "mp3");
+      const audioBase64 = audioResponseBuffer.toString("base64");
+
+      res.json({ transcript, response: responseText, audio: audioBase64 });
+    } catch (error: any) {
+      console.error("Voice chatbot error:", error);
+      res.status(500).json({ error: "Failed to process voice message" });
     }
   });
 

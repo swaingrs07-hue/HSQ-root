@@ -1,8 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { X, Send, Loader2, User, Minimize2, GripHorizontal, Sparkles, TerminalSquare } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X, Send, Loader2, User, Mic, Square, GripHorizontal, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import gyanAvatar from "@/assets/gyan-ai-avatar.png";
@@ -12,6 +11,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  isVoice?: boolean;
 }
 
 interface ChatbotSettings {
@@ -25,6 +25,66 @@ interface ChatbotSettings {
   outsideHoursMessage: string;
 }
 
+function useVoiceRecorder() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const startRecording = useCallback(async (): Promise<boolean> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mediaRecorder.start();
+      setIsRecording(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") { resolve(null); return; }
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        recorder.stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false);
+        resolve(blob);
+      };
+      recorder.stop();
+    });
+  }, []);
+
+  return { isRecording, isProcessing, setIsProcessing, startRecording, stopRecording };
+}
+
+const glass = {
+  panel: {
+    background: "rgba(10, 10, 18, 0.78)",
+    backdropFilter: "blur(40px) saturate(180%)",
+    WebkitBackdropFilter: "blur(40px) saturate(180%)",
+    border: "1px solid rgba(255,255,255,0.11)",
+    boxShadow: "0 32px 80px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08)",
+  } as React.CSSProperties,
+  surface: {
+    background: "rgba(255,255,255,0.055)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid rgba(255,255,255,0.12)",
+  } as React.CSSProperties,
+  user: {
+    background: "rgba(197,160,89,0.11)",
+    border: "1px solid rgba(197,160,89,0.22)",
+  } as React.CSSProperties,
+  divider: { borderTop: "1px solid rgba(255,255,255,0.07)" } as React.CSSProperties,
+};
+
+const SF = { fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display',system-ui,sans-serif" };
+
 export function ChatbotWidget() {
   const { data: settings } = useQuery<ChatbotSettings>({
     queryKey: ["/api/chatbot/settings"],
@@ -32,273 +92,236 @@ export function ChatbotWidget() {
   });
 
   const [isOpen, setIsOpen] = useState(false);
-  const getDefaultMessage = () => {
-    if (settings?.greetingMessage) {
-      return settings.greetingMessage;
-    }
-    return "Hello, I'm Gyan AI.\n\nI manage everything around your living experience — from bookings and rooms to meals, security, and support.\n\nThink of me as the central intelligence of Hsquareliving, keeping your stay smooth, smart, and stress-free.";
-  };
+  const [mode, setMode] = useState<"text" | "voice">("text");
+
+  const getDefaultMessage = () =>
+    settings?.greetingMessage ||
+    "Hi, I'm H Orbit.\n\nI manage your entire living experience — bookings, rooms, meals, security, and support.\n\nType a message or switch to Voice to speak.";
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: getDefaultMessage(),
-    },
+    { id: "welcome", role: "assistant", content: getDefaultMessage() },
   ]);
 
   useEffect(() => {
     if (settings?.greetingMessage) {
-      setMessages([{
-        id: "welcome",
-        role: "assistant",
-        content: settings.greetingMessage,
-      }]);
+      setMessages([{ id: "welcome", role: "assistant", content: settings.greetingMessage }]);
     }
   }, [settings?.greetingMessage]);
+
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const dragControls = useDragControls();
   const constraintsRef = useRef<HTMLDivElement>(null);
 
+  const { isRecording, isProcessing, setIsProcessing, startRecording, stopRecording } = useVoiceRecorder();
+
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]");
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+      const sc = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]");
+      if (sc) sc.scrollTop = sc.scrollHeight;
     }
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
+    if (isOpen && mode === "text") setTimeout(() => inputRef.current?.focus(), 80);
+  }, [isOpen, mode]);
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue.trim(),
-    };
-
-    const assistantMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: "",
-      isStreaming: true,
-    };
-
-    setMessages(prev => [...prev, userMessage, assistantMessage]);
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content: inputValue.trim() };
+    const asstMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: "assistant", content: "", isStreaming: true };
+    setMessages((prev) => [...prev, userMsg, asstMsg]);
     setInputValue("");
     setIsLoading(true);
-
     try {
-      const chatHistory = [...messages, userMessage].map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const response = await fetch("/api/chatbot/message", {
+      const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }));
+      const res = await fetch("/api/chatbot/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: chatHistory }),
+        body: JSON.stringify({ messages: history }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
-
-      const reader = response.body?.getReader();
+      if (!res.ok) throw new Error();
+      const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-
-      if (!reader) throw new Error("No reader available");
-
-      let accumulatedContent = "";
-      let buffer = "";
-
+      if (!reader) throw new Error();
+      let acc = "", buf = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr) continue;
-              const data = JSON.parse(jsonStr);
-
-              if (data.content) {
-                accumulatedContent += data.content;
-                setMessages(prev =>
-                  prev.map(m =>
-                    m.id === assistantMessage.id
-                      ? { ...m, content: accumulatedContent }
-                      : m
-                  )
-                );
-              }
-
-              if (data.done) {
-                setMessages(prev =>
-                  prev.map(m =>
-                    m.id === assistantMessage.id
-                      ? { ...m, isStreaming: false }
-                      : m
-                  )
-                );
-              }
-
-              if (data.leadCreated) {
-                console.log("Lead created:", data.leadId);
-              }
-            } catch {
-              // Skip malformed JSON - will be completed in next chunk
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6).trim());
+            if (data.content) {
+              acc += data.content;
+              setMessages((prev) => prev.map((m) => m.id === asstMsg.id ? { ...m, content: acc } : m));
             }
-          }
+            if (data.done) setMessages((prev) => prev.map((m) => m.id === asstMsg.id ? { ...m, isStreaming: false } : m));
+          } catch {}
         }
       }
-
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantMessage.id
-            ? { ...m, isStreaming: false }
-            : m
-        )
-      );
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === assistantMessage.id
-            ? { ...m, content: "Sorry, I encountered an error. Please try again.", isStreaming: false }
-            : m
-        )
-      );
+      setMessages((prev) => prev.map((m) => m.id === asstMsg.id ? { ...m, isStreaming: false } : m));
+    } catch {
+      setMessages((prev) => prev.map((m) =>
+        m.id === asstMsg.id ? { ...m, content: "Sorry, something went wrong. Please try again.", isStreaming: false } : m
+      ));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const handleVoice = async () => {
+    if (isRecording) {
+      setIsProcessing(true);
+      const blob = await stopRecording();
+      if (!blob) { setIsProcessing(false); return; }
+      const userMsgId = Date.now().toString();
+      const asstMsgId = (Date.now() + 1).toString();
+      setMessages((prev) => [
+        ...prev,
+        { id: userMsgId, role: "user", content: "🎤 …", isVoice: true },
+        { id: asstMsgId, role: "assistant", content: "", isStreaming: true },
+      ]);
+      try {
+        const base64 = await new Promise<string>((resolve) => {
+          const fr = new FileReader();
+          fr.onloadend = () => resolve((fr.result as string).split(",")[1]);
+          fr.readAsDataURL(blob);
+        });
+        const history = messages.map((m) => ({ role: m.role, content: m.content }));
+        const res = await fetch("/api/chatbot/voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audio: base64, messages: history }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setMessages((prev) => prev.map((m) =>
+          m.id === userMsgId ? { ...m, content: data.transcript || "🎤 Voice message" } : m
+        ));
+        setMessages((prev) => prev.map((m) =>
+          m.id === asstMsgId ? { ...m, content: data.response || "", isStreaming: false } : m
+        ));
+        if (data.audio) {
+          const src = `data:audio/mp3;base64,${data.audio}`;
+          if (!audioRef.current) audioRef.current = new Audio();
+          audioRef.current.src = src;
+          setIsPlayingAudio(true);
+          audioRef.current.onended = () => setIsPlayingAudio(false);
+          audioRef.current.play().catch(() => setIsPlayingAudio(false));
+        }
+      } catch {
+        setMessages((prev) => prev.map((m) =>
+          m.id === asstMsgId ? { ...m, content: "Couldn't process voice. Try again.", isStreaming: false } : m
+        ));
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      await startRecording();
     }
   };
 
-  if (settings?.enabled === false) {
-    return null;
-  }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  if (settings?.enabled === false) return null;
+
+  const statusLabel = isRecording ? "listening…" : isProcessing ? "processing…" : isPlayingAudio ? "speaking…" : "online";
 
   return (
     <>
-      {/* Drag constraints boundary - full viewport */}
+      <audio ref={audioRef} className="hidden" />
       <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            drag
-            dragControls={dragControls}
-            dragConstraints={constraintsRef}
-            dragElastic={0.1}
-            dragMomentum={false}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            drag dragControls={dragControls} dragConstraints={constraintsRef}
+            dragElastic={0.05} dragMomentum={false}
+            initial={{ opacity: 0, y: 20, scale: 0.93 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-24 right-4 z-50 w-[380px] max-w-[calc(100vw-32px)] rounded-2xl shadow-2xl overflow-hidden bg-[#0a0a0a] border border-white/10"
-            style={{ touchAction: "none" }}
+            exit={{ opacity: 0, y: 20, scale: 0.93 }}
+            transition={{ type: "spring", damping: 28, stiffness: 380 }}
+            className="fixed bottom-24 right-4 z-50 w-[390px] max-w-[calc(100vw-20px)] rounded-[28px] overflow-hidden"
+            style={{ ...glass.panel, touchAction: "none" }}
             data-testid="chatbot-window"
           >
-            {/* Pro-developer header — deep black with gold accent */}
+            {/* ── Header ── */}
             <div
-              className="px-4 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-white/10 bg-gradient-to-b from-[#111] to-[#0a0a0a]"
+              className="px-5 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing"
+              style={glass.divider}
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 rounded-xl bg-black/60 ring-1 ring-[#c5a059]/40 overflow-hidden flex items-center justify-center">
-                  <img src={gyanAvatar} alt="Gyan AI" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-[#0a0a0a]" />
+                <div className="relative w-10 h-10 rounded-2xl overflow-hidden flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,rgba(197,160,89,.18),rgba(100,160,255,.14))", border: "1px solid rgba(255,255,255,.14)" }}>
+                  <img src={gyanAvatar} alt="H Orbit" className="w-full h-full object-cover" />
+                  <span className={`absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full ring-1 ring-black/60 transition-colors duration-500 ${isPlayingAudio ? "bg-sky-400 animate-pulse" : isRecording ? "bg-red-400 animate-pulse" : "bg-emerald-400"}`} />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-white font-mono font-semibold text-sm tracking-tight">gyan.ai</h3>
-                    <span className="text-[10px] font-mono text-[#c5a059]">v1.0</span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-semibold text-[14px] tracking-[-0.01em]" style={SF}>H Orbit</h3>
+                    <span className="text-[9px] px-1.5 py-[2px] rounded-full text-[#c5a059]"
+                      style={{ background: "rgba(197,160,89,.11)", border: "1px solid rgba(197,160,89,.22)" }}>AI</span>
                   </div>
-                  <p className="text-white/50 text-[11px] flex items-center gap-1 font-mono">
-                    <GripHorizontal className="w-3 h-3" />
-                    drag • online
+                  <p className="text-white/35 text-[11px] flex items-center gap-1 mt-[-1px]" style={SF}>
+                    <GripHorizontal className="w-2.5 h-2.5" />
+                    {statusLabel}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
-                  onClick={() => setIsOpen(false)}
-                  data-testid="chatbot-minimize"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10"
-                  onClick={() => setIsOpen(false)}
-                  data-testid="chatbot-close"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+
+              <div className="flex items-center gap-2">
+                {/* Text / Voice toggle pill */}
+                <div className="flex items-center rounded-[10px] p-0.5 gap-0.5"
+                  style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.09)" }}>
+                  {(["text", "voice"] as const).map((m) => (
+                    <button key={m} onClick={() => setMode(m)}
+                      className="px-2.5 py-[5px] rounded-[8px] text-[11px] font-medium capitalize transition-all duration-200"
+                      style={{ ...SF, ...(mode === m ? { background: "rgba(255,255,255,.13)", color: "#fff" } : { color: "rgba(255,255,255,.38)" }) }}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setIsOpen(false)}
+                  className="w-7 h-7 rounded-xl flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+                  style={glass.surface} data-testid="chatbot-close">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            <ScrollArea ref={scrollAreaRef} className="h-[350px] p-4 bg-[#070707]">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden ${
-                        message.role === "assistant"
-                          ? "bg-black/60 ring-1 ring-[#c5a059]/30"
-                          : "bg-white/10 ring-1 ring-white/10"
-                      }`}
-                    >
-                      {message.role === "assistant" ? (
-                        <img src={gyanAvatar} alt="Gyan AI" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-4 h-4 text-white/70" />
-                      )}
+            {/* ── Messages ── */}
+            <ScrollArea ref={scrollAreaRef} className="h-[340px] p-4" style={{ background: "rgba(0,0,0,.18)" }}>
+              <div className="space-y-3">
+                {messages.map((msg) => (
+                  <motion.div key={msg.id}
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                    <div className="w-7 h-7 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden"
+                      style={msg.role === "assistant"
+                        ? { background: "rgba(197,160,89,.14)", border: "1px solid rgba(197,160,89,.22)" }
+                        : { background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.11)" }}>
+                      {msg.role === "assistant"
+                        ? <img src={gyanAvatar} alt="H Orbit" className="w-full h-full object-cover" />
+                        : <User className="w-3.5 h-3.5 text-white/60" />}
                     </div>
-                    <div
-                      className={`max-w-[75%] rounded-xl px-4 py-2.5 ${
-                        message.role === "assistant"
-                          ? "bg-white/[0.04] border border-white/10 text-white/90 rounded-tl-sm"
-                          : "bg-[#c5a059]/15 border border-[#c5a059]/30 text-white rounded-tr-sm"
-                      }`}
-                    >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {message.content}
-                        {message.isStreaming && (
-                          <span className="inline-block w-1.5 h-4 ml-0.5 bg-[#c5a059] animate-pulse" />
-                        )}
+                    <div className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 ${msg.role === "user" ? "rounded-tr-[6px]" : "rounded-tl-[6px]"}`}
+                      style={msg.role === "assistant" ? glass.surface : glass.user}>
+                      <p className="text-[13.5px] text-white/88 leading-[1.55] whitespace-pre-wrap" style={SF}>
+                        {msg.content}
+                        {msg.isStreaming && <span className="inline-block w-[5px] h-[14px] ml-0.5 rounded-[2px] bg-[#c5a059] animate-pulse" />}
                       </p>
                     </div>
                   </motion.div>
@@ -306,105 +329,116 @@ export function ChatbotWidget() {
               </div>
             </ScrollArea>
 
-            <div className="p-3 border-t border-white/10 bg-[#0a0a0a]">
-              <div className="flex gap-2 items-center">
-                <TerminalSquare className="w-4 h-4 text-[#c5a059]/70 shrink-0" />
-                <Input
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="ask gyan anything…"
-                  className="flex-1 bg-black/60 border-white/10 text-white placeholder:text-white/40 focus:border-[#c5a059]/50 focus:ring-[#c5a059]/20 font-mono text-sm"
-                  disabled={isLoading}
-                  data-testid="chatbot-input"
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={!inputValue.trim() || isLoading}
-                  className="bg-[#c5a059] hover:bg-[#d4b070] text-black h-9 w-9 p-0 shrink-0"
-                  data-testid="chatbot-send"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-[10px] text-white/30 text-center mt-2 font-mono">
-                powered by gpt-5-mini · end-to-end encrypted
+            {/* ── Input area ── */}
+            <div className="p-3.5" style={glass.divider}>
+              {mode === "text" ? (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Message H Orbit…"
+                    className="flex-1 text-[13.5px] text-white rounded-[14px] px-4 border-0 outline-none placeholder:text-white/28 focus-visible:ring-0 focus-visible:ring-offset-0 h-10"
+                    style={{ ...glass.surface, ...SF }}
+                    disabled={isLoading}
+                    data-testid="chatbot-input"
+                  />
+                  <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading}
+                    className="w-10 h-10 rounded-[14px] flex items-center justify-center transition-all duration-200 disabled:opacity-35 shrink-0"
+                    style={{ background: "rgba(197,160,89,.85)", border: "1px solid rgba(197,160,89,.5)" }}
+                    data-testid="chatbot-send">
+                    {isLoading
+                      ? <Loader2 className="w-4 h-4 text-black animate-spin" />
+                      : <Send className="w-4 h-4 text-black" />}
+                  </button>
+                </div>
+              ) : (
+                /* ── Voice mode ── */
+                <div className="flex flex-col items-center gap-2.5 py-1.5">
+                  <motion.button onClick={handleVoice} disabled={isProcessing}
+                    className="relative w-[68px] h-[68px] rounded-full flex items-center justify-center disabled:opacity-50"
+                    style={{
+                      background: isRecording ? "rgba(239,68,68,.15)" : "rgba(197,160,89,.12)",
+                      border: isRecording ? "1px solid rgba(239,68,68,.45)" : "1px solid rgba(197,160,89,.32)",
+                      backdropFilter: "blur(16px)",
+                    }}
+                    whileTap={{ scale: 0.9 }}
+                    data-testid="chatbot-mic">
+                    {isRecording && (
+                      <>
+                        <motion.span className="absolute inset-0 rounded-full"
+                          style={{ border: "1.5px solid rgba(239,68,68,.35)" }}
+                          animate={{ scale: [1, 1.45, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 1.4, repeat: Infinity }} />
+                        <motion.span className="absolute inset-[-10px] rounded-full"
+                          style={{ border: "1px solid rgba(239,68,68,.18)" }}
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+                          transition={{ duration: 1.4, repeat: Infinity, delay: 0.35 }} />
+                      </>
+                    )}
+                    {isProcessing
+                      ? <Loader2 className="w-6 h-6 text-white/60 animate-spin" />
+                      : isRecording
+                      ? <Square className="w-5 h-5 text-red-400 fill-red-400" />
+                      : <Mic className={`w-6 h-6 ${isPlayingAudio ? "text-sky-400" : "text-[#c5a059]"}`} />}
+                  </motion.button>
+                  <p className="text-[11px] text-white/35" style={SF}>
+                    {isRecording ? "tap to stop • listening…"
+                      : isProcessing ? "processing…"
+                      : isPlayingAudio ? "H Orbit is speaking…"
+                      : "tap mic to speak"}
+                  </p>
+                </div>
+              )}
+              <p className="text-[10px] text-white/18 text-center mt-2" style={SF}>
+                H Orbit · gpt-5-mini · end-to-end encrypted
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Pro-developer floating button: deep glass + gold ring + sparkles icon */}
+      {/* ── Floating button ── */}
       <motion.button
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        whileHover={{ scale: 1.06 }}
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.94 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center group"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center"
         style={{
-          background:
-            "linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.95) 100%)",
-          boxShadow:
-            "0 10px 40px rgba(197,160,89,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(197,160,89,0.4)",
-          backdropFilter: "blur(12px)",
+          background: "rgba(10,10,18,.88)",
+          backdropFilter: "blur(28px) saturate(180%)",
+          WebkitBackdropFilter: "blur(28px) saturate(180%)",
+          border: "1px solid rgba(197,160,89,.32)",
+          boxShadow: "0 12px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(197,160,89,.15)",
         }}
         data-testid="chatbot-toggle"
-        aria-label={isOpen ? "Close chat" : "Open Gyan AI chat"}
+        aria-label={isOpen ? "Close H Orbit" : "Open H Orbit AI"}
       >
-        {/* Animated outer ring */}
         {!isOpen && (
-          <motion.span
-            className="absolute inset-0 rounded-2xl pointer-events-none"
-            style={{ boxShadow: "0 0 0 0 rgba(197,160,89,0.6)" }}
-            animate={{
-              boxShadow: [
-                "0 0 0 0 rgba(197,160,89,0.5)",
-                "0 0 0 12px rgba(197,160,89,0)",
-                "0 0 0 0 rgba(197,160,89,0)",
-              ],
-            }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut" }}
-          />
+          <motion.span className="absolute inset-0 rounded-2xl"
+            style={{ border: "1px solid rgba(197,160,89,.4)" }}
+            animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.18, 1] }}
+            transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }} />
         )}
         <AnimatePresence mode="wait">
           {isOpen ? (
-            <motion.div
-              key="close"
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: 90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <X className="w-5 h-5 text-white/90" />
+            <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.14 }}>
+              <X className="w-5 h-5 text-white/85" />
             </motion.div>
           ) : (
-            <motion.div
-              key="open"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="relative"
-            >
-              <Sparkles className="w-5 h-5 text-[#c5a059] drop-shadow-[0_0_8px_rgba(197,160,89,0.6)]" />
+            <motion.div key="spark" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.14 }}>
+              <Sparkles className="w-5 h-5 text-[#c5a059] drop-shadow-[0_0_8px_rgba(197,160,89,.65)]" />
             </motion.div>
           )}
         </AnimatePresence>
-
         {!isOpen && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#c5a059] rounded-full flex items-center justify-center ring-2 ring-[#0a0a0a]"
-          >
-            <span className="text-[10px] text-black font-mono font-bold leading-none">AI</span>
+          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
+            className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center"
+            style={{ background: "rgba(197,160,89,.9)", border: "2px solid rgba(10,10,18,.9)" }}>
+            <span className="text-[9px] text-black font-bold leading-none">AI</span>
           </motion.span>
         )}
       </motion.button>
