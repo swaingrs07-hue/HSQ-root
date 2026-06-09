@@ -2310,7 +2310,7 @@ ${allPages.map(p => `  <url>
           if (u) userMap.set(uid, u.name);
         }
         const bookingIds = pageSlice.map((l: any) => l.linkedBookingId).filter(Boolean) as string[];
-        const bookingMap = new Map<string, { status: string; confirmedBy: string | null; confirmedByName: string | null; confirmedAt: Date | null }>();
+        const bookingMap = new Map<string, { status: string; confirmedBy: string | null; confirmedByName: string | null; confirmedAt: Date | null; studentName: string | null }>();
         for (const bid of bookingIds) {
           const b = await storage.getBooking(bid);
           if (b) {
@@ -2323,7 +2323,9 @@ ${allPages.map(p => `  <url>
                 if (cu) { confirmedByName = cu.name; userMap.set(b.confirmedBy, cu.name); }
               }
             }
-            bookingMap.set(bid, { status: b.status, confirmedBy: b.confirmedBy, confirmedByName, confirmedAt: b.confirmedAt });
+            const brd = (b.residentDetails as any) || {};
+            const studentName = brd.fullName || brd.name || null;
+            bookingMap.set(bid, { status: b.status, confirmedBy: b.confirmedBy, confirmedByName, confirmedAt: b.confirmedAt, studentName });
           }
         }
         const enrichedLeads = pageSlice.map((l: any) => ({
@@ -2332,6 +2334,7 @@ ${allPages.map(p => `  <url>
           assignedToName: l.assignedToId ? userMap.get(l.assignedToId) || null : null,
           convertedByName: l.convertedByUserId ? userMap.get(l.convertedByUserId) || null : null,
           linkedBooking: l.linkedBookingId ? bookingMap.get(l.linkedBookingId) || null : null,
+          studentName: l.linkedBookingId ? (bookingMap.get(l.linkedBookingId)?.studentName || null) : null,
         }));
 
         if (isPaginated) {
@@ -4517,8 +4520,10 @@ ${allPages.map(p => `  <url>
             customerEmail = lead.email || "";
           }
         }
-        // Final fallback: residentDetails (covers Gyan/walk-in bookings with no linked student or lead)
+        // residentDetails: prefer the resident's own name (filled in on the booking form)
+        // over the lead contact name which may be a parent/guardian
         const rd = (booking.residentDetails as any) || {};
+        if (rd.fullName || rd.name) customerName = rd.fullName || rd.name;
         if (!customerEmail) customerEmail = rd.email || "";
         if (!customerPhone) customerPhone = rd.phone || "";
         if (!customerName || customerName === "Unknown") customerName = rd.name || "Unknown";
@@ -6270,6 +6275,9 @@ ${allPages.map(p => `  <url>
           customerEmail = lead.email || "";
         }
       }
+      // Prefer resident's own name from residentDetails over lead contact name
+      const updRd = (updated?.residentDetails as any) || {};
+      if (updRd.fullName || updRd.name) customerName = updRd.fullName || updRd.name;
 
       autoResyncBookingToHms(req.params.id, "bed-shift");
 

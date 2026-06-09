@@ -653,7 +653,7 @@ export default function SalesDashboard() {
                     {getFilteredLeads().map((lead) => (
                       <TableRow key={lead.id} data-testid={`row-lead-${lead.id}`}>
                         <TableCell>
-                          <div className="font-medium">{lead.name}</div>
+                          <div className="font-medium">{lead.studentName || lead.name}</div>
                           {lead.createdByName && (
                             <p className="text-[10px] text-indigo-400 font-medium" data-testid={`text-lead-by-${lead.id}`}>
                               Lead by {lead.createdByName}
@@ -721,7 +721,7 @@ export default function SalesDashboard() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-[15px] truncate">{lead.name}</p>
+                          <p className="font-semibold text-[15px] truncate">{lead.studentName || lead.name}</p>
                           {lead.isLocked && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Locked</Badge>}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
