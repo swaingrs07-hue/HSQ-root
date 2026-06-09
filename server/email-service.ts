@@ -1266,7 +1266,7 @@ function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
                           <a href="https://apps.apple.com/in/app/hsquareconnect-app/id6759179340" target="_blank" style="display:block;text-align:center;background:#ffffff;color:#000000;text-decoration:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;">&#63743; App Store</a>
                         </td>
                         <td style="padding-left:8px;" width="50%">
-                          <a href="${data.baseUrl}/download/android" target="_blank" style="display:block;text-align:center;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;text-decoration:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;">&#9660; Android</a>
+                          <a href="https://play.google.com/store/apps/details?id=com.hsquareconnect.app" target="_blank" style="display:block;text-align:center;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;text-decoration:none;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:700;">&#9654; Google Play</a>
                         </td>
                       </tr>
                     </table>
