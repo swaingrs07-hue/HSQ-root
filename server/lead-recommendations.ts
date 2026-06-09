@@ -216,7 +216,7 @@ Output JSON schema:
 }`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Here are the current leads:\n${JSON.stringify(leadSummaries, null, 2)}\n\nProvide strategic engagement recommendations.` },

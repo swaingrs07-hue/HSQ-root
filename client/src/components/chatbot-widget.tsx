@@ -333,7 +333,7 @@ export function ChatbotWidget() {
                 </Button>
               </div>
               <p className="text-[10px] text-white/30 text-center mt-2 font-mono">
-                powered by gpt-4o-mini · end-to-end encrypted
+                powered by gpt-5-mini · end-to-end encrypted
               </p>
             </div>
           </motion.div>
