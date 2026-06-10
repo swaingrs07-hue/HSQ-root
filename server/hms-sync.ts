@@ -191,20 +191,30 @@ export async function syncBookingToHMS(bookingData: HMSSyncData): Promise<{
   }
 
   try {
+    // Normalize phone to 10-digit Indian number (strip country code / spaces)
+    const normalizedPhone = (bookingData.phone || "").replace(/\D/g, "").slice(-10);
+    const payload = { ...bookingData, phone: normalizedPhone };
+
     const response = await fetch(`${hmsUrl.replace(/\/+$/, "")}/sync/create-resident`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${hmsApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(bookingData),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      console.error(`[hms-sync] HMS returned ${response.status}: ${text.substring(0, 300)}`);
-      return { success: false, error: `HMS returned ${response.status}` };
+      console.error(`[hms-sync] HMS returned ${response.status}: ${text.substring(0, 500)}`);
+      let detail = "";
+      try {
+        const parsed = JSON.parse(text);
+        detail = parsed.error || parsed.message || parsed.detail || "";
+      } catch {}
+      const errMsg = detail ? `HMS ${response.status}: ${detail}` : `HMS returned ${response.status}`;
+      return { success: false, error: errMsg };
     }
 
     const result = await response.json();
