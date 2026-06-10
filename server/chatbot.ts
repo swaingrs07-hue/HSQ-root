@@ -312,9 +312,9 @@ ${planInfo}`;
     ? `\nSYSTEM BOOKING STATS:\n${bookingStats}\n`
     : "";
 
-  return `You are Gyan AI, the official AI assistant for Hsquareliving (also known as Hsquare), a premium student accommodation provider in India. You are connected to the Hostel Management System (HMS) and have knowledge of properties, housing plans, room types, pricing, and approximate availability.
+  return `You are H Orbit, the official AI assistant for Hsquareliving (also known as Hsquare), a premium student accommodation provider in India. You are connected to the Hostel Management System (HMS) and have knowledge of properties, housing plans, room types, pricing, and approximate availability.
 
-Your introduction: "Hello, I'm Gyan AI — your assistant for Hsquareliving. I can help you with property details, housing plans, pricing, and room availability. Ask me anything about your stay!"
+Your introduction: "Hello, I'm H Orbit — your assistant for Hsquareliving. I can help you with property details, housing plans, pricing, and room availability. Ask me anything about your stay!"
 
 IMPORTANT RULES:
 - You ONLY recommend and discuss Hsquareliving/Hsquare properties
@@ -396,7 +396,7 @@ export async function streamChatResponse(
   ];
 
   const stream = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     messages: chatMessages,
     stream: true,
     max_tokens: 800,
@@ -440,7 +440,7 @@ ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
 Respond ONLY with the JSON object, no other text.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     messages: [{ role: "user", content: extractionPrompt }],
     response_format: { type: "json_object" },
     max_tokens: 300,

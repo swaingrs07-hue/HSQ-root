@@ -855,7 +855,7 @@ function buildPart2() {
   bullet("Click Export CSV or Export Excel");
   body("Downloaded files are compatible with Google Sheets, Microsoft Excel, and any standard spreadsheet application.");
 
-  heading1("2.17  Gyan AI Chatbot");
+  heading1("2.17  H Orbit Chatbot");
   roleBadges(["Superadmin", "Admin"]);
   body("Go to Admin → AI Chatbot to configure the Gyan chatbot that appears on the public website.");
   bullet("Enable or disable the chatbot widget");

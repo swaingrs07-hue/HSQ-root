@@ -12272,6 +12272,69 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  // Streaming voice endpoint — sends transcript + text chunks + audio chunks via SSE
+  app.post("/api/chatbot/voice-stream", voiceSizeLimit, chatbotRateLimiter, async (req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (event: string, data: object) => {
+      try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
+    };
+
+    try {
+      const { audio, messages: chatHistory = [] } = req.body as { audio: string; messages: ChatMessage[] };
+      if (!audio) { send("error", { message: "Audio required" }); return res.end(); }
+
+      // 1. Transcribe audio with Whisper
+      const rawBuffer = Buffer.from(audio, "base64");
+      const { buffer: audioBuffer, format: inputFormat } = await ensureCompatibleFormat(rawBuffer);
+      const transcript = await speechToText(audioBuffer, inputFormat);
+      send("transcript", { text: transcript });
+
+      // 2. Stream GPT response and TTS sentence-by-sentence
+      const context = await getChatContext();
+      const userMessages: ChatMessage[] = [
+        ...chatHistory,
+        { role: "user" as const, content: transcript },
+      ];
+      const gptStream = await streamChatResponse(userMessages, context);
+
+      let pending = "";
+
+      const flushSentence = async (text: string) => {
+        const trimmed = text.trim();
+        if (trimmed.length < 2) return;
+        try {
+          const audioBuf = await textToSpeech(trimmed, "nova", "mp3");
+          send("audio", { data: audioBuf.toString("base64") });
+        } catch {}
+      };
+
+      for await (const chunk of gptStream) {
+        pending += chunk;
+        send("chunk", { content: chunk });
+        // Flush on natural sentence boundaries
+        const match = pending.search(/[.!?।]\s+/);
+        if (match !== -1 || pending.length > 220) {
+          const cutAt = match !== -1 ? match + 2 : pending.length;
+          const sentence = pending.slice(0, cutAt);
+          pending = pending.slice(cutAt);
+          await flushSentence(sentence);
+        }
+      }
+      if (pending.trim().length > 1) await flushSentence(pending);
+
+      send("done", {});
+      res.end();
+    } catch (error: any) {
+      console.error("Voice stream error:", error);
+      try { send("error", { message: "Processing failed" }); res.end(); } catch {}
+    }
+  });
+
   // Non-streaming endpoint for simple queries
   app.post("/api/chatbot/query", chatbotSizeLimit, chatbotRateLimiter, async (req: Request, res: Response) => {
     try {

@@ -25,28 +25,77 @@ interface ChatbotSettings {
   outsideHoursMessage: string;
 }
 
+// ── Voice recorder with VAD (Voice Activity Detection) ──────────────────────
 function useVoiceRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [volume, setVolume] = useState(0); // 0–1, drives waveform bars
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
+  const onSilenceCbRef = useRef<(() => void) | null>(null);
 
-  const startRecording = useCallback(async (): Promise<boolean> => {
+  const stopVAD = useCallback(() => {
+    if (vadIntervalRef.current) { clearInterval(vadIntervalRef.current); vadIntervalRef.current = null; }
+    if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
+    analyserRef.current = null;
+    silenceStartRef.current = null;
+    setVolume(0);
+  }, []);
+
+  const startRecording = useCallback(async (onSilence?: () => void): Promise<boolean> => {
     try {
+      onSilenceCbRef.current = onSilence || null;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+
+      // VAD via AudioContext
+      const audioCtx = new AudioContext();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      audioCtxRef.current = audioCtx;
+      analyserRef.current = analyser;
+      silenceStartRef.current = null;
+      const dataArr = new Uint8Array(analyser.frequencyBinCount);
+
+      vadIntervalRef.current = setInterval(() => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArr);
+        let rms = 0;
+        for (const v of dataArr) rms += (v - 128) ** 2;
+        rms = Math.sqrt(rms / dataArr.length) / 128;
+        setVolume(Math.min(rms * 5, 1));
+
+        if (rms < 0.018) {
+          if (!silenceStartRef.current) silenceStartRef.current = Date.now();
+          else if (Date.now() - silenceStartRef.current > 1600 && onSilenceCbRef.current) {
+            onSilenceCbRef.current();
+            onSilenceCbRef.current = null;
+            stopVAD();
+          }
+        } else {
+          silenceStartRef.current = null;
+        }
+      }, 80);
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
       chunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mediaRecorder.start();
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.start();
       setIsRecording(true);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [stopVAD]);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
+    stopVAD();
     return new Promise((resolve) => {
       const recorder = mediaRecorderRef.current;
       if (!recorder || recorder.state === "inactive") { resolve(null); return; }
@@ -58,11 +107,72 @@ function useVoiceRecorder() {
       };
       recorder.stop();
     });
-  }, []);
+  }, [stopVAD]);
 
-  return { isRecording, isProcessing, setIsProcessing, startRecording, stopRecording };
+  return { isRecording, isProcessing, setIsProcessing, volume, startRecording, stopRecording };
 }
 
+// ── Gapless streaming audio queue ────────────────────────────────────────────
+function useAudioQueue() {
+  const queueRef = useRef<string[]>([]);
+  const playingRef = useRef(false);
+  const currentRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const playNext = useCallback(() => {
+    if (queueRef.current.length === 0) {
+      playingRef.current = false;
+      setIsPlaying(false);
+      return;
+    }
+    const chunk = queueRef.current.shift()!;
+    const audio = new Audio(`data:audio/mp3;base64,${chunk}`);
+    currentRef.current = audio;
+    audio.onended = playNext;
+    audio.onerror = playNext;
+    audio.play().catch(playNext);
+  }, []);
+
+  const enqueue = useCallback((base64: string) => {
+    queueRef.current.push(base64);
+    if (!playingRef.current) {
+      playingRef.current = true;
+      setIsPlaying(true);
+      playNext();
+    }
+  }, [playNext]);
+
+  const stop = useCallback(() => {
+    queueRef.current = [];
+    if (currentRef.current) { currentRef.current.pause(); currentRef.current = null; }
+    playingRef.current = false;
+    setIsPlaying(false);
+  }, []);
+
+  return { enqueue, stop, isPlaying };
+}
+
+// ── Waveform bars ─────────────────────────────────────────────────────────────
+function WaveformBars({ volume, active, color = "#c5a059" }: { volume: number; active: boolean; color?: string }) {
+  const heights = [0.35, 0.6, 1.0, 0.6, 0.35, 0.8, 0.45];
+  return (
+    <div className="flex items-center gap-[3px] h-8">
+      {heights.map((base, i) => (
+        <motion.div
+          key={i}
+          className="w-[3px] rounded-full"
+          style={{ background: color }}
+          animate={active
+            ? { height: `${Math.max(4, (base * 0.4 + volume * base * 0.6) * 28)}px`, opacity: 0.7 + volume * 0.3 }
+            : { height: "4px", opacity: 0.25 }}
+          transition={{ duration: 0.08, ease: "easeOut", delay: i * 0.012 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Glass styles ──────────────────────────────────────────────────────────────
 const glass = {
   panel: {
     background: "rgba(10, 10, 18, 0.78)",
@@ -82,9 +192,9 @@ const glass = {
   } as React.CSSProperties,
   divider: { borderTop: "1px solid rgba(255,255,255,0.07)" } as React.CSSProperties,
 };
-
 const SF = { fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display',system-ui,sans-serif" };
 
+// ── Main widget ───────────────────────────────────────────────────────────────
 export function ChatbotWidget() {
   const { data: settings } = useQuery<ChatbotSettings>({
     queryKey: ["/api/chatbot/settings"],
@@ -94,12 +204,12 @@ export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"text" | "voice">("text");
 
-  const getDefaultMessage = () =>
+  const defaultGreeting = () =>
     settings?.greetingMessage ||
     "Hi, I'm H Orbit.\n\nI manage your entire living experience — bookings, rooms, meals, security, and support.\n\nType a message or switch to Voice to speak.";
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "welcome", role: "assistant", content: getDefaultMessage() },
+    { id: "welcome", role: "assistant", content: defaultGreeting() },
   ]);
 
   useEffect(() => {
@@ -110,14 +220,13 @@ export function ChatbotWidget() {
 
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const dragControls = useDragControls();
   const constraintsRef = useRef<HTMLDivElement>(null);
 
-  const { isRecording, isProcessing, setIsProcessing, startRecording, stopRecording } = useVoiceRecorder();
+  const { isRecording, isProcessing, setIsProcessing, volume, startRecording, stopRecording } = useVoiceRecorder();
+  const { enqueue, stop: stopAudio, isPlaying } = useAudioQueue();
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -130,6 +239,7 @@ export function ChatbotWidget() {
     if (isOpen && mode === "text") setTimeout(() => inputRef.current?.focus(), 80);
   }, [isOpen, mode]);
 
+  // ── Text chat ─────────────────────────────────────────────────────────────
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
     const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content: inputValue.trim() };
@@ -177,57 +287,102 @@ export function ChatbotWidget() {
     }
   };
 
-  const handleVoice = async () => {
-    if (isRecording) {
-      setIsProcessing(true);
-      const blob = await stopRecording();
-      if (!blob) { setIsProcessing(false); return; }
-      const userMsgId = Date.now().toString();
-      const asstMsgId = (Date.now() + 1).toString();
-      setMessages((prev) => [
-        ...prev,
-        { id: userMsgId, role: "user", content: "🎤 …", isVoice: true },
-        { id: asstMsgId, role: "assistant", content: "", isStreaming: true },
-      ]);
-      try {
-        const base64 = await new Promise<string>((resolve) => {
-          const fr = new FileReader();
-          fr.onloadend = () => resolve((fr.result as string).split(",")[1]);
-          fr.readAsDataURL(blob);
-        });
-        const history = messages.map((m) => ({ role: m.role, content: m.content }));
-        const res = await fetch("/api/chatbot/voice", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio: base64, messages: history }),
-        });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setMessages((prev) => prev.map((m) =>
-          m.id === userMsgId ? { ...m, content: data.transcript || "🎤 Voice message" } : m
-        ));
-        setMessages((prev) => prev.map((m) =>
-          m.id === asstMsgId ? { ...m, content: data.response || "", isStreaming: false } : m
-        ));
-        if (data.audio) {
-          const src = `data:audio/mp3;base64,${data.audio}`;
-          if (!audioRef.current) audioRef.current = new Audio();
-          audioRef.current.src = src;
-          setIsPlayingAudio(true);
-          audioRef.current.onended = () => setIsPlayingAudio(false);
-          audioRef.current.play().catch(() => setIsPlayingAudio(false));
+  // ── Streaming voice pipeline ──────────────────────────────────────────────
+  const processVoiceBlob = useCallback(async (blob: Blob) => {
+    setIsProcessing(true);
+    const base64 = await new Promise<string>((resolve) => {
+      const fr = new FileReader();
+      fr.onloadend = () => resolve((fr.result as string).split(",")[1]);
+      fr.readAsDataURL(blob);
+    });
+
+    const userMsgId = Date.now().toString();
+    const asstMsgId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, role: "user", content: "🎤 …", isVoice: true },
+      { id: asstMsgId, role: "assistant", content: "", isStreaming: true },
+    ]);
+
+    try {
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const res = await fetch("/api/chatbot/voice-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio: base64, messages: history }),
+      });
+      if (!res.ok) throw new Error();
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let currentEvent = "";
+      let fullText = "";
+      let firstAudio = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEvent === "transcript") {
+                setMessages((prev) => prev.map((m) =>
+                  m.id === userMsgId ? { ...m, content: data.text || "🎤 Voice message" } : m
+                ));
+                setIsProcessing(false);
+              } else if (currentEvent === "chunk") {
+                fullText += data.content;
+                setMessages((prev) => prev.map((m) =>
+                  m.id === asstMsgId ? { ...m, content: fullText } : m
+                ));
+                if (firstAudio) { firstAudio = false; }
+              } else if (currentEvent === "audio") {
+                enqueue(data.data);
+              } else if (currentEvent === "done") {
+                setMessages((prev) => prev.map((m) =>
+                  m.id === asstMsgId ? { ...m, isStreaming: false } : m
+                ));
+              } else if (currentEvent === "error") {
+                throw new Error(data.message);
+              }
+            } catch {}
+          }
         }
-      } catch {
-        setMessages((prev) => prev.map((m) =>
-          m.id === asstMsgId ? { ...m, content: "Couldn't process voice. Try again.", isStreaming: false } : m
-        ));
-      } finally {
-        setIsProcessing(false);
       }
-    } else {
-      await startRecording();
+      setMessages((prev) => prev.map((m) => m.id === asstMsgId ? { ...m, isStreaming: false } : m));
+    } catch {
+      setMessages((prev) => prev.map((m) =>
+        m.id === asstMsgId ? { ...m, content: "Couldn't process voice. Please try again.", isStreaming: false } : m
+      ));
+    } finally {
+      setIsProcessing(false);
     }
-  };
+  }, [messages, enqueue, setIsProcessing]);
+
+  const handleMicTap = useCallback(async () => {
+    // If AI is speaking — interrupt it
+    if (isPlaying) { stopAudio(); return; }
+
+    if (isRecording) {
+      // Manual stop — don't wait for VAD
+      const blob = await stopRecording();
+      if (blob && blob.size > 1000) await processVoiceBlob(blob);
+    } else {
+      // Start recording with auto-stop on silence
+      await startRecording(async () => {
+        const blob = await stopRecording();
+        if (blob && blob.size > 1000) await processVoiceBlob(blob);
+      });
+    }
+  }, [isPlaying, isRecording, stopAudio, startRecording, stopRecording, processVoiceBlob]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -235,11 +390,11 @@ export function ChatbotWidget() {
 
   if (settings?.enabled === false) return null;
 
-  const statusLabel = isRecording ? "listening…" : isProcessing ? "processing…" : isPlayingAudio ? "speaking…" : "online";
+  const voiceState = isRecording ? "listening" : isProcessing ? "thinking" : isPlaying ? "speaking" : "idle";
+  const statusLabel = voiceState === "listening" ? "listening…" : voiceState === "thinking" ? "thinking…" : voiceState === "speaking" ? "speaking…" : "online";
 
   return (
     <>
-      <audio ref={audioRef} className="hidden" />
       <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
 
       <AnimatePresence>
@@ -256,16 +411,14 @@ export function ChatbotWidget() {
             data-testid="chatbot-window"
           >
             {/* ── Header ── */}
-            <div
-              className="px-5 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing"
-              style={glass.divider}
-              onPointerDown={(e) => dragControls.start(e)}
-            >
+            <div className="px-5 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing"
+              style={glass.divider} onPointerDown={(e) => dragControls.start(e)}>
               <div className="flex items-center gap-3">
                 <div className="relative w-10 h-10 rounded-2xl overflow-hidden flex-shrink-0"
                   style={{ background: "linear-gradient(135deg,rgba(197,160,89,.18),rgba(100,160,255,.14))", border: "1px solid rgba(255,255,255,.14)" }}>
                   <img src={gyanAvatar} alt="H Orbit" className="w-full h-full object-cover" />
-                  <span className={`absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full ring-1 ring-black/60 transition-colors duration-500 ${isPlayingAudio ? "bg-sky-400 animate-pulse" : isRecording ? "bg-red-400 animate-pulse" : "bg-emerald-400"}`} />
+                  <span className={`absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full ring-1 ring-black/60 transition-colors duration-500
+                    ${isPlaying ? "bg-sky-400 animate-pulse" : isRecording ? "bg-red-400 animate-pulse" : "bg-emerald-400"}`} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -281,7 +434,6 @@ export function ChatbotWidget() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Text / Voice toggle pill */}
                 <div className="flex items-center rounded-[10px] p-0.5 gap-0.5"
                   style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.09)" }}>
                   {(["text", "voice"] as const).map((m) => (
@@ -355,44 +507,106 @@ export function ChatbotWidget() {
                 </div>
               ) : (
                 /* ── Voice mode ── */
-                <div className="flex flex-col items-center gap-2.5 py-1.5">
-                  <motion.button onClick={handleVoice} disabled={isProcessing}
-                    className="relative w-[68px] h-[68px] rounded-full flex items-center justify-center disabled:opacity-50"
+                <div className="flex flex-col items-center gap-3 py-1">
+
+                  {/* Waveform / status visual */}
+                  <div className="h-8 flex items-center justify-center">
+                    {voiceState === "idle" && (
+                      <p className="text-[11px] text-white/28" style={SF}>tap to speak · auto-stops on silence</p>
+                    )}
+                    {voiceState === "listening" && (
+                      <WaveformBars volume={volume} active={true} color="#ef4444" />
+                    )}
+                    {voiceState === "thinking" && (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 text-[#c5a059] animate-spin" />
+                        <span className="text-[11px] text-white/40" style={SF}>H Orbit is thinking…</span>
+                      </div>
+                    )}
+                    {voiceState === "speaking" && (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <WaveformBars volume={0.5 + Math.sin(Date.now() / 200) * 0.3} active={true} color="#38bdf8" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mic / Stop button */}
+                  <motion.button
+                    onClick={handleMicTap}
+                    disabled={isProcessing}
+                    className="relative w-[68px] h-[68px] rounded-full flex items-center justify-center disabled:opacity-40"
                     style={{
-                      background: isRecording ? "rgba(239,68,68,.15)" : "rgba(197,160,89,.12)",
-                      border: isRecording ? "1px solid rgba(239,68,68,.45)" : "1px solid rgba(197,160,89,.32)",
+                      background: isRecording
+                        ? "rgba(239,68,68,.15)"
+                        : isPlaying
+                        ? "rgba(56,189,248,.12)"
+                        : "rgba(197,160,89,.12)",
+                      border: isRecording
+                        ? "1px solid rgba(239,68,68,.45)"
+                        : isPlaying
+                        ? "1px solid rgba(56,189,248,.35)"
+                        : "1px solid rgba(197,160,89,.32)",
                       backdropFilter: "blur(16px)",
                     }}
-                    whileTap={{ scale: 0.9 }}
-                    data-testid="chatbot-mic">
+                    whileTap={{ scale: 0.88 }}
+                    data-testid="chatbot-mic"
+                  >
+                    {/* Pulse rings while recording */}
                     {isRecording && (
                       <>
                         <motion.span className="absolute inset-0 rounded-full"
                           style={{ border: "1.5px solid rgba(239,68,68,.35)" }}
-                          animate={{ scale: [1, 1.45, 1], opacity: [0.5, 0, 0.5] }}
-                          transition={{ duration: 1.4, repeat: Infinity }} />
-                        <motion.span className="absolute inset-[-10px] rounded-full"
+                          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 1.3, repeat: Infinity }} />
+                        <motion.span className="absolute inset-[-12px] rounded-full"
                           style={{ border: "1px solid rgba(239,68,68,.18)" }}
-                          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
-                          transition={{ duration: 1.4, repeat: Infinity, delay: 0.35 }} />
+                          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0, 0.3] }}
+                          transition={{ duration: 1.3, repeat: Infinity, delay: 0.3 }} />
                       </>
                     )}
-                    {isProcessing
-                      ? <Loader2 className="w-6 h-6 text-white/60 animate-spin" />
-                      : isRecording
-                      ? <Square className="w-5 h-5 text-red-400 fill-red-400" />
-                      : <Mic className={`w-6 h-6 ${isPlayingAudio ? "text-sky-400" : "text-[#c5a059]"}`} />}
+                    {/* Pulse rings while speaking */}
+                    {isPlaying && (
+                      <motion.span className="absolute inset-0 rounded-full"
+                        style={{ border: "1.5px solid rgba(56,189,248,.3)" }}
+                        animate={{ scale: [1, 1.45, 1], opacity: [0.5, 0, 0.5] }}
+                        transition={{ duration: 1.6, repeat: Infinity }} />
+                    )}
+
+                    <AnimatePresence mode="wait">
+                      {isProcessing ? (
+                        <motion.div key="spin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                          <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
+                        </motion.div>
+                      ) : isRecording ? (
+                        <motion.div key="stop" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                          <Square className="w-5 h-5 text-red-400 fill-red-400" />
+                        </motion.div>
+                      ) : isPlaying ? (
+                        <motion.div key="interrupt" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                          <Square className="w-5 h-5 text-sky-400 fill-sky-400" />
+                        </motion.div>
+                      ) : (
+                        <motion.div key="mic" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}>
+                          <Mic className="w-6 h-6 text-[#c5a059]" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.button>
-                  <p className="text-[11px] text-white/35" style={SF}>
-                    {isRecording ? "tap to stop • listening…"
-                      : isProcessing ? "processing…"
-                      : isPlayingAudio ? "H Orbit is speaking…"
-                      : "tap mic to speak"}
+
+                  {/* Context label */}
+                  <p className="text-[11px] text-white/30" style={SF}>
+                    {isRecording
+                      ? "tap to stop · auto-stops on silence"
+                      : isPlaying
+                      ? "tap to interrupt"
+                      : isProcessing
+                      ? ""
+                      : ""}
                   </p>
                 </div>
               )}
               <p className="text-[10px] text-white/18 text-center mt-2" style={SF}>
-                H Orbit · gpt-5-mini · end-to-end encrypted
+                H Orbit · gpt-4o-mini · end-to-end encrypted
               </p>
             </div>
           </motion.div>

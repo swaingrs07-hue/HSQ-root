@@ -37,7 +37,7 @@ Preferred communication style: Simple, everyday language.
 -   **Season/Batch CRM Module**: Academic season/batch management and resident status tracking.
 -   **HMS Property Sync**: Bidirectional synchronization with an external Hostel Management System.
 -   **Package Upgrade System**: Allows upgrading booking packages with price calculation.
--   **Gyan AI Chatbot**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data.
+-   **H Orbit Chatbot**: AI chatbot powered by OpenAI GPT-4o-mini, integrated with live HMS data.
 -   **Public Registration Form**: Shareable `/apply` page for pre-registration with admin review.
 -   **SEO**: Human-readable URL slugs, dynamic sitemap, JSON-LD, Open Graph/Twitter Card tags, and server-side meta tag injection.
 -   **Scoped Access**: Sales executives and frontdesk users have property-specific visibility based on assignments.
@@ -75,6 +75,6 @@ Preferred communication style: Simple, everyday language.
 
 ### Integrations
 -   **Instagram Graph API**: For Instagram feed integration.
--   **OpenAI GPT-4o-mini**: For the Gyan AI Chatbot.
+-   **OpenAI GPT-4o-mini**: For the H Orbit Chatbot.
 -   **Hostel Management System (HMS)**: External system for property and booking synchronization.
 -   **Resend**: Email delivery service.

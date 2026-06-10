@@ -290,7 +290,7 @@ export default function FAQ() {
           </div>
           {!aiResponse && !aiLoading && (
             <p className="text-xs text-white/20 mt-3 max-w-lg mx-auto">
-              Type your question and press Enter or click Ask AI for an instant answer powered by Gyan AI
+              Type your question and press Enter or click Ask AI for an instant answer powered by H Orbit
             </p>
           )}
         </motion.div>
@@ -319,7 +319,7 @@ export default function FAQ() {
                         <Bot className="w-5 h-5 text-black" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white/80">Gyan AI</p>
+                        <p className="text-sm font-semibold text-white/80">H Orbit</p>
                         <p className="text-xs text-white/30">Hsquare Living Assistant</p>
                       </div>
                       <div className="ml-auto">
@@ -347,7 +347,7 @@ export default function FAQ() {
                     {!aiLoading && aiResponse && (
                       <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-center gap-2 text-xs text-white/20">
                         <Sparkles className="w-3 h-3" />
-                        <span>Powered by Gyan AI — answers may vary. For detailed queries, <Link href="/contact" className="text-amber-400/60 hover:text-amber-400 transition-colors">contact our team</Link>.</span>
+                        <span>Powered by H Orbit — answers may vary. For detailed queries, <Link href="/contact" className="text-amber-400/60 hover:text-amber-400 transition-colors">contact our team</Link>.</span>
                       </div>
                     )}
                   </div>

@@ -270,7 +270,7 @@ export default function AdminChatbot() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">AI Chatbot Control Panel</h1>
-            <p className="text-muted-foreground">Manage Gyan AI behavior, knowledge, and conversations</p>
+            <p className="text-muted-foreground">Manage H Orbit behavior, knowledge, and conversations</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -490,7 +490,7 @@ export default function AdminChatbot() {
           <Card>
             <CardHeader>
               <CardTitle>Bot Personality & Behavior</CardTitle>
-              <CardDescription>Configure how Gyan AI interacts with visitors</CardDescription>
+              <CardDescription>Configure how H Orbit interacts with visitors</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -501,7 +501,7 @@ export default function AdminChatbot() {
                     data-testid="input-bot-name"
                     value={editingSettings.botName ?? settings?.botName ?? ""}
                     onChange={(e) => setEditingSettings({ ...editingSettings, botName: e.target.value })}
-                    placeholder="Gyan AI"
+                    placeholder="H Orbit"
                   />
                 </div>
                 <div className="space-y-2">
@@ -565,7 +565,7 @@ export default function AdminChatbot() {
                   data-testid="textarea-greeting"
                   value={editingSettings.greetingMessage ?? settings?.greetingMessage ?? ""}
                   onChange={(e) => setEditingSettings({ ...editingSettings, greetingMessage: e.target.value })}
-                  placeholder="Hello! I'm Gyan AI, your personal assistant..."
+                  placeholder="Hello! I'm H Orbit, your personal assistant..."
                   rows={3}
                 />
               </div>
