@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users, Trophy, Send } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users, Trophy, Send, Layers } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -464,6 +464,7 @@ export default function AdminSettings() {
   const setFlagMutation = useSetFeatureFlag();
   const hotelsPublic = !!flags.hotels_public;
   const bookingsEnabled = flags.bookings_enabled !== false;
+  const floorSelectionPublic = !!flags.show_floor_selection;
 
   const handleBookingsToggle = async (enabled: boolean) => {
     try {
@@ -473,6 +474,20 @@ export default function AdminSettings() {
         description: enabled
           ? "Regular users can now browse and book rooms online."
           : "Public visitors cannot submit new bookings. Staff and admins are unaffected.",
+      });
+    } catch (e: any) {
+      toast({ title: "Failed to update", description: e?.message || "Could not save the setting.", variant: "destructive" });
+    }
+  };
+
+  const handleFloorSelectionToggle = async (enabled: boolean) => {
+    try {
+      await setFlagMutation.mutateAsync({ key: "show_floor_selection", enabled });
+      toast({
+        title: enabled ? "Floor & Bed selection is now VISIBLE to users" : "Floor & Bed selection HIDDEN from users",
+        description: enabled
+          ? "Regular users can now browse floors and pick their own bed while booking."
+          : "Users will no longer see the floor/bed picker. Staff and admins are unaffected.",
       });
     } catch (e: any) {
       toast({ title: "Failed to update", description: e?.message || "Could not save the setting.", variant: "destructive" });
@@ -677,6 +692,58 @@ export default function AdminSettings() {
                 <p className="text-xs text-slate-500">
                   Tip: Pause bookings during maintenance, off-season, or when rooms are under review.
                   Flip back ON when you&apos;re ready to accept new residents.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {isSuperadmin && (
+            <Card data-testid="card-floor-selection-toggle">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="w-5 h-5" />
+                  Floor &amp; Bed Selection for Users
+                </CardTitle>
+                <CardDescription>
+                  Control whether regular users can see and pick their own floor and bed during booking.
+                  Staff, admins, and frontdesk can always access this view regardless of this setting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div
+                  className="flex items-center justify-between p-4 rounded-lg border"
+                  style={{
+                    background: floorSelectionPublic ? "rgb(240 253 244)" : "rgb(248 250 252)",
+                    borderColor: floorSelectionPublic ? "rgb(34 197 94 / 0.3)" : "rgb(226 232 240)",
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: floorSelectionPublic ? "rgb(187 247 208)" : "rgb(226 232 240)" }}
+                    >
+                      <Layers className="w-5 h-5" style={{ color: floorSelectionPublic ? "rgb(22 163 74)" : "rgb(71 85 105)" }} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">
+                        {floorSelectionPublic ? "Floor & Bed picker is VISIBLE to users" : "Floor & Bed picker is HIDDEN from users"}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {floorSelectionPublic
+                          ? "Users can browse floors, see bed availability, and select their preferred bed while booking."
+                          : "The floor and bed selection section is hidden. Users complete booking without choosing a specific bed."}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={floorSelectionPublic}
+                    disabled={flagsLoading || setFlagMutation.isPending}
+                    onCheckedChange={handleFloorSelectionToggle}
+                    data-testid="switch-floor-selection"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Tip: Keep this OFF when you want to assign beds manually. Turn ON to let users self-select their floor and bed during the booking flow.
                 </p>
               </CardContent>
             </Card>

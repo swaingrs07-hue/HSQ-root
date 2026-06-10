@@ -1512,11 +1512,12 @@ function PropertyBooking() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, token } = useAuth();
-  const { isBookingsEnabled } = useFeatureFlags();
+  const { isBookingsEnabled, isFloorSelectionPublic } = useFeatureFlags();
   const staffRoles = new Set(["admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff"]);
   const isStaff = !!(user?.role && staffRoles.has(user.role));
   const isAdmin = !!(user?.role && ["admin", "superadmin", "manager"].includes(user.role));
   const bookingsPaused = !isBookingsEnabled && !isStaff;
+  const canSeeFloorSelection = isStaff || isFloorSelectionPublic;
   const [soldOutDialogOpen, setSoldOutDialogOpen] = useState(false);
   const [soldOutNote, setSoldOutNote] = useState("");
   const [soldOutSaving, setSoldOutSaving] = useState(false);
@@ -2065,7 +2066,7 @@ function PropertyBooking() {
                   <p className="text-xs text-white/30 mt-1">New registrations open soon. Contact us for the waitlist.</p>
                 </div>
               </div>
-            ) : (
+            ) : canSeeFloorSelection ? (
               <div ref={floorSectionRef} style={{ scrollMarginTop: "80px" }}>
                 <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
                   <Layers className="w-5 h-5 text-amber-500" />
@@ -2073,7 +2074,7 @@ function PropertyBooking() {
                 </h2>
                 <FloorBedSelector property={property} onSelectBed={handleSelectBed} filterRoomTypeId={null} autoExpand={selectedPlan?.id || null} selectedPlan={selectedPlan} />
               </div>
-            )}
+            ) : null}
 
             {bookingsPaused && (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm mb-2">

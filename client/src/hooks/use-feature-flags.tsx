@@ -31,6 +31,8 @@ export function useFeatureFlags() {
     isHotelsPublic: !!flags.hotels_public,
     // bookings_enabled defaults true — false means only admins/staff can book
     isBookingsEnabled: flags.bookings_enabled !== false,
+    // show_floor_selection defaults false — only shown to public users when superadmin enables it
+    isFloorSelectionPublic: !!flags.show_floor_selection,
   };
 }
 
