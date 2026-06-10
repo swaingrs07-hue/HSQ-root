@@ -7599,12 +7599,6 @@ ${allPages.map(p => `  <url>
         console.log(`[HMS Auto-Sync] Property ${property.name} is not linked to HMS — skipping sync for booking ${booking.bookingCode}`);
         return;
       }
-      const resolvedPropertyCode = property.propertyCode;
-      if (!resolvedPropertyCode) {
-        console.warn(`[HMS Auto-Sync] Property ${property.name} is HMS-linked but has no propertyCode — skipping sync`);
-        return;
-      }
-
       const { getPropertyCode: getCode, cancelResidentOnHMS } = await import("./hms-sync.js");
       const resolvedPropertyCode = property.propertyCode || getCode(property.name);
       if (!resolvedPropertyCode) {
@@ -7763,7 +7757,6 @@ ${allPages.map(p => `  <url>
       if (photoUrl) syncData.photoUrl = photoUrl;
       if (documentUrls.length > 0) syncData.documentUrls = documentUrls;
 
-      const { syncBookingToHMS } = await import("./hms-sync.js");
       if (!syncData.propertyCode) {
         console.warn(`[HMS Auto-Sync] No valid property code for booking ${booking.bookingCode} (property: ${property.name}) — skipping sync`);
         return;
