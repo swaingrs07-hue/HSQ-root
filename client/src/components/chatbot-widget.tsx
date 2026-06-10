@@ -606,7 +606,7 @@ export function ChatbotWidget() {
                 </div>
               )}
               <p className="text-[10px] text-white/18 text-center mt-2" style={SF}>
-                H Orbit · gpt-4o-mini · end-to-end encrypted
+                H Orbit · powered by AI · end-to-end encrypted
               </p>
             </div>
           </motion.div>

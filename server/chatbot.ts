@@ -399,7 +399,7 @@ export async function streamChatResponse(
     model: "gpt-4o-mini",
     messages: chatMessages,
     stream: true,
-    max_tokens: 800,
+    max_completion_tokens: 800,
     temperature: 0.7,
   });
 
@@ -443,7 +443,7 @@ Respond ONLY with the JSON object, no other text.`;
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: extractionPrompt }],
     response_format: { type: "json_object" },
-    max_tokens: 300,
+    max_completion_tokens: 300,
     temperature: 0,
   });
 
