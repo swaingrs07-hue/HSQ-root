@@ -396,10 +396,10 @@ export async function streamChatResponse(
   ];
 
   const stream = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     messages: chatMessages,
     stream: true,
-    max_tokens: 800,
+    max_completion_tokens: 800,
     temperature: 0.7,
   });
 
@@ -440,10 +440,10 @@ ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
 Respond ONLY with the JSON object, no other text.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     messages: [{ role: "user", content: extractionPrompt }],
     response_format: { type: "json_object" },
-    max_tokens: 300,
+    max_completion_tokens: 300,
     temperature: 0,
   });
 
