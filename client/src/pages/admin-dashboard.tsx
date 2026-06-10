@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Brain, Sparkles, Target, AlertCircle, PhoneCall, Eye, MessageSquare, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package, BookOpen, ExternalLink } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Sparkles, Target, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package, BookOpen, ExternalLink } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -243,22 +243,6 @@ export default function AdminDashboard() {
   }>({ totalProperties: 0, propertiesWithExecs: 0, unassignedLeads: 0 });
   const [assignmentLoading, setAssignmentLoading] = useState(false);
 
-  // AI Recommendations
-  const [aiRecommendations, setAiRecommendations] = useState<{
-    generatedAt: string;
-    recommendations: Array<{
-      leadId: string;
-      leadName: string;
-      priority: "urgent" | "high" | "medium" | "low";
-      type: "follow_up" | "re_engage" | "escalate" | "nurture" | "close" | "at_risk";
-      title: string;
-      rationale: string;
-      suggestedAction: string;
-      confidence: number;
-    }>;
-  } | null>(null);
-  const [recoLoading, setRecoLoading] = useState(false);
-
   const getAuthToken = () => {
     try {
       const authData = localStorage.getItem("hsquare_auth");
@@ -280,7 +264,6 @@ export default function AdminDashboard() {
     loadChartData();
     loadOverdueFollowUps();
     loadPropertyAssignmentStats();
-    loadAIRecommendations();
   }, []);
   
   const loadOverdueFollowUps = async () => {
@@ -324,24 +307,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadAIRecommendations = async (forceRefresh = false) => {
-    try {
-      setRecoLoading(true);
-      const token = getAuthToken();
-      if (!token) return;
-      const url = forceRefresh ? "/api/admin/lead-recommendations?refresh=true" : "/api/admin/lead-recommendations";
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setAiRecommendations(data);
-      }
-    } catch (error) {
-      console.error("Failed to load AI recommendations:", error);
-    } finally {
-      setRecoLoading(false);
-    }
-  };
-  
   const loadChartData = async () => {
     setChartsLoading(true);
     setChartsError({});
@@ -1077,7 +1042,6 @@ export default function AdminDashboard() {
     loadChartData();
     loadOverdueFollowUps();
     loadPropertyAssignmentStats();
-    loadAIRecommendations(true);
   };
 
   return (
@@ -1568,118 +1532,6 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
                 
-                {/* AI Engagement Recommendations */}
-                <Card className="border-0 shadow-lg overflow-hidden">
-                  <CardHeader className="pb-3 bg-gradient-to-r from-violet-50 to-indigo-50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <div className="p-1.5 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg">
-                            <Brain className="h-4 w-4 text-white" />
-                          </div>
-                          AI Engagement Insights
-                          <Badge className="bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-[10px] border-0">
-                            AI-Powered
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          Smart recommendations to maximize lead conversions
-                          {aiRecommendations?.generatedAt && (
-                            <span className="ml-2 text-[10px] text-slate-400">
-                              Updated {new Date(aiRecommendations.generatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          )}
-                        </CardDescription>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
-                        onClick={() => loadAIRecommendations(true)}
-                        disabled={recoLoading}
-                        data-testid="button-refresh-ai-reco"
-                      >
-                        {recoLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        {recoLoading ? "Analyzing..." : "Refresh"}
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    {recoLoading && !aiRecommendations ? (
-                      <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="flex gap-3 p-3 rounded-xl bg-slate-50 animate-pulse">
-                            <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
-                            <div className="flex-1 space-y-2">
-                              <Skeleton className="h-4 w-2/3" />
-                              <Skeleton className="h-3 w-full" />
-                              <Skeleton className="h-3 w-4/5" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : !aiRecommendations || aiRecommendations.recommendations.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-                        <Brain className="h-10 w-10 mb-2 opacity-50" />
-                        <p className="text-sm font-medium">No recommendations available</p>
-                        <p className="text-xs mt-1">Add more leads to get AI-powered engagement strategies</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                        {aiRecommendations.recommendations.map((rec, idx) => {
-                          const typeConfig: Record<string, { icon: React.ComponentType<{className?: string}>, color: string, bg: string }> = {
-                            follow_up: { icon: PhoneCall, color: "text-orange-600", bg: "bg-orange-50 border-orange-100" },
-                            re_engage: { icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50 border-blue-100" },
-                            escalate: { icon: AlertCircle, color: "text-red-600", bg: "bg-red-50 border-red-100" },
-                            nurture: { icon: Eye, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-100" },
-                            close: { icon: Target, color: "text-violet-600", bg: "bg-violet-50 border-violet-100" },
-                            at_risk: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50 border-amber-100" },
-                          };
-                          const config = typeConfig[rec.type] || typeConfig.follow_up;
-                          const TypeIcon = config.icon;
-                          const priorityColors: Record<string, string> = {
-                            urgent: "bg-red-100 text-red-700",
-                            high: "bg-orange-100 text-orange-700",
-                            medium: "bg-yellow-100 text-yellow-700",
-                            low: "bg-slate-100 text-slate-600",
-                          };
-
-                          return (
-                            <motion.div
-                              key={`${rec.leadId}-${idx}`}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className={`flex gap-3 p-3 rounded-xl border ${config.bg} hover:shadow-sm transition-all cursor-pointer group`}
-                              data-testid={`ai-reco-${rec.leadId}`}
-                            >
-                              <div className={`p-2 rounded-lg ${config.bg} shrink-0 self-start`}>
-                                <TypeIcon className={`h-5 w-5 ${config.color}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-semibold text-sm text-slate-800 truncate">{rec.title}</span>
-                                  <Badge className={`text-[10px] px-1.5 py-0 ${priorityColors[rec.priority]}`}>
-                                    {rec.priority}
-                                  </Badge>
-                                  <span className="text-[10px] text-slate-400 ml-auto shrink-0">{rec.confidence}% conf.</span>
-                                </div>
-                                <p className="text-xs text-slate-600 mb-1.5 leading-relaxed">{rec.rationale}</p>
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-medium text-slate-700">
-                                    <Sparkles className="h-3 w-3 inline mr-1 text-violet-500" />
-                                    {rec.suggestedAction}
-                                  </p>
-                                </div>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
                 {/* Animated Charts Section */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
