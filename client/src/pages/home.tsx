@@ -687,6 +687,8 @@ export default function Home() {
   const [slideDirection, setSlideDirection] = useState(1);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+  const cinematicHeroVideoRef = useRef<HTMLVideoElement>(null);
+  const cinematicWhyVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 600);
@@ -1642,6 +1644,35 @@ export default function Home() {
     }
   }, [heroVideoActive, heroInViewport, videoReady]);
 
+  // Cinematic hero video: explicit play/pause control so the video reliably
+  // plays even when the browser suppresses the autoPlay attribute on first
+  // load. Pauses when the hero is fully covered to save GPU.
+  useEffect(() => {
+    const v = cinematicHeroVideoRef.current;
+    if (!v) return;
+    if (heroInViewport) {
+      v.play().catch(() => {
+        v.muted = true;
+        v.play().catch(() => {});
+      });
+    } else {
+      v.pause();
+    }
+  }, [heroInViewport]);
+
+  // Cinematic Why Choose video: always play while mounted (it's below the fold
+  // so the browser may defer autoPlay). IntersectionObserver would be ideal but
+  // simply calling play() once on mount is sufficient — the video is muted and
+  // looping, so it will play through any initial buffering delay.
+  useEffect(() => {
+    const v = cinematicWhyVideoRef.current;
+    if (!v) return;
+    v.play().catch(() => {
+      v.muted = true;
+      v.play().catch(() => {});
+    });
+  }, []);
+
   // Once the video has been ready and playing for a brief settle
   // window, fully unmount the placeholder <img>. Until now we kept
   // it cross-fading at opacity 0, but the browser was still
@@ -1901,6 +1932,7 @@ export default function Home() {
               gradient. NO mask, NO property images, NO slide carousel. */}
           <div className="absolute inset-0">
             <video
+              ref={cinematicHeroVideoRef}
               className="absolute inset-0 w-full h-full object-cover"
               style={{ transform: "translateZ(0)" }}
               src={homeHeroVideoUrl}
@@ -2073,13 +2105,14 @@ export default function Home() {
       >
         {/* Cinematic full-bleed video background — superadmin-controlled */}
         <video
+          ref={cinematicWhyVideoRef}
           className="absolute inset-0 w-full h-full object-cover"
           src={homeSectionVideoUrl}
           autoPlay
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           disablePictureInPicture
           disableRemotePlayback
           data-testid="video-why-choose"
@@ -2091,20 +2124,6 @@ export default function Home() {
           style={{
             background:
               "linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.62) 35%, rgba(0,0,0,0.62) 65%, rgba(0,0,0,0.85) 100%)",
-          }}
-        />
-        {/* Scroll-tied opaque cover for the hero card-swipe handoff —
-            stays fully opaque (alpha 1.0) until the hero is hidden,
-            then crossfades to alpha 0.4 over the next ~4.5vh in
-            lockstep with the global tubes ramp (single CSS var =
-            single paint frame, no flicker on Windows-Chrome). Sits
-            above the video and gradient overlay; content is z-10
-            above this. */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundColor:
-              "rgba(5, 5, 5, calc(1 - var(--hero-handoff-post-cover, 0) * 0.6))",
           }}
         />
 
