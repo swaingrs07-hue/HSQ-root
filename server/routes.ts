@@ -7537,7 +7537,7 @@ ${allPages.map(p => `  <url>
 
   // ============ EXTERNAL REGISTERED STUDENTS (HMS API) ============
   
-  const HOSTEL_FLOW_BASE_URL = process.env.HMS_API_URL || "https://hostel-flow--swaingrs07.replit.app";
+  const HOSTEL_FLOW_BASE_URL = process.env.HMS_API_URL || "https://hsquarehostels.com";
   
   let cachedHostelFlowJWT: string | null = null;
   let jwtExpiresAt: number = 0;
@@ -7594,8 +7594,16 @@ ${allPages.map(p => `  <url>
       if (!booking.propertyId) return;
 
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, booking.propertyId));
-      if (!property || !property.hmsLinked) return;
-      if (!property.propertyCode && !property.hmsPropertyId) return;
+      if (!property) return;
+      if (!property.hmsLinked) {
+        console.log(`[HMS Auto-Sync] Property ${property.name} is not linked to HMS — skipping sync for booking ${booking.bookingCode}`);
+        return;
+      }
+      const resolvedPropertyCode = property.propertyCode;
+      if (!resolvedPropertyCode) {
+        console.warn(`[HMS Auto-Sync] Property ${property.name} is HMS-linked but has no propertyCode — skipping sync`);
+        return;
+      }
 
       const { getPropertyCode: getCode, cancelResidentOnHMS } = await import("./hms-sync.js");
       const resolvedPropertyCode = property.propertyCode || getCode(property.name);
@@ -7755,6 +7763,11 @@ ${allPages.map(p => `  <url>
       if (photoUrl) syncData.photoUrl = photoUrl;
       if (documentUrls.length > 0) syncData.documentUrls = documentUrls;
 
+      const { syncBookingToHMS } = await import("./hms-sync.js");
+      if (!syncData.propertyCode) {
+        console.warn(`[HMS Auto-Sync] No valid property code for booking ${booking.bookingCode} (property: ${property.name}) — skipping sync`);
+        return;
+      }
       const result = await syncBookingToHMS(syncData);
 
       if (result.success) {
@@ -9554,7 +9567,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
 
       for (const booking of completedBookings) {
         const property = booking.propertyId ? propertyMap.get(booking.propertyId) : null;
-        if (!property || !property.hmsLinked) {
+        if (!property || !property.hmsLinked || !property.propertyCode) {
           results.skipped++;
           continue;
         }
@@ -9585,7 +9598,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           email: email || undefined,
           phone,
           room: roomNo,
-          propertyCode: resolvedCode,
+          propertyCode: property.propertyCode,
           college: college || undefined,
           instituteName: college || undefined,
           courseName: studentData?.course || rd?.course || undefined,
@@ -17795,4 +17808,60 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   });
 
   return httpServer;
+
+
+  // HMS-authenticated endpoint for fetching booking data
+  app.get('/api/hms/bookings', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const bookings = await storage.getAllBookings();
+      res.json(bookings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/hms/bookings/:id', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      const [student, property, roomType, installmentsList, paymentsList] = await Promise.all([
+        booking.studentId ? storage.getStudent(booking.studentId) : Promise.resolve(undefined),
+        storage.getProperty(booking.propertyId),
+        storage.getRoomType(booking.roomTypeId),
+        storage.getInstallmentsByBooking(booking.id),
+        storage.getPaymentsByBooking(booking.id),
+      ]);
+      res.json({ booking, student, property, roomType, installments: installmentsList, payments: paymentsList });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/hms/bookings/:id/wallet', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader?.replace('Bearer ', '');
+      const validKey = process.env.HMS_API_KEY || process.env.HSQUARE_API_KEY;
+      if (!validKey || apiKey !== validKey) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      const ledger = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.id)).orderBy(sql`${schema.walletLedger.createdAt} DESC`);
+      const balance = ledger.reduce((sum: number, e: any) => sum + (e.credit || 0) - (e.debit || 0), 0);
+      res.json({ balance, ledger });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 }
