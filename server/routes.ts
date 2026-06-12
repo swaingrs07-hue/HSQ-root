@@ -6832,7 +6832,7 @@ ${allPages.map(p => `  <url>
     const phone = studentData?.phone || booking.walkInPhone || rd?.phone || "";
     const email = studentData?.email || rd?.email || booking.walkInEmail || "";
     const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
-    const roomNo = rd?.roomNo || rd?.room || "";
+    const roomNo = rd?.roomNo || rd?.room || rd?.roomType || rd?.accommodationType || booking.roomTypeName || "";
 
     const syncData: any = {
       name,
@@ -7692,7 +7692,7 @@ ${allPages.map(p => `  <url>
       const phone = studentData?.phone || booking.walkInPhone || booking.customerPhone || rd?.phone || "";
       const email = studentData?.email || booking.customerEmail || rd?.email || rd?.studentEmail;
       const college = studentData?.collegeName || rd?.institute || rd?.college || rd?.instituteName;
-      const roomNo = rd?.roomNo || rd?.room || "";
+      const roomNo = rd?.roomNo || rd?.room || rd?.roomType || rd?.accommodationType || booking.roomTypeName || "";
 
       let activeSeasons = await db.select().from(schema.seasons).where(
         and(
@@ -8139,11 +8139,27 @@ ${allPages.map(p => `  <url>
           const allBookings = await db.select().from(schema.bookings).where(
             sql`${schema.bookings.status} NOT IN ('cancelled')`
           );
+          // Match on booking-level phone fields
           booking = allBookings.find((b: any) => {
             const rd = b.residentDetails as any;
             const bPhone = (b.walkInPhone || b.customerPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
             return bPhone === phone10;
           });
+          // Also check students table via studentId
+          if (!booking) {
+            const studentIds = [...new Set(allBookings.map((b: any) => b.studentId).filter(Boolean))];
+            if (studentIds.length > 0) {
+              const students = await db.select().from(schema.students).where(
+                sql`${schema.students.id} = ANY(ARRAY[${sql.join(studentIds.map((id: any) => sql`${id}`), sql`, `)}]::int[])`
+              );
+              const phoneMatchedStudent = students.find((s: any) =>
+                (s.phone || "").replace(/\D/g, "").slice(-10) === phone10
+              );
+              if (phoneMatchedStudent) {
+                booking = allBookings.find((b: any) => b.studentId === phoneMatchedStudent.id);
+              }
+            }
+          }
         }
       }
 
