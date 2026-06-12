@@ -3741,7 +3741,15 @@ export default function CompletedBookings() {
                                 <div className="flex items-center justify-between">
                                   <div><p className="font-medium text-slate-700">{inst.name}</p><p className="text-xs text-slate-500">{inst.dueDate||"N/A"}</p></div>
                                   <div className="text-right flex items-center gap-2">
-                                    <div><p className="font-semibold text-slate-800">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
+                                    <div className="text-right">
+                                      {creditPaid>0&&!isFullyPaid?(
+                                        <div>
+                                          <p className="font-semibold text-slate-800">₹{remaining.toLocaleString("en-IN")}</p>
+                                          <p className="text-[10px] text-slate-400 line-through leading-none">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
+                                        </div>
+                                      ):(
+                                        <p className="font-semibold text-slate-800">₹{(inst.amount||0).toLocaleString("en-IN")}</p>
+                                      )}
                                       <Badge variant="outline" className={`text-[10px] ${isFullyPaid?"text-emerald-600 border-emerald-200":isPartiallyPaid?"text-blue-600 border-blue-200":"text-amber-600 border-amber-200"}`}>{isFullyPaid?"PAID":isPartiallyPaid?"PARTIAL":"PENDING"}</Badge>
                                     </div>
                                     {canPay&&!isSuperAdmin&&<Banknote className="w-4 h-4 text-amber-500"/>}
