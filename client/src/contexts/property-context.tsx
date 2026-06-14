@@ -74,7 +74,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     queryKey: [propertiesEndpoint, user?.id || "anonymous"],
     queryFn: async () => {
       const headers: Record<string, string> = {};
-      if (needsAuthFetch && token) {
+      if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
       const res = await fetch(propertiesEndpoint, { headers });

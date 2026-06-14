@@ -3288,9 +3288,14 @@ ${allPages.map(p => `  <url>
   app.get("/api/properties", async (req: AuthRequest, res) => {
     try {
       const allProperties = await storage.getAllProperties();
-      // Hide properties marked hiddenFromPublic from unauthenticated / non-admin visitors
-      const isAdmin = req.user && ["admin", "superadmin"].includes(req.user.role);
-      const properties = isAdmin
+      // Optionally parse Bearer token so logged-in admins see hidden properties too
+      const authHeader = req.headers.authorization;
+      if (!req.user && authHeader?.startsWith("Bearer ")) {
+        const payload = verifyToken(authHeader.substring(7));
+        if (payload) req.user = payload;
+      }
+      const isStaff = req.user && ["admin", "superadmin", "manager", "staff", "frontdesk", "sales_executive", "hotel_admin", "hotel_staff"].includes(req.user.role);
+      const properties = isStaff
         ? allProperties
         : allProperties.filter((p: any) => !p.hiddenFromPublic);
       const propertiesWithRooms = await Promise.all(

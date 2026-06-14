@@ -325,7 +325,7 @@ export default function AdminDashboard() {
           if (!r.ok) throw new Error("Failed to load leads analytics");
           return r.json();
         }),
-        fetch("/api/properties").then(r => {
+        fetch("/api/properties", { headers: authHeaders }).then(r => {
           if (!r.ok) throw new Error("Failed to load properties");
           return r.json();
         }),
