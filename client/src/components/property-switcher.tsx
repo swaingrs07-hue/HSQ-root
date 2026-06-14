@@ -31,6 +31,7 @@ import { useProperty } from "@/contexts/property-context";
 import { useAuth } from "@/contexts/auth-context";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { groupPropertiesByWing } from "@/lib/property-groups";
 
 interface PropertySwitcherProps {
   className?: string;
@@ -175,21 +176,46 @@ export function PropertySwitcher({ className }: PropertySwitcherProps) {
             All Properties
           </p>
         )}
-        {filteredProperties
-          .filter((property) => {
+        {groupPropertiesByWing(
+          filteredProperties.filter((property) => {
             if (search) return true;
             return !pinnedPropertyIds.includes(property.id);
           })
-          .map((property) => (
+        ).map((group) =>
+          group.isGroup ? (
+            <div key={group.key} className="mb-1">
+              <p className="text-xs font-semibold text-foreground/80 px-3 pt-2 pb-1 flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-primary" />
+                {group.groupName}
+                <span className="text-muted-foreground font-normal">
+                  ({group.properties.length} wings)
+                </span>
+              </p>
+              <div className="pl-3 border-l border-slate-200 ml-4">
+                {group.properties.map((property) => (
+                  <PropertyItem
+                    key={property.id}
+                    property={property}
+                    wingLabel={property.wing || undefined}
+                    isSelected={selectedPropertyId === property.id}
+                    isPinned={pinnedPropertyIds.includes(property.id)}
+                    onSelect={() => handleSelect(property.id)}
+                    onTogglePin={() => togglePinProperty(property.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
             <PropertyItem
-              key={property.id}
-              property={property}
-              isSelected={selectedPropertyId === property.id}
-              isPinned={pinnedPropertyIds.includes(property.id)}
-              onSelect={() => handleSelect(property.id)}
-              onTogglePin={() => togglePinProperty(property.id)}
+              key={group.properties[0].id}
+              property={group.properties[0]}
+              isSelected={selectedPropertyId === group.properties[0].id}
+              isPinned={pinnedPropertyIds.includes(group.properties[0].id)}
+              onSelect={() => handleSelect(group.properties[0].id)}
+              onTogglePin={() => togglePinProperty(group.properties[0].id)}
             />
-          ))}
+          )
+        )}
         {filteredProperties.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
             No properties found
@@ -362,6 +388,7 @@ interface PropertyItemProps {
     status?: string;
     active?: boolean;
   };
+  wingLabel?: string;
   isSelected: boolean;
   isPinned: boolean;
   onSelect: () => void;
@@ -370,6 +397,7 @@ interface PropertyItemProps {
 
 function PropertyItem({
   property,
+  wingLabel,
   isSelected,
   isPinned,
   onSelect,
@@ -388,9 +416,13 @@ function PropertyItem({
         <Building2 className="h-4 w-4 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate text-sm">{property.name}</p>
-        {property.location && (
-          <p className="text-xs text-muted-foreground truncate">{property.location}</p>
+        <p className="font-medium truncate text-sm">{wingLabel || property.name}</p>
+        {wingLabel ? (
+          <p className="text-xs text-muted-foreground truncate">{property.name}</p>
+        ) : (
+          property.location && (
+            <p className="text-xs text-muted-foreground truncate">{property.location}</p>
+          )
         )}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">

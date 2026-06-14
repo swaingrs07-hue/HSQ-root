@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { groupPropertiesByWing } from "@/lib/property-groups";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -602,7 +603,7 @@ export default function AdminDashboard() {
 
   const [editProperty, setEditProperty] = useState<any>(null);
   const [editForm, setEditForm] = useState({
-    name: "", displayName: "", propertyCode: "", category: "hostel", bookingMode: "monthly",
+    name: "", displayName: "", propertyCode: "", propertyGroup: "", wing: "", category: "hostel", bookingMode: "monthly",
     location: "", address: "", city: "", phone: "", alternatePhone: "", email: "",
     amenities: "" as string, rules: "", mapsUrl: "", status: "draft",
     virtualTourUrl: "", virtualTourProvider: "", highlights: "",
@@ -851,6 +852,8 @@ export default function AdminDashboard() {
       name: property.name || "",
       displayName: property.displayName || "",
       propertyCode: property.propertyCode || "",
+      propertyGroup: property.propertyGroup || "",
+      wing: property.wing || "",
       category: property.category || "hostel",
       bookingMode: property.bookingMode || "monthly",
       location: property.location || "",
@@ -909,6 +912,8 @@ export default function AdminDashboard() {
       const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
       const payload = {
         ...editForm,
+        propertyGroup: editForm.propertyGroup?.trim() || null,
+        wing: editForm.wing?.trim() || null,
         amenities: editForm.amenities.split(",").map((a: string) => a.trim()).filter(Boolean),
         highlights: editForm.highlights ? editForm.highlights.split(",").map((h: string) => h.trim()).filter(Boolean) : [],
         includedServices: editIncludedServices,
@@ -1878,10 +1883,22 @@ export default function AdminDashboard() {
                         No properties found.
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {properties.map((property) => (
-                          <div 
-                            key={property.id} 
+                      <div className="space-y-6">
+                        {groupPropertiesByWing(properties).map((group) => (
+                          <div key={group.key} className="space-y-3">
+                            {group.isGroup && (
+                              <div className="flex items-center gap-2 px-1">
+                                <Building2 className="h-5 w-5 text-primary" />
+                                <h3 className="text-lg font-bold">{group.groupName}</h3>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                  {group.properties.length} wings
+                                </span>
+                              </div>
+                            )}
+                            <div className={group.isGroup ? "space-y-4 md:pl-5 md:border-l-2 border-slate-200" : "space-y-4"}>
+                              {group.properties.map((property) => (
+                          <div
+                            key={property.id}
                             className="border rounded-xl p-6 hover:shadow-md transition-shadow"
                             data-testid={`property-admin-card-${property.id}`}
                           >
@@ -1900,8 +1917,13 @@ export default function AdminDashboard() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                                   <h3 className="text-xl font-bold">{property.name}</h3>
+                                  {property.wing && (
+                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                      {property.wing}
+                                    </span>
+                                  )}
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    property.active 
+                                    property.active
                                       ? "bg-green-100 text-green-700" 
                                       : "bg-red-100 text-red-700"
                                   }`}>
@@ -2050,6 +2072,9 @@ export default function AdminDashboard() {
                               </div>
                             )}
                           </div>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -2139,6 +2164,26 @@ export default function AdminDashboard() {
                       data-testid="input-edit-property-code"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Property Group / Building</Label>
+                    <Input
+                      value={editForm.propertyGroup}
+                      onChange={(e) => setEditForm(f => ({ ...f, propertyGroup: e.target.value }))}
+                      placeholder="e.g. Hsquare Goregaon"
+                      data-testid="input-edit-property-group"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Wing</Label>
+                    <Input
+                      value={editForm.wing}
+                      onChange={(e) => setEditForm(f => ({ ...f, wing: e.target.value }))}
+                      placeholder="e.g. A Wing"
+                      data-testid="input-edit-property-wing"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <Select value={editForm.category} onValueChange={(v) => setEditForm(f => ({ ...f, category: v }))}>

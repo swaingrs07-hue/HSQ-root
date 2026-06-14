@@ -10,6 +10,8 @@ interface Property {
   city?: string;
   status: string;
   active: boolean;
+  propertyGroup?: string | null;
+  wing?: string | null;
 }
 
 interface PropertyContextType {
