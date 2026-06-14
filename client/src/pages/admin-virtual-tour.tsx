@@ -69,7 +69,8 @@ export default function AdminVirtualTour() {
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["/api/properties"],
     queryFn: async () => {
-      const res = await fetch("/api/properties");
+      const tok = (() => { try { return JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token; } catch { return null; } })();
+      const res = await fetch("/api/properties", tok ? { headers: { Authorization: `Bearer ${tok}` } } : {});
       if (!res.ok) throw new Error("Failed to fetch properties");
       return res.json();
     },

@@ -172,7 +172,7 @@ export default function AdminFloorsBeds() {
     queryKey: [propertiesEndpoint],
     queryFn: async () => {
       const headers: Record<string, string> = {};
-      if (isFrontdeskRole && token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const r = await fetch(propertiesEndpoint, { headers });
       if (!r.ok) throw new Error("Failed to load properties");
       return r.json();

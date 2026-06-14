@@ -112,7 +112,8 @@ export default function AdminPackages() {
 
   const fetchProperties = async () => {
     try {
-      const res = await fetch("/api/properties");
+      const tok = (() => { try { return JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token; } catch { return null; } })();
+      const res = await fetch("/api/properties", tok ? { headers: { Authorization: `Bearer ${tok}` } } : {});
       if (res.ok) setProperties(await res.json());
     } catch { }
   };

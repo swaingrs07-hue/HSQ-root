@@ -74,7 +74,8 @@ export default function AdminContactMessages() {
   const { data: properties = [] } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
     queryFn: async () => {
-      const res = await fetch("/api/properties");
+      const tok = (() => { try { return JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token; } catch { return null; } })();
+      const res = await fetch("/api/properties", tok ? { headers: { Authorization: `Bearer ${tok}` } } : {});
       if (!res.ok) return [];
       return res.json();
     },

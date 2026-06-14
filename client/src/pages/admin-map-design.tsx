@@ -80,7 +80,8 @@ export default function AdminMapDesign() {
   const { data: properties = [] } = useQuery<PropertyItem[]>({
     queryKey: ["/api/properties"],
     queryFn: async () => {
-      const res = await fetch("/api/properties");
+      const tok = (() => { try { return JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token; } catch { return null; } })();
+      const res = await fetch("/api/properties", tok ? { headers: { Authorization: `Bearer ${tok}` } } : {});
       return res.json();
     },
   });
