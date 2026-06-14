@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Sparkles, Target, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package, BookOpen, ExternalLink } from "lucide-react";
+import { Home, DollarSign, FileText, Users, Search, Phone, Mail, Calendar, Clock, Monitor, Smartphone, BarChart3, Building2, Power, MapPin, Bed, Plus, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, GraduationCap, CreditCard, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, CalendarCheck, Link2, Zap, UserCheck, Sparkles, Target, Loader2, Trash2, Pencil, X, Save, Image as ImageIcon, Star, Globe, Upload, UtensilsCrossed, Bus, Bike, Shirt, SprayCan, Lock, Tag, Package, BookOpen, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -520,6 +520,28 @@ export default function AdminDashboard() {
         description: "Failed to update property status",
         variant: "destructive",
       });
+    }
+  };
+
+  const togglePropertyVisibility = async (property: any) => {
+    try {
+      const token = JSON.parse(localStorage.getItem("hsquare_auth") || "{}").token;
+      const newHidden = !property.hiddenFromPublic;
+      const response = await fetch(`/api/admin/properties/${property.id}/visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ hiddenFromPublic: newHidden }),
+      });
+      if (!response.ok) throw new Error("Failed to update visibility");
+      toast({
+        title: newHidden ? "Hidden from public" : "Visible to public",
+        description: newHidden
+          ? `${property.name} is now hidden from the public website.`
+          : `${property.name} is now visible on the public website.`,
+      });
+      loadProperties();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update visibility", variant: "destructive" });
     }
   };
 
@@ -1963,6 +1985,27 @@ export default function AdminDashboard() {
                                 >
                                   <Tag className="h-4 w-4" />
                                   {property.isSoldOut ? "Sold Out ✓" : "Mark Sold Out"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => togglePropertyVisibility(property)}
+                                  className={`gap-2 ${property.hiddenFromPublic ? "text-slate-600 bg-slate-50 border-slate-300 hover:bg-slate-100" : "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"}`}
+                                  data-testid={`button-visibility-property-${property.id}`}
+                                  title={property.hiddenFromPublic ? "Property is hidden from public website — click to show" : "Property is visible publicly — click to hide"}
+                                >
+                                  {property.hiddenFromPublic ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  {property.hiddenFromPublic ? "Hidden" : "Hide from Public"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setLocation(`/booking/generate?propertyId=${property.id}`)}
+                                  className="gap-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+                                  data-testid={`button-complete-booking-property-${property.id}`}
+                                >
+                                  <CalendarCheck className="h-4 w-4" />
+                                  Complete Booking
                                 </Button>
                                 <Button 
                                   variant="outline"

@@ -3285,11 +3285,16 @@ ${allPages.map(p => `  <url>
     return null;
   };
 
-  app.get("/api/properties", async (req, res) => {
+  app.get("/api/properties", async (req: AuthRequest, res) => {
     try {
-      const properties = await storage.getAllProperties();
+      const allProperties = await storage.getAllProperties();
+      // Hide properties marked hiddenFromPublic from unauthenticated / non-admin visitors
+      const isAdmin = req.user && ["admin", "superadmin"].includes(req.user.role);
+      const properties = isAdmin
+        ? allProperties
+        : allProperties.filter((p: any) => !p.hiddenFromPublic);
       const propertiesWithRooms = await Promise.all(
-        properties.map(async (property) => {
+        properties.map(async (property: any) => {
           const [roomTypes, enriched, propFloors] = await Promise.all([
             storage.getRoomTypesByProperty(property.id),
             enrichPropertyWithImages(property),
@@ -3574,6 +3579,28 @@ ${allPages.map(p => `  <url>
     } catch (error) {
       console.error("Error toggling property status:", error);
       res.status(500).json({ error: "Failed to toggle property status" });
+    }
+  });
+
+  app.patch("/api/admin/properties/:id/visibility", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const id = req.params.id as string;
+      const property = await storage.getProperty(id);
+      if (!property) return res.status(404).json({ error: "Property not found" });
+      const { hiddenFromPublic } = req.body;
+      if (typeof hiddenFromPublic !== "boolean") return res.status(400).json({ error: "hiddenFromPublic must be boolean" });
+      const updatedProperty = await storage.updateProperty(id, { hiddenFromPublic, updatedAt: new Date() });
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: hiddenFromPublic ? "HIDE_PROPERTY_FROM_PUBLIC" : "SHOW_PROPERTY_TO_PUBLIC",
+        entityType: "property",
+        entityId: id,
+        details: JSON.stringify({ name: property.name, hiddenFromPublic }),
+      });
+      res.json(updatedProperty);
+    } catch (error) {
+      console.error("Error updating property visibility:", error);
+      res.status(500).json({ error: "Failed to update visibility" });
     }
   });
 

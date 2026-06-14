@@ -115,6 +115,7 @@ export const properties = pgTable("properties", {
   featuredRoomTypeIds: text("featured_room_type_ids").array(),
   isSoldOut: boolean("is_sold_out").default(false).notNull(),
   soldOutNote: text("sold_out_note"),
+  hiddenFromPublic: boolean("hidden_from_public").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
