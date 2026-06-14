@@ -3527,7 +3527,7 @@ ${allPages.map(p => `  <url>
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
-      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "alternatePhone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "tourOverviewImages", "includedServices", "moveInCharges", "mapLatitude", "mapLongitude", "brochureCoverImage", "brochureTagline", "brochureIntro", "brochureAgentName", "brochureAgentPhone", "featuredAmenityIds", "featuredRoomTypeIds", "isSoldOut", "soldOutNote"];
+      const allowedFields = ["name", "displayName", "category", "bookingMode", "location", "address", "city", "phone", "alternatePhone", "email", "amenities", "rules", "mapsUrl", "imageUrl", "highlights", "status", "virtualTourUrl", "virtualTourProvider", "propertyCode", "propertyGroup", "wing", "tourOverviewImages", "includedServices", "moveInCharges", "mapLatitude", "mapLongitude", "brochureCoverImage", "brochureTagline", "brochureIntro", "brochureAgentName", "brochureAgentPhone", "featuredAmenityIds", "featuredRoomTypeIds", "isSoldOut", "soldOutNote"];
       const updates: any = {};
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
@@ -3966,6 +3966,8 @@ ${allPages.map(p => `  <url>
         tariffs,
         roomTypes: rooms,
         propertyCode,
+        propertyGroup,
+        wing,
       } = req.body;
 
       // Create the property
@@ -3992,6 +3994,8 @@ ${allPages.map(p => `  <url>
         customFields: customFields ? JSON.stringify(customFields) : null,
         status: status || "draft",
         propertyCode: propertyCode || null,
+        propertyGroup: propertyGroup || null,
+        wing: wing || null,
       });
 
       // Create property rules

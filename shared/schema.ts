@@ -74,6 +74,10 @@ export const properties = pgTable("properties", {
   slug: varchar("slug", { length: 255 }),
   displayName: text("display_name"),
   propertyCode: text("property_code"),
+  // Wing support: properties sharing the same propertyGroup label are listed
+  // grouped together, with `wing` shown as the sub-label (e.g. "A Wing").
+  propertyGroup: text("property_group"),
+  wing: text("wing"),
   hmsPropertyId: integer("hms_property_id"),
   hmsPropertyName: text("hms_property_name"),
   hmsLinked: boolean("hms_linked").default(false).notNull(),

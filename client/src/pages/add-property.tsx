@@ -52,6 +52,8 @@ const STEPS = [
 const propertyFormSchema = z.object({
   name: z.string().min(1, "Property name is required"),
   propertyCode: z.string().optional(),
+  propertyGroup: z.string().optional(),
+  wing: z.string().optional(),
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
@@ -219,6 +221,8 @@ export default function AddProperty() {
     defaultValues: {
       name: "",
       propertyCode: "",
+      propertyGroup: "",
+      wing: "",
       address: "",
       city: "",
       state: "",
@@ -566,6 +570,8 @@ export default function AddProperty() {
         category: data.category,
         bookingMode: data.bookingMode,
         propertyCode: data.propertyCode || null,
+        propertyGroup: data.propertyGroup?.trim() || null,
+        wing: data.wing?.trim() || null,
         location: `${data.city}, ${data.state}`,
         address: `${data.address}, ${data.city}, ${data.state} - ${data.pincode}`,
         city: data.city,
@@ -947,6 +953,31 @@ export default function AddProperty() {
                           data-testid="input-property-code"
                         />
                         <p className="text-xs text-muted-foreground mt-1">Used for linking with external HMS system</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label htmlFor="propertyGroup">Property Group / Building</Label>
+                        <Input
+                          id="propertyGroup"
+                          {...form.register("propertyGroup")}
+                          placeholder="e.g., Hsquare Goregaon"
+                          className="mt-1"
+                          data-testid="input-property-group"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Properties sharing this name are listed together, wing-wise. Leave blank for a standalone property.</p>
+                      </div>
+                      <div>
+                        <Label htmlFor="wing">Wing</Label>
+                        <Input
+                          id="wing"
+                          {...form.register("wing")}
+                          placeholder="e.g., A Wing"
+                          className="mt-1"
+                          data-testid="input-property-wing"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Label for this wing within the group.</p>
                       </div>
                     </div>
 
