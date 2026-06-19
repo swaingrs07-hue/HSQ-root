@@ -1467,9 +1467,19 @@ export default function CompletedBookings() {
     if ((booking.installments || []).length > 0) {
       y += 10;
       drawHeader("INSTALLMENTS");
+      const paidInstTotal = (booking.installments || []).filter((i: any) => i.paid).reduce((s: number, i: any) => s + (i.amount || 0), 0);
+      let excess = Math.max(0, totalPaid - paidInstTotal);
       booking.installments.forEach((inst: any) => {
         const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
-        drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+        let displayAmt = inst.amount || 0;
+        let creditNote = "";
+        if (!inst.paid) {
+          const credit = Math.min(excess, displayAmt);
+          excess -= credit;
+          displayAmt = Math.max(0, displayAmt - credit);
+          if (credit > 0) creditNote = ` (-Rs. ${credit.toLocaleString("en-IN")} credit)`;
+        }
+        drawRow(`${inst.name}${dueDateStr}${creditNote}`, `Rs. ${displayAmt.toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
       });
     }
 
