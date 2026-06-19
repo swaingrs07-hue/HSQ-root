@@ -45,6 +45,7 @@ import {
   MessageSquare,
   Stethoscope,
   Ticket,
+  Wallet,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -160,6 +161,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       ? [
           ...adminNavItems,
           ...(isSuperAdmin ? [{ name: "HMS Health", href: "/admin/hms-health", icon: Stethoscope }] : []),
+          ...(isSuperAdmin ? [{ name: "Wallet Ledger", href: "/admin/wallet-transactions", icon: Wallet }] : []),
           ...(isMainAdmin ? [{ name: "Logo Control", href: "/admin/logo-control", icon: ImageIcon }] : []),
         ]
       : salesNavItems;

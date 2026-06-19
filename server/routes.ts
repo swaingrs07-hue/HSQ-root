@@ -9184,6 +9184,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         refType: orderType || "alacarte_order",
         refId: orderId || null,
         note: debitNote,
+        performedBy: "CRM",
       }).returning();
 
       const newBalance = balance - amount;
@@ -14659,6 +14660,14 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const crmMonthly = monthlyPlan?.monthlyAmount || 0;
       const totalMonthlyCredit = crmMonthly + pkgMonthly.amount;
       const effectiveNextCreditDate = monthlyPlan?.nextCreditDate || pkgMonthly.nextCreditDate || null;
+
+      const performerIds = [...new Set(walletEntries.map(e => e.performedBy).filter((id): id is string => !!id && id !== "CRM" && id !== "HMS"))];
+      let userMap: Record<string, { name: string; role: string }> = {};
+      if (performerIds.length > 0) {
+        const performers = await db.select({ id: schema.users.id, name: schema.users.name, role: schema.users.role }).from(schema.users).where(inArray(schema.users.id, performerIds));
+        userMap = Object.fromEntries(performers.map(u => [u.id, { name: u.name, role: u.role }]));
+      }
+
       res.json({
         available,
         locked,
@@ -14673,6 +14682,9 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           creditType: e.creditType,
           lockedUntil: e.lockedUntil,
           note: e.note,
+          performedBy: e.performedBy || null,
+          performedByName: !e.performedBy ? null : (e.performedBy === "CRM" || e.performedBy === "HMS") ? e.performedBy : (userMap[e.performedBy]?.name || "Unknown"),
+          performedByRole: !e.performedBy ? null : (e.performedBy === "CRM" || e.performedBy === "HMS") ? null : (userMap[e.performedBy]?.role || null),
           createdAt: e.createdAt,
         })),
       });
@@ -14922,6 +14934,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         debit: 0,
         refType: "manual_topup",
         note: note || "Manual top-up",
+        performedBy: req.user?.userId || null,
       }).returning();
       autoResyncBookingToHms(req.params.bookingId, "wallet-topup");
       res.status(201).json(entry);
@@ -14944,11 +14957,87 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         refType: "manual_debit",
         creditType: "manual_debit",
         note: note || "Manual debit",
+        performedBy: req.user?.userId || null,
       }).returning();
       autoResyncBookingToHms(req.params.bookingId, "wallet-debit");
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to debit wallet" });
+    }
+  });
+
+  app.get("/api/admin/wallet-transactions", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const { search, refType, limit: limitParam, offset: offsetParam } = req.query as Record<string, string>;
+      const pageLimit = Math.min(parseInt(limitParam || "100", 10), 500);
+      const pageOffset = parseInt(offsetParam || "0", 10);
+
+      const rows = await db
+        .select({
+          id: schema.walletLedger.id,
+          bookingId: schema.walletLedger.bookingId,
+          credit: schema.walletLedger.credit,
+          debit: schema.walletLedger.debit,
+          refType: schema.walletLedger.refType,
+          creditType: schema.walletLedger.creditType,
+          note: schema.walletLedger.note,
+          performedBy: schema.walletLedger.performedBy,
+          createdAt: schema.walletLedger.createdAt,
+          bookingCode: schema.bookings.bookingCode,
+          bookingStatus: schema.bookings.status,
+          residentDetails: schema.bookings.residentDetails,
+          propertyId: schema.bookings.propertyId,
+        })
+        .from(schema.walletLedger)
+        .leftJoin(schema.bookings, eq(schema.walletLedger.bookingId, schema.bookings.id))
+        .orderBy(desc(schema.walletLedger.createdAt))
+        .limit(pageLimit)
+        .offset(pageOffset);
+
+      const totalRows = await db.select({ count: sql<number>`count(*)::int` }).from(schema.walletLedger);
+      const total = totalRows[0]?.count || 0;
+
+      const performerIds = [...new Set(rows.map(r => r.performedBy).filter((id): id is string => !!id && id !== "CRM" && id !== "HMS"))];
+      let userMap: Record<string, { name: string; role: string }> = {};
+      if (performerIds.length > 0) {
+        const performers = await db.select({ id: schema.users.id, name: schema.users.name, role: schema.users.role }).from(schema.users).where(inArray(schema.users.id, performerIds));
+        userMap = Object.fromEntries(performers.map(u => [u.id, { name: u.name, role: u.role }]));
+      }
+
+      const propertyIds = [...new Set(rows.map(r => r.propertyId).filter(Boolean))] as string[];
+      let propMap: Record<string, string> = {};
+      if (propertyIds.length > 0) {
+        const props = await db.select({ id: schema.properties.id, name: schema.properties.name }).from(schema.properties).where(inArray(schema.properties.id, propertyIds));
+        propMap = Object.fromEntries(props.map(p => [p.id, p.name]));
+      }
+
+      const transactions = rows.map(r => {
+        const rd = r.residentDetails as any;
+        const studentName = rd?.name || rd?.studentName || "—";
+        const performedByName = !r.performedBy ? "System" : (r.performedBy === "CRM" || r.performedBy === "HMS") ? r.performedBy : (userMap[r.performedBy]?.name || "Unknown");
+        const performedByRole = !r.performedBy ? null : (r.performedBy === "CRM" || r.performedBy === "HMS") ? r.performedBy : (userMap[r.performedBy]?.role || null);
+        return {
+          id: r.id,
+          bookingId: r.bookingId,
+          bookingCode: r.bookingCode || "—",
+          bookingStatus: r.bookingStatus,
+          studentName,
+          propertyName: r.propertyId ? (propMap[r.propertyId] || "—") : "—",
+          credit: r.credit,
+          debit: r.debit,
+          refType: r.refType,
+          creditType: r.creditType,
+          note: r.note,
+          performedBy: r.performedBy,
+          performedByName,
+          performedByRole,
+          createdAt: r.createdAt,
+        };
+      });
+
+      res.json({ transactions, total, limit: pageLimit, offset: pageOffset });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch wallet transactions" });
     }
   });
 

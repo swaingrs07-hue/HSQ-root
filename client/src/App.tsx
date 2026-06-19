@@ -50,6 +50,7 @@ import AdminAddonServices from "@/pages/admin-addon-services";
 import AdminSeasons from "@/pages/admin-seasons";
 import AdminHmsSync from "@/pages/admin-hms-sync";
 import AdminHmsHealth from "@/pages/admin-hms-health";
+import AdminWalletTransactions from "@/pages/admin-wallet-transactions";
 import AdminLogoControl from "@/pages/admin-logo-control";
 import AdminAmenities from "@/pages/admin-amenities";
 import AdminMapDesign from "@/pages/admin-map-design";
@@ -273,6 +274,7 @@ function AppContent() {
               <Route path="/admin/seasons" component={AdminSeasons} />
               <Route path="/admin/hms-sync" component={AdminHmsSync} />
               <Route path="/admin/hms-health" component={AdminHmsHealth} />
+              <Route path="/admin/wallet-transactions" component={AdminWalletTransactions} />
               <Route path="/admin/logo-control" component={AdminLogoControl} />
               <Route path="/admin/amenities" component={AdminAmenities} />
               <Route path="/admin/map-design" component={AdminMapDesign} />

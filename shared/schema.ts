@@ -1409,6 +1409,7 @@ export const walletLedger = pgTable("wallet_ledger", {
   // old_batch | new_batch | monthly_release | manual_topup | manual_debit |
   // balance_correction | package_credit | package_credit_renewal | wallet_topup
   creditType: text("credit_type"),
+  performedBy: text("performed_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
