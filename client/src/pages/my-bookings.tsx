@@ -278,9 +278,19 @@ export default function MyBookings() {
     if ((b.installments || []).length > 0) {
       y += 10;
       drawHeader("INSTALLMENTS");
+      const pdfPaidInstTotal = (b.installments || []).filter((i: any) => i.paid).reduce((s: number, i: any) => s + (i.amount || 0), 0);
+      let pdfExcess = Math.max(0, totalPaid - pdfPaidInstTotal);
       b.installments.forEach((inst: any) => {
         const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
-        drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+        let displayAmt = inst.amount || 0;
+        let creditNote = "";
+        if (!inst.paid) {
+          const credit = Math.min(pdfExcess, displayAmt);
+          pdfExcess -= credit;
+          displayAmt = Math.max(0, displayAmt - credit);
+          if (credit > 0) creditNote = ` (-Rs. ${credit.toLocaleString("en-IN")} credit)`;
+        }
+        drawRow(`${inst.name}${dueDateStr}${creditNote}`, `Rs. ${displayAmt.toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
       });
     }
 
@@ -357,6 +367,16 @@ export default function MyBookings() {
     const totalPaid = (b.payments || []).filter((p: any) => p.status === "success").reduce((s: number, p: any) => s + (p.amount || 0), 0);
     const balance = (b.totalFee || 0) - totalPaid;
     const rd = b.residentDetails || {};
+    const instWithEffective = (() => {
+      const paidInstTotal = (b.installments || []).filter((i: any) => i.paid).reduce((s: number, i: any) => s + (i.amount || 0), 0);
+      let excess = Math.max(0, totalPaid - paidInstTotal);
+      return (b.installments || []).map((inst: any) => {
+        if (inst.paid) return { ...inst, effectiveAmount: inst.amount || 0, creditApplied: 0 };
+        const credit = Math.min(excess, inst.amount || 0);
+        excess -= credit;
+        return { ...inst, effectiveAmount: Math.max(0, (inst.amount || 0) - credit), creditApplied: credit };
+      });
+    })();
 
     return (
       <>
@@ -473,20 +493,26 @@ export default function MyBookings() {
                 </div>
               </div>
 
-              {(b.installments || []).length > 0 && (
+              {instWithEffective.length > 0 && (
                 <div className="border border-white/[0.08] rounded-xl overflow-hidden">
                   <div className="bg-white/[0.03] px-4 py-3 border-b border-white/[0.08]">
                     <h4 className="font-semibold text-sm text-white">Installments</h4>
                   </div>
                   <div className="divide-y divide-white/[0.06]">
-                    {b.installments.map((inst: any, idx: number) => (
+                    {instWithEffective.map((inst: any, idx: number) => (
                       <div key={inst.id || idx} className="px-4 py-3 flex items-center justify-between text-sm">
                         <div>
                           <p className="font-medium text-white">{inst.name}</p>
                           <p className="text-xs text-white/40">{inst.dueDate || "N/A"}</p>
+                          {!inst.paid && inst.creditApplied > 0 && (
+                            <p className="text-[10px] text-emerald-400 mt-0.5">Credit applied: −₹{inst.creditApplied.toLocaleString("en-IN")}</p>
+                          )}
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-white">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                          <p className="font-semibold text-white">₹{inst.effectiveAmount.toLocaleString("en-IN")}</p>
+                          {!inst.paid && inst.creditApplied > 0 && (
+                            <p className="text-[10px] text-white/30 line-through">₹{(inst.amount || 0).toLocaleString("en-IN")}</p>
+                          )}
                           <Badge variant="outline" className={`text-[10px] ${inst.paid ? "text-emerald-400 border-emerald-500/20" : "text-amber-400 border-amber-500/20"}`}>
                             {inst.paid ? "PAID" : "PENDING"}
                           </Badge>
