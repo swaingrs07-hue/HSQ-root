@@ -269,9 +269,19 @@ export async function generateBookingReceiptPdf(booking: Booking): Promise<Buffe
   if (installmentsList.length > 0) {
     y += 10;
     drawHeader("EMI / INSTALLMENT PLAN");
+    const paidInstTotal = installmentsList.filter(i => i.paid).reduce((s, i) => s + (i.amount || 0), 0);
+    let excess = Math.max(0, totalPaid - paidInstTotal);
     for (const inst of installmentsList) {
       const dueDateStr = inst.dueDate ? ` (Due: ${inst.dueDate})` : "";
-      drawRow(`${inst.name}${dueDateStr}`, `Rs. ${(inst.amount || 0).toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
+      let displayAmt = inst.amount || 0;
+      let creditNote = "";
+      if (!inst.paid) {
+        const credit = Math.min(excess, displayAmt);
+        excess -= credit;
+        displayAmt = Math.max(0, displayAmt - credit);
+        if (credit > 0) creditNote = ` (-Rs. ${credit.toLocaleString("en-IN")} credit)`;
+      }
+      drawRow(`${inst.name}${dueDateStr}${creditNote}`, `Rs. ${displayAmt.toLocaleString("en-IN")} — ${inst.paid ? "PAID" : "PENDING"}`);
     }
   }
 
