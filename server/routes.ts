@@ -3330,15 +3330,30 @@ ${allPages.map(p => `  <url>
       if (recScope && !recScope.has(property.id)) {
         return res.status(403).json({ error: "Property not assigned to this frontdesk" });
       }
-      const [roomTypes, enriched, nearbyLocs, propFloors] = await Promise.all([
+      const [roomTypes, enriched, nearbyLocs, propFloors, allBeds] = await Promise.all([
         storage.getRoomTypesByProperty(property.id),
         enrichPropertyWithImages(property),
         storage.getNearbyLocationsByProperty(property.id),
         storage.getFloorsByProperty(property.id),
+        db.select({ roomTypeId: schema.beds.roomTypeId, status: schema.beds.status })
+          .from(schema.beds)
+          .where(eq(schema.beds.propertyId, property.id)),
       ]);
+      const liveCounts: Record<string, { total: number; available: number }> = {};
+      for (const bed of allBeds) {
+        if (!bed.roomTypeId) continue;
+        if (!liveCounts[bed.roomTypeId]) liveCounts[bed.roomTypeId] = { total: 0, available: 0 };
+        liveCounts[bed.roomTypeId].total++;
+        if (bed.status === "available") liveCounts[bed.roomTypeId].available++;
+      }
+      const roomTypesWithLiveCount = roomTypes.map(rt => ({
+        ...rt,
+        totalBeds: liveCounts[rt.id]?.total ?? rt.totalBeds,
+        availableBeds: liveCounts[rt.id]?.available ?? rt.availableBeds,
+      }));
       res.json({
         ...enriched,
-        roomTypes,
+        roomTypes: roomTypesWithLiveCount,
         nearbyLocations: nearbyLocs,
         genderPolicy: computeGenderPolicy(propFloors),
       });
