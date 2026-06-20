@@ -4259,9 +4259,14 @@ ${allPages.map(p => `  <url>
         return res.status(403).json({ error: "Property not in your assignment scope" });
       }
 
-      // Validate room availability
+      // Validate room availability (live count from beds table to avoid stale counter)
       const roomType = await storage.getRoomType(roomTypeId);
-      if (!roomType || roomType.availableBeds <= 0) {
+      if (!roomType) {
+        return res.status(400).json({ error: "Room not available" });
+      }
+      const liveAvailBeds1 = await db.select({ id: schema.beds.id }).from(schema.beds)
+        .where(and(eq(schema.beds.roomTypeId, roomTypeId), eq(schema.beds.status, "available")));
+      if (liveAvailBeds1.length === 0) {
         return res.status(400).json({ error: "Room not available" });
       }
       // Cross-property mutation guard: roomType must belong to propertyId.
@@ -4977,7 +4982,12 @@ ${allPages.map(p => `  <url>
       }
 
       const roomType = await storage.getRoomType(roomTypeId);
-      if (!roomType || roomType.availableBeds <= 0) {
+      if (!roomType) {
+        return res.status(400).json({ error: "No beds available for this room type" });
+      }
+      const liveAvailBeds2 = await db.select({ id: schema.beds.id }).from(schema.beds)
+        .where(and(eq(schema.beds.roomTypeId, roomTypeId), eq(schema.beds.status, "available")));
+      if (liveAvailBeds2.length === 0) {
         return res.status(400).json({ error: "No beds available for this room type" });
       }
 

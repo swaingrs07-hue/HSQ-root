@@ -874,11 +874,14 @@ export class DatabaseStorage implements IStorage {
     if (!roomType) {
       return { totalBeds: 0, availableBeds: 0, bookedBeds: 0 };
     }
-    
+    // Count live from beds table so stale counters never block a booking
+    const bedRows = await db.select({ status: beds.status }).from(beds).where(eq(beds.roomTypeId, roomTypeId));
+    const totalBeds = bedRows.length;
+    const availableBeds = bedRows.filter(b => b.status === "available").length;
     return {
-      totalBeds: roomType.totalBeds,
-      availableBeds: roomType.availableBeds,
-      bookedBeds: roomType.totalBeds - roomType.availableBeds,
+      totalBeds,
+      availableBeds,
+      bookedBeds: totalBeds - availableBeds,
     };
   }
 
