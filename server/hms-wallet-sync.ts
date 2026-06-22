@@ -239,20 +239,22 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
           .where(eq(schema.walletLedger.bookingId, booking.id));
         const localBalance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
 
-        // CRM ledger stores whole rupees (integer credit/debit), so reconcile at
-        // rupee resolution. Rounding avoids fractional-insert errors and a
-        // perpetual sub-rupee "balance_correction" loop from float drift.
+        // CRM is the credit source — credits are added here and HMS only reads/uses
+        // the balance. We only apply POSITIVE corrections (HMS has more than CRM,
+        // meaning an external credit happened in HMS that we missed). Negative
+        // deltas mean HMS shows a lower balance than CRM, which is expected normal
+        // usage — we never debit the CRM to chase HMS down.
         const delta = Math.round(hmsBalance - localBalance);
-        if (delta === 0) {
+        if (delta <= 0) {
           result.skipped++;
-          result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta: 0 });
+          result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta });
           continue;
         }
 
         await db.insert(schema.walletLedger).values({
           bookingId: booking.id,
-          credit: delta > 0 ? delta : 0,
-          debit: delta < 0 ? Math.abs(delta) : 0,
+          credit: delta,
+          debit: 0,
           refType: "balance_correction",
           note: `HMS wallet sync (auto) — target ₹${hmsBalance}`,
         });
