@@ -239,9 +239,6 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
           .where(eq(schema.walletLedger.bookingId, booking.id));
         const localBalance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
 
-        // CRM ledger stores whole rupees (integer credit/debit), so reconcile at
-        // rupee resolution. Rounding avoids fractional-insert errors and a
-        // perpetual sub-rupee "balance_correction" loop from float drift.
         const delta = Math.round(hmsBalance - localBalance);
         if (delta === 0) {
           result.skipped++;
@@ -249,18 +246,16 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
           continue;
         }
 
-        await db.insert(schema.walletLedger).values({
-          bookingId: booking.id,
-          credit: delta > 0 ? delta : 0,
-          debit: delta < 0 ? Math.abs(delta) : 0,
-          refType: "balance_correction",
-          note: `HMS wallet sync (auto) — target ₹${hmsBalance}`,
-        });
-
-        const newBalance = localBalance + delta;
-        console.log(`[HMS Wallet Sync] ${booking.bookingCode}: corrected ₹${localBalance} → ₹${newBalance} (${delta > 0 ? "+" : ""}${delta})`);
-        result.synced++;
-        result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "synced", previousBalance: localBalance, newBalance, delta });
+        // SAFETY — this pull is REPORT-ONLY and never writes a correction.
+        // Treating HMS as the absolute source of truth and auto-debiting the CRM
+        // ledger when HMS reported a lower balance previously WIPED real credits
+        // (a credit not yet propagated to HMS looks like a "spend" here). Real
+        // spends and refunds already flow through /sync/wallet-debit and
+        // /sync/wallet-credit (idempotent). We only DETECT and log drift so it can
+        // be reconciled manually — we do NOT touch the ledger.
+        console.warn(`[HMS Wallet Sync] DRIFT (not corrected) ${booking.bookingCode}: CRM=₹${localBalance} HMS=₹${hmsBalance} delta=${delta > 0 ? "+" : ""}${delta}`);
+        result.skipped++;
+        result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta });
       } catch (residentErr: any) {
         // One bad resident must not abort the rest
         console.warn(`[HMS Wallet Sync] Skipping resident (error): ${residentErr.message}`);
