@@ -9161,19 +9161,39 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!booking && phone) {
         const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
         if (phone10.length === 10) {
+          // Match the same status set the reconciliation pull uses, so a wallet
+          // event for a completed/pending-payment stay isn't dropped as "not found".
           const allBookings = await db.select().from(schema.bookings).where(
-            sql`${schema.bookings.status} IN ('confirmed', 'active')`
+            sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment', 'completed')`
           );
-          booking = allBookings.find((b: any) => {
-            const rd = b.residentDetails as any;
-            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
-            return bPhone === phone10;
-          }) || null;
+          booking = allBookings
+            .filter((b: any) => {
+              const rd = b.residentDetails as any;
+              const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+              return bPhone === phone10;
+            })
+            .sort((a: any, c: any) => new Date(c.createdAt).getTime() - new Date(a.createdAt).getTime())[0] || null;
         }
       }
 
       if (!booking) {
         return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+      }
+
+      // Idempotency: if this exact (booking, refType, refId) debit already landed,
+      // treat the retry/echo as a no-op instead of double-debiting.
+      if (orderId) {
+        const [dup] = await db.select().from(schema.walletLedger).where(and(
+          eq(schema.walletLedger.bookingId, booking.id),
+          eq(schema.walletLedger.refType, orderType || "alacarte_order"),
+          eq(schema.walletLedger.refId, orderId),
+        )).limit(1);
+        if (dup) {
+          console.log(`[Sync Wallet Debit] Duplicate ignored for ${booking.bookingCode} (refId=${orderId}, eventId=${eventId || "none"})`);
+          const dupEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
+          const { available: dupBal } = computeWalletSummary(dupEntries);
+          return res.json({ success: true, duplicate: true, bookingCode: booking.bookingCode, debitedAmount: 0, newBalance: dupBal, ledgerEntryId: dup.id });
+        }
       }
 
       const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
@@ -9240,19 +9260,40 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       if (!booking && phone) {
         const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
         if (phone10.length === 10) {
+          // Match the same status set the reconciliation pull uses, so a wallet
+          // event for a completed/pending-payment stay isn't dropped as "not found".
           const allBookings = await db.select().from(schema.bookings).where(
-            sql`${schema.bookings.status} IN ('confirmed', 'active')`
+            sql`${schema.bookings.status} IN ('confirmed', 'active', 'pending_payment', 'completed')`
           );
-          booking = allBookings.find((b: any) => {
-            const rd = b.residentDetails as any;
-            const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
-            return bPhone === phone10;
-          }) || null;
+          booking = allBookings
+            .filter((b: any) => {
+              const rd = b.residentDetails as any;
+              const bPhone = (b.walkInPhone || rd?.phone || "").replace(/\D/g, "").slice(-10);
+              return bPhone === phone10;
+            })
+            .sort((a: any, c: any) => new Date(c.createdAt).getTime() - new Date(a.createdAt).getTime())[0] || null;
         }
       }
 
       if (!booking) {
         return res.status(404).json({ error: `Booking not found for code ${bookingCode} or phone ${phone}` });
+      }
+
+      // Idempotency: if this exact (booking, refType, refId) credit already landed,
+      // treat the retry/echo as a no-op instead of double-crediting.
+      if (orderId) {
+        const dupRefType = (reason === "order_cancel" || reason === "order_reject") ? "order_refund" : (reason || "manual_credit");
+        const [dup] = await db.select().from(schema.walletLedger).where(and(
+          eq(schema.walletLedger.bookingId, booking.id),
+          eq(schema.walletLedger.refType, dupRefType),
+          eq(schema.walletLedger.refId, orderId),
+        )).limit(1);
+        if (dup) {
+          console.log(`[Sync Wallet Credit] Duplicate ignored for ${booking.bookingCode} (refId=${orderId}, eventId=${eventId || "none"})`);
+          const dupEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
+          const dupBal = dupEntries.reduce((acc: number, e: any) => acc + e.credit - e.debit, 0);
+          return res.json({ success: true, duplicate: true, bookingCode: booking.bookingCode, creditedAmount: 0, newBalance: dupBal, ledgerEntryId: dup.id });
+        }
       }
 
       const entries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, booking.id));
