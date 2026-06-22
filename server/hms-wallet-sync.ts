@@ -239,7 +239,10 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
           .where(eq(schema.walletLedger.bookingId, booking.id));
         const localBalance = entries.reduce((acc: number, e: any) => acc + (e.credit || 0) - (e.debit || 0), 0);
 
-        const delta = hmsBalance - localBalance;
+        // CRM ledger stores whole rupees (integer credit/debit), so reconcile at
+        // rupee resolution. Rounding avoids fractional-insert errors and a
+        // perpetual sub-rupee "balance_correction" loop from float drift.
+        const delta = Math.round(hmsBalance - localBalance);
         if (delta === 0) {
           result.skipped++;
           result.details.push({ bookingCode: booking.bookingCode || "-", name: guestName, status: "skipped", previousBalance: localBalance, newBalance: localBalance, delta: 0 });
