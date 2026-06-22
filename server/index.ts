@@ -310,6 +310,10 @@ app.use((req, res, next) => {
       startHmsActivityLogCleanupJob();
       // Send EMI reminder emails to parents 1 day before due
       startEmiReminderJob();
+      // Reverse any wrongful HMS auto-debits (one-time idempotent fix)
+      import("./fix-hms-debits").then(({ reverseWrongfulHmsDebits }) => {
+        reverseWrongfulHmsDebits();
+      }).catch((e) => log(`Failed to run HMS debit reversal: ${e}`, "background"));
       // Start HMS wallet balance pull sync (every 30 min)
       import("./hms-wallet-sync").then(({ startHmsWalletSyncJob }) => {
         startHmsWalletSyncJob();
