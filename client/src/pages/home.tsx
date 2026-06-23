@@ -3067,11 +3067,21 @@ export default function Home() {
             transition={{ delay: 0.8 }}
             className="mt-12 text-center"
           >
-            <p className="text-white/20 text-xs max-w-3xl mx-auto leading-relaxed">
+            <p className="text-white/20 text-xs max-w-3xl mx-auto leading-relaxed mb-6">
               Also conveniently located near HR College, Jai Hind College, KC
               College, Narsee Monjee College, SP Jain, Goregaon Station, Andheri
               Station, and Nesco Exhibition Centre.
             </p>
+            <Link href="/hostels">
+              <motion.span
+                whileHover={{ scale: 1.03 }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/10 bg-white/[0.03] text-white/50 text-xs hover:text-white/80 hover:border-white/20 hover:bg-white/[0.05] transition-all cursor-pointer"
+                data-testid="link-view-all-colleges"
+              >
+                View all hostel locations
+                <ArrowRight className="w-3.5 h-3.5" />
+              </motion.span>
+            </Link>
           </motion.div>
         </div>
       </ImmersiveScene>

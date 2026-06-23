@@ -73,6 +73,7 @@ import FAQ from "@/pages/faq";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import CollegeLandingPage from "@/pages/college-landing";
+import HostelsIndex from "@/pages/hostels-index";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 import { PortalTransitionProvider } from "@/components/portal-transition";
 
@@ -109,6 +110,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/hostel-in-juhu": "Best Hostel in Juhu Mumbai | PG near NMIMS & Beach | Hsquare Living",
   "/hostel-in-andheri": "Best Hostel in Andheri Mumbai | Student PG & Co-Living | Hsquare Living",
   "/hostel-in-mumbai": "Best Hostel in Mumbai | Premium Student PG & Co-Living | Hsquare Living",
+  "/hostels": "Student Hostels in Mumbai | PG near Top Colleges | Hsquare Living",
 };
 
 const SITE_URL = "https://hsquare.in";
@@ -308,6 +310,7 @@ function AppContent() {
               <Route path="/faq" component={FAQ} />
               <Route path="/terms" component={Terms} />
               <Route path="/privacy" component={Privacy} />
+              <Route path="/hostels" component={HostelsIndex} />
               <Route path="/hostel-near-nmims" component={CollegeLandingPage} />
               <Route path="/hostel-near-mithibai" component={CollegeLandingPage} />
               <Route path="/hostel-near-mukesh-patel" component={CollegeLandingPage} />

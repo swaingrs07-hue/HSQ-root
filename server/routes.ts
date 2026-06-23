@@ -678,6 +678,7 @@ Sitemap: ${siteUrl}/sitemap.xml`
       { loc: "/hostel-in-juhu", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/hostel-in-andheri", lastmod: now, priority: "0.8", changefreq: "weekly" },
       { loc: "/hostel-in-mumbai", lastmod: now, priority: "0.9", changefreq: "weekly" },
+      { loc: "/hostels", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/about", lastmod: now, priority: "0.7", changefreq: "monthly" },
       { loc: "/contact", lastmod: now, priority: "0.7", changefreq: "monthly" },
       { loc: "/apply", lastmod: now, priority: "0.8", changefreq: "monthly" },

@@ -541,6 +541,77 @@ function CollegeLandingPage() {
         </div>
       </section>
 
+      {/* Nearby Properties */}
+      {(() => {
+        const allProps: any[] = Array.isArray(properties) ? properties : [];
+        const areaKeywords = pageData.propertyArea
+          .toLowerCase()
+          .split(/[,/&]+/)
+          .map((t: string) => t.trim())
+          .filter((t: string) => t.length > 2);
+        const nearby = allProps
+          .filter((p: any) => {
+            if (!p.location || p.status !== "published") return false;
+            const loc = (p.location as string).toLowerCase();
+            return areaKeywords.some((kw: string) => loc.includes(kw));
+          })
+          .slice(0, 3);
+        if (nearby.length === 0) return null;
+        return (
+          <section className="py-20 relative">
+            <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.03) 0%, transparent 50%)" }} />
+            <div className="container mx-auto px-4 relative z-10">
+              <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
+                <p className="text-amber-400/80 text-xs tracking-[0.4em] uppercase font-medium mb-3">Available Now</p>
+                <h2 className="text-3xl md:text-4xl font-heading font-bold">
+                  Hsquare Properties Near {pageData.collegeName}
+                </h2>
+              </motion.div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto mb-10">
+                {nearby.map((prop: any, i: number) => (
+                  <motion.a
+                    key={prop.id}
+                    href={`/properties/${prop.slug}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="group block p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-300"
+                    data-testid={`property-card-${i}`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center shrink-0">
+                        <Building2 className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-white/90 text-sm mb-1 group-hover:text-amber-400 transition-colors truncate">
+                          {prop.name}
+                        </h3>
+                        <p className="text-white/35 text-xs flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          {prop.location}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-widest text-emerald-400/70 font-medium">Available</span>
+                      <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </motion.a>
+                ))}
+              </div>
+              <div className="text-center">
+                <Link href="/properties">
+                  <Button variant="outline" className="border-white/15 text-white/60 hover:text-white hover:border-white/30 rounded-xl" data-testid="btn-view-all-properties">
+                    View All Properties <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
       <section className="py-20 relative">
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 70% 50%, rgba(6,182,212,0.04) 0%, transparent 50%)" }} />
         <div className="container mx-auto px-4 relative z-10">
