@@ -3157,6 +3157,137 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── What Residents Say — Testimonials ───────────────────────── */}
+      <section
+        className="relative py-28 md:py-40 overflow-hidden"
+        data-testid="section-testimonials"
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-amber-500/[0.04] rounded-full blur-3xl" />
+          <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-violet-500/[0.04] rounded-full blur-3xl" />
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="home-glass rounded-full inline-flex items-center gap-2 px-4 py-1.5 mb-7"
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span className="text-xs uppercase tracking-[0.3em] text-white/80 font-cinematic-body">
+                What Residents Say
+              </span>
+            </motion.div>
+
+            <motion.h2
+              initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+              whileInView={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="font-cinematic-display text-white leading-[0.9] text-4xl md:text-5xl lg:text-6xl tracking-tight"
+            >
+              Hear it from our{" "}
+              <span className="text-[#c5a059]">residents.</span>
+            </motion.h2>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2, duration: 0.7 }}
+              className="text-white/50 text-sm md:text-base max-w-xl mx-auto mt-5 font-cinematic-body font-light"
+            >
+              Students thrive. Parents rest easy. Here's why 500+ residents
+              call Hsquare home.
+            </motion.p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
+            {[
+              {
+                name: "Priya Sharma",
+                role: "Student · NMIMS Mumbai",
+                quote:
+                  "The HsquareConnect app changed everything for me. I track my meals, raise maintenance requests, and manage my wallet — all from my phone. Most hostels give you a room. Hsquare gives you a platform.",
+                tag: "Student",
+                stars: 5,
+              },
+              {
+                name: "Rajesh Kapoor",
+                role: "Parent · Pune",
+                quote:
+                  "Sending my daughter to Mumbai for the first time was nerve-wracking. Hsquare's 24/7 security, home-cooked meals, and regular updates gave us complete peace of mind. Best decision we ever made.",
+                tag: "Parent",
+                stars: 5,
+              },
+              {
+                name: "Arjun Mehta",
+                role: "Student · VJTI",
+                quote:
+                  "I've lived in three different hostels in Mumbai. Nothing comes close to Hsquare. The community, the food, the study lounge — it genuinely feels like a second home.",
+                tag: "Student",
+                stars: 5,
+              },
+              {
+                name: "Meena Desai",
+                role: "Parent · Hyderabad",
+                quote:
+                  "The team responds instantly whenever I reach out. My son has absolutely thrived here — better focus, great food, and friends who push him to do better. Completely worth it.",
+                tag: "Parent",
+                stars: 5,
+              },
+            ].map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{
+                  delay: i * 0.12,
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="group relative p-6 md:p-7 rounded-2xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500"
+                data-testid={`testimonial-card-${i}`}
+              >
+                <div className="absolute top-6 right-6 flex gap-0.5">
+                  {Array.from({ length: t.stars }).map((_, si) => (
+                    <Star
+                      key={si}
+                      className="w-3 h-3 text-amber-400 fill-amber-400"
+                    />
+                  ))}
+                </div>
+
+                <p className="text-white/70 text-sm md:text-base leading-relaxed mb-6 font-light italic">
+                  "{t.quote}"
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500/30 to-rose-500/20 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-white/80">
+                      {t.name[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white/90">
+                      {t.name}
+                    </p>
+                    <p className="text-[11px] text-white/40">{t.role}</p>
+                  </div>
+                  <span className="ml-auto text-[10px] uppercase tracking-widest text-white/30 border border-white/10 rounded-full px-2.5 py-0.5">
+                    {t.tag}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="relative py-36 md:py-48 overflow-hidden" data-testid="section-cta">
         <div className="absolute inset-0">
           <motion.img
@@ -3285,24 +3416,25 @@ export default function Home() {
               </h2>
 
               <p className="text-white/40 text-base md:text-lg leading-relaxed mb-8 max-w-md">
-                Download HsquareConnect — your smart companion for seamless
-                hostel living. Manage everything from your phone.
+                Most PGs give you a room. HsquareConnect gives you a smart
+                living platform — meal menus, maintenance requests, attendance,
+                community updates, and your wallet, all in one app.
               </p>
 
               <div className="grid grid-cols-2 gap-3 mb-8">
                 {[
-                  { icon: Bell, label: "Instant Alerts", desc: "Stay updated" },
+                  { icon: Utensils, label: "Meal Tracking", desc: "Daily menus & feedback" },
                   {
-                    icon: Wallet,
-                    label: "Digital Wallet",
-                    desc: "Easy payments",
+                    icon: Bell,
+                    label: "Maintenance",
+                    desc: "Raise & track requests",
                   },
                   {
-                    icon: Utensils,
-                    label: "Meal Tracking",
-                    desc: "Daily menus",
+                    icon: GraduationCap,
+                    label: "Attendance",
+                    desc: "In/out logs",
                   },
-                  { icon: QrCode, label: "Quick Check-in", desc: "Scan & go" },
+                  { icon: Wallet, label: "Digital Wallet", desc: "Easy payments" },
                 ].map((f) => (
                   <div
                     key={f.label}
