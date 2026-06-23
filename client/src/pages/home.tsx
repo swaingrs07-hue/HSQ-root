@@ -1985,9 +1985,9 @@ export default function Home() {
                 className="font-cinematic-display text-white leading-[0.85] text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] max-w-3xl"
                 data-testid="text-home-headline"
               >
-                Your home away
+                Premium Student
                 <br />
-                from <span className="text-[#c5a059]">home.</span>
+                Living in <span className="text-[#c5a059]">Mumbai.</span>
               </motion.h1>
 
               <motion.p
@@ -1996,9 +1996,9 @@ export default function Home() {
                 transition={{ delay: 0.8, duration: 0.7, ease: "easeOut" }}
                 className="mt-6 text-sm md:text-base text-white/85 max-w-xl font-cinematic-body font-light leading-relaxed"
               >
-                Thoughtfully designed spaces, curated communities, and an
-                intelligent platform that quietly takes care of everything —
-                so you can focus on what matters.
+                Fully managed accommodation near top colleges — with meals,
+                housekeeping, 24/7 security, and the HsquareConnect resident
+                app. Everything handled, so you focus on what matters.
               </motion.p>
 
               <motion.div
