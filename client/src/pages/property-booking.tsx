@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getWashroomPills, isSectionShared } from "@/lib/room-washrooms";
 import { PropertyBrochureButtons } from "@/components/property-brochure-buttons";
 import { resolveRoomPrice, getBedSection, priceForBookingMode } from "@shared/pricing";
+import { COLLEGE_PAGES } from "@/pages/college-landing";
 
 class PropertyBookingErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -2052,6 +2053,43 @@ function PropertyBooking() {
                 )}
               </div>
             )}
+
+            {(() => {
+              const loc = (property.location || "").toLowerCase();
+              const isJuhuVileParle = loc.includes("juhu") || loc.includes("vile parle") || loc.includes("vileparle") || loc.includes("vile-parle");
+              const isGoregaon = loc.includes("goregaon");
+              const collegeSlugs = Object.values(COLLEGE_PAGES)
+                .filter((p) => p.slug.startsWith("hostel-near-"))
+                .filter((p) => {
+                  const area = (p.propertyArea || "").toLowerCase();
+                  if (isJuhuVileParle) return area.includes("juhu") || area.includes("vile parle");
+                  if (isGoregaon) return area.includes("goregaon");
+                  return false;
+                });
+              if (collegeSlugs.length === 0) return null;
+              return (
+                <div data-testid="section-near-colleges">
+                  <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-4 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-amber-500" />
+                    Near These Colleges
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {collegeSlugs.map((page) => (
+                      <Link
+                        key={page.slug}
+                        href={`/${page.slug}`}
+                        data-testid={`link-college-${page.slug}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium hover:bg-blue-500/20 hover:border-blue-400/40 hover:text-blue-200 transition-all"
+                      >
+                        <GraduationCap className="w-3 h-3 shrink-0" />
+                        {page.collegeName}
+                        <ArrowRight className="w-3 h-3 shrink-0 opacity-60" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {property.isSoldOut ? (
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-xl shadow-black/40 px-6 py-8 text-center">
