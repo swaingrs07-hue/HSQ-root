@@ -1183,6 +1183,7 @@ export default function CompletedBookings() {
 
   const markPaymentDone = async () => {
     if (!selectedBooking) return;
+    if (markingPayment) return; // synchronous re-entry guard — prevents rapid double-click before state update propagates
     setMarkingPayment(true);
     try {
       const authData = localStorage.getItem("hsquare_auth");
