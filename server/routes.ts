@@ -6535,6 +6535,55 @@ ${allPages.map(p => `  <url>
 
       // All payment writes are atomic: primary payment + installment update + optional overflow
       await db.transaction(async (tx) => {
+        // ── Step 1: Acquire a row-level lock on the installment BEFORE any write ──
+        // FOR UPDATE causes concurrent transactions targeting the same installment to queue up
+        // and see the winner's fully-committed state (paid=true) when they resume.
+        // This is the deterministic serialization point that prevents double-payment.
+        let lockedInst: any = null;
+        let freshPaymentsForInst: any[] = [];
+
+        if (installmentId) {
+          const [inst] = await tx.select().from(schema.installments)
+            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
+            .for("update");
+          if (!inst) throw new Error("Installment not found for this booking");
+          if (inst.paid) {
+            const err: any = new Error("This installment has already been marked as paid");
+            err.statusCode = 409;
+            throw err;
+          }
+          lockedInst = inst;
+
+          // Re-read payments inside the transaction so the total reflects concurrent commits.
+          freshPaymentsForInst = await tx.select().from(schema.payments)
+            .where(and(
+              eq(schema.payments.bookingId, booking.id),
+              eq(schema.payments.installmentId, installmentId),
+              eq(schema.payments.status, "success"),
+            ));
+        }
+
+        // ── Step 2: UTR idempotency check inside the transaction ──
+        // The pre-transaction check is a fast-path; this in-transaction check is the
+        // authoritative gate — it runs after the row lock so no two concurrent requests
+        // can both pass simultaneously with the same UTR.
+        if (!isCash && !isPaidLastYear && txnId) {
+          const [existingWithSameTxn] = await tx.select({ id: schema.payments.id })
+            .from(schema.payments)
+            .where(and(
+              eq(schema.payments.bookingId, booking.id),
+              eq(schema.payments.razorpayPaymentId, txnId),
+              eq(schema.payments.status, "success"),
+            ))
+            .limit(1);
+          if (existingWithSameTxn) {
+            const err: any = new Error("A payment with this transaction ID is already recorded for this booking");
+            err.statusCode = 409;
+            throw err;
+          }
+        }
+
+        // ── Step 3: Insert the payment (safe — installment is locked, UTR verified) ──
         const [pmt] = await tx.insert(schema.payments).values({
           bookingId: booking.id,
           amount: primaryPaymentAmount,
@@ -6548,30 +6597,10 @@ ${allPages.map(p => `  <url>
         }).returning();
         payment = pmt;
 
-        if (installmentId) {
-          const [existingInst] = await tx.select().from(schema.installments)
-            .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
-          if (!existingInst) throw new Error("Installment not found for this booking");
-
-          // Race-condition guard: if another concurrent request already committed a payment
-          // that flipped this installment to paid=true, reject this duplicate attempt.
-          // PostgreSQL READ COMMITTED ensures we see the other transaction's committed write here.
-          if (existingInst.paid) {
-            const err: any = new Error("This installment has already been marked as paid");
-            err.statusCode = 409;
-            throw err;
-          }
-
-          // Re-read payments for this installment inside the transaction so we use the
-          // latest committed data instead of the stale snapshot from before the tx started.
-          const freshPaymentsForInst = await tx.select().from(schema.payments)
-            .where(and(
-              eq(schema.payments.bookingId, booking.id),
-              eq(schema.payments.installmentId, installmentId),
-              eq(schema.payments.status, "success"),
-            ));
+        // ── Step 4: Update the installment status ──
+        if (installmentId && lockedInst) {
           const totalPaidSoFar = freshPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + primaryPaymentAmount;
-          const isFullyPaid = totalPaidSoFar >= existingInst.amount;
+          const isFullyPaid = totalPaidSoFar >= lockedInst.amount;
 
           if (isFullyPaid) {
             const [inst] = await tx.update(schema.installments)
@@ -6580,20 +6609,20 @@ ${allPages.map(p => `  <url>
               .returning();
             updatedInstallment = inst;
           } else {
-            const partialName = existingInst.name.includes("(Partial)") ? existingInst.name : `${existingInst.name} (Partial)`;
+            const partialName = lockedInst.name.includes("(Partial)") ? lockedInst.name : `${lockedInst.name} (Partial)`;
             const [inst] = await tx.update(schema.installments)
               .set({ name: partialName, amount: freshPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0) + primaryPaymentAmount, paid: true, paidAt: new Date() })
               .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
               .returning();
             updatedInstallment = inst;
 
-            const remainingAmount = existingInst.amount - totalPaidSoFar;
-            const baseName = existingInst.name.replace(/ \(Partial\)$/, "");
+            const remainingAmount = lockedInst.amount - totalPaidSoFar;
+            const baseName = lockedInst.name.replace(/ \(Partial\)$/, "");
             const [balanceInst] = await tx.insert(schema.installments).values({
               bookingId: booking.id,
               name: `${baseName} - Balance`,
               amount: remainingAmount,
-              dueDate: existingInst.dueDate,
+              dueDate: lockedInst.dueDate,
               paid: false,
             }).returning();
             newBalanceInstallment = balanceInst;

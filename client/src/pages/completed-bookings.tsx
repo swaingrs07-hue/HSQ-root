@@ -1223,7 +1223,9 @@ export default function CompletedBookings() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to mark payment");
+        const err: any = new Error(data.error || "Failed to mark payment");
+        err.httpStatus = res.status;
+        throw err;
       }
       const { booking: updated, installment: updatedInst, payment: newPayment, balanceInstallment, bookingPackage: updatedBp, overflowPayments } = await res.json();
       const allNewPayments = [newPayment, ...(overflowPayments || [])].filter(Boolean);
@@ -1261,7 +1263,12 @@ export default function CompletedBookings() {
           : `₹${paymentForm.amount.toLocaleString("en-IN")} payment recorded`;
       toast({ title: "Payment marked as done", description: desc });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const isConflict = error.httpStatus === 409;
+      toast({
+        title: isConflict ? "Already recorded" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setMarkingPayment(false);
     }
