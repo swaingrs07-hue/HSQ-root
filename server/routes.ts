@@ -6479,6 +6479,22 @@ ${allPages.map(p => `  <url>
         ? (transactionId?.trim() || `CASH-${Date.now()}`)
         : transactionId.trim();
 
+      // Duplicate UTR guard: reject if this exact transaction ID was already recorded on this booking.
+      // Skipped for cash and paid_last_year because those auto-generate unique IDs anyway.
+      if (!isCash && !isPaidLastYear && txnId) {
+        const [existingWithSameTxn] = await db.select({ id: schema.payments.id })
+          .from(schema.payments)
+          .where(and(
+            eq(schema.payments.bookingId, booking.id),
+            eq(schema.payments.razorpayPaymentId, txnId),
+            eq(schema.payments.status, "success"),
+          ))
+          .limit(1);
+        if (existingWithSameTxn) {
+          return res.status(409).json({ error: "A payment with this transaction ID is already recorded for this booking" });
+        }
+      }
+
       // --- Overpayment split: if payment > installment face value, route excess to next installment ---
       let primaryPaymentAmount = paymentAmount;
       let overflowAmount = 0;
@@ -6537,8 +6553,24 @@ ${allPages.map(p => `  <url>
             .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)));
           if (!existingInst) throw new Error("Installment not found for this booking");
 
-          const previousPaymentsForInst = allExistingPayments.filter(p => p.installmentId === installmentId);
-          const totalPaidSoFar = previousPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + primaryPaymentAmount;
+          // Race-condition guard: if another concurrent request already committed a payment
+          // that flipped this installment to paid=true, reject this duplicate attempt.
+          // PostgreSQL READ COMMITTED ensures we see the other transaction's committed write here.
+          if (existingInst.paid) {
+            const err: any = new Error("This installment has already been marked as paid");
+            err.statusCode = 409;
+            throw err;
+          }
+
+          // Re-read payments for this installment inside the transaction so we use the
+          // latest committed data instead of the stale snapshot from before the tx started.
+          const freshPaymentsForInst = await tx.select().from(schema.payments)
+            .where(and(
+              eq(schema.payments.bookingId, booking.id),
+              eq(schema.payments.installmentId, installmentId),
+              eq(schema.payments.status, "success"),
+            ));
+          const totalPaidSoFar = freshPaymentsForInst.reduce((sum, p) => sum + (p.amount || 0), 0) + primaryPaymentAmount;
           const isFullyPaid = totalPaidSoFar >= existingInst.amount;
 
           if (isFullyPaid) {
@@ -6550,7 +6582,7 @@ ${allPages.map(p => `  <url>
           } else {
             const partialName = existingInst.name.includes("(Partial)") ? existingInst.name : `${existingInst.name} (Partial)`;
             const [inst] = await tx.update(schema.installments)
-              .set({ name: partialName, amount: previousPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0) + primaryPaymentAmount, paid: true, paidAt: new Date() })
+              .set({ name: partialName, amount: freshPaymentsForInst.reduce((s, p) => s + (p.amount || 0), 0) + primaryPaymentAmount, paid: true, paidAt: new Date() })
               .where(and(eq(schema.installments.id, installmentId), eq(schema.installments.bookingId, booking.id)))
               .returning();
             updatedInstallment = inst;
@@ -6737,7 +6769,7 @@ ${allPages.map(p => `  <url>
       res.json({ booking: updated, payment, installment: updatedInstallment, balanceInstallment: newBalanceInstallment, overflowPayments });
     } catch (error: any) {
       console.error("Error marking payment done:", error);
-      res.status(500).json({ error: error.message || "Failed to mark payment done" });
+      res.status(error.statusCode || 500).json({ error: error.message || "Failed to mark payment done" });
     }
   });
 
