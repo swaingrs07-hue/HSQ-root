@@ -280,6 +280,52 @@ export async function pullHmsWalletBalances(propertyIds?: string[]): Promise<Wal
   return result;
 }
 
+// ── Exported instant-push helper ─────────────────────────────────────────────
+// Pushes the new available wallet balance from Hsquare → HMS immediately after
+// any wallet mutation (topup, debit, package credit, monthly release).
+// Fire-and-forget safe: all errors are caught and logged, never thrown.
+export async function pushWalletBalance(
+  phone: string | null | undefined,
+  email: string | null | undefined,
+  bookingCode: string,
+  newAvailableBalance: number,
+  source: string = "wallet-update",
+): Promise<void> {
+  try {
+    const baseUrl = getHmsBaseUrl();
+    const apiKey = process.env.HMS_API_KEY || process.env.HOSTEL_FLOW_API_KEY;
+    if (!apiKey) {
+      console.warn(`[HMS Wallet Push] ${bookingCode}: no HMS API key — skipping push`);
+      return;
+    }
+    const identifier: Record<string, string> = {};
+    if (email) identifier.email = (email as string).toLowerCase().trim();
+    else if (phone) identifier.phone = phone as string;
+    else {
+      console.warn(`[HMS Wallet Push] ${bookingCode}: no phone/email — skipping push`);
+      return;
+    }
+    const body = {
+      eventId: `crm-push-${bookingCode}-${Date.now()}`,
+      items: [{ ...identifier, balance: newAvailableBalance, description: `CRM wallet push (${source})` }],
+    };
+    const res = await fetch(`${baseUrl}/sync/wallet-update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      console.log(`[HMS Wallet Push] ${bookingCode}: ₹${newAvailableBalance} pushed to HMS (${source})`);
+    } else {
+      const text = await res.text().catch(() => "");
+      console.warn(`[HMS Wallet Push] ${bookingCode}: HMS returned ${res.status} — ${text.slice(0, 200)}`);
+    }
+  } catch (err: any) {
+    console.warn(`[HMS Wallet Push] ${bookingCode}: push failed — ${err.message}`);
+  }
+}
+
 // ── Background job ────────────────────────────────────────────────────────────
 export function startHmsWalletSyncJob() {
   async function run() {

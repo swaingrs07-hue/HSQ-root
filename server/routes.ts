@@ -14831,6 +14831,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
           refId: bp.id,
           note: `Initial credit from package "${pkg.name}"`,
         });
+        // Push new balance to HMS immediately after package credit
+        setImmediate(async () => {
+          try {
+            const booking = await storage.getBooking(req.params.bookingId);
+            if (booking) {
+              const allEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId));
+              const { available: newBalance } = computeWalletSummary(allEntries);
+              const rd = booking.residentDetails as any;
+              await pushWalletBalanceToHms(booking.walkInPhone || rd?.phone, booking.walkInEmail || rd?.email, booking.bookingCode || "", newBalance, "package-credit");
+            }
+          } catch (e: any) { console.warn("[HMS Wallet Push] package-credit push error:", e.message); }
+        });
       }
 
       autoResyncBookingToHms(req.params.bookingId, "package-attach");
@@ -15024,6 +15036,18 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         performedBy: req.user?.userId || null,
       }).returning();
       autoResyncBookingToHms(req.params.bookingId, "wallet-topup");
+      // Push new balance to HMS immediately so staff see it without a manual refresh
+      setImmediate(async () => {
+        try {
+          const booking = await storage.getBooking(req.params.bookingId);
+          if (booking) {
+            const allEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, req.params.bookingId));
+            const { available: newBalance } = computeWalletSummary(allEntries);
+            const rd = booking.residentDetails as any;
+            await pushWalletBalanceToHms(booking.walkInPhone || rd?.phone, booking.walkInEmail || rd?.email, booking.bookingCode || "", newBalance, "manual-topup");
+          }
+        } catch (e: any) { console.warn("[HMS Wallet Push] topup push error:", e.message); }
+      });
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to top up wallet" });
@@ -15047,6 +15071,17 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         performedBy: req.user?.userId || null,
       }).returning();
       autoResyncBookingToHms(req.params.bookingId, "wallet-debit");
+      // Push new balance to HMS immediately — debit reduces available balance
+      const newBalanceAfterDebit = balance - amount;
+      setImmediate(async () => {
+        try {
+          const booking = await storage.getBooking(req.params.bookingId);
+          if (booking) {
+            const rd = booking.residentDetails as any;
+            await pushWalletBalanceToHms(booking.walkInPhone || rd?.phone, booking.walkInEmail || rd?.email, booking.bookingCode || "", newBalanceAfterDebit, "manual-debit");
+          }
+        } catch (e: any) { console.warn("[HMS Wallet Push] debit push error:", e.message); }
+      });
       res.status(201).json(entry);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to debit wallet" });

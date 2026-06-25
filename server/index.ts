@@ -8,6 +8,7 @@ import { db, pool } from "./db";
 import * as schema from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { CANONICAL_APEX } from "./canonical-host";
+import { pushWalletBalance } from "./hms-wallet-sync";
 
 const app = express();
 const httpServer = createServer(app);
@@ -581,6 +582,23 @@ async function startCrmWalletMonthlyJob() {
           refId: plan.id,
           note: `Monthly CRM credit ₹${plan.monthlyAmount}`,
         });
+        // Push new balance to HMS immediately after monthly credit
+        setImmediate(async () => {
+          try {
+            const booking = await storage.getBooking(plan.bookingId);
+            if (booking) {
+              const allEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, plan.bookingId));
+              const now = new Date();
+              let available = 0;
+              for (const e of allEntries) {
+                const lk = e.lockedUntil ? new Date(e.lockedUntil) : null;
+                if (!lk || lk <= now) available += (e.credit || 0) - (e.debit || 0);
+              }
+              const rd = booking.residentDetails as any;
+              await pushWalletBalance(booking.walkInPhone || rd?.phone, booking.walkInEmail || rd?.email, booking.bookingCode || "", available, "monthly-release");
+            }
+          } catch (e: any) { log(`[HMS Wallet Push] monthly-release push error: ${e.message}`, "background"); }
+        });
         // Advance nextCreditDate by one month
         const d = new Date(plan.nextCreditDate + "T00:00:00Z");
         const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
@@ -689,6 +707,24 @@ async function startWalletCreditRenewalJob() {
               refType: "package_credit_renewal",
               refId: bp.id,
               note: `Monthly credit reset (month ${renewalMonth}) from "${pkgName}" — topped up ${creditAmount} to restore ${monthlyLimit}/mo`,
+            });
+            // Push new balance to HMS immediately after package credit renewal
+            const bpBookingId = bp.bookingId;
+            setImmediate(async () => {
+              try {
+                const booking = await storage.getBooking(bpBookingId);
+                if (booking) {
+                  const allEntries = await db.select().from(schema.walletLedger).where(eq(schema.walletLedger.bookingId, bpBookingId));
+                  const now = new Date();
+                  let available = 0;
+                  for (const e of allEntries) {
+                    const lk = e.lockedUntil ? new Date(e.lockedUntil) : null;
+                    if (!lk || lk <= now) available += (e.credit || 0) - (e.debit || 0);
+                  }
+                  const rd = booking.residentDetails as any;
+                  await pushWalletBalance(booking.walkInPhone || rd?.phone, booking.walkInEmail || rd?.email, booking.bookingCode || "", available, "package-renewal");
+                }
+              } catch (e: any) { log(`[HMS Wallet Push] package-renewal push error: ${e.message}`, "background"); }
             });
           }
           totalRenewed++;
