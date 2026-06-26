@@ -667,7 +667,8 @@ Sitemap: ${siteUrl}/sitemap.xml`
     const staticPages: SitemapEntry[] = [
       { loc: "/", lastmod: now, priority: "1.0", changefreq: "weekly" },
       { loc: "/properties", lastmod: now, priority: "0.9", changefreq: "weekly" },
-      { loc: "/hostel-near-nmims", lastmod: now, priority: "0.9", changefreq: "weekly" },
+      { loc: "/hostel-near-nmims", lastmod: now, priority: "1.0", changefreq: "weekly" },
+      { loc: "/hostel-near-svkms", lastmod: now, priority: "1.0", changefreq: "weekly" },
       { loc: "/hostel-near-mithibai", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/hostel-near-mukesh-patel", lastmod: now, priority: "0.9", changefreq: "weekly" },
       { loc: "/hostel-near-nm-college", lastmod: now, priority: "0.9", changefreq: "weekly" },

@@ -99,7 +99,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/terms": "Terms & Conditions - Hsquare Harmony Living",
   "/privacy": "Privacy Policy - Hsquare Harmony Living",
   "/apply": "Pre-Registration | Hsquare Hostel Mumbai - Student Accommodation",
-  "/hostel-near-nmims": "Hostel Near NMIMS Mumbai | Hsquare Living - Student PG & Accommodation",
+  "/hostel-near-nmims": "Hostel Near NMIMS SVKMs Mumbai | Hsquare Living - Student PG & Accommodation",
+  "/hostel-near-svkms": "Hostel Near SVKMs Mumbai | PG near NMIMS, MPSTME, DJ Sanghvi | Hsquare Living",
   "/hostel-near-mithibai": "Hostel Near Mithibai College Mumbai | Hsquare Living - Student PG",
   "/hostel-near-mukesh-patel": "Hostel Near Mukesh Patel Mumbai | Hsquare Living - Student Accommodation",
   "/hostel-near-nm-college": "Hostel Near NM College Mumbai | Hsquare Living - Student PG",
@@ -312,6 +313,7 @@ function AppContent() {
               <Route path="/privacy" component={Privacy} />
               <Route path="/hostels" component={HostelsIndex} />
               <Route path="/hostel-near-nmims" component={CollegeLandingPage} />
+              <Route path="/hostel-near-svkms" component={CollegeLandingPage} />
               <Route path="/hostel-near-mithibai" component={CollegeLandingPage} />
               <Route path="/hostel-near-mukesh-patel" component={CollegeLandingPage} />
               <Route path="/hostel-near-nm-college" component={CollegeLandingPage} />
