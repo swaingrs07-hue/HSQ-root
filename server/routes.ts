@@ -4947,7 +4947,12 @@ ${allPages.map(p => `  <url>
         }
         if (leadId) {
           const l = await storage.getLead(leadId);
-          if (l && l.propertyId && !generateScope.has(l.propertyId)) {
+          // Only block if the lead belongs to a *different* property that is also
+          // outside this frontdesk's scope.  If the booking propertyId (already
+          // confirmed in scope above) matches the lead's propertyId — or the lead
+          // has no propertyId — the frontdesk is simply converting their own lead
+          // and must not be blocked.
+          if (l && l.propertyId && l.propertyId !== propertyId && !generateScope.has(l.propertyId)) {
             return res.status(403).json({ error: "Lead not in your assignment scope" });
           }
         }
