@@ -17168,6 +17168,158 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   );
 
   // ====================================================================
+  // ============ USER MODULE PERMISSIONS (per-user access control) ======
+  // ====================================================================
+
+  // Module defaults used for resolution: user record → role default → full access
+  const USER_MODULE_DEFAULTS: Record<string, Record<string, boolean>> = {
+    admin: {
+      dashboard: true, requests: true, registrations: true, team: true,
+      sales_management: true, leads: true, bookings: true, all_bookings: true,
+      cancellations: true, calendar: true, reports: true, activity_log: true,
+      tour_images: true, virtual_tour: true, floors_beds: true, booking_tree: true,
+      housing_plans: true, coupons: true, addon_services: true, seasons: true,
+      hms_sync: true, hero_slides: true, amenities: true, map_design: true,
+      footer: true, ai_chatbot: true, contact_messages: true, data_export: true,
+      settings: true, view_financials: true,
+    },
+    manager: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: true, leads: true, bookings: true, all_bookings: true,
+      cancellations: true, calendar: true, reports: true, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: true,
+    },
+    frontdesk: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: false, leads: false, bookings: true, all_bookings: true,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+    staff: {
+      dashboard: true, requests: true, registrations: false, team: false,
+      sales_management: false, leads: false, bookings: false, all_bookings: false,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+    sales_executive: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: false, leads: true, bookings: true, all_bookings: true,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+  };
+
+  // GET /api/admin/user-permissions/me — calling user's effective flat permissions
+  app.get("/api/admin/user-permissions/me", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const role = req.user!.role;
+      if (role === "superadmin") {
+        const full: Record<string, boolean> = {};
+        Object.keys(USER_MODULE_DEFAULTS.admin).forEach(k => { full[k] = true; });
+        return res.json(full);
+      }
+      const [userRow] = await db.select().from(schema.userModulePermissions)
+        .where(eq(schema.userModulePermissions.userId, userId));
+      const roleDefaults = USER_MODULE_DEFAULTS[role] || {};
+      if (userRow) {
+        return res.json({ ...roleDefaults, ...(userRow.permissions as Record<string, boolean>) });
+      }
+      return res.json(roleDefaults);
+    } catch (error: any) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ error: "Failed to fetch user permissions" });
+    }
+  });
+
+  // GET /api/admin/user-permissions — superadmin: all non-superadmin users with effective permissions
+  app.get("/api/admin/user-permissions", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const allUsersRaw = await db.select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        role: schema.users.role,
+      }).from(schema.users)
+        .where(and(eq(schema.users.isActive, true), isNull(schema.users.deletedAt)))
+        .orderBy(schema.users.name);
+
+      const skipRoles = new Set(["superadmin", "user", "hotel_admin", "hotel_staff"]);
+      const allUsers = allUsersRaw.filter(u => !skipRoles.has(u.role));
+
+      const userRows = await db.select().from(schema.userModulePermissions);
+      const userRowMap = new Map(userRows.map(r => [r.userId, r]));
+
+      const result = allUsers.map(u => {
+        const roleDefaults = USER_MODULE_DEFAULTS[u.role] || {};
+        const userRow = userRowMap.get(u.id);
+        const permissions = userRow
+          ? { ...roleDefaults, ...(userRow.permissions as Record<string, boolean>) }
+          : roleDefaults;
+        return { ...u, permissions, hasCustom: !!userRow };
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error fetching all user permissions:", error);
+      res.status(500).json({ error: "Failed to fetch user permissions" });
+    }
+  });
+
+  // PATCH /api/admin/user-permissions/:userId — superadmin only, upsert user permissions
+  app.patch("/api/admin/user-permissions/:userId", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const targetUserId = req.params.userId as string;
+      const permissions = req.body?.permissions;
+      if (!permissions || typeof permissions !== "object") {
+        return res.status(400).json({ error: "`permissions` object required" });
+      }
+      const [existing] = await db.select().from(schema.userModulePermissions)
+        .where(eq(schema.userModulePermissions.userId, targetUserId));
+      if (existing) {
+        await db.update(schema.userModulePermissions)
+          .set({ permissions, updatedAt: new Date() })
+          .where(eq(schema.userModulePermissions.userId, targetUserId));
+      } else {
+        await db.insert(schema.userModulePermissions).values({ userId: targetUserId, permissions });
+      }
+      res.json({ userId: targetUserId, permissions });
+    } catch (error: any) {
+      console.error("Error updating user permissions:", error);
+      res.status(500).json({ error: "Failed to update user permissions" });
+    }
+  });
+
+  // DELETE /api/admin/user-permissions/:userId — remove user-specific record (reset to role defaults)
+  app.delete("/api/admin/user-permissions/:userId", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const targetUserId = req.params.userId as string;
+      await db.delete(schema.userModulePermissions)
+        .where(eq(schema.userModulePermissions.userId, targetUserId));
+      res.json({ userId: targetUserId, reset: true });
+    } catch (error: any) {
+      console.error("Error resetting user permissions:", error);
+      res.status(500).json({ error: "Failed to reset user permissions" });
+    }
+  });
+
+  // ====================================================================
   // ============ SITE CONTENT (superadmin-managed editable copy) ========
   // ====================================================================
 

@@ -1904,7 +1904,7 @@ export type CancellationRequest = typeof cancellationRequests.$inferSelect;
 export type InsertCancellationRequest = z.infer<typeof insertCancellationRequestSchema>;
 
 // ============================================================================
-// ROLE MODULE PERMISSIONS — superadmin controls which sidebar tabs each role sees
+// ROLE MODULE PERMISSIONS — role-level defaults (fallback when no user record)
 // ============================================================================
 export const roleModulePermissions = pgTable("role_module_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1913,6 +1913,17 @@ export const roleModulePermissions = pgTable("role_module_permissions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type RoleModulePermissions = typeof roleModulePermissions.$inferSelect;
+
+// ============================================================================
+// USER MODULE PERMISSIONS — per-user overrides (takes precedence over role defaults)
+// ============================================================================
+export const userModulePermissions = pgTable("user_module_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  permissions: jsonb("permissions").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type UserModulePermissions = typeof userModulePermissions.$inferSelect;
 
 // Re-export chat models for AI integrations
 export * from "./models/chat";

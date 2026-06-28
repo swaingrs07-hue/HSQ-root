@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useFeatureFlags, useSetFeatureFlag } from "@/hooks/use-feature-flags";
 import { useSiteContent, useSetSiteContent } from "@/hooks/use-site-content";
-import { useModulePermissions, useSetModulePermissions } from "@/hooks/use-module-permissions";
+import { useAllUserPermissions, useSetUserPermissions, useResetUserPermissions } from "@/hooks/use-module-permissions";
 
 function CancellationPoliciesSection() {
   const { toast } = useToast();
@@ -1240,66 +1240,110 @@ export default function AdminSettings() {
   );
 }
 
-const ROLES = [
-  { key: "admin", label: "Admin" },
-  { key: "manager", label: "Manager" },
-  { key: "frontdesk", label: "Front Desk" },
-  { key: "staff", label: "Staff" },
-  { key: "sales_executive", label: "Sales Exec" },
-] as const;
-
+// Module keys must exactly match HREF_TO_MODULE in admin-layout.tsx
 const MODULE_LABELS: Record<string, { label: string; icon: ReactNode }> = {
-  dashboard: { label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-  properties: { label: "Properties", icon: <Building2 className="h-4 w-4" /> },
-  bookings: { label: "Bookings", icon: <BedDouble className="h-4 w-4" /> },
-  students: { label: "Students", icon: <Users className="h-4 w-4" /> },
-  payments: { label: "Payments", icon: <IndianRupee className="h-4 w-4" /> },
-  leads: { label: "Leads", icon: <Target className="h-4 w-4" /> },
-  sales: { label: "Sales Activity", icon: <TrendingUp className="h-4 w-4" /> },
-  reports: { label: "Reports", icon: <FileText className="h-4 w-4" /> },
-  packages: { label: "Packages", icon: <Package className="h-4 w-4" /> },
-  seasons: { label: "Seasons / Batches", icon: <Calendar className="h-4 w-4" /> },
-  virtual_tour: { label: "Virtual Tour", icon: <Camera className="h-4 w-4" /> },
-  audit: { label: "Audit Logs", icon: <Activity className="h-4 w-4" /> },
-  registrations: { label: "Registrations", icon: <BookOpen className="h-4 w-4" /> },
-  settings: { label: "Settings", icon: <Settings className="h-4 w-4" /> },
-  view_financials: { label: "View Financials", icon: <ShieldCheck className="h-4 w-4" /> },
+  dashboard:        { label: "Dashboard",        icon: <LayoutDashboard className="h-4 w-4" /> },
+  requests:         { label: "Requests",         icon: <FileText className="h-4 w-4" /> },
+  registrations:    { label: "Registrations",    icon: <BookOpen className="h-4 w-4" /> },
+  team:             { label: "Team",             icon: <Users className="h-4 w-4" /> },
+  sales_management: { label: "Sales Mgmt",       icon: <Target className="h-4 w-4" /> },
+  leads:            { label: "Leads",            icon: <TrendingUp className="h-4 w-4" /> },
+  bookings:         { label: "Generate Booking", icon: <Plus className="h-4 w-4" /> },
+  all_bookings:     { label: "All Bookings",     icon: <BedDouble className="h-4 w-4" /> },
+  cancellations:    { label: "Cancellations",    icon: <XCircle className="h-4 w-4" /> },
+  calendar:         { label: "Calendar",         icon: <Calendar className="h-4 w-4" /> },
+  reports:          { label: "Reports",          icon: <FileText className="h-4 w-4" /> },
+  activity_log:     { label: "Activity Log",     icon: <Activity className="h-4 w-4" /> },
+  tour_images:      { label: "Tour Images",      icon: <Camera className="h-4 w-4" /> },
+  virtual_tour:     { label: "3D Virtual Tour",  icon: <Eye className="h-4 w-4" /> },
+  floors_beds:      { label: "Floors & Beds",    icon: <Building2 className="h-4 w-4" /> },
+  booking_tree:     { label: "Booking Tree",     icon: <Layers className="h-4 w-4" /> },
+  housing_plans:    { label: "Housing Plans",    icon: <Package className="h-4 w-4" /> },
+  coupons:          { label: "Coupons",          icon: <Ticket className="h-4 w-4" /> },
+  addon_services:   { label: "Add-On Services",  icon: <Package className="h-4 w-4" /> },
+  seasons:          { label: "Seasons / Batches",icon: <Calendar className="h-4 w-4" /> },
+  hms_sync:         { label: "HMS Sync",         icon: <Link2 className="h-4 w-4" /> },
+  hero_slides:      { label: "Hero Slides",      icon: <ImageIcon className="h-4 w-4" /> },
+  amenities:        { label: "Amenities",        icon: <Globe className="h-4 w-4" /> },
+  map_design:       { label: "Map Design",       icon: <Map className="h-4 w-4" /> },
+  footer:           { label: "Footer",           icon: <Layers className="h-4 w-4" /> },
+  ai_chatbot:       { label: "AI Chatbot",       icon: <MessageSquare className="h-4 w-4" /> },
+  contact_messages: { label: "Contact Messages", icon: <Mail className="h-4 w-4" /> },
+  data_export:      { label: "Data Export",      icon: <Database className="h-4 w-4" /> },
+  settings:         { label: "Settings",         icon: <Settings className="h-4 w-4" /> },
+  view_financials:  { label: "View Financials",  icon: <ShieldCheck className="h-4 w-4" /> },
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin:           "bg-purple-100 text-purple-700",
+  manager:         "bg-blue-100 text-blue-700",
+  frontdesk:       "bg-cyan-100 text-cyan-700",
+  staff:           "bg-slate-100 text-slate-700",
+  sales_executive: "bg-orange-100 text-orange-700",
+};
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin", manager: "Manager", frontdesk: "Front Desk",
+  staff: "Staff", sales_executive: "Sales Exec",
 };
 
 function AccessControlTab() {
   const { toast } = useToast();
-  const { allPermissions } = useModulePermissions();
-  const setPermsMutation = useSetModulePermissions();
+  const { data: users, isLoading } = useAllUserPermissions();
+  const setPermsMutation = useSetUserPermissions();
+  const resetMutation = useResetUserPermissions();
 
-  const [localPerms, setLocalPerms] = useState<Record<string, Record<string, boolean>>>({});
-  const [saving, setSaving] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [localPerms, setLocalPerms] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
+  const selectedUser = users?.find(u => u.id === selectedUserId);
+
+  // Load selected user's permissions into local state
   useEffect(() => {
-    if (allPermissions && Object.keys(allPermissions).length > 0) {
-      setLocalPerms(allPermissions);
+    if (selectedUser) {
+      setLocalPerms({ ...selectedUser.permissions });
     }
-  }, [allPermissions]);
+  }, [selectedUserId, users]);
 
-  const toggle = (role: string, module: string) => {
-    setLocalPerms(prev => ({
-      ...prev,
-      [role]: { ...(prev[role] || {}), [module]: !(prev[role]?.[module] ?? false) },
-    }));
+  const toggle = (mod: string) => {
+    setLocalPerms(prev => ({ ...prev, [mod]: !prev[mod] }));
   };
 
-  const saveRole = async (role: string) => {
-    setSaving(role);
+  const save = async () => {
+    if (!selectedUserId) return;
+    setSaving(true);
     try {
-      await setPermsMutation.mutateAsync({ role, permissions: localPerms[role] || {} });
-      toast({ title: "Saved", description: `Permissions updated for ${role}` });
+      await setPermsMutation.mutateAsync({ userId: selectedUserId, permissions: localPerms });
+      toast({ title: "Saved", description: `Permissions updated for ${selectedUser?.name}` });
     } catch {
-      toast({ title: "Error", description: "Failed to save permissions", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to save", variant: "destructive" });
     } finally {
-      setSaving(null);
+      setSaving(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!selectedUserId) return;
+    setResetting(true);
+    try {
+      await resetMutation.mutateAsync(selectedUserId);
+      toast({ title: "Reset", description: `${selectedUser?.name} reset to role defaults` });
+    } catch {
+      toast({ title: "Error", description: "Failed to reset", variant: "destructive" });
+    } finally {
+      setResetting(false);
     }
   };
 
   const modules = Object.keys(MODULE_LABELS);
+  const groupedByRole = (users || []).reduce<Record<string, typeof users>>((acc, u) => {
+    if (!u) return acc;
+    const arr = acc[u.role] || (acc[u.role] = []);
+    arr!.push(u);
+    return acc;
+  }, {});
+  const roleOrder = ["admin", "manager", "frontdesk", "staff", "sales_executive"];
 
   return (
     <div className="space-y-6" data-testid="section-access-control">
@@ -1307,76 +1351,120 @@ function AccessControlTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-slate-600" />
-            Module Access Control
+            User Access Control
           </CardTitle>
           <CardDescription>
-            Control which sidebar modules each role can access. Superadmin always has full access.
-            "View Financials" hides all monetary amounts from roles without this permission.
+            Set individual module access per staff member. Superadmin always has full access.
+            <span className="ml-1 font-medium text-amber-700">View Financials</span> controls whether monetary amounts are visible.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 pr-4 font-semibold text-slate-600 w-48">Module</th>
-                  {ROLES.map(r => (
-                    <th key={r.key} className="text-center py-3 px-3 font-semibold text-slate-600 min-w-[96px]">
-                      {r.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {modules.map((mod, idx) => (
-                  <tr
-                    key={mod}
-                    className={`border-b border-slate-100 ${mod === "view_financials" ? "bg-amber-50/60" : idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}
-                  >
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2 text-slate-700">
-                        {MODULE_LABELS[mod].icon}
-                        <span>{MODULE_LABELS[mod].label}</span>
-                        {mod === "view_financials" && (
-                          <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Financial</span>
+        <CardContent className="p-0">
+          <div className="flex min-h-[520px] border-t border-slate-200">
+
+            {/* Left: user list */}
+            <div className="w-64 shrink-0 border-r border-slate-200 overflow-y-auto max-h-[600px]">
+              {isLoading && (
+                <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading users…
+                </div>
+              )}
+              {!isLoading && roleOrder.map(role => {
+                const group = groupedByRole[role];
+                if (!group?.length) return null;
+                return (
+                  <div key={role}>
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+                      {ROLE_LABELS[role] || role}
+                    </div>
+                    {group.map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUserId(u.id)}
+                        data-testid={`user-row-${u.id}`}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-slate-100 transition-colors
+                          ${selectedUserId === u.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-slate-50"}`}
+                      >
+                        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-600 text-xs font-semibold">
+                          {u.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{u.name}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
+                        </div>
+                        {u.hasCustom && (
+                          <span className="ml-auto shrink-0 text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Custom</span>
                         )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+              {!isLoading && !users?.length && (
+                <div className="flex items-center justify-center h-32 text-slate-400 text-sm">No staff users found</div>
+              )}
+            </div>
+
+            {/* Right: module toggles */}
+            <div className="flex-1 overflow-y-auto max-h-[600px]">
+              {!selectedUser ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400 py-16">
+                  <Users className="h-10 w-10 opacity-30" />
+                  <p className="text-sm">Select a user to edit their permissions</p>
+                </div>
+              ) : (
+                <>
+                  <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-semibold">
+                        {selectedUser.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
                       </div>
-                    </td>
-                    {ROLES.map(r => (
-                      <td key={r.key} className="text-center py-3 px-3">
+                      <div>
+                        <p className="font-semibold text-slate-800 leading-tight">{selectedUser.name}</p>
+                        <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${ROLE_COLORS[selectedUser.role] || "bg-slate-100 text-slate-600"}`}>
+                          {ROLE_LABELS[selectedUser.role] || selectedUser.role}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {selectedUser.hasCustom && (
+                        <Button size="sm" variant="outline" onClick={reset} disabled={resetting || saving} data-testid="button-reset-perms"
+                          className="text-rose-600 border-rose-200 hover:bg-rose-50 flex items-center gap-1">
+                          {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          Reset to defaults
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={save} disabled={saving || resetting} data-testid="button-save-perms"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1">
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {modules.map(mod => (
+                      <div key={mod}
+                        className={`flex items-center justify-between px-5 py-3 ${mod === "view_financials" ? "bg-amber-50/60" : ""}`}
+                      >
+                        <div className="flex items-center gap-2.5 text-slate-700">
+                          {MODULE_LABELS[mod].icon}
+                          <span className="text-sm">{MODULE_LABELS[mod].label}</span>
+                          {mod === "view_financials" && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Financial</span>
+                          )}
+                        </div>
                         <Switch
-                          checked={localPerms[r.key]?.[mod] ?? false}
-                          onCheckedChange={() => toggle(r.key, mod)}
-                          data-testid={`toggle-${r.key}-${mod}`}
+                          checked={localPerms[mod] ?? false}
+                          onCheckedChange={() => toggle(mod)}
+                          data-testid={`toggle-${mod}`}
                           className="data-[state=checked]:bg-emerald-600"
                         />
-                      </td>
+                      </div>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-5">
-            {ROLES.map(r => (
-              <Button
-                key={r.key}
-                size="sm"
-                variant="outline"
-                onClick={() => saveRole(r.key)}
-                disabled={saving === r.key || setPermsMutation.isPending}
-                data-testid={`button-save-perms-${r.key}`}
-                className="flex items-center gap-1.5"
-              >
-                {saving === r.key ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                )}
-                Save {r.label}
-              </Button>
-            ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
