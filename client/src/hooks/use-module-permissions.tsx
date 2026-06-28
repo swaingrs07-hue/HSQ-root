@@ -23,30 +23,33 @@ export interface UserWithPermissions {
 export function useModulePermissions() {
   const { token, user } = useAuth();
 
-  const { data, isLoading } = useQuery<Record<string, boolean>>({
+  const { data, isLoading, isSuccess, isError } = useQuery<Record<string, boolean>>({
     queryKey: ["/api/admin/user-permissions/me"],
     queryFn: async () => {
       const res = await fetch("/api/admin/user-permissions/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return {};
+      if (!res.ok) throw new Error("Failed to fetch permissions");
       return res.json();
     },
     enabled: !!token && !!user,
     staleTime: 60 * 1000,
+    retry: 1,
   });
 
   const isSuperAdmin = user?.role === "superadmin";
 
   const can = (module: ModuleKey): boolean => {
     if (isSuperAdmin) return true;
-    if (!data) return true; // fail-open while loading
+    // Fail-open only during the initial load; fail closed if fetch errored or returned no data
+    if (isLoading) return true;
+    if (!isSuccess || !data) return false;
     return data[module] !== false;
   };
 
   const canViewFinancials = can("view_financials");
 
-  return { can, canViewFinancials, isLoading };
+  return { can, canViewFinancials, isLoading, isError };
 }
 
 // ─── All users with their permissions (admin settings UI only) ─

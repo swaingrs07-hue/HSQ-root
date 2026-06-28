@@ -17184,7 +17184,7 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // Resolution: superadmin → full; else MODULE_DEFAULTS[role] + DB role override + user-specific override
   app.get("/api/admin/user-permissions/me", authMiddleware, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const role = req.user!.role;
       if (role === "superadmin") {
         const full: Record<string, boolean> = {};
