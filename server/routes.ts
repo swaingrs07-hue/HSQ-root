@@ -17171,77 +17171,35 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   // ============ USER MODULE PERMISSIONS (per-user access control) ======
   // ====================================================================
 
-  // Module defaults used for resolution: user record → role default → full access
-  const USER_MODULE_DEFAULTS: Record<string, Record<string, boolean>> = {
-    admin: {
-      dashboard: true, requests: true, registrations: true, team: true,
-      sales_management: true, leads: true, bookings: true, all_bookings: true,
-      cancellations: true, calendar: true, reports: true, activity_log: true,
-      tour_images: true, virtual_tour: true, floors_beds: true, booking_tree: true,
-      housing_plans: true, coupons: true, addon_services: true, seasons: true,
-      hms_sync: true, hero_slides: true, amenities: true, map_design: true,
-      footer: true, ai_chatbot: true, contact_messages: true, data_export: true,
-      settings: true, view_financials: true,
-    },
-    manager: {
-      dashboard: true, requests: true, registrations: true, team: false,
-      sales_management: true, leads: true, bookings: true, all_bookings: true,
-      cancellations: true, calendar: true, reports: true, activity_log: false,
-      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
-      housing_plans: false, coupons: false, addon_services: false, seasons: false,
-      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
-      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
-      settings: false, view_financials: true,
-    },
-    frontdesk: {
-      dashboard: true, requests: true, registrations: true, team: false,
-      sales_management: false, leads: false, bookings: true, all_bookings: true,
-      cancellations: false, calendar: true, reports: false, activity_log: false,
-      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
-      housing_plans: false, coupons: false, addon_services: false, seasons: false,
-      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
-      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
-      settings: false, view_financials: false,
-    },
-    staff: {
-      dashboard: true, requests: true, registrations: false, team: false,
-      sales_management: false, leads: false, bookings: false, all_bookings: false,
-      cancellations: false, calendar: true, reports: false, activity_log: false,
-      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
-      housing_plans: false, coupons: false, addon_services: false, seasons: false,
-      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
-      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
-      settings: false, view_financials: false,
-    },
-    sales_executive: {
-      dashboard: true, requests: true, registrations: true, team: false,
-      sales_management: false, leads: true, bookings: true, all_bookings: true,
-      cancellations: false, calendar: true, reports: false, activity_log: false,
-      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
-      housing_plans: false, coupons: false, addon_services: false, seasons: false,
-      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
-      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
-      settings: false, view_financials: false,
-    },
-  };
+  // Helper: effective role permissions = MODULE_DEFAULTS (code) + DB role_module_permissions overrides
+  // This is the single source of truth for role-level defaults; USER_MODULE_DEFAULTS removed.
+  async function getEffectiveRolePerms(role: string): Promise<Record<string, boolean>> {
+    const codeDefaults = MODULE_DEFAULTS[role] || {};
+    const [dbRoleRow] = await db.select().from(schema.roleModulePermissions)
+      .where(eq(schema.roleModulePermissions.role, role));
+    return { ...codeDefaults, ...((dbRoleRow?.permissions as Record<string, boolean>) || {}) };
+  }
 
   // GET /api/admin/user-permissions/me — calling user's effective flat permissions
+  // Resolution: superadmin → full; else MODULE_DEFAULTS[role] + DB role override + user-specific override
   app.get("/api/admin/user-permissions/me", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.id;
       const role = req.user!.role;
       if (role === "superadmin") {
         const full: Record<string, boolean> = {};
-        Object.keys(USER_MODULE_DEFAULTS.admin).forEach(k => { full[k] = true; });
+        Object.keys(MODULE_DEFAULTS.admin).forEach(k => { full[k] = true; });
         return res.json(full);
       }
-      const [userRow] = await db.select().from(schema.userModulePermissions)
-        .where(eq(schema.userModulePermissions.userId, userId));
-      const roleDefaults = USER_MODULE_DEFAULTS[role] || {};
+      const [roleEffective, [userRow]] = await Promise.all([
+        getEffectiveRolePerms(role),
+        db.select().from(schema.userModulePermissions)
+          .where(eq(schema.userModulePermissions.userId, userId)),
+      ]);
       if (userRow) {
-        return res.json({ ...roleDefaults, ...(userRow.permissions as Record<string, boolean>) });
+        return res.json({ ...roleEffective, ...(userRow.permissions as Record<string, boolean>) });
       }
-      return res.json(roleDefaults);
+      return res.json(roleEffective);
     } catch (error: any) {
       console.error("Error fetching user permissions:", error);
       res.status(500).json({ error: "Failed to fetch user permissions" });
@@ -17263,21 +17221,55 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
       const skipRoles = new Set(["superadmin", "user", "hotel_admin", "hotel_staff"]);
       const allUsers = allUsersRaw.filter(u => !skipRoles.has(u.role));
 
-      const userRows = await db.select().from(schema.userModulePermissions);
+      // Fetch DB role overrides and user-specific rows in parallel
+      const [roleRows, userRows] = await Promise.all([
+        db.select().from(schema.roleModulePermissions),
+        db.select().from(schema.userModulePermissions),
+      ]);
+      const roleRowMap = new Map(roleRows.map(r => [r.role, r]));
       const userRowMap = new Map(userRows.map(r => [r.userId, r]));
 
       const result = allUsers.map(u => {
-        const roleDefaults = USER_MODULE_DEFAULTS[u.role] || {};
+        const codeDefaults = MODULE_DEFAULTS[u.role] || {};
+        const dbRoleRow = roleRowMap.get(u.role);
+        const roleEffective = { ...codeDefaults, ...((dbRoleRow?.permissions as Record<string, boolean>) || {}) };
         const userRow = userRowMap.get(u.id);
         const permissions = userRow
-          ? { ...roleDefaults, ...(userRow.permissions as Record<string, boolean>) }
-          : roleDefaults;
+          ? { ...roleEffective, ...(userRow.permissions as Record<string, boolean>) }
+          : roleEffective;
         return { ...u, permissions, hasCustom: !!userRow };
       });
 
       res.json(result);
     } catch (error: any) {
       console.error("Error fetching all user permissions:", error);
+      res.status(500).json({ error: "Failed to fetch user permissions" });
+    }
+  });
+
+  // GET /api/admin/user-permissions/:userId — superadmin only, single user's effective permissions
+  app.get("/api/admin/user-permissions/:userId", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
+    try {
+      const targetUserId = req.params.userId as string;
+      const [targetUser] = await db.select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        role: schema.users.role,
+      }).from(schema.users)
+        .where(eq(schema.users.id, targetUserId));
+      if (!targetUser) return res.status(404).json({ error: "User not found" });
+      const [roleEffective, [userRow]] = await Promise.all([
+        getEffectiveRolePerms(targetUser.role),
+        db.select().from(schema.userModulePermissions)
+          .where(eq(schema.userModulePermissions.userId, targetUserId)),
+      ]);
+      const permissions = userRow
+        ? { ...roleEffective, ...(userRow.permissions as Record<string, boolean>) }
+        : roleEffective;
+      res.json({ ...targetUser, permissions, hasCustom: !!userRow });
+    } catch (error: any) {
+      console.error("Error fetching user permissions:", error);
       res.status(500).json({ error: "Failed to fetch user permissions" });
     }
   });
