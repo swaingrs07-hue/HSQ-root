@@ -17058,6 +17058,116 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   );
 
   // ====================================================================
+  // ============ MODULE PERMISSIONS (superadmin controls sidebar access) =
+  // ====================================================================
+
+  // Default permissions per role (used when no DB record exists)
+  const MODULE_DEFAULTS: Record<string, Record<string, boolean>> = {
+    admin: {
+      dashboard: true, requests: true, registrations: true, team: true,
+      sales_management: true, leads: true, bookings: true, all_bookings: true,
+      cancellations: true, calendar: true, reports: true, activity_log: true,
+      tour_images: true, virtual_tour: true, floors_beds: true, booking_tree: true,
+      housing_plans: true, coupons: true, addon_services: true, seasons: true,
+      hms_sync: true, hero_slides: true, amenities: true, map_design: true,
+      footer: true, ai_chatbot: true, contact_messages: true, data_export: true,
+      settings: true, view_financials: true,
+    },
+    manager: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: true, leads: true, bookings: true, all_bookings: true,
+      cancellations: true, calendar: true, reports: true, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: true,
+    },
+    frontdesk: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: false, leads: false, bookings: true, all_bookings: true,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: true, booking_tree: true,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+    staff: {
+      dashboard: true, requests: true, registrations: false, team: false,
+      sales_management: false, leads: false, bookings: false, all_bookings: false,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+    sales_executive: {
+      dashboard: true, requests: true, registrations: true, team: false,
+      sales_management: false, leads: true, bookings: true, all_bookings: true,
+      cancellations: false, calendar: true, reports: false, activity_log: false,
+      tour_images: false, virtual_tour: false, floors_beds: false, booking_tree: false,
+      housing_plans: false, coupons: false, addon_services: false, seasons: false,
+      hms_sync: false, hero_slides: false, amenities: false, map_design: false,
+      footer: false, ai_chatbot: false, contact_messages: false, data_export: false,
+      settings: false, view_financials: false,
+    },
+  };
+
+  // GET /api/admin/module-permissions — returns merged defaults + DB overrides for all roles
+  app.get("/api/admin/module-permissions", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(schema.roleModulePermissions);
+      const result: Record<string, Record<string, boolean>> = {};
+      const roles = ["admin", "manager", "frontdesk", "staff", "sales_executive"];
+      for (const role of roles) {
+        const dbRow = rows.find(r => r.role === role);
+        result[role] = {
+          ...(MODULE_DEFAULTS[role] || {}),
+          ...((dbRow?.permissions as Record<string, boolean>) || {}),
+        };
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error fetching module permissions:", error);
+      res.status(500).json({ error: "Failed to fetch module permissions" });
+    }
+  });
+
+  // PATCH /api/admin/module-permissions/:role — superadmin only, upserts permissions
+  app.patch(
+    "/api/admin/module-permissions/:role",
+    authMiddleware,
+    roleMiddleware("superadmin"),
+    async (req: AuthRequest, res) => {
+      try {
+        const role = req.params.role as string;
+        const valid = ["admin", "manager", "frontdesk", "staff", "sales_executive"];
+        if (!valid.includes(role)) return res.status(400).json({ error: "Invalid role" });
+        const permissions = req.body?.permissions;
+        if (!permissions || typeof permissions !== "object") {
+          return res.status(400).json({ error: "`permissions` object required" });
+        }
+        // Upsert
+        const existing = await db.select().from(schema.roleModulePermissions)
+          .where(eq(schema.roleModulePermissions.role, role));
+        if (existing.length > 0) {
+          await db.update(schema.roleModulePermissions)
+            .set({ permissions, updatedAt: new Date() })
+            .where(eq(schema.roleModulePermissions.role, role));
+        } else {
+          await db.insert(schema.roleModulePermissions).values({ role, permissions });
+        }
+        res.json({ role, permissions });
+      } catch (error: any) {
+        console.error("Error updating module permissions:", error);
+        res.status(500).json({ error: "Failed to update module permissions" });
+      }
+    },
+  );
+
+  // ====================================================================
   // ============ SITE CONTENT (superadmin-managed editable copy) ========
   // ====================================================================
 

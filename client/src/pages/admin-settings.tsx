@@ -4,13 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users, Trophy, Send, Layers } from "lucide-react";
+import { Building2, Bell, Mail, Shield, Database, Palette, Save, Globe, Hotel, Eye, EyeOff, Film, Upload, X, CalendarOff, CalendarCheck, XCircle, Plus, Trash2, Loader2, Pencil, Check, Package, Users, Trophy, Send, Layers, Lock, LayoutDashboard, Target, CheckCircle2, Calendar, TrendingUp, Activity, Camera, BedDouble, BookOpen, Ticket, UtensilsCrossed, Link2, ImageIcon, Map, MessageSquare, FileText, Settings, IndianRupee, ShieldCheck } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useFeatureFlags, useSetFeatureFlag } from "@/hooks/use-feature-flags";
 import { useSiteContent, useSetSiteContent } from "@/hooks/use-site-content";
+import { useModulePermissions, useSetModulePermissions } from "@/hooks/use-module-permissions";
 
 function CancellationPoliciesSection() {
   const { toast } = useToast();
@@ -574,12 +575,13 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[620px]">
+        <TabsList className={`grid w-full ${isSuperadmin ? "grid-cols-6 lg:w-[760px]" : "grid-cols-5 lg:w-[620px]"}`}>
           <TabsTrigger value="general" data-testid="tab-general">General</TabsTrigger>
           <TabsTrigger value="cancellation" data-testid="tab-cancellation">Cancellation</TabsTrigger>
           <TabsTrigger value="notifications" data-testid="tab-notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security" data-testid="tab-security">Security</TabsTrigger>
           <TabsTrigger value="system" data-testid="tab-system">System</TabsTrigger>
+          {isSuperadmin && <TabsTrigger value="access" data-testid="tab-access">Access Control</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -1227,7 +1229,157 @@ export default function AdminSettings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isSuperadmin && (
+          <TabsContent value="access" className="space-y-6">
+            <AccessControlTab />
+          </TabsContent>
+        )}
       </Tabs>
+    </div>
+  );
+}
+
+const ROLES = [
+  { key: "admin", label: "Admin" },
+  { key: "manager", label: "Manager" },
+  { key: "frontdesk", label: "Front Desk" },
+  { key: "staff", label: "Staff" },
+  { key: "sales_executive", label: "Sales Exec" },
+] as const;
+
+const MODULE_LABELS: Record<string, { label: string; icon: ReactNode }> = {
+  dashboard: { label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
+  properties: { label: "Properties", icon: <Building2 className="h-4 w-4" /> },
+  bookings: { label: "Bookings", icon: <BedDouble className="h-4 w-4" /> },
+  students: { label: "Students", icon: <Users className="h-4 w-4" /> },
+  payments: { label: "Payments", icon: <IndianRupee className="h-4 w-4" /> },
+  leads: { label: "Leads", icon: <Target className="h-4 w-4" /> },
+  sales: { label: "Sales Activity", icon: <TrendingUp className="h-4 w-4" /> },
+  reports: { label: "Reports", icon: <FileText className="h-4 w-4" /> },
+  packages: { label: "Packages", icon: <Package className="h-4 w-4" /> },
+  seasons: { label: "Seasons / Batches", icon: <Calendar className="h-4 w-4" /> },
+  virtual_tour: { label: "Virtual Tour", icon: <Camera className="h-4 w-4" /> },
+  audit: { label: "Audit Logs", icon: <Activity className="h-4 w-4" /> },
+  registrations: { label: "Registrations", icon: <BookOpen className="h-4 w-4" /> },
+  settings: { label: "Settings", icon: <Settings className="h-4 w-4" /> },
+  view_financials: { label: "View Financials", icon: <ShieldCheck className="h-4 w-4" /> },
+};
+
+function AccessControlTab() {
+  const { toast } = useToast();
+  const { allPermissions } = useModulePermissions();
+  const setPermsMutation = useSetModulePermissions();
+
+  const [localPerms, setLocalPerms] = useState<Record<string, Record<string, boolean>>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (allPermissions && Object.keys(allPermissions).length > 0) {
+      setLocalPerms(allPermissions);
+    }
+  }, [allPermissions]);
+
+  const toggle = (role: string, module: string) => {
+    setLocalPerms(prev => ({
+      ...prev,
+      [role]: { ...(prev[role] || {}), [module]: !(prev[role]?.[module] ?? false) },
+    }));
+  };
+
+  const saveRole = async (role: string) => {
+    setSaving(role);
+    try {
+      await setPermsMutation.mutateAsync({ role, permissions: localPerms[role] || {} });
+      toast({ title: "Saved", description: `Permissions updated for ${role}` });
+    } catch {
+      toast({ title: "Error", description: "Failed to save permissions", variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const modules = Object.keys(MODULE_LABELS);
+
+  return (
+    <div className="space-y-6" data-testid="section-access-control">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-slate-600" />
+            Module Access Control
+          </CardTitle>
+          <CardDescription>
+            Control which sidebar modules each role can access. Superadmin always has full access.
+            "View Financials" hides all monetary amounts from roles without this permission.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 pr-4 font-semibold text-slate-600 w-48">Module</th>
+                  {ROLES.map(r => (
+                    <th key={r.key} className="text-center py-3 px-3 font-semibold text-slate-600 min-w-[96px]">
+                      {r.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {modules.map((mod, idx) => (
+                  <tr
+                    key={mod}
+                    className={`border-b border-slate-100 ${mod === "view_financials" ? "bg-amber-50/60" : idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}
+                  >
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        {MODULE_LABELS[mod].icon}
+                        <span>{MODULE_LABELS[mod].label}</span>
+                        {mod === "view_financials" && (
+                          <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Financial</span>
+                        )}
+                      </div>
+                    </td>
+                    {ROLES.map(r => (
+                      <td key={r.key} className="text-center py-3 px-3">
+                        <Switch
+                          checked={localPerms[r.key]?.[mod] ?? false}
+                          onCheckedChange={() => toggle(r.key, mod)}
+                          data-testid={`toggle-${r.key}-${mod}`}
+                          className="data-[state=checked]:bg-emerald-600"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-5">
+            {ROLES.map(r => (
+              <Button
+                key={r.key}
+                size="sm"
+                variant="outline"
+                onClick={() => saveRole(r.key)}
+                disabled={saving === r.key || setPermsMutation.isPending}
+                data-testid={`button-save-perms-${r.key}`}
+                className="flex items-center gap-1.5"
+              >
+                {saving === r.key ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                )}
+                Save {r.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -381,7 +381,7 @@ export async function checkAndSendMilestone(propertyId: string): Promise<void> {
 
     if (milestonesToCheck.length === 0) return;
 
-    const adminUsers = await db.select().from(schema.users).where(eq(schema.users.role, "admin"));
+    const adminUsers = await db.select().from(schema.users).where(inArray(schema.users.role, ["admin", "superadmin"]));
     if (adminUsers.length === 0) return;
     const adminEmails = adminUsers.map(u => u.email).filter(Boolean);
     if (adminEmails.length === 0) return;

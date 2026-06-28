@@ -70,6 +70,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { PropertySwitcher } from "@/components/property-switcher";
 import { PullToRefresh } from "./pull-to-refresh";
+import { useModulePermissions } from "@/hooks/use-module-permissions";
 
 interface Notification {
   id: string;
@@ -142,6 +143,42 @@ const salesNavItems: NavItem[] = [
   { name: "Calendar", href: "/sales/calendar", icon: Calendar },
 ];
 
+// Map from nav href → permission module key
+const HREF_TO_MODULE: Record<string, string> = {
+  "/admin": "dashboard",
+  "/admin/requests": "requests",
+  "/admin/registrations": "registrations",
+  "/admin/users": "team",
+  "/admin/sales-management": "sales_management",
+  "/admin/leads": "leads",
+  "/admin/booking/generate": "bookings",
+  "/admin/bookings/completed": "all_bookings",
+  "/admin/cancellations": "cancellations",
+  "/admin/calendar": "calendar",
+  "/admin/lead-analytics": "reports",
+  "/admin/activity-logs": "activity_log",
+  "/admin/property-tour-images": "tour_images",
+  "/admin/virtual-tour-uploads": "virtual_tour",
+  "/admin/floors-beds": "floors_beds",
+  "/admin/booking-tree": "booking_tree",
+  "/admin/packages": "housing_plans",
+  "/admin/coupons": "coupons",
+  "/admin/addon-services": "addon_services",
+  "/admin/seasons": "seasons",
+  "/admin/hms-sync": "hms_sync",
+  "/admin/hero-slides": "hero_slides",
+  "/admin/amenities": "amenities",
+  "/admin/map-design": "map_design",
+  "/admin/footer-settings": "footer",
+  "/admin/ai-chatbot": "ai_chatbot",
+  "/admin/contact-messages": "contact_messages",
+  "/admin/data-export": "data_export",
+  "/admin/settings": "settings",
+  "/admin/hms-health": "hms_sync",
+  "/admin/wallet-transactions": "view_financials",
+  "/admin/logo-control": "settings",
+};
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, logout, isAdmin, token } = useAuth();
@@ -149,13 +186,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const { can } = useModulePermissions();
   
   const mainScrollRef = useRef<HTMLElement>(null);
   const isSalesExec = user?.role === "sales_executive";
   const isFrontdesk = user?.role === "frontdesk";
   const isSuperAdmin = user?.role === "superadmin";
   const isMainAdmin = user?.email === "gyan@hsquareliving.com" || isSuperAdmin;
-  const navItems = isFrontdesk
+
+  const baseNavItems = isFrontdesk
     ? frontdeskNavItems
     : isAdmin
       ? [
@@ -165,6 +204,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           ...(isMainAdmin ? [{ name: "Logo Control", href: "/admin/logo-control", icon: ImageIcon }] : []),
         ]
       : salesNavItems;
+
+  // Filter nav items based on module permissions (superadmin always passes)
+  const navItems = isSuperAdmin
+    ? baseNavItems
+    : baseNavItems.filter(item => {
+        const moduleKey = HREF_TO_MODULE[item.href];
+        if (!moduleKey) return true; // unknown routes always shown
+        return can(moduleKey as any);
+      });
   
   const userName = user?.name || "User";
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);

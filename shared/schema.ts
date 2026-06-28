@@ -1903,5 +1903,16 @@ export const insertCancellationRequestSchema = createInsertSchema(cancellationRe
 export type CancellationRequest = typeof cancellationRequests.$inferSelect;
 export type InsertCancellationRequest = z.infer<typeof insertCancellationRequestSchema>;
 
+// ============================================================================
+// ROLE MODULE PERMISSIONS — superadmin controls which sidebar tabs each role sees
+// ============================================================================
+export const roleModulePermissions = pgTable("role_module_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: text("role").notNull().unique(),
+  permissions: jsonb("permissions").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type RoleModulePermissions = typeof roleModulePermissions.$inferSelect;
+
 // Re-export chat models for AI integrations
 export * from "./models/chat";

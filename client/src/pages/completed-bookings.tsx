@@ -87,6 +87,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useProperty } from "@/contexts/property-context";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { useModulePermissions } from "@/hooks/use-module-permissions";
 
 interface ResidentDetails {
   photoPath?: string;
@@ -198,6 +199,9 @@ function computeCarryForwards(sortedInsts: any[], payments: any[]) {
 export default function CompletedBookings() {
   const { user } = useAuth();
   const { selectedPropertyId } = useProperty();
+  const { canViewFinancials } = useModulePermissions();
+  const fmtAmt = (v: number) => canViewFinancials ? formatCompactINR(v) : "••••••";
+  const maskRaw = (v: number) => canViewFinancials ? `₹${v.toLocaleString("en-IN")}` : "₹••••••";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isSalesExec = user?.role === "sales_executive";
@@ -1993,9 +1997,9 @@ export default function CompletedBookings() {
                   <span
                     className="text-sm font-semibold text-emerald-700 truncate"
                     data-testid="text-total-bookings-amount"
-                    title={`₹${totalBookingAmount.toLocaleString("en-IN")} (excl. cancelled)`}
+                    title={canViewFinancials ? `₹${totalBookingAmount.toLocaleString("en-IN")} (excl. cancelled)` : "Hidden"}
                   >
-                    ₹{totalBookingAmount.toLocaleString("en-IN")}
+                    {canViewFinancials ? `₹${totalBookingAmount.toLocaleString("en-IN")}` : "₹••••••"}
                   </span>
                 </div>
               </div>
@@ -2067,8 +2071,8 @@ export default function CompletedBookings() {
                 {totalRefunded > 0 && (
                   <div className="mt-2 pt-2 border-t border-rose-100 flex items-baseline justify-between gap-2">
                     <span className="text-[11px] font-medium text-slate-500">Refunded</span>
-                    <span className="text-sm font-semibold text-rose-600 truncate" title={`₹${totalRefunded.toLocaleString("en-IN")}`}>
-                      ₹{totalRefunded.toLocaleString("en-IN")}
+                    <span className="text-sm font-semibold text-rose-600 truncate" title={maskRaw(totalRefunded)}>
+                      {canViewFinancials ? `₹${totalRefunded.toLocaleString("en-IN")}` : "₹••••••"}
                     </span>
                   </div>
                 )}
@@ -2090,9 +2094,9 @@ export default function CompletedBookings() {
                 <p
                   className="text-2xl font-bold text-slate-900 truncate mt-1"
                   data-testid="text-total-revenue"
-                  title={`₹${totalRevenue.toLocaleString("en-IN")}`}
+                  title={maskRaw(totalRevenue)}
                 >
-                  {formatCompactINR(totalRevenue)}
+                  {fmtAmt(totalRevenue)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
                   {liveFin.length} booking{liveFin.length === 1 ? "" : "s"} · excl. cancelled
@@ -2118,11 +2122,11 @@ export default function CompletedBookings() {
                 <p
                   className="text-2xl font-bold text-green-700 truncate mt-1"
                   data-testid="text-total-collected"
-                  title={`₹${totalCollected.toLocaleString("en-IN")}`}
+                  title={maskRaw(totalCollected)}
                 >
-                  {formatCompactINR(totalCollected)}
+                  {fmtAmt(totalCollected)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of live total · <span className="text-green-600 font-medium">tap to view</span></p>
+                <p className="text-[11px] text-slate-500 mt-1">{collectionPct}% of live total{canViewFinancials ? <> · <span className="text-green-600 font-medium">tap to view</span></> : ""}</p>
               </div>
             </div>
           </CardContent>
@@ -2144,11 +2148,11 @@ export default function CompletedBookings() {
                 <p
                   className="text-2xl font-bold text-amber-700 truncate mt-1"
                   data-testid="text-total-pending"
-                  title={`₹${totalPending.toLocaleString("en-IN")}`}
+                  title={maskRaw(totalPending)}
                 >
-                  {formatCompactINR(totalPending)}
+                  {fmtAmt(totalPending)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining · <span className="text-amber-600 font-medium">tap to view</span></p>
+                <p className="text-[11px] text-slate-500 mt-1">{pendingPct}% remaining{canViewFinancials ? <> · <span className="text-amber-600 font-medium">tap to view</span></> : ""}</p>
               </div>
             </div>
           </CardContent>
@@ -2165,9 +2169,9 @@ export default function CompletedBookings() {
                 <p
                   className="text-2xl font-bold text-indigo-700 truncate mt-1"
                   data-testid="text-average-booking"
-                  title={`₹${averageBooking.toLocaleString("en-IN")}`}
+                  title={maskRaw(averageBooking)}
                 >
-                  {formatCompactINR(averageBooking)}
+                  {fmtAmt(averageBooking)}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
                   Across {liveFin.length} live booking{liveFin.length === 1 ? "" : "s"}
@@ -2729,26 +2733,26 @@ export default function CompletedBookings() {
                                 data-testid={`text-base-amount-${booking.id}`}
                                 title="Booking fee"
                               >
-                                ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                                {canViewFinancials ? `₹${(booking.totalFee || 0).toLocaleString("en-IN")}` : "₹••••••"}
                               </p>
                               <p
                                 className="text-[11px] text-orange-600 leading-tight"
                                 data-testid={`text-addon-amount-${booking.id}`}
                                 title={`${booking.addonCount || 0} add-on${(booking.addonCount || 0) === 1 ? "" : "s"}`}
                               >
-                                + ₹{(booking.addonRevenue || 0).toLocaleString("en-IN")} add-ons
+                                {canViewFinancials ? `+ ₹${(booking.addonRevenue || 0).toLocaleString("en-IN")} add-ons` : "+ ₹•••• add-ons"}
                               </p>
                               <p
                                 className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`}
                                 data-testid={`text-amount-${booking.id}`}
                                 title="Grand total"
                               >
-                                ₹{((booking.totalFee || 0) + (booking.addonRevenue || 0)).toLocaleString("en-IN")}
+                                {canViewFinancials ? `₹${((booking.totalFee || 0) + (booking.addonRevenue || 0)).toLocaleString("en-IN")}` : "₹••••••"}
                               </p>
                             </>
                           ) : (
                             <p className={`text-lg font-bold ${hasTier ? tierAccentText : "text-slate-900"}`} data-testid={`text-amount-${booking.id}`}>
-                              ₹{(booking.totalFee || 0).toLocaleString("en-IN")}
+                              {canViewFinancials ? `₹${(booking.totalFee || 0).toLocaleString("en-IN")}` : "₹••••••"}
                             </p>
                           )}
                         <p className="text-xs text-slate-400">
