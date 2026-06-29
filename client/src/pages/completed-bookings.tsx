@@ -1851,6 +1851,11 @@ export default function CompletedBookings() {
       )
     : pendingRows;
 
+  const PENDING_EXCEL_HEADERS = [
+    "Student Name", "Booking Code", "Room", "Installment",
+    "Amount (₹)", "Credit Applied (₹)", "Due Date", "Status",
+  ] as const;
+
   const exportPendingToExcel = () => {
     const dateStr = new Date().toISOString().slice(0, 10);
     const rows = filteredPendingRows.map((r: any) => {
@@ -1870,7 +1875,7 @@ export default function CompletedBookings() {
         "Status": (r.bookingStatus || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
       };
     });
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(rows, { header: [...PENDING_EXCEL_HEADERS] });
     ws["!cols"] = [
       { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 22 },
       { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
