@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, differenceInMonths, differenceInCalendarMonths } from "date-fns";
 import { jsPDF } from "jspdf";
+import * as XLSX from "xlsx";
 import { HSQUARE_LOGO_BASE64 } from "@/lib/logo-base64";
 import {
   Search,
@@ -72,6 +73,7 @@ import {
   FileText,
   RotateCcw,
   XCircle,
+  FileDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -1849,6 +1851,35 @@ export default function CompletedBookings() {
       )
     : pendingRows;
 
+  const exportPendingToExcel = () => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const rows = filteredPendingRows.map((r: any) => {
+      let dueDateFormatted = r.dueDate || "";
+      if (r.dueDate) {
+        const parsed = new Date(r.dueDate);
+        if (!isNaN(parsed.getTime())) dueDateFormatted = format(parsed, "dd MMM yyyy");
+      }
+      return {
+        "Student Name": r.name || "",
+        "Booking Code": r.bookingCode || "",
+        "Room": r.room || "",
+        "Installment": r.installmentName || "",
+        "Amount (₹)": r.amount,
+        "Credit Applied (₹)": r.creditApplied || 0,
+        "Due Date": dueDateFormatted,
+        "Status": (r.bookingStatus || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 22 },
+      { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pending Payments");
+    XLSX.writeFile(wb, `pending-payments-${dateStr}.xlsx`);
+  };
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   if (currentPage > totalPages) {
     setTimeout(() => setCurrentPage(totalPages), 0);
@@ -2338,10 +2369,22 @@ export default function CompletedBookings() {
       <Sheet open={pendingDrawerOpen} onOpenChange={setPendingDrawerOpen}>
         <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0 overflow-hidden">
           <SheetHeader className="px-5 py-4 border-b border-slate-200 shrink-0">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <ClipboardCheck className="h-5 w-5 text-amber-600" />
-              Pending Payments
-            </SheetTitle>
+            <div className="flex items-center justify-between gap-2">
+              <SheetTitle className="flex items-center gap-2 text-base">
+                <ClipboardCheck className="h-5 w-5 text-amber-600" />
+                Pending Payments
+              </SheetTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportPendingToExcel}
+                data-testid="button-export-pending-excel"
+                className="flex items-center gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50 shrink-0"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Download Excel
+              </Button>
+            </div>
             <p className="text-sm text-slate-500 mt-0.5">
               {filteredPendingRows.length} installment{filteredPendingRows.length !== 1 ? "s" : ""} · <span className="font-semibold text-amber-700">{formatCompactINR(filteredPendingRows.reduce((s: number, r: any) => s + r.amount, 0))}</span>
               {pendingSearch && <span className="text-slate-400 ml-1">(filtered)</span>}
