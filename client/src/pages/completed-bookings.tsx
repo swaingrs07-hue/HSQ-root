@@ -391,6 +391,8 @@ export default function CompletedBookings() {
   const [upgradeHistory, setUpgradeHistory] = useState<any[]>([]);
   const [editingPriceBpId, setEditingPriceBpId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+  const [deletePkgConfirm, setDeletePkgConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deletingPkg, setDeletingPkg] = useState(false);
   const [sdForm, setSdForm] = useState<{ depositType: string; deposit: number; depositProofPath: string }>({ depositType: "cash", deposit: 0, depositProofPath: "" });
   const [markingSd, setMarkingSd] = useState(false);
   const [sdProofUploading, setSdProofUploading] = useState(false);
@@ -690,6 +692,29 @@ export default function CompletedBookings() {
       toast({ title: "Package ended" });
       fetchBookingPackages(selectedBooking.id);
     } catch { }
+  };
+
+  const deleteBookingPackage = async (bpId: string) => {
+    if (!selectedBooking) return;
+    setDeletingPkg(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/packages/${bpId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete package");
+      }
+      toast({ title: "Package deleted" });
+      setDeletePkgConfirm(null);
+      fetchBookingPackages(selectedBooking.id);
+    } catch (e: any) {
+      toast({ title: "Cannot delete", description: e.message, variant: "destructive" });
+    } finally {
+      setDeletingPkg(false);
+    }
   };
 
   const updateBookingPackage = async (
@@ -3299,6 +3324,7 @@ export default function CompletedBookings() {
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setUsageDialog(bp);setUsageForm({itemType:pkg?.items?.[0]?.type||"",qtyUsed:1,note:""}); }} data-testid={`usage-${bp.id}`}><Plus className="h-3 w-3" /></Button>
                                             {isAddon && (<Button size="icon" variant="ghost" className="h-6 w-6 text-red-400" onClick={() => detachPackage(bp.id)} data-testid={`detach-${bp.id}`}><X className="h-3 w-3" /></Button>)}
                                           </>)}
+                                          <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50" title="Delete package record" onClick={() => setDeletePkgConfirm({ id: bp.id, name: pkg?.name || "Package" })} data-testid={`delete-pkg-${bp.id}`}><Trash2 className="h-3 w-3" /></Button>
                                         </div>
                                       </div>
                                       {isAddon && (() => {
@@ -4564,6 +4590,35 @@ export default function CompletedBookings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deletePkgConfirm} onOpenChange={() => !deletingPkg && setDeletePkgConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Package Record
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete <strong>{deletePkgConfirm?.name}</strong> from this booking? This cannot be undone.
+              <br /><br />
+              <span className="text-amber-700 font-medium">Note:</span> Deletion is blocked if the package has linked payments.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingPkg}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deletingPkg}
+              onClick={(e) => { e.preventDefault(); if (deletePkgConfirm) deleteBookingPackage(deletePkgConfirm.id); }}
+              data-testid="button-confirm-delete-pkg"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {deletingPkg ? "Deleting..." : "Delete Package"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       <Dialog open={attachDialog} onOpenChange={setAttachDialog}>
         <DialogContent className="max-w-md">

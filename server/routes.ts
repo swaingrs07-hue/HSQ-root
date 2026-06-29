@@ -14985,6 +14985,28 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
     }
   });
 
+  app.delete("/api/admin/bookings/:bookingId/packages/:bookingPackageId", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
+    try {
+      const { bookingId, bookingPackageId } = req.params;
+      const [bp] = await db.select().from(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
+      if (!bp) return res.status(404).json({ error: "Booking package not found" });
+      if (bp.bookingId !== bookingId) return res.status(400).json({ error: "Package does not belong to this booking" });
+      // Guard: refuse deletion if payments are linked (preserve audit trail)
+      const linkedPayments = await db.select({ id: schema.payments.id })
+        .from(schema.payments)
+        .where(eq(schema.payments.bookingPackageId, bookingPackageId))
+        .limit(1);
+      if (linkedPayments.length > 0) {
+        return res.status(409).json({ error: "Cannot delete: this package has linked payments. Remove or reassign payments first." });
+      }
+      await db.delete(schema.bookingPackages).where(eq(schema.bookingPackages.id, bookingPackageId));
+      autoResyncBookingToHms(bookingId, "package-delete");
+      res.json({ deleted: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete package" });
+    }
+  });
+
   app.post("/api/admin/bookings/:bookingId/packages/usage", authMiddleware, roleMiddleware("admin"), async (req: AuthRequest, res) => {
     try {
       const { bookingPackageId, itemType, qtyUsed, note } = req.body;
