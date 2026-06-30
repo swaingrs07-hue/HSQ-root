@@ -232,8 +232,11 @@ export default function AdminCancellations() {
                         </Badge>
                         <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-slate-500 flex items-center gap-1">
                           {req.initiatedBy === "admin" ? "Admin-initiated" : "Student request"}
-                          {req.cancelledByName && req.initiatedBy === "admin" && (
+                          {req.initiatedBy === "admin" && req.cancelledByName && (
                             <span className="font-semibold text-slate-700">· {req.cancelledByName}</span>
+                          )}
+                          {req.initiatedBy === "student" && req.studentName && (
+                            <span className="font-semibold text-slate-700">· {req.studentName}</span>
                           )}
                         </Badge>
                         {req.status === "approved" && req.refundTransferredAt && (
@@ -253,6 +256,12 @@ export default function AdminCancellations() {
                         {req.checkInDate && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5 text-slate-400" /> Check-in: {new Date(req.checkInDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>}
                       </div>
                       <p className="text-sm text-slate-500 line-clamp-1"><span className="font-medium text-slate-600">Reason:</span> {req.reason}</p>
+                      {req.processedByName && req.processedByName !== req.cancelledByName && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span>Processed by: <span className="font-medium text-slate-500">{req.processedByName}</span></span>
+                        </p>
+                      )}
                     </div>
                     <div className="text-right flex-shrink-0 space-y-1">
                       {bd && (
