@@ -45,6 +45,7 @@ export default function AdminCancellations() {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [cancelledByFilter, setCancelledByFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(null);
 
@@ -72,7 +73,12 @@ export default function AdminCancellations() {
 
   useEffect(() => { loadRequests(statusFilter); }, [statusFilter, token]);
 
+  const cancelledByNames = Array.from(
+    new Set(requests.map(r => r.cancelledByName).filter(Boolean))
+  ).sort() as string[];
+
   const filtered = requests.filter(r => {
+    if (cancelledByFilter !== "all" && r.cancelledByName !== cancelledByFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (r.bookingCode || "").toLowerCase().includes(q) ||
@@ -187,6 +193,17 @@ export default function AdminCancellations() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={cancelledByFilter} onValueChange={setCancelledByFilter} disabled={cancelledByNames.length === 0}>
+              <SelectTrigger className="w-[180px]" data-testid="select-cancelled-by-filter">
+                <SelectValue placeholder="Cancelled by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All cancellers</SelectItem>
+                {cancelledByNames.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
