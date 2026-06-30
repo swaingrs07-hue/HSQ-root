@@ -230,8 +230,11 @@ export default function AdminCancellations() {
                           <StatusIcon status={req.status} />
                           {req.status}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-slate-500">
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 text-slate-500 flex items-center gap-1">
                           {req.initiatedBy === "admin" ? "Admin-initiated" : "Student request"}
+                          {req.cancelledByName && req.initiatedBy === "admin" && (
+                            <span className="font-semibold text-slate-700">· {req.cancelledByName}</span>
+                          )}
                         </Badge>
                         {req.status === "approved" && req.refundTransferredAt && (
                           <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-2 py-0.5 flex items-center gap-1" data-testid={`badge-refund-sent-${req.id}`}>
@@ -301,7 +304,20 @@ export default function AdminCancellations() {
                 <div className="bg-slate-50 rounded-lg p-3">
                   <p className="text-slate-500 text-xs mb-1">Initiated By</p>
                   <p className="font-semibold text-slate-700 capitalize">{selected.initiatedBy}</p>
+                  {selected.cancelledByName && (
+                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                      <User className="h-3 w-3" />{selected.cancelledByName}
+                    </p>
+                  )}
                 </div>
+                {selected.processedByName && selected.processedByName !== selected.cancelledByName && (
+                  <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                    <p className="text-slate-500 text-xs mb-1">Processed By</p>
+                    <p className="font-semibold text-slate-700 flex items-center gap-1">
+                      <User className="h-3.5 w-3.5 text-slate-400" />{selected.processedByName}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-50 rounded-lg p-3">

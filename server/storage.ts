@@ -2962,13 +2962,17 @@ export class DatabaseStorage implements IStorage {
     return row || undefined;
   }
 
-  async getAllCancellationRequests(status?: string): Promise<(CancellationRequest & { bookingCode?: string; studentName?: string; propertyName?: string; checkInDate?: string | null })[]> {
+  async getAllCancellationRequests(status?: string): Promise<(CancellationRequest & { bookingCode?: string; studentName?: string; propertyName?: string; checkInDate?: string | null; cancelledByName?: string; processedByName?: string })[]> {
     const rows = await db.select().from(cancellationRequests)
       .orderBy(desc(cancellationRequests.createdAt));
     const filtered = status ? rows.filter(r => r.status === status) : rows;
 
     return Promise.all(filtered.map(async (req) => {
-      const booking = await this.getBooking(req.bookingId);
+      const [booking, cancelledByUser, processedByUser] = await Promise.all([
+        this.getBooking(req.bookingId),
+        req.requestedBy ? this.getUser(req.requestedBy) : null,
+        req.processedBy ? this.getUser(req.processedBy) : null,
+      ]);
       let studentName = "Unknown";
       if (booking?.studentId) {
         const student = await this.getStudent(booking.studentId);
@@ -2983,6 +2987,8 @@ export class DatabaseStorage implements IStorage {
         studentName,
         propertyName: property?.name || undefined,
         checkInDate: booking?.checkInDate || null,
+        cancelledByName: cancelledByUser?.name || undefined,
+        processedByName: processedByUser?.name || undefined,
       };
     }));
   }
