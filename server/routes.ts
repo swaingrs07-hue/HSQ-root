@@ -16159,6 +16159,8 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
         name: schema.properties.name,
         displayName: schema.properties.displayName,
         location: schema.properties.location,
+        phone: schema.properties.phone,
+        alternatePhone: schema.properties.alternatePhone,
       }).from(schema.properties)
         .where(eq(schema.properties.active, true));
       res.json(props);
