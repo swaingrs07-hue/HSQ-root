@@ -25,6 +25,8 @@ interface Property {
   name: string;
   displayName: string | null;
   location: string;
+  phone: string | null;
+  alternatePhone: string | null;
 }
 
 export default function Apply() {
@@ -34,6 +36,7 @@ export default function Apply() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [footerPhone, setFooterPhone] = useState("+91 98205 71030");
 
   const [form, setForm] = useState({
     fullName: "",
@@ -53,6 +56,7 @@ export default function Apply() {
     photoPath: "",
     propertyId: "",
     propertyName: "",
+    propertyPhone: "",
     notes: "",
   });
 
@@ -60,6 +64,10 @@ export default function Apply() {
     fetch("/api/registration-requests/properties")
       .then(r => r.json())
       .then(setProperties)
+      .catch(() => {});
+    fetch("/api/footer-settings")
+      .then(r => r.json())
+      .then((d: { phone?: string }) => { if (d?.phone) setFooterPhone(d.phone); })
       .catch(() => {});
   }, []);
 
@@ -73,6 +81,7 @@ export default function Apply() {
       ...prev,
       propertyId,
       propertyName: prop ? (prop.displayName || prop.name) : "",
+      propertyPhone: prop?.phone || prop?.alternatePhone || "",
     }));
   };
 
@@ -175,15 +184,32 @@ export default function Apply() {
             Thank you, <span className="text-white font-medium">{form.fullName}</span>. Your details have been received. Our team will review your application and contact you shortly.
           </p>
           <div className="bg-white/[0.04] border border-white/[0.12] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)] p-6 text-left space-y-3">
+            {form.propertyPhone && (
+              <div className="flex items-center gap-3">
+                <Phone className="w-4 h-4 text-violet-400" />
+                <span className="text-white/60 text-sm">{form.propertyName || "Property"} helpline</span>
+                <a
+                  href={`tel:${form.propertyPhone.replace(/\s+/g, "")}`}
+                  className="text-white text-sm font-medium ml-auto"
+                >
+                  {form.propertyPhone}
+                </a>
+              </div>
+            )}
             <div className="flex items-center gap-3">
-              <Phone className="w-4 h-4 text-violet-400" />
+              <Phone className={`w-4 h-4 ${form.propertyPhone ? "text-white/30" : "text-violet-400"}`} />
               <span className="text-white/60 text-sm">Need help?</span>
-              <a href="tel:+919820571030" className="text-white text-sm font-medium">+91 98205 71030</a>
+              <a
+                href={`tel:${footerPhone.replace(/\s+/g, "")}`}
+                className="text-white text-sm font-medium ml-auto"
+              >
+                {footerPhone}
+              </a>
             </div>
             <div className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-violet-400" />
               <span className="text-white/60 text-sm">Email</span>
-              <a href="mailto:support@hsquareliving.com" className="text-white text-sm font-medium">support@hsquareliving.com</a>
+              <a href="mailto:support@hsquareliving.com" className="text-white text-sm font-medium ml-auto">support@hsquareliving.com</a>
             </div>
           </div>
         </motion.div>
