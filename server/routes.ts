@@ -17082,6 +17082,51 @@ td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
   );
 
   // ====================================================================
+  // ============ FOUNDER BIRTHDAY GREETING (one-time overlay) ============
+  // ====================================================================
+  // Hardcoded, one-off surprise for the two founder accounts. No admin UI —
+  // this is intentionally a single-event feature (see Task #286).
+  const FOUNDER_GREETING_EVENT_KEY = "founder-birthday-2026";
+  const FOUNDER_GREETING_EMAILS = new Set([
+    "pabitra@hsquareliving.com",
+    "gyan@hsquareliving.com",
+  ]);
+  // Window: live immediately upon deploy, through end-of-day July 3, 2026 IST.
+  // IST is UTC+5:30, so 23:59:59 IST on 2026-07-03 == 18:29:59 UTC same day.
+  const FOUNDER_GREETING_WINDOW_END = new Date("2026-07-03T18:29:59.000Z");
+
+  app.get("/api/founder-greeting/status", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const email = (req.user?.email || "").trim().toLowerCase();
+      if (!email || !FOUNDER_GREETING_EMAILS.has(email)) {
+        return res.json({ eligible: false });
+      }
+      if (Date.now() > FOUNDER_GREETING_WINDOW_END.getTime()) {
+        return res.json({ eligible: false });
+      }
+      const existing = await storage.getFounderGreetingView(FOUNDER_GREETING_EVENT_KEY, email);
+      res.json({ eligible: true, mandatory: !existing });
+    } catch (error: any) {
+      console.error("Error checking founder greeting status:", error);
+      res.status(500).json({ error: "Failed to check greeting status" });
+    }
+  });
+
+  app.post("/api/founder-greeting/mark-viewed", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const email = (req.user?.email || "").trim().toLowerCase();
+      if (!email || !FOUNDER_GREETING_EMAILS.has(email)) {
+        return res.status(403).json({ error: "Not eligible" });
+      }
+      await storage.markFounderGreetingViewed(FOUNDER_GREETING_EVENT_KEY, email);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking founder greeting viewed:", error);
+      res.status(500).json({ error: "Failed to record greeting view" });
+    }
+  });
+
+  // ====================================================================
   // ============ MODULE PERMISSIONS (superadmin controls sidebar access) =
   // ====================================================================
 

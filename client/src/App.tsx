@@ -11,6 +11,7 @@ import { HotelsLayout } from "@/components/hotels-layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { AuthGuardProvider } from "@/contexts/auth-guard-context";
 import { PropertyProvider } from "@/contexts/property-context";
+import { FounderBirthdayOverlay } from "@/components/founder-birthday-overlay";
 import Home from "@/pages/home";
 import StudentRegistration from "@/pages/student-registration";
 import PropertySelection from "@/pages/property-selection";
@@ -366,6 +367,7 @@ function App() {
             <PropertyProvider>
               <PortalTransitionProvider>
                 <AppContent />
+                <FounderBirthdayOverlay />
               </PortalTransitionProvider>
             </PropertyProvider>
           </AuthGuardProvider>

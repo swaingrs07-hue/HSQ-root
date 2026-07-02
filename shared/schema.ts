@@ -1778,6 +1778,27 @@ export type FeatureFlag = typeof featureFlags.$inferSelect;
 export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
 
 // ============================================================================
+// FOUNDER GREETING VIEWS — one-time-per-event tracking for the founder
+// birthday surprise overlay. One row per founder email marks that they have
+// completed the mandatory (non-skippable) viewing of a given greeting event.
+// ============================================================================
+export const founderGreetingViews = pgTable("founder_greeting_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventKey: text("event_key").notNull(),
+  userEmail: text("user_email").notNull(),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueEventUser: uniqueIndex("founder_greeting_views_event_user_idx").on(table.eventKey, table.userEmail),
+}));
+
+export const insertFounderGreetingViewSchema = createInsertSchema(founderGreetingViews).omit({
+  id: true,
+  viewedAt: true,
+});
+export type FounderGreetingView = typeof founderGreetingViews.$inferSelect;
+export type InsertFounderGreetingView = z.infer<typeof insertFounderGreetingViewSchema>;
+
+// ============================================================================
 // SITE CONTENT — generic key/value JSON content blocks editable by superadmin
 // Used for editable headlines, subtitles, eyebrows, etc. on marketing pages.
 // ============================================================================

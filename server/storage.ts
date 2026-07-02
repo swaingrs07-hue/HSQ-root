@@ -109,6 +109,8 @@ import {
   type InsertHousekeepingTask,
   featureFlags,
   type FeatureFlag,
+  founderGreetingViews,
+  type FounderGreetingView,
   siteContent,
   type SiteContent,
   cancellationRequests,
@@ -2836,6 +2838,22 @@ export class DatabaseStorage implements IStorage {
       .values({ key, enabled, description, updatedBy: updatedBy || null })
       .returning();
     return created;
+  }
+
+  // ============ Founder Greeting Views (one-time birthday overlay tracking) ============
+  async getFounderGreetingView(eventKey: string, userEmail: string): Promise<FounderGreetingView | undefined> {
+    const [row] = await db
+      .select()
+      .from(founderGreetingViews)
+      .where(and(eq(founderGreetingViews.eventKey, eventKey), eq(founderGreetingViews.userEmail, userEmail)));
+    return row;
+  }
+
+  async markFounderGreetingViewed(eventKey: string, userEmail: string): Promise<void> {
+    await db
+      .insert(founderGreetingViews)
+      .values({ eventKey, userEmail })
+      .onConflictDoNothing();
   }
 
   // ============ Site Content (superadmin-managed editable content) ============
