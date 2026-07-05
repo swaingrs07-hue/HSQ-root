@@ -5948,6 +5948,43 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Delete a mistakenly-recorded payment and revert its installment to
+  // unpaid. Restricted to a single trusted account since this mutates
+  // financial records — never trust the frontend button alone.
+  app.delete("/api/admin/payments/:id", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      if ((req.user!.email || "").toLowerCase() !== "gyan@hsquareliving.com") {
+        return res.status(403).json({ error: "Only the main administrator can delete payments" });
+      }
+
+      const payment = await storage.getPayment(req.params.id);
+      if (!payment) return res.status(404).json({ error: "Payment not found" });
+
+      const deleted = await storage.deletePaymentAndRevertInstallment(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Payment not found" });
+
+      await storage.createAuditLog({
+        adminId: req.user!.userId,
+        action: "DELETE_PAYMENT",
+        entityType: "payment",
+        entityId: req.params.id,
+        details: JSON.stringify({
+          bookingId: payment.bookingId,
+          installmentId: payment.installmentId,
+          amount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          razorpayPaymentId: payment.razorpayPaymentId,
+          notes: payment.notes,
+        }),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting payment:", error);
+      res.status(500).json({ error: error.message || "Failed to delete payment" });
+    }
+  });
+
   // Superadmin: get audit history for a specific installment
   app.get("/api/admin/installments/:id/audit", authMiddleware, roleMiddleware("superadmin"), async (req: AuthRequest, res) => {
     try {

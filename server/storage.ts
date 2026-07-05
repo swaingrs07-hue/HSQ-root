@@ -189,6 +189,7 @@ export interface IStorage {
   getPaymentsByBooking(bookingId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePayment(id: string, data: Partial<Payment>): Promise<Payment | undefined>;
+  deletePaymentAndRevertInstallment(id: string): Promise<Payment | undefined>;
   
   // Audit Logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
@@ -961,6 +962,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(payments.id, id))
       .returning();
     return payment || undefined;
+  }
+
+  // Deletes a mistakenly-recorded payment and reverts its linked installment
+  // (if any) back to unpaid, atomically. Returns the deleted payment, or
+  // undefined if it did not exist.
+  async deletePaymentAndRevertInstallment(id: string): Promise<Payment | undefined> {
+    return await db.transaction(async (tx) => {
+      const [payment] = await tx.select().from(payments).where(eq(payments.id, id));
+      if (!payment) return undefined;
+
+      await tx.delete(payments).where(eq(payments.id, id));
+
+      if (payment.installmentId) {
+        await tx
+          .update(installments)
+          .set({ paid: false, paidAt: null })
+          .where(eq(installments.id, payment.installmentId));
+      }
+
+      return payment;
+    });
   }
 
   // Audit Logs

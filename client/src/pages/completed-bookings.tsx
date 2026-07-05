@@ -210,6 +210,7 @@ export default function CompletedBookings() {
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSuperAdmin = user?.role === "superadmin";
   const isFrontdesk = user?.role === "frontdesk";
+  const isGyan = (user?.email || "").toLowerCase() === "gyan@hsquareliving.com";
   const canShiftBed = !!(user?.canShiftBed);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -318,6 +319,7 @@ export default function CompletedBookings() {
   const [addingInst, setAddingInst] = useState(false);
   const [newInstForm, setNewInstForm] = useState<{ name: string; amount: string; dueDate: string }>({ name: "", amount: "", dueDate: "" });
   const [instSaving, setInstSaving] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const [historyInstId, setHistoryInstId] = useState<string | null>(null);
   const [redesignOpen, setRedesignOpen] = useState(false);
   const [redesignRows, setRedesignRows] = useState<{ _id: string; name: string; amount: string; dueDate: string }[]>([]);
@@ -981,6 +983,38 @@ export default function CompletedBookings() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setInstSaving(false);
+    }
+  };
+
+  const deletePayment = async (payment: any) => {
+    if (!selectedBooking) return;
+    const dateStr = payment.createdAt ? format(new Date(payment.createdAt), "dd MMM yyyy, hh:mm a") : "unknown date";
+    const utrStr = payment.razorpayPaymentId ? ` (UTR: ${payment.razorpayPaymentId})` : "";
+    if (!window.confirm(`Delete this payment of ₹${(payment.amount || 0).toLocaleString("en-IN")} via ${payment.paymentMethod || "unknown method"} on ${dateStr}${utrStr}?\n\nThis will permanently remove the payment record and mark its installment as unpaid again. This cannot be undone.`)) return;
+    setDeletingPaymentId(payment.id);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/admin/payments/${payment.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete payment");
+      }
+      setSelectedBooking((prev: any) => ({
+        ...prev,
+        payments: (prev.payments || []).filter((p: any) => p.id !== payment.id),
+        installments: (prev.installments || []).map((i: any) =>
+          i.id === payment.installmentId ? { ...i, paid: false, paidAt: null } : i
+        ),
+      }));
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/completed"] });
+      toast({ title: "Payment deleted" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -3873,7 +3907,7 @@ export default function CompletedBookings() {
                                 </div>
                                 {cf.creditIn>0&&<p className="mt-1.5 text-[11px] text-violet-600 font-medium bg-violet-50 border border-violet-200 rounded px-2 py-0.5 inline-block">↑ ₹{cf.creditIn.toLocaleString("en-IN")} credit applied from prior overpayment</p>}
                                 {(isPartiallyPaid||isFullyPaid||creditPaid>0)&&effectiveDisplayPaid>0&&(<div className="mt-2"><div className="flex items-center justify-between text-[11px] mb-1"><span className={`font-medium ${creditPaid>0&&totalPaid===0?"text-violet-600":"text-emerald-600"}`}>{creditPaid>0&&totalPaid===0?"Credit Applied":"Paid"}: ₹{effectiveDisplayPaid.toLocaleString("en-IN")}</span>{!isFullyPaid&&<span className="text-amber-600 font-medium">Balance: ₹{remaining.toLocaleString("en-IN")}</span>}</div><div className="w-full bg-slate-200 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isFullyPaid?"bg-emerald-500":creditPaid>0&&totalPaid===0?"bg-violet-500":"bg-blue-500"}`} style={{width:`${Math.min(100,(effectiveDisplayPaid/(inst.amount||1))*100)}%`}}/></div></div>)}
-                                {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
+                                {instPayments.length>0&&(<div className="mt-2 space-y-1.5 pl-1 border-l-2 border-emerald-200 ml-1">{instPayments.map((p:any,pIdx:number)=>{let ss:string[]=[];if(p.screenshotPath){try{const pp=JSON.parse(p.screenshotPath);ss=Array.isArray(pp)?pp:[p.screenshotPath];}catch{ss=[p.screenshotPath];}}return(<div key={p.id||pIdx} className="text-[11px]"><div className="flex items-center gap-2 flex-wrap text-slate-500"><span className="font-medium text-emerald-700">₹{(p.amount||0).toLocaleString("en-IN")}</span><span>{p.createdAt?format(new Date(p.createdAt),"dd MMM yyyy, hh:mm a"):""}</span>{p.paymentMethod&&<span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium uppercase text-[10px]">{p.paymentMethod}</span>}{p.razorpayPaymentId&&<span className="font-mono text-[10px]">UTR: {p.razorpayPaymentId}</span>}{isGyan&&<button className="p-0.5 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors disabled:opacity-40" title="Delete payment (Gyan only)" data-testid={`btn-payment-delete-${p.id}`} disabled={deletingPaymentId===p.id} onClick={()=>deletePayment(p)}>{deletingPaymentId===p.id?<Loader2 className="h-3 w-3 animate-spin"/>:<Trash2 className="h-3 w-3"/>}</button>}</div>{ss.length>0&&(<div className="flex flex-wrap gap-1.5 mt-1">{ss.map((url:string,si:number)=>(<a key={si} href={url} target="_blank" rel="noopener noreferrer"><div className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-emerald-200 hover:border-emerald-400 cursor-pointer"><img src={url} alt="" className="w-8 h-8 object-cover rounded"/><span className="text-[10px] text-emerald-600 font-medium">View</span></div></a>))}</div>)}</div>);})}</div>)}
                                 {isFullyPaid&&instPayments.length===0&&inst.paidAt&&(<p className="mt-1 text-[11px] text-slate-500 pl-2">Paid on {format(new Date(inst.paidAt),"dd MMM yyyy, hh:mm a")}</p>)}
                                 {/* Inline audit history panel */}
                                 {isSuperAdmin&&historyInstId===inst.id&&(
