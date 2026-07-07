@@ -9,10 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft, GraduationCap, UserCircle2 } from "lucide-react";
+import { Loader2, Plus, Search, Users, UserPlus, Shield, Building2, MoreVertical, Edit, Power, AlertTriangle, Filter, X, RefreshCw, Trash2, ArrowRightLeft, GraduationCap, UserCircle2, Check, ChevronsUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 
@@ -116,6 +118,7 @@ function AdminUsersContent() {
   const [isLastAdmin, setIsLastAdmin] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
   const [targetUserId, setTargetUserId] = useState("");
+  const [reassignOpen, setReassignOpen] = useState(false);
   const [reassignLeads, setReassignLeads] = useState(true);
   const [reassignProperties, setReassignProperties] = useState(true);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -993,18 +996,45 @@ function AdminUsersContent() {
                 <>
                   <div className="space-y-2">
                     <Label>Reassign to</Label>
-                    <Select value={targetUserId} onValueChange={setTargetUserId}>
-                      <SelectTrigger data-testid="select-reassign-target">
-                        <SelectValue placeholder="Select a team member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeUsers.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={reassignOpen}
+                          className="w-full justify-between font-normal"
+                          data-testid="select-reassign-target"
+                        >
+                          {targetUserId
+                            ? (() => { const u = activeUsers.find(u => u.id === targetUserId); return u ? `${u.name} (${u.role})` : "Select a team member"; })()
+                            : "Select a team member"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search team member…" />
+                          <CommandList className="max-h-56">
+                            <CommandEmpty>No team member found.</CommandEmpty>
+                            <CommandGroup>
+                              {activeUsers.map((user) => (
+                                <CommandItem
+                                  key={user.id}
+                                  value={`${user.name} ${user.role}`}
+                                  onSelect={() => {
+                                    setTargetUserId(user.id);
+                                    setReassignOpen(false);
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${targetUserId === user.id ? "opacity-100" : "opacity-0"}`} />
+                                  {user.name} <span className="ml-1 text-xs text-slate-400">({user.role})</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-3">
