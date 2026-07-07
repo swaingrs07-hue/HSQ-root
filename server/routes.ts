@@ -4849,10 +4849,13 @@ ${allPages.map(p => `  <url>
 
         const e1 = (b.walkInEmail || "").trim().toLowerCase();
         const e2 = ((b.residentDetails as any)?.email || "").trim().toLowerCase();
-        const linkedEmail = e1 || e2;
-        if (!linkedEmail || linkedEmail === email) continue;
+        // Check each stored email independently — a booking may have both a walk-in email
+        // and a resident email. Any non-empty stored email that differs from the entered
+        // email constitutes a collision (different person linked to this phone).
+        const collidingEmail = [e1, e2].find(e => e && e !== email);
+        if (!collidingEmail) continue;
 
-        return res.json({ collision: true, existingEmail: linkedEmail, bookingCode: b.code });
+        return res.json({ collision: true, existingEmail: collidingEmail, bookingCode: b.code });
       }
 
       return res.json({ collision: false });
