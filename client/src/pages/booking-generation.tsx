@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { getWashroomPills } from "@/lib/room-washrooms";
 import { cn } from "@/lib/utils";
+import { checkEmailDomain, normalizeEmail } from "@/lib/email-hygiene";
 import {
   Building2,
   Users,
@@ -292,6 +293,41 @@ function BookingGenerationInner() {
     matchTimeoutRef.current = setTimeout(() => checkLeadMatch(phone, email), 600);
   }, [checkLeadMatch]);
 
+  const handleEmailBlur = useCallback((email: string, field: "walkIn" | "resident") => {
+    const normalized = normalizeEmail(email);
+    if (field === "walkIn") {
+      if (normalized !== email) {
+        setFormData(prev => ({ ...prev, walkInEmail: normalized, residentEmail: prev.residentEmail === email ? normalized : prev.residentEmail }));
+      }
+      setWalkInEmailHint(checkEmailDomain(normalized));
+    } else {
+      if (normalized !== email) {
+        setFormData(prev => ({ ...prev, residentEmail: normalized }));
+      }
+      setResidentEmailHint(checkEmailDomain(normalized));
+    }
+  }, []);
+
+  const handlePhoneBlur = useCallback(async (phone: string, currentEmail: string, field: "walkIn" | "resident") => {
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
+    if (normalizedPhone.length < 10) return;
+    const normEmail = normalizeEmail(currentEmail);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/bookings/phone-check?phone=${encodeURIComponent(normalizedPhone)}&email=${encodeURIComponent(normEmail)}`, { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.collision) {
+        if (field === "walkIn") { setWalkInPhoneCollision({ email: data.existingEmail, code: data.bookingCode }); setWalkInPhoneCollisionAck(false); }
+        else { setResidentPhoneCollision({ email: data.existingEmail, code: data.bookingCode }); setResidentPhoneCollisionAck(false); }
+      } else {
+        if (field === "walkIn") setWalkInPhoneCollision(null);
+        else setResidentPhoneCollision(null);
+      }
+    } catch { /* fail open */ }
+  }, [token]);
+
   const [floors, setFloors] = useState<any[]>([]);
   const [floorsLoading, setFloorsLoading] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState("");
@@ -356,6 +392,16 @@ function BookingGenerationInner() {
     referrerPhone: "",
   });
   const [isReferral, setIsReferral] = useState(false);
+
+  // Email hygiene — typo-domain hints
+  const [walkInEmailHint, setWalkInEmailHint] = useState<string | null>(null);
+  const [residentEmailHint, setResidentEmailHint] = useState<string | null>(null);
+  // Phone collision warnings
+  type PhoneCollision = { email: string; code: string };
+  const [walkInPhoneCollision, setWalkInPhoneCollision] = useState<PhoneCollision | null>(null);
+  const [residentPhoneCollision, setResidentPhoneCollision] = useState<PhoneCollision | null>(null);
+  const [walkInPhoneCollisionAck, setWalkInPhoneCollisionAck] = useState(false);
+  const [residentPhoneCollisionAck, setResidentPhoneCollisionAck] = useState(false);
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const isSalesExec = user?.role === "sales_executive";
@@ -1155,7 +1201,8 @@ function BookingGenerationInner() {
     switch (stepNum) {
       case 1:
         if (formData.customerType === "walk_in") {
-          const baseValid = !!(formData.walkInName.trim() && formData.walkInPhone.trim() && formData.walkInEmail.trim() && formData.walkInEmail.includes("@"));
+          const phoneOk = !walkInPhoneCollision || walkInPhoneCollisionAck;
+          const baseValid = !!(formData.walkInName.trim() && formData.walkInPhone.trim() && formData.walkInEmail.trim() && formData.walkInEmail.includes("@")) && phoneOk;
           if (isReferral) {
             return baseValid && !!formData.referrerName.trim();
           }
@@ -1167,7 +1214,7 @@ function BookingGenerationInner() {
       case 2:
         return !!(formData.propertyId && formData.roomTypeId && availability && availability.availableBeds > 0);
       case 3:
-        return !!(formData.residentName.trim() && formData.residentPhone.trim() && formData.residentGender && formData.residentEmail.trim() && formData.residentEmail.includes("@"));
+        return !!(formData.residentName.trim() && formData.residentPhone.trim() && formData.residentGender && formData.residentEmail.trim() && formData.residentEmail.includes("@")) && (!residentPhoneCollision || residentPhoneCollisionAck);
       case 4:
         return formData.baseFee > 0;
       default:
@@ -1513,11 +1560,24 @@ function BookingGenerationInner() {
                                 id="walkInPhone"
                                 value={formData.walkInPhone}
                                 onChange={(e) => setFormData(prev => ({ ...prev, walkInPhone: e.target.value, residentPhone: e.target.value }))}
+                                onBlur={(e) => handlePhoneBlur(e.target.value, formData.walkInEmail, "walkIn")}
                                 className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                                 placeholder="Your phone number"
                                 data-testid="input-user-phone"
                               />
                             </div>
+                            {walkInPhoneCollision && (
+                              <div className="rounded-md bg-amber-50 border border-amber-200 p-2 space-y-1.5" data-testid="walkin-phone-collision-warning">
+                                <p className="text-xs text-amber-700 flex items-start gap-1">
+                                  <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                  Phone linked to <span className="font-medium">{walkInPhoneCollision.email}</span> in booking <span className="font-mono">{walkInPhoneCollision.code}</span>. Same person?
+                                </p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="checkbox" checked={walkInPhoneCollisionAck} onChange={(e) => setWalkInPhoneCollisionAck(e.target.checked)} className="h-3.5 w-3.5 rounded border-amber-400 text-amber-600" data-testid="checkbox-walkin-phone-collision-ack" />
+                                  <span className="text-xs text-amber-700">Yes, same person — continue anyway</span>
+                                </label>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -1529,12 +1589,19 @@ function BookingGenerationInner() {
                               type="email"
                               required
                               value={formData.walkInEmail}
-                              onChange={(e) => setFormData(prev => ({ ...prev, walkInEmail: e.target.value, residentEmail: e.target.value }))}
+                              onChange={(e) => { setFormData(prev => ({ ...prev, walkInEmail: e.target.value, residentEmail: e.target.value })); setWalkInEmailHint(null); }}
+                              onBlur={(e) => handleEmailBlur(e.target.value, "walkIn")}
                               className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                               placeholder="Your email address"
                               data-testid="input-user-email"
                             />
                           </div>
+                          {walkInEmailHint && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1" data-testid="walkin-email-domain-hint">
+                              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                              Did you mean @{walkInEmailHint}?
+                            </p>
+                          )}
                         </div>
                       </motion.div>
                     </div>
@@ -1609,11 +1676,24 @@ function BookingGenerationInner() {
                                 setFormData(prev => ({ ...prev, walkInPhone: val }));
                                 debouncedLeadMatch(val, formData.walkInEmail);
                               }}
+                              onBlur={(e) => handlePhoneBlur(e.target.value, formData.walkInEmail, "walkIn")}
                               className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                               placeholder="Enter phone number"
                               data-testid="input-walkin-phone"
                             />
                           </div>
+                          {walkInPhoneCollision && (
+                            <div className="rounded-md bg-amber-50 border border-amber-200 p-2 space-y-1.5" data-testid="walkin-phone-collision-warning-2">
+                              <p className="text-xs text-amber-700 flex items-start gap-1">
+                                <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                Phone linked to <span className="font-medium">{walkInPhoneCollision.email}</span> in booking <span className="font-mono">{walkInPhoneCollision.code}</span>. Same person?
+                              </p>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={walkInPhoneCollisionAck} onChange={(e) => setWalkInPhoneCollisionAck(e.target.checked)} className="h-3.5 w-3.5 rounded border-amber-400 text-amber-600" data-testid="checkbox-walkin-phone-collision-ack-2" />
+                                <span className="text-xs text-amber-700">Yes, same person — continue anyway</span>
+                              </label>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -1629,12 +1709,20 @@ function BookingGenerationInner() {
                               const val = e.target.value;
                               setFormData(prev => ({ ...prev, walkInEmail: val }));
                               debouncedLeadMatch(formData.walkInPhone, val);
+                              setWalkInEmailHint(null);
                             }}
+                            onBlur={(e) => handleEmailBlur(e.target.value, "walkIn")}
                             className="pl-10 bg-white border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
                             placeholder="Enter email address"
                             data-testid="input-walkin-email"
                           />
                         </div>
+                        {walkInEmailHint && (
+                          <p className="text-xs text-amber-600 flex items-center gap-1" data-testid="walkin-email-domain-hint-2">
+                            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                            Did you mean @{walkInEmailHint}?
+                          </p>
+                        )}
                       </div>
 
                       <Separator className="my-1" />
@@ -2704,15 +2792,33 @@ function BookingGenerationInner() {
                             <Label className="text-sm font-medium text-slate-700">Phone Number <span className="text-red-500">*</span></Label>
                             <div className="relative">
                               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input value={formData.residentPhone} onChange={(e) => setFormData(prev => ({ ...prev, residentPhone: e.target.value }))} placeholder="Phone number" className="pl-10 bg-white" data-testid="input-resident-phone" />
+                              <Input value={formData.residentPhone} onChange={(e) => setFormData(prev => ({ ...prev, residentPhone: e.target.value }))} onBlur={(e) => handlePhoneBlur(e.target.value, formData.residentEmail, "resident")} placeholder="Phone number" className="pl-10 bg-white" data-testid="input-resident-phone" />
                             </div>
+                            {residentPhoneCollision && (
+                              <div className="rounded-md bg-amber-50 border border-amber-200 p-2 space-y-1.5" data-testid="resident-phone-collision-warning">
+                                <p className="text-xs text-amber-700 flex items-start gap-1">
+                                  <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                  Phone linked to <span className="font-medium">{residentPhoneCollision.email}</span> in booking <span className="font-mono">{residentPhoneCollision.code}</span>. Same person?
+                                </p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="checkbox" checked={residentPhoneCollisionAck} onChange={(e) => setResidentPhoneCollisionAck(e.target.checked)} className="h-3.5 w-3.5 rounded border-amber-400 text-amber-600" data-testid="checkbox-resident-phone-collision-ack" />
+                                  <span className="text-xs text-amber-700">Yes, same person — continue anyway</span>
+                                </label>
+                              </div>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-slate-700">Email ID <span className="text-red-500">*</span></Label>
                             <div className="relative">
                               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input type="email" required value={formData.residentEmail} onChange={(e) => setFormData(prev => ({ ...prev, residentEmail: e.target.value }))} placeholder="Resident email" className="pl-10 bg-white" data-testid="input-resident-email" />
+                              <Input type="email" required value={formData.residentEmail} onChange={(e) => { setFormData(prev => ({ ...prev, residentEmail: e.target.value })); setResidentEmailHint(null); }} onBlur={(e) => handleEmailBlur(e.target.value, "resident")} placeholder="Resident email" className="pl-10 bg-white" data-testid="input-resident-email" />
                             </div>
+                            {residentEmailHint && (
+                              <p className="text-xs text-amber-600 flex items-center gap-1" data-testid="resident-email-domain-hint">
+                                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                                Did you mean @{residentEmailHint}?
+                              </p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-slate-700">Gender <span className="text-red-500">*</span></Label>

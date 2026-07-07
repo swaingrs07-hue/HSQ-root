@@ -4822,6 +4822,45 @@ ${allPages.map(p => `  <url>
     }
   });
 
+  // Phone-collision check for booking form hygiene.
+  // Returns { collision: false } or { collision: true, existingEmail, bookingCode }.
+  // Always fails open (returns collision:false on any error) so it never blocks booking.
+  app.get("/api/bookings/phone-check", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const phone = String(req.query.phone || "");
+      const email = String(req.query.email || "").trim().toLowerCase();
+      const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
+      if (normalizedPhone.length < 10) return res.json({ collision: false });
+
+      const rows = await db
+        .select({
+          code: schema.bookings.bookingCode,
+          walkInPhone: schema.bookings.walkInPhone,
+          walkInEmail: schema.bookings.walkInEmail,
+          residentDetails: schema.bookings.residentDetails,
+        })
+        .from(schema.bookings);
+
+      for (const b of rows) {
+        const p1 = (b.walkInPhone || "").replace(/\D/g, "").slice(-10);
+        const p2 = ((b.residentDetails as any)?.phone || "").replace(/\D/g, "").slice(-10);
+        if (p1 !== normalizedPhone && p2 !== normalizedPhone) continue;
+
+        const e1 = (b.walkInEmail || "").trim().toLowerCase();
+        const e2 = ((b.residentDetails as any)?.email || "").trim().toLowerCase();
+        const linkedEmail = e1 || e2;
+        if (!linkedEmail || linkedEmail === email) continue;
+
+        return res.json({ collision: true, existingEmail: linkedEmail, bookingCode: b.code });
+      }
+
+      return res.json({ collision: false });
+    } catch (error) {
+      console.error("Phone-check error:", error);
+      return res.json({ collision: false });
+    }
+  });
+
   // Get room type availability
   app.get("/api/room-types/:roomTypeId/availability", async (req, res) => {
     try {
@@ -4984,7 +5023,9 @@ ${allPages.map(p => `  <url>
         resolvedAssignedSalesExecId =
           leadRecord.assignedToId || leadRecord.convertedByUserId || null;
       }
-      if (!bookingEmail || !bookingEmail.trim() || !bookingEmail.includes("@")) {
+      // Normalize: trim and lowercase the email before validation and storage
+      if (bookingEmail) bookingEmail = bookingEmail.trim().toLowerCase();
+      if (!bookingEmail || !bookingEmail.includes("@")) {
         return res.status(400).json({ error: "A valid email address is required for booking" });
       }
 
