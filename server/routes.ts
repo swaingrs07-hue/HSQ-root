@@ -4825,7 +4825,8 @@ ${allPages.map(p => `  <url>
   // Phone-collision check for booking form hygiene.
   // Returns { collision: false } or { collision: true, existingEmail, bookingCode }.
   // Always fails open (returns collision:false on any error) so it never blocks booking.
-  app.get("/api/bookings/phone-check", authMiddleware, async (req: AuthRequest, res) => {
+  // Restricted to staff roles — regular users cannot query booking email linkage data.
+  app.get("/api/bookings/phone-check", authMiddleware, roleMiddleware("admin", "superadmin", "manager", "staff", "sales_executive", "frontdesk", "hotel_admin", "hotel_staff"), async (req: AuthRequest, res) => {
     try {
       const phone = String(req.query.phone || "");
       const email = String(req.query.email || "").trim().toLowerCase();

@@ -312,6 +312,8 @@ function BookingGenerationInner() {
     const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
     if (normalizedPhone.length < 10) return;
     const normEmail = normalizeEmail(currentEmail);
+    // Only check for collisions when email is also present (per scope: no phone-only detection)
+    if (!normEmail || !normEmail.includes("@")) return;
     try {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
